@@ -1,0 +1,82 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+	<groupId>org.langhua.opencms</groupId>
+	<artifactId>opencms-taglib</artifactId>
+	<packaging>pom</packaging>
+	<name>Langhua OpenCms Taglib module set</name>
+	<description>A set of OpenCms Taglib modules to offer html outputs with configurable content and css style.</description>
+	<version>8.0.3</version>
+	<inceptionYear>2008</inceptionYear>
+
+	<licenses>
+		<license>
+			<name>GNU LESSER GENERAL PUBLIC LICENSE, Version 3.0</name>
+			<url>http://www.gnu.org/licenses/lgpl-3.0.txt</url>
+			<distribution>repo</distribution>
+		</license>
+	</licenses>
+
+	<developers>
+		<developer>
+			<id>shijh</id>
+			<name>Shi Jinghai</name>
+			<email>huaruhai@hotmail.com</email>
+			<timezone>+8</timezone>
+			<roles>
+				<role>developer</role>
+			</roles>
+		</developer>
+	</developers>
+
+	<scm>
+		<connection>scm:git:git@github.com:shijh/langhua.git</connection>
+		<developerConnection>scm:git:git@github.com:shijh/langhua.git</developerConnection>
+		<url>https://github.com/shijh/langhua/</url>
+	</scm>
+
+	<repositories>
+		<repository>
+			<id>maven-central-1</id>
+			<name>Maven2 Central Repository 1</name>
+			<url>http://repo1.maven.org/maven2</url>
+		</repository>
+		<repository>
+			<id>langhua.public</id>
+			<name>Langhua Opensource Public Maven2 Repository</name>
+			<url>http://192.168.1.5/maven2/public/</url>
+		</repository>
+		<repository>
+			<id>langhua.egov</id>
+			<name>Langhua EGov Maven2 Repository</name>
+			<url>http://192.168.1.5/maven2/egov/</url>
+		</repository>
+	</repositories>
+
+	<modules>
+		<module>base</module>
+		<!-- <module>datetime</module>
+		<module>navigation</module> <module>photo</module> <module>price</module> 
+			<module>ranking</module> <module>scroll</module> <module>switch</module> 
+			<module>table</module> <module>text</module> <module>textimg</module> <module>topics</module> 
+			<module>weather</module> -->
+	</modules>
+
+	<dependencies>
+		<dependency>
+			<groupId>org.opencms</groupId>
+			<artifactId>opencms-core</artifactId>
+			<version>8.0.3-rev</version>
+			<scope>provided</scope>
+		</dependency>
+	</dependencies>
+
+	<distributionManagement>
+		<repository>
+			<id>langhua.egov</id>
+			<url>
+                http://192.168.1.5/archiva/repository/egov
+            </url>
+		</repository>
+	</distributionManagement>
+</project>

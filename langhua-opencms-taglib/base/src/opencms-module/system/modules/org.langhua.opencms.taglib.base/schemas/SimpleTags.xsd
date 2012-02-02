@@ -1,0 +1,48 @@
+<xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+	elementFormDefault="qualified">
+	<xsd:include schemaLocation="opencms://opencms-xmlcontent.xsd" />
+	<xsd:element name="SimpleTagss" type="OpenCmsSimpleTagss" />
+	<xsd:complexType name="OpenCmsSimpleTagss">
+		<xsd:sequence>
+			<xsd:element name="SimpleTags" type="OpenCmsSimpleTags"
+				minOccurs="0" maxOccurs="unbounded" />
+		</xsd:sequence>
+	</xsd:complexType>
+
+	<xsd:complexType name="OpenCmsSimpleTags">
+		<xsd:sequence>
+			<xsd:element name="main.width" type="OpenCmsString" />
+			<xsd:element name="title.bgimg" type="OpenCmsString" />
+			<xsd:element name="title.bgimg.height" type="OpenCmsString" />
+			<xsd:element name="content.bgimg" type="OpenCmsString" />
+			<xsd:element name="number" type="OpenCmsString" />
+			<xsd:element name="under.img" type="OpenCmsString" />
+			<xsd:element name="under.img.height" type="OpenCmsString" />
+			<xsd:element name="content.fontweight" type="OpenCmsString" />
+			<xsd:element name="content.color" type="OpenCmsColor" />
+			<xsd:element name="content.fontsize" type="OpenCmsString" />
+		</xsd:sequence>
+		<xsd:attribute name="language" type="OpenCmsLocale" use="required" />
+	</xsd:complexType>
+
+	<xsd:annotation>
+		<xsd:appinfo>
+			<resourcebundle name="org.langhua.opencms.taglib.base.workplace" />
+			<layouts>
+				<layout element="title.bgimg" widget="ImageGalleryWidget" />
+				<layout element="content.bgimg" widget="ImageGalleryWidget" />
+				<layout element="under.img" widget="ImageGalleryWidget" />
+				<layout element="content.fontweight" widget="SelectorWidget"
+					configuration="normal*|bold|bolder|lithter" />
+			</layouts>
+			<defaults>
+				<default element="main.width" value="279" />
+				<default element="title.bgimg.height" value="60" />
+				<default element="number" value="3" />
+				<default element="under.img.height" value="1" />
+				<default element="content.color" value="#000000" />
+				<default element="content.fontsize" value="12" />
+			</defaults>
+		</xsd:appinfo>
+	</xsd:annotation>
+</xsd:schema>

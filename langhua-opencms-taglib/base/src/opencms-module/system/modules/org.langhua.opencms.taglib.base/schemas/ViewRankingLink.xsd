@@ -1,0 +1,42 @@
+
+<xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+	elementFormDefault="qualified">
+	<xsd:include schemaLocation="opencms://opencms-xmlcontent.xsd" />
+	<xsd:element name="ViewRankingLinks" type="OpenCmsViewRankingLinks" />
+	<xsd:complexType name="OpenCmsViewRankingLinks">
+		<xsd:sequence>
+			<xsd:element name="ViewRankingLink" type="OpenCmsViewRankingLink"
+				minOccurs="0" maxOccurs="unbounded" />
+		</xsd:sequence>
+	</xsd:complexType>
+	<xsd:complexType name="OpenCmsViewRankingLink">
+		<xsd:sequence>
+			<xsd:element name="DisplayTitleCount" type="OpenCmsString" />
+			<xsd:element name="ColumsName" type="OpenCmsVfsFile" />
+			<xsd:element name="PublishDateTime" type="OpenCmsString" />
+			<xsd:element name="ContentImage" type="OpenCmsString" />
+			<xsd:element name="ContentImage.width" type="OpenCmsString" />
+			<xsd:element name="ContentImage.height" type="OpenCmsString" />
+		</xsd:sequence>
+		<xsd:attribute name="language" type="OpenCmsLocale" use="required" />
+	</xsd:complexType>
+	<xsd:annotation>
+		<xsd:appinfo>
+			<resourcebundle name="org.langhua.opencms.taglib.base.workplace" />
+			<layouts>
+				<layout element="ContentImage" widget="ImageGalleryWidget" />
+				<layout element="PublishDateTime" widget="SelectorWidget"
+					configuration="value='12hours' option='${key.langhua.taglib.common.twelvehours}'*|value='24hours' option='${key.langhua.taglib.common.twentyfourhours}'|value='3days' option='${key.langhua.taglib.common.threedays}'|value='1week' option='${key.langhua.taglib.common.oneweek}'|value='1month' option='${key.langhua.taglib.common.onemonth}'|value='3months' option='${key.langhua.taglib.common.threemonths}'|value='6months' option='${key.langhua.taglib.common.sixmonths}'|value='1year' option='${key.langhua.taglib.common.oneyear}'|value='2years' option='${key.langhua.taglib.common.twoyears}'|value='3years' option='${key.langhua.taglib.common.threeyears}'|value='unlimited' option='${key.langhua.taglib.common.unlimited}'" />
+			</layouts>
+			<defaults>
+				<default element="DisplayTitleCount" value="8" />
+				<default element="ContentImage.width" value="232" />
+				<default element="ContentImage.height" value="102" />
+			</defaults>
+			<validationrules>
+				<rule element="DisplayTitleCount" regex="^[0-9]{1,20}$"
+					message="${key.langhua.taglib.common.mustbenumber}" />
+			</validationrules>
+		</xsd:appinfo>
+	</xsd:annotation>
+</xsd:schema>
