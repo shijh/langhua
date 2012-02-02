@@ -7,21 +7,25 @@
 	</parent>
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>org.langhua.opencms</groupId>
-	<artifactId>opencms-taglib-common</artifactId>
-	<name>Langhua OpenCms Taglib Common</name>
-	<description>Langhua OpenCms Taglib Common jar and module</description>
+	<artifactId>opencms-taglib-base</artifactId>
+	<name>Langhua OpenCms Taglib Base</name>
+	<description>Langhua OpenCms Taglib Base jar and module</description>
 
 	<build>
 		<plugins>
 			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-compiler-plugin</artifactId>
+				<version>2.3.2</version>
 				<configuration>
 					<source>1.5</source>
 					<target>1.5</target>
 				</configuration>
 			</plugin>
 			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-source-plugin</artifactId>
+				<version>2.1.2</version>
 				<executions>
 					<execution>
 						<goals>
@@ -31,12 +35,14 @@
 				</executions>
 			</plugin>
 			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-assembly-plugin</artifactId>
+				<version>2.2.2</version>
 				<configuration>
 					<descriptors>
 						<descriptor>assembly.xml</descriptor>
 					</descriptors>
-					<finalName>org.langhua.opencms.taglib.common_${version}.0</finalName>
+					<finalName>org.langhua.opencms.taglib.${project.modulename}_${project.version}.0</finalName>
 					<outputDirectory>${basedir}/target</outputDirectory>
 					<workDirectory>${basedir}/target/assembly/work</workDirectory>
 					<appendAssemblyId>false</appendAssemblyId>
@@ -52,20 +58,65 @@
 				</executions>
 			</plugin>
 			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-deploy-plugin</artifactId>
+				<version>2.7</version>
 			</plugin>
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-jar-plugin</artifactId>
+				<version>2.3.2</version>
 				<configuration>
 					<excludes>
 						<exclude>**/org/opencms/**</exclude>
 					</excludes>
 				</configuration>
 			</plugin>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-antrun-plugin</artifactId>
+				<version>1.7</version>
+				<executions>
+					<execution>
+						<!-- prepare source code from opencms-core -->
+						<id>prepare-sourcecode</id>
+						<phase>clean</phase>
+						<configuration>
+							<target>
+								<copy todir="${basedir}/src/main/java" overwrite="false">
+									<fileset dir="/Users/ShiJinghai/git/opencms-core/src">
+				                        <include name="org/opencms/workplace/explorer/CmsNewResource.java" />
+				                        <include name="org/opencms/db/I_CmsVfsDriver.java" />
+				                        <include name="org/opencms/db/CmsDriverManager.java" />
+				                        <include name="org/opencms/db/CmsSecurityManager.java" />
+				                        <include name="org/opencms/db/generic/CmsVfsDriver.java" />
+				                        <include name="org/opencms/db/mssql/CmsVfsDriver.java" />
+				                        <include name="org/opencms/db/mysql/CmsVfsDriver.java" />
+				                        <include name="org/opencms/db/oracle/CmsVfsDriver.java" />
+				                        <include name="org/opencms/file/CmsObject.java" />
+				                        <include name="org/opencms/file/CmsResourceFilter.java" />
+									</fileset>
+								</copy>
+
+								<copy todir="${basedir}/src/main/resources" overwrite="false">
+									<fileset dir="/Users/ShiJinghai/git/opencms-core/src">
+				                        <include name="org/opencms/db/generic/query.properties" />
+				                        <include name="org/opencms/db/mssql/query.properties" />
+				                        <include name="org/opencms/db/mysql/query.properties" />
+				                        <include name="org/opencms/db/oracle/query.properties" />
+									</fileset>
+								</copy>
+							</target>
+						</configuration>
+						<goals>
+							<goal>run</goal>
+						</goals>
+					</execution>
+				</executions>
+			</plugin>
 		</plugins>
 	</build>
-	
+
 	<dependencies>
 		<dependency>
 			<groupId>org.opencms</groupId>

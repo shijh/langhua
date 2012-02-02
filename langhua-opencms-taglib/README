@@ -1,0 +1,285 @@
+Langhua OpenCms Taglib modules
+
+
+1. Purpose:
+This set of modules are developed for programmers to build a website faster and better, as well as to allow end users and consultants 
+configuring screen-lets (or elements) without any help of programmers during production period.
+
+
+2. 
+
+
+3. Taglib List:
+Module                                        Taglib Name                     Config Type         Resource Type Id       Schema File                Template File
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------
+org.langhua.opencms.taglib.datetime              date                            css                 247150000             date.xsd                   date.jsp
+(2)                                                                              link
+                                                 time                            css
+                                                                                 link
+
+org.langhua.opencms.taglib.navigation            generalnavigationtext           css                 247150020             newslist_css9.xsd          newslist_css9.jsp
+(11)                                                                             link
+                                                 iconnavigation                  css                 247150022             newtext_css.xsd            newtext_css.jsp
+                                                                                 link                247150023             icon_link.xsd
+                                                 navigationbargraphic            css                 247150024             newslist_css4.xsd          newslist_css4.jsp
+                                                                                 link                247150025             compile_link.xsd
+                                                 navigationlist                  css                 247150026             newslist_css1.xsd          newslist_css1.jsp
+                                                                                 link                247150027             compile_navlink.xsd
+                                                 navigationtitle                 css                 247150028             navtitle_css.xsd           navtitle_css.jsp
+                                                                                 link                247150029             navtitle_link.xsd
+                                                 photocolumnnavigation           css                 247150030             photonav_css.xsd           photonav_css.jsp
+                                                                                 link                247150031             com_link.xsd
+                                                 sectionandsubsectionnavigation  css                 247150032             legalstudiesbordercss.xsd  legalstudiesborder.jsp
+                                                                                 link                247150033             legalstudiesborderlink.xsd
+                                                 subsectionsnavigation           css                 247150034             subsecnav_css.xsd          subsecnav_css.jsp
+                                                                                 link                247150035             subsecnav_link.xsd
+                                                 textnavigation                  css                 247150036             textnav_css.xsd            textnav_css.jsp
+                                                                                 link                247150037             textnav_link.xsd
+                                                 verticalcolumnnavigation        css                 247150038             verticalcolnav_css.xsd     verticalcolnav_css.jsp
+                                                                                 link                247150039             verticalcolnav_link.xsd
+                                                 verticalcolumnnavigationtwo     css                 247150040             newslist_css13.xsd         newslist_css13.jsp
+                                                                                 link                247150041             verticalcolnavtwo_link.xsd
+
+org.langhua.opencms.taglib.photo                 barimages                       css                 247150100             fz-css.xsd                 fz-css.jsp
+(21)                                                                             link                247150101             fz-pic.xsd
+                                                 bigimgmove                      css                 247150102             bigimgmovecss.xsd          bigimgmovecss.jsp
+                                                                                 link                247150103             bigimgmovelink.xsd
+                                                 border                          css                 247150104             bordercss.xsd              border.jsp
+                                                                                 link                247150105             borderlink.xsd
+                                                 complexslide                    css                 247150106             picNewsjs_css.xsd          picNewsjs_css.jsp
+                                                                                 link                247150107             picNewsjs_link.xsd
+                                                 featuredPic                     css                 247150108             featuredPic_css.xsd        featuredPic_css.jsp
+                                                                                 link                247150109             courier_link.xsd                                                 
+                                                 imagelist                       css                 247150112             imageNews_css.xsd          imageNews_css.jsp
+                                                                                 link                247150113             imageNews_link.xsd
+                                                 imgbesthot                      css                 247150114             imgbesthotcss.xsd          imgbesthot.jsp
+                                                                                 link                247150115             imgbesthotlink1.xsd
+                                                 leftslide                       css                 247150116             newslist_css10.xsd         newslist_css10.jsp
+                                                                                 link                247150117             compile_link.xsd
+                                                 rightslide                      css                 247150118             newslist_css10.xsd         newslist_css10.jsp
+                                                                                 link                247150119             compile_link.xsd
+                                                 marqueepictures                 css                 247150120             newslist_css3.xsd          newslist_css3.jsp
+                                                                                 link                247150121             compile_link.xsd
+                                                 photonewsswitch                 css                 247150122             picturenew_css.xsd         picturenew_css.jsp
+                                                                                 link                247150123             picturenew_link.xsd
+                                                 photoslide                      css                 247150124             newslist_css6.xsd          
+                                                                                 link                247150125             compile_link.xsd
+                                                 picFuzz                         css                                         
+                                                                                 link                247150127             picFuzz.xsd
+                                                 piclist                         css                 247150128             picNews_css.xsd            
+                                                                                 link                247150129             picNews_link.xsd
+                                                 titlepiclist                    css                 247150130             picNews_css.xsd          
+                                                                                 link                247150131             picNews_link.xsd
+                                                 rowsimages                      css                 247150132             icac-piccss.xsd            ICAC-pic.jsp
+                                                                                 link                247150133             fz-pic.xsd
+                                                 slidecollection                 css                 247150134             picturelist_css.xsd        picturelist_css.jsp
+                                                                                 link                247150135             picturelist_link.xsd
+                                                 switchimage                     css                 247150136             newslist_css8.xsd          newslist_css8.jsp
+                                                                                 link                247150137             compile_link.xsd
+                                                 titlebarimages                  css                 247150138             titlebarimages.xsd         titlebarimages.jsp
+                                                                                 link                247150139             fz-pic.xsd    
+                                                 topicimage                      css                 247150140             newsimg_css.xsd            
+                                                                                 link                247150141             newsimg_link.xsd    
+                                                 verticalbarimages               css                 247150142             picnews.xsd                picnews.jsp
+                                                                                 link                247150143             picnews-html.xsd            
+
+org.langhua.opencms.taglib.scroll                rolling                         css                 247150200             rolling_css.xsd            rolling_css.jsp
+(5)                                                                              link                247150201             rolling_link.xsd
+                                                 scroll                          css                 247150202             newslist_css7.xsd              
+                                                                                 link                247150203             compile_link.xsd
+                                                 scrollup                        css                 247150204             headlinesfeatured_css.xsd      headlinesfeatured_css.jsp                
+                                                                                 link                247150205             headlinesfeatured_link.xsd    
+                                                 topstaticlowerscroll            css                 247150206             LawGovernanceTheory_css.xsd    LawGovernanceTheorycss.jsp              
+                                                                                 link                247150207             LawGovernanceTheoryLinks.xsd    
+                                                 upscrolllist                    css                 247150208             textNews_css.xsd               textNews_css.jsp              
+                                                                                 link                247150209             broadcast_link.xsd    
+                                                  
+org.langhua.opencms.taglib.ranking               showpicturesranking             css                 247150302             pictureNewsRankingCss.xsd      pictureNewsRankingCss.jsp
+(7)                                                                              link                247150303             pictureNewsRankingLink.xsd                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  
+                                                 threeswitchtop                  css                 247150304             RankingSummaryCss.xsd          RankingSummaryCss.jsp
+                                                                                 link                247150305             RankingSummaryLink.xsd
+                                                 timeranking                     css                 247150306             timeRanking.xsd                timeRanking.jsp
+                                                                                 link                247150307             frzTwentyFourHourLink.xsd
+                                                 twentyfourhourlinkstag          css                 247150308             frzTwentyFourHourCss.xsd       frzTwentyFourHourCss.jsp
+                                                                                 link                247150309             frzTwentyFourHourLink.xsd
+                                                 ultimateTopNewsLink             css                 247150310             LetopNews.xsd                  LetopNews_css.jsp
+                                                                                 link                 
+                                                 viewrankinglinkstag             css                 247150312             frzViewRankingCss.xsd          frzViewRankingCss.jsp
+                                                                                 link                247150313             frzViewRankingLink.xsd
+                                                 weekpodtag                      css                 247150314             weekPODcss.xsd                 weekPOD.jsp
+                                                                                 link                247150315             frzTwentyFourHourLink.xsd
+
+org.langhua.opencms.taglib.text                  almighty                        css                 247150400             PublicHandAddNewsCss.xsd             PublicHandAddNewsCss.jsp                            
+(40)                                                                             link                247150401             PublicTaglink.xsd    
+                                                 almightydisplaytext             css                 247150402             frzViewChannelsCss.xsd               frzViewChannelsCss.jsp      
+                                                                                 link                247150403             frzViewChannelsLink.xsd        
+                                                 almightyheadlines               css                 247150404             frzChannelBastHeadLinesCss.xsd       frzChannelBastHeadLinesCss.jsp           
+                                                                                 link                247150405             frzChannelBastHeadLinesLink.xsd        
+                                                 automatictakeus                 css                 247150406             jujiao_css.xsd                       jujiao_css.jsp
+                                                                                 link                247150407             jujiao_link.xsd        
+                                                 cardtitle                       css                 247150408             card_css.xsd                         card_css.jsp
+                                                                                 link                247150409             card_link.xsd        
+                                                 designatestart                  css                 247150410             law-3jpicdowncss.xsd                 law-3jpicdown.jsp      
+                                                                                 link                247150411             law-3jpicdownlink.xsd         
+                                                 displayinformationsource        css                 247150412             newslist_css1.xsd                    newslist_css1.jsp
+                                                                                 link                247150413             compile_link.xsd         
+                                                 featured                        css                 247150414             featured_css.xsd                     featured_css.jsp  
+                                                                                 link                247150415             courier_link.xsd         
+                                                 generallist                     css                 247150416             newslist_css1.xsd                    newslist_css1.jsp
+                                                                                 link                247150417             compile_link.xsd         
+                                                 headerimagemanuallyarticles     css                 247150418             commontext_css.xsd                   commontext_css.jsp      
+                                                                                 link                247150419             card_link.xsd         
+                                                 importanttexttag                css                 247150420             importanttext_css.xsd                importanttext_css.jsp
+                                                                                 link                247150421             importanttext_link.xsd         
+                                                 include                         css                                        
+                                                                                 link                247150423             include_link.xsd                            
+                                                 leftcolumnheadings              css                 247150424             littletext_css.xsd                   littletext_css.jsp           
+                                                                                 link                247150425             newtext_link.xsd
+                                                 linktoexternalsites             css                 247150426             lawschoolcss.xsd                     lawschoolcss.jsp
+                                                                                 link                247150427             lawschoollink.xsd        
+                                                 listofsubsection                css                 247150428             ListOfSubSection.xsd                 ListOfSubSection.jsp
+                                                                                 link                247150429             compile_navlink.xsd        
+                                                 listOfSubSectionFive            css                 247150430             ListOfSubSectionFive.xsd             ListOfSubSectionFive.jsp
+                                                                                 link                247150431             compile_navlink.xsd    
+                                                 listofsubsectionfour            css                 247150432             ListOfSubSectionFour.xsd             ListOfSubSectionFour.jsp
+                                                                                 link                247150433             compile_navlink.xsd          
+                                                 listofsubsectionthree           css                 247150434             ListOfSubSectionThree.xsd            ListOfSubSectionThree.jsp
+                                                                                 link                247150435             compile_navlink.xsd        
+                                                 listofsubsectiontwo             css                 247150436             ListOfSubSectionTwo.xsd              ListOfSubSectionTwo.jsp
+                                                                                 link                247150437             compile_navlink.xsd         
+                                                 manualautomatictext             css                 247150438             manualautomatictext.xsd              ManualAutomaticText.jsp
+                                                                                 link                247150439             newtext_link.xsd        
+                                                 multicolumncontent              css                 247150440             newtextseven_css.xsd                 newtextseven_css.jsp      
+                                                                                 link                247150441             NewsTag_link.xsd         
+                                                 multicolumns                    css                 247150442             newslist_css1.xsd                    newslist_css1.jsp      
+                                                                                 link                247150443             compile_link.xsd         
+                                                 multilinearticles               css                 247150444             littlecard_css.xsd                   littlecard_css.jsp
+                                                                                 link                247150445             littlecard_link.xsd                    
+                                                 multipartarticledisplay         css                 247150446             newslist_css1.xsd                    newslist_css1.jsp          
+                                                                                 link                247150447             compile_link.xsd
+                                                 multiSectionwiththeexplicit     css                 247150448             newslist_css1.xsd                    newslist_css1.jsp      
+                                                                                 link                247150449             compile_link.xsd    
+                                                 newtwocolumn                    css                 247150450             newtwocolumn.xsd                     newtwocolumn.jsp
+                                                                                 link                247150451             compile_link.xsd        
+                                                 separate                        css                 247150452             newslist_css1.xsd                    newslist_css1.jsp          
+                                                                                 link                247150453             compile_link.xsd        
+                                                 separatecustom                  css                 247150454             newslist_css1.xsd                    newslist_css1.jsp          
+                                                                                 link                          
+                                                 showcreated                     css                 247150456             newslist_css1.xsd                    newslist_css1.jsp
+                                                                                 link                247150457             compile_link.xsd         
+                                                 showcreatedthree                css                 247150458             newslist_css1.xsd                    newslist_css1.jsp      
+                                                                                 link                247150459             compile_link.xsd        
+                                                 showcreatedtwo                  css                 247150460             newslist_css1.xsd                    newslist_css1.jsp
+                                                                                 link                247150461             compile_link.xsd        
+                                                 singlecolumnmultititlesets      css                 247150464             newslist_css1.xsd                    newslist_css1.jsp      
+                                                                                 link                247150465             compile_link.xsd        
+                                                 texttaglib                      css                 247150466             texttaglib_css.xsd                   texttaglib_css.jsp          
+                                                                                 link                247150467             compile_link.xsd                             
+                                                 todayreview                     css                 247150468             newslist_css1.xsd                    newslist_css1.jsp           
+                                                                                 link                                 
+                                                 topdance                        css                 247150470             newtext_css.xsd                      newtext_css.jsp
+                                                                                 link                247150471             newtext_link.xsd
+                                                 topdancetwo                     css                 247150472             newtexttwo_css.xsd                   newtexttwo_css.jsp      
+                                                                                 link                247150473             newtext_link.xsd
+                                                 twocolumn                       css                 247150474             newslist_css1.xsd                    newslist_css1.jsp           
+                                                                                 link                247150475             compile_link.xsd
+                                                 untitledmulticolumn             css                 247150476             pcon-down.xsd                        pcon-down.jsp
+                                                                                 link                247150477             pcon-downlink.xsd
+                                                 untitledsimple                  css                                         
+                                                                                 link                247150479             easytext_link.xsd
+                                                 withintroductionarticlelist     css                 247150480             about_article_css.xsd                about_article_css.jsp           
+                                                                                 link                247150481             about_article.xsd           
+
+org.langhua.opencms.taglib.textimg               bossactivities                  css                 247150600             bossactivitiescss.xsd                bossactivities.jsp                            
+(26)                                                                             link                247150601             bossactivitieslink.xsd    
+                                                 changeovertime                  css                 247150602             index-fzxscss.xsd                    indexfzxs.jsp          
+                                                                                 link                247150603             index-fzxslink.xsd        
+                                                 displaythefolderpicturearticle  css                 247150604             newslist_css.xsd                     newslist_css.jsp          
+                                                                                 link                247150605             compile_link.xsd        
+                                                 headline                        css                 247150606             top_css.xsd                          top_css.jsp      
+                                                                                 link                247150607             top_link.xsd        
+                                                 imgtext                         css                 247150608             imgtext.xsd                          ImgText.jsp          
+                                                                                 link                247150609             compile_navlink.xsd        
+                                                 introductionGraphiclabels       css                 247150610             newslist_css.xsd                     newslist_css.jsp          
+                                                                                 link                247150611             compile_link.xsd          
+                                                 introductionnextlist            css                 247150612             newstextimg.xsd                      newstextimg.jsp
+                                                                                 link                247150613             card_link.xsd         
+                                                 introductionnextlisttwo         css                 247150614             dynamicNews_css.xsd                  dynamicNews_css.jsp      
+                                                                                 link                247150615             dynamicNews_link.xsd         
+                                                 leftpicturerighttitle           css                 247150616             newslist_css11.xsd                   newslist_css11.jsp
+                                                                                 link                247150617             compile_link.xsd         
+                                                 logoheadertitle                 css                                         
+                                                                                 link                                          
+                                                 ondoublecolumn                  css                 247150620             newslist_css.xsd                     newslist_css.jsp           
+                                                                                 link                247150621             compile_link.xsd         
+                                                 onpicturenextlink               css                 247150622             newslist_css.xsd                     newslist_css.jsp          
+                                                                                 link                247150623             compile_link.xsd                     ptitle.jsp                            
+                                                 photoarticlescomplex            css                 247150624             ptitlecss.xsd           
+                                                                                 link                247150625             ptitlelink.xsd
+                                                 photobriefingpapercollection    css                 247150626             fz-reclawyer_css.xsd                 fz-reclawyer.jsp
+                                                                                 link                247150627             fz-reclawyer_link.xsd                                 
+                                                 phototwotype                    css                 247150630             p-accss.xsd                          p-access.jsp
+                                                                                 link                247150631             p-accelink.xsd
+                                                 scrollimg                       css                 247150632             newslist_css16.xsd                   newslist_css16.jsp
+                                                                                 link                247150633             com_link.xsd
+                                                 separatephoto                   css                 247150634             newslist_css.xsd                     newslist_css.jsp          
+                                                                                 link                247150635             compile_link.xsd
+                                                 showleftimg                     css                 247150636             newslist_css.xsd                     newslist_css.jsp          
+                                                                                 link                247150637             compile_link.xsd
+                                                 tabgraphic                      css                 247150638             textimgcard_css.xsd                  textimgcard_css.jsp      
+                                                                                 link                247150639             textimgcard_link.xsd
+                                                 thefigurenextsection            css                 247150640             newslist_css.xsd                     newslist_css.jsp 
+                                                                                 link                247150641             compile_navlink.xsd
+                                                 thefigurethetitles              css                 247150642             newslist_css.xsd                     newslist_css.jsp      
+                                                                                 link                247150643             compile_link.xsd
+                                                 thefigureunderthetwopart        css                 247150644             newslist_css.xsd                     newslist_css.jsp          
+                                                                                 link                247150645             compile_link.xsd
+                                                 topicsphoto                     css                 247150646             newslist_css.xsd                     newslist_css.jsp          
+                                                                                 link                247150647             compile_link.xsd
+                                                 underthedouble                  css                 247150648             newslist_css.xsd                     newslist_css.jsp          
+                                                                                 link                247150649             compile_link.xsd
+                                                 untitledphotosummary            css                 247150650             frzTorchRelayCss.xsd                 frzTorchRelayCss.jsp
+                                                                                 link                247150651             frzTorchRelayLink.xsd
+                                                 photoBriefingPaperCollectionTwo css                 247150652             fz-reclawyer_css2.xsd                fz-reclawyer2.jsp
+                                                                                 link                247150653             fz-reclawyer_link2.xsd             
+            
+org.langhua.opencms.taglib.price                 dualswitchprices                css                 247150750             newslist_css2.xsd                    newslist_css2.jsp                                
+(2)                                                                              link                247150751             com_link.xsd    
+                                                 bytimedualchannel               css                 247150752             newslist_css1.xsd                    newslist_css1.jsp              
+                                                                                 link                247150753             com_link.xsd    
+                                             
+org.langhua.opencms.taglib.switch                buttonswitch                    css                 247150800             textcard_css.xsd                     textcard_css.jsp                                
+(6)                                                                              link                247150801             picturenew_link.xsd    
+                                                 bytimedualchannel               css                 247150802             newslist_css2.xsd                    newslist_css2.jsp              
+                                                                                 link                247150803             compile_link.xsd    
+                                                 bytimethreechannel              css                 247150804             newslist_css5.xsd                    newslist_css5.jsp              
+                                                                                 link                247150805             compile_link.xsd    
+                                                 dualchanneldoublerow            css                 247150806             newslist_css2.xsd                    newslist_css2.jsp              
+                                                                                 link                247150807             compile_link.xsd    
+                                                 dualSeparate                    css                 247150808             newslist_css2.xsd                    newslist_css2.jsp              
+                                                                                 link                247150809             compile_link.xsd    
+                                                 threechannelchange              css                 247150810             newslist_css5.xsd                    newslist_css5.jsp              
+                                                                                 link                247150811             compile_link.xsd    
+
+org.langhua.opencms.taglib.table                 texttabletag                    css                 247150850             texttabletag_css.xsd                 texttabletag_css.jsp                                
+(2)                                                                              link                247150851             texttabletag_link.xsd    
+                                                 texttabletagone                 css                 247150852             texttabletagone_css.xsd              texttabletagone_css.jsp              
+                                                                                 link                247150853             texttabletag_link.xsd    
+                                                 
+org.langhua.opencms.taglib.topics                aboutthearticle                 css                 247150900             newtext_css.xsd                      newtext_css.jsp                                
+(6)                                                                              link                247150901             aboutthearticle_link.xsd    
+                                                 introduction                    css                 247150902             introduction.xsd                     Introduction.jsp          
+                                                                                 link                247150903             NewsTag_link.xsd    
+                                                 logoIntroduction                css                 247150904             logoIntroduction.xsd                 logoIntroduction.jsp              
+                                                                                 link                247150905             NewsTag_link.xsd    
+                                                 showstheletterheadlines         css                 247150906             frzLocalTopCss.xsd                   frzLocalTopCss.jsp              
+                                                                                 link                247150907             frzLocalTopLink.xsd    
+                                                 textfeature                     css                 247150908             importanttext_css.xsd                importanttext_css.jsp              
+                                                                                 link                247150909             importanttext_link.xsd    
+                                                 textnewstag                     css                 247150910             NewsTag_css.xsd                      NewsTag_css.jsp              
+                                                                                 link                247150911             NewsTag_link.xsd    
+                                                     
+org.langhua.opencms.taglib.weather               weathertag                      css                 247150952             weatherCss.xsd                       weatherCss.jsp          
+(1)                                                                              link                247150953             weatherLink.xsd        
+
+Total Taglibs: 2+11+21+5+7+40+26+2+6+2+6+1=129
