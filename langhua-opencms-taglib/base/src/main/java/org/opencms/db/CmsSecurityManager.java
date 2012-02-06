@@ -6781,4 +6781,36 @@ public final class CmsSecurityManager {
         return resource;
     }
 
+    /**
+     * Counts all resources below the given path matching the filter criteria,
+     * including the full tree below the path only in case the <code>readTree</code> 
+     * parameter is <code>true</code>.<p>
+     * 
+     * @param resourcename the parent path to read the resources from
+     * @param filter the filter
+     * @param readTree <code>true</code> to read all sub resources
+     * 
+     * @return a list of <code>{@link CmsResource}</code> objects matching the filter criteria
+     * 
+     * @throws CmsException if something goes wrong
+     * 
+     * Added by Shi Jinghai, huaruhai@hotmail.com
+     */
+	public int countResources(CmsRequestContext context, CmsResource parent, CmsResourceFilter filter, boolean readTree) throws CmsVfsException, CmsException {
+		
+        int result = 0;
+        CmsDbContext dbc = m_dbContextFactory.getDbContext(context);
+        try {
+            // check the access permissions
+            checkPermissions(dbc, parent, CmsPermissionSet.ACCESS_READ, true, CmsResourceFilter.ALL);
+            result = m_driverManager.countResources(dbc, parent, filter, readTree);
+        } catch (Exception e) {
+            dbc.report(null, Messages.get().container(
+                Messages.ERR_READ_RESOURCES_1,
+                context.removeSiteRoot(parent.getRootPath())), e);
+        } finally {
+            dbc.clear();
+        }
+        return result;
+	}
 }

@@ -4431,4 +4431,124 @@ public class CmsVfsDriver implements I_CmsDriver, I_CmsVfsDriver {
         return query.replace("%(PROJECT)", online ? ONLINE : OFFLINE);
     }
 
+    // Added by Shi Jinghai, huaruhai@hotmail.com
+	/**
+	 * @see org.opencms.db.I_CmsVfsDriver#countResourceTree(org.opencms.db.CmsDbContext,
+	 *      CmsUUID, java.lang.String, int, CmsResourceState, long, long, long,
+	 *      long, long, long, int)
+	 */
+	public int countResourceTree(CmsDbContext dbc, CmsUUID projectId,
+			String parentPath, int type, CmsResourceState state,
+			long lastModifiedAfter, long lastModifiedBefore,
+			long releasedAfter, long releasedBefore, long expiredAfter,
+			long expiredBefore, int mode) throws CmsDataAccessException {
+
+		int result = 0;
+
+		StringBuffer conditions = new StringBuffer();
+		List params = new ArrayList(5);
+
+		// prepare the selection criteria
+		prepareProjectCondition(projectId, mode, conditions, params);
+		prepareResourceCondition(projectId, mode, conditions);
+		prepareTypeCondition(projectId, type, mode, conditions, params);
+		prepareTimeRangeCondition(projectId, lastModifiedAfter,
+				lastModifiedBefore, conditions, params);
+		prepareReleasedTimeRangeCondition(projectId, releasedAfter,
+				releasedBefore, conditions, params);
+		prepareExpiredTimeRangeCondition(projectId, expiredAfter,
+				expiredBefore, conditions, params);
+		preparePathCondition(projectId, parentPath, mode, conditions, params);
+		prepareStateCondition(projectId, state, mode, conditions, params);
+
+		// now read matching resources within the subtree
+		ResultSet res = null;
+		PreparedStatement stmt = null;
+		Connection conn = null;
+
+		try {
+			conn = m_sqlManager.getConnection(dbc);
+			StringBuffer queryBuf = new StringBuffer(256);
+			queryBuf.append(m_sqlManager.readQuery(projectId,
+					"C_RESOURCES_COUNT_TREE"));
+			queryBuf.append(conditions);
+			stmt = m_sqlManager.getPreparedStatementForSql(conn, queryBuf
+					.toString());
+
+			for (int i = 0; i < params.size(); i++) {
+				Object obj = params.get(i);
+				if (obj instanceof String) {
+					stmt.setString(i + 1, (String) obj);
+				} else if (obj instanceof Integer) {
+					stmt.setInt(i + 1, (Integer) obj);
+				}
+			}
+
+			res = stmt.executeQuery();
+			while (res.next()) {
+				result = res.getInt(1);
+			}
+		} catch (SQLException e) {
+			throw new CmsDbSqlException(Messages.get().container(
+					Messages.ERR_GENERIC_SQL_1,
+					CmsDbSqlException.getErrorQuery(stmt)), e);
+		} finally {
+			m_sqlManager.closeAll(dbc, conn, stmt, res);
+		}
+
+		return result;
+	}
+
+	/**
+	 * @see org.opencms.db.I_CmsVfsDriver#readTopLatestResourceTree(org.opencms.db.CmsDbContext,
+	 *      CmsUUID, java.lang.String, int, CmsResourceState, long, long, long,
+	 *      long, long, long, int, int)
+	 */
+	public List<CmsResource> readTopLatestResourceTree(CmsDbContext dbc, CmsUUID projectId,
+			String parentPath, int type, CmsResourceState state,
+			long lastModifiedAfter, long lastModifiedBefore,
+			long releasedAfter, long releasedBefore, long expiredAfter,
+			long expiredBefore, int mode, int top)
+			throws CmsDataAccessException {
+
+		return readResourceTree(dbc, projectId, parentPath, type, state,
+				lastModifiedAfter, lastModifiedBefore, releasedAfter,
+				releasedBefore, expiredAfter, expiredBefore, mode);
+	}
+
+	/**
+	 * @see org.opencms.db.I_CmsVfsDriver#readPagedLatestResourceTree(org.opencms.db.CmsDbContext,
+	 *      CmsUUID, java.lang.String, int, CmsResourceState, long, long, long,
+	 *      long, long, long, int, int, int)
+	 */
+	public List<CmsResource> readPagedLatestResourceTree(CmsDbContext dbc,
+			CmsUUID projectId, String parentPath, int type,
+			CmsResourceState state, long lastModifiedAfter,
+			long lastModifiedBefore, long releasedAfter, long releasedBefore,
+			long expiredAfter, long expiredBefore, int mode, int startRow,
+			int endRow) throws CmsDataAccessException {
+
+		return readResourceTree(dbc, projectId, parentPath, type, state,
+				lastModifiedAfter, lastModifiedBefore, releasedAfter,
+				releasedBefore, expiredAfter, expiredBefore, mode);
+	}
+
+	/**
+	 * @see org.opencms.db.I_CmsVfsDriver#readTopLatestResourceTreeByTypes(org.opencms.db.CmsDbContext,
+	 *      CmsUUID, java.lang.String, List<Integer>, CmsResourceState, long, long, long,
+	 *      long, long, long, int, int)
+	 */
+	public List<CmsResource> readTopLatestResourceTreeByTypes(CmsDbContext dbc,
+			CmsUUID projectId, String parent, List<Integer> types,
+			CmsResourceState state, long startTime, long endTime,
+			long releasedAfter, long releasedBefore, long expiredAfter,
+			long expiredBefore, int mode, int top)
+			throws CmsDataAccessException {
+
+		int type = Integer.parseInt(types.get(0).toString());
+		return readResourceTree(dbc, projectId, parent, type, state, startTime,
+				endTime, releasedAfter, releasedBefore, expiredAfter,
+				expiredBefore, mode);
+	}
+	// end
 }

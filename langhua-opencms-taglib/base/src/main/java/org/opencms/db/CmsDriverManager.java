@@ -1602,11 +1602,45 @@ public final class CmsDriverManager implements I_CmsEventListener {
                 CmsResource currentResourceById = readResource(dbc, resource.getStructureId(), CmsResourceFilter.ALL);
                 // it is not allowed to import resources when there is already a resource with the same id but different path 
                 if (!currentResourceById.getRootPath().equals(resourcePath)) {
-                    throw new CmsVfsResourceAlreadyExistsException(Messages.get().container(
-                        Messages.ERR_RESOURCE_WITH_ID_ALREADY_EXISTS_3,
-                        dbc.removeSiteRoot(resourcePath),
-                        dbc.removeSiteRoot(currentResourceById.getRootPath()),
-                        currentResourceById.getStructureId()));
+                    // modified by Shi Jinghai, huaruhai@hotmail.com 
+    				// for data import abort "STRUCTURE_ID" question
+    				if (currentResourceById.isFile()) {
+    					throw new CmsVfsResourceAlreadyExistsException(
+    							Messages
+    									.get()
+    									.container(
+    											Messages.ERR_RESOURCE_WITH_ID_ALREADY_EXISTS_3,
+    											dbc.removeSiteRoot(resourcePath),
+    											dbc
+    													.removeSiteRoot(currentResourceById
+    															.getRootPath()),
+    											currentResourceById
+    													.getStructureId()));
+    				} else {
+    					CmsUUID uuid = new CmsUUID();
+    					CmsResource tryAgainResource = new CmsResource(
+    							uuid, // structure ID is always a new UUID
+    							uuid, resourcePath,
+    							resource.getTypeId(),
+    							resource.isFolder(),
+    							0,
+    							dbc.getRequestContext().getCurrentProject().getUuid(),
+    							CmsResource.STATE_NEW, resource.getDateCreated(),
+    							resource.getUserCreated(), resource
+    									.getDateLastModified(), resource
+    									.getUserLastModified(), resource
+    									.getDateReleased(), resource
+    									.getDateExpired(), 1, 0, resource
+    									.getDateContent(), 0);
+    					return createResource(dbc, resourcePath, tryAgainResource,
+    							content, properties, importCase);
+    				}
+                    // end
+//                    throw new CmsVfsResourceAlreadyExistsException(Messages.get().container(
+//                        Messages.ERR_RESOURCE_WITH_ID_ALREADY_EXISTS_3,
+//                        dbc.removeSiteRoot(resourcePath),
+//                        dbc.removeSiteRoot(currentResourceById.getRootPath()),
+//                        currentResourceById.getStructureId()));
                 }
             } catch (CmsVfsResourceNotFoundException e) {
                 // if the resource does exist, we have to check the id later to decide what to do
@@ -7330,24 +7364,89 @@ public final class CmsDriverManager implements I_CmsEventListener {
         List<CmsResource> resourceList = m_monitor.getCachedResourceList(cacheKey);
         if ((resourceList == null) || !dbc.getProjectId().isNullUUID()) {
             // read the result from the database
-            resourceList = getVfsDriver(dbc).readResourceTree(
-                dbc,
-                dbc.currentProject().getUuid(),
-                (readTree ? parent.getRootPath() : parent.getStructureId().toString()),
-                filter.getType(),
-                filter.getState(),
-                filter.getModifiedAfter(),
-                filter.getModifiedBefore(),
-                filter.getReleaseAfter(),
-                filter.getReleaseBefore(),
-                filter.getExpireAfter(),
-                filter.getExpireBefore(),
-                (readTree ? CmsDriverManager.READMODE_INCLUDE_TREE : CmsDriverManager.READMODE_EXCLUDE_TREE)
-                    | (filter.excludeType() ? CmsDriverManager.READMODE_EXCLUDE_TYPE : 0)
-                    | (filter.excludeState() ? CmsDriverManager.READMODE_EXCLUDE_STATE : 0)
-                    | ((filter.getOnlyFolders() != null) ? (filter.getOnlyFolders().booleanValue()
-                    ? CmsDriverManager.READMODE_ONLY_FOLDERS
-                    : CmsDriverManager.READMODE_ONLY_FILES) : 0));
+        	// modified by Shi Jinghai, huaruhai@hotmail.com
+        	if (filter.requireTopLatest()) {
+                resourceList = m_vfsDriver.readTopLatestResourceTree(
+                    dbc,
+                    dbc.currentProject().getUuid(),
+                    (readTree ? parent.getRootPath() : parent.getStructureId().toString()),
+                    filter.getType(),
+                    filter.getState(),
+                    filter.getModifiedAfter(),
+                    filter.getModifiedBefore(),
+                    filter.getReleaseAfter(),
+                    filter.getReleaseBefore(),
+                    filter.getExpireAfter(),
+                    filter.getExpireBefore(),
+                    (readTree ? CmsDriverManager.READMODE_INCLUDE_TREE : CmsDriverManager.READMODE_EXCLUDE_TREE)
+                        | (filter.excludeType() ? CmsDriverManager.READMODE_EXCLUDE_TYPE : 0)
+                        | (filter.excludeState() ? CmsDriverManager.READMODE_EXCLUDE_STATE : 0)
+                        | ((filter.getOnlyFolders() != null) ? (filter.getOnlyFolders().booleanValue() ? CmsDriverManager.READMODE_ONLY_FOLDERS
+                        : CmsDriverManager.READMODE_ONLY_FILES)
+                        : 0),
+                    filter.getTop());
+        	} else if (filter.requirePagedLatest()) {
+                resourceList = m_vfsDriver.readPagedLatestResourceTree(
+                        dbc,
+                        dbc.currentProject().getUuid(),
+                        (readTree ? parent.getRootPath() : parent.getStructureId().toString()),
+                        filter.getType(),
+                        filter.getState(),
+                        filter.getModifiedAfter(),
+                        filter.getModifiedBefore(),
+                        filter.getReleaseAfter(),
+                        filter.getReleaseBefore(),
+                        filter.getExpireAfter(),
+                        filter.getExpireBefore(),
+                        (readTree ? CmsDriverManager.READMODE_INCLUDE_TREE : CmsDriverManager.READMODE_EXCLUDE_TREE)
+                            | (filter.excludeType() ? CmsDriverManager.READMODE_EXCLUDE_TYPE : 0)
+                            | (filter.excludeState() ? CmsDriverManager.READMODE_EXCLUDE_STATE : 0)
+                            | ((filter.getOnlyFolders() != null) ? (filter.getOnlyFolders().booleanValue() ? CmsDriverManager.READMODE_ONLY_FOLDERS
+                            : CmsDriverManager.READMODE_ONLY_FILES)
+                            : 0),
+                        filter.getStartRow(),
+                        filter.getRowsInPage());
+        	} else if (filter.requireTopLatestByTypes()){
+        		resourceList = m_vfsDriver.readTopLatestResourceTreeByTypes(
+        				dbc,
+        				dbc.currentProject().getUuid(),
+        				(readTree ? parent.getRootPath() : parent.getStructureId().toString()),
+        				filter.getTypes(),
+        				filter.getState(),
+                        filter.getModifiedAfter(),
+                        filter.getModifiedBefore(),
+                        filter.getReleaseAfter(),
+                        filter.getReleaseBefore(),
+                        filter.getExpireAfter(),
+                        filter.getExpireBefore(),
+                        (readTree ? CmsDriverManager.READMODE_INCLUDE_TREE : CmsDriverManager.READMODE_EXCLUDE_TREE)
+                            | (filter.excludeType() ? CmsDriverManager.READMODE_EXCLUDE_TYPE : 0)
+                            | (filter.excludeState() ? CmsDriverManager.READMODE_EXCLUDE_STATE : 0)
+                            | ((filter.getOnlyFolders() != null) ? (filter.getOnlyFolders().booleanValue() ? CmsDriverManager.READMODE_ONLY_FOLDERS
+                            : CmsDriverManager.READMODE_ONLY_FILES)
+                            : 0),
+                        filter.getTop());
+        		
+        	} else {
+        		resourceList = getVfsDriver(dbc).readResourceTree(
+                        dbc,
+                        dbc.currentProject().getUuid(),
+                        (readTree ? parent.getRootPath() : parent.getStructureId().toString()),
+                        filter.getType(),
+                        filter.getState(),
+                        filter.getModifiedAfter(),
+                        filter.getModifiedBefore(),
+                        filter.getReleaseAfter(),
+                        filter.getReleaseBefore(),
+                        filter.getExpireAfter(),
+                        filter.getExpireBefore(),
+                        (readTree ? CmsDriverManager.READMODE_INCLUDE_TREE : CmsDriverManager.READMODE_EXCLUDE_TREE)
+                            | (filter.excludeType() ? CmsDriverManager.READMODE_EXCLUDE_TYPE : 0)
+                            | (filter.excludeState() ? CmsDriverManager.READMODE_EXCLUDE_STATE : 0)
+                            | ((filter.getOnlyFolders() != null) ? (filter.getOnlyFolders().booleanValue()
+                            ? CmsDriverManager.READMODE_ONLY_FOLDERS
+                            : CmsDriverManager.READMODE_ONLY_FILES) : 0));
+        	}
 
             // HACK: do not take care of permissions if reading organizational units
             if (!parent.getRootPath().startsWith("/system/orgunits/")) {
@@ -11169,4 +11268,44 @@ public final class CmsDriverManager implements I_CmsEventListener {
         }
     }
 
+    /**
+     * Counts all resources below the given path matching the filter criteria,
+     * including the full tree below the path only in case the <code>readTree</code> 
+     * parameter is <code>true</code>.<p>
+     * 
+     * @param dbc the current database context
+     * @param parent the parent path to read the resources from
+     * @param filter the filter
+     * @param readTree <code>true</code> to read all subresources
+     * 
+     * @return the number of <code>{@link CmsResource}</code> objects matching the filter criteria
+     * @throws CmsDataAccessException 
+     *  
+     * @throws CmsDataAccessException if the bare reading of the resources fails
+     * @throws CmsException if security and permission checks for the resources read fail
+     * 
+     * Added by Shi Jinghai, huaruhai@hotmail.com
+     */
+	public int countResources(CmsDbContext dbc, CmsResource parent, CmsResourceFilter filter, boolean readTree) throws CmsDataAccessException {
+
+		int result = m_vfsDriver.countResourceTree(
+                    dbc,
+                    dbc.currentProject().getUuid(),
+                    (readTree ? parent.getRootPath() : parent.getStructureId().toString()),
+                    filter.getType(),
+                    filter.getState(),
+                    filter.getModifiedAfter(),
+                    filter.getModifiedBefore(),
+                    filter.getReleaseAfter(),
+                    filter.getReleaseBefore(),
+                    filter.getExpireAfter(),
+                    filter.getExpireBefore(),
+                    (readTree ? CmsDriverManager.READMODE_INCLUDE_TREE : CmsDriverManager.READMODE_EXCLUDE_TREE)
+                        | (filter.excludeType() ? CmsDriverManager.READMODE_EXCLUDE_TYPE : 0)
+                        | (filter.excludeState() ? CmsDriverManager.READMODE_EXCLUDE_STATE : 0)
+                        | ((filter.getOnlyFolders() != null) ? (filter.getOnlyFolders().booleanValue() ? CmsDriverManager.READMODE_ONLY_FOLDERS
+                        : CmsDriverManager.READMODE_ONLY_FILES)
+                        : 0));
+       return result;
+    }
 }

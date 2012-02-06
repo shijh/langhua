@@ -27,6 +27,9 @@
 
 package org.opencms.file;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import org.opencms.db.CmsResourceState;
 
 /**
@@ -192,6 +195,28 @@ public final class CmsResourceFilter {
     /** The required/excluded type for filtering resources. */
     private int m_type;
 
+    // added by Shi Jinghai, huaruhai@hotmail.com
+    /** The top latest number for filtering resources. */
+    private int m_top;
+
+    /** Indicates if the top latest number is filtered (true) or not (false). */
+    private int m_topLatest;
+
+    /** The start row for paged latest resources. */
+    private int m_startRow;
+
+    /** The rows in a page latest resources. */
+    private int m_rowsInPage;
+
+    /** Indicates if the paged latest number is filtered (true) or not (false). */
+    private int m_pagedLatest;
+    
+    /** The required types for filtering top latest resources. */
+    private int m_topLatestByTypes;
+    
+    private List<Integer> m_types;
+    // end
+    
     /**
      * Hides the public contructor.<p>
      */
@@ -219,6 +244,18 @@ public final class CmsResourceFilter {
         m_expireAfter = 0L;
         m_expireBefore = 0L;
 
+        // added by Shi Jinghai, huaruhai@hotmail.com
+        m_topLatest = IGNORED;
+        m_top = -1;
+        
+        m_pagedLatest = IGNORED;
+        m_startRow = 0;
+        m_rowsInPage = 0;
+        
+        m_topLatestByTypes = IGNORED;
+        m_types = new ArrayList<Integer>();
+        // end
+        
         updateCacheId();
     }
 
@@ -546,6 +583,16 @@ public final class CmsResourceFilter {
         filter.m_releaseBefore = m_releaseBefore;
         filter.m_state = m_state;
         filter.m_type = m_type;
+
+        // added by Shi Jinghai, huaurhai@hotmail.com
+        filter.m_top = m_top;
+        filter.m_topLatest = m_topLatest;
+        filter.m_startRow = m_startRow;
+        filter.m_rowsInPage = m_rowsInPage;
+        filter.m_pagedLatest = m_pagedLatest;
+        filter.m_topLatestByTypes = m_topLatestByTypes;
+        filter.m_types = m_types;
+        // end
 
         return filter;
     }
@@ -977,6 +1024,159 @@ public final class CmsResourceFilter {
             result.append("-");
             result.append(m_releaseBefore);
         }
+
+        // added by Shi Jinghai, huaruhai@hotmail.com
+        if (m_topLatest == REQUIRED) {
+        	result.append(" Tl");
+        	result.append(m_top);
+        }
+        if (m_pagedLatest == REQUIRED) {
+        	result.append(" Pl");
+        	result.append(m_startRow);
+        	result.append("-");
+        	result.append(m_rowsInPage);
+        }
+        if (m_topLatestByTypes == REQUIRED) {
+        	result.append(" Tlbt");
+        	result.append(m_top);
+        	result.append("-");
+        	for (Integer i : m_types) {
+        		result.append(i + "_");
+        	}
+        }
+        // end
+
         m_cacheId = result.toString();
+    }
+
+    // added by Shi Jinghai, huaruhai@hotmail.com
+    /**
+     * Returns an extended filter to guarantee the top filtered resources.<p>
+     * 
+     * @param top the top number
+     * @return a filter requiring the given top number
+     */
+    public CmsResourceFilter addTopLatest(int top) {
+
+        CmsResourceFilter extendedFilter = (CmsResourceFilter)clone();
+
+        extendedFilter.m_top = top;
+        extendedFilter.m_topLatest = REQUIRED;
+        extendedFilter.m_pagedLatest = IGNORED;
+        extendedFilter.updateCacheId();
+
+        return extendedFilter;
+    }
+
+    /**
+     * Returns the top latest number for this filter.<p>
+     * 
+     * @return the top latest number for this filter
+     */
+    public int getTop() {
+
+        return m_top;
+    }
+
+    /**
+     * return if the top latest should be required while filtering resources.<p>
+     * 
+     * @return if the top latest should be required
+     */
+    public boolean requireTopLatest() {
+
+        return m_topLatest == REQUIRED;
+    }
+
+    /**
+     * Returns an extended filter to guarantee the paged filtered resources.<p>
+     * 
+     * @param startRow the start row number
+     * @param rowsInPage rows in the page of latest resources 
+     * @return a filter requiring the given paged resources
+     * 
+     */
+    public CmsResourceFilter addPagedLatest(int startRow, int rowsInPage) {
+
+        CmsResourceFilter extendedFilter = (CmsResourceFilter)clone();
+
+        extendedFilter.m_startRow = startRow;
+        extendedFilter.m_rowsInPage = rowsInPage;
+        extendedFilter.m_pagedLatest = REQUIRED;
+        extendedFilter.m_topLatest = IGNORED;
+        extendedFilter.updateCacheId();
+
+        return extendedFilter;
+    }
+
+    /**
+     * Returns the start row of latest resources for this filter.<p>
+     * 
+     * @return the start row of latest resources for this filter
+     */
+    public int getStartRow() {
+
+        return m_startRow;
+    }
+
+    /**
+     * Returns the rows of the page of latest resources for this filter.<p>
+     * 
+     * @return the rows of the page of latest resources for this filter
+     */
+    public int getRowsInPage() {
+
+        return m_rowsInPage;
+    }
+
+    /**
+     * Returns if the paged latest should be required while filtering resources.<p>
+     * 
+     * @return if the paged latest should be required
+     * 
+     */
+    public boolean requirePagedLatest() {
+
+        return m_pagedLatest == REQUIRED;
+    }
+
+    /**
+     * Return if the paged latest should be required while filtering resources according to the assigned types.<p>
+     * 
+     * @return if the paged latest should be required
+     * 
+     */
+    public boolean requireTopLatestByTypes() {
+
+        return m_topLatestByTypes == REQUIRED;
+    }
+    
+    /**
+     * Returns the type for this filter.<p>
+     * 
+     * @return the type for this filter
+     */
+    public List<Integer> getTypes() {
+
+        return m_types;
+    }
+    
+    /**
+     * Returns an extended filter to guarantee the top resources filtered by types.<p>
+     * 
+     * @param top the top number
+     * @param types the resource types to filter
+     * @return a filter requiring the given top number
+     */
+    public CmsResourceFilter addTopLatestByTypes(int top, List<Integer> types) {
+
+        CmsResourceFilter extendedFilter = (CmsResourceFilter)clone();
+
+        extendedFilter.m_top = top;
+        extendedFilter.m_types = types;
+        extendedFilter.m_topLatestByTypes = REQUIRED;
+        extendedFilter.updateCacheId();
+
+        return extendedFilter;
     }
 }

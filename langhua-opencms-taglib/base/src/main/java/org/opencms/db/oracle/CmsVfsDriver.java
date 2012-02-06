@@ -31,11 +31,15 @@ import org.opencms.db.CmsDbContext;
 import org.opencms.db.CmsDbEntryNotFoundException;
 import org.opencms.db.CmsDbIoException;
 import org.opencms.db.CmsDbSqlException;
+import org.opencms.db.CmsResourceState;
 import org.opencms.db.generic.CmsSqlManager;
 import org.opencms.db.generic.Messages;
 import org.opencms.file.CmsDataAccessException;
+import org.opencms.file.CmsFolder;
 import org.opencms.file.CmsProject;
+import org.opencms.file.CmsResource;
 import org.opencms.main.OpenCms;
+import org.opencms.util.CmsFileUtil;
 import org.opencms.util.CmsUUID;
 
 import java.io.IOException;
@@ -44,6 +48,8 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.List;
 
 import org.apache.commons.dbcp.DelegatingResultSet;
 
@@ -258,5 +264,219 @@ public class CmsVfsDriver extends org.opencms.db.generic.CmsVfsDriver {
                 commit,
                 wasInTransaction);
         }
+    }
+
+    /**
+     * @see org.opencms.db.I_CmsVfsDriver#readTopLatestResourceTree(org.opencms.db.CmsDbContext, CmsUUID, java.lang.String, int, CmsResourceState, long, long, long, long, long, long, int, int)
+     */
+    public List<CmsResource> readTopLatestResourceTree(
+        CmsDbContext dbc,
+        CmsUUID projectId,
+        String parentPath,
+        int type,
+        CmsResourceState state,
+        long lastModifiedAfter,
+        long lastModifiedBefore,
+        long releasedAfter,
+        long releasedBefore,
+        long expiredAfter,
+        long expiredBefore,
+        int mode,
+        int top) throws CmsDataAccessException {
+
+        List<CmsResource> result = new ArrayList<CmsResource>();
+
+        StringBuffer conditions = new StringBuffer();
+        List params = new ArrayList(5);
+
+        // prepare the selection criteria
+        prepareProjectCondition(projectId, mode, conditions, params);
+        prepareResourceCondition(projectId, mode, conditions);
+        prepareTypeCondition(projectId, type, mode, conditions, params);
+        prepareTimeRangeCondition(projectId, lastModifiedAfter, lastModifiedBefore, conditions, params);
+        prepareReleasedTimeRangeCondition(projectId, releasedAfter, releasedBefore, conditions, params);
+        prepareExpiredTimeRangeCondition(projectId, expiredAfter, expiredBefore, conditions, params);
+        preparePathCondition(projectId, parentPath, mode, conditions, params);
+        prepareStateCondition(projectId, state, mode, conditions, params);
+        
+
+        // now read matching resources within the subtree 
+        ResultSet res = null;
+        PreparedStatement stmt = null;
+        Connection conn = null;
+        StringBuffer queryBuf = new StringBuffer(256);
+
+        try {
+            conn = m_sqlManager.getConnection(dbc);
+            queryBuf.append(m_sqlManager.readQuery(projectId, "C_ORACLE_RESOURCES_READ_TREE"));
+            queryBuf.append(conditions);
+            queryBuf.append(" ");
+            queryBuf.append(m_sqlManager.readQuery(projectId, "C_ORACLE_RESOURCES_ORDER_BY_DATELASTMODIFIED"));
+            stmt = m_sqlManager.getPreparedStatementForSql(conn, queryBuf.toString());
+
+            int i = 0;
+            for (; i < params.size(); i++) {
+                Object obj = params.get(i);
+                if (obj instanceof String) {
+                    stmt.setString(i + 1, (String) obj);
+                } else if (obj instanceof Integer) {
+                	stmt.setInt(i + 1, (Integer) obj);
+                }
+            }
+            stmt.setInt(i + 1, top);
+
+            res = stmt.executeQuery();
+            while (res.next()) {
+                CmsResource resource = createPagedResource(res, projectId);
+                result.add(resource);
+            }
+
+            m_sqlManager.closeAll(dbc, conn, stmt, res);
+        } catch (SQLException e) {
+            throw new CmsDbSqlException(Messages.get().container(
+                Messages.ERR_GENERIC_SQL_1,
+                CmsDbSqlException.getErrorQuery(stmt)), e);
+        } finally {
+            m_sqlManager.closeAll(dbc, conn, stmt, res);
+        }
+
+        return result;
+    }
+
+    /**
+     * @see org.opencms.db.I_CmsVfsDriver#readPagedLatestResourceTree(org.opencms.db.CmsDbContext, CmsUUID, java.lang.String, int, CmsResourceState, long, long, long, long, long, long, int, int, int)
+     */
+    public List<CmsResource> readPagedLatestResourceTree(
+        CmsDbContext dbc,
+        CmsUUID projectId,
+        String parentPath,
+        int type,
+        CmsResourceState state,
+        long lastModifiedAfter,
+        long lastModifiedBefore,
+        long releasedAfter,
+        long releasedBefore,
+        long expiredAfter,
+        long expiredBefore,
+        int mode,
+        int startRow,
+        int rowsInPage) throws CmsDataAccessException {
+
+        List<CmsResource> result = new ArrayList<CmsResource>();
+
+        StringBuffer conditions = new StringBuffer();
+        List params = new ArrayList(5);
+
+        // prepare the selection criteria
+        prepareProjectCondition(projectId, mode, conditions, params);
+        prepareResourceCondition(projectId, mode, conditions);
+        prepareTypeCondition(projectId, type, mode, conditions, params);
+        prepareTimeRangeCondition(projectId, lastModifiedAfter, lastModifiedBefore, conditions, params);
+        prepareReleasedTimeRangeCondition(projectId, releasedAfter, releasedBefore, conditions, params);
+        prepareExpiredTimeRangeCondition(projectId, expiredAfter, expiredBefore, conditions, params);
+        preparePathCondition(projectId, parentPath, mode, conditions, params);
+        prepareStateCondition(projectId, state, mode, conditions, params);
+        
+
+        // now read matching resources within the subtree 
+        ResultSet res = null;
+        PreparedStatement stmt = null;
+        Connection conn = null;
+
+        try {
+            conn = m_sqlManager.getConnection(dbc);
+            StringBuffer queryBuf = new StringBuffer(256);
+            queryBuf.append(m_sqlManager.readQuery(projectId, "C_ORACLE_RESOURCES_READ_TREE_PAGED"));
+            queryBuf.append(conditions);
+            queryBuf.append(" ");
+            queryBuf.append(m_sqlManager.readQuery(projectId, "C_ORACLE_RESOURCES_PAGED_ORDER_BY_DATELASTMODIFIED"));
+            stmt = m_sqlManager.getPreparedStatementForSql(conn, queryBuf.toString());
+            
+            int i = 0;
+            for (; i < params.size(); i++) {
+                Object obj = params.get(i);
+                if (obj instanceof String) {
+                    stmt.setString(i + 1, (String) obj);
+                } else if (obj instanceof Integer) {
+                	stmt.setInt(i + 1, (Integer) obj);
+                }
+            }
+            stmt.setInt(i + 1, startRow);
+            stmt.setInt(i + 2, startRow + rowsInPage);
+
+            res = stmt.executeQuery();
+            while (res.next()) {
+                CmsResource resource = createPagedResource(res, projectId);
+                result.add(resource);
+            }
+
+            m_sqlManager.closeAll(dbc, conn, stmt, res);
+        } catch (SQLException e) {
+            throw new CmsDbSqlException(Messages.get().container(
+                Messages.ERR_GENERIC_SQL_1,
+                CmsDbSqlException.getErrorQuery(stmt)), e);
+        } finally {
+            m_sqlManager.closeAll(dbc, conn, stmt, res);
+        }
+
+        return result;
+    }
+
+    /**
+     * @see org.opencms.db.I_CmsVfsDriver#createResource(java.sql.ResultSet, CmsUUID)
+     */
+    protected CmsResource createPagedResource(ResultSet res, CmsUUID projectId) throws SQLException {
+
+        CmsUUID structureId = new CmsUUID(res.getString(m_sqlManager.readQuery("C_RESOURCES_STRUCTURE_ID")));
+        CmsUUID resourceId = new CmsUUID(res.getString(m_sqlManager.readQuery("C_RESOURCES_RESOURCE_ID")));
+        String resourcePath = res.getString(m_sqlManager.readQuery("C_RESOURCES_RESOURCE_PATH"));
+        int resourceType = res.getInt(m_sqlManager.readQuery("C_RESOURCES_RESOURCE_TYPE"));
+        int resourceFlags = res.getInt(m_sqlManager.readQuery("C_RESOURCES_RESOURCE_FLAGS"));
+        CmsUUID resourceProjectLastModified = new CmsUUID(
+            res.getString(m_sqlManager.readQuery("C_ORACLE_RESOURCES_PROJECT_LASTMODIFIED")));
+        int resourceState = res.getInt(m_sqlManager.readQuery("C_RESOURCES_STATE"));
+        int structureState = res.getInt(m_sqlManager.readQuery("C_RESOURCES_STRUCTURE_STATE"));
+        long dateCreated = res.getLong(m_sqlManager.readQuery("C_RESOURCES_DATE_CREATED"));
+        long dateLastModified = res.getLong(m_sqlManager.readQuery("C_RESOURCES_DATE_LASTMODIFIED"));
+        long dateReleased = res.getLong(m_sqlManager.readQuery("C_RESOURCES_DATE_RELEASED"));
+        long dateExpired = res.getLong(m_sqlManager.readQuery("C_RESOURCES_DATE_EXPIRED"));
+        int resourceSize = res.getInt(m_sqlManager.readQuery("C_RESOURCES_SIZE"));
+        boolean isFolder = CmsFolder.isFolderSize(resourceSize);
+        if (isFolder) {
+            // in case of folder type ensure, that the root path has a trailing slash
+            resourcePath = CmsFileUtil.addTrailingSeparator(resourcePath);
+        }
+        long dateContent = isFolder ? -1 : res.getLong(m_sqlManager.readQuery("C_RESOURCES_DATE_CONTENT"));
+        CmsUUID userCreated = new CmsUUID(res.getString(m_sqlManager.readQuery("C_RESOURCES_USER_CREATED")));
+        CmsUUID userLastModified = new CmsUUID(res.getString(m_sqlManager.readQuery("C_RESOURCES_USER_LASTMODIFIED")));
+        int siblingCount = res.getInt(m_sqlManager.readQuery("C_RESOURCES_SIBLING_COUNT"));
+        int resourceVersion = res.getInt(m_sqlManager.readQuery("C_RESOURCES_VERSION"));
+        int structureVersion = res.getInt(m_sqlManager.readQuery("C_RESOURCES_STRUCTURE_VERSION"));
+
+        int newState = (structureState > resourceState) ? structureState : resourceState;
+        // if there is a change increase the version number
+        int newVersion = resourceVersion + structureVersion + (newState > 0 ? 1 : 0);
+
+        CmsResource newResource = new CmsResource(
+            structureId,
+            resourceId,
+            resourcePath,
+            resourceType,
+            isFolder,
+            resourceFlags,
+            resourceProjectLastModified,
+            CmsResourceState.valueOf(newState),
+            dateCreated,
+            userCreated,
+            dateLastModified,
+            userLastModified,
+            dateReleased,
+            dateExpired,
+            siblingCount,
+            resourceSize,
+            dateContent,
+            newVersion);
+
+        return newResource;
     }
 }

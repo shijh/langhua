@@ -3910,4 +3910,44 @@ public final class CmsObject {
         getResourceType(resource).lockResource(this, m_securityManager, resource, type);
     }
 
+    /**
+     * Counts all resources below the given path matching the filter criteria, 
+     * including the full tree below the path.<p>
+     * 
+     * @param resourcename the parent path to read the resources from
+     * @param filter the filter
+     * 
+     * @return a list of <code>{@link CmsResource}</code> objects matching the filter criteria
+     * 
+     * @throws CmsException if something goes wrong
+     * 
+     * @see #countResources(String, CmsResourceFilter, boolean)
+     * 
+     * Added by Shi Jinghai, huaruhai@hotmail.com
+     */
+    public int countResources(String resourcename, CmsResourceFilter filter) throws CmsException {
+
+        return countResources(resourcename, filter, true);
+    }
+
+    /**
+     * Counts all resources below the given path matching the filter criteria,
+     * including the full tree below the path only in case the <code>readTree</code> 
+     * parameter is <code>true</code>.<p>
+     * 
+     * @param resourcename the parent path to read the resources from
+     * @param filter the filter
+     * @param readTree <code>true</code> to read all sub resources
+     * 
+     * @return a list of <code>{@link CmsResource}</code> objects matching the filter criteria
+     * 
+     * @throws CmsException if something goes wrong
+     * 
+     * Added by Shi Jinghai, huaruhai@hotmail.com
+     */
+    public int countResources(String resourcename, CmsResourceFilter filter, boolean readTree) throws CmsException {
+
+        CmsResource resource = readResource(resourcename, CmsResourceFilter.ALL);
+        return m_securityManager.countResources(m_context, resource, filter, readTree);
+    }
 }
