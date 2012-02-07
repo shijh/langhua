@@ -10,9 +10,11 @@ configuring screen-lets (or elements) without any help of programmers during pro
 
 
 3. Taglib List:
+Resource type of taglib.css is 247150000, taglib.link's is 247150001.
+
 Module                                        Taglib Name                     Config Type         Resource Type Id       Schema File                Template File
 -----------------------------------------------------------------------------------------------------------------------------------------------------------------
-org.langhua.opencms.taglib.datetime              date                            css                 247150000             date.xsd                   date.jsp
+org.langhua.opencms.taglib.datetime              date                            css                 247150010             date.xsd                   date.jsp
 (2)                                                                              link
                                                  time                            css
                                                                                  link

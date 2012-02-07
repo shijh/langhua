@@ -1,12 +1,8 @@
 /*
- * File   : $Source: /usr/local/cvs/opencms/src/org/opencms/workplace/explorer/CmsNewResource.java,v $
- * Date   : $Date: 2008-06-09 13:11:04 $
- * Version: $Revision: 1.38 $
- *
  * This library is part of OpenCms -
  * the Open Source Content Management System
  *
- * Copyright (c) 2002 - 2008 Alkacon Software GmbH (http://www.alkacon.com)
+ * Copyright (c) Alkacon Software GmbH (http://www.alkacon.com)
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -49,6 +45,7 @@ import org.opencms.security.CmsRole;
 import org.opencms.util.CmsRequestUtil;
 import org.opencms.util.CmsStringUtil;
 import org.opencms.util.CmsUriSplitter;
+import org.opencms.workplace.CmsWorkplace;
 import org.opencms.workplace.CmsWorkplaceMessages;
 import org.opencms.workplace.CmsWorkplaceSettings;
 import org.opencms.workplace.commons.CmsPropertyAdvanced;
@@ -76,7 +73,7 @@ import javax.servlet.jsp.PageContext;
 
 import org.apache.commons.logging.Log;
 
-import cn.langhua.opencms.taglib.commons.A_LanghuaTag;
+import org.langhua.opencms.taglib.commons.A_LanghuaTag;
 
 /**
  * The new resource entry dialog which displays the possible "new actions" for the current user.<p>
@@ -89,16 +86,7 @@ import cn.langhua.opencms.taglib.commons.A_LanghuaTag;
  * </ul>
  * <p>
  * 
- * @author Andreas Zahner 
- * @author Armen Markarian 
- * @author Peter Bonrad
- * 
- * @version $Revision: 1.38 $ 
- * 
  * @since 6.0.0 
- * 
- * Add a new function to show Langhua taglib picture in the new resource dialog.
- * @author Shi Yusen, shiys@langhua.cn
  */
 public class CmsNewResource extends A_CmsListResourceTypeDialog {
 
@@ -323,10 +311,14 @@ public class CmsNewResource extends A_CmsListResourceTypeDialog {
      * @param title the Title String to use for the property values
      * @return the List of initialized property objects
      */
-    protected static List createResourceProperties(CmsObject cms, String resourceName, String resTypeName, String title) {
+    protected static List<CmsProperty> createResourceProperties(
+        CmsObject cms,
+        String resourceName,
+        String resTypeName,
+        String title) {
 
         // create property values
-        List properties = new ArrayList(3);
+        List<CmsProperty> properties = new ArrayList<CmsProperty>(3);
 
         // get explorer type settings for the resource type
         CmsExplorerTypeSettings settings = OpenCms.getWorkplaceManager().getExplorerTypeSetting(resTypeName);
@@ -341,10 +333,10 @@ public class CmsNewResource extends A_CmsListResourceTypeDialog {
             properties.add(createPropertyObject(CmsPropertyDefinition.PROPERTY_NAVTEXT, title));
 
             // calculate the new navigation position for the resource
-            List navList = CmsJspNavBuilder.getNavigationForFolder(cms, resourceName);
+            List<CmsJspNavElement> navList = new CmsJspNavBuilder(cms).getNavigationForFolder(resourceName);
             float navPos = 1;
             if (navList.size() > 0) {
-                CmsJspNavElement nav = (CmsJspNavElement)navList.get(navList.size() - 1);
+                CmsJspNavElement nav = navList.get(navList.size() - 1);
                 navPos = nav.getNavPosition() + 1;
             }
             // add the NavPos property
@@ -365,6 +357,7 @@ public class CmsNewResource extends A_CmsListResourceTypeDialog {
      * 
      * @throws JspException if including an element fails
      */
+    @Override
     public void actionCloseDialog() throws JspException {
 
         if (isCreateIndexMode()) {
@@ -372,7 +365,7 @@ public class CmsNewResource extends A_CmsListResourceTypeDialog {
             // set the current explorer resource to the new created folder
             String updateFolder = CmsResource.getParentFolder(getSettings().getExplorerResource());
             getSettings().setExplorerResource(updateFolder, getCms());
-            List folderList = new ArrayList(1);
+            List<String> folderList = new ArrayList<String>(1);
             if (updateFolder != null) {
                 folderList.add(updateFolder);
             }
@@ -397,7 +390,7 @@ public class CmsNewResource extends A_CmsListResourceTypeDialog {
 
             // create the Title and Navigation properties if configured
             I_CmsResourceType resType = OpenCms.getResourceManager().getResourceType(getParamNewResourceType());
-            List properties = createResourceProperties(fullResourceName, resType.getTypeName(), title);
+            List<CmsProperty> properties = createResourceProperties(fullResourceName, resType.getTypeName(), title);
 
             // create the resource            
             getCms().createResource(fullResourceName, resType.getTypeId(), null, properties);
@@ -414,6 +407,7 @@ public class CmsNewResource extends A_CmsListResourceTypeDialog {
     /**
      * @see org.opencms.workplace.list.A_CmsListDialog#actionDialog()
      */
+    @Override
     public void actionDialog() throws JspException, ServletException, IOException {
 
         super.actionDialog();
@@ -516,6 +510,7 @@ public class CmsNewResource extends A_CmsListResourceTypeDialog {
      * 
      * @return the button row 
      */
+    @Override
     public String dialogButtons() {
 
         return dialogButtonsAdvancedNextCancel(
@@ -641,6 +636,7 @@ public class CmsNewResource extends A_CmsListResourceTypeDialog {
      *
      * @return the paramPage
      */
+    @Override
     public String getParamPage() {
 
         return m_paramPage;
@@ -655,7 +651,7 @@ public class CmsNewResource extends A_CmsListResourceTypeDialog {
 
         String result = "";
         if (OpenCms.getDefaultFiles().size() > 0) {
-            String defaultfile = (String)OpenCms.getDefaultFiles().get(0);
+            String defaultfile = OpenCms.getDefaultFiles().get(0);
             int index = defaultfile.indexOf('.');
             if (index >= 0) {
                 result = defaultfile.substring(index, defaultfile.length());
@@ -692,6 +688,7 @@ public class CmsNewResource extends A_CmsListResourceTypeDialog {
      * 
      * @see org.opencms.workplace.CmsWorkplace#paramsAsHidden()
      */
+    @Override
     public String paramsAsHidden() {
 
         String resourceName = getParamResource();
@@ -780,6 +777,7 @@ public class CmsNewResource extends A_CmsListResourceTypeDialog {
      *
      * @param paramPage the paramPage to set
      */
+    @Override
     public void setParamPage(String paramPage) {
 
         m_paramPage = paramPage;
@@ -837,7 +835,9 @@ public class CmsNewResource extends A_CmsListResourceTypeDialog {
         if (CmsStringUtil.isEmpty(currentFolder)) {
             currentFolder = computeCurrentFolder();
         }
-        return currentFolder + getParamResource();
+        String translatedFilename = OpenCms.getResourceManager().getFileTranslator().translateResource(
+            getParamResource());
+        return currentFolder + translatedFilename;
     }
 
     /**
@@ -850,7 +850,7 @@ public class CmsNewResource extends A_CmsListResourceTypeDialog {
      * @param title the Title String to use for the property values
      * @return the List of initialized property objects
      */
-    protected List createResourceProperties(String resourceName, String resTypeName, String title) {
+    protected List<CmsProperty> createResourceProperties(String resourceName, String resTypeName, String title) {
 
         return createResourceProperties(getCms(), resourceName, resTypeName, title);
     }
@@ -858,6 +858,7 @@ public class CmsNewResource extends A_CmsListResourceTypeDialog {
     /**
      * @see org.opencms.workplace.list.A_CmsListDialog#customHtmlStart()
      */
+    @Override
     protected String customHtmlStart() {
 
         StringBuffer result = new StringBuffer(256);
@@ -883,7 +884,7 @@ public class CmsNewResource extends A_CmsListResourceTypeDialog {
 
         result.append("</script>");
 
-        // added by Shi Yusen, shiys@langhua.cn
+        // added by Shi Jinghai, huaruhai@hotmail.com
         result.append(A_LanghuaTag.showHelpPicture(getJsp()));
         return result.toString();
     }
@@ -891,6 +892,7 @@ public class CmsNewResource extends A_CmsListResourceTypeDialog {
     /**
      * @see org.opencms.workplace.CmsDialog#dialogButtonsHtml(java.lang.StringBuffer, int, java.lang.String)
      */
+    @Override
     protected void dialogButtonsHtml(StringBuffer result, int button, String attribute) {
 
         attribute = appendDelimiter(attribute);
@@ -911,24 +913,25 @@ public class CmsNewResource extends A_CmsListResourceTypeDialog {
     /**
      * @see org.opencms.workplace.list.A_CmsListDialog#getListItems()
      */
-    protected List getListItems() {
+    @Override
+    protected List<CmsListItem> getListItems() {
 
-        List ret = new ArrayList();
+        List<CmsListItem> ret = new ArrayList<CmsListItem>();
 
-        Iterator i;
+        Iterator<CmsExplorerTypeSettings> i;
         if (m_limitedRestypes) {
 
             // available resource types limited, create list iterator of given limited types
-            List newResTypes;
+            List<String> newResTypes;
             if (m_availableResTypes.indexOf(DELIM_PROPERTYVALUES) > -1) {
                 newResTypes = CmsStringUtil.splitAsList(m_availableResTypes, DELIM_PROPERTYVALUES, true);
             } else {
                 newResTypes = CmsStringUtil.splitAsList(m_availableResTypes, CmsProperty.VALUE_LIST_DELIMITER, true);
             }
-            Iterator k = newResTypes.iterator();
-            List settings = new ArrayList(newResTypes.size());
+            Iterator<String> k = newResTypes.iterator();
+            List<CmsExplorerTypeSettings> settings = new ArrayList<CmsExplorerTypeSettings>(newResTypes.size());
             while (k.hasNext()) {
-                String resType = (String)k.next();
+                String resType = k.next();
 
                 // get settings for resource type
                 CmsExplorerTypeSettings set = OpenCms.getWorkplaceManager().getExplorerTypeSetting(resType);
@@ -956,7 +959,7 @@ public class CmsNewResource extends A_CmsListResourceTypeDialog {
         }
 
         while (i.hasNext()) {
-            CmsExplorerTypeSettings settings = (CmsExplorerTypeSettings)i.next();
+            CmsExplorerTypeSettings settings = i.next();
 
             if (!m_limitedRestypes) {
 
@@ -986,7 +989,7 @@ public class CmsNewResource extends A_CmsListResourceTypeDialog {
 
             // add found setting to list
             CmsListItem item = getList().newItem(settings.getName());
-            // modified by Shi Yusen, shiys@langhua.cn
+            // modified by Shi Jinghai, huaruhai@hotmail.com
 			String taglibicon = key(A_LanghuaTag.TAGLIB_ICON_PREFIX + settings.getName());
 			if (getCms().existsResource(taglibicon)) {
 	            item.set(LIST_COLUMN_NAME, 
@@ -996,23 +999,26 @@ public class CmsNewResource extends A_CmsListResourceTypeDialog {
 					+ "id=\"img" + item.getId() + "\">"
 					+ key(settings.getKey())
 					+ "</span>");
-	            item.set(LIST_COLUMN_ICON, "<img src=\""
-	                + getSkinUri()
-	                + "filetypes/"
-	                + settings.getIcon()
-	                + "\" style=\"width: 16px; height: 16px;\" "
-					+ "onMouseOver=\"showHelpPicture('" + item.getId() + "', '" + getJsp().link(taglibicon) + "');\" "
-					+ "onMouseOut=\"hideHelpPicture();\" "
-					+ "id=\"img" + item.getId() + "\""
-	                + " />");
+	            item.set(
+	            	LIST_COLUMN_ICON, 
+	            	"<img src=\""
+	                    + getSkinUri()
+	                    + CmsWorkplace.RES_PATH_FILETYPES
+	                    + settings.getIcon()
+	                    + "\" style=\"width: 16px; height: 16px;\" "
+					    + "onMouseOver=\"showHelpPicture('" + item.getId() + "', '" + getJsp().link(taglibicon) + "');\" "
+					    + "onMouseOut=\"hideHelpPicture();\" "
+					    + "id=\"img" + item.getId() + "\""
+	                    + " />");
 			} else {
 	            item.set(LIST_COLUMN_NAME, key(settings.getKey()));
-	            item.set(LIST_COLUMN_ICON, "<img src=\""
-	                + getSkinUri()
-	                + "filetypes/"
-	                + settings.getIcon()
-	                + "\" style=\"width: 16px; height: 16px;\" "
-	                + " />");
+	            item.set(
+	                LIST_COLUMN_ICON,
+	                "<img src=\""
+	                    + getSkinUri()
+	                    + CmsWorkplace.RES_PATH_FILETYPES
+	                    + settings.getIcon()
+	                    + "\" style=\"width: 16px; height: 16px;\" />");
 			}
             item.set(LIST_COLUMN_URI, CmsEncoder.encode(settings.getNewResourceUri()));
             ret.add(item);
@@ -1052,6 +1058,7 @@ public class CmsNewResource extends A_CmsListResourceTypeDialog {
     /**
      * @see org.opencms.workplace.CmsWorkplace#initWorkplaceRequestValues(org.opencms.workplace.CmsWorkplaceSettings, javax.servlet.http.HttpServletRequest)
      */
+    @Override
     protected void initWorkplaceRequestValues(CmsWorkplaceSettings settings, HttpServletRequest request) {
 
         // set the dialog type
@@ -1073,7 +1080,7 @@ public class CmsNewResource extends A_CmsListResourceTypeDialog {
             setParamPage(null);
 
             if (CmsStringUtil.isEmptyOrWhitespaceOnly(getParamNewFormUri())
-                || getParamNewResourceUri().indexOf("?" + PARAM_PAGE) != -1) {
+                || (getParamNewResourceUri().indexOf("?" + PARAM_PAGE) != -1)) {
                 setParamNewFormUri(getParamNewResourceUri());
                 setParamNewResourceUri(null);
             }
@@ -1111,11 +1118,13 @@ public class CmsNewResource extends A_CmsListResourceTypeDialog {
         // get session attribute storing if we are in advanced mode
         String advAttr = (String)request.getSession(true).getAttribute(SESSION_ATTR_ADVANCED);
 
-        if (DIALOG_ADVANCED.equals(getParamAction()) || advAttr != null) {
+        if (DIALOG_ADVANCED.equals(getParamAction()) || (advAttr != null)) {
             // advanced mode to display all possible resource types
             if (advAttr == null) {
                 // set attribute that we are in advanced mode
                 request.getSession(true).setAttribute(SESSION_ATTR_ADVANCED, "true");
+                // remove eventual resource URI parameter value to avoid errors if a type was selected
+                setParamNewResourceUri(null);
             }
         } else {
 
@@ -1140,6 +1149,7 @@ public class CmsNewResource extends A_CmsListResourceTypeDialog {
     /**
      * @see org.opencms.workplace.list.A_CmsListDialog#setColumns(org.opencms.workplace.list.CmsListMetadata)
      */
+    @Override
     protected void setColumns(CmsListMetadata metadata) {
 
         super.setColumns(metadata);
@@ -1170,7 +1180,7 @@ public class CmsNewResource extends A_CmsListResourceTypeDialog {
             // creation of an index file in a new folder, use default file name
             String defaultFile = "";
             try {
-                defaultFile = (String)OpenCms.getDefaultFiles().get(0);
+                defaultFile = OpenCms.getDefaultFiles().get(0);
             } catch (IndexOutOfBoundsException e) {
 
                 // list is empty, ignore    
@@ -1189,7 +1199,7 @@ public class CmsNewResource extends A_CmsListResourceTypeDialog {
     /**
      * @see org.opencms.workplace.list.A_CmsListDialog#customHtmlEnd()
      * 
-     * Modified by Shi Yusen, shiys@langhua.cn
+     * Modified by Shi Jinghai, huaruhai@hotmail.com
      */
     protected String customHtmlEnd() {
 
@@ -1200,6 +1210,4 @@ public class CmsNewResource extends A_CmsListResourceTypeDialog {
 
         return result.toString();
     }
-
-
 }

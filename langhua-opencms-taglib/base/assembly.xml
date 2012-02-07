@@ -8,7 +8,6 @@
 		<fileSet>
 			<lineEnding>unix</lineEnding>
 			<useDefaultExcludes>true</useDefaultExcludes>
-			<useStrictFiltering>false</useStrictFiltering>
 			<directory>${basedir}/src/opencms-module</directory> 
 			<outputDirectory></outputDirectory>
 			<includes>
@@ -21,7 +20,6 @@
 		</fileSet>
 		<fileSet>
 			<useDefaultExcludes>true</useDefaultExcludes>
-			<useStrictFiltering>false</useStrictFiltering>
 			<directory>${basedir}/src/opencms-module</directory>
 			<outputDirectory></outputDirectory>
 			<includes>
@@ -32,19 +30,18 @@
 		</fileSet>		
         <fileSet>
             <useDefaultExcludes>true</useDefaultExcludes>
-            <useStrictFiltering>false</useStrictFiltering>
             <directory>${basedir}/target/classes</directory>
-            <outputDirectory>/system/modules/org.langhua.opencms.taglib.common/classes
+            <outputDirectory>/system/modules/org.langhua.opencms.taglib.base/classes
             </outputDirectory>
             <includes>
-                <include>**/org/opencms/workplace/**</include>
+                <include>**/org/opencms/**</include>
             </includes>
         </fileSet>
     </fileSets>
     <files>
         <file>
             <source>${basedir}/target/opencms-taglib-base-${project.version}.jar</source>
-            <outputDirectory>/system/modules/org.langhua.opencms.taglib.common/lib</outputDirectory>
+            <outputDirectory>/system/modules/org.langhua.opencms.taglib.base/lib</outputDirectory>
             <destName>opencms-taglib-base.jar</destName>
             <filtered>false</filtered>
         </file>        

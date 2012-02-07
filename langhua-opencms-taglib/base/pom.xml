@@ -42,7 +42,7 @@
 					<descriptors>
 						<descriptor>assembly.xml</descriptor>
 					</descriptors>
-					<finalName>org.langhua.opencms.taglib.${project.modulename}_${project.version}.0</finalName>
+					<finalName>org.langhua.opencms.taglib.base_${project.version}.0</finalName>
 					<outputDirectory>${basedir}/target</outputDirectory>
 					<workDirectory>${basedir}/target/assembly/work</workDirectory>
 					<appendAssemblyId>false</appendAssemblyId>
