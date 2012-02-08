@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<Dates xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="opencms://system/modules/org.langhua.opencms.taglib.datetime/schemas/date.css.xsd">
+  <Date language="zh">
+    <main.width><![CDATA[0]]></main.width>
+    <main.height><![CDATA[0]]></main.height>
+    <line.height><![CDATA[0]]></line.height>
+    <main.border.top.width><![CDATA[0]]></main.border.top.width>
+    <main.border.bottom.width><![CDATA[0]]></main.border.bottom.width>
+    <main.border.left.width><![CDATA[0]]></main.border.left.width>
+    <main.border.right.width><![CDATA[0]]></main.border.right.width>
+    <main.border.style><![CDATA[solid]]></main.border.style>
+    <main.border.color>#000000</main.border.color>
+    <text.align><![CDATA[center]]></text.align>
+    <fontcolor>#000000</fontcolor>
+    <fontsize><![CDATA[12]]></fontsize>
+    <bgimage/>
+  </Date>
+</Dates>

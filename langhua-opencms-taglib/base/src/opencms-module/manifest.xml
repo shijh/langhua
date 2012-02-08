@@ -37,10 +37,10 @@
 		</parameters>
 		<explorertypes>
 			<explorertype name="taglib.css" key="fileicon.lh-taglib.css" icon="taglib.css.jpg" reference="folder">
-				<newresource uri="newresource.jsp?page=css" order="247150000" autosetnavigation="false" autosettitle="false"/>
+				<newresource uri="newresource.jsp?page=taglib.css" order="247150000" autosetnavigation="false" autosettitle="false"/>
 			</explorertype>
 			<explorertype name="taglib.link" key="fileicon.lh-taglib.link" icon="taglib.link.jpg" reference="folder">
-				<newresource uri="newresource.jsp?page=link" order="247150001" autosetnavigation="false" autosettitle="false"/>
+				<newresource uri="newresource.jsp?page=taglib.link" order="247150001" autosetnavigation="false" autosettitle="false"/>
 			</explorertype>
 		</explorertypes>
 	</module>

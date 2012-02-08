@@ -1,0 +1,465 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<export>
+	<info>
+		<creator>Admin</creator>
+		<opencms_version>8.0.3</opencms_version>
+		<createdate>Wed, 08 Feb 2012 20:08:58 GMT</createdate>
+		<infoproject>Offline</infoproject>
+		<export_version>7</export_version>
+	</info>
+	<module>
+		<name>org.langhua.opencms.taglib.datetime</name>
+		<nicename><![CDATA[Langhua Taglib Datatime]]></nicename>
+		<group>Beijing Langhua Ltd.</group>
+		<class/>
+		<description/>
+		<version>8.0.3.0</version>
+		<authorname><![CDATA[Shi Jinghai]]></authorname>
+		<authoremail><![CDATA[huaruhai@hotmail.com]]></authoremail>
+		<datecreated/>
+		<userinstalled/>
+		<dateinstalled/>
+		<dependencies>
+			<dependency name="org.langhua.opencms.taglib.base" version="8.0.3.0"/>
+		</dependencies>
+		<exportpoints>
+			<exportpoint uri="/system/modules/org.langhua.opencms.taglib.datetime/lib/" destination="WEB-INF/lib/"/>
+			<exportpoint uri="/system/modules/org.langhua.opencms.taglib.datetime/classes/" destination="WEB-INF/classes/"/>
+		</exportpoints>
+		<resources>
+			<resource uri="/system/modules/org.langhua.opencms.taglib.datetime/"/>
+		</resources>
+		<parameters/>
+		<resourcetypes>
+			<type class="org.opencms.file.types.CmsResourceTypeXmlContent" name="date.css" id="247150010">
+				<properties>
+					<property>
+						<name>template-elements</name>
+						<value type="shared"><![CDATA[/system/modules/org.langhua.opencms.taglib.datetime/elements/date.css.jsp]]></value>
+					</property>
+				</properties>
+				<param name="schema">/system/modules/org.langhua.opencms.taglib.datetime/schemas/date.css.xsd</param>
+			</type>
+			<type class="org.opencms.file.types.CmsResourceTypeXmlContent" name="time.css" id="247150012">
+				<properties>
+					<property>
+						<name>template-elements</name>
+						<value type="shared"><![CDATA[/system/modules/org.langhua.opencms.taglib.datetime/elements/time.css.jsp]]></value>
+					</property>
+				</properties>
+				<param name="schema">/system/modules/org.langhua.opencms.taglib.datetime/schemas/date.css.xsd</param>
+			</type>
+		</resourcetypes>
+		<explorertypes>
+			<explorertype name="date.css" key="fileicon.lh-taglib.date.css" icon="taglib.css.jpg" reference="xmlcontent">
+				<newresource page="taglib.css" uri="newresource_xmlcontent.jsp?newresourcetype=date.css" order="247150010" autosetnavigation="false" autosettitle="false"/>
+				<accesscontrol>
+					<accessentry principal="GROUP.Administrators" permissions="+r+v+w+c"/>
+					<accessentry principal="GROUP.Projectmanagers" permissions="+r+v+w+c"/>
+					<accessentry principal="GROUP.Users" permissions="+r+v+w+c"/>
+				</accesscontrol>
+			</explorertype>
+			<explorertype name="time.css" key="fileicon.lh-taglib.time.css" icon="taglib.css.jpg" reference="xmlcontent">
+				<newresource page="taglib.css" uri="newresource_xmlcontent.jsp?newresourcetype=time.css" order="247150012" autosetnavigation="false" autosettitle="false"/>
+				<accesscontrol>
+					<accessentry principal="GROUP.Administrators" permissions="+r+v+w+c"/>
+					<accessentry principal="GROUP.Projectmanagers" permissions="+r+v+w+c"/>
+					<accessentry principal="GROUP.Users" permissions="+r+v+w+c"/>
+				</accesscontrol>
+			</explorertype>
+		</explorertypes>
+	</module>
+	<files>
+		<file>
+			<destination>system</destination>
+			<type>folder</type>
+			<uuidstructure>a1b6dcee-40a6-11e1-ac44-e4ce8f2df730</uuidstructure>
+			<datelastmodified>Tue, 17 Jan 2012 01:00:22 GMT</datelastmodified>
+			<userlastmodified>Admin</userlastmodified>
+			<datecreated>Tue, 17 Jan 2012 01:00:22 GMT</datecreated>
+			<usercreated>Admin</usercreated>
+			<flags>0</flags>
+			<properties/>
+			<relations/>
+			<accesscontrol>
+				<accessentry>
+					<uuidprincipal>ROLE.WORKPLACE_USER</uuidprincipal>
+					<flags>514</flags>
+					<permissionset>
+						<allowed>1</allowed>
+						<denied>0</denied>
+					</permissionset>
+				</accessentry>
+			</accesscontrol>
+		</file>
+		<file>
+			<destination>system/modules</destination>
+			<type>folder</type>
+			<uuidstructure>a20d398a-40a6-11e1-ac44-e4ce8f2df730</uuidstructure>
+			<datelastmodified>Tue, 17 Jan 2012 01:00:22 GMT</datelastmodified>
+			<userlastmodified>Admin</userlastmodified>
+			<datecreated>Tue, 17 Jan 2012 01:00:22 GMT</datecreated>
+			<usercreated>Admin</usercreated>
+			<flags>0</flags>
+			<properties/>
+			<relations/>
+			<accesscontrol>
+				<accessentry>
+					<uuidprincipal>ROLE.WORKPLACE_USER</uuidprincipal>
+					<flags>514</flags>
+					<permissionset>
+						<allowed>5</allowed>
+						<denied>0</denied>
+					</permissionset>
+				</accessentry>
+			</accesscontrol>
+		</file>
+		<file>
+			<destination>system/modules/org.langhua.opencms.taglib.datetime</destination>
+			<type>folder</type>
+			<uuidstructure>ed803f6e-edfc-11de-b9d1-130261ca6ad0</uuidstructure>
+			<datelastmodified>Mon, 21 Dec 2009 06:49:04 GMT</datelastmodified>
+			<userlastmodified>Admin</userlastmodified>
+			<datecreated>Mon, 21 Dec 2009 06:49:04 GMT</datecreated>
+			<usercreated>Admin</usercreated>
+			<flags>0</flags>
+			<properties/>
+			<relations/>
+			<accesscontrol/>
+		</file>
+		<file>
+			<destination>system/modules/org.langhua.opencms.taglib.datetime/classes</destination>
+			<type>folder</type>
+			<uuidstructure>edc7cfc8-edfc-11de-b9d1-130261ca6ad0</uuidstructure>
+			<datelastmodified>Mon, 21 Dec 2009 06:49:04 GMT</datelastmodified>
+			<userlastmodified>Admin</userlastmodified>
+			<datecreated>Mon, 21 Dec 2009 06:49:04 GMT</datecreated>
+			<usercreated>Admin</usercreated>
+			<flags>0</flags>
+			<properties/>
+			<relations/>
+			<accesscontrol/>
+		</file>
+		<file>
+			<destination>system/modules/org.langhua.opencms.taglib.datetime/classes/org</destination>
+			<type>folder</type>
+			<uuidstructure>edcc8aba-edfc-11de-b9d1-130261ca6ad0</uuidstructure>
+			<datelastmodified>Mon, 21 Dec 2009 06:49:04 GMT</datelastmodified>
+			<userlastmodified>Admin</userlastmodified>
+			<datecreated>Mon, 21 Dec 2009 06:49:04 GMT</datecreated>
+			<usercreated>Admin</usercreated>
+			<flags>0</flags>
+			<properties/>
+			<relations/>
+			<accesscontrol/>
+		</file>
+		<file>
+			<destination>system/modules/org.langhua.opencms.taglib.datetime/classes/org/langhua</destination>
+			<type>folder</type>
+			<uuidstructure>edd145ac-edfc-11de-b9d1-130261ca6ad0</uuidstructure>
+			<datelastmodified>Mon, 21 Dec 2009 06:49:04 GMT</datelastmodified>
+			<userlastmodified>Admin</userlastmodified>
+			<datecreated>Mon, 21 Dec 2009 06:49:04 GMT</datecreated>
+			<usercreated>Admin</usercreated>
+			<flags>0</flags>
+			<properties/>
+			<relations/>
+			<accesscontrol/>
+		</file>
+		<file>
+			<destination>system/modules/org.langhua.opencms.taglib.datetime/classes/org/langhua/opencms</destination>
+			<type>folder</type>
+			<uuidstructure>edd8719e-edfc-11de-b9d1-130261ca6ad0</uuidstructure>
+			<datelastmodified>Mon, 21 Dec 2009 06:49:04 GMT</datelastmodified>
+			<userlastmodified>Admin</userlastmodified>
+			<datecreated>Mon, 21 Dec 2009 06:49:04 GMT</datecreated>
+			<usercreated>Admin</usercreated>
+			<flags>0</flags>
+			<properties/>
+			<relations/>
+			<accesscontrol/>
+		</file>
+		<file>
+			<destination>system/modules/org.langhua.opencms.taglib.datetime/classes/org/langhua/opencms/taglib</destination>
+			<type>folder</type>
+			<uuidstructure>eddd2c90-edfc-11de-b9d1-130261ca6ad0</uuidstructure>
+			<datelastmodified>Mon, 21 Dec 2009 06:49:04 GMT</datelastmodified>
+			<userlastmodified>Admin</userlastmodified>
+			<datecreated>Mon, 21 Dec 2009 06:49:04 GMT</datecreated>
+			<usercreated>Admin</usercreated>
+			<flags>0</flags>
+			<properties/>
+			<relations/>
+			<accesscontrol/>
+		</file>
+		<file>
+			<destination>system/modules/org.langhua.opencms.taglib.datetime/classes/org/langhua/opencms/taglib/datetime</destination>
+			<type>folder</type>
+			<uuidstructure>ede45882-edfc-11de-b9d1-130261ca6ad0</uuidstructure>
+			<datelastmodified>Mon, 21 Dec 2009 06:49:04 GMT</datelastmodified>
+			<userlastmodified>Admin</userlastmodified>
+			<datecreated>Mon, 21 Dec 2009 06:49:04 GMT</datecreated>
+			<usercreated>Admin</usercreated>
+			<flags>0</flags>
+			<properties/>
+			<relations/>
+			<accesscontrol/>
+		</file>
+		<file>
+			<destination>system/modules/org.langhua.opencms.taglib.datetime/elements</destination>
+			<type>folder</type>
+			<uuidstructure>bf525ae7-516b-11df-9d9d-0714b205776f</uuidstructure>
+			<datelastmodified>Mon, 26 Apr 2010 19:41:45 GMT</datelastmodified>
+			<userlastmodified>Admin</userlastmodified>
+			<datecreated>Mon, 26 Apr 2010 19:41:45 GMT</datecreated>
+			<usercreated>Admin</usercreated>
+			<flags>0</flags>
+			<properties/>
+			<relations/>
+			<accesscontrol/>
+		</file>
+		<file>
+			<source>system/modules/org.langhua.opencms.taglib.datetime/elements/date.css.jsp</source>
+			<destination>system/modules/org.langhua.opencms.taglib.datetime/elements/date.css.jsp</destination>
+			<type>jsp</type>
+			<uuidstructure>da9d33b9-516b-11df-9d9d-0714b205776f</uuidstructure>
+			<uuidresource>da9d33ba-516b-11df-9d9d-0714b205776f</uuidresource>
+			<datelastmodified>Mon, 26 Apr 2010 19:42:40 GMT</datelastmodified>
+			<userlastmodified>Admin</userlastmodified>
+			<datecreated>Mon, 26 Apr 2010 19:42:31 GMT</datecreated>
+			<usercreated>Admin</usercreated>
+			<flags>0</flags>
+			<properties>
+				<property type="shared">
+					<name>export</name>
+					<value><![CDATA[false]]></value>
+				</property>
+			</properties>
+			<relations/>
+			<accesscontrol/>
+		</file>
+		<file>
+			<source>system/modules/org.langhua.opencms.taglib.datetime/elements/time.css.jsp</source>
+			<destination>system/modules/org.langhua.opencms.taglib.datetime/elements/time.css.jsp</destination>
+			<type>jsp</type>
+			<uuidstructure>e4c82128-528e-11e1-b7da-e4ce8f2df730</uuidstructure>
+			<uuidresource>e4c82129-528e-11e1-b7da-e4ce8f2df730</uuidresource>
+			<datelastmodified>Mon, 26 Apr 2010 19:42:40 GMT</datelastmodified>
+			<userlastmodified>Admin</userlastmodified>
+			<datecreated>Wed, 08 Feb 2012 19:55:47 GMT</datecreated>
+			<usercreated>Admin</usercreated>
+			<flags>0</flags>
+			<properties>
+				<property type="shared">
+					<name>export</name>
+					<value><![CDATA[false]]></value>
+				</property>
+			</properties>
+			<relations/>
+			<accesscontrol/>
+		</file>
+		<file>
+			<destination>system/modules/org.langhua.opencms.taglib.datetime/lib</destination>
+			<type>folder</type>
+			<uuidstructure>edc2edc6-edfc-11de-b9d1-130261ca6ad0</uuidstructure>
+			<datelastmodified>Mon, 21 Dec 2009 06:49:04 GMT</datelastmodified>
+			<userlastmodified>Admin</userlastmodified>
+			<datecreated>Mon, 21 Dec 2009 06:49:04 GMT</datecreated>
+			<usercreated>Admin</usercreated>
+			<flags>0</flags>
+			<properties/>
+			<relations/>
+			<accesscontrol/>
+		</file>
+		<file>
+			<source>system/modules/org.langhua.opencms.taglib.datetime/lib/opencms-taglib-datetime.jar</source>
+			<destination>system/modules/org.langhua.opencms.taglib.datetime/lib/opencms-taglib-datetime.jar</destination>
+			<type>binary</type>
+			<uuidstructure>295f206d-eecd-11de-858a-130261ca6ad0</uuidstructure>
+			<uuidresource>295f206e-eecd-11de-858a-130261ca6ad0</uuidresource>
+			<datelastmodified>Tue, 22 Dec 2009 07:39:39 GMT</datelastmodified>
+			<userlastmodified>Admin</userlastmodified>
+			<datecreated>Tue, 22 Dec 2009 07:39:39 GMT</datecreated>
+			<usercreated>Admin</usercreated>
+			<flags>0</flags>
+			<properties/>
+			<relations/>
+			<accesscontrol/>
+		</file>
+		<file>
+			<destination>system/modules/org.langhua.opencms.taglib.datetime/resources</destination>
+			<type>folder</type>
+			<uuidstructure>057ec389-5119-11df-9d9d-0714b205776f</uuidstructure>
+			<datelastmodified>Mon, 26 Apr 2010 09:49:35 GMT</datelastmodified>
+			<userlastmodified>Admin</userlastmodified>
+			<datecreated>Mon, 26 Apr 2010 09:49:35 GMT</datecreated>
+			<usercreated>Admin</usercreated>
+			<flags>0</flags>
+			<properties/>
+			<relations/>
+			<accesscontrol/>
+		</file>
+		<file>
+			<source>system/modules/org.langhua.opencms.taglib.datetime/resources/Date-display.PNG</source>
+			<destination>system/modules/org.langhua.opencms.taglib.datetime/resources/Date-display.PNG</destination>
+			<type>image</type>
+			<uuidstructure>14b89f1b-5119-11df-9d9d-0714b205776f</uuidstructure>
+			<uuidresource>14b89f1c-5119-11df-9d9d-0714b205776f</uuidresource>
+			<datelastmodified>Mon, 26 Apr 2010 09:50:08 GMT</datelastmodified>
+			<userlastmodified>Admin</userlastmodified>
+			<datecreated>Mon, 26 Apr 2010 09:50:00 GMT</datecreated>
+			<usercreated>Admin</usercreated>
+			<flags>0</flags>
+			<properties>
+				<property type="shared">
+					<name>image.size</name>
+					<value><![CDATA[w:301,h:28]]></value>
+				</property>
+			</properties>
+			<relations/>
+			<accesscontrol/>
+		</file>
+		<file>
+			<source>system/modules/org.langhua.opencms.taglib.datetime/resources/Time-display.PNG</source>
+			<destination>system/modules/org.langhua.opencms.taglib.datetime/resources/Time-display.PNG</destination>
+			<type>image</type>
+			<uuidstructure>2025460f-5119-11df-9d9d-0714b205776f</uuidstructure>
+			<uuidresource>20254610-5119-11df-9d9d-0714b205776f</uuidresource>
+			<datelastmodified>Mon, 26 Apr 2010 09:50:26 GMT</datelastmodified>
+			<userlastmodified>Admin</userlastmodified>
+			<datecreated>Mon, 26 Apr 2010 09:50:19 GMT</datecreated>
+			<usercreated>Admin</usercreated>
+			<flags>0</flags>
+			<properties>
+				<property type="shared">
+					<name>image.size</name>
+					<value><![CDATA[w:138,h:32]]></value>
+				</property>
+			</properties>
+			<relations/>
+			<accesscontrol/>
+		</file>
+		<file>
+			<destination>system/modules/org.langhua.opencms.taglib.datetime/samples</destination>
+			<type>folder</type>
+			<uuidstructure>f19801a1-528e-11e1-b7da-e4ce8f2df730</uuidstructure>
+			<datelastmodified>Wed, 08 Feb 2012 19:56:08 GMT</datelastmodified>
+			<userlastmodified>Admin</userlastmodified>
+			<datecreated>Wed, 08 Feb 2012 19:56:08 GMT</datecreated>
+			<usercreated>Admin</usercreated>
+			<flags>0</flags>
+			<properties/>
+			<relations/>
+			<accesscontrol/>
+		</file>
+		<file>
+			<source>system/modules/org.langhua.opencms.taglib.datetime/samples/date.jsp</source>
+			<destination>system/modules/org.langhua.opencms.taglib.datetime/samples/date.jsp</destination>
+			<type>jsp</type>
+			<uuidstructure>febc1c94-528e-11e1-b7da-e4ce8f2df730</uuidstructure>
+			<uuidresource>febc1c95-528e-11e1-b7da-e4ce8f2df730</uuidresource>
+			<datelastmodified>Wed, 08 Feb 2012 20:00:40 GMT</datelastmodified>
+			<userlastmodified>Admin</userlastmodified>
+			<datecreated>Wed, 08 Feb 2012 19:56:31 GMT</datecreated>
+			<usercreated>Admin</usercreated>
+			<flags>0</flags>
+			<properties>
+				<property type="shared">
+					<name>export</name>
+					<value><![CDATA[false]]></value>
+				</property>
+			</properties>
+			<relations/>
+			<accesscontrol/>
+		</file>
+		<file>
+			<source>system/modules/org.langhua.opencms.taglib.datetime/samples/date_css_xml</source>
+			<destination>system/modules/org.langhua.opencms.taglib.datetime/samples/date_css_xml</destination>
+			<type>date.css</type>
+			<uuidstructure>0ec9c2ec-528f-11e1-b7da-e4ce8f2df730</uuidstructure>
+			<uuidresource>0ec9c2ed-528f-11e1-b7da-e4ce8f2df730</uuidresource>
+			<datelastmodified>Wed, 08 Feb 2012 19:57:29 GMT</datelastmodified>
+			<userlastmodified>Admin</userlastmodified>
+			<datecreated>Wed, 08 Feb 2012 19:56:58 GMT</datecreated>
+			<usercreated>Admin</usercreated>
+			<flags>0</flags>
+			<properties>
+				<property type="shared">
+					<name>template-elements</name>
+					<value><![CDATA[/system/modules/org.langhua.opencms.taglib.datetime/elements/date.css.jsp]]></value>
+				</property>
+			</properties>
+			<relations/>
+			<accesscontrol/>
+		</file>
+		<file>
+			<source>system/modules/org.langhua.opencms.taglib.datetime/samples/time.jsp</source>
+			<destination>system/modules/org.langhua.opencms.taglib.datetime/samples/time.jsp</destination>
+			<type>jsp</type>
+			<uuidstructure>fec7dc68-528e-11e1-b7da-e4ce8f2df730</uuidstructure>
+			<uuidresource>fec7dc69-528e-11e1-b7da-e4ce8f2df730</uuidresource>
+			<datelastmodified>Wed, 08 Feb 2012 20:06:15 GMT</datelastmodified>
+			<userlastmodified>Admin</userlastmodified>
+			<datecreated>Wed, 08 Feb 2012 19:56:31 GMT</datecreated>
+			<usercreated>Admin</usercreated>
+			<flags>0</flags>
+			<properties>
+				<property type="shared">
+					<name>export</name>
+					<value><![CDATA[false]]></value>
+				</property>
+			</properties>
+			<relations/>
+			<accesscontrol/>
+		</file>
+		<file>
+			<source>system/modules/org.langhua.opencms.taglib.datetime/samples/time_css_xml</source>
+			<destination>system/modules/org.langhua.opencms.taglib.datetime/samples/time_css_xml</destination>
+			<type>time.css</type>
+			<uuidstructure>3301c3c8-528f-11e1-b7da-e4ce8f2df730</uuidstructure>
+			<uuidresource>3301c3c9-528f-11e1-b7da-e4ce8f2df730</uuidresource>
+			<datelastmodified>Wed, 08 Feb 2012 19:58:13 GMT</datelastmodified>
+			<userlastmodified>Admin</userlastmodified>
+			<datecreated>Wed, 08 Feb 2012 19:57:58 GMT</datecreated>
+			<usercreated>Admin</usercreated>
+			<flags>0</flags>
+			<properties>
+				<property type="shared">
+					<name>template-elements</name>
+					<value><![CDATA[/system/modules/org.langhua.opencms.taglib.datetime/elements/time.css.jsp]]></value>
+				</property>
+			</properties>
+			<relations/>
+			<accesscontrol/>
+		</file>
+		<file>
+			<destination>system/modules/org.langhua.opencms.taglib.datetime/schemas</destination>
+			<type>folder</type>
+			<uuidstructure>2f352b73-5119-11df-9d9d-0714b205776f</uuidstructure>
+			<datelastmodified>Mon, 26 Apr 2010 09:50:45 GMT</datelastmodified>
+			<userlastmodified>Admin</userlastmodified>
+			<datecreated>Mon, 26 Apr 2010 09:50:45 GMT</datecreated>
+			<usercreated>Admin</usercreated>
+			<flags>0</flags>
+			<properties/>
+			<relations/>
+			<accesscontrol/>
+		</file>
+		<file>
+			<source>system/modules/org.langhua.opencms.taglib.datetime/schemas/date.css.xsd</source>
+			<destination>system/modules/org.langhua.opencms.taglib.datetime/schemas/date.css.xsd</destination>
+			<type>plain</type>
+			<uuidstructure>3c873435-5119-11df-9d9d-0714b205776f</uuidstructure>
+			<uuidresource>3c873436-5119-11df-9d9d-0714b205776f</uuidresource>
+			<datelastmodified>Mon, 26 Apr 2010 09:51:13 GMT</datelastmodified>
+			<userlastmodified>Admin</userlastmodified>
+			<datecreated>Mon, 26 Apr 2010 09:51:07 GMT</datecreated>
+			<usercreated>Admin</usercreated>
+			<flags>0</flags>
+			<properties/>
+			<relations/>
+			<accesscontrol/>
+		</file>
+	</files>
+</export>

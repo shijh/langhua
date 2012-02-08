@@ -2710,28 +2710,6 @@
 		</attribute>
 	</tag>
 	<tag>
-		<name>time</name>
-		<tag-class>org.langhua.opencms.taglib.display.Time</tag-class>
-		<body-content>empty</body-content>
-		<description>Time</description>
-	</tag>
-	<tag>
-		<name>date</name>
-		<tag-class>org.langhua.opencms.taglib.display.Date</tag-class>
-		<body-content>empty</body-content>
-		<description>Date</description>
-		<attribute>
-			<name>cssfile</name>
-			<required>true</required>
-			<rtexprvalue>true</rtexprvalue>
-		</attribute>
-		<attribute>
-			<name>cssuri</name>
-			<required>false</required>
-			<rtexprvalue>false</rtexprvalue>
-		</attribute>
-	</tag>
-	<tag>
 		<name>photoBriefingPaperCollectionTwo</name>
 		<tag-class>org.langhua.opencms.taglib.display.PhotoBriefingPaperCollectionTwo</tag-class>
 		<body-content>empty</body-content>

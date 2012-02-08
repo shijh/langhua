@@ -41,21 +41,12 @@
 			<name>Maven2 Central Repository 1</name>
 			<url>http://repo1.maven.org/maven2</url>
 		</repository>
-		<repository>
-			<id>langhua.public</id>
-			<name>Langhua Opensource Public Maven2 Repository</name>
-			<url>http://192.168.1.5/maven2/public/</url>
-		</repository>
-		<repository>
-			<id>langhua.egov</id>
-			<name>Langhua EGov Maven2 Repository</name>
-			<url>http://192.168.1.5/maven2/egov/</url>
-		</repository>
 	</repositories>
 
 	<modules>
 		<module>base</module>
-		<!-- <module>datetime</module>
+		<module>datetime</module>
+		<!-- 
 		<module>navigation</module> <module>photo</module> <module>price</module> 
 			<module>ranking</module> <module>scroll</module> <module>switch</module> 
 			<module>table</module> <module>text</module> <module>textimg</module> <module>topics</module> 
@@ -71,12 +62,4 @@
 		</dependency>
 	</dependencies>
 
-	<distributionManagement>
-		<repository>
-			<id>langhua.egov</id>
-			<url>
-                http://192.168.1.5/archiva/repository/egov
-            </url>
-		</repository>
-	</distributionManagement>
 </project>

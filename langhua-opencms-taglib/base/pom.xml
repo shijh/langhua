@@ -122,7 +122,6 @@
 			<groupId>org.opencms</groupId>
 			<artifactId>opencms-core</artifactId>
 			<version>8.0.3-rev</version>
-			<scope>provided</scope>
 		</dependency>
 	</dependencies>
 </project>
