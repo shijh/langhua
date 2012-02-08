@@ -1,6 +1,6 @@
 /* This library is part of Taglib OpenCms module of Langhua
  *
- * Copyright (C) 208 Langhua Opensource (http://www.langhua.org)
+ * Copyright (C) 2008 Langhua Opensource (http://www.langhua.org)
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
