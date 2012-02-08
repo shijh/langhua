@@ -23,6 +23,7 @@
 			<xsd:element name="text.align" type="OpenCmsString" />
 			<xsd:element name="fontcolor" type="OpenCmsColor" />
 			<xsd:element name="fontsize" type="OpenCmsString" />
+			<xsd:element name="bgcolor" type="OpenCmsColor" />
 			<xsd:element name="bgimage" type="OpenCmsString" />
 		</xsd:sequence>
 		<xsd:attribute name="language" type="OpenCmsLocale" use="required" />
@@ -47,6 +48,7 @@
 				<default element="main.border.left.width" value="0" />
 				<default element="main.border.right.width" value="0" />
 				<default element="fontsize" value="12" />
+				<default element="bgcolor" value="#FFFFFF" />
 			</defaults>
 			<validationrules>
 				<rule element="main.width" regex="^[0-9]{1,20}$" message="必须填写数字" />

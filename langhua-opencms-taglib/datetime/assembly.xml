@@ -18,6 +18,7 @@
 				<include>**/*.xsd</include>
                 <include>**/*.xml</include>
                 <include>**/*.properties</include>
+                <include>**/*_css_xml</include>
 			</includes>
 		</fileSet>
 		<fileSet>

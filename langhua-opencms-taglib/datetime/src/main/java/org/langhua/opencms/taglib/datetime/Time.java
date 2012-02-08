@@ -75,7 +75,11 @@ public class Time extends A_LanghuaTag {
 				CmsObject cmso = cms.getCmsObject();
 				CmsFile configFile = cmso.readFile(cssfile, CmsResourceFilter.IGNORE_EXPIRATION);
 				fileName = configFile.getName();
+				html.append("<style type=\"text/css\">\n");
+				html.append("<!--");
 				html.append(buildCSS(cms, cssfile));
+				html.append("-->");
+				html.append("</style>\n");
 			}
 			html.append("<div" + (CmsStringUtil.isEmpty(fileName) ? "" : (" class=\"topTime"+ fileName + "\"")) + ">\n");
 			html.append("<SCRIPT language=\"JavaScript\">\n");
@@ -90,7 +94,6 @@ public class Time extends A_LanghuaTag {
 			html.append("if(dayObj.getDay()==5) document.write(\"" + cms.label(Messages.XQWU) + "\");\n");
 			html.append("if(dayObj.getDay()==6) document.write(\"" + cms.label(Messages.XQLIU) + "\");\n");
 			html.append("if(dayObj.getDay()==0) document.write(\"" + cms.label(Messages.XQRI) + "\");\n");
-			html.append("today=new Date();\n");
 			html.append("</SCRIPT>");
 			html.append("</div>\n");
 		} catch (Exception e) {

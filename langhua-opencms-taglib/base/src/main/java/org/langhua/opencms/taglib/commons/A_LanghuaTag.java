@@ -111,7 +111,13 @@ public abstract class A_LanghuaTag extends TagSupport {
 	public String buildCSS(CmsJspActionElement cms, String cssFileUri) {
 
 		CmsSite site = OpenCms.getSiteManager().getCurrentSite(cms.getCmsObject());
-		String webapp = site.getUrl() + OpenCms.getSystemInfo().getOpenCmsContext();
+		String siteUrl = "";
+		if (site.getUrl().contains("*")) {
+			siteUrl = OpenCms.getSiteManager().getWorkplaceSiteMatcher().getUrl();
+		} else {
+			siteUrl = site.getUrl();
+		}
+		String webapp = siteUrl + OpenCms.getSystemInfo().getOpenCmsContext();
 		HttpClient httpClient = new HttpClient();
         HttpConnectionParams connectionParams = httpClient.getHttpConnectionManager().getParams();
         connectionParams.setConnectionTimeout(5000);

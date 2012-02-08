@@ -46,18 +46,20 @@
 				"fontcolor", locale);
 		String fontsize = configuration.getStringValue(cmso,
 				"fontsize", locale);
+		String bgcolor = configuration.getStringValue(cmso, "bgcolor",
+				locale);
 		String bgimage = configuration.getStringValue(cmso, "bgimage",
 				locale);
 		String bgimguri = "";
 		if (CmsStringUtil.isNotEmpty(bgimage)) {
 			bgimguri = cms.link(bgimage);
 		}
-%>.topDays<%=fileName%>{ border-top-width:<%=mainbordertopwidth%>px;
+%>.topTime<%=fileName%>{ border-top-width:<%=mainbordertopwidth%>px;
 border-bottom-width:<%=mainborderbottomwidth%>px; border-left-width:<%=mainborderleftwidth%>px;
 border-right-width:<%=mainborderrightwidth%>px; border-style:<%=mainborderstyle%>;
 border-color:<%=mainbordercolor%>; height:<%=mainheight%>px; width:<%=mainwidth%>px;
 line-height:<%=lineheight%>px; text-align:<%=textalign%>; color:<%=fontcolor%>;
-font-size:<%=fontsize%>px; background: url(<%=bgimguri%>); }<%
+font-size:<%=fontsize%>px; background: <%=bgcolor%> url(<%=bgimguri%>); }<%
 	} catch (CmsException e) {
 		e.printStackTrace();
 	}
