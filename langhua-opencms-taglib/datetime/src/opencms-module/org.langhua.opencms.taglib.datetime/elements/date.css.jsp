@@ -54,12 +54,12 @@
 		if (CmsStringUtil.isNotEmpty(bgimage)) {
 			bgimguri = cms.link(bgimage);
 		}
-%>.topTime<%=fileName%>{ border-top-width:<%=mainbordertopwidth%>px;
+%>.topDays<%=fileName%>{ border-top-width:<%=mainbordertopwidth%>px;
 border-bottom-width:<%=mainborderbottomwidth%>px; border-left-width:<%=mainborderleftwidth%>px;
 border-right-width:<%=mainborderrightwidth%>px; border-style:<%=mainborderstyle%>;
 border-color:<%=mainbordercolor%>; height:<%=mainheight%>px; width:<%=mainwidth%>px;
 line-height:<%=lineheight%>px; text-align:<%=textalign%>; color:<%=fontcolor%>;
-font-size:<%=fontsize%>px; background: <%=bgcolor%> url(<%=bgimguri%>); }<%
+font-size:<%=fontsize%>px; background: <%=bgcolor%> url(<%=bgimguri%>); white-space: nowrap; }<%
 	} catch (CmsException e) {
 		e.printStackTrace();
 	}

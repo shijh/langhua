@@ -16,6 +16,9 @@
     <fontsize><![CDATA[10]]></fontsize>
     <bgcolor>#FFCC99</bgcolor>
     <bgimage/>
+    <showweekday>true</showweekday>
+    <linebreakbeforelunar>true</linebreakbeforelunar>
+    <showlunartext>true</showlunartext>
   </Date>
   <Date language="zh">
     <main.width><![CDATA[120]]></main.width>
@@ -32,5 +35,8 @@
     <fontsize><![CDATA[10]]></fontsize>
     <bgcolor>#FFCC99</bgcolor>
     <bgimage/>
+    <showweekday>true</showweekday>
+    <linebreakbeforelunar>true</linebreakbeforelunar>
+    <showlunartext>true</showlunartext>
   </Date>
 </Dates>

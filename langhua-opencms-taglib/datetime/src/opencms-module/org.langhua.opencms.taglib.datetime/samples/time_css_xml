@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<Dates xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="opencms://system/modules/org.langhua.opencms.taglib.datetime/schemas/date.css.xsd">
+<Dates xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="opencms://system/modules/org.langhua.opencms.taglib.datetime/schemas/time.css.xsd">
   <Date language="en">
     <main.width><![CDATA[120]]></main.width>
     <main.height><![CDATA[20]]></main.height>
@@ -16,6 +16,7 @@
     <fontsize><![CDATA[10]]></fontsize>
     <bgcolor>#FFCC99</bgcolor>
     <bgimage/>
+    <showweekday>true</showweekday>
   </Date>
   <Date language="zh">
     <main.width><![CDATA[120]]></main.width>
@@ -32,5 +33,6 @@
     <fontsize><![CDATA[10]]></fontsize>
     <bgcolor>#FFCC99</bgcolor>
     <bgimage/>
+    <showweekday>true</showweekday>
   </Date>
 </Dates>

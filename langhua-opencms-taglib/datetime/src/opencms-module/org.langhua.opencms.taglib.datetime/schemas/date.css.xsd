@@ -25,6 +25,9 @@
 			<xsd:element name="fontsize" type="OpenCmsString" />
 			<xsd:element name="bgcolor" type="OpenCmsColor" />
 			<xsd:element name="bgimage" type="OpenCmsString" />
+			<xsd:element name="showweekday" type="OpenCmsBoolean"/>
+			<xsd:element name="linebreakbeforelunar" type="OpenCmsBoolean"/>
+			<xsd:element name="showlunartext" type="OpenCmsBoolean"/>
 		</xsd:sequence>
 		<xsd:attribute name="language" type="OpenCmsLocale" use="required" />
 	</xsd:complexType>
@@ -38,7 +41,9 @@
 					configuration="center*|left|right" />
 				<layout element="main.border.style" widget="SelectorWidget"
 					configuration="solid*|none|dotted|dashed|double|groove|ridge|inset|outset" />
-
+				<layout element="showweekday" widget="BooleanWidget" />
+				<layout element="linebreakbeforelunar" widget="BooleanWidget" />
+				<layout element="showlunartext" widget="BooleanWidget" />
 			</layouts>
 			<defaults>
 				<default element="fontcolor" value="#000000" />
@@ -49,6 +54,9 @@
 				<default element="main.border.right.width" value="0" />
 				<default element="fontsize" value="12" />
 				<default element="bgcolor" value="#FFFFFF" />
+				<default element="showweekday" value="true" />
+				<default element="linebreakbeforelunar" value="true" />
+				<default element="showlunartext" value="true" />
 			</defaults>
 			<validationrules>
 				<rule element="main.width" regex="^[0-9]{1,20}$" message="必须填写数字" />
