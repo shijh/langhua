@@ -1,0 +1,22 @@
+
+<xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified">	
+	<xsd:include schemaLocation="opencms://opencms-xmlcontent.xsd"/>        
+	<xsd:element name="FolderFiles" type="OpenCmsFolderFiles"/>	
+	<xsd:complexType name="OpenCmsFolderFiles">
+		<xsd:sequence>
+			<xsd:element name="FolderFile" type="OpenCmsFolderFile" minOccurs="0" maxOccurs="unbounded"/>
+		</xsd:sequence>
+	</xsd:complexType>
+	<xsd:complexType name="OpenCmsFolderFile">
+		<xsd:sequence>                        
+			<xsd:element name="folername" type="OpenCmsString" />
+                        <xsd:element name="folerpath" type="OpenCmsVfsFile" />                         
+		</xsd:sequence>
+		<xsd:attribute name="language" type="OpenCmsLocale" use="optional"/>
+	</xsd:complexType>
+	<xsd:annotation>
+		<xsd:appinfo>
+			<resourcebundle name="org.langhua.opencms.taglib.navigation.message"/> 	
+		</xsd:appinfo>
+	</xsd:annotation>  
+</xsd:schema>

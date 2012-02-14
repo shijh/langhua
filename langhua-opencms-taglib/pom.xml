@@ -46,8 +46,9 @@
 	<modules>
 		<module>base</module>
 		<module>datetime</module>
+		<module>navigation</module>
 		<!-- 
-		<module>navigation</module> <module>photo</module> <module>price</module> 
+		 <module>photo</module> <module>price</module> 
 			<module>ranking</module> <module>scroll</module> <module>switch</module> 
 			<module>table</module> <module>text</module> <module>textimg</module> <module>topics</module> 
 			<module>weather</module> -->

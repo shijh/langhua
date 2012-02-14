@@ -1,0 +1,134 @@
+
+<xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified">
+	<xsd:include schemaLocation="opencms://opencms-xmlcontent.xsd"/>
+<xsd:element name="NewsList1s" type="OpenCmsNewsList1s"/>
+	
+	<xsd:complexType name="OpenCmsNewsList1s">
+		<xsd:sequence>
+			<xsd:element name="NewsList1" type="OpenCmsNewsList1" minOccurs="0" maxOccurs="unbounded"/>
+		</xsd:sequence>
+	</xsd:complexType>
+
+	<xsd:complexType name="OpenCmsNewsList1">
+		<xsd:sequence>
+			<xsd:element name="main.width" type="OpenCmsString" />
+                        <xsd:element name="main.height" type="OpenCmsString" />
+                        <xsd:element name="more" type="OpenCmsBoolean" default="false" />
+                        <xsd:element name="more.text" type="OpenCmsString" />
+                        <xsd:element name="picmore" type="OpenCmsBoolean" default="false" />
+                        <xsd:element name="imgmore" type="OpenCmsString" />
+                        <xsd:element name="Superiors" type="OpenCmsBoolean" default="false" />
+                        <xsd:element name="li.date" type="OpenCmsBoolean" default="false" />
+                        <xsd:element name="main.color" type="OpenCmsColor" />
+                        <xsd:element name="column.fontcolor" type="OpenCmsColor" />
+                        <xsd:element name="link.fontcolor" type="OpenCmsColor" />
+                        <xsd:element name="file.front.image" type="OpenCmsString" />
+                        <xsd:element name="file.front.fontweight" type="OpenCmsString" />
+                        <xsd:element name="file.front.fontcolor" type="OpenCmsColor" />
+                        <xsd:element name="file.front.fontsize" type="OpenCmsString" />
+			<xsd:element name="main.border.top.width" type="OpenCmsString" />
+                        <xsd:element name="main.border.bottom.width" type="OpenCmsString" />
+                        <xsd:element name="main.border.left.width" type="OpenCmsString" />
+                        <xsd:element name="main.border.right.width" type="OpenCmsString" />
+			<xsd:element name="main.border.style" type="OpenCmsString" />
+			<xsd:element name="main.border.color" type="OpenCmsColor" />
+                        <xsd:element name="title.border.top.width" type="OpenCmsString" />
+                        <xsd:element name="title.border.bottom.width" type="OpenCmsString" />
+                        <xsd:element name="title.border.left.width" type="OpenCmsString" />
+                        <xsd:element name="title.border.right.width" type="OpenCmsString" />
+			<xsd:element name="title.border.style" type="OpenCmsString" />
+			<xsd:element name="title.border.color" type="OpenCmsColor" />
+			<xsd:element name="title.height" type="OpenCmsString" />
+                        <xsd:element name="title.left.margin" type="OpenCmsString" />	
+                        <xsd:element name="title.bottom.margin" type="OpenCmsString" />			
+			<xsd:element name="title.p.bgimage" type="OpenCmsString" />
+			<xsd:element name="title.p.talign" type="OpenCmsString" />
+			<xsd:element name="title.p.bgcolor" type="OpenCmsColor" />
+			<xsd:element name="title.p.fontsize" type="OpenCmsString" />
+			<xsd:element name="title.p.fontcolor" type="OpenCmsColor" />
+                        <xsd:element name="title.fontweight" type="OpenCmsString" />
+                        <xsd:element name="external.fontcolor" type="OpenCmsColor" />
+                        <xsd:element name="content.margint" type="OpenCmsString" />
+			<xsd:element name="content.fontcolor" type="OpenCmsColor" />
+	                <xsd:element name="content.fontweight" type="OpenCmsString" />
+                        <xsd:element name="title.fontstyle" type="OpenCmsString" />
+                        <xsd:element name="content.height" type="OpenCmsString" />
+                        <xsd:element name="content.fontsize" type="OpenCmsString" />
+                        <xsd:element name="compartline.width" type="OpenCmsString" />
+			<xsd:element name="compartline.style" type="OpenCmsString" />
+                        <xsd:element name="compartline.color" type="OpenCmsColor" />
+                        <xsd:element name="compartline.row" type="OpenCmsString" />
+                        <xsd:element name="link.align" type="OpenCmsString"/>
+                        <xsd:element name="file.imgheight" type="OpenCmsString"/>
+                        <xsd:element name="file.imgwidth" type="OpenCmsString"/>
+                        <xsd:element name="bold.fontweight" type="OpenCmsString"/>  
+                        <xsd:element name="title.beforeimg" type="OpenCmsBoolean" default="false" />
+                        <xsd:element name="beforeimg.before.width" type="OpenCmsString" />
+                        <xsd:element name="title.beforeimg.width" type="OpenCmsString" />
+                        <xsd:element name="title.beforeimg.height" type="OpenCmsString" />  
+                        <xsd:element name="title.before.imguri" type="OpenCmsString" />  
+			<xsd:element name="time.color" type="OpenCmsColor" />
+                        <xsd:element name="right.null" type="OpenCmsBoolean" default="false" />
+                        <xsd:element name="right.width" type="OpenCmsString" />
+                        <xsd:element name="contentimg.width" type="OpenCmsString" />
+                        <xsd:element name="contentimg.height" type="OpenCmsString" />
+                        <xsd:element name="contenttext.fontcolor" type="OpenCmsColor" />
+                        <xsd:element name="contenttext.fontweight" type="OpenCmsString"/>   
+                        <xsd:element name="back.tit.width" type="OpenCmsString"/> 
+                        <xsd:element name="new.img.width" type="OpenCmsString" />
+                        <xsd:element name="new.img.height" type="OpenCmsString" />
+                        <xsd:element name="new.img" type="OpenCmsString" />
+                        <xsd:element name="hot.img.width" type="OpenCmsString" />
+                        <xsd:element name="hot.img.height" type="OpenCmsString" />
+                        <xsd:element name="hot.img" type="OpenCmsString" />                
+		</xsd:sequence>
+		<xsd:attribute name="language" type="OpenCmsLocale" use="required"/>
+	</xsd:complexType>
+
+	<xsd:annotation>
+		<xsd:appinfo>
+			<resourcebundle name="org.langhua.opencms.taglib.navigation.message"/>
+			<layouts>
+				<layout element="title.p.bgimage" widget="ImageGalleryWidget" />
+                                <layout element="file.front.image" widget="ImageGalleryWidget" />
+                                <layout element="title.before.imguri" widget="ImageGalleryWidget" />
+                                <layout element="new.img" widget="ImageGalleryWidget" />
+                                <layout element="hot.img" widget="ImageGalleryWidget" />
+                                <layout element="imgmore" widget="ImageGalleryWidget" />
+                                <layout element="main.border.style" widget="SelectorWidget" configuration="solid*|none|dotted|dashed|double|groove|ridge|inset|outset" />
+			        <layout element="title.border.style" widget="SelectorWidget" configuration="solid*|none|dotted|dashed|double|groove|ridge|inset|outset" />
+                                <layout element="compartline.style" widget="SelectorWidget" configuration="dashed*|none|dotted|solid|double|groove|ridge|inset|outset" />
+                                <layout element="title.p.talign" widget="SelectorWidget" configuration="left*|right|center|justify" />
+                                <layout element="link.align" widget="SelectorWidget" configuration="right*|left|center|justify" />
+                                <layout element="content.fontweight" widget="SelectorWidget" configuration="normal*|bold|bolder|lithter" />
+                                <layout element="contenttext.fontweight" widget="SelectorWidget" configuration="normal*|bold|bolder|lithter" />
+                                <layout element="title.fontstyle" widget="SelectorWidget" configuration="normal*|italic|oblique" />
+                                <layout element="file.front.fontweight" widget="SelectorWidget" configuration="normal*|bold|bolder|lithter" />
+                                <layout element="bold.fontweight" widget="SelectorWidget" configuration="normal*|bold|bolder|lithter" />
+                                <layout element="title.fontweight" widget="SelectorWidget" configuration="normal*|bold|bolder|lithter" />
+                                <layout element="compartline.row" widget="SelectorWidget" configuration="1*|2|3|4|5|6|7|8|9|10" />
+                        </layouts>
+			<defaults>				
+				<default element="main.border.color" value="#000000"/>                                
+                                <default element="column.fontcolor" value="#000000"/>
+                                <default element="link.fontcolor" value="#000000"/>
+                                <default element="file.front.fontcolor" value="#000000"/>
+				<default element="title.border.color" value="#000000"/>
+				<default element="title.height" value="25"/>
+				<default element="title.p.bgcolor" value="#FFFFFF"/>	
+			        <default element="title.p.fontsize" value="12"/>
+                                <default element="file.imgheight" value="14"/>
+                                <default element="file.imgwidth" value="16"/>
+                                 <default element="beforeimg.before.width" value="0"/>
+				<default element="file.front.fontsize" value="12"/>
+				<default element="title.p.fontcolor" value="#FFFFFF"/>
+                                <default element="content.fontcolor" value="#000000"/>                                
+                                <default element="compartline.color" value="#000000"/>
+                                <default element="external.fontcolor" value="#000000"/>	
+                                <default element="contenttext.fontcolor" value="#000000"/>
+                                <default element="content.margint" value="0"/>					
+            		</defaults>	
+		</xsd:appinfo>
+
+	</xsd:annotation>  
+</xsd:schema>

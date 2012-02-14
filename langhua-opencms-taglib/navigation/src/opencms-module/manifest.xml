@@ -1,0 +1,1518 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<export>
+	<info>
+		<creator>Admin</creator>
+		<opencms_version>8.0.3</opencms_version>
+		<createdate>Tue, 14 Feb 2012 12:14:33 GMT</createdate>
+		<infoproject>Offline</infoproject>
+		<export_version>7</export_version>
+	</info>
+	<module>
+		<name>org.langhua.opencms.taglib.navigation</name>
+		<nicename><![CDATA[Langhua Taglib Navigation]]></nicename>
+		<group>Langhua Opensource</group>
+		<class/>
+		<description/>
+		<version>8.0.3.0</version>
+		<authorname><![CDATA[Shi Jinghai]]></authorname>
+		<authoremail><![CDATA[huaruhai@hotmail.com]]></authoremail>
+		<datecreated/>
+		<userinstalled/>
+		<dateinstalled/>
+		<dependencies>
+			<dependency name="org.langhua.opencms.taglib.base" version="0"/>
+		</dependencies>
+		<exportpoints>
+			<exportpoint uri="/system/modules/org.langhua.opencms.taglib.navigation/lib/" destination="WEB-INF/lib/"/>
+			<exportpoint uri="/system/modules/org.langhua.opencms.taglib.navigation/classes/" destination="WEB-INF/classes/"/>
+		</exportpoints>
+		<resources>
+			<resource uri="/system/modules/org.langhua.opencms.taglib.navigation/"/>
+		</resources>
+		<parameters/>
+		<resourcetypes>
+			<type class="org.opencms.file.types.CmsResourceTypeXmlContent" name="newslist_css9" id="247150020">
+				<properties>
+					<property>
+						<name>template-elements</name>
+						<value type="shared"><![CDATA[/system/modules/org.langhua.opencms.taglib.navigation/elements/newslist_css9.jsp]]></value>
+					</property>
+				</properties>
+				<param name="schema">/system/modules/org.langhua.opencms.taglib.navigation/schemas/newslist_css9.xsd</param>
+			</type>
+			<type class="org.opencms.file.types.CmsResourceTypeXmlContent" name="newtextcss" id="247150022">
+				<properties>
+					<property>
+						<name>template-elements</name>
+						<value type="shared"><![CDATA[/system/modules/org.langhua.opencms.taglib.navigation/elements/newtext_css.jsp]]></value>
+					</property>
+				</properties>
+				<param name="schema">/system/modules/org.langhua.opencms.taglib.navigation/schemas/newtext_css.xsd</param>
+			</type>
+			<type class="org.opencms.file.types.CmsResourceTypeXmlContent" name="icon_link" id="247150023">
+				<param name="schema">/system/modules/org.langhua.opencms.taglib.navigation/schemas/icon_link.xsd</param>
+			</type>
+			<type class="org.opencms.file.types.CmsResourceTypeXmlContent" name="navigation" id="247150024">
+				<properties>
+					<property>
+						<name>template-elements</name>
+						<value type="shared"><![CDATA[/system/modules/org.langhua.opencms.taglib.navigation/elements/newslist_css4.jsp]]></value>
+					</property>
+				</properties>
+				<param name="schema">/system/modules/org.langhua.opencms.taglib.navigation/schemas/newslist_css4.xsd</param>
+			</type>
+			<type class="org.opencms.file.types.CmsResourceTypeXmlContent" name="compilelink_navigation" id="247150025">
+				<param name="schema">/system/modules/org.langhua.opencms.taglib.navigation/schemas/compile_link.xsd</param>
+			</type>
+			<type class="org.opencms.file.types.CmsResourceTypeXmlContent" name="newslist_css1" id="247150026">
+				<properties>
+					<property>
+						<name>template-elements</name>
+						<value type="shared"><![CDATA[/system/modules/org.langhua.opencms.taglib.navigation/elements/newslist_css1.jsp]]></value>
+					</property>
+				</properties>
+				<param name="schema">/system/modules/org.langhua.opencms.taglib.navigation/schemas/newslist_css1.xsd</param>
+			</type>
+			<type class="org.opencms.file.types.CmsResourceTypeXmlContent" name="compilenavlink_navigation" id="247150027">
+				<param name="schema">/system/modules/org.langhua.opencms.taglib.navigation/schemas/compile_navlink.xsd</param>
+			</type>
+			<type class="org.opencms.file.types.CmsResourceTypeXmlContent" name="navtitle_css" id="247150028">
+				<properties>
+					<property>
+						<name>template-elements</name>
+						<value type="shared"><![CDATA[/system/modules/org.langhua.opencms.taglib.navigation/elements/navtitle_css.jsp]]></value>
+					</property>
+				</properties>
+				<param name="schema">/system/modules/org.langhua.opencms.taglib.navigation/schemas/navtitle_css.xsd</param>
+			</type>
+			<type class="org.opencms.file.types.CmsResourceTypeXmlContent" name="navtitle_link" id="247150029">
+				<param name="schema">/system/modules/org.langhua.opencms.taglib.navigation/schemas/navtitle_link.xsd</param>
+			</type>
+			<type class="org.opencms.file.types.CmsResourceTypeXmlContent" name="photonav_css" id="247150030">
+				<properties>
+					<property>
+						<name>template-elements</name>
+						<value type="shared"><![CDATA[/system/modules/org.langhua.opencms.taglib.navigation/elements/photonav_css.jsp]]></value>
+					</property>
+				</properties>
+				<param name="schema">/system/modules/org.langhua.opencms.taglib.navigation/schemas/photonav_css.xsd</param>
+			</type>
+			<type class="org.opencms.file.types.CmsResourceTypeXmlContent" name="comlink_navigation" id="247150031">
+				<param name="schema">/system/modules/org.langhua.opencms.taglib.navigation/schemas/com_link.xsd</param>
+			</type>
+			<type class="org.opencms.file.types.CmsResourceTypeXmlContent" name="legalstudiesbordercss" id="247150032">
+				<properties>
+					<property>
+						<name>template-elements</name>
+						<value type="shared"><![CDATA[/system/modules/org.langhua.opencms.taglib.navigation/elements/legalstudiesborder.jsp]]></value>
+					</property>
+				</properties>
+				<param name="schema">/system/modules/org.langhua.opencms.taglib.navigation/schemas/legalstudiesbordercss.xsd</param>
+			</type>
+			<type class="org.opencms.file.types.CmsResourceTypeXmlContent" name="legalstudiesborderlink" id="247150033">
+				<param name="schema">/system/modules/org.langhua.opencms.taglib.navigation/schemas/legalstudiesborderlink.xsd</param>
+			</type>
+			<type class="org.opencms.file.types.CmsResourceTypeXmlContent" name="subsecnavcss" id="247150034">
+				<properties>
+					<property>
+						<name>template-elements</name>
+						<value type="shared"><![CDATA[/system/modules/org.langhua.opencms.taglib.navigation/elements/subsecnav_css.jsp]]></value>
+					</property>
+				</properties>
+				<param name="schema">/system/modules/org.langhua.opencms.taglib.navigation/schemas/subsecnav_css.xsd</param>
+			</type>
+			<type class="org.opencms.file.types.CmsResourceTypeXmlContent" name="subsecnavlink" id="247150035">
+				<param name="schema">/system/modules/org.langhua.opencms.taglib.navigation/schemas/subsecnav_link.xsd</param>
+			</type>
+			<type class="org.opencms.file.types.CmsResourceTypeXmlContent" name="textnavcss" id="247150036">
+				<properties>
+					<property>
+						<name>template-elements</name>
+						<value type="shared"><![CDATA[/system/modules/org.langhua.opencms.taglib.navigation/elements/textnav_css.jsp]]></value>
+					</property>
+				</properties>
+				<param name="schema">/system/modules/org.langhua.opencms.taglib.navigation/schemas/textnav_css.xsd</param>
+			</type>
+			<type class="org.opencms.file.types.CmsResourceTypeXmlContent" name="textnavlink" id="247150037">
+				<param name="schema">/system/modules/org.langhua.opencms.taglib.navigation/schemas/textnav_link.xsd</param>
+			</type>
+			<type class="org.opencms.file.types.CmsResourceTypeXmlContent" name="verticalcolnavcss" id="247150038">
+				<properties>
+					<property>
+						<name>template-elements</name>
+						<value type="shared"><![CDATA[/system/modules/org.langhua.opencms.taglib.navigation/elements/verticalcolnav_css.jsp]]></value>
+					</property>
+				</properties>
+				<param name="schema">/system/modules/org.langhua.opencms.taglib.navigation/schemas/verticalcolnav_css.xsd</param>
+			</type>
+			<type class="org.opencms.file.types.CmsResourceTypeXmlContent" name="verticalcolnavlink" id="247150039">
+				<param name="schema">/system/modules/org.langhua.opencms.taglib.navigation/schemas/verticalcolnav_link.xsd</param>
+			</type>
+			<type class="org.opencms.file.types.CmsResourceTypeXmlContent" name="newslist_css13" id="247150040">
+				<properties>
+					<property>
+						<name>template-elements</name>
+						<value type="shared"><![CDATA[/system/modules/org.langhua.opencms.taglib.navigation/elements/newslist_css13.jsp]]></value>
+					</property>
+				</properties>
+				<param name="schema">/system/modules/org.langhua.opencms.taglib.navigation/schemas/newslist_css13.xsd</param>
+			</type>
+			<type class="org.opencms.file.types.CmsResourceTypeXmlContent" name="verticalcolnavtwolink" id="247150041">
+				<param name="schema">/system/modules/org.langhua.opencms.taglib.navigation/schemas/verticalcolnavtwo_link.xsd</param>
+			</type>
+		</resourcetypes>
+		<explorertypes>
+			<explorertype name="newslist_css9" key="fileicon.newslist_css9" icon="taglib.css.jpg" reference="xmlcontent">
+				<newresource page="taglib.css" uri="newresource_xmlcontent.jsp?newresourcetype=newslist_css9" order="247150020" autosetnavigation="false" autosettitle="false"/>
+				<accesscontrol>
+					<accessentry principal="GROUP.Administrators" permissions="+r+v+w+c"/>
+					<accessentry principal="GROUP.Projectmanagers" permissions="+r+v+w+c"/>
+					<accessentry principal="GROUP.Users" permissions="+r+v+w+c"/>
+				</accesscontrol>
+			</explorertype>
+			<explorertype name="newtextcss" key="fileicon.newtextcss" icon="taglib.css.jpg" reference="xmlcontent">
+				<newresource page="taglib.css" uri="newresource_xmlcontent.jsp?newresourcetype=newtextcss" order="247150022" autosetnavigation="false" autosettitle="false"/>
+				<accesscontrol>
+					<accessentry principal="GROUP.Administrators" permissions="+r+v+w+c"/>
+					<accessentry principal="GROUP.Projectmanagers" permissions="+r+v+w+c"/>
+					<accessentry principal="GROUP.Users" permissions="+r+v+w+c"/>
+				</accesscontrol>
+			</explorertype>
+			<explorertype name="icon_link" key="fileicon.icon_link" icon="taglib.link.jpg" reference="xmlcontent">
+				<newresource page="taglib.link" uri="newresource_xmlcontent.jsp?newresourcetype=icon_link" order="247150023" autosetnavigation="false" autosettitle="false"/>
+				<accesscontrol>
+					<accessentry principal="GROUP.Administrators" permissions="+r+v+w+c"/>
+					<accessentry principal="GROUP.Projectmanagers" permissions="+r+v+w+c"/>
+					<accessentry principal="GROUP.Users" permissions="+r+v+w+c"/>
+				</accesscontrol>
+			</explorertype>
+			<explorertype name="navigation" key="fileicon.navigation" icon="taglib.css.jpg" reference="xmlcontent">
+				<newresource page="taglib.css" uri="newresource_xmlcontent.jsp?newresourcetype=navigation" order="247150024" autosetnavigation="false" autosettitle="false"/>
+				<accesscontrol>
+					<accessentry principal="GROUP.Administrators" permissions="+r+v+w+c"/>
+					<accessentry principal="GROUP.Projectmanagers" permissions="+r+v+w+c"/>
+					<accessentry principal="GROUP.Users" permissions="+r+v+w+c"/>
+				</accesscontrol>
+			</explorertype>
+			<explorertype name="compilelink_navigation" key="fileicon.compilelink" icon="taglib.link.jpg" reference="xmlcontent">
+				<newresource page="taglib.link" uri="newresource_xmlcontent.jsp?newresourcetype=compilelink_navigation" order="247150025" autosetnavigation="false" autosettitle="false"/>
+				<accesscontrol>
+					<accessentry principal="GROUP.Administrators" permissions="+r+v+w+c"/>
+					<accessentry principal="GROUP.Projectmanagers" permissions="+r+v+w+c"/>
+					<accessentry principal="GROUP.Users" permissions="+r+v+w+c"/>
+				</accesscontrol>
+			</explorertype>
+			<explorertype name="newslist_css1" key="fileicon.newslist_css1" icon="taglib.css.jpg" reference="xmlcontent">
+				<newresource page="taglib.css" uri="newresource_xmlcontent.jsp?newresourcetype=newslist_css1" order="247150026" autosetnavigation="false" autosettitle="false"/>
+				<accesscontrol>
+					<accessentry principal="GROUP.Administrators" permissions="+r+v+w+c"/>
+					<accessentry principal="GROUP.Projectmanagers" permissions="+r+v+w+c"/>
+					<accessentry principal="GROUP.Users" permissions="+r+v+w+c"/>
+				</accesscontrol>
+			</explorertype>
+			<explorertype name="compilenavlink_navigation" key="fileicon.compilenavlink" icon="taglib.link.jpg" reference="xmlcontent">
+				<newresource page="taglib.link" uri="newresource_xmlcontent.jsp?newresourcetype=compilenavlink_navigation" order="247150027" autosetnavigation="false" autosettitle="false"/>
+				<accesscontrol>
+					<accessentry principal="GROUP.Administrators" permissions="+r+v+w+c"/>
+					<accessentry principal="GROUP.Projectmanagers" permissions="+r+v+w+c"/>
+					<accessentry principal="GROUP.Users" permissions="+r+v+w+c"/>
+				</accesscontrol>
+			</explorertype>
+			<explorertype name="navtitle_css" key="fileicon.newslist_css1" icon="taglib.css.jpg" reference="xmlcontent">
+				<newresource page="taglib.css" uri="newresource_xmlcontent.jsp?newresourcetype=navtitle_css" order="247150028" autosetnavigation="false" autosettitle="false"/>
+				<accesscontrol>
+					<accessentry principal="GROUP.Administrators" permissions="+r+v+w+c"/>
+					<accessentry principal="GROUP.Projectmanagers" permissions="+r+v+w+c"/>
+					<accessentry principal="GROUP.Users" permissions="+r+v+w+c"/>
+				</accesscontrol>
+			</explorertype>
+			<explorertype name="navtitle_link" key="fileicon.compilenavlink" icon="taglib.link.jpg" reference="xmlcontent">
+				<newresource page="taglib.link" uri="newresource_xmlcontent.jsp?newresourcetype=navtitle_link" order="247150029" autosetnavigation="false" autosettitle="false"/>
+				<accesscontrol>
+					<accessentry principal="GROUP.Administrators" permissions="+r+v+w+c"/>
+					<accessentry principal="GROUP.Projectmanagers" permissions="+r+v+w+c"/>
+					<accessentry principal="GROUP.Users" permissions="+r+v+w+c"/>
+				</accesscontrol>
+			</explorertype>
+			<explorertype name="photonav_css" key="fileicon.newslist_css1" icon="taglib.css.jpg" reference="xmlcontent">
+				<newresource page="taglib.css" uri="newresource_xmlcontent.jsp?newresourcetype=photonav_css" order="247150030" autosetnavigation="false" autosettitle="false"/>
+				<accesscontrol>
+					<accessentry principal="GROUP.Administrators" permissions="+r+v+w+c"/>
+					<accessentry principal="GROUP.Projectmanagers" permissions="+r+v+w+c"/>
+					<accessentry principal="GROUP.Users" permissions="+r+v+w+c"/>
+				</accesscontrol>
+			</explorertype>
+			<explorertype name="comlink_navigation" key="fileicon.comlink" icon="taglib.link.jpg" reference="xmlcontent">
+				<newresource page="taglib.link" uri="newresource_xmlcontent.jsp?newresourcetype=comlink_navigation" order="247150031" autosetnavigation="false" autosettitle="false"/>
+				<accesscontrol>
+					<accessentry principal="GROUP.Administrators" permissions="+r+v+w+c"/>
+					<accessentry principal="GROUP.Projectmanagers" permissions="+r+v+w+c"/>
+					<accessentry principal="GROUP.Users" permissions="+r+v+w+c"/>
+				</accesscontrol>
+			</explorertype>
+			<explorertype name="legalstudiesbordercss" key="fileicon.legalstudiesbordercss" icon="taglib.css.jpg" reference="xmlcontent">
+				<newresource page="taglib.css" uri="newresource_xmlcontent.jsp?newresourcetype=legalstudiesbordercss" order="247150032" autosetnavigation="false" autosettitle="false"/>
+				<accesscontrol>
+					<accessentry principal="GROUP.Administrators" permissions="+r+v+w+c"/>
+					<accessentry principal="GROUP.Projectmanagers" permissions="+r+v+w+c"/>
+					<accessentry principal="GROUP.Users" permissions="+r+v+w+c"/>
+				</accesscontrol>
+			</explorertype>
+			<explorertype name="legalstudiesborderlink" key="fileicon.legalstudiesborderlink" icon="taglib.link.jpg" reference="xmlcontent">
+				<newresource page="taglib.link" uri="newresource_xmlcontent.jsp?newresourcetype=legalstudiesborderlink" order="247150033" autosetnavigation="false" autosettitle="false"/>
+				<accesscontrol>
+					<accessentry principal="GROUP.Administrators" permissions="+r+v+w+c"/>
+					<accessentry principal="GROUP.Projectmanagers" permissions="+r+v+w+c"/>
+					<accessentry principal="GROUP.Users" permissions="+r+v+w+c"/>
+				</accesscontrol>
+			</explorertype>
+			<explorertype name="subsecnavcss" key="fileicon.newslist_css1" icon="taglib.css.jpg" reference="xmlcontent">
+				<newresource page="taglib.css" uri="newresource_xmlcontent.jsp?newresourcetype=subsecnavcss" order="247150034" autosetnavigation="false" autosettitle="false"/>
+				<accesscontrol>
+					<accessentry principal="GROUP.Administrators" permissions="+r+v+w+c"/>
+					<accessentry principal="GROUP.Projectmanagers" permissions="+r+v+w+c"/>
+					<accessentry principal="GROUP.Users" permissions="+r+v+w+c"/>
+				</accesscontrol>
+			</explorertype>
+			<explorertype name="subsecnavlink" key="fileicon.compilenavlink" icon="taglib.link.jpg" reference="xmlcontent">
+				<newresource page="taglib.link" uri="newresource_xmlcontent.jsp?newresourcetype=subsecnavlink" order="247150035" autosetnavigation="false" autosettitle="false"/>
+				<accesscontrol>
+					<accessentry principal="GROUP.Administrators" permissions="+r+v+w+c"/>
+					<accessentry principal="GROUP.Projectmanagers" permissions="+r+v+w+c"/>
+					<accessentry principal="GROUP.Users" permissions="+r+v+w+c"/>
+				</accesscontrol>
+			</explorertype>
+			<explorertype name="textnavcss" key="fileicon.navigation" icon="taglib.css.jpg" reference="xmlcontent">
+				<newresource page="taglib.css" uri="newresource_xmlcontent.jsp?newresourcetype=textnavcss" order="247150036" autosetnavigation="false" autosettitle="false"/>
+				<accesscontrol>
+					<accessentry principal="GROUP.Administrators" permissions="+r+v+w+c"/>
+					<accessentry principal="GROUP.Projectmanagers" permissions="+r+v+w+c"/>
+					<accessentry principal="GROUP.Users" permissions="+r+v+w+c"/>
+				</accesscontrol>
+			</explorertype>
+			<explorertype name="textnavlink" key="fileicon.compilenavlink" icon="taglib.link.jpg" reference="xmlcontent">
+				<newresource page="taglib.link" uri="newresource_xmlcontent.jsp?newresourcetype=textnavlink" order="247150037" autosetnavigation="false" autosettitle="false"/>
+				<accesscontrol>
+					<accessentry principal="GROUP.Administrators" permissions="+r+v+w+c"/>
+					<accessentry principal="GROUP.Projectmanagers" permissions="+r+v+w+c"/>
+					<accessentry principal="GROUP.Users" permissions="+r+v+w+c"/>
+				</accesscontrol>
+			</explorertype>
+			<explorertype name="verticalcolnavcss" key="fileicon.newtextcss" icon="taglib.css.jpg" reference="xmlcontent">
+				<newresource page="taglib.css" uri="newresource_xmlcontent.jsp?newresourcetype=verticalcolnavcss" order="247150038" autosetnavigation="false" autosettitle="false"/>
+				<accesscontrol>
+					<accessentry principal="GROUP.Administrators" permissions="+r+v+w+c"/>
+					<accessentry principal="GROUP.Projectmanagers" permissions="+r+v+w+c"/>
+					<accessentry principal="GROUP.Users" permissions="+r+v+w+c"/>
+				</accesscontrol>
+			</explorertype>
+			<explorertype name="verticalcolnavlink" key="fileicon.newtextlink" icon="taglib.link.jpg" reference="xmlcontent">
+				<newresource page="taglib.link" uri="newresource_xmlcontent.jsp?newresourcetype=verticalcolnavlink" order="247150039" autosetnavigation="false" autosettitle="false"/>
+				<accesscontrol>
+					<accessentry principal="GROUP.Administrators" permissions="+r+v+w+c"/>
+					<accessentry principal="GROUP.Projectmanagers" permissions="+r+v+w+c"/>
+					<accessentry principal="GROUP.Users" permissions="+r+v+w+c"/>
+				</accesscontrol>
+			</explorertype>
+			<explorertype name="newslist_css13" key="fileicon.newslist_css13" icon="taglib.css.jpg" reference="xmlcontent">
+				<newresource page="taglib.css" uri="newresource_xmlcontent.jsp?newresourcetype=newslist_css13" order="247150040" autosetnavigation="false" autosettitle="false"/>
+				<accesscontrol>
+					<accessentry principal="GROUP.Administrators" permissions="+r+v+w+c"/>
+					<accessentry principal="GROUP.Projectmanagers" permissions="+r+v+w+c"/>
+					<accessentry principal="GROUP.Users" permissions="+r+v+w+c"/>
+				</accesscontrol>
+			</explorertype>
+			<explorertype name="verticalcolnavtwolink" key="fileicon.newtextlink" icon="taglib.link.jpg" reference="xmlcontent">
+				<newresource page="taglib.link" uri="newresource_xmlcontent.jsp?newresourcetype=verticalcolnavtwolink" order="247150041" autosetnavigation="false" autosettitle="false"/>
+				<accesscontrol>
+					<accessentry principal="GROUP.Administrators" permissions="+r+v+w+c"/>
+					<accessentry principal="GROUP.Projectmanagers" permissions="+r+v+w+c"/>
+					<accessentry principal="GROUP.Users" permissions="+r+v+w+c"/>
+				</accesscontrol>
+			</explorertype>
+		</explorertypes>
+	</module>
+	<files>
+		<file>
+			<destination>system</destination>
+			<type>folder</type>
+			<uuidstructure>a1b6dcee-40a6-11e1-ac44-e4ce8f2df730</uuidstructure>
+			<datelastmodified>Tue, 17 Jan 2012 01:00:22 GMT</datelastmodified>
+			<userlastmodified>Admin</userlastmodified>
+			<datecreated>Tue, 17 Jan 2012 01:00:22 GMT</datecreated>
+			<usercreated>Admin</usercreated>
+			<flags>0</flags>
+			<properties/>
+			<relations/>
+			<accesscontrol>
+				<accessentry>
+					<uuidprincipal>ROLE.WORKPLACE_USER</uuidprincipal>
+					<flags>514</flags>
+					<permissionset>
+						<allowed>1</allowed>
+						<denied>0</denied>
+					</permissionset>
+				</accessentry>
+			</accesscontrol>
+		</file>
+		<file>
+			<destination>system/modules</destination>
+			<type>folder</type>
+			<uuidstructure>a20d398a-40a6-11e1-ac44-e4ce8f2df730</uuidstructure>
+			<datelastmodified>Tue, 17 Jan 2012 01:00:22 GMT</datelastmodified>
+			<userlastmodified>Admin</userlastmodified>
+			<datecreated>Tue, 17 Jan 2012 01:00:22 GMT</datecreated>
+			<usercreated>Admin</usercreated>
+			<flags>0</flags>
+			<properties/>
+			<relations/>
+			<accesscontrol>
+				<accessentry>
+					<uuidprincipal>ROLE.WORKPLACE_USER</uuidprincipal>
+					<flags>514</flags>
+					<permissionset>
+						<allowed>5</allowed>
+						<denied>0</denied>
+					</permissionset>
+				</accessentry>
+			</accesscontrol>
+		</file>
+		<file>
+			<destination>system/modules/org.langhua.opencms.taglib.navigation</destination>
+			<type>folder</type>
+			<uuidstructure>46d7ccb4-edfd-11de-b9d1-130261ca6ad0</uuidstructure>
+			<datelastmodified>Mon, 21 Dec 2009 06:51:34 GMT</datelastmodified>
+			<userlastmodified>Admin</userlastmodified>
+			<datecreated>Mon, 21 Dec 2009 06:51:34 GMT</datecreated>
+			<usercreated>Admin</usercreated>
+			<flags>0</flags>
+			<properties/>
+			<relations/>
+			<accesscontrol/>
+		</file>
+		<file>
+			<destination>system/modules/org.langhua.opencms.taglib.navigation/classes</destination>
+			<type>folder</type>
+			<uuidstructure>474311ae-edfd-11de-b9d1-130261ca6ad0</uuidstructure>
+			<datelastmodified>Mon, 21 Dec 2009 06:51:34 GMT</datelastmodified>
+			<userlastmodified>Admin</userlastmodified>
+			<datecreated>Mon, 21 Dec 2009 06:51:34 GMT</datecreated>
+			<usercreated>Admin</usercreated>
+			<flags>0</flags>
+			<properties/>
+			<relations/>
+			<accesscontrol/>
+		</file>
+		<file>
+			<destination>system/modules/org.langhua.opencms.taglib.navigation/classes/org</destination>
+			<type>folder</type>
+			<uuidstructure>474a3da0-edfd-11de-b9d1-130261ca6ad0</uuidstructure>
+			<datelastmodified>Mon, 21 Dec 2009 06:51:34 GMT</datelastmodified>
+			<userlastmodified>Admin</userlastmodified>
+			<datecreated>Mon, 21 Dec 2009 06:51:34 GMT</datecreated>
+			<usercreated>Admin</usercreated>
+			<flags>0</flags>
+			<properties/>
+			<relations/>
+			<accesscontrol/>
+		</file>
+		<file>
+			<destination>system/modules/org.langhua.opencms.taglib.navigation/classes/org/langhua</destination>
+			<type>folder</type>
+			<uuidstructure>474ef892-edfd-11de-b9d1-130261ca6ad0</uuidstructure>
+			<datelastmodified>Mon, 21 Dec 2009 06:51:34 GMT</datelastmodified>
+			<userlastmodified>Admin</userlastmodified>
+			<datecreated>Mon, 21 Dec 2009 06:51:34 GMT</datecreated>
+			<usercreated>Admin</usercreated>
+			<flags>0</flags>
+			<properties/>
+			<relations/>
+			<accesscontrol/>
+		</file>
+		<file>
+			<destination>system/modules/org.langhua.opencms.taglib.navigation/classes/org/langhua/opencms</destination>
+			<type>folder</type>
+			<uuidstructure>47562484-edfd-11de-b9d1-130261ca6ad0</uuidstructure>
+			<datelastmodified>Mon, 21 Dec 2009 06:51:34 GMT</datelastmodified>
+			<userlastmodified>Admin</userlastmodified>
+			<datecreated>Mon, 21 Dec 2009 06:51:34 GMT</datecreated>
+			<usercreated>Admin</usercreated>
+			<flags>0</flags>
+			<properties/>
+			<relations/>
+			<accesscontrol/>
+		</file>
+		<file>
+			<destination>system/modules/org.langhua.opencms.taglib.navigation/classes/org/langhua/opencms/taglib</destination>
+			<type>folder</type>
+			<uuidstructure>475d5076-edfd-11de-b9d1-130261ca6ad0</uuidstructure>
+			<datelastmodified>Mon, 21 Dec 2009 06:51:34 GMT</datelastmodified>
+			<userlastmodified>Admin</userlastmodified>
+			<datecreated>Mon, 21 Dec 2009 06:51:34 GMT</datecreated>
+			<usercreated>Admin</usercreated>
+			<flags>0</flags>
+			<properties/>
+			<relations/>
+			<accesscontrol/>
+		</file>
+		<file>
+			<destination>system/modules/org.langhua.opencms.taglib.navigation/classes/org/langhua/opencms/taglib/navigation</destination>
+			<type>folder</type>
+			<uuidstructure>47620b68-edfd-11de-b9d1-130261ca6ad0</uuidstructure>
+			<datelastmodified>Mon, 21 Dec 2009 06:51:34 GMT</datelastmodified>
+			<userlastmodified>Admin</userlastmodified>
+			<datecreated>Mon, 21 Dec 2009 06:51:34 GMT</datecreated>
+			<usercreated>Admin</usercreated>
+			<flags>0</flags>
+			<properties/>
+			<relations/>
+			<accesscontrol/>
+		</file>
+		<file>
+			<destination>system/modules/org.langhua.opencms.taglib.navigation/elements</destination>
+			<type>folder</type>
+			<uuidstructure>40960ff6-516f-11df-9d9d-0714b205776f</uuidstructure>
+			<datelastmodified>Mon, 26 Apr 2010 20:06:51 GMT</datelastmodified>
+			<userlastmodified>Admin</userlastmodified>
+			<datecreated>Mon, 26 Apr 2010 20:06:51 GMT</datecreated>
+			<usercreated>Admin</usercreated>
+			<flags>0</flags>
+			<properties/>
+			<relations/>
+			<accesscontrol/>
+		</file>
+		<file>
+			<source>system/modules/org.langhua.opencms.taglib.navigation/elements/legalstudiesborder.jsp</source>
+			<destination>system/modules/org.langhua.opencms.taglib.navigation/elements/legalstudiesborder.jsp</destination>
+			<type>jsp</type>
+			<uuidstructure>3d89d2fd-536c-11df-8f82-0714b205776f</uuidstructure>
+			<uuidresource>3d89d2fe-536c-11df-8f82-0714b205776f</uuidresource>
+			<datelastmodified>Thu, 29 Apr 2010 08:50:19 GMT</datelastmodified>
+			<userlastmodified>Admin</userlastmodified>
+			<datecreated>Thu, 29 Apr 2010 08:50:19 GMT</datecreated>
+			<usercreated>Admin</usercreated>
+			<flags>0</flags>
+			<properties>
+				<property type="shared">
+					<name>export</name>
+					<value><![CDATA[false]]></value>
+				</property>
+			</properties>
+			<relations/>
+			<accesscontrol/>
+		</file>
+		<file>
+			<source>system/modules/org.langhua.opencms.taglib.navigation/elements/navtitle_css.jsp</source>
+			<destination>system/modules/org.langhua.opencms.taglib.navigation/elements/navtitle_css.jsp</destination>
+			<type>jsp</type>
+			<uuidstructure>3d84a2d9-536c-11df-8f82-0714b205776f</uuidstructure>
+			<uuidresource>3d84a2da-536c-11df-8f82-0714b205776f</uuidresource>
+			<datelastmodified>Thu, 29 Apr 2010 08:50:19 GMT</datelastmodified>
+			<userlastmodified>Admin</userlastmodified>
+			<datecreated>Thu, 29 Apr 2010 08:50:19 GMT</datecreated>
+			<usercreated>Admin</usercreated>
+			<flags>0</flags>
+			<properties>
+				<property type="shared">
+					<name>export</name>
+					<value><![CDATA[false]]></value>
+				</property>
+			</properties>
+			<relations/>
+			<accesscontrol/>
+		</file>
+		<file>
+			<source>system/modules/org.langhua.opencms.taglib.navigation/elements/newslist_css1.jsp</source>
+			<destination>system/modules/org.langhua.opencms.taglib.navigation/elements/newslist_css1.jsp</destination>
+			<type>jsp</type>
+			<uuidstructure>3d7f2495-536c-11df-8f82-0714b205776f</uuidstructure>
+			<uuidresource>3d7f2496-536c-11df-8f82-0714b205776f</uuidresource>
+			<datelastmodified>Thu, 29 Apr 2010 08:50:19 GMT</datelastmodified>
+			<userlastmodified>Admin</userlastmodified>
+			<datecreated>Thu, 29 Apr 2010 08:50:19 GMT</datecreated>
+			<usercreated>Admin</usercreated>
+			<flags>0</flags>
+			<properties>
+				<property type="shared">
+					<name>export</name>
+					<value><![CDATA[false]]></value>
+				</property>
+			</properties>
+			<relations/>
+			<accesscontrol/>
+		</file>
+		<file>
+			<source>system/modules/org.langhua.opencms.taglib.navigation/elements/newslist_css13.jsp</source>
+			<destination>system/modules/org.langhua.opencms.taglib.navigation/elements/newslist_css13.jsp</destination>
+			<type>jsp</type>
+			<uuidstructure>3d79a651-536c-11df-8f82-0714b205776f</uuidstructure>
+			<uuidresource>3d79a652-536c-11df-8f82-0714b205776f</uuidresource>
+			<datelastmodified>Thu, 29 Apr 2010 08:50:19 GMT</datelastmodified>
+			<userlastmodified>Admin</userlastmodified>
+			<datecreated>Thu, 29 Apr 2010 08:50:19 GMT</datecreated>
+			<usercreated>Admin</usercreated>
+			<flags>0</flags>
+			<properties>
+				<property type="shared">
+					<name>export</name>
+					<value><![CDATA[false]]></value>
+				</property>
+			</properties>
+			<relations/>
+			<accesscontrol/>
+		</file>
+		<file>
+			<source>system/modules/org.langhua.opencms.taglib.navigation/elements/newslist_css4.jsp</source>
+			<destination>system/modules/org.langhua.opencms.taglib.navigation/elements/newslist_css4.jsp</destination>
+			<type>jsp</type>
+			<uuidstructure>3d738bcd-536c-11df-8f82-0714b205776f</uuidstructure>
+			<uuidresource>3d738bce-536c-11df-8f82-0714b205776f</uuidresource>
+			<datelastmodified>Thu, 29 Apr 2010 08:50:19 GMT</datelastmodified>
+			<userlastmodified>Admin</userlastmodified>
+			<datecreated>Thu, 29 Apr 2010 08:50:19 GMT</datecreated>
+			<usercreated>Admin</usercreated>
+			<flags>0</flags>
+			<properties>
+				<property type="shared">
+					<name>export</name>
+					<value><![CDATA[false]]></value>
+				</property>
+			</properties>
+			<relations/>
+			<accesscontrol/>
+		</file>
+		<file>
+			<source>system/modules/org.langhua.opencms.taglib.navigation/elements/newslist_css9.jsp</source>
+			<destination>system/modules/org.langhua.opencms.taglib.navigation/elements/newslist_css9.jsp</destination>
+			<type>jsp</type>
+			<uuidstructure>5f0ad88b-516f-11df-9d9d-0714b205776f</uuidstructure>
+			<uuidresource>5f0ad88c-516f-11df-9d9d-0714b205776f</uuidresource>
+			<datelastmodified>Thu, 29 Apr 2010 08:50:19 GMT</datelastmodified>
+			<userlastmodified>Admin</userlastmodified>
+			<datecreated>Mon, 26 Apr 2010 20:07:42 GMT</datecreated>
+			<usercreated>Admin</usercreated>
+			<flags>0</flags>
+			<properties>
+				<property type="shared">
+					<name>export</name>
+					<value><![CDATA[false]]></value>
+				</property>
+			</properties>
+			<relations/>
+			<accesscontrol/>
+		</file>
+		<file>
+			<source>system/modules/org.langhua.opencms.taglib.navigation/elements/newtext_css.jsp</source>
+			<destination>system/modules/org.langhua.opencms.taglib.navigation/elements/newtext_css.jsp</destination>
+			<type>jsp</type>
+			<uuidstructure>3d6d9859-536c-11df-8f82-0714b205776f</uuidstructure>
+			<uuidresource>3d6d985a-536c-11df-8f82-0714b205776f</uuidresource>
+			<datelastmodified>Thu, 29 Apr 2010 08:50:19 GMT</datelastmodified>
+			<userlastmodified>Admin</userlastmodified>
+			<datecreated>Thu, 29 Apr 2010 08:50:19 GMT</datecreated>
+			<usercreated>Admin</usercreated>
+			<flags>0</flags>
+			<properties>
+				<property type="shared">
+					<name>export</name>
+					<value><![CDATA[false]]></value>
+				</property>
+			</properties>
+			<relations/>
+			<accesscontrol/>
+		</file>
+		<file>
+			<source>system/modules/org.langhua.opencms.taglib.navigation/elements/photonav_css.jsp</source>
+			<destination>system/modules/org.langhua.opencms.taglib.navigation/elements/photonav_css.jsp</destination>
+			<type>jsp</type>
+			<uuidstructure>3d66e195-536c-11df-8f82-0714b205776f</uuidstructure>
+			<uuidresource>3d66e196-536c-11df-8f82-0714b205776f</uuidresource>
+			<datelastmodified>Thu, 29 Apr 2010 08:50:19 GMT</datelastmodified>
+			<userlastmodified>Admin</userlastmodified>
+			<datecreated>Thu, 29 Apr 2010 08:50:19 GMT</datecreated>
+			<usercreated>Admin</usercreated>
+			<flags>0</flags>
+			<properties>
+				<property type="shared">
+					<name>export</name>
+					<value><![CDATA[false]]></value>
+				</property>
+			</properties>
+			<relations/>
+			<accesscontrol/>
+		</file>
+		<file>
+			<source>system/modules/org.langhua.opencms.taglib.navigation/elements/subsecnav_css.jsp</source>
+			<destination>system/modules/org.langhua.opencms.taglib.navigation/elements/subsecnav_css.jsp</destination>
+			<type>jsp</type>
+			<uuidstructure>3d6078f1-536c-11df-8f82-0714b205776f</uuidstructure>
+			<uuidresource>3d6078f2-536c-11df-8f82-0714b205776f</uuidresource>
+			<datelastmodified>Thu, 29 Apr 2010 08:50:19 GMT</datelastmodified>
+			<userlastmodified>Admin</userlastmodified>
+			<datecreated>Thu, 29 Apr 2010 08:50:19 GMT</datecreated>
+			<usercreated>Admin</usercreated>
+			<flags>0</flags>
+			<properties>
+				<property type="shared">
+					<name>export</name>
+					<value><![CDATA[false]]></value>
+				</property>
+			</properties>
+			<relations/>
+			<accesscontrol/>
+		</file>
+		<file>
+			<source>system/modules/org.langhua.opencms.taglib.navigation/elements/textnav_css.jsp</source>
+			<destination>system/modules/org.langhua.opencms.taglib.navigation/elements/textnav_css.jsp</destination>
+			<type>jsp</type>
+			<uuidstructure>3d58147d-536c-11df-8f82-0714b205776f</uuidstructure>
+			<uuidresource>3d58147e-536c-11df-8f82-0714b205776f</uuidresource>
+			<datelastmodified>Thu, 29 Apr 2010 08:50:19 GMT</datelastmodified>
+			<userlastmodified>Admin</userlastmodified>
+			<datecreated>Thu, 29 Apr 2010 08:50:19 GMT</datecreated>
+			<usercreated>Admin</usercreated>
+			<flags>0</flags>
+			<properties>
+				<property type="shared">
+					<name>export</name>
+					<value><![CDATA[false]]></value>
+				</property>
+			</properties>
+			<relations/>
+			<accesscontrol/>
+		</file>
+		<file>
+			<source>system/modules/org.langhua.opencms.taglib.navigation/elements/verticalcolnav_css.jsp</source>
+			<destination>system/modules/org.langhua.opencms.taglib.navigation/elements/verticalcolnav_css.jsp</destination>
+			<type>jsp</type>
+			<uuidstructure>3d441749-536c-11df-8f82-0714b205776f</uuidstructure>
+			<uuidresource>3d44174a-536c-11df-8f82-0714b205776f</uuidresource>
+			<datelastmodified>Thu, 29 Apr 2010 08:50:19 GMT</datelastmodified>
+			<userlastmodified>Admin</userlastmodified>
+			<datecreated>Thu, 29 Apr 2010 08:50:19 GMT</datecreated>
+			<usercreated>Admin</usercreated>
+			<flags>0</flags>
+			<properties>
+				<property type="shared">
+					<name>export</name>
+					<value><![CDATA[false]]></value>
+				</property>
+			</properties>
+			<relations/>
+			<accesscontrol/>
+		</file>
+		<file>
+			<destination>system/modules/org.langhua.opencms.taglib.navigation/lib</destination>
+			<type>folder</type>
+			<uuidstructure>473be5bc-edfd-11de-b9d1-130261ca6ad0</uuidstructure>
+			<datelastmodified>Mon, 21 Dec 2009 06:51:34 GMT</datelastmodified>
+			<userlastmodified>Admin</userlastmodified>
+			<datecreated>Mon, 21 Dec 2009 06:51:34 GMT</datecreated>
+			<usercreated>Admin</usercreated>
+			<flags>0</flags>
+			<properties/>
+			<relations/>
+			<accesscontrol/>
+		</file>
+		<file>
+			<source>system/modules/org.langhua.opencms.taglib.navigation/lib/opencms-taglib-navigation.jar</source>
+			<destination>system/modules/org.langhua.opencms.taglib.navigation/lib/opencms-taglib-navigation.jar</destination>
+			<type>binary</type>
+			<uuidstructure>34101882-eecd-11de-858a-130261ca6ad0</uuidstructure>
+			<uuidresource>34101883-eecd-11de-858a-130261ca6ad0</uuidresource>
+			<datelastmodified>Tue, 02 Feb 2010 06:23:13 GMT</datelastmodified>
+			<userlastmodified>Admin</userlastmodified>
+			<datecreated>Tue, 22 Dec 2009 07:39:57 GMT</datecreated>
+			<usercreated>Admin</usercreated>
+			<flags>0</flags>
+			<properties/>
+			<relations/>
+			<accesscontrol/>
+		</file>
+		<file>
+			<destination>system/modules/org.langhua.opencms.taglib.navigation/resources</destination>
+			<type>folder</type>
+			<uuidstructure>5d130ecb-5169-11df-9d9d-0714b205776f</uuidstructure>
+			<datelastmodified>Mon, 26 Apr 2010 19:24:42 GMT</datelastmodified>
+			<userlastmodified>Admin</userlastmodified>
+			<datecreated>Mon, 26 Apr 2010 19:24:42 GMT</datecreated>
+			<usercreated>Admin</usercreated>
+			<flags>0</flags>
+			<properties/>
+			<relations/>
+			<accesscontrol/>
+		</file>
+		<file>
+			<source>system/modules/org.langhua.opencms.taglib.navigation/resources/GeneralNavigationText-display.PNG</source>
+			<destination>system/modules/org.langhua.opencms.taglib.navigation/resources/GeneralNavigationText-display.PNG</destination>
+			<type>image</type>
+			<uuidstructure>6c26287d-5169-11df-9d9d-0714b205776f</uuidstructure>
+			<uuidresource>6c26287e-5169-11df-9d9d-0714b205776f</uuidresource>
+			<datelastmodified>Thu, 29 Apr 2010 08:52:37 GMT</datelastmodified>
+			<userlastmodified>Admin</userlastmodified>
+			<datecreated>Mon, 26 Apr 2010 19:25:07 GMT</datecreated>
+			<usercreated>Admin</usercreated>
+			<flags>0</flags>
+			<properties>
+				<property type="shared">
+					<name>image.size</name>
+					<value><![CDATA[w:283,h:25]]></value>
+				</property>
+			</properties>
+			<relations/>
+			<accesscontrol/>
+		</file>
+		<file>
+			<source>system/modules/org.langhua.opencms.taglib.navigation/resources/Legalstudiesborder-display.PNG</source>
+			<destination>system/modules/org.langhua.opencms.taglib.navigation/resources/Legalstudiesborder-display.PNG</destination>
+			<type>image</type>
+			<uuidstructure>8f63319c-536c-11df-8f82-0714b205776f</uuidstructure>
+			<uuidresource>8f63319d-536c-11df-8f82-0714b205776f</uuidresource>
+			<datelastmodified>Thu, 29 Apr 2010 08:52:37 GMT</datelastmodified>
+			<userlastmodified>Admin</userlastmodified>
+			<datecreated>Thu, 29 Apr 2010 08:52:37 GMT</datecreated>
+			<usercreated>Admin</usercreated>
+			<flags>0</flags>
+			<properties>
+				<property type="shared">
+					<name>image.size</name>
+					<value><![CDATA[w:683,h:32]]></value>
+				</property>
+			</properties>
+			<relations/>
+			<accesscontrol/>
+		</file>
+		<file>
+			<source>system/modules/org.langhua.opencms.taglib.navigation/resources/Navigation-display.PNG</source>
+			<destination>system/modules/org.langhua.opencms.taglib.navigation/resources/Navigation-display.PNG</destination>
+			<type>image</type>
+			<uuidstructure>8f718880-536c-11df-8f82-0714b205776f</uuidstructure>
+			<uuidresource>8f718881-536c-11df-8f82-0714b205776f</uuidresource>
+			<datelastmodified>Thu, 29 Apr 2010 08:52:37 GMT</datelastmodified>
+			<userlastmodified>Admin</userlastmodified>
+			<datecreated>Thu, 29 Apr 2010 08:52:37 GMT</datecreated>
+			<usercreated>Admin</usercreated>
+			<flags>0</flags>
+			<properties>
+				<property type="shared">
+					<name>image.size</name>
+					<value><![CDATA[w:765,h:65]]></value>
+				</property>
+			</properties>
+			<relations/>
+			<accesscontrol/>
+		</file>
+		<file>
+			<source>system/modules/org.langhua.opencms.taglib.navigation/resources/NavigationList-display.PNG</source>
+			<destination>system/modules/org.langhua.opencms.taglib.navigation/resources/NavigationList-display.PNG</destination>
+			<type>image</type>
+			<uuidstructure>8f764374-536c-11df-8f82-0714b205776f</uuidstructure>
+			<uuidresource>8f764375-536c-11df-8f82-0714b205776f</uuidresource>
+			<datelastmodified>Thu, 29 Apr 2010 08:52:37 GMT</datelastmodified>
+			<userlastmodified>Admin</userlastmodified>
+			<datecreated>Thu, 29 Apr 2010 08:52:37 GMT</datecreated>
+			<usercreated>Admin</usercreated>
+			<flags>0</flags>
+			<properties>
+				<property type="shared">
+					<name>image.size</name>
+					<value><![CDATA[w:176,h:354]]></value>
+				</property>
+			</properties>
+			<relations/>
+			<accesscontrol/>
+		</file>
+		<file>
+			<source>system/modules/org.langhua.opencms.taglib.navigation/resources/NavigationTitle-display.PNG</source>
+			<destination>system/modules/org.langhua.opencms.taglib.navigation/resources/NavigationTitle-display.PNG</destination>
+			<type>image</type>
+			<uuidstructure>8f822a58-536c-11df-8f82-0714b205776f</uuidstructure>
+			<uuidresource>8f822a59-536c-11df-8f82-0714b205776f</uuidresource>
+			<datelastmodified>Thu, 29 Apr 2010 08:52:37 GMT</datelastmodified>
+			<userlastmodified>Admin</userlastmodified>
+			<datecreated>Thu, 29 Apr 2010 08:52:37 GMT</datecreated>
+			<usercreated>Admin</usercreated>
+			<flags>0</flags>
+			<properties>
+				<property type="shared">
+					<name>image.size</name>
+					<value><![CDATA[w:115,h:52]]></value>
+				</property>
+			</properties>
+			<relations/>
+			<accesscontrol/>
+		</file>
+		<file>
+			<source>system/modules/org.langhua.opencms.taglib.navigation/resources/PhotoColumnNavigation-display.PNG</source>
+			<destination>system/modules/org.langhua.opencms.taglib.navigation/resources/PhotoColumnNavigation-display.PNG</destination>
+			<type>image</type>
+			<uuidstructure>8f87cfac-536c-11df-8f82-0714b205776f</uuidstructure>
+			<uuidresource>8f87cfad-536c-11df-8f82-0714b205776f</uuidresource>
+			<datelastmodified>Thu, 29 Apr 2010 08:52:37 GMT</datelastmodified>
+			<userlastmodified>Admin</userlastmodified>
+			<datecreated>Thu, 29 Apr 2010 08:52:37 GMT</datecreated>
+			<usercreated>Admin</usercreated>
+			<flags>0</flags>
+			<properties>
+				<property type="shared">
+					<name>image.size</name>
+					<value><![CDATA[w:200,h:299]]></value>
+				</property>
+			</properties>
+			<relations/>
+			<accesscontrol/>
+		</file>
+		<file>
+			<source>system/modules/org.langhua.opencms.taglib.navigation/resources/PicNewsTag-display.PNG</source>
+			<destination>system/modules/org.langhua.opencms.taglib.navigation/resources/PicNewsTag-display.PNG</destination>
+			<type>image</type>
+			<uuidstructure>8f8f49c0-536c-11df-8f82-0714b205776f</uuidstructure>
+			<uuidresource>8f8f49c1-536c-11df-8f82-0714b205776f</uuidresource>
+			<datelastmodified>Thu, 29 Apr 2010 08:52:37 GMT</datelastmodified>
+			<userlastmodified>Admin</userlastmodified>
+			<datecreated>Thu, 29 Apr 2010 08:52:37 GMT</datecreated>
+			<usercreated>Admin</usercreated>
+			<flags>0</flags>
+			<properties>
+				<property type="shared">
+					<name>image.size</name>
+					<value><![CDATA[w:223,h:577]]></value>
+				</property>
+			</properties>
+			<relations/>
+			<accesscontrol/>
+		</file>
+		<file>
+			<source>system/modules/org.langhua.opencms.taglib.navigation/resources/SubSectionsNavigation-display.PNG</source>
+			<destination>system/modules/org.langhua.opencms.taglib.navigation/resources/SubSectionsNavigation-display.PNG</destination>
+			<type>image</type>
+			<uuidstructure>8fa31fe4-536c-11df-8f82-0714b205776f</uuidstructure>
+			<uuidresource>8fa31fe5-536c-11df-8f82-0714b205776f</uuidresource>
+			<datelastmodified>Thu, 29 Apr 2010 08:52:37 GMT</datelastmodified>
+			<userlastmodified>Admin</userlastmodified>
+			<datecreated>Thu, 29 Apr 2010 08:52:37 GMT</datecreated>
+			<usercreated>Admin</usercreated>
+			<flags>0</flags>
+			<properties>
+				<property type="shared">
+					<name>image.size</name>
+					<value><![CDATA[w:187,h:264]]></value>
+				</property>
+			</properties>
+			<relations/>
+			<accesscontrol/>
+		</file>
+		<file>
+			<source>system/modules/org.langhua.opencms.taglib.navigation/resources/TextNavigation-display.PNG</source>
+			<destination>system/modules/org.langhua.opencms.taglib.navigation/resources/TextNavigation-display.PNG</destination>
+			<type>image</type>
+			<uuidstructure>8fa9af98-536c-11df-8f82-0714b205776f</uuidstructure>
+			<uuidresource>8fa9af99-536c-11df-8f82-0714b205776f</uuidresource>
+			<datelastmodified>Thu, 29 Apr 2010 08:52:37 GMT</datelastmodified>
+			<userlastmodified>Admin</userlastmodified>
+			<datecreated>Thu, 29 Apr 2010 08:52:37 GMT</datecreated>
+			<usercreated>Admin</usercreated>
+			<flags>0</flags>
+			<properties>
+				<property type="shared">
+					<name>image.size</name>
+					<value><![CDATA[w:628,h:70]]></value>
+				</property>
+			</properties>
+			<relations/>
+			<accesscontrol/>
+		</file>
+		<file>
+			<source>system/modules/org.langhua.opencms.taglib.navigation/resources/VerticalColNav-display.PNG</source>
+			<destination>system/modules/org.langhua.opencms.taglib.navigation/resources/VerticalColNav-display.PNG</destination>
+			<type>image</type>
+			<uuidstructure>8faf54ec-536c-11df-8f82-0714b205776f</uuidstructure>
+			<uuidresource>8faf54ed-536c-11df-8f82-0714b205776f</uuidresource>
+			<datelastmodified>Thu, 29 Apr 2010 08:52:37 GMT</datelastmodified>
+			<userlastmodified>Admin</userlastmodified>
+			<datecreated>Thu, 29 Apr 2010 08:52:37 GMT</datecreated>
+			<usercreated>Admin</usercreated>
+			<flags>0</flags>
+			<properties>
+				<property type="shared">
+					<name>image.size</name>
+					<value><![CDATA[w:300,h:284]]></value>
+				</property>
+			</properties>
+			<relations/>
+			<accesscontrol/>
+		</file>
+		<file>
+			<source>system/modules/org.langhua.opencms.taglib.navigation/resources/VerticalColNavTwo-display.PNG</source>
+			<destination>system/modules/org.langhua.opencms.taglib.navigation/resources/VerticalColNavTwo-display.PNG</destination>
+			<type>image</type>
+			<uuidstructure>8fbc4d40-536c-11df-8f82-0714b205776f</uuidstructure>
+			<uuidresource>8fbc4d41-536c-11df-8f82-0714b205776f</uuidresource>
+			<datelastmodified>Thu, 29 Apr 2010 08:52:37 GMT</datelastmodified>
+			<userlastmodified>Admin</userlastmodified>
+			<datecreated>Thu, 29 Apr 2010 08:52:37 GMT</datecreated>
+			<usercreated>Admin</usercreated>
+			<flags>0</flags>
+			<properties>
+				<property type="shared">
+					<name>image.size</name>
+					<value><![CDATA[w:191,h:282]]></value>
+				</property>
+			</properties>
+			<relations/>
+			<accesscontrol/>
+		</file>
+		<file>
+			<destination>system/modules/org.langhua.opencms.taglib.navigation/samples</destination>
+			<type>folder</type>
+			<uuidstructure>3df1ddd1-56f6-11e1-aa29-e4ce8f2df730</uuidstructure>
+			<datelastmodified>Tue, 14 Feb 2012 10:25:39 GMT</datelastmodified>
+			<userlastmodified>Admin</userlastmodified>
+			<datecreated>Tue, 14 Feb 2012 10:25:39 GMT</datecreated>
+			<usercreated>Admin</usercreated>
+			<flags>0</flags>
+			<properties/>
+			<relations/>
+			<accesscontrol/>
+		</file>
+		<file>
+			<destination>system/modules/org.langhua.opencms.taglib.navigation/schemas</destination>
+			<type>folder</type>
+			<uuidstructure>3202d4a4-516f-11df-9d9d-0714b205776f</uuidstructure>
+			<datelastmodified>Mon, 26 Apr 2010 20:06:26 GMT</datelastmodified>
+			<userlastmodified>Admin</userlastmodified>
+			<datecreated>Mon, 26 Apr 2010 20:06:26 GMT</datecreated>
+			<usercreated>Admin</usercreated>
+			<flags>0</flags>
+			<properties/>
+			<relations/>
+			<accesscontrol/>
+		</file>
+		<file>
+			<source>system/modules/org.langhua.opencms.taglib.navigation/schemas/columnimg.xsd</source>
+			<destination>system/modules/org.langhua.opencms.taglib.navigation/schemas/columnimg.xsd</destination>
+			<type>plain</type>
+			<uuidstructure>c78fd62e-536c-11df-8f82-0714b205776f</uuidstructure>
+			<uuidresource>c78fd62f-536c-11df-8f82-0714b205776f</uuidresource>
+			<datelastmodified>Thu, 29 Apr 2010 08:54:11 GMT</datelastmodified>
+			<userlastmodified>Admin</userlastmodified>
+			<datecreated>Thu, 29 Apr 2010 08:54:11 GMT</datecreated>
+			<usercreated>Admin</usercreated>
+			<flags>0</flags>
+			<properties/>
+			<relations/>
+			<accesscontrol/>
+		</file>
+		<file>
+			<source>system/modules/org.langhua.opencms.taglib.navigation/schemas/com_link.xsd</source>
+			<destination>system/modules/org.langhua.opencms.taglib.navigation/schemas/com_link.xsd</destination>
+			<type>plain</type>
+			<uuidstructure>c7a9ede1-536c-11df-8f82-0714b205776f</uuidstructure>
+			<uuidresource>c7a9ede2-536c-11df-8f82-0714b205776f</uuidresource>
+			<datelastmodified>Thu, 29 Apr 2010 08:54:11 GMT</datelastmodified>
+			<userlastmodified>Admin</userlastmodified>
+			<datecreated>Thu, 29 Apr 2010 08:54:11 GMT</datecreated>
+			<usercreated>Admin</usercreated>
+			<flags>0</flags>
+			<properties/>
+			<relations/>
+			<accesscontrol/>
+		</file>
+		<file>
+			<source>system/modules/org.langhua.opencms.taglib.navigation/schemas/compile_link.xsd</source>
+			<destination>system/modules/org.langhua.opencms.taglib.navigation/schemas/compile_link.xsd</destination>
+			<type>plain</type>
+			<uuidstructure>c7b649f4-536c-11df-8f82-0714b205776f</uuidstructure>
+			<uuidresource>c7b649f5-536c-11df-8f82-0714b205776f</uuidresource>
+			<datelastmodified>Thu, 29 Apr 2010 08:54:11 GMT</datelastmodified>
+			<userlastmodified>Admin</userlastmodified>
+			<datecreated>Thu, 29 Apr 2010 08:54:11 GMT</datecreated>
+			<usercreated>Admin</usercreated>
+			<flags>0</flags>
+			<properties/>
+			<relations/>
+			<accesscontrol/>
+		</file>
+		<file>
+			<source>system/modules/org.langhua.opencms.taglib.navigation/schemas/compile_navlink.xsd</source>
+			<destination>system/modules/org.langhua.opencms.taglib.navigation/schemas/compile_navlink.xsd</destination>
+			<type>plain</type>
+			<uuidstructure>c7c03507-536c-11df-8f82-0714b205776f</uuidstructure>
+			<uuidresource>c7c03508-536c-11df-8f82-0714b205776f</uuidresource>
+			<datelastmodified>Thu, 29 Apr 2010 08:54:11 GMT</datelastmodified>
+			<userlastmodified>Admin</userlastmodified>
+			<datecreated>Thu, 29 Apr 2010 08:54:11 GMT</datecreated>
+			<usercreated>Admin</usercreated>
+			<flags>0</flags>
+			<properties/>
+			<relations/>
+			<accesscontrol/>
+		</file>
+		<file>
+			<source>system/modules/org.langhua.opencms.taglib.navigation/schemas/filelink.xsd</source>
+			<destination>system/modules/org.langhua.opencms.taglib.navigation/schemas/filelink.xsd</destination>
+			<type>plain</type>
+			<uuidstructure>c7c90eaa-536c-11df-8f82-0714b205776f</uuidstructure>
+			<uuidresource>c7c90eab-536c-11df-8f82-0714b205776f</uuidresource>
+			<datelastmodified>Thu, 29 Apr 2010 08:54:11 GMT</datelastmodified>
+			<userlastmodified>Admin</userlastmodified>
+			<datecreated>Thu, 29 Apr 2010 08:54:11 GMT</datecreated>
+			<usercreated>Admin</usercreated>
+			<flags>0</flags>
+			<properties/>
+			<relations/>
+			<accesscontrol/>
+		</file>
+		<file>
+			<source>system/modules/org.langhua.opencms.taglib.navigation/schemas/filetype.xsd</source>
+			<destination>system/modules/org.langhua.opencms.taglib.navigation/schemas/filetype.xsd</destination>
+			<type>plain</type>
+			<uuidstructure>c7d1e84d-536c-11df-8f82-0714b205776f</uuidstructure>
+			<uuidresource>c7d1e84e-536c-11df-8f82-0714b205776f</uuidresource>
+			<datelastmodified>Thu, 29 Apr 2010 08:54:11 GMT</datelastmodified>
+			<userlastmodified>Admin</userlastmodified>
+			<datecreated>Thu, 29 Apr 2010 08:54:11 GMT</datecreated>
+			<usercreated>Admin</usercreated>
+			<flags>0</flags>
+			<properties/>
+			<relations/>
+			<accesscontrol/>
+		</file>
+		<file>
+			<source>system/modules/org.langhua.opencms.taglib.navigation/schemas/folderfile.xsd</source>
+			<destination>system/modules/org.langhua.opencms.taglib.navigation/schemas/folderfile.xsd</destination>
+			<type>plain</type>
+			<uuidstructure>c7dc96b0-536c-11df-8f82-0714b205776f</uuidstructure>
+			<uuidresource>c7dc96b1-536c-11df-8f82-0714b205776f</uuidresource>
+			<datelastmodified>Thu, 29 Apr 2010 08:54:11 GMT</datelastmodified>
+			<userlastmodified>Admin</userlastmodified>
+			<datecreated>Thu, 29 Apr 2010 08:54:11 GMT</datecreated>
+			<usercreated>Admin</usercreated>
+			<flags>0</flags>
+			<properties/>
+			<relations/>
+			<accesscontrol/>
+		</file>
+		<file>
+			<source>system/modules/org.langhua.opencms.taglib.navigation/schemas/icon_link.xsd</source>
+			<destination>system/modules/org.langhua.opencms.taglib.navigation/schemas/icon_link.xsd</destination>
+			<type>plain</type>
+			<uuidstructure>c7e633a3-536c-11df-8f82-0714b205776f</uuidstructure>
+			<uuidresource>c7e633a4-536c-11df-8f82-0714b205776f</uuidresource>
+			<datelastmodified>Thu, 29 Apr 2010 08:54:11 GMT</datelastmodified>
+			<userlastmodified>Admin</userlastmodified>
+			<datecreated>Thu, 29 Apr 2010 08:54:11 GMT</datecreated>
+			<usercreated>Admin</usercreated>
+			<flags>0</flags>
+			<properties/>
+			<relations/>
+			<accesscontrol/>
+		</file>
+		<file>
+			<source>system/modules/org.langhua.opencms.taglib.navigation/schemas/legalstudiesbordercss.xsd</source>
+			<destination>system/modules/org.langhua.opencms.taglib.navigation/schemas/legalstudiesbordercss.xsd</destination>
+			<type>plain</type>
+			<uuidstructure>c7ef0d46-536c-11df-8f82-0714b205776f</uuidstructure>
+			<uuidresource>c7ef0d47-536c-11df-8f82-0714b205776f</uuidresource>
+			<datelastmodified>Thu, 29 Apr 2010 08:54:12 GMT</datelastmodified>
+			<userlastmodified>Admin</userlastmodified>
+			<datecreated>Thu, 29 Apr 2010 08:54:12 GMT</datecreated>
+			<usercreated>Admin</usercreated>
+			<flags>0</flags>
+			<properties/>
+			<relations/>
+			<accesscontrol/>
+		</file>
+		<file>
+			<source>system/modules/org.langhua.opencms.taglib.navigation/schemas/legalstudiesborderfile.xsd</source>
+			<destination>system/modules/org.langhua.opencms.taglib.navigation/schemas/legalstudiesborderfile.xsd</destination>
+			<type>plain</type>
+			<uuidstructure>c7f798c9-536c-11df-8f82-0714b205776f</uuidstructure>
+			<uuidresource>c7f798ca-536c-11df-8f82-0714b205776f</uuidresource>
+			<datelastmodified>Thu, 29 Apr 2010 08:54:12 GMT</datelastmodified>
+			<userlastmodified>Admin</userlastmodified>
+			<datecreated>Thu, 29 Apr 2010 08:54:12 GMT</datecreated>
+			<usercreated>Admin</usercreated>
+			<flags>0</flags>
+			<properties/>
+			<relations/>
+			<accesscontrol/>
+		</file>
+		<file>
+			<source>system/modules/org.langhua.opencms.taglib.navigation/schemas/legalstudiesborderlink.xsd</source>
+			<destination>system/modules/org.langhua.opencms.taglib.navigation/schemas/legalstudiesborderlink.xsd</destination>
+			<type>plain</type>
+			<uuidstructure>c800c08c-536c-11df-8f82-0714b205776f</uuidstructure>
+			<uuidresource>c800c08d-536c-11df-8f82-0714b205776f</uuidresource>
+			<datelastmodified>Thu, 29 Apr 2010 08:54:12 GMT</datelastmodified>
+			<userlastmodified>Admin</userlastmodified>
+			<datecreated>Thu, 29 Apr 2010 08:54:12 GMT</datecreated>
+			<usercreated>Admin</usercreated>
+			<flags>0</flags>
+			<properties/>
+			<relations/>
+			<accesscontrol/>
+		</file>
+		<file>
+			<source>system/modules/org.langhua.opencms.taglib.navigation/schemas/navigationtitle_link.xsd</source>
+			<destination>system/modules/org.langhua.opencms.taglib.navigation/schemas/navigationtitle_link.xsd</destination>
+			<type>plain</type>
+			<uuidstructure>c80a0f5f-536c-11df-8f82-0714b205776f</uuidstructure>
+			<uuidresource>c80a0f60-536c-11df-8f82-0714b205776f</uuidresource>
+			<datelastmodified>Thu, 29 Apr 2010 08:54:12 GMT</datelastmodified>
+			<userlastmodified>Admin</userlastmodified>
+			<datecreated>Thu, 29 Apr 2010 08:54:12 GMT</datecreated>
+			<usercreated>Admin</usercreated>
+			<flags>0</flags>
+			<properties/>
+			<relations/>
+			<accesscontrol/>
+		</file>
+		<file>
+			<source>system/modules/org.langhua.opencms.taglib.navigation/schemas/navtitle_css.xsd</source>
+			<destination>system/modules/org.langhua.opencms.taglib.navigation/schemas/navtitle_css.xsd</destination>
+			<type>plain</type>
+			<uuidstructure>c80d6ac2-536c-11df-8f82-0714b205776f</uuidstructure>
+			<uuidresource>c80d6ac3-536c-11df-8f82-0714b205776f</uuidresource>
+			<datelastmodified>Thu, 29 Apr 2010 08:54:12 GMT</datelastmodified>
+			<userlastmodified>Admin</userlastmodified>
+			<datecreated>Thu, 29 Apr 2010 08:54:12 GMT</datecreated>
+			<usercreated>Admin</usercreated>
+			<flags>0</flags>
+			<properties/>
+			<relations/>
+			<accesscontrol/>
+		</file>
+		<file>
+			<source>system/modules/org.langhua.opencms.taglib.navigation/schemas/navtitle_link.xsd</source>
+			<destination>system/modules/org.langhua.opencms.taglib.navigation/schemas/navtitle_link.xsd</destination>
+			<type>plain</type>
+			<uuidstructure>af9a86d0-826d-11df-9eaf-cfeec42d7e77</uuidstructure>
+			<uuidresource>af9a86d1-826d-11df-9eaf-cfeec42d7e77</uuidresource>
+			<datelastmodified>Mon, 28 Jun 2010 04:29:05 GMT</datelastmodified>
+			<userlastmodified>Admin</userlastmodified>
+			<datecreated>Mon, 28 Jun 2010 04:29:05 GMT</datecreated>
+			<usercreated>Admin</usercreated>
+			<flags>0</flags>
+			<properties/>
+			<relations/>
+			<accesscontrol/>
+		</file>
+		<file>
+			<source>system/modules/org.langhua.opencms.taglib.navigation/schemas/newslist_css1.xsd</source>
+			<destination>system/modules/org.langhua.opencms.taglib.navigation/schemas/newslist_css1.xsd</destination>
+			<type>plain</type>
+			<uuidstructure>c810ed35-536c-11df-8f82-0714b205776f</uuidstructure>
+			<uuidresource>c810ed36-536c-11df-8f82-0714b205776f</uuidresource>
+			<datelastmodified>Thu, 29 Apr 2010 08:54:12 GMT</datelastmodified>
+			<userlastmodified>Admin</userlastmodified>
+			<datecreated>Thu, 29 Apr 2010 08:54:12 GMT</datecreated>
+			<usercreated>Admin</usercreated>
+			<flags>0</flags>
+			<properties/>
+			<relations/>
+			<accesscontrol/>
+		</file>
+		<file>
+			<source>system/modules/org.langhua.opencms.taglib.navigation/schemas/newslist_css13.xsd</source>
+			<destination>system/modules/org.langhua.opencms.taglib.navigation/schemas/newslist_css13.xsd</destination>
+			<type>plain</type>
+			<uuidstructure>c81b9b9b-536c-11df-8f82-0714b205776f</uuidstructure>
+			<uuidresource>c81b9b9c-536c-11df-8f82-0714b205776f</uuidresource>
+			<datelastmodified>Thu, 29 Apr 2010 08:54:12 GMT</datelastmodified>
+			<userlastmodified>Admin</userlastmodified>
+			<datecreated>Thu, 29 Apr 2010 08:54:12 GMT</datecreated>
+			<usercreated>Admin</usercreated>
+			<flags>0</flags>
+			<properties/>
+			<relations/>
+			<accesscontrol/>
+		</file>
+		<file>
+			<source>system/modules/org.langhua.opencms.taglib.navigation/schemas/newslist_css4.xsd</source>
+			<destination>system/modules/org.langhua.opencms.taglib.navigation/schemas/newslist_css4.xsd</destination>
+			<type>plain</type>
+			<uuidstructure>c8146fa8-536c-11df-8f82-0714b205776f</uuidstructure>
+			<uuidresource>c8146fa9-536c-11df-8f82-0714b205776f</uuidresource>
+			<datelastmodified>Thu, 29 Apr 2010 08:54:12 GMT</datelastmodified>
+			<userlastmodified>Admin</userlastmodified>
+			<datecreated>Thu, 29 Apr 2010 08:54:12 GMT</datecreated>
+			<usercreated>Admin</usercreated>
+			<flags>0</flags>
+			<properties/>
+			<relations/>
+			<accesscontrol/>
+		</file>
+		<file>
+			<source>system/modules/org.langhua.opencms.taglib.navigation/schemas/newslist_css9.xsd</source>
+			<destination>system/modules/org.langhua.opencms.taglib.navigation/schemas/newslist_css9.xsd</destination>
+			<type>plain</type>
+			<uuidstructure>51d4bc38-516f-11df-9d9d-0714b205776f</uuidstructure>
+			<uuidresource>51d4bc39-516f-11df-9d9d-0714b205776f</uuidresource>
+			<datelastmodified>Thu, 29 Apr 2010 08:54:12 GMT</datelastmodified>
+			<userlastmodified>Admin</userlastmodified>
+			<datecreated>Mon, 26 Apr 2010 20:07:20 GMT</datecreated>
+			<usercreated>Admin</usercreated>
+			<flags>0</flags>
+			<properties/>
+			<relations/>
+			<accesscontrol/>
+		</file>
+		<file>
+			<source>system/modules/org.langhua.opencms.taglib.navigation/schemas/newtext_css.xsd</source>
+			<destination>system/modules/org.langhua.opencms.taglib.navigation/schemas/newtext_css.xsd</destination>
+			<type>plain</type>
+			<uuidstructure>c8233cbe-536c-11df-8f82-0714b205776f</uuidstructure>
+			<uuidresource>c8233cbf-536c-11df-8f82-0714b205776f</uuidresource>
+			<datelastmodified>Thu, 29 Apr 2010 08:54:12 GMT</datelastmodified>
+			<userlastmodified>Admin</userlastmodified>
+			<datecreated>Thu, 29 Apr 2010 08:54:12 GMT</datecreated>
+			<usercreated>Admin</usercreated>
+			<flags>0</flags>
+			<properties/>
+			<relations/>
+			<accesscontrol/>
+		</file>
+		<file>
+			<source>system/modules/org.langhua.opencms.taglib.navigation/schemas/parentlink.xsd</source>
+			<destination>system/modules/org.langhua.opencms.taglib.navigation/schemas/parentlink.xsd</destination>
+			<type>plain</type>
+			<uuidstructure>c8273461-536c-11df-8f82-0714b205776f</uuidstructure>
+			<uuidresource>c8273462-536c-11df-8f82-0714b205776f</uuidresource>
+			<datelastmodified>Thu, 29 Apr 2010 08:54:12 GMT</datelastmodified>
+			<userlastmodified>Admin</userlastmodified>
+			<datecreated>Thu, 29 Apr 2010 08:54:12 GMT</datecreated>
+			<usercreated>Admin</usercreated>
+			<flags>0</flags>
+			<properties/>
+			<relations/>
+			<accesscontrol/>
+		</file>
+		<file>
+			<source>system/modules/org.langhua.opencms.taglib.navigation/schemas/photonav_css.xsd</source>
+			<destination>system/modules/org.langhua.opencms.taglib.navigation/schemas/photonav_css.xsd</destination>
+			<type>plain</type>
+			<uuidstructure>c82b7a24-536c-11df-8f82-0714b205776f</uuidstructure>
+			<uuidresource>c82b7a25-536c-11df-8f82-0714b205776f</uuidresource>
+			<datelastmodified>Thu, 29 Apr 2010 08:54:12 GMT</datelastmodified>
+			<userlastmodified>Admin</userlastmodified>
+			<datecreated>Thu, 29 Apr 2010 08:54:12 GMT</datecreated>
+			<usercreated>Admin</usercreated>
+			<flags>0</flags>
+			<properties/>
+			<relations/>
+			<accesscontrol/>
+		</file>
+		<file>
+			<source>system/modules/org.langhua.opencms.taglib.navigation/schemas/program.xsd</source>
+			<destination>system/modules/org.langhua.opencms.taglib.navigation/schemas/program.xsd</destination>
+			<type>plain</type>
+			<uuidstructure>c8336967-536c-11df-8f82-0714b205776f</uuidstructure>
+			<uuidresource>c8336968-536c-11df-8f82-0714b205776f</uuidresource>
+			<datelastmodified>Thu, 29 Apr 2010 08:54:12 GMT</datelastmodified>
+			<userlastmodified>Admin</userlastmodified>
+			<datecreated>Thu, 29 Apr 2010 08:54:12 GMT</datecreated>
+			<usercreated>Admin</usercreated>
+			<flags>0</flags>
+			<properties/>
+			<relations/>
+			<accesscontrol/>
+		</file>
+		<file>
+			<source>system/modules/org.langhua.opencms.taglib.navigation/schemas/programlink.xsd</source>
+			<destination>system/modules/org.langhua.opencms.taglib.navigation/schemas/programlink.xsd</destination>
+			<type>plain</type>
+			<uuidstructure>c836ebda-536c-11df-8f82-0714b205776f</uuidstructure>
+			<uuidresource>c836ebdb-536c-11df-8f82-0714b205776f</uuidresource>
+			<datelastmodified>Thu, 29 Apr 2010 08:54:12 GMT</datelastmodified>
+			<userlastmodified>Admin</userlastmodified>
+			<datecreated>Thu, 29 Apr 2010 08:54:12 GMT</datecreated>
+			<usercreated>Admin</usercreated>
+			<flags>0</flags>
+			<properties/>
+			<relations/>
+			<accesscontrol/>
+		</file>
+		<file>
+			<source>system/modules/org.langhua.opencms.taglib.navigation/schemas/seedlink.xsd</source>
+			<destination>system/modules/org.langhua.opencms.taglib.navigation/schemas/seedlink.xsd</destination>
+			<type>plain</type>
+			<uuidstructure>c83a202d-536c-11df-8f82-0714b205776f</uuidstructure>
+			<uuidresource>c83a202e-536c-11df-8f82-0714b205776f</uuidresource>
+			<datelastmodified>Thu, 29 Apr 2010 08:54:12 GMT</datelastmodified>
+			<userlastmodified>Admin</userlastmodified>
+			<datecreated>Thu, 29 Apr 2010 08:54:12 GMT</datecreated>
+			<usercreated>Admin</usercreated>
+			<flags>0</flags>
+			<properties/>
+			<relations/>
+			<accesscontrol/>
+		</file>
+		<file>
+			<source>system/modules/org.langhua.opencms.taglib.navigation/schemas/subsecnav_css.xsd</source>
+			<destination>system/modules/org.langhua.opencms.taglib.navigation/schemas/subsecnav_css.xsd</destination>
+			<type>plain</type>
+			<uuidstructure>c83d7b90-536c-11df-8f82-0714b205776f</uuidstructure>
+			<uuidresource>c83d7b91-536c-11df-8f82-0714b205776f</uuidresource>
+			<datelastmodified>Thu, 29 Apr 2010 08:54:12 GMT</datelastmodified>
+			<userlastmodified>Admin</userlastmodified>
+			<datecreated>Thu, 29 Apr 2010 08:54:12 GMT</datecreated>
+			<usercreated>Admin</usercreated>
+			<flags>0</flags>
+			<properties/>
+			<relations/>
+			<accesscontrol/>
+		</file>
+		<file>
+			<source>system/modules/org.langhua.opencms.taglib.navigation/schemas/subsecnav_link.xsd</source>
+			<destination>system/modules/org.langhua.opencms.taglib.navigation/schemas/subsecnav_link.xsd</destination>
+			<type>plain</type>
+			<uuidstructure>c840fe03-536c-11df-8f82-0714b205776f</uuidstructure>
+			<uuidresource>c840fe04-536c-11df-8f82-0714b205776f</uuidresource>
+			<datelastmodified>Thu, 29 Apr 2010 08:54:12 GMT</datelastmodified>
+			<userlastmodified>Admin</userlastmodified>
+			<datecreated>Thu, 29 Apr 2010 08:54:12 GMT</datecreated>
+			<usercreated>Admin</usercreated>
+			<flags>0</flags>
+			<properties/>
+			<relations/>
+			<accesscontrol/>
+		</file>
+		<file>
+			<source>system/modules/org.langhua.opencms.taglib.navigation/schemas/superlink.xsd</source>
+			<destination>system/modules/org.langhua.opencms.taglib.navigation/schemas/superlink.xsd</destination>
+			<type>plain</type>
+			<uuidstructure>c8460716-536c-11df-8f82-0714b205776f</uuidstructure>
+			<uuidresource>c8460717-536c-11df-8f82-0714b205776f</uuidresource>
+			<datelastmodified>Thu, 29 Apr 2010 08:54:12 GMT</datelastmodified>
+			<userlastmodified>Admin</userlastmodified>
+			<datecreated>Thu, 29 Apr 2010 08:54:12 GMT</datecreated>
+			<usercreated>Admin</usercreated>
+			<flags>0</flags>
+			<properties/>
+			<relations/>
+			<accesscontrol/>
+		</file>
+		<file>
+			<source>system/modules/org.langhua.opencms.taglib.navigation/schemas/text.xsd</source>
+			<destination>system/modules/org.langhua.opencms.taglib.navigation/schemas/text.xsd</destination>
+			<type>plain</type>
+			<uuidstructure>c8496279-536c-11df-8f82-0714b205776f</uuidstructure>
+			<uuidresource>c849627a-536c-11df-8f82-0714b205776f</uuidresource>
+			<datelastmodified>Thu, 29 Apr 2010 08:54:12 GMT</datelastmodified>
+			<userlastmodified>Admin</userlastmodified>
+			<datecreated>Thu, 29 Apr 2010 08:54:12 GMT</datecreated>
+			<usercreated>Admin</usercreated>
+			<flags>0</flags>
+			<properties/>
+			<relations/>
+			<accesscontrol/>
+		</file>
+		<file>
+			<source>system/modules/org.langhua.opencms.taglib.navigation/schemas/text_content.xsd</source>
+			<destination>system/modules/org.langhua.opencms.taglib.navigation/schemas/text_content.xsd</destination>
+			<type>plain</type>
+			<uuidstructure>c84cbddc-536c-11df-8f82-0714b205776f</uuidstructure>
+			<uuidresource>c84cbddd-536c-11df-8f82-0714b205776f</uuidresource>
+			<datelastmodified>Thu, 29 Apr 2010 08:54:12 GMT</datelastmodified>
+			<userlastmodified>Admin</userlastmodified>
+			<datecreated>Thu, 29 Apr 2010 08:54:12 GMT</datecreated>
+			<usercreated>Admin</usercreated>
+			<flags>0</flags>
+			<properties/>
+			<relations/>
+			<accesscontrol/>
+		</file>
+		<file>
+			<source>system/modules/org.langhua.opencms.taglib.navigation/schemas/textnav_css.xsd</source>
+			<destination>system/modules/org.langhua.opencms.taglib.navigation/schemas/textnav_css.xsd</destination>
+			<type>plain</type>
+			<uuidstructure>c852d85f-536c-11df-8f82-0714b205776f</uuidstructure>
+			<uuidresource>c852d860-536c-11df-8f82-0714b205776f</uuidresource>
+			<datelastmodified>Thu, 29 Apr 2010 08:54:12 GMT</datelastmodified>
+			<userlastmodified>Admin</userlastmodified>
+			<datecreated>Thu, 29 Apr 2010 08:54:12 GMT</datecreated>
+			<usercreated>Admin</usercreated>
+			<flags>0</flags>
+			<properties/>
+			<relations/>
+			<accesscontrol/>
+		</file>
+		<file>
+			<source>system/modules/org.langhua.opencms.taglib.navigation/schemas/textnav_link.xsd</source>
+			<destination>system/modules/org.langhua.opencms.taglib.navigation/schemas/textnav_link.xsd</destination>
+			<type>plain</type>
+			<uuidstructure>c8587db2-536c-11df-8f82-0714b205776f</uuidstructure>
+			<uuidresource>c8587db3-536c-11df-8f82-0714b205776f</uuidresource>
+			<datelastmodified>Thu, 29 Apr 2010 08:54:12 GMT</datelastmodified>
+			<userlastmodified>Admin</userlastmodified>
+			<datecreated>Thu, 29 Apr 2010 08:54:12 GMT</datecreated>
+			<usercreated>Admin</usercreated>
+			<flags>0</flags>
+			<properties/>
+			<relations/>
+			<accesscontrol/>
+		</file>
+		<file>
+			<source>system/modules/org.langhua.opencms.taglib.navigation/schemas/top_content.xsd</source>
+			<destination>system/modules/org.langhua.opencms.taglib.navigation/schemas/top_content.xsd</destination>
+			<type>plain</type>
+			<uuidstructure>c85e2305-536c-11df-8f82-0714b205776f</uuidstructure>
+			<uuidresource>c85e2306-536c-11df-8f82-0714b205776f</uuidresource>
+			<datelastmodified>Thu, 29 Apr 2010 08:54:12 GMT</datelastmodified>
+			<userlastmodified>Admin</userlastmodified>
+			<datecreated>Thu, 29 Apr 2010 08:54:12 GMT</datecreated>
+			<usercreated>Admin</usercreated>
+			<flags>0</flags>
+			<properties/>
+			<relations/>
+			<accesscontrol/>
+		</file>
+		<file>
+			<source>system/modules/org.langhua.opencms.taglib.navigation/schemas/verticalcolnav_css.xsd</source>
+			<destination>system/modules/org.langhua.opencms.taglib.navigation/schemas/verticalcolnav_css.xsd</destination>
+			<type>plain</type>
+			<uuidstructure>c8680e18-536c-11df-8f82-0714b205776f</uuidstructure>
+			<uuidresource>c8680e19-536c-11df-8f82-0714b205776f</uuidresource>
+			<datelastmodified>Thu, 29 Apr 2010 08:54:12 GMT</datelastmodified>
+			<userlastmodified>Admin</userlastmodified>
+			<datecreated>Thu, 29 Apr 2010 08:54:12 GMT</datecreated>
+			<usercreated>Admin</usercreated>
+			<flags>0</flags>
+			<properties/>
+			<relations/>
+			<accesscontrol/>
+		</file>
+		<file>
+			<source>system/modules/org.langhua.opencms.taglib.navigation/schemas/verticalcolnav_link.xsd</source>
+			<destination>system/modules/org.langhua.opencms.taglib.navigation/schemas/verticalcolnav_link.xsd</destination>
+			<type>plain</type>
+			<uuidstructure>c86bb79b-536c-11df-8f82-0714b205776f</uuidstructure>
+			<uuidresource>c86bb79c-536c-11df-8f82-0714b205776f</uuidresource>
+			<datelastmodified>Thu, 29 Apr 2010 08:54:12 GMT</datelastmodified>
+			<userlastmodified>Admin</userlastmodified>
+			<datecreated>Thu, 29 Apr 2010 08:54:12 GMT</datecreated>
+			<usercreated>Admin</usercreated>
+			<flags>0</flags>
+			<properties/>
+			<relations/>
+			<accesscontrol/>
+		</file>
+		<file>
+			<source>system/modules/org.langhua.opencms.taglib.navigation/schemas/verticalcolnavtwo_link.xsd</source>
+			<destination>system/modules/org.langhua.opencms.taglib.navigation/schemas/verticalcolnavtwo_link.xsd</destination>
+			<type>plain</type>
+			<uuidstructure>c870728e-536c-11df-8f82-0714b205776f</uuidstructure>
+			<uuidresource>c870728f-536c-11df-8f82-0714b205776f</uuidresource>
+			<datelastmodified>Thu, 29 Apr 2010 08:54:12 GMT</datelastmodified>
+			<userlastmodified>Admin</userlastmodified>
+			<datecreated>Thu, 29 Apr 2010 08:54:12 GMT</datecreated>
+			<usercreated>Admin</usercreated>
+			<flags>0</flags>
+			<properties/>
+			<relations/>
+			<accesscontrol/>
+		</file>
+	</files>
+</export>

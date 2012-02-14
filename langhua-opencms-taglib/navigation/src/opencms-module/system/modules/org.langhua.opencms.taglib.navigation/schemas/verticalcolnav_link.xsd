@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified">
+<xsd:include schemaLocation="opencms://opencms-xmlcontent.xsd"/>
+<xsd:include schemaLocation="opencms://system/modules/org.langhua.opencms.taglib.navigation/schemas/text_content.xsd"/>
+<xsd:include schemaLocation="opencms://system/modules/org.langhua.opencms.taglib.navigation/schemas/top_content.xsd"/>
+<xsd:include schemaLocation="opencms://system/modules/org.langhua.opencms.taglib.navigation/schemas/program.xsd"/>
+<xsd:element name="NewTextLinks" type="OpenCmsNewTextLinks"/>	
+	<xsd:complexType name="OpenCmsNewTextLinks">
+		<xsd:sequence>
+			<xsd:element maxOccurs="unbounded" minOccurs="0" name="NewTextLink" type="OpenCmsNewTextLink"/>
+		</xsd:sequence>
+	</xsd:complexType>
+
+	<xsd:complexType name="OpenCmsNewTextLink">
+		<xsd:sequence>
+			<xsd:element name="Name" type="OpenCmsString"/> 
+			<xsd:element name="uri" type="OpenCmsVfsFile"/> 
+                        <xsd:element default="false" name="Column" type="OpenCmsBoolean"/>
+			<xsd:element maxOccurs="unbounded" minOccurs="0" name="Top" type="OpenCmsTop"/>  
+			<xsd:element maxOccurs="unbounded" minOccurs="0" name="Content" type="OpenCmsTextContent"/>  
+			<xsd:element name="IFAutomatic" type="OpenCmsBoolean"/>
+			<xsd:element maxOccurs="unbounded" minOccurs="0" name="Program" type="OpenCmsProgram"/>
+			<xsd:element name="out.number" type="OpenCmsString"/>
+                        <xsd:element default="false" name="out" type="OpenCmsBoolean"/>
+                        <xsd:element maxOccurs="1" minOccurs="0" name="out.link" type="OpenCmsVfsFile"/>
+                        <xsd:element default="false" name="military.out" type="OpenCmsBoolean"/>
+                        <xsd:element maxOccurs="1" minOccurs="0" name="military.out.link" type="OpenCmsVfsFile"/>
+		</xsd:sequence>
+		<xsd:attribute name="language" type="OpenCmsLocale" use="required"/>
+	</xsd:complexType>
+	<xsd:annotation>
+		<xsd:appinfo>
+			<resourcebundle name="org.langhua.opencms.taglib.navigation.message"/>                        
+                        <validationrules>
+			   <rule element="out.number" message="必须填写数字" regex="^[0-9]{0,20}$"/>	                	
+		        </validationrules>                  		
+		</xsd:appinfo>
+	</xsd:annotation>  
+</xsd:schema>

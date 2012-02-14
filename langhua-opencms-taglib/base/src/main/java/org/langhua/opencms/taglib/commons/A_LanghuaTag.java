@@ -191,7 +191,7 @@ public abstract class A_LanghuaTag extends TagSupport {
 	 * 
 	 * @return boolean to indicate whether performance module is used.
 	 */
-	private static boolean isPerformanceUsed() {
+	public static boolean isPerformanceUsed() {
 		String valueUsePerformance = OpenCms.getModuleManager().getModule(BASE_MODULE_NAME).getParameter(PARAM_USE_PERFORMANCE);
 		boolean isPerformanceUsed = CmsStringUtil.isNotEmptyOrWhitespaceOnly(valueUsePerformance) && (valueUsePerformance.equalsIgnoreCase("yes") || valueUsePerformance.equalsIgnoreCase("true")) ? true : false;
 		return isPerformanceUsed;
