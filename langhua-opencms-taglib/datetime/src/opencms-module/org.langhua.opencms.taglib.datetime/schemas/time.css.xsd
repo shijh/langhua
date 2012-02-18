@@ -32,7 +32,7 @@
 
 	<xsd:annotation>
 		<xsd:appinfo>
-			<resourcebundle name="org.langhua.opencms.taglib.datetime.message" />
+			<resourcebundle name="org.langhua.opencms.taglib.datetime.messages" />
 			<layouts>
 				<layout element="bgimage" widget="ImageGalleryWidget" />
 				<layout element="text.align" widget="SelectorWidget"
