@@ -1,79 +1,86 @@
-
-<xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified">
-<xsd:include schemaLocation="opencms://opencms-xmlcontent.xsd"/>
-<xsd:element name="Legalstudiesbordercss" type="OpenCmsLegalstudiesbordercss"/>		
+<xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+	elementFormDefault="qualified">
+	<xsd:include schemaLocation="opencms://opencms-xmlcontent.xsd" />
+	<xsd:element name="Legalstudiesbordercss" type="OpenCmsLegalstudiesbordercss" />
 	<xsd:complexType name="OpenCmsLegalstudiesbordercss">
 		<xsd:sequence>
-			<xsd:element name="Legalstudiesbordercss" type="OpenCmsLegalstudiesbordercss" minOccurs="0" maxOccurs="unbounded"/>
+			<xsd:element name="Legalstudiesbordercss" type="OpenCmsLegalstudiesbordercss"
+				minOccurs="0" maxOccurs="unbounded" />
 		</xsd:sequence>
 	</xsd:complexType>
-        <xsd:complexType name="OpenCmsLegalstudiesbordercss">
+	<xsd:complexType name="OpenCmsLegalstudiesbordercss">
 		<xsd:sequence>
-			<xsd:element name="up" type="OpenCmsString"/>
-			<xsd:element name="right" type="OpenCmsString"/>
-			<xsd:element name="down" type="OpenCmsString"/>
-			<xsd:element name="left" type="OpenCmsString"/>
-			<xsd:element name="bgimg" type="OpenCmsString"/>
-			<xsd:element name="mainwidth" type="OpenCmsString"/>
-			<xsd:element name="mainfloat" type="OpenCmsString"/>
-			<xsd:element name="titleheight" type="OpenCmsString"/>
-			<xsd:element name="titlecolor" type="OpenCmsColor"/>
-			<xsd:element name="titleweight" type="OpenCmsString"/>
-			<xsd:element name="titlefloat" type="OpenCmsString"/>
-			<xsd:element name="righttestup" type="OpenCmsString"/>
-			<xsd:element name="righttestright" type="OpenCmsString"/>
-			<xsd:element name="righttestdown" type="OpenCmsString"/>
-			<xsd:element name="righttestleft" type="OpenCmsString"/>
-			<xsd:element name="borderrightcolor" type="OpenCmsColor"/>
-			<xsd:element name="borderrightweight" type="OpenCmsString"/>
-			<xsd:element name="borderrightfloat" type="OpenCmsString"/>
-			<xsd:element name="borderbottomcolor" type="OpenCmsColor"/>
-			<xsd:element name="borderbottomweight" type="OpenCmsString"/>
-			<xsd:element name="borderbottomfloat" type="OpenCmsString"/>
-			<xsd:element name="borderleftcolor" type="OpenCmsColor"/>
-			<xsd:element name="borderleftweight" type="OpenCmsString"/>
-			<xsd:element name="borderleftfloat" type="OpenCmsString"/>			
-			<xsd:element name="lefttestcolor" type="OpenCmsColor"/>
-			<xsd:element name="lefttestweight" type="OpenCmsString"/>
-			<xsd:element name="lefttestfloat" type="OpenCmsString"/>
-			<xsd:element name="minheight" type="OpenCmsString"/>			
+			<xsd:element name="up" type="OpenCmsString" />
+			<xsd:element name="right" type="OpenCmsString" />
+			<xsd:element name="down" type="OpenCmsString" />
+			<xsd:element name="left" type="OpenCmsString" />
+			<xsd:element name="bgimg" type="OpenCmsString" />
+			<xsd:element name="mainwidth" type="OpenCmsString" />
+			<xsd:element name="mainfloat" type="OpenCmsString" />
+			<xsd:element name="titleheight" type="OpenCmsString" />
+			<xsd:element name="titlecolor" type="OpenCmsColor" />
+			<xsd:element name="titleweight" type="OpenCmsString" />
+			<xsd:element name="titlefloat" type="OpenCmsString" />
+			<xsd:element name="righttestup" type="OpenCmsString" />
+			<xsd:element name="righttestright" type="OpenCmsString" />
+			<xsd:element name="righttestdown" type="OpenCmsString" />
+			<xsd:element name="righttestleft" type="OpenCmsString" />
+			<xsd:element name="borderrightcolor" type="OpenCmsColor" />
+			<xsd:element name="borderrightweight" type="OpenCmsString" />
+			<xsd:element name="borderrightfloat" type="OpenCmsString" />
+			<xsd:element name="borderbottomcolor" type="OpenCmsColor" />
+			<xsd:element name="borderbottomweight" type="OpenCmsString" />
+			<xsd:element name="borderbottomfloat" type="OpenCmsString" />
+			<xsd:element name="borderleftcolor" type="OpenCmsColor" />
+			<xsd:element name="borderleftweight" type="OpenCmsString" />
+			<xsd:element name="borderleftfloat" type="OpenCmsString" />
+			<xsd:element name="lefttestcolor" type="OpenCmsColor" />
+			<xsd:element name="lefttestweight" type="OpenCmsString" />
+			<xsd:element name="lefttestfloat" type="OpenCmsString" />
+			<xsd:element name="minheight" type="OpenCmsString" />
 		</xsd:sequence>
-		<xsd:attribute name="language" type="OpenCmsLocale" use="required"/>
-</xsd:complexType>
+		<xsd:attribute name="language" type="OpenCmsLocale" use="required" />
+	</xsd:complexType>
 	<xsd:annotation>
 		<xsd:appinfo>
-			<resourcebundle name="org.langhua.opencms.taglib.navigation.message"/>
+			<resourcebundle name="org.langhua.opencms.taglib.navigation.messages" />
 			<defaults>
-			   <default element="lefttestcolor" value="#2c6d99"/>
-			   <default element="lefttestweight" value="14"/>			
-			   <default element="titlecolor" value="#a8bfca"/>
-			   <default element="titleweight" value="1"/>			
-			   <default element="borderrightcolor" value="#ccc"/>
-			   <default element="borderrightweight" value="1"/>
-			   <default element="borderbottomcolor" value="#ccc"/>
-			   <default element="borderbottomweight" value="1"/>
-			   <default element="borderleftcolor" value="#ccc"/>
-			   <default element="borderleftweight" value="1"/>
-			   <default element="up" value="0"/>			
-			   <default element="right" value="0"/>
-			   <default element="down" value="0"/>
-			   <default element="left" value="0"/>
-			   <default element="righttestup" value="0"/>			
-			   <default element="righttestright" value="4"/>
-			   <default element="righttestdown" value="0"/>
-			   <default element="righttestleft" value="0"/>
-			   <default element="mainwidth" value="675"/>
-			   <default element="titleheight" value="26"/>			
-		       	</defaults>
+				<default element="lefttestcolor" value="#2c6d99" />
+				<default element="lefttestweight" value="14" />
+				<default element="titlecolor" value="#a8bfca" />
+				<default element="titleweight" value="1" />
+				<default element="borderrightcolor" value="#ccc" />
+				<default element="borderrightweight" value="1" />
+				<default element="borderbottomcolor" value="#ccc" />
+				<default element="borderbottomweight" value="1" />
+				<default element="borderleftcolor" value="#ccc" />
+				<default element="borderleftweight" value="1" />
+				<default element="up" value="0" />
+				<default element="right" value="0" />
+				<default element="down" value="0" />
+				<default element="left" value="0" />
+				<default element="righttestup" value="0" />
+				<default element="righttestright" value="4" />
+				<default element="righttestdown" value="0" />
+				<default element="righttestleft" value="0" />
+				<default element="mainwidth" value="675" />
+				<default element="titleheight" value="26" />
+			</defaults>
 			<layouts>
-			   <layout element="lefttestfloat" widget="SelectorWidget" configuration="none|hidden|dotted|dashed|solid*|double|groove|ridge|inset|outset"/>
-			   <layout element="titlefloat" widget="SelectorWidget" configuration="none|hidden|dotted|dashed|solid*|double|groove|ridge|inset|outset"/>
-			   <layout element="borderrightfloat" widget="SelectorWidget" configuration="none|hidden|dotted|dashed|solid*|double|groove|ridge|inset|outset"/>
-			   <layout element="borderbottomfloat" widget="SelectorWidget" configuration="none|hidden|dotted|dashed|solid*|double|groove|ridge|inset|outset"/>
-			   <layout element="borderleftfloat" widget="SelectorWidget" configuration="none|hidden|dotted|dashed|solid*|double|groove|ridge|inset|outset"/>
-			   <layout element="bgimg" widget="ImageGalleryWidget" />
-			   <layout element="mainfloat" widget="SelectorWidget" configuration="left*|right|center|justify"/>
-			</layouts>			
+				<layout element="lefttestfloat" widget="SelectorWidget"
+					configuration="none|hidden|dotted|dashed|solid*|double|groove|ridge|inset|outset" />
+				<layout element="titlefloat" widget="SelectorWidget"
+					configuration="none|hidden|dotted|dashed|solid*|double|groove|ridge|inset|outset" />
+				<layout element="borderrightfloat" widget="SelectorWidget"
+					configuration="none|hidden|dotted|dashed|solid*|double|groove|ridge|inset|outset" />
+				<layout element="borderbottomfloat" widget="SelectorWidget"
+					configuration="none|hidden|dotted|dashed|solid*|double|groove|ridge|inset|outset" />
+				<layout element="borderleftfloat" widget="SelectorWidget"
+					configuration="none|hidden|dotted|dashed|solid*|double|groove|ridge|inset|outset" />
+				<layout element="bgimg" widget="ImageGalleryWidget" />
+				<layout element="mainfloat" widget="SelectorWidget"
+					configuration="left*|right|center|justify" />
+			</layouts>
 		</xsd:appinfo>
-      </xsd:annotation>  
+	</xsd:annotation>
 </xsd:schema>

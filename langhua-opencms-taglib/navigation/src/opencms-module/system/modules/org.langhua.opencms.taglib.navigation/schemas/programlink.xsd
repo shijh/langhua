@@ -1,28 +1,30 @@
-
-<xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified">	
-	<xsd:include schemaLocation="opencms://opencms-xmlcontent.xsd"/>
-	<xsd:element name="ProgramLinks" type="OpenCmsProgramLinks"/>	
+<xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+	elementFormDefault="qualified">
+	<xsd:include schemaLocation="opencms://opencms-xmlcontent.xsd" />
+	<xsd:element name="ProgramLinks" type="OpenCmsProgramLinks" />
 	<xsd:complexType name="OpenCmsProgramLinks">
 		<xsd:sequence>
-			<xsd:element name="ProgramLink" type="OpenCmsProgramLink" minOccurs="0" maxOccurs="unbounded"/>
+			<xsd:element name="ProgramLink" type="OpenCmsProgramLink"
+				minOccurs="0" maxOccurs="unbounded" />
 		</xsd:sequence>
 	</xsd:complexType>
 	<xsd:complexType name="OpenCmsProgramLink">
 		<xsd:sequence>
-                        <xsd:element name="Number" type="OpenCmsString"/>
+			<xsd:element name="Number" type="OpenCmsString" />
 			<xsd:element name="ProgramLink" type="OpenCmsVfsFile" />
-			<xsd:element name="Filetype" type="OpenCmsString"  maxOccurs="unbounded"/>
-                        <xsd:element name="Description" type="OpenCmsString" />
+			<xsd:element name="Filetype" type="OpenCmsString"
+				maxOccurs="unbounded" />
+			<xsd:element name="Description" type="OpenCmsString" />
 		</xsd:sequence>
-		<xsd:attribute name="language" type="OpenCmsLocale" use="optional"/>
+		<xsd:attribute name="language" type="OpenCmsLocale" use="optional" />
 	</xsd:complexType>
 	<xsd:annotation>
 		<xsd:appinfo>
-			<resourcebundle name="org.langhua.opencms.taglib.navigation.message"/>
-                        <layouts>			
-
-				<layout element="Filetype" widget="SelectorWidget" configuration="fanry*|fanryimg|information|conferenceagenda|notice|plink|news|xmlpage|pointer|bulletin|xinlicheng|yutan|yongxingjiedao|jingyuejiedao|xinhu" />
-			</layouts>                      			
+			<resourcebundle name="org.langhua.opencms.taglib.navigation.messages" />
+			<layouts>
+				<layout element="Filetype" widget="SelectorWidget"
+					configuration="fanry*|fanryimg|information|conferenceagenda|notice|plink|news|xmlpage|pointer|bulletin|xinlicheng|yutan|yongxingjiedao|jingyuejiedao|xinhu" />
+			</layouts>
 		</xsd:appinfo>
-	</xsd:annotation>  
+	</xsd:annotation>
 </xsd:schema>

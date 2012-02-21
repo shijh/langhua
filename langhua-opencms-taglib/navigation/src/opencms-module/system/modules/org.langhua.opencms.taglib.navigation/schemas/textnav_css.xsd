@@ -1,61 +1,65 @@
 
-<xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified">
-	<xsd:include schemaLocation="opencms://opencms-xmlcontent.xsd"/>
-<xsd:element name="Navigations" type="OpenCmsNavigations"/>
-	
+<xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+	elementFormDefault="qualified">
+	<xsd:include schemaLocation="opencms://opencms-xmlcontent.xsd" />
+	<xsd:element name="Navigations" type="OpenCmsNavigations" />
+
 	<xsd:complexType name="OpenCmsNavigations">
 		<xsd:sequence>
-			<xsd:element name="Navigation" type="OpenCmsNavigation" minOccurs="0" maxOccurs="unbounded"/>
+			<xsd:element name="Navigation" type="OpenCmsNavigation"
+				minOccurs="0" maxOccurs="unbounded" />
 		</xsd:sequence>
 	</xsd:complexType>
 
- 	<xsd:complexType name="OpenCmsNavigation">
-		<xsd:sequence>                        
-			<xsd:element name="main.width" type="OpenCmsString" />	
-                        <xsd:element name="main.height" type="OpenCmsString" />                        
-	                <xsd:element name="img.width" type="OpenCmsString" />
-                        <xsd:element name="font.size" type="OpenCmsString" />	
-                        <xsd:element name="font.up.color" type="OpenCmsColor" />
-                        <xsd:element name="font.down.color" type="OpenCmsColor" />	
-                        <xsd:element name="font.parents.color" type="OpenCmsColor" /> 
-                        <xsd:element name="parents.fontweight" type="OpenCmsString" />
-                        <xsd:element name="font.weight" type="OpenCmsString" />	
+	<xsd:complexType name="OpenCmsNavigation">
+		<xsd:sequence>
+			<xsd:element name="main.width" type="OpenCmsString" />
+			<xsd:element name="main.height" type="OpenCmsString" />
+			<xsd:element name="img.width" type="OpenCmsString" />
+			<xsd:element name="font.size" type="OpenCmsString" />
+			<xsd:element name="font.up.color" type="OpenCmsColor" />
+			<xsd:element name="font.down.color" type="OpenCmsColor" />
+			<xsd:element name="font.parents.color" type="OpenCmsColor" />
+			<xsd:element name="parents.fontweight" type="OpenCmsString" />
+			<xsd:element name="font.weight" type="OpenCmsString" />
 			<xsd:element name="title.bgcolor1" type="OpenCmsColor" />
 			<xsd:element name="title.bgcolor2" type="OpenCmsColor" />
-                        <xsd:element name="tr.margin" type="OpenCmsString" />                        
-                        <xsd:element name="img.bgimage" type="OpenCmsString" />
-                        <xsd:element name="img.uprow.bgimage" type="OpenCmsString" />
-                        <xsd:element name="img.downrow.bgimage" type="OpenCmsString" />
-                        <xsd:element name="Separated.image" type="OpenCmsString" />
-                        <xsd:element name="Separated.image.height" type="OpenCmsString" />
-                        <xsd:element name="Separated.image.width" type="OpenCmsString" />
+			<xsd:element name="tr.margin" type="OpenCmsString" />
+			<xsd:element name="img.bgimage" type="OpenCmsString" />
+			<xsd:element name="img.uprow.bgimage" type="OpenCmsString" />
+			<xsd:element name="img.downrow.bgimage" type="OpenCmsString" />
+			<xsd:element name="Separated.image" type="OpenCmsString" />
+			<xsd:element name="Separated.image.height" type="OpenCmsString" />
+			<xsd:element name="Separated.image.width" type="OpenCmsString" />
 		</xsd:sequence>
-		<xsd:attribute name="language" type="OpenCmsLocale" use="required"/>
+		<xsd:attribute name="language" type="OpenCmsLocale" use="required" />
 	</xsd:complexType>
 
 	<xsd:annotation>
 		<xsd:appinfo>
-			<resourcebundle name="org.langhua.opencms.taglib.navigation.message"/>
+			<resourcebundle name="org.langhua.opencms.taglib.navigation.messages" />
 			<layouts>
-                                <layout element="parents.fontweight" widget="SelectorWidget" configuration="normal*|bold|bolder|lithter" />
+				<layout element="parents.fontweight" widget="SelectorWidget"
+					configuration="normal*|bold|bolder|lithter" />
 				<layout element="img.bgimage" widget="ImageGalleryWidget" />
-                                <layout element="img.uprow.bgimage" widget="ImageGalleryWidget" />
-                                <layout element="img.downrow.bgimage" widget="ImageGalleryWidget" />
-                                <layout element="Separated.image" widget="ImageGalleryWidget" />
-                                <layout element="font.weight" widget="SelectorWidget" configuration="normal*|bold|bolder|lithter" />
+				<layout element="img.uprow.bgimage" widget="ImageGalleryWidget" />
+				<layout element="img.downrow.bgimage" widget="ImageGalleryWidget" />
+				<layout element="Separated.image" widget="ImageGalleryWidget" />
+				<layout element="font.weight" widget="SelectorWidget"
+					configuration="normal*|bold|bolder|lithter" />
 			</layouts>
-			<defaults>			
-				<default element="font.size" value="12"/>
-				<default element="title.bgcolor1" value="#FFFFFF"/>
-                                <default element="title.bgcolor2" value="#FFFFFF"/>
-                              	<default element="font.up.color" value="#000000"/>
-                                <default element="font.down.color" value="#000000"/>
-                                <default element="font.parents.color" value="#FF0000"/>                        
-            		</defaults>
-			<validationrules/>			
+			<defaults>
+				<default element="font.size" value="12" />
+				<default element="title.bgcolor1" value="#FFFFFF" />
+				<default element="title.bgcolor2" value="#FFFFFF" />
+				<default element="font.up.color" value="#000000" />
+				<default element="font.down.color" value="#000000" />
+				<default element="font.parents.color" value="#FF0000" />
+			</defaults>
+			<validationrules />
 		</xsd:appinfo>
 
-	</xsd:annotation>  
+	</xsd:annotation>
 </xsd:schema>
 
 

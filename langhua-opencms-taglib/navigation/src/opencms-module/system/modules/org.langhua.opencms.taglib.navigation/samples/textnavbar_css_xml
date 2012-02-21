@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<TextNavBars xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="opencms://system/modules/org.langhua.opencms.taglib.navigation/schemas/textnavbar.css.xsd">
+  <TextNavBar language="zh">
+    <main.width><![CDATA[300]]></main.width>
+    <main.height><![CDATA[15]]></main.height>
+    <main.font.name><![CDATA[STSong]]></main.font.name>
+    <main.font.size><![CDATA[14]]></main.font.size>
+    <main.font.color>#FF0000</main.font.color>
+    <main.font.weight><![CDATA[bold]]></main.font.weight>
+    <main.border.top.width><![CDATA[0]]></main.border.top.width>
+    <main.border.bottom.width><![CDATA[0]]></main.border.bottom.width>
+    <main.border.left.width><![CDATA[0]]></main.border.left.width>
+    <main.border.right.width><![CDATA[0]]></main.border.right.width>
+    <main.border.style><![CDATA[solid]]></main.border.style>
+    <main.border.color>#000000</main.border.color>
+    <main.bgcolor>#FFFFFF</main.bgcolor>
+    <main.bgimage/>
+    <column.width><![CDATA[20]]></column.width>
+    <column.font.name><![CDATA[STSong]]></column.font.name>
+    <column.font.color>#0033FF</column.font.color>
+    <column.font.weight><![CDATA[normal]]></column.font.weight>
+    <column.font.size><![CDATA[10]]></column.font.size>
+    <nowrap>true</nowrap>
+  </TextNavBar>
+  <TextNavBar language="en">
+    <main.width><![CDATA[300]]></main.width>
+    <main.height><![CDATA[15]]></main.height>
+    <main.font.name><![CDATA[宋体]]></main.font.name>
+    <main.font.size><![CDATA[12]]></main.font.size>
+    <main.font.color>#FF0000</main.font.color>
+    <main.font.weight><![CDATA[normal]]></main.font.weight>
+    <main.border.top.width><![CDATA[0]]></main.border.top.width>
+    <main.border.bottom.width><![CDATA[0]]></main.border.bottom.width>
+    <main.border.left.width><![CDATA[0]]></main.border.left.width>
+    <main.border.right.width><![CDATA[0]]></main.border.right.width>
+    <main.border.style><![CDATA[solid]]></main.border.style>
+    <main.border.color>#000000</main.border.color>
+    <main.bgcolor>#FFFFFF</main.bgcolor>
+    <main.bgimage/>
+    <column.width/>
+    <column.font.name><![CDATA[Arial]]></column.font.name>
+    <column.font.color>#000000</column.font.color>
+    <column.font.weight><![CDATA[normal]]></column.font.weight>
+    <column.font.size><![CDATA[12]]></column.font.size>
+    <nowrap>true</nowrap>
+  </TextNavBar>
+</TextNavBars>

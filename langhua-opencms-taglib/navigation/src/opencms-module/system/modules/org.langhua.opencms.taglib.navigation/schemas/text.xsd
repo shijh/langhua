@@ -1,29 +1,29 @@
-
-<xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified">	
-	<xsd:include schemaLocation="opencms://opencms-xmlcontent.xsd"/>
-	<xsd:element name="Texts" type="OpenCmsTexts"/>	
+<xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+	elementFormDefault="qualified">
+	<xsd:include schemaLocation="opencms://opencms-xmlcontent.xsd" />
+	<xsd:element name="Texts" type="OpenCmsTexts" />
 	<xsd:complexType name="OpenCmsTexts">
 		<xsd:sequence>
-			<xsd:element name="Text" type="OpenCmsText" minOccurs="0" maxOccurs="unbounded"/>
+			<xsd:element name="Text" type="OpenCmsText" minOccurs="0"
+				maxOccurs="unbounded" />
 		</xsd:sequence>
 	</xsd:complexType>
 	<xsd:complexType name="OpenCmsText">
 		<xsd:sequence>
-                        <xsd:element name="icon" type="OpenCmsString"/>
-                        <xsd:element name="title" type="OpenCmsString"/>
+			<xsd:element name="icon" type="OpenCmsString" />
+			<xsd:element name="title" type="OpenCmsString" />
 			<xsd:element name="uri" type="OpenCmsVfsFile" />
-			<xsd:element name="icon.width" type="OpenCmsString"/>
-			<xsd:element name="icon.height" type="OpenCmsString"/>
+			<xsd:element name="icon.width" type="OpenCmsString" />
+			<xsd:element name="icon.height" type="OpenCmsString" />
 		</xsd:sequence>
-		<xsd:attribute name="language" type="OpenCmsLocale" use="optional"/>
+		<xsd:attribute name="language" type="OpenCmsLocale" use="optional" />
 	</xsd:complexType>
 	<xsd:annotation>
 		<xsd:appinfo>
-			<resourcebundle name="org.langhua.opencms.taglib.navigation.message"/>
-                        <layouts>
-                                <layout element="icon" widget="ImageGalleryWidget" />				
-				
-			</layouts> 			                    			
+			<resourcebundle name="org.langhua.opencms.taglib.navigation.messages" />
+			<layouts>
+				<layout element="icon" widget="ImageGalleryWidget" />
+			</layouts>
 		</xsd:appinfo>
-	</xsd:annotation>  
+	</xsd:annotation>
 </xsd:schema>

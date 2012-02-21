@@ -1,30 +1,35 @@
-<?xml version="1.0" encoding="UTF-8" standalone="no"?>
-<xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified">	
-	<xsd:include schemaLocation="opencms://opencms-xmlcontent.xsd"/>	
-	<xsd:include schemaLocation="opencms://system/modules/org.langhua.opencms.taglib.navigation/schemas/parentlink.xsd"/>
-	<xsd:include schemaLocation="opencms://system/modules/org.langhua.opencms.taglib.navigation/schemas/programlink.xsd"/>	
-	<xsd:element name="CompileNavLinks" type="OpenCmsCompileNavLinks"/>	
+<xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+	elementFormDefault="qualified">
+	<xsd:include schemaLocation="opencms://opencms-xmlcontent.xsd" />
+	<xsd:include
+		schemaLocation="opencms://system/modules/org.langhua.opencms.taglib.navigation/schemas/parentlink.xsd" />
+	<xsd:include
+		schemaLocation="opencms://system/modules/org.langhua.opencms.taglib.navigation/schemas/programlink.xsd" />
+	<xsd:element name="CompileNavLinks" type="OpenCmsCompileNavLinks" />
 	<xsd:complexType name="OpenCmsCompileNavLinks">
 		<xsd:sequence>
-			<xsd:element maxOccurs="unbounded" minOccurs="0" name="CompileNavLink" type="OpenCmsCompileNavLink"/>
+			<xsd:element maxOccurs="unbounded" minOccurs="0"
+				name="CompileNavLink" type="OpenCmsCompileNavLink" />
 		</xsd:sequence>
 	</xsd:complexType>
 	<xsd:complexType name="OpenCmsCompileNavLink">
 		<xsd:sequence>
-                        <xsd:element minOccurs="0" name="Superior" type="OpenCmsString"/>
-                        <xsd:element minOccurs="0" name="Img" type="OpenCmsString"/>	                        	                
-			<xsd:element maxOccurs="unbounded" minOccurs="0" name="ParentLink" type="OpenCmsParentLink"/>
-			<xsd:element default="false" name="isProgram" type="OpenCmsBoolean"/>
-                        <xsd:element maxOccurs="unbounded" minOccurs="0" name="ProgramLink" type="OpenCmsProgramLink"/>
+			<xsd:element minOccurs="0" name="Superior" type="OpenCmsString" />
+			<xsd:element minOccurs="0" name="Img" type="OpenCmsString" />
+			<xsd:element maxOccurs="unbounded" minOccurs="0" name="ParentLink"
+				type="OpenCmsParentLink" />
+			<xsd:element default="false" name="isProgram" type="OpenCmsBoolean" />
+			<xsd:element maxOccurs="unbounded" minOccurs="0"
+				name="ProgramLink" type="OpenCmsProgramLink" />
 		</xsd:sequence>
-		<xsd:attribute name="language" type="OpenCmsLocale" use="required"/>
+		<xsd:attribute name="language" type="OpenCmsLocale" use="required" />
 	</xsd:complexType>
 	<xsd:annotation>
 		<xsd:appinfo>
-                     <layouts>
-			<layout element="Img" widget="ImageGalleryWidget"/>
-                     </layouts>
-		     <resourcebundle name="org.langhua.opencms.taglib.navigation.message"/>							
+			<resourcebundle name="org.langhua.opencms.taglib.navigation.messages" />
+			<layouts>
+				<layout element="Img" widget="ImageGalleryWidget" />
+			</layouts>
 		</xsd:appinfo>
-	</xsd:annotation>  
+	</xsd:annotation>
 </xsd:schema>

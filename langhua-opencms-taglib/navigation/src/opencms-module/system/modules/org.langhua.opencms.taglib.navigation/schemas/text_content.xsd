@@ -1,33 +1,36 @@
-
-<xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified">	
-	<xsd:include schemaLocation="opencms://opencms-xmlcontent.xsd"/>
-	<xsd:element name="TextContents" type="OpenCmsTextContents"/>	
+<xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+	elementFormDefault="qualified">
+	<xsd:include schemaLocation="opencms://opencms-xmlcontent.xsd" />
+	<xsd:element name="TextContents" type="OpenCmsTextContents" />
 	<xsd:complexType name="OpenCmsTextContents">
 		<xsd:sequence>
-			<xsd:element name="TextContent" type="OpenCmsTextContent" minOccurs="0" maxOccurs="unbounded"/>
+			<xsd:element name="TextContent" type="OpenCmsTextContent"
+				minOccurs="0" maxOccurs="unbounded" />
 		</xsd:sequence>
 	</xsd:complexType>
 	<xsd:complexType name="OpenCmsTextContent">
 		<xsd:sequence>
-            <xsd:element name="link.yesorno" type="OpenCmsBoolean" default="false" />
+			<xsd:element name="link.yesorno" type="OpenCmsBoolean"
+				default="false" />
 			<xsd:element name="link" type="OpenCmsVfsFile" />
-			<xsd:element name="out.uri" type="OpenCmsString" minOccurs="0" maxOccurs="1"/>
+			<xsd:element name="out.uri" type="OpenCmsString"
+				minOccurs="0" maxOccurs="1" />
 			<xsd:element name="title" type="OpenCmsString" />
-            <xsd:element name="color" type="OpenCmsColor"/>
-            <xsd:element name="fontweight" type="OpenCmsString"/>
+			<xsd:element name="color" type="OpenCmsColor" />
+			<xsd:element name="fontweight" type="OpenCmsString" />
 		</xsd:sequence>
-		<xsd:attribute name="language" type="OpenCmsLocale" use="optional"/>
+		<xsd:attribute name="language" type="OpenCmsLocale" use="optional" />
 	</xsd:complexType>
 	<xsd:annotation>
 		<xsd:appinfo>
-			<resourcebundle name="org.langhua.opencms.taglib.navigation.message"/>
-                        <layouts>
-                                <layout element="fontweight" widget="SelectorWidget" configuration="normal*|bold|bolder|lithter" />                
-                                                                             
-                         </layouts>
-			<defaults>				
-				<default element="color" value="#000000"/> 
-            		</defaults>                                            			
+			<resourcebundle name="org.langhua.opencms.taglib.navigation.messages" />
+			<layouts>
+				<layout element="fontweight" widget="SelectorWidget"
+					configuration="normal*|bold|bolder|lithter" />
+			</layouts>
+			<defaults>
+				<default element="color" value="#000000" />
+			</defaults>
 		</xsd:appinfo>
-	</xsd:annotation>  
+	</xsd:annotation>
 </xsd:schema>

@@ -1,9 +1,11 @@
-<xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified">
-<xsd:include schemaLocation="opencms://opencms-xmlcontent.xsd"/>
-<xsd:element name="NewTexts" type="OpenCmsNewTexts"/>	
+<xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+	elementFormDefault="qualified">
+	<xsd:include schemaLocation="opencms://opencms-xmlcontent.xsd" />
+	<xsd:element name="NewTexts" type="OpenCmsNewTexts" />
 	<xsd:complexType name="OpenCmsNewTexts">
 		<xsd:sequence>
-			<xsd:element name="NewText" type="OpenCmsNewText" minOccurs="0" maxOccurs="unbounded"/>
+			<xsd:element name="NewText" type="OpenCmsNewText"
+				minOccurs="0" maxOccurs="unbounded" />
 		</xsd:sequence>
 	</xsd:complexType>
 
@@ -17,7 +19,7 @@
 			<xsd:element name="main.border.color" type="OpenCmsColor" />
 			<xsd:element name="padding.top" type="OpenCmsString" />
 			<xsd:element name="title.bgimg" type="OpenCmsString" />
-                        <xsd:element name="title.height" type="OpenCmsString" />
+			<xsd:element name="title.height" type="OpenCmsString" />
 			<xsd:element name="title.border.width" type="OpenCmsString" />
 			<xsd:element name="title.border.style" type="OpenCmsString" />
 			<xsd:element name="title.border.color" type="OpenCmsColor" />
@@ -42,43 +44,44 @@
 			<xsd:element name="content.line.height" type="OpenCmsString" />
 			<xsd:element name="content.fontsize" type="OpenCmsString" />
 			<xsd:element name="content.text.indent" type="OpenCmsString" />
-                        <xsd:element name="content.fontcolor" type="OpenCmsColor"/>
+			<xsd:element name="content.fontcolor" type="OpenCmsColor" />
 			<xsd:element name="content.foldertitle.color" type="OpenCmsColor" />
 			<xsd:element name="content.foldertitle.fontsize" type="OpenCmsString" />
 			<xsd:element name="content.foldertitle.marginright" type="OpenCmsString" />
 			<xsd:element name="content.top.fontsize" type="OpenCmsString" />
-			<xsd:element name="content.top.before.width" type="OpenCmsString" />             
-                        <xsd:element name="more.pic" type="OpenCmsString" />
-			<xsd:element name="more.pic.width" type="OpenCmsString" /> 
+			<xsd:element name="content.top.before.width" type="OpenCmsString" />
+			<xsd:element name="more.pic" type="OpenCmsString" />
+			<xsd:element name="more.pic.width" type="OpenCmsString" />
 			<xsd:element name="more.pic.height" type="OpenCmsString" />
-    			<xsd:element name="number" type="OpenCmsString" />
-                        <xsd:element name="before.img.height" type="OpenCmsString" />
-                        <xsd:element name="before.img.width" type="OpenCmsString" />
-                        <xsd:element name="box" type="OpenCmsBoolean" default="false" />
-                        <xsd:element name="before.distance" type="OpenCmsString"/>
-                        <xsd:element name="on.height" type="OpenCmsString"/>
-                        <xsd:element name="before.height" type="OpenCmsString"/>
-                        <xsd:element name="tagcontent.height" type="OpenCmsString"/>
-                        <xsd:element name="tagcontent.width" type="OpenCmsString"/>
-                        <xsd:element name="tagcontent.bgimg" type="OpenCmsString"/>
-                        <xsd:element name="center.width" type="OpenCmsString"/>
-                        <xsd:element name="behind.width" type="OpenCmsString"/>	
-                        <xsd:element name="null.height" type="OpenCmsString"/>
-                        <xsd:element name="bottom.height" type="OpenCmsString"/>
-                        <xsd:element name="more.top" type="OpenCmsString"/>
-                        <xsd:element name="isDottedline" type="OpenCmsBoolean" default="false" />
-                        <xsd:element name="text.border.width" type="OpenCmsString" />
-                        <xsd:element name="text.border.style" type="OpenCmsString" />
-                        <xsd:element name="text.border.color" type="OpenCmsColor" />
-                        <xsd:element name="lineheight" type="OpenCmsString" />
-                        <xsd:element name="text.num" type="OpenCmsString" />
+			<xsd:element name="number" type="OpenCmsString" />
+			<xsd:element name="before.img.height" type="OpenCmsString" />
+			<xsd:element name="before.img.width" type="OpenCmsString" />
+			<xsd:element name="box" type="OpenCmsBoolean" default="false" />
+			<xsd:element name="before.distance" type="OpenCmsString" />
+			<xsd:element name="on.height" type="OpenCmsString" />
+			<xsd:element name="before.height" type="OpenCmsString" />
+			<xsd:element name="tagcontent.height" type="OpenCmsString" />
+			<xsd:element name="tagcontent.width" type="OpenCmsString" />
+			<xsd:element name="tagcontent.bgimg" type="OpenCmsString" />
+			<xsd:element name="center.width" type="OpenCmsString" />
+			<xsd:element name="behind.width" type="OpenCmsString" />
+			<xsd:element name="null.height" type="OpenCmsString" />
+			<xsd:element name="bottom.height" type="OpenCmsString" />
+			<xsd:element name="more.top" type="OpenCmsString" />
+			<xsd:element name="isDottedline" type="OpenCmsBoolean"
+				default="false" />
+			<xsd:element name="text.border.width" type="OpenCmsString" />
+			<xsd:element name="text.border.style" type="OpenCmsString" />
+			<xsd:element name="text.border.color" type="OpenCmsColor" />
+			<xsd:element name="lineheight" type="OpenCmsString" />
+			<xsd:element name="text.num" type="OpenCmsString" />
 		</xsd:sequence>
-		<xsd:attribute name="language" type="OpenCmsLocale" use="required"/>
+		<xsd:attribute name="language" type="OpenCmsLocale" use="required" />
 	</xsd:complexType>
 
 	<xsd:annotation>
 		<xsd:appinfo>
-			<resourcebundle name="org.langhua.opencms.taglib.navigation.message"/>
+			<resourcebundle name="org.langhua.opencms.taglib.navigation.messages" />
 			<layouts>
 				<layout element="more.pic" widget="ImageGalleryWidget" />
 				<layout element="tagcontent.bgimg" widget="ImageGalleryWidget" />
@@ -86,54 +89,74 @@
 				<layout element="title.word.bgimg" widget="ImageGalleryWidget" />
 				<layout element="content.bgimg" widget="ImageGalleryWidget" />
 				<layout element="content.before.img" widget="ImageGalleryWidget" />
-                                <layout element="main.border.style" widget="SelectorWidget" configuration="solid*|none|dotted|dashed|double|groove|ridge|inset|outset" />
-                                <layout element="title.border.style" widget="SelectorWidget" configuration="solid*|none|dotted|dashed|double|groove|ridge|inset|outset" />
-                                <layout element="content.border.style" widget="SelectorWidget" configuration="solid*|none|dotted|dashed|double|groove|ridge|inset|outset" />
-                                <layout element="title.word.fontweight" widget="SelectorWidget" configuration="normal*|bold|bolder|lithter" />
-                                <layout element="text.border.style" widget="SelectorWidget" configuration="solid*|none|dotted|dashed|double|groove|ridge|inset|outset" />
-                        </layouts>
+				<layout element="main.border.style" widget="SelectorWidget"
+					configuration="solid*|none|dotted|dashed|double|groove|ridge|inset|outset" />
+				<layout element="title.border.style" widget="SelectorWidget"
+					configuration="solid*|none|dotted|dashed|double|groove|ridge|inset|outset" />
+				<layout element="content.border.style" widget="SelectorWidget"
+					configuration="solid*|none|dotted|dashed|double|groove|ridge|inset|outset" />
+				<layout element="title.word.fontweight" widget="SelectorWidget"
+					configuration="normal*|bold|bolder|lithter" />
+				<layout element="text.border.style" widget="SelectorWidget"
+					configuration="solid*|none|dotted|dashed|double|groove|ridge|inset|outset" />
+			</layouts>
 			<defaults>
-				<default element="main.bgcolor" value="#000000"/>
-				<default element="main.border.color" value="#000000"/> 
-				<default element="title.border.color" value="#000000"/>
-                                <default element="title.word.fontcolor" value="#000000"/>
-                                <default element="title.more.color" value="#000000"/>	
-                                <default element="content.border.color" value="#000000"/>
-                                <default element="content.foldertitle.color" value="#000000"/>
-                                <default element="content.fontcolor" value="#000000"/>
-				<default element="number" value="1"/>
-                                <default element="on.height" value="9"/>
-                                <default element="before.height" value="8"/>
-                                <default element="tagcontent.height" value="23"/>
-                                <default element="tagcontent.width" value="88"/>
-                                <default element="center.width" value="17"/>
-                                <default element="behind.width" value="9"/>
-                                <default element="null.height" value="8"/>
-                                <default element="bottom.height" value="12"/>
-                                <default element="more.top" value="15"/>
-            		</defaults>
+				<default element="main.bgcolor" value="#000000" />
+				<default element="main.border.color" value="#000000" />
+				<default element="title.border.color" value="#000000" />
+				<default element="title.word.fontcolor" value="#000000" />
+				<default element="title.more.color" value="#000000" />
+				<default element="content.border.color" value="#000000" />
+				<default element="content.foldertitle.color" value="#000000" />
+				<default element="content.fontcolor" value="#000000" />
+				<default element="number" value="1" />
+				<default element="on.height" value="9" />
+				<default element="before.height" value="8" />
+				<default element="tagcontent.height" value="23" />
+				<default element="tagcontent.width" value="88" />
+				<default element="center.width" value="17" />
+				<default element="behind.width" value="9" />
+				<default element="null.height" value="8" />
+				<default element="bottom.height" value="12" />
+				<default element="more.top" value="15" />
+			</defaults>
 			<validationrules>
-                                <rule element="main.width" regex="^[0-9]{1,20}$" message="必须填写数字" />
-				<rule element="main.border.width" regex="^[0-9]{1,20}$" message="必须填写数字" />
-				<rule element="padding.top" regex="^[0-9]{0,20}$" message="必须填写数字" />
-				<rule element="title.height" regex="^[0-9]{0,20}$" message="必须填写数字" />
-				<rule element="title.border.width" regex="^[0-9]{0,20}$" message="必须填写数字" />
-				<rule element="title.word.fontsize" regex="^[0-9]{0,20}$" message="必须填写数字" /> 
-				<rule element="title.word.bgimg.width" regex="^[0-9]{0,20}$" message="必须填写数字" /> 
-				<rule element="title.word.bgimg.height" regex="^[0-9]{0,20}$" message="必须填写数字" /> 
-				<rule element="title.word.bgimg.beforewidth" regex="^[0-9]{0,20}$" message="必须填写数字" /> 
-				<rule element="title.word.bgimg.onheight" regex="^[0-9]{0,20}$" message="必须填写数字" /> 
-				<rule element="title.more.fontsize" regex="^[0-9]{0,20}$" message="必须填写数字" />
-				<rule element="title.more.margin.right" regex="^[0-9]{0,20}$" message="必须填写数字" />
-                                <rule element="content.border.width" regex="^[0-9]{0,20}$" message="必须填写数字" />
-                                <rule element="content.line.height" regex="^[0-9]{0,20}$" message="必须填写数字" />
-                                <rule element="content.foldertitle.fontsize" regex="^[0-9]{0,20}$" message="必须填写数字" />
-                                <rule element="content.fontsize" regex="^[0-9]{0,20}$" message="必须填写数字" />
-                                <rule element="content.foldertitle.marginright" regex="^[0-9]{0,20}$" message="必须填写数字" />
-                                <rule element="content.top.fontsize" regex="^[0-9]{0,20}$" message="必须填写数字" />
-                                <rule element="content.foldertitle.marginright" regex="^[0-9]{0,20}$" message="必须填写数字" />
-                      </validationrules>			
+				<rule element="main.width" regex="^[0-9]{1,20}$" message="${key.langhua.taglib.navigation.mustbenumber}" />
+				<rule element="main.border.width" regex="^[0-9]{1,20}$"
+					message="${key.langhua.taglib.navigation.mustbenumber}" />
+				<rule element="padding.top" regex="^[0-9]{0,20}$" message="${key.langhua.taglib.navigation.mustbenumber}" />
+				<rule element="title.height" regex="^[0-9]{0,20}$" message="${key.langhua.taglib.navigation.mustbenumber}" />
+				<rule element="title.border.width" regex="^[0-9]{0,20}$"
+					message="${key.langhua.taglib.navigation.mustbenumber}" />
+				<rule element="title.word.fontsize" regex="^[0-9]{0,20}$"
+					message="${key.langhua.taglib.navigation.mustbenumber}" />
+				<rule element="title.word.bgimg.width" regex="^[0-9]{0,20}$"
+					message="${key.langhua.taglib.navigation.mustbenumber}" />
+				<rule element="title.word.bgimg.height" regex="^[0-9]{0,20}$"
+					message="${key.langhua.taglib.navigation.mustbenumber}" />
+				<rule element="title.word.bgimg.beforewidth" regex="^[0-9]{0,20}$"
+					message="${key.langhua.taglib.navigation.mustbenumber}" />
+				<rule element="title.word.bgimg.onheight" regex="^[0-9]{0,20}$"
+					message="${key.langhua.taglib.navigation.mustbenumber}" />
+				<rule element="title.more.fontsize" regex="^[0-9]{0,20}$"
+					message="${key.langhua.taglib.navigation.mustbenumber}" />
+				<rule element="title.more.margin.right" regex="^[0-9]{0,20}$"
+					message="${key.langhua.taglib.navigation.mustbenumber}" />
+				<rule element="content.border.width" regex="^[0-9]{0,20}$"
+					message="${key.langhua.taglib.navigation.mustbenumber}" />
+				<rule element="content.line.height" regex="^[0-9]{0,20}$"
+					message="${key.langhua.taglib.navigation.mustbenumber}" />
+				<rule element="content.foldertitle.fontsize" regex="^[0-9]{0,20}$"
+					message="${key.langhua.taglib.navigation.mustbenumber}" />
+				<rule element="content.fontsize" regex="^[0-9]{0,20}$" message="${key.langhua.taglib.navigation.mustbenumber}" />
+				<rule element="content.foldertitle.marginright" regex="^[0-9]{0,20}$"
+					message="${key.langhua.taglib.navigation.mustbenumber}" />
+				<rule element="content.top.fontsize" regex="^[0-9]{0,20}$"
+					message="${key.langhua.taglib.navigation.mustbenumber}" />
+				<rule element="content.foldertitle.marginright" regex="^[0-9]{0,20}$"
+					message="${key.langhua.taglib.navigation.mustbenumber}" />
+			</validationrules>
 		</xsd:appinfo>
 
-	</xsd:annotation>  
+	</xsd:annotation>
 </xsd:schema>

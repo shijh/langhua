@@ -19,7 +19,7 @@ org.langhua.opencms.taglib.datetime              date                           
                                                  time                            css                 247150012             date.css.xsd               time.css.jsp
                                                                                  link
 
-org.langhua.opencms.taglib.navigation            generalnavigationtext           css                 247150020             newslist_css9.xsd          newslist_css9.jsp
+org.langhua.opencms.taglib.navigation            textnavbar                      css                 247150020             textnavbar.css.xsd         textnavbar.css.jsp
 (11)                                                                             link
                                                  iconnavigation                  css                 247150022             newtext_css.xsd            newtext_css.jsp
                                                                                  link                247150023             icon_link.xsd

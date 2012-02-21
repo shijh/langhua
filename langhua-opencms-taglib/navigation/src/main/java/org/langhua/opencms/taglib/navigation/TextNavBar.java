@@ -30,6 +30,7 @@ import org.opencms.file.CmsResourceFilter;
 
 import org.opencms.jsp.*;
 import org.opencms.main.CmsLog;
+import org.opencms.util.CmsStringUtil;
 
 import org.langhua.opencms.taglib.commons.A_LanghuaTag;
 
@@ -39,27 +40,26 @@ import javax.servlet.jsp.*;
 /**
  * example: <br>
  * 
- * &lt;%@ taglib &nbsp prefix="ocms" &nbsp
- * uri="http://www.langhua.cn/taglib/display"%&gt;<br>
+ * &lt;%@ taglib &nbsp prefix="lh-nav" &nbsp
+ * uri="http://www.langhua.cn/taglib/navigation"%&gt;<br>
  * 
- * &lt;%ocms:generalnavigationtext &nbsp cssfile="/taglib/CssSrc"/&gt;<br>
+ * &lt;%lh-nav:textnavbar linkFile="/" cssFile="/taglib/CssSrc"/&gt;<br>
  * 
- * cssfile : css file.<br>
+ * cssFile : css file.<br>
+ * linkFile: the path to get navigation.<br>
  * 
- * Image name: GeneralNavigationText-display.PNG<br>
+ * Image name: TextNavBar.PNG<br>
  * 
  */
-public class GeneralNavigationText extends A_LanghuaTag {
+public class TextNavBar extends A_LanghuaTag {
 
 	private static final long serialVersionUID = 1L;
 
-	private static final Log LOG = CmsLog.getLog(GeneralNavigationText.class);
+	private static final Log LOG = CmsLog.getLog(TextNavBar.class);
 
 	public int doStartTag() throws JspTagException {
-
 		String htmlbody = buildHtml();
 		try {
-
 			pageContext.getOut().print(htmlbody);
 		} catch (Exception e) {
 
@@ -67,7 +67,6 @@ public class GeneralNavigationText extends A_LanghuaTag {
 				LOG.debug(e);
 			}
 		}
-
 		return SKIP_BODY;
 	}
 
@@ -79,57 +78,49 @@ public class GeneralNavigationText extends A_LanghuaTag {
 				.getResponse();
 		CmsJspActionElement cms = new CmsJspActionElement(pageContext, request,
 				response);
-
-		String fileuri = cms.getRequestContext().getUri();
-		String arg[] = fileuri.split("/");
-		StringBuffer sb = new StringBuffer();
-		sb = sb.append("/");
-		sb = sb.append(arg[1]);
-		sb = sb.append("/");
-		String folderpath = sb.toString();
-
 		CmsObject cmso = cms.getCmsObject();
+		CmsJspNavBuilder cjnb = new CmsJspNavBuilder(cms.getCmsObject());
+
+		String folderpath = cms.getRequestContext().removeSiteRoot(getLinkFile());
+		CmsJspNavElement folderNav = cjnb.getNavigationForResource(folderpath);
+		String mainText = folderNav.getNavText();
+		if (CmsStringUtil.isEmptyOrWhitespaceOnly(mainText)) {
+			mainText = folderNav.getTitle();
+		}
 
 		try {
-			String cssfile = cms.getRequestContext().removeSiteRoot(
-					getCssFile());
-
-			CmsResource configFile = cmso.readResource(cssfile,
-					CmsResourceFilter.IGNORE_EXPIRATION);
+			String cssfile = cms.getRequestContext().removeSiteRoot(getCssFile());
+			CmsResource configFile = cmso.readResource(cssfile, CmsResourceFilter.IGNORE_EXPIRATION);
 			String fileName = configFile.getName();
 			html.append("<style type=\"text/css\">\n");
 			html.append(buildCSS(cms, cssfile));
 			html.append("</style>\n");
 
-			html.append("<table style=\"border-collapse : collapse;\">\n");
-			html.append("<tr>\n");
-			html.append("<td>\n");
-			List<CmsJspNavElement> list = new CmsJspNavBuilder(cms.getCmsObject()).getNavigationForFolder(folderpath);
-			html.append("<table class=\"tmain" + fileName
-					+ "\" style=\"border-collapse : collapse;\">\n");
-			html.append("<tr id=\"lineheight" + fileName + "\">\n");
-			for (int j = 0; j < list.size(); j++) {
-				CmsJspNavElement nav = (CmsJspNavElement) list.get(j);
+			html.append("<div class=\"TNBmain" + fileName + "\">\n");
+			if (CmsStringUtil.isNotEmpty(mainText)) {
+				html.append(mainText + ":&nbsp;\n");
+			}
+			List<CmsJspNavElement> list = cjnb.getNavigationForFolder(folderpath);
+			boolean isFirst = true;
+			for (CmsJspNavElement nav : list) {
 				String ntitle = nav.getNavText();
+				if (CmsStringUtil.isEmptyOrWhitespaceOnly(ntitle)) {
+					ntitle = nav.getTitle();
+				}
 				String npath = cms.link(nav.getResourceName());
-				html.append("<td id=\"tdmain" + fileName + "\">\n");
-				html.append("<a href=\"" + npath + "\" id=\"a" + fileName
-						+ "\">");
-				html.append("<font id=\"font" + fileName + "\">");
-				html.append(ntitle + "|");
-				html.append("</font>\n");
-				html.append("</a>");
-				html.append("</td>\n");
+				if (isFirst) {
+					isFirst = false;
+				} else {
+					html.append("<span class=\"TNBcolumn" + fileName + "\">|&nbsp;</span>\n");
+				}
+				html.append("<a href=\"" + npath + "\">");
+				html.append("<span class=\"TNBcolumn" + fileName + "\">");
+				html.append(ntitle);
+				html.append("</span></a>\n");
 			}
-			html.append("</tr>\n");
-			html.append("</table>\n");
-			html.append("</td>\n");
-			html.append("</tr>\n");
-			html.append("</table>\n");
-		} catch (Exception e1) {
-			if (LOG.isDebugEnabled()) {
-				LOG.debug(e1);
-			}
+			html.append("</div>\n");
+		} catch (Exception e) {
+			LOG.debug(e);
 		}
 
 		return html.toString();

@@ -4,7 +4,7 @@
 	<info>
 		<creator>Admin</creator>
 		<opencms_version>8.0.3</opencms_version>
-		<createdate>Tue, 14 Feb 2012 12:14:33 GMT</createdate>
+		<createdate>Tue, 21 Feb 2012 06:22:38 GMT</createdate>
 		<infoproject>Offline</infoproject>
 		<export_version>7</export_version>
 	</info>
@@ -32,14 +32,14 @@
 		</resources>
 		<parameters/>
 		<resourcetypes>
-			<type class="org.opencms.file.types.CmsResourceTypeXmlContent" name="newslist_css9" id="247150020">
+			<type class="org.opencms.file.types.CmsResourceTypeXmlContent" name="taglib.textnavbar.css" id="247150020">
 				<properties>
 					<property>
 						<name>template-elements</name>
-						<value type="shared"><![CDATA[/system/modules/org.langhua.opencms.taglib.navigation/elements/newslist_css9.jsp]]></value>
+						<value type="shared"><![CDATA[/system/modules/org.langhua.opencms.taglib.navigation/elements/textnavbar.css.jsp]]></value>
 					</property>
 				</properties>
-				<param name="schema">/system/modules/org.langhua.opencms.taglib.navigation/schemas/newslist_css9.xsd</param>
+				<param name="schema">/system/modules/org.langhua.opencms.taglib.navigation/schemas/textnavbar.css.xsd</param>
 			</type>
 			<type class="org.opencms.file.types.CmsResourceTypeXmlContent" name="newtextcss" id="247150022">
 				<properties>
@@ -163,173 +163,74 @@
 			</type>
 		</resourcetypes>
 		<explorertypes>
-			<explorertype name="newslist_css9" key="fileicon.newslist_css9" icon="taglib.css.jpg" reference="xmlcontent">
-				<newresource page="taglib.css" uri="newresource_xmlcontent.jsp?newresourcetype=newslist_css9" order="247150020" autosetnavigation="false" autosettitle="false"/>
-				<accesscontrol>
-					<accessentry principal="GROUP.Administrators" permissions="+r+v+w+c"/>
-					<accessentry principal="GROUP.Projectmanagers" permissions="+r+v+w+c"/>
-					<accessentry principal="GROUP.Users" permissions="+r+v+w+c"/>
-				</accesscontrol>
+			<explorertype name="taglib.navigation.css" key="fileicon.lh-taglib.navigation.css" icon="taglib.css.jpg" reference="folder">
+				<newresource page="taglib.css" uri="newresource.jsp?page=taglib.navigation.css" order="247150020" autosetnavigation="false" autosettitle="false"/>
+			</explorertype>
+			<explorertype name="taglib.navigation.link" key="fileicon.lh-taglib.navigation.link" icon="taglib.link.jpg" reference="folder">
+				<newresource page="taglib.link" uri="newresource.jsp?page=taglib.navigation.link" order="247150021" autosetnavigation="false" autosettitle="false"/>
+			</explorertype>
+			<explorertype name="taglib.textnavbar.css" key="fileicon.lh-taglib.textnavbar.css" icon="taglib.css.jpg" reference="xmlcontent">
+				<newresource page="taglib.navigation.css" uri="newresource_xmlcontent.jsp?newresourcetype=taglib.textnavbar.css" order="247150020" autosetnavigation="false" autosettitle="false"/>
 			</explorertype>
 			<explorertype name="newtextcss" key="fileicon.newtextcss" icon="taglib.css.jpg" reference="xmlcontent">
-				<newresource page="taglib.css" uri="newresource_xmlcontent.jsp?newresourcetype=newtextcss" order="247150022" autosetnavigation="false" autosettitle="false"/>
-				<accesscontrol>
-					<accessentry principal="GROUP.Administrators" permissions="+r+v+w+c"/>
-					<accessentry principal="GROUP.Projectmanagers" permissions="+r+v+w+c"/>
-					<accessentry principal="GROUP.Users" permissions="+r+v+w+c"/>
-				</accesscontrol>
+				<newresource page="taglib.navigation.css" uri="newresource_xmlcontent.jsp?newresourcetype=newtextcss" order="247150022" autosetnavigation="false" autosettitle="false"/>
 			</explorertype>
 			<explorertype name="icon_link" key="fileicon.icon_link" icon="taglib.link.jpg" reference="xmlcontent">
-				<newresource page="taglib.link" uri="newresource_xmlcontent.jsp?newresourcetype=icon_link" order="247150023" autosetnavigation="false" autosettitle="false"/>
-				<accesscontrol>
-					<accessentry principal="GROUP.Administrators" permissions="+r+v+w+c"/>
-					<accessentry principal="GROUP.Projectmanagers" permissions="+r+v+w+c"/>
-					<accessentry principal="GROUP.Users" permissions="+r+v+w+c"/>
-				</accesscontrol>
+				<newresource page="taglib.navigation.link" uri="newresource_xmlcontent.jsp?newresourcetype=icon_link" order="247150023" autosetnavigation="false" autosettitle="false"/>
 			</explorertype>
 			<explorertype name="navigation" key="fileicon.navigation" icon="taglib.css.jpg" reference="xmlcontent">
-				<newresource page="taglib.css" uri="newresource_xmlcontent.jsp?newresourcetype=navigation" order="247150024" autosetnavigation="false" autosettitle="false"/>
-				<accesscontrol>
-					<accessentry principal="GROUP.Administrators" permissions="+r+v+w+c"/>
-					<accessentry principal="GROUP.Projectmanagers" permissions="+r+v+w+c"/>
-					<accessentry principal="GROUP.Users" permissions="+r+v+w+c"/>
-				</accesscontrol>
+				<newresource page="taglib.navigation.css" uri="newresource_xmlcontent.jsp?newresourcetype=navigation" order="247150024" autosetnavigation="false" autosettitle="false"/>
 			</explorertype>
 			<explorertype name="compilelink_navigation" key="fileicon.compilelink" icon="taglib.link.jpg" reference="xmlcontent">
-				<newresource page="taglib.link" uri="newresource_xmlcontent.jsp?newresourcetype=compilelink_navigation" order="247150025" autosetnavigation="false" autosettitle="false"/>
-				<accesscontrol>
-					<accessentry principal="GROUP.Administrators" permissions="+r+v+w+c"/>
-					<accessentry principal="GROUP.Projectmanagers" permissions="+r+v+w+c"/>
-					<accessentry principal="GROUP.Users" permissions="+r+v+w+c"/>
-				</accesscontrol>
+				<newresource page="taglib.navigation.link" uri="newresource_xmlcontent.jsp?newresourcetype=compilelink_navigation" order="247150025" autosetnavigation="false" autosettitle="false"/>
 			</explorertype>
 			<explorertype name="newslist_css1" key="fileicon.newslist_css1" icon="taglib.css.jpg" reference="xmlcontent">
-				<newresource page="taglib.css" uri="newresource_xmlcontent.jsp?newresourcetype=newslist_css1" order="247150026" autosetnavigation="false" autosettitle="false"/>
-				<accesscontrol>
-					<accessentry principal="GROUP.Administrators" permissions="+r+v+w+c"/>
-					<accessentry principal="GROUP.Projectmanagers" permissions="+r+v+w+c"/>
-					<accessentry principal="GROUP.Users" permissions="+r+v+w+c"/>
-				</accesscontrol>
+				<newresource page="taglib.navigation.css" uri="newresource_xmlcontent.jsp?newresourcetype=newslist_css1" order="247150026" autosetnavigation="false" autosettitle="false"/>
 			</explorertype>
 			<explorertype name="compilenavlink_navigation" key="fileicon.compilenavlink" icon="taglib.link.jpg" reference="xmlcontent">
-				<newresource page="taglib.link" uri="newresource_xmlcontent.jsp?newresourcetype=compilenavlink_navigation" order="247150027" autosetnavigation="false" autosettitle="false"/>
-				<accesscontrol>
-					<accessentry principal="GROUP.Administrators" permissions="+r+v+w+c"/>
-					<accessentry principal="GROUP.Projectmanagers" permissions="+r+v+w+c"/>
-					<accessentry principal="GROUP.Users" permissions="+r+v+w+c"/>
-				</accesscontrol>
+				<newresource page="taglib.navigation.link" uri="newresource_xmlcontent.jsp?newresourcetype=compilenavlink_navigation" order="247150027" autosetnavigation="false" autosettitle="false"/>
 			</explorertype>
 			<explorertype name="navtitle_css" key="fileicon.newslist_css1" icon="taglib.css.jpg" reference="xmlcontent">
-				<newresource page="taglib.css" uri="newresource_xmlcontent.jsp?newresourcetype=navtitle_css" order="247150028" autosetnavigation="false" autosettitle="false"/>
-				<accesscontrol>
-					<accessentry principal="GROUP.Administrators" permissions="+r+v+w+c"/>
-					<accessentry principal="GROUP.Projectmanagers" permissions="+r+v+w+c"/>
-					<accessentry principal="GROUP.Users" permissions="+r+v+w+c"/>
-				</accesscontrol>
+				<newresource page="taglib.navigation.css" uri="newresource_xmlcontent.jsp?newresourcetype=navtitle_css" order="247150028" autosetnavigation="false" autosettitle="false"/>
 			</explorertype>
 			<explorertype name="navtitle_link" key="fileicon.compilenavlink" icon="taglib.link.jpg" reference="xmlcontent">
-				<newresource page="taglib.link" uri="newresource_xmlcontent.jsp?newresourcetype=navtitle_link" order="247150029" autosetnavigation="false" autosettitle="false"/>
-				<accesscontrol>
-					<accessentry principal="GROUP.Administrators" permissions="+r+v+w+c"/>
-					<accessentry principal="GROUP.Projectmanagers" permissions="+r+v+w+c"/>
-					<accessentry principal="GROUP.Users" permissions="+r+v+w+c"/>
-				</accesscontrol>
+				<newresource page="taglib.navigation.link" uri="newresource_xmlcontent.jsp?newresourcetype=navtitle_link" order="247150029" autosetnavigation="false" autosettitle="false"/>
 			</explorertype>
 			<explorertype name="photonav_css" key="fileicon.newslist_css1" icon="taglib.css.jpg" reference="xmlcontent">
-				<newresource page="taglib.css" uri="newresource_xmlcontent.jsp?newresourcetype=photonav_css" order="247150030" autosetnavigation="false" autosettitle="false"/>
-				<accesscontrol>
-					<accessentry principal="GROUP.Administrators" permissions="+r+v+w+c"/>
-					<accessentry principal="GROUP.Projectmanagers" permissions="+r+v+w+c"/>
-					<accessentry principal="GROUP.Users" permissions="+r+v+w+c"/>
-				</accesscontrol>
+				<newresource page="taglib.navigation.css" uri="newresource_xmlcontent.jsp?newresourcetype=photonav_css" order="247150030" autosetnavigation="false" autosettitle="false"/>
 			</explorertype>
 			<explorertype name="comlink_navigation" key="fileicon.comlink" icon="taglib.link.jpg" reference="xmlcontent">
-				<newresource page="taglib.link" uri="newresource_xmlcontent.jsp?newresourcetype=comlink_navigation" order="247150031" autosetnavigation="false" autosettitle="false"/>
-				<accesscontrol>
-					<accessentry principal="GROUP.Administrators" permissions="+r+v+w+c"/>
-					<accessentry principal="GROUP.Projectmanagers" permissions="+r+v+w+c"/>
-					<accessentry principal="GROUP.Users" permissions="+r+v+w+c"/>
-				</accesscontrol>
+				<newresource page="taglib.navigation.link" uri="newresource_xmlcontent.jsp?newresourcetype=comlink_navigation" order="247150031" autosetnavigation="false" autosettitle="false"/>
 			</explorertype>
 			<explorertype name="legalstudiesbordercss" key="fileicon.legalstudiesbordercss" icon="taglib.css.jpg" reference="xmlcontent">
-				<newresource page="taglib.css" uri="newresource_xmlcontent.jsp?newresourcetype=legalstudiesbordercss" order="247150032" autosetnavigation="false" autosettitle="false"/>
-				<accesscontrol>
-					<accessentry principal="GROUP.Administrators" permissions="+r+v+w+c"/>
-					<accessentry principal="GROUP.Projectmanagers" permissions="+r+v+w+c"/>
-					<accessentry principal="GROUP.Users" permissions="+r+v+w+c"/>
-				</accesscontrol>
+				<newresource page="taglib.navigation.css" uri="newresource_xmlcontent.jsp?newresourcetype=legalstudiesbordercss" order="247150032" autosetnavigation="false" autosettitle="false"/>
 			</explorertype>
 			<explorertype name="legalstudiesborderlink" key="fileicon.legalstudiesborderlink" icon="taglib.link.jpg" reference="xmlcontent">
-				<newresource page="taglib.link" uri="newresource_xmlcontent.jsp?newresourcetype=legalstudiesborderlink" order="247150033" autosetnavigation="false" autosettitle="false"/>
-				<accesscontrol>
-					<accessentry principal="GROUP.Administrators" permissions="+r+v+w+c"/>
-					<accessentry principal="GROUP.Projectmanagers" permissions="+r+v+w+c"/>
-					<accessentry principal="GROUP.Users" permissions="+r+v+w+c"/>
-				</accesscontrol>
+				<newresource page="taglib.navigation.link" uri="newresource_xmlcontent.jsp?newresourcetype=legalstudiesborderlink" order="247150033" autosetnavigation="false" autosettitle="false"/>
 			</explorertype>
 			<explorertype name="subsecnavcss" key="fileicon.newslist_css1" icon="taglib.css.jpg" reference="xmlcontent">
-				<newresource page="taglib.css" uri="newresource_xmlcontent.jsp?newresourcetype=subsecnavcss" order="247150034" autosetnavigation="false" autosettitle="false"/>
-				<accesscontrol>
-					<accessentry principal="GROUP.Administrators" permissions="+r+v+w+c"/>
-					<accessentry principal="GROUP.Projectmanagers" permissions="+r+v+w+c"/>
-					<accessentry principal="GROUP.Users" permissions="+r+v+w+c"/>
-				</accesscontrol>
+				<newresource page="taglib.navigation.css" uri="newresource_xmlcontent.jsp?newresourcetype=subsecnavcss" order="247150034" autosetnavigation="false" autosettitle="false"/>
 			</explorertype>
 			<explorertype name="subsecnavlink" key="fileicon.compilenavlink" icon="taglib.link.jpg" reference="xmlcontent">
-				<newresource page="taglib.link" uri="newresource_xmlcontent.jsp?newresourcetype=subsecnavlink" order="247150035" autosetnavigation="false" autosettitle="false"/>
-				<accesscontrol>
-					<accessentry principal="GROUP.Administrators" permissions="+r+v+w+c"/>
-					<accessentry principal="GROUP.Projectmanagers" permissions="+r+v+w+c"/>
-					<accessentry principal="GROUP.Users" permissions="+r+v+w+c"/>
-				</accesscontrol>
+				<newresource page="taglib.navigation.link" uri="newresource_xmlcontent.jsp?newresourcetype=subsecnavlink" order="247150035" autosetnavigation="false" autosettitle="false"/>
 			</explorertype>
 			<explorertype name="textnavcss" key="fileicon.navigation" icon="taglib.css.jpg" reference="xmlcontent">
-				<newresource page="taglib.css" uri="newresource_xmlcontent.jsp?newresourcetype=textnavcss" order="247150036" autosetnavigation="false" autosettitle="false"/>
-				<accesscontrol>
-					<accessentry principal="GROUP.Administrators" permissions="+r+v+w+c"/>
-					<accessentry principal="GROUP.Projectmanagers" permissions="+r+v+w+c"/>
-					<accessentry principal="GROUP.Users" permissions="+r+v+w+c"/>
-				</accesscontrol>
+				<newresource page="taglib.navigation.css" uri="newresource_xmlcontent.jsp?newresourcetype=textnavcss" order="247150036" autosetnavigation="false" autosettitle="false"/>
 			</explorertype>
 			<explorertype name="textnavlink" key="fileicon.compilenavlink" icon="taglib.link.jpg" reference="xmlcontent">
-				<newresource page="taglib.link" uri="newresource_xmlcontent.jsp?newresourcetype=textnavlink" order="247150037" autosetnavigation="false" autosettitle="false"/>
-				<accesscontrol>
-					<accessentry principal="GROUP.Administrators" permissions="+r+v+w+c"/>
-					<accessentry principal="GROUP.Projectmanagers" permissions="+r+v+w+c"/>
-					<accessentry principal="GROUP.Users" permissions="+r+v+w+c"/>
-				</accesscontrol>
+				<newresource page="taglib.navigation.link" uri="newresource_xmlcontent.jsp?newresourcetype=textnavlink" order="247150037" autosetnavigation="false" autosettitle="false"/>
 			</explorertype>
 			<explorertype name="verticalcolnavcss" key="fileicon.newtextcss" icon="taglib.css.jpg" reference="xmlcontent">
-				<newresource page="taglib.css" uri="newresource_xmlcontent.jsp?newresourcetype=verticalcolnavcss" order="247150038" autosetnavigation="false" autosettitle="false"/>
-				<accesscontrol>
-					<accessentry principal="GROUP.Administrators" permissions="+r+v+w+c"/>
-					<accessentry principal="GROUP.Projectmanagers" permissions="+r+v+w+c"/>
-					<accessentry principal="GROUP.Users" permissions="+r+v+w+c"/>
-				</accesscontrol>
+				<newresource page="taglib.navigation.css" uri="newresource_xmlcontent.jsp?newresourcetype=verticalcolnavcss" order="247150038" autosetnavigation="false" autosettitle="false"/>
 			</explorertype>
 			<explorertype name="verticalcolnavlink" key="fileicon.newtextlink" icon="taglib.link.jpg" reference="xmlcontent">
-				<newresource page="taglib.link" uri="newresource_xmlcontent.jsp?newresourcetype=verticalcolnavlink" order="247150039" autosetnavigation="false" autosettitle="false"/>
-				<accesscontrol>
-					<accessentry principal="GROUP.Administrators" permissions="+r+v+w+c"/>
-					<accessentry principal="GROUP.Projectmanagers" permissions="+r+v+w+c"/>
-					<accessentry principal="GROUP.Users" permissions="+r+v+w+c"/>
-				</accesscontrol>
+				<newresource page="taglib.navigation.link" uri="newresource_xmlcontent.jsp?newresourcetype=verticalcolnavlink" order="247150039" autosetnavigation="false" autosettitle="false"/>
 			</explorertype>
 			<explorertype name="newslist_css13" key="fileicon.newslist_css13" icon="taglib.css.jpg" reference="xmlcontent">
-				<newresource page="taglib.css" uri="newresource_xmlcontent.jsp?newresourcetype=newslist_css13" order="247150040" autosetnavigation="false" autosettitle="false"/>
-				<accesscontrol>
-					<accessentry principal="GROUP.Administrators" permissions="+r+v+w+c"/>
-					<accessentry principal="GROUP.Projectmanagers" permissions="+r+v+w+c"/>
-					<accessentry principal="GROUP.Users" permissions="+r+v+w+c"/>
-				</accesscontrol>
+				<newresource page="taglib.navigation.css" uri="newresource_xmlcontent.jsp?newresourcetype=newslist_css13" order="247150040" autosetnavigation="false" autosettitle="false"/>
 			</explorertype>
 			<explorertype name="verticalcolnavtwolink" key="fileicon.newtextlink" icon="taglib.link.jpg" reference="xmlcontent">
-				<newresource page="taglib.link" uri="newresource_xmlcontent.jsp?newresourcetype=verticalcolnavtwolink" order="247150041" autosetnavigation="false" autosettitle="false"/>
-				<accesscontrol>
-					<accessentry principal="GROUP.Administrators" permissions="+r+v+w+c"/>
-					<accessentry principal="GROUP.Projectmanagers" permissions="+r+v+w+c"/>
-					<accessentry principal="GROUP.Users" permissions="+r+v+w+c"/>
-				</accesscontrol>
+				<newresource page="taglib.navigation.link" uri="newresource_xmlcontent.jsp?newresourcetype=verticalcolnavtwolink" order="247150041" autosetnavigation="false" autosettitle="false"/>
 			</explorertype>
 		</explorertypes>
 	</module>
@@ -583,26 +484,6 @@
 			<accesscontrol/>
 		</file>
 		<file>
-			<source>system/modules/org.langhua.opencms.taglib.navigation/elements/newslist_css9.jsp</source>
-			<destination>system/modules/org.langhua.opencms.taglib.navigation/elements/newslist_css9.jsp</destination>
-			<type>jsp</type>
-			<uuidstructure>5f0ad88b-516f-11df-9d9d-0714b205776f</uuidstructure>
-			<uuidresource>5f0ad88c-516f-11df-9d9d-0714b205776f</uuidresource>
-			<datelastmodified>Thu, 29 Apr 2010 08:50:19 GMT</datelastmodified>
-			<userlastmodified>Admin</userlastmodified>
-			<datecreated>Mon, 26 Apr 2010 20:07:42 GMT</datecreated>
-			<usercreated>Admin</usercreated>
-			<flags>0</flags>
-			<properties>
-				<property type="shared">
-					<name>export</name>
-					<value><![CDATA[false]]></value>
-				</property>
-			</properties>
-			<relations/>
-			<accesscontrol/>
-		</file>
-		<file>
 			<source>system/modules/org.langhua.opencms.taglib.navigation/elements/newtext_css.jsp</source>
 			<destination>system/modules/org.langhua.opencms.taglib.navigation/elements/newtext_css.jsp</destination>
 			<type>jsp</type>
@@ -683,6 +564,26 @@
 			<accesscontrol/>
 		</file>
 		<file>
+			<source>system/modules/org.langhua.opencms.taglib.navigation/elements/textnavbar.css.jsp</source>
+			<destination>system/modules/org.langhua.opencms.taglib.navigation/elements/textnavbar.css.jsp</destination>
+			<type>jsp</type>
+			<uuidstructure>5f0ad88b-516f-11df-9d9d-0714b205776f</uuidstructure>
+			<uuidresource>5f0ad88c-516f-11df-9d9d-0714b205776f</uuidresource>
+			<datelastmodified>Thu, 29 Apr 2010 08:50:19 GMT</datelastmodified>
+			<userlastmodified>Admin</userlastmodified>
+			<datecreated>Mon, 26 Apr 2010 20:07:42 GMT</datecreated>
+			<usercreated>Admin</usercreated>
+			<flags>0</flags>
+			<properties>
+				<property type="shared">
+					<name>export</name>
+					<value><![CDATA[false]]></value>
+				</property>
+			</properties>
+			<relations/>
+			<accesscontrol/>
+		</file>
+		<file>
 			<source>system/modules/org.langhua.opencms.taglib.navigation/elements/verticalcolnav_css.jsp</source>
 			<destination>system/modules/org.langhua.opencms.taglib.navigation/elements/verticalcolnav_css.jsp</destination>
 			<type>jsp</type>
@@ -721,7 +622,7 @@
 			<type>binary</type>
 			<uuidstructure>34101882-eecd-11de-858a-130261ca6ad0</uuidstructure>
 			<uuidresource>34101883-eecd-11de-858a-130261ca6ad0</uuidresource>
-			<datelastmodified>Tue, 02 Feb 2010 06:23:13 GMT</datelastmodified>
+			<datelastmodified>Mon, 20 Feb 2012 22:10:15 GMT</datelastmodified>
 			<userlastmodified>Admin</userlastmodified>
 			<datecreated>Tue, 22 Dec 2009 07:39:57 GMT</datecreated>
 			<usercreated>Admin</usercreated>
@@ -740,26 +641,6 @@
 			<usercreated>Admin</usercreated>
 			<flags>0</flags>
 			<properties/>
-			<relations/>
-			<accesscontrol/>
-		</file>
-		<file>
-			<source>system/modules/org.langhua.opencms.taglib.navigation/resources/GeneralNavigationText-display.PNG</source>
-			<destination>system/modules/org.langhua.opencms.taglib.navigation/resources/GeneralNavigationText-display.PNG</destination>
-			<type>image</type>
-			<uuidstructure>6c26287d-5169-11df-9d9d-0714b205776f</uuidstructure>
-			<uuidresource>6c26287e-5169-11df-9d9d-0714b205776f</uuidresource>
-			<datelastmodified>Thu, 29 Apr 2010 08:52:37 GMT</datelastmodified>
-			<userlastmodified>Admin</userlastmodified>
-			<datecreated>Mon, 26 Apr 2010 19:25:07 GMT</datecreated>
-			<usercreated>Admin</usercreated>
-			<flags>0</flags>
-			<properties>
-				<property type="shared">
-					<name>image.size</name>
-					<value><![CDATA[w:283,h:25]]></value>
-				</property>
-			</properties>
 			<relations/>
 			<accesscontrol/>
 		</file>
@@ -904,6 +785,26 @@
 			<accesscontrol/>
 		</file>
 		<file>
+			<source>system/modules/org.langhua.opencms.taglib.navigation/resources/TextNavBar.PNG</source>
+			<destination>system/modules/org.langhua.opencms.taglib.navigation/resources/TextNavBar.PNG</destination>
+			<type>image</type>
+			<uuidstructure>6c26287d-5169-11df-9d9d-0714b205776f</uuidstructure>
+			<uuidresource>6c26287e-5169-11df-9d9d-0714b205776f</uuidresource>
+			<datelastmodified>Thu, 29 Apr 2010 08:52:37 GMT</datelastmodified>
+			<userlastmodified>Admin</userlastmodified>
+			<datecreated>Mon, 26 Apr 2010 19:25:07 GMT</datecreated>
+			<usercreated>Admin</usercreated>
+			<flags>0</flags>
+			<properties>
+				<property type="shared">
+					<name>image.size</name>
+					<value><![CDATA[w:283,h:25]]></value>
+				</property>
+			</properties>
+			<relations/>
+			<accesscontrol/>
+		</file>
+		<file>
 			<source>system/modules/org.langhua.opencms.taglib.navigation/resources/TextNavigation-display.PNG</source>
 			<destination>system/modules/org.langhua.opencms.taglib.navigation/resources/TextNavigation-display.PNG</destination>
 			<type>image</type>
@@ -973,6 +874,46 @@
 			<usercreated>Admin</usercreated>
 			<flags>0</flags>
 			<properties/>
+			<relations/>
+			<accesscontrol/>
+		</file>
+		<file>
+			<source>system/modules/org.langhua.opencms.taglib.navigation/samples/textnavbar.jsp</source>
+			<destination>system/modules/org.langhua.opencms.taglib.navigation/samples/textnavbar.jsp</destination>
+			<type>jsp</type>
+			<uuidstructure>f29cfba3-5c0d-11e1-b9e2-e4ce8f2df730</uuidstructure>
+			<uuidresource>f29cfba4-5c0d-11e1-b9e2-e4ce8f2df730</uuidresource>
+			<datelastmodified>Mon, 20 Feb 2012 22:17:52 GMT</datelastmodified>
+			<userlastmodified>Admin</userlastmodified>
+			<datecreated>Mon, 20 Feb 2012 21:57:57 GMT</datecreated>
+			<usercreated>Admin</usercreated>
+			<flags>0</flags>
+			<properties>
+				<property type="shared">
+					<name>export</name>
+					<value><![CDATA[false]]></value>
+				</property>
+			</properties>
+			<relations/>
+			<accesscontrol/>
+		</file>
+		<file>
+			<source>system/modules/org.langhua.opencms.taglib.navigation/samples/textnavbar_css_xml</source>
+			<destination>system/modules/org.langhua.opencms.taglib.navigation/samples/textnavbar_css_xml</destination>
+			<type>taglib.textnavbar.css</type>
+			<uuidstructure>ae213e95-5c0d-11e1-b9e2-e4ce8f2df730</uuidstructure>
+			<uuidresource>ae213e96-5c0d-11e1-b9e2-e4ce8f2df730</uuidresource>
+			<datelastmodified>Mon, 20 Feb 2012 22:12:51 GMT</datelastmodified>
+			<userlastmodified>Admin</userlastmodified>
+			<datecreated>Mon, 20 Feb 2012 21:56:02 GMT</datecreated>
+			<usercreated>Admin</usercreated>
+			<flags>0</flags>
+			<properties>
+				<property type="shared">
+					<name>template-elements</name>
+					<value><![CDATA[/system/modules/org.langhua.opencms.taglib.navigation/elements/textnavbar.css.jsp]]></value>
+				</property>
+			</properties>
 			<relations/>
 			<accesscontrol/>
 		</file>
@@ -1245,21 +1186,6 @@
 			<accesscontrol/>
 		</file>
 		<file>
-			<source>system/modules/org.langhua.opencms.taglib.navigation/schemas/newslist_css9.xsd</source>
-			<destination>system/modules/org.langhua.opencms.taglib.navigation/schemas/newslist_css9.xsd</destination>
-			<type>plain</type>
-			<uuidstructure>51d4bc38-516f-11df-9d9d-0714b205776f</uuidstructure>
-			<uuidresource>51d4bc39-516f-11df-9d9d-0714b205776f</uuidresource>
-			<datelastmodified>Thu, 29 Apr 2010 08:54:12 GMT</datelastmodified>
-			<userlastmodified>Admin</userlastmodified>
-			<datecreated>Mon, 26 Apr 2010 20:07:20 GMT</datecreated>
-			<usercreated>Admin</usercreated>
-			<flags>0</flags>
-			<properties/>
-			<relations/>
-			<accesscontrol/>
-		</file>
-		<file>
 			<source>system/modules/org.langhua.opencms.taglib.navigation/schemas/newtext_css.xsd</source>
 			<destination>system/modules/org.langhua.opencms.taglib.navigation/schemas/newtext_css.xsd</destination>
 			<type>plain</type>
@@ -1448,6 +1374,21 @@
 			<datelastmodified>Thu, 29 Apr 2010 08:54:12 GMT</datelastmodified>
 			<userlastmodified>Admin</userlastmodified>
 			<datecreated>Thu, 29 Apr 2010 08:54:12 GMT</datecreated>
+			<usercreated>Admin</usercreated>
+			<flags>0</flags>
+			<properties/>
+			<relations/>
+			<accesscontrol/>
+		</file>
+		<file>
+			<source>system/modules/org.langhua.opencms.taglib.navigation/schemas/textnavbar.css.xsd</source>
+			<destination>system/modules/org.langhua.opencms.taglib.navigation/schemas/textnavbar.css.xsd</destination>
+			<type>plain</type>
+			<uuidstructure>51d4bc38-516f-11df-9d9d-0714b205776f</uuidstructure>
+			<uuidresource>51d4bc39-516f-11df-9d9d-0714b205776f</uuidresource>
+			<datelastmodified>Thu, 29 Apr 2010 08:54:12 GMT</datelastmodified>
+			<userlastmodified>Admin</userlastmodified>
+			<datecreated>Mon, 26 Apr 2010 20:07:20 GMT</datecreated>
 			<usercreated>Admin</usercreated>
 			<flags>0</flags>
 			<properties/>

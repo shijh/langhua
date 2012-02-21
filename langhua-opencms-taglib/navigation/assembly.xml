@@ -16,6 +16,7 @@
 				<include>**/*.jsp</include>
 				<include>**/*.xsd</include>
                 <include>**/*.js</include>
+                <include>**/*_css_xml</include>
 			</includes>
 		</fileSet>
 		<fileSet>

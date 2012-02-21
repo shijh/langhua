@@ -42,8 +42,8 @@ import javax.servlet.jsp.*;
 
 /**
  * example:
- * &lt;%@ taglib &nbsp prefix="ocms" &nbsp uri="http://www.langhua.org/taglib/display"%&gt;
- * &lt;ocms:time /&gt;
+ * &lt;%@ taglib &nbsp; prefix="lh-dt" &nbsp uri="http://www.langhua.org/taglib/datetime"%&gt;
+ * &lt;lh-dt:time /&gt;
  * 
  * Image name: Time-display.PNG
  * 

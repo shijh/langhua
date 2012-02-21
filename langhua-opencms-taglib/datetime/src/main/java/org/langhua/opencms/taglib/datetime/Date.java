@@ -40,11 +40,11 @@ import javax.servlet.jsp.*;
 /**
 * example: <br>
 * 
-* &lt;%@ taglib &nbsp prefix="lh-dt" &nbsp uri="http://www.langhua.org/taglib/datetime"%&gt;<br>
+* &lt;%@ taglib &nbsp; prefix="lh-dt" &nbsp; uri="http://www.langhua.org/taglib/datetime"%&gt;<br>
 * 
-* &lt;lh-dt:date &nbsp cssfile="/taglib/CssSrc" /&gt;<br>
+* &lt;lh-dt:date &nbsp; cssFile="/taglib/CssSrc" /&gt;<br>
 *  
-* cssfile : css file.<br>
+* cssFile : css file.<br>
 * 
 * Image name: Date-display.PNG<br>
 * 
