@@ -3,6 +3,9 @@ User Guide for Langhua-OFBiz-ZXing Component
 Purpose:
 This component is to generate QR code in OFBiz. The QR code can be used on print labels, emails, coupons and etc.
 
+License:
+Apache License, Version 2.0 (http://www.apache.org/licenses/LICENSE-2.0)
+
 Usage:
 1. Deploy this component(zxing) to hot-deploy.
 
