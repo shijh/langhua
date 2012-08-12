@@ -1,0 +1,18 @@
+User Guide for Langhua-OFBiz-HtmlReport component
+
+Purpose:
+When we import/export large data files to/from OFBiz, we may need a UI to answer questions as "what's going on?", "anything wrong". This component is to help you output information to web page.
+
+License:
+GNU Lesser General Public License 3.0 (or any later version)
+
+Usage:
+1. Deploy this component in hot-deploy.
+
+2. Use the StringUtil.java to replace the one in ofbiz, and then compile and start ofbiz.
+
+3. Visit https://localhost:8443/htmlreport/control/main
+
+4. There're 3 samples, one countup/countdown sample and two Excel file import/parse samples (using jxl to parse the xls format and Apache POI to parse .xlsx format).
+
+5. NOTE: When deploying in production environment, you should disable the /htmlreport webapp.
