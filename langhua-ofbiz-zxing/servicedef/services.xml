@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="http://ofbiz.apache.org/dtds/services.xsd">
+    <description>ZXing Services</description>
+    <vendor></vendor>
+    <version>1.0</version>
+
+	<service name="generateQRCodeImage" engine="java" require-new-transaction="true" max-retry="3"
+		auth="false" location="org.ofbiz.zxing.QRCodeServices"
+		invoke="generateQRCodeImage">
+		<description>Generate a QRCode image according to </description>
+        <attribute name="message" type="String" mode="IN" optional="true"/>
+        <attribute name="format" type="String" mode="IN" optional="true"/>
+        <attribute name="height" type="Integer" mode="IN" optional="true"/>
+        <attribute name="width" type="Integer" mode="IN" optional="true"/>
+        <attribute name="bufferedImage" type="java.awt.image.BufferedImage" mode="OUT" optional="true"/>
+	</service>
+</services>
