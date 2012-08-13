@@ -1,0 +1,220 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!--
+Licensed to the Apache Software Foundation (ASF) under one
+or more contributor license agreements.  See the NOTICE file
+distributed with this work for additional information
+regarding copyright ownership.  The ASF licenses this file
+to you under the Apache License, Version 2.0 (the
+"License"); you may not use this file except in compliance
+with the License.  You may obtain a copy of the License at
+
+http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing,
+software distributed under the License is distributed on an
+"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+KIND, either express or implied.  See the License for the
+specific language governing permissions and limitations
+under the License.
+-->
+
+<services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
+        xsi:noNamespaceSchemaLocation="http://www.ofbiz.org/dtds/services.xsd">
+    <description>RMI Services for OpenCms OFBiz integration</description>
+    <vendor>Beijing Langhua Ltd.</vendor>
+    <version>1.0</version>
+
+    <!-- ================================================================== -->
+    <!-- Services in org.langhua.ofbiz.rmi.service.EntityUtilService        -->
+    <!-- ================================================================== -->
+
+    <service name="filterByAnd" engine="java" export="true" validate="false"
+            location="org.langhua.ofbiz.rmi.service.EntityUtilService" invoke="filterByAnd">
+        <description>Get the values that match all of the exprs in list</description>
+        <attribute name="list" type="java.util.List" mode="IN"/>
+        <attribute name="fields" type="java.util.Map" mode="IN"/>
+        <attribute name="exprs" type="java.util.List" mode="IN"/>
+
+        <attribute name="results" type="java.util.List" mode="OUT"/>
+    </service>
+
+    <service name="filterByCondition" engine="java" export="true" validate="false"
+            location="org.langhua.ofbiz.rmi.service.EntityUtilService" invoke="filterByCondition">
+        <description>Get a new List of GenericValue that match the specified EntityCondition</description>
+        <attribute name="orderItems" type="java.util.List" mode="IN"/>
+        <attribute name="entityCondition" type="org.ofbiz.entity.condition.EntityCondition" mode="IN"/>
+
+        <attribute name="results" type="java.util.List" mode="OUT"/>
+    </service>
+
+    <service name="filterByDate" engine="java" export="true" validate="false"
+            location="org.langhua.ofbiz.rmi.service.EntityUtilService" invoke="filterByDate">
+        <description>Get the values that are currently active</description>
+        <attribute name="datedValues" type="java.util.List" mode="IN"/>
+        <attribute name="moment" type="java.sql.Timestamp" mode="IN" optional="true"/>
+        <attribute name="fromDateName" type="String" mode="IN" optional="true"/>
+        <attribute name="thruDateName" type="String" mode="IN" optional="true"/>
+        <attribute name="allAreSame" type="Boolean" mode="IN" optional="true"/>
+
+        <attribute name="results" type="java.util.List" mode="OUT"/>
+    </service>
+
+    <service name="filterByOr" engine="java" export="true" validate="false"
+            location="org.langhua.ofbiz.rmi.service.EntityUtilService" invoke="filterByOr">
+        <description>Get a List of GenericValue that match any of the exprs in list</description>
+        <attribute name="values" type="java.util.List" mode="IN"/>
+        <attribute name="exprs" type="java.util.List" mode="IN" optional="true"/>
+
+        <attribute name="results" type="java.util.List" mode="OUT"/>
+    </service>
+
+    <service name="getFieldListFromEntityList" engine="java" export="true" validate="false"
+            location="org.langhua.ofbiz.rmi.service.EntityUtilService" invoke="getFieldListFromEntityList">
+        <description>Get a new field List from a GenericValue List</description>
+        <attribute name="genericValueList" type="java.util.List" mode="IN"/>
+        <attribute name="fieldName" type="String" mode="IN"/>
+        <attribute name="distinct" type="Boolean" mode="IN" optional="true"/>
+
+        <attribute name="results" type="java.util.List" mode="OUT"/>
+    </service>
+
+    <service name="getFilterByDateExpr" engine="java" export="true" validate="false"
+            location="org.langhua.ofbiz.rmi.service.EntityUtilService" invoke="getFilterByDateExpr">
+        <description>Get an EntityCondition of "fromDate" and "thruDate" according to the Timestamp provided</description>
+        <attribute name="moment" type="java.sql.Timestamp" mode="IN"/>
+
+        <attribute name="results" type="org.ofbiz.entity.condition.EntityCondition" mode="OUT"/>
+    </service>
+
+    <service name="getFirst" engine="java" export="true" validate="false"
+            location="org.langhua.ofbiz.rmi.service.EntityUtilService" invoke="getFirst">
+        <description>Get the first GenericValue from a List</description>
+        <attribute name="list" type="java.util.List" mode="IN"/>
+
+        <attribute name="results" type="org.ofbiz.entity.GenericValue" mode="OUT"/>
+    </service>
+
+    <service name="getIndexOf" engine="java" export="true" validate="false"
+            location="org.langhua.ofbiz.rmi.service.EntityUtilService" invoke="getIndexOf">
+        <description>Get the index of a GenericValue in a List</description>
+        <attribute name="list" type="java.util.List" mode="IN"/>
+        <attribute name="genericValue" type="org.ofbiz.entity.GenericValue" mode="IN"/>
+
+        <attribute name="results" type="java.lang.Integer" mode="OUT"/>
+    </service>
+
+    <service name="getLinkedList" engine="java" export="true" validate="false"
+            location="org.langhua.ofbiz.rmi.service.EntityUtilService" invoke="getLinkedList">
+        <description>Clone a List of GenericEntity to a new one</description>
+        <attribute name="list" type="java.util.List" mode="IN"/>
+
+        <attribute name="results" type="java.util.List" mode="OUT"/>
+    </service>
+
+    <service name="getValueFromMap" engine="java" export="true" validate="false"
+            location="org.langhua.ofbiz.rmi.service.EntityUtilService" invoke="getValueFromMap">
+        <description>Get a value from Map by GenericPK</description>
+        <attribute name="genericPK" type="org.ofbiz.entity.GenericPK" mode="IN"/>
+        <attribute name="lookupMap" type="java.util.Map" mode="IN"/>
+
+        <attribute name="results" type="java.lang.Object" mode="OUT"/>
+    </service>
+
+    <service name="orderBy" engine="java" export="true" validate="false"
+            location="org.langhua.ofbiz.rmi.service.EntityUtilService" invoke="orderBy">
+        <description>Get the values in the order specified</description>
+        <attribute name="list" type="java.util.List" mode="IN"/>
+        <attribute name="orderByList" type="java.util.List" mode="IN"/>
+
+        <attribute name="results" type="java.util.List" mode="OUT"/>
+    </service>
+
+    <service name="putIntoMap" engine="java" export="true" validate="false"
+            location="org.langhua.ofbiz.rmi.service.EntityUtilService" invoke="putIntoMap">
+        <description>Put an Object into Map</description>
+        <attribute name="storeMap" type="java.util.Map" mode="IN"/>
+        <attribute name="object" type="java.lang.Object" mode="IN"/>
+        <attribute name="genericPK" type="org.ofbiz.entity.GenericPK" mode="IN"/>
+
+        <attribute name="results" type="java.util.Map" mode="OUT"/>
+    </service>
+
+    <service name="removeValueFromList" engine="java" export="true" validate="false"
+            location="org.langhua.ofbiz.rmi.service.EntityUtilService" invoke="removeValueFromList">
+        <description>Remove a GenericValue from a List</description>
+        <attribute name="list" type="java.util.List" mode="IN"/>
+        <attribute name="genericValue" type="org.ofbiz.entity.GenericValue" mode="IN"/>
+
+        <attribute name="results" type="java.util.List" mode="OUT"/>
+    </service>
+
+    <!-- ================================================================== -->
+    <!-- RMI Services in org.langhua.ofbiz.rmi.service.EntityUtilService    -->
+    <!-- ================================================================== -->
+
+    <service name="rmiFilterByAnd" engine="rmi" validate="false"
+            location="main-rmi" invoke="filterByAnd">
+        <implements service="filterByAnd"/>
+    </service>
+
+    <service name="rmiFilterByCondition" engine="rmi" validate="false"
+            location="main-rmi" invoke="filterByCondition">
+        <implements service="filterByCondition"/>
+    </service>
+
+    <service name="rmiFilterByDate" engine="rmi" validate="false"
+            location="main-rmi" invoke="filterByDate">
+        <implements service="filterByDate"/>
+    </service>
+
+    <service name="rmiFilterByOr" engine="rmi" validate="false"
+            location="main-rmi" invoke="filterByOr">
+        <implements service="filterByOr"/>
+    </service>
+
+    <service name="rmiGetFieldListFromEntityList" engine="rmi" validate="false"
+            location="main-rmi" invoke="getFieldListFromEntityList">
+        <implements service="getFieldListFromEntityList"/>
+    </service>
+
+    <service name="rmiGetFilterByDateExpr" engine="rmi" validate="false"
+            location="main-rmi" invoke="getFilterByDateExpr">
+        <implements service="getFilterByDateExpr"/>
+    </service>
+
+    <service name="rmiGetFirst" engine="rmi" validate="false"
+            location="main-rmi" invoke="getFirst">
+        <implements service="getFirst"/>
+    </service>
+
+    <service name="rmiGetIndexOf" engine="rmi" validate="false"
+            location="main-rmi" invoke="getIndexOf">
+        <implements service="getIndexOf"/>
+    </service>
+
+    <service name="rmiGetLinkedList" engine="rmi" validate="false"
+            location="main-rmi" invoke="getLinkedList">
+        <implements service="getLinkedList"/>
+    </service>
+
+    <service name="rmiGetValueFromMap" engine="rmi" validate="false"
+            location="main-rmi" invoke="getValueFromMap">
+        <implements service="getValueFromMap"/>
+    </service>
+
+    <service name="rmiOrderBy" engine="rmi" validate="false"
+            location="main-rmi" invoke="orderBy">
+        <implements service="orderBy"/>
+    </service>
+
+    <service name="rmiPutIntoMap" engine="rmi" validate="false"
+            location="main-rmi" invoke="putIntoMap">
+        <implements service="putIntoMap"/>
+    </service>
+
+    <service name="rmiRemoveValueFromList" engine="rmi" validate="false"
+            location="main-rmi" invoke="removeValueFromList">
+        <implements service="removeValueFromList"/>
+    </service>
+
+</services>

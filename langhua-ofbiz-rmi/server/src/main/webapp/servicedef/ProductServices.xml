@@ -1,0 +1,196 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!--
+Licensed to the Apache Software Foundation (ASF) under one
+or more contributor license agreements.  See the NOTICE file
+distributed with this work for additional information
+regarding copyright ownership.  The ASF licenses this file
+to you under the Apache License, Version 2.0 (the
+"License"); you may not use this file except in compliance
+with the License.  You may obtain a copy of the License at
+
+http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing,
+software distributed under the License is distributed on an
+"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+KIND, either express or implied.  See the License for the
+specific language governing permissions and limitations
+under the License.
+-->
+
+<services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
+        xsi:noNamespaceSchemaLocation="http://www.ofbiz.org/dtds/services.xsd">
+    <description>RMI Services for OpenCms OFBiz integration</description>
+    <vendor>Beijing Langhua Ltd.</vendor>
+    <version>1.0</version>
+
+    <!-- ================================================================== -->
+    <!-- Services in org.langhua.ofbiz.rmi.service.ProductServices          -->
+    <!-- ================================================================== -->
+
+    <service name="findProductById" engine="java" export="true" validate="false"
+            location="org.langhua.ofbiz.rmi.service.ProductServices" invoke="findProductById">
+        <description>Find Products by product Id</description>
+        <attribute name="idToFind" type="String" mode="IN"/>
+        <attribute name="goodIdentificationTypeId" type="String" mode="IN" optional="true"/>
+        <attribute name="searchProductFirst" type="String" mode="IN" optional="true"/>
+        <attribute name="searchAllId" type="String" mode="IN" optional="true"/>
+        
+        <attribute name="product" type="org.ofbiz.entity.GenericValue" mode="OUT"/>
+        <attribute name="productsList" type="java.util.List" mode="OUT"/>
+    </service>
+
+    <service name="getParentProduct" engine="java" export="true" validate="false"
+            location="org.langhua.ofbiz.rmi.service.ProductServices" invoke="getParentProduct">
+        <description>Get parent products for the product id</description>
+        <attribute name="productId" type="String" mode="IN"/>
+        
+        <attribute name="results" type="java.util.List" mode="OUT"/>
+    </service>
+
+    <service name="getProdCatalogCategories" engine="java" export="true" validate="false"
+            location="org.langhua.ofbiz.rmi.service.ProductServices" invoke="getProdCatalogCategories">
+        <description>Get categories from a product catalog</description>
+        <attribute name="prodCatalogId" type="String" mode="IN"/>
+        <attribute name="prodCatalogCategoryTypeId" type="String" mode="IN" optional="true"/>
+        
+        <attribute name="results" type="java.util.List" mode="OUT"/>
+    </service>
+
+    <service name="getProductStore" engine="java" export="true" validate="false"
+            location="org.langhua.ofbiz.rmi.service.ProductServices" invoke="getProductStore">
+        <description>Get product store from product store id</description>
+        <attribute name="productStoreId" type="String" mode="IN"/>
+        
+        <attribute name="results" type="org.ofbiz.entity.GenericValue" mode="OUT" optional="true"/>
+    </service>
+
+    <service name="getStoreCatalogs" engine="java" export="true" validate="false"
+            location="org.langhua.ofbiz.rmi.service.ProductServices" invoke="getStoreCatalogs">
+        <description>Get catalogs from product store id</description>
+        <attribute name="productStoreId" type="String" mode="IN"/>
+        
+        <attribute name="results" type="java.util.List" mode="OUT"/>
+    </service>
+
+    <service name="getStorePaymentMethodTypeIds" engine="java" export="true" validate="false"
+            location="org.langhua.ofbiz.rmi.service.ProductServices" invoke="getStorePaymentMethodTypeIds">
+        <description>Get payment method typd ids from a product store id</description>
+        <attribute name="productStoreId" type="String" mode="IN"/>
+        <attribute name="useCache" type="Boolean" mode="IN" optional="true"/>
+        
+        <attribute name="results" type="java.util.List" mode="OUT" optional="true"/>
+    </service>
+
+    <service name="getVariantVirtualAssocs" engine="java" export="true" validate="false"
+            location="org.langhua.ofbiz.rmi.service.ProductServices" invoke="getVariantVirtualAssocs">
+        <description>Get virtual associations of a variant product</description>
+        <attribute name="variantProduct" type="org.ofbiz.entity.GenericValue" mode="IN"/>
+        
+        <attribute name="results" type="java.util.List" mode="OUT" optional="true"/>
+    </service>
+
+    <service name="isSellable" engine="java" export="true" validate="false"
+            location="org.langhua.ofbiz.rmi.service.ProductServices" invoke="isSellable">
+        <description>Is a product sellable according to its introductionDate and salesDiscontinuationDate setting</description>
+        <attribute name="productId" type="String" mode="IN"/>
+        <attribute name="atTime" type="java.sql.Timestamp" mode="IN"/>
+        
+        <attribute name="results" type="java.lang.Boolean" mode="OUT" optional="true"/>
+    </service>
+
+    <!-- ================================================================== -->
+    <!-- RMI Services in org.langhua.ofbiz.rmi.service.ProductServices      -->
+    <!-- ================================================================== -->
+
+    <service name="rmiCalculateProductPrice" engine="rmi" validate="false"
+            location="main-rmi" invoke="calculateProductPrice">
+        <implements service="calculateProductPrice"/>
+    </service>
+
+    <service name="rmiFindProductById" engine="rmi" validate="false"
+            location="main-rmi" invoke="findProductById">
+        <implements service="findProductById"/>
+    </service>
+
+    <service name="rmiGetAllProductVariants" engine="rmi" validate="false"
+            location="main-rmi" invoke="getAllProductVariants">
+        <implements service="getAllProductVariants"/>
+    </service>
+
+    <service name="rmiGetProductCategoryMembers" engine="rmi" validate="false"
+            location="main-rmi" invoke="getProductCategoryMembers">
+        <implements service="getProductCategoryMembers"/>
+    </service>
+
+    <service name="rmiGetCategoryVariantProducts" engine="rmi" validate="false"
+            location="main-rmi" invoke="getCategoryVariantProducts">
+        <implements service="getCategoryVariantProducts"/>
+    </service>
+
+    <service name="rmiGetParentProduct" engine="rmi" validate="false"
+            location="main-rmi" invoke="getParentProduct">
+        <implements service="getParentProduct"/>
+    </service>
+
+    <service name="rmiGetPreviousNextProducts" engine="rmi" validate="false"
+            location="main-rmi" invoke="getPreviousNextProducts">
+        <implements service="getPreviousNextProducts"/>
+    </service>
+
+    <service name="rmiGetProdCatalogCategories" engine="rmi" validate="false"
+            location="main-rmi" invoke="getProdCatalogCategories">
+        <implements service="getProdCatalogCategories"/>
+    </service>
+
+    <service name="rmiGetProductCategoryAndLimitedMembers" engine="rmi" validate="false"
+            location="main-rmi" invoke="getProductCategoryAndLimitedMembers">
+        <implements service="getProductCategoryAndLimitedMembers"/>
+    </service>
+
+    <service name="rmiGetProductStore" engine="rmi" validate="false"
+            location="main-rmi" invoke="getProductStore">
+        <implements service="getProductStore"/>
+    </service>
+
+    <service name="rmiGetStoreCatalogs" engine="rmi" validate="false"
+            location="main-rmi" invoke="getStoreCatalogs">
+        <implements service="getStoreCatalogs"/>
+    </service>
+
+    <service name="rmiGetStorePaymentMethodTypeIds" engine="rmi" validate="false"
+            location="main-rmi" invoke="getStorePaymentMethodTypeIds">
+        <implements service="getStorePaymentMethodTypeIds"/>
+    </service>
+
+    <service name="rmiGetVariantVirtualAssocs" engine="rmi" validate="false"
+            location="main-rmi" invoke="getVariantVirtualAssocs">
+        <implements service="getVariantVirtualAssocs"/>
+    </service>
+
+    <service name="rmiIsSellable" engine="rmi" validate="false"
+            location="main-rmi" invoke="isSellable">
+        <implements service="isSellable"/>
+    </service>
+
+    <service name="rmiIsStoreInventoryAvailable" engine="rmi" validate="false"
+            location="main-rmi" invoke="isStoreInventoryAvailable">
+        <implements service="isStoreInventoryAvailable"/>
+    </service>
+
+    <service name="rmiGetProduct" engine="rmi" validate="false"
+            location="main-rmi" invoke="getProduct">
+        <implements service="getProduct"/>
+    </service>
+
+    <service name="rmiGetProductVariant" engine="rmi" validate="false"
+            location="main-rmi" invoke="getProductVariant">
+        <implements service="getProductVariant"/>
+    </service>
+
+    <service name="rmiGetProductVariant" engine="rmi" validate="false"
+            location="main-rmi" invoke="getProductVariant">
+        <implements service="getProductVariant"/>
+    </service>
+
+</services>

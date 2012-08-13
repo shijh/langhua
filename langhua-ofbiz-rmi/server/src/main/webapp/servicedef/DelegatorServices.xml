@@ -1,0 +1,237 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!--
+Licensed to the Apache Software Foundation (ASF) under one
+or more contributor license agreements.  See the NOTICE file
+distributed with this work for additional information
+regarding copyright ownership.  The ASF licenses this file
+to you under the Apache License, Version 2.0 (the
+"License"); you may not use this file except in compliance
+with the License.  You may obtain a copy of the License at
+
+http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing,
+software distributed under the License is distributed on an
+"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+KIND, either express or implied.  See the License for the
+specific language governing permissions and limitations
+under the License.
+-->
+
+<services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
+        xsi:noNamespaceSchemaLocation="http://www.ofbiz.org/dtds/services.xsd">
+    <description>RMI Services for OpenCms OFBiz integration</description>
+    <vendor>Beijing Langhua Ltd.</vendor>
+    <version>1.0</version>
+
+    <!-- ================================================================== -->
+    <!-- Services in org.langhua.ofbiz.rmi.service.DelegatorService         -->
+    <!-- ================================================================== -->
+
+    <service name="create" engine="java" export="true" validate="false"
+            location="org.langhua.ofbiz.rmi.service.DelegatorService" invoke="create">
+        <description>Create a GenericValue</description>
+        <attribute name="genericValue" type="org.ofbiz.entity.GenericValue" mode="IN" optional="false"/>
+        <attribute name="doCacheClear" type="Boolean" mode="IN" optional="true"/>
+
+        <attribute name="results" type="org.ofbiz.entity.GenericValue" mode="OUT" optional="true"/>
+    </service>
+    
+    <service name="find" engine="java" export="true" validate="false"
+            location="org.langhua.ofbiz.rmi.service.DelegatorService" invoke="find">
+        <description>Finds GenericValues by the conditions specified in the EntityCondition object</description>
+        <attribute name="entityName" type="String" mode="IN" optional="false"/>
+        <attribute name="whereEntityCondition" type="org.ofbiz.entity.condition.EntityCondition" mode="IN" optional="true"/>
+        <attribute name="havingEntityCondition" type="org.ofbiz.entity.condition.EntityCondition" mode="IN" optional="true"/>
+        <attribute name="fieldsToSelect" type="java.util.Set" mode="IN" optional="true"/>
+        <attribute name="orderBy" type="java.util.List" mode="IN" optional="true"/>
+        <attribute name="findOptions" type="org.ofbiz.entity.util.EntityFindOptions" mode="IN" optional="true"/>
+
+        <attribute name="results" type="java.util.List" mode="OUT" optional="true"/>
+    </service>
+    
+    <service name="findCountByCondition" engine="java" export="true" validate="false"
+            location="org.langhua.ofbiz.rmi.service.DelegatorService" invoke="findCountByCondition">
+        <description>Get find count of an entity name by the conditions provided</description>
+        <attribute name="entityName" type="String" mode="IN" optional="false"/>
+        <attribute name="whereEntityCondition" type="org.ofbiz.entity.condition.EntityCondition" mode="IN" optional="true"/>
+        <attribute name="havingEntityCondition" type="org.ofbiz.entity.condition.EntityCondition" mode="IN" optional="true"/>
+        <attribute name="findOptions" type="org.ofbiz.entity.util.EntityFindOptions" mode="IN" optional="true"/>
+
+        <attribute name="results" type="java.lang.Long" mode="OUT" optional="true"/>
+    </service>
+    
+    <service name="findList" engine="java" export="true" validate="false"
+            location="org.langhua.ofbiz.rmi.service.DelegatorService" invoke="findList">
+        <description>Finds GenericValues by the conditions specified in the EntityCondition object</description>
+        <attribute name="entityName" type="String" mode="IN" optional="false"/>
+        <attribute name="expressions" type="java.util.Map" mode="IN" optional="true"/>
+        <attribute name="useCache" type="Boolean" mode="IN" optional="true"/>
+        <attribute name="fieldsToSelect" type="java.util.Set" mode="IN" optional="true"/>
+        <attribute name="orderBy" type="java.util.List" mode="IN" optional="true"/>
+        <attribute name="findOptions" type="org.ofbiz.entity.util.EntityFindOptions" mode="IN" optional="true"/>
+
+        <attribute name="results" type="java.util.List" mode="OUT" optional="true"/>
+    </service>
+    
+    <service name="findListIteratorByCondition" engine="java" export="true" validate="false"
+            location="org.langhua.ofbiz.rmi.service.DelegatorService" invoke="findListIteratorByCondition">
+        <description>Finds GenericValues by the conditions specified in the EntityCondition object</description>
+        <attribute name="dynamicViewEntity" type="org.ofbiz.entity.model.DynamicViewEntity" mode="IN" optional="false"/>
+        <attribute name="whereEntityCondition" type="org.ofbiz.entity.condition.EntityCondition" mode="IN" optional="true"/>
+        <attribute name="havingEntityCondition" type="org.ofbiz.entity.condition.EntityCondition" mode="IN" optional="true"/>
+        <attribute name="fieldsToSelect" type="java.util.Set" mode="IN" optional="true"/>
+        <attribute name="orderBy" type="java.util.List" mode="IN" optional="true"/>
+        <attribute name="findOptions" type="org.ofbiz.entity.util.EntityFindOptions" mode="IN" optional="true"/>
+
+        <attribute name="results" type="org.ofbiz.entity.util.EntityListIterator" mode="OUT" optional="true"/>
+    </service>
+    
+    <service name="findOne" engine="java" export="true" validate="false"
+            location="org.langhua.ofbiz.rmi.service.DelegatorService" invoke="findOne">
+        <description>Find a Generic Entity by its Primary Key</description>
+        <attribute name="entityName" type="String" mode="IN" optional="true"/>
+        <attribute name="primaryKey" type="org.ofbiz.entity.GenericPK" mode="IN" optional="true"/>
+        <attribute name="lookupFields" type="java.util.Map" mode="IN" optional="true"/>
+        <attribute name="singlePkValue" type="org.ofbiz.entity.GenericPK" mode="IN" optional="true"/>
+        <attribute name="useCache" type="Boolean" mode="IN" optional="true"/>
+
+        <attribute name="results" type="org.ofbiz.entity.GenericValue" mode="OUT" optional="true"/>
+    </service>
+    
+    <service name="getModelEntity" engine="java" export="true" validate="false"
+            location="org.langhua.ofbiz.rmi.service.DelegatorService" invoke="getModelEntity">
+        <description>Gets the instance of ModelEntity that corresponds to this delegator and the specified entityName</description>
+        <attribute name="entityName" type="String" mode="IN" optional="true"/>
+
+        <attribute name="results" type="org.ofbiz.entity.model.ModelEntity" mode="OUT" optional="true"/>
+    </service>
+    
+    <service name="getNextSeqId" engine="java" export="true" validate="false"
+            location="org.langhua.ofbiz.rmi.service.DelegatorService" invoke="getNextSeqId">
+        <description>Get the next guaranteed unique seq id from the sequence with the given sequence name</description>
+        <attribute name="seqName" type="String" mode="IN"/>
+        <attribute name="staggerMax" type="Long" mode="IN"/>
+
+        <attribute name="results" type="String" mode="OUT"/>
+    </service>
+    
+    <service name="getRelated" engine="java" export="true" validate="false"
+            location="org.langhua.ofbiz.rmi.service.DelegatorService" invoke="getRelated">
+        <description>Get the named Related Entity for the GenericValue from the persistent store</description>
+        <attribute name="relationName" type="String" mode="IN"/>
+        <attribute name="genericValue" type="org.ofbiz.entity.GenericValue" mode="IN"/>
+        <attribute name="byAndFields" type="java.util.Map" mode="IN" optional="true"/>
+        <attribute name="orderBy" type="java.util.List" mode="IN" optional="true"/>
+        <attribute name="useCache" type="Boolean" mode="IN" optional="true"/>
+
+        <attribute name="results" type="java.util.List" mode="OUT"/>
+    </service>
+    
+    <service name="getRelatedOne" engine="java" export="true" validate="false"
+            location="org.langhua.ofbiz.rmi.service.DelegatorService" invoke="getRelatedOne">
+        <description>Get related entity where relation is of type one</description>
+        <attribute name="relationName" type="String" mode="IN"/>
+        <attribute name="genericValue" type="org.ofbiz.entity.GenericValue" mode="IN"/>
+
+        <attribute name="results" type="org.ofbiz.entity.GenericValue" mode="OUT"/>
+    </service>
+    
+    <service name="makeValue" engine="java" export="true" validate="false"
+            location="org.langhua.ofbiz.rmi.service.DelegatorService" invoke="makeValue">
+        <description>Creates an Entity in the form of a GenericValue without persisting it</description>
+        <attribute name="relationName" type="String" mode="IN"/>
+        <attribute name="fields" type="java.util.Map" mode="IN"/>
+
+        <attribute name="results" type="org.ofbiz.entity.GenericValue" mode="OUT"/>
+    </service>
+    
+    <service name="removeByCondition" engine="java" export="true" validate="false"
+            location="org.langhua.ofbiz.rmi.service.DelegatorService" invoke="removeByCondition">
+        <description>Removes/deletes Generic Entity records found by the condition</description>
+        <attribute name="relationName" type="String" mode="IN"/>
+        <attribute name="condition" type="org.ofbiz.entity.condition.EntityCondition" mode="IN"/>
+        <attribute name="doCacheClear" type="Boolean" mode="IN" optional="true"/>
+
+        <attribute name="results" type="Integer" mode="OUT"/>
+    </service>
+    
+    <service name="store" engine="java" export="true" validate="false"
+            location="org.langhua.ofbiz.rmi.service.DelegatorService" invoke="store">
+        <description>Store the Entity from the GenericValue to the persistent store</description>
+        <attribute name="genericValue" type="org.ofbiz.entity.GenericValue" mode="IN"/>
+        <attribute name="doCacheClear" type="Boolean" mode="IN" optional="true"/>
+
+        <attribute name="results" type="Integer" mode="OUT"/>
+    </service>
+    
+    <!-- ================================================================== -->
+    <!-- RMI Services in org.langhua.ofbiz.rmi.service.DelegatorService     -->
+    <!-- ================================================================== -->
+
+    <service name="rmiCreate" engine="rmi" validate="false"
+            location="main-rmi" invoke="create">
+        <implements service="create"/>
+    </service>
+
+    <service name="rmiFind" engine="rmi" validate="false"
+            location="main-rmi" invoke="find">
+        <implements service="find"/>
+    </service>
+
+    <service name="rmiFindCountByCondition" engine="rmi" validate="false"
+            location="main-rmi" invoke="findCountByCondition">
+        <implements service="findCountByCondition"/>
+    </service>
+
+    <service name="rmiFindList" engine="rmi" validate="false"
+            location="main-rmi" invoke="findList">
+        <implements service="findList"/>
+    </service>
+
+    <service name="rmiFindListIteratorByCondition" engine="rmi" validate="false"
+            location="main-rmi" invoke="findListIteratorByCondition">
+        <implements service="findListIteratorByCondition"/>
+    </service>
+
+    <service name="rmiFindOne" engine="rmi" validate="false"
+            location="main-rmi" invoke="findOne">
+        <implements service="findOne"/>
+    </service>
+
+    <service name="rmiGetModelEntity" engine="rmi" validate="false"
+            location="main-rmi" invoke="getModelEntity">
+        <implements service="getModelEntity"/>
+    </service>
+
+    <service name="rmiGetNextSeqId" engine="rmi" validate="false"
+            location="main-rmi" invoke="getNextSeqId">
+        <implements service="getNextSeqId"/>
+    </service>
+
+    <service name="rmiGetRelated" engine="rmi" validate="false"
+            location="main-rmi" invoke="getRelated">
+        <implements service="getRelated"/>
+    </service>
+
+    <service name="rmiGetRelatedOne" engine="rmi" validate="false"
+            location="main-rmi" invoke="getRelatedOne">
+        <implements service="getRelatedOne"/>
+    </service>
+
+    <service name="rmiMakeValue" engine="rmi" validate="false"
+            location="main-rmi" invoke="makeValue">
+        <implements service="makeValue"/>
+    </service>
+
+    <service name="rmiRemoveByCondition" engine="rmi" validate="false"
+            location="main-rmi" invoke="removeByCondition">
+        <implements service="removeByCondition"/>
+    </service>
+
+    <service name="rmiStore" engine="rmi" validate="false"
+            location="main-rmi" invoke="store">
+        <implements service="store"/>
+    </service>
+
+</services>

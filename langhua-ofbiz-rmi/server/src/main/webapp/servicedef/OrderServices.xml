@@ -1,0 +1,447 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!--
+Licensed to the Apache Software Foundation (ASF) under one
+or more contributor license agreements.  See the NOTICE file
+distributed with this work for additional information
+regarding copyright ownership.  The ASF licenses this file
+to you under the Apache License, Version 2.0 (the
+"License"); you may not use this file except in compliance
+with the License.  You may obtain a copy of the License at
+
+http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing,
+software distributed under the License is distributed on an
+"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+KIND, either express or implied.  See the License for the
+specific language governing permissions and limitations
+under the License.
+-->
+
+<services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
+        xsi:noNamespaceSchemaLocation="http://www.ofbiz.org/dtds/services.xsd">
+    <description>RMI Services for OpenCms OFBiz integration</description>
+    <vendor>Beijing Langhua Ltd.</vendor>
+    <version>1.0</version>
+
+    <!-- ================================================================== -->
+    <!-- Services in org.langhua.ofbiz.rmi.service.OrderService             -->
+    <!-- ================================================================== -->
+
+    <service name="getAvailableBalance" engine="java" export="true" validate="false"
+            location="org.langhua.ofbiz.rmi.service.OrderServices" invoke="getAvailableBalance">
+        <description>Get available balance of a finance account</description>
+        <attribute name="finAccountId" type="String" mode="IN"/>
+        <attribute name="authorizationDate" type="java.sql.Timestamp" mode="IN"/>
+        
+        <attribute name="results" type="java.math.BigDecimal" mode="OUT" optional="true"/>
+    </service>
+
+    <service name="getBalance" engine="java" export="true" validate="false"
+            location="org.langhua.ofbiz.rmi.service.OrderServices" invoke="getBalance">
+        <description>Get net balance of a finance account</description>
+        <attribute name="finAccountId" type="String" mode="IN"/>
+        <attribute name="authorizationDate" type="java.sql.Timestamp" mode="IN"/>
+        
+        <attribute name="results" type="java.math.BigDecimal" mode="OUT" optional="true"/>
+    </service>
+
+    <service name="getFinAccountFromCode" engine="java" export="true" validate="false"
+            location="org.langhua.ofbiz.rmi.service.OrderServices" invoke="getFinAccountFromCode">
+        <description>Gets the first FinAccount based on finAccountCode</description>
+        <attribute name="finAccountCode" type="String" mode="IN"/>
+        
+        <attribute name="results" type="org.ofbiz.entity.GenericValue" mode="OUT" optional="true"/>
+    </service>
+
+    <service name="getOrderAddress" engine="java" export="true" validate="false"
+            location="org.langhua.ofbiz.rmi.service.OrderServices" invoke="getOrderAddress">
+        <description>Gets an order contact mech</description>
+        <attribute name="orderId" type="String" mode="IN"/>
+        
+        <attribute name="orderHeader" type="org.ofbiz.entity.GenericValue" mode="OUT" optional="true"/>
+        <attribute name="billingAddress" type="String" mode="OUT" optional="true"/>
+        <attribute name="shippingAddress" type="String" mode="OUT" optional="true"/>
+        <attribute name="orderId" type="String" mode="OUT" optional="true"/>
+    </service>
+
+    <service name="getOrderHeaderInformationById" engine="java" export="true" validate="false"
+            location="org.langhua.ofbiz.rmi.service.OrderServices" invoke="getOrderHeaderInformationById">
+        <description>Gets order header information</description>
+        <attribute name="orderId" type="String" mode="IN"/>
+        
+        <attribute name="results" type="org.ofbiz.entity.GenericValue" mode="OUT" optional="true"/>
+    </service>
+
+    <service name="massChangeOrderStatus" engine="java" export="true" validate="false"
+            location="org.langhua.ofbiz.rmi.service.OrderServices" invoke="massChangeOrderStatus">
+        <description>Change orders' status</description>
+        <attribute name="orderIdList" type="java.util.List" mode="IN"/>
+        <attribute name="statusId" type="String" mode="IN"/>
+        
+    </service>
+
+    <service name="validatePin" engine="java" export="true" validate="false"
+            location="org.langhua.ofbiz.rmi.service.OrderServices" invoke="validatePin">
+        <description>Validates a FinAccount's PIN number</description>
+        <attribute name="finAccountId" type="String" mode="IN"/>
+        <attribute name="pinNumber" type="String" mode="IN"/>
+        
+        <attribute name="results" type="Boolean" mode="OUT"/>
+    </service>
+
+    <!-- ================================================================== -->
+    <!-- RMI Services in org.langhua.ofbiz.rmi.service.OrderService         -->
+    <!-- ================================================================== -->
+
+    <service name="rmiAssignItemShipGroup" engine="rmi" validate="false"
+            location="main-rmi" invoke="assignItemShipGroup">
+        <implements service="assignItemShipGroup"/>
+    </service>
+
+    <service name="rmiCheckPaymentAmountForRefund" engine="rmi" validate="false"
+            location="main-rmi" invoke="checkPaymentAmountForRefund">
+        <implements service="checkPaymentAmountForRefund"/>
+    </service>
+
+    <service name="rmiCheckReturnComplete" engine="rmi" validate="false"
+            location="main-rmi" invoke="checkReturnComplete">
+        <implements service="checkReturnComplete"/>
+    </service>
+
+    <service name="rmiRunShoppingListAutoReorder" engine="rmi" validate="false"
+            location="main-rmi" invoke="runShoppingListAutoReorder">
+        <implements service="runShoppingListAutoReorder"/>
+    </service>
+
+    <service name="rmiStoreOrder" engine="rmi" validate="false"
+            location="main-rmi" invoke="storeOrder">
+        <implements service="storeOrder"/>
+    </service>
+
+    <service name="rmiCreateOrderFromShoppingCart" engine="rmi" validate="false"
+            location="main-rmi" invoke="createOrderFromShoppingCart">
+        <implements service="createOrderFromShoppingCart"/>
+    </service>
+
+    <service name="rmiCreateOrderNote" engine="rmi" validate="false"
+            location="main-rmi" invoke="createOrderNote">
+        <implements service="createOrderNote"/>
+    </service>
+
+    <service name="rmiCreatePaymentApplicationsFromReturnItemResponse" engine="rmi" validate="false"
+            location="main-rmi" invoke="createPaymentApplicationsFromReturnItemResponse">
+        <implements service="createPaymentApplicationsFromReturnItemResponse"/>
+    </service>
+
+    <service name="rmiCreatePaymentFromPreference" engine="rmi" validate="false"
+            location="main-rmi" invoke="createPaymentFromPreference">
+        <implements service="createPaymentFromPreference"/>
+    </service>
+
+    <service name="rmiCreateOrderPaymentPreference" engine="rmi" validate="false"
+            location="main-rmi" invoke="createOrderPaymentPreference">
+        <implements service="createOrderPaymentPreference"/>
+    </service>
+
+    <service name="rmiCreateReturnAdjustment" engine="rmi" validate="false"
+            location="main-rmi" invoke="createReturnAdjustment">
+        <implements service="createReturnAdjustment"/>
+    </service>
+
+    <service name="rmiCreateSimpleNonProductSalesOrder" engine="rmi" validate="false"
+            location="main-rmi" invoke="createSimpleNonProductSalesOrder">
+        <implements service="createSimpleNonProductSalesOrder"/>
+    </service>
+
+    <service name="rmiFindOrders" engine="rmi" validate="false"
+            location="main-rmi" invoke="findOrders">
+        <implements service="findOrders"/>
+    </service>
+
+    <service name="rmiFulfillDigitalItems" engine="rmi" validate="false"
+            location="main-rmi" invoke="fulfillDigitalItems">
+        <implements service="fulfillDigitalItems"/>
+    </service>
+
+    <service name="rmiGetAvailableBalance" engine="rmi" validate="false"
+            location="main-rmi" invoke="getAvailableBalance">
+        <implements service="getAvailableBalance"/>
+    </service>
+
+    <service name="rmiGetBalance" engine="rmi" validate="false"
+            location="main-rmi" invoke="getBalance">
+        <implements service="getBalance"/>
+    </service>
+
+    <service name="rmiGetFinAccountFromCode" engine="rmi" validate="false"
+            location="main-rmi" invoke="getFinAccountFromCode">
+        <implements service="getFinAccountFromCode"/>
+    </service>
+
+    <service name="rmiGetOrderAddress" engine="rmi" validate="false"
+            location="main-rmi" invoke="getOrderAddress">
+        <implements service="getOrderAddress"/>
+    </service>
+
+    <service name="rmiGetOrderHeaderInformationById" engine="rmi" validate="false"
+            location="main-rmi" invoke="getOrderHeaderInformationById">
+        <implements service="getOrderHeaderInformationById"/>
+    </service>
+
+    <service name="rmiGetOrderItemInvoicedAmountAndQuantity" engine="rmi" validate="false"
+            location="main-rmi" invoke="getOrderItemInvoicedAmountAndQuantity">
+        <implements service="getOrderItemInvoicedAmountAndQuantity"/>
+    </service>
+
+    <service name="rmiGetOrderShippingAmount" engine="rmi" validate="false"
+            location="main-rmi" invoke="getOrderShippingAmount">
+        <implements service="getOrderShippingAmount"/>
+    </service>
+
+    <service name="rmiGetRequirementsForSupplier" engine="rmi" validate="false"
+            location="main-rmi" invoke="getRequirementsForSupplier">
+        <implements service="getRequirementsForSupplier"/>
+    </service>
+
+    <service name="rmiGetReturnableItems" engine="rmi" validate="false"
+            location="main-rmi" invoke="getReturnableItems">
+        <implements service="getReturnableItems"/>
+    </service>
+
+    <service name="rmiGetReturnableQuantity" engine="rmi" validate="false"
+            location="main-rmi" invoke="getReturnableQuantity">
+        <implements service="getReturnableQuantity"/>
+    </service>
+
+    <service name="rmiGetReturnAmountByOrder" engine="rmi" validate="false"
+            location="main-rmi" invoke="getReturnAmountByOrder">
+        <implements service="getReturnAmountByOrder"/>
+    </service>
+
+    <service name="rmiGetReturnItemInitialCost" engine="rmi" validate="false"
+            location="main-rmi" invoke="getReturnItemInitialCost">
+        <implements service="getReturnItemInitialCost"/>
+    </service>
+
+    <service name="rmiGetShoppingCartData" engine="rmi" validate="false"
+            location="main-rmi" invoke="getShoppingCartData">
+        <implements service="getShoppingCartData"/>
+    </service>
+
+    <service name="rmiGetShoppingCartItemIndex" engine="rmi" validate="false"
+            location="main-rmi" invoke="getShoppingCartItemIndex">
+        <implements service="getShoppingCartItemIndex"/>
+    </service>
+
+    <service name="rmiLoadCartForUpdate" engine="rmi" validate="false"
+            location="main-rmi" invoke="loadCartForUpdate">
+        <implements service="loadCartForUpdate"/>
+    </service>
+
+    <service name="rmiLoadCartFromOrder" engine="rmi" validate="false"
+            location="main-rmi" invoke="loadCartFromOrder">
+        <implements service="loadCartFromOrder"/>
+    </service>
+
+    <service name="rmiLoadCartFromQuote" engine="rmi" validate="false"
+            location="main-rmi" invoke="loadCartFromQuote">
+        <implements service="loadCartFromQuote"/>
+    </service>
+
+    <service name="rmiLoadCartFromShoppingList" engine="rmi" validate="false"
+            location="main-rmi" invoke="loadCartFromShoppingList">
+        <implements service="loadCartFromShoppingList"/>
+    </service>
+
+    <service name="rmiMakeShoppingListFromOrder" engine="rmi" validate="false"
+            location="main-rmi" invoke="makeShoppingListFromOrder">
+        <implements service="makeShoppingListFromOrder"/>
+    </service>
+
+    <service name="rmiMassChangeOrderStatus" engine="rmi" validate="false"
+            location="main-rmi" invoke="massChangeOrderStatus">
+        <implements service="massChangeOrderStatus"/>
+    </service>
+
+    <service name="rmiPrepareVendorShipGroups" engine="rmi" validate="false"
+            location="main-rmi" invoke="prepareVendorShipGroups">
+        <implements service="prepareVendorShipGroups"/>
+    </service>
+
+    <service name="rmiProcessCreditReturn" engine="rmi" validate="false"
+            location="main-rmi" invoke="processCreditReturn">
+        <implements service="processCreditReturn"/>
+    </service>
+
+    <service name="rmiProcessOrderPayments" engine="rmi" validate="false"
+            location="main-rmi" invoke="processOrderPayments">
+        <implements service="processOrderPayments"/>
+    </service>
+
+    <service name="rmiProcessRefundReturn" engine="rmi" validate="false"
+            location="main-rmi" invoke="processRefundReturn">
+        <implements service="processRefundReturn"/>
+    </service>
+
+    <service name="rmiProcessReplacementReturn" engine="rmi" validate="false"
+            location="main-rmi" invoke="processReplacementReturn">
+        <implements service="processReplacementReturn"/>
+    </service>
+
+    <service name="rmiRecalcShippingTotal" engine="rmi" validate="false"
+            location="main-rmi" invoke="recalcShippingTotal">
+        <implements service="recalcShippingTotal"/>
+    </service>
+
+    <service name="rmiRefundBillingAccountPayment" engine="rmi" validate="false"
+            location="main-rmi" invoke="refundBillingAccountPayment">
+        <implements service="refundBillingAccountPayment"/>
+    </service>
+
+    <service name="rmiRemoveOrderRole" engine="rmi" validate="false"
+            location="main-rmi" invoke="removeOrderRole">
+        <implements service="removeOrderRole"/>
+    </service>
+
+    <service name="rmiResetGrandTotal" engine="rmi" validate="false"
+            location="main-rmi" invoke="resetGrandTotal">
+        <implements service="resetGrandTotal"/>
+    </service>
+
+    <service name="rmiResetShipGroupItems" engine="rmi" validate="false"
+            location="main-rmi" invoke="resetShipGroupItems">
+        <implements service="resetShipGroupItems"/>
+    </service>
+
+    <service name="rmiRunShoppingListAutoReorder" engine="rmi" validate="false"
+            location="main-rmi" invoke="runShoppingListAutoReorder">
+        <implements service="runShoppingListAutoReorder"/>
+    </service>
+
+    <service name="rmiSaveUpdatedCartToOrder" engine="rmi" validate="false"
+            location="main-rmi" invoke="saveUpdatedCartToOrder">
+        <implements service="saveUpdatedCartToOrder"/>
+    </service>
+
+    <service name="rmiSendOrderBackorderNotification" engine="rmi" validate="false"
+            location="main-rmi" invoke="sendOrderBackorderNotification">
+        <implements service="sendOrderBackorderNotification"/>
+    </service>
+
+    <service name="rmiSendOrderChangeNotification" engine="rmi" validate="false"
+            location="main-rmi" invoke="sendOrderChangeNotification">
+        <implements service="sendOrderChangeNotification"/>
+    </service>
+
+    <service name="rmiSendOrderCompleteNotification" engine="rmi" validate="false"
+            location="main-rmi" invoke="sendOrderCompleteNotification">
+        <implements service="sendOrderCompleteNotification"/>
+    </service>
+
+    <service name="rmiSendOrderConfirmation" engine="rmi" validate="false"
+            location="main-rmi" invoke="sendOrderConfirmation">
+        <implements service="sendOrderConfirmation"/>
+    </service>
+
+    <service name="rmiSendOrderPayRetryNotification" engine="rmi" validate="false"
+            location="main-rmi" invoke="sendOrderPayRetryNotification">
+        <implements service="sendOrderPayRetryNotification"/>
+    </service>
+
+    <service name="rmiSendProcessNotification" engine="rmi" validate="false"
+            location="main-rmi" invoke="sendProcessNotification">
+        <implements service="sendProcessNotification"/>
+    </service>
+
+    <service name="rmiSendQuoteReportMail" engine="rmi" validate="false"
+            location="main-rmi" invoke="sendQuoteReportMail">
+        <implements service="sendQuoteReportMail"/>
+    </service>
+
+    <service name="rmiSendReturnAcceptNotification" engine="rmi" validate="false"
+            location="main-rmi" invoke="sendReturnAcceptNotification">
+        <implements service="sendReturnAcceptNotification"/>
+    </service>
+
+    <service name="rmiSendReturnCancelNotification" engine="rmi" validate="false"
+            location="main-rmi" invoke="sendReturnCancelNotification">
+        <implements service="sendReturnCancelNotification"/>
+    </service>
+
+    <service name="rmiSendReturnCompleteNotification" engine="rmi" validate="false"
+            location="main-rmi" invoke="sendReturnCompleteNotification">
+        <implements service="sendReturnCompleteNotification"/>
+    </service>
+
+    <service name="rmiChangeOrderItemStatus" engine="rmi" validate="false"
+            location="main-rmi" invoke="changeOrderItemStatus">
+        <implements service="changeOrderItemStatus"/>
+    </service>
+
+    <service name="rmiChangeOrderPaymentStatus" engine="rmi" validate="false"
+            location="main-rmi" invoke="changeOrderPaymentStatus">
+        <implements service="changeOrderPaymentStatus"/>
+    </service>
+
+    <service name="rmiChangeOrderStatus" engine="rmi" validate="false"
+            location="main-rmi" invoke="changeOrderStatus">
+        <implements service="changeOrderStatus"/>
+    </service>
+
+    <service name="rmiSetCartOtherOptions" engine="rmi" validate="false"
+            location="main-rmi" invoke="setCartOtherOptions">
+        <implements service="setCartOtherOptions"/>
+    </service>
+
+    <service name="rmiSetCartShippingOptions" engine="rmi" validate="false"
+            location="main-rmi" invoke="setCartShippingOptions">
+        <implements service="setCartShippingOptions"/>
+    </service>
+
+    <service name="rmiCreateShoppingListRecurrence" engine="rmi" validate="false"
+            location="main-rmi" invoke="createShoppingListRecurrence">
+        <implements service="createShoppingListRecurrence"/>
+    </service>
+
+    <service name="rmiSplitShipmentMethodString" engine="rmi" validate="false"
+            location="main-rmi" invoke="splitShipmentMethodString">
+        <implements service="splitShipmentMethodString"/>
+    </service>
+
+    <service name="rmiStoreQuote" engine="rmi" validate="false"
+            location="main-rmi" invoke="storeQuote">
+        <implements service="storeQuote"/>
+    </service>
+
+    <service name="rmiUpdateOrderItems" engine="rmi" validate="false"
+            location="main-rmi" invoke="updateOrderItems">
+        <implements service="updateOrderItems"/>
+    </service>
+
+    <service name="rmiUpdateOrderPaymentPreference" engine="rmi" validate="false"
+            location="main-rmi" invoke="updateOrderPaymentPreference">
+        <implements service="updateOrderPaymentPreference"/>
+    </service>
+
+    <service name="rmiUpdateReturnAdjustment" engine="rmi" validate="false"
+            location="main-rmi" invoke="updateReturnAdjustment">
+        <implements service="updateReturnAdjustment"/>
+    </service>
+
+    <service name="rmiUpdateShoppingListQuantitiesFromOrder" engine="rmi" validate="false"
+            location="main-rmi" invoke="updateShoppingListQuantitiesFromOrder">
+        <implements service="updateShoppingListQuantitiesFromOrder"/>
+    </service>
+
+    <service name="rmiUpdateTrackingNumber" engine="rmi" validate="false"
+            location="main-rmi" invoke="updateTrackingNumber">
+        <implements service="updateTrackingNumber"/>
+    </service>
+
+    <service name="rmiValidatePin" engine="rmi" validate="false"
+            location="main-rmi" invoke="validatePin">
+        <implements service="validatePin"/>
+    </service>
+
+</services>

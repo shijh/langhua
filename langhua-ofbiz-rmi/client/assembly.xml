@@ -1,0 +1,47 @@
+<assembly>
+	<id>bin</id>
+	<formats>
+		<format>war</format>
+	</formats>
+	<includeBaseDirectory>false</includeBaseDirectory>
+	<fileSets>
+		<fileSet>
+			<lineEnding>unix</lineEnding>
+			<useDefaultExcludes>true</useDefaultExcludes>
+			<useStrictFiltering>false</useStrictFiltering>
+			<directory>${basedir}/src/main/webapp</directory>
+			<outputDirectory></outputDirectory>
+			<includes>
+				<include>**/*.xml</include>
+				<include>**/*.properties</include>
+				<include>**/*.jsp</include>
+			</includes>
+		</fileSet>
+	</fileSets>
+	<files>
+		<file>
+			<source>${basedir}/target/ofbiz-rmi-client-09.04.jar</source>
+			<outputDirectory>WEB-INF/lib</outputDirectory>
+			<destName>ofbiz-rmi-client-09.04.jar</destName>
+			<filtered>false</filtered>
+		</file>
+		<file>
+			<source>${basedir}/../rmicertificates/ofbiztrust.jks</source>
+			<outputDirectory>WEB-INF/classes</outputDirectory>
+			<destName>ofbiztrust.jks</destName>
+			<filtered>false</filtered>
+		</file>
+		<file>
+			<source>${basedir}/../rmicertificates/ofbizcerts.jks</source>
+			<outputDirectory>WEB-INF/classes</outputDirectory>
+			<destName>ofbizcerts.jks</destName>
+			<filtered>false</filtered>
+		</file>
+	</files>
+	<dependencySets>
+		<dependencySet>
+			<outputDirectory>WEB-INF/lib</outputDirectory>
+			<includes />
+		</dependencySet>
+	</dependencySets>
+</assembly>
