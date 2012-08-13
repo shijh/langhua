@@ -1,0 +1,123 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<project name="jboss-portal-zh" default="depoly.zip" basedir=".">
+
+    <property environment="env"/>
+
+    <property name="version.number"             value="0.1"/>
+    <property name="app.name"                   value="jboss-portal-zh"/>
+
+    <property name="destdir"                    location=""/>
+	<property name="2.6.6"                      location="${destdir}/src/2.6.6"/>
+	<property name="2.7.2"                      location="${destdir}/src/2.7.2"/>
+	<property name="2.7.2-xml"                  location="${destdir}/xml/2.7.2"/>
+	<property name="2.7.2-jsf"                  location="${destdir}/jsf/2.7.2"/>
+	<property name="2.7.3"                      location="${destdir}/src/2.7.3"/>
+	<property name="2.7.3-xml"                  location="${destdir}/xml/2.7.3"/>
+        
+    <property name="excludes"                   value="**/.svn/*,**/.nbattrs,**/.project,**/.classpath"/>
+        
+    <target name="native2ascii" 
+    	description="Translate the utf-8 property files to ascii files.">
+    	
+        <native2ascii src="${2.6.6}/utf-8" dest="${2.6.6}/ascii" />
+        <native2ascii src="${2.7.2}/utf-8" dest="${2.7.2}/ascii" />
+        <native2ascii src="${2.7.3}/utf-8" dest="${2.7.3}/ascii" />
+    </target>
+
+	
+    <target name="ascii2native" 
+    	description="Translate the ascii property files to utf-8 file.">
+    	
+        <native2ascii reverse="true" src="${2.6.6}/ascii" dest="${2.6.6}/utf-8" />
+        <native2ascii reverse="true" src="${2.7.2}/ascii" dest="${2.7.2}/utf-8" />
+        <native2ascii reverse="true" src="${2.7.3}/ascii" dest="${2.7.3}/utf-8" />
+    </target>
+    
+	
+    <target name="depoly.zip" depends="native2ascii"
+    	description="build a zip which is easy to deploy in a JBoss Portal deployment">
+    	<mkdir dir="${destdir}/build"/>
+    	<zip zipfile="${destdir}/build/jboss-portal-2.6.6.zip" >
+    		<zipfileset dir="${2.6.6}/ascii/core/src/resources/portal-core-sar/" includes="**/*" excludes="${excludes}"/> 
+    		<zipfileset dir="${2.6.6}/ascii/core/src/resources/portal-core-war/" prefix="portal-core.war" includes="**/*" excludes="${excludes}"/> 
+    		<zipfileset dir="${2.6.6}/ascii/core-admin/src/resources/portal-admin-war/" prefix="portal-admin.sar/portal-admin.war" includes="**/*" excludes="${excludes}"/> 
+    		<zipfileset dir="${2.6.6}/ascii/core-cms/src/resources/portal-cms-war/" prefix="portal-cms.sar/portal-cms.war" includes="**/*" excludes="${excludes}"/> 
+    		<zipfileset dir="${2.6.6}/ascii/core-identity/src/resources/portal-identity-sar/" prefix="portal-identity.sar" includes="**/*" excludes="${excludes}"/> 
+    		<zipfileset dir="${2.6.6}/ascii/core-samples/src/resources/portal-users-samples-war/" prefix="samples/portal-users-samples.sar/portal-users-samples.war" includes="**/*" excludes="${excludes}"/> 
+    		<zipfileset dir="${2.6.6}/ascii/core-wsrp/src/resources/portal-wsrp-admin-war/" prefix="portal-wsrp.sar/portal-wsrp-admin.war" includes="**/*" excludes="${excludes}"/> 
+    	</zip>
+    	<zip zipfile="${destdir}/build/jboss-portal-2.7.2.zip" >
+    		<zipfileset dir="${2.7.2}/ascii/core/src/resources/portal-core-sar/" includes="**/*" excludes="${excludes}"/> 
+    		<zipfileset dir="${2.7.2}/ascii/core/src/resources/portal-core-war/" prefix="portal-core.war" includes="**/*" excludes="${excludes}"/> 
+    		<zipfileset dir="${2.7.2}/ascii/core/src/resources/portal-server-war/" prefix="portal-server.war" includes="**/*" excludes="${excludes}"/> 
+    		<zipfileset dir="${2.7.2}/ascii/core-admin/src/resources/portal-admin-war/" prefix="portal-admin.sar/portal-admin.war" includes="**/*" excludes="${excludes}"/> 
+    		<zipfileset dir="${2.7.2}/ascii/core-cms/src/resources/portal-cms-war/" prefix="portal-cms.sar/portal-cms.war" includes="**/*" excludes="${excludes}"/> 
+    		<zipfileset dir="${2.7.2}/ascii/core-identity/src/resources/portal-identity-sar/" prefix="portal-identity.sar" includes="**/*" excludes="${excludes}"/>
+    		<!--
+    		<zipfileset dir="${2.7.2}/ascii/core-samples/src/resources/portal-users-samples-war/" prefix="samples/portal-users-samples.sar/portal-users-samples.war" includes="**/*" excludes="${excludes}"/>
+    		--> 
+    		<zipfileset dir="${2.7.2}/ascii/core-wsrp/src/resources/portal-wsrp-admin-war/" prefix="portal-wsrp.sar/portal-wsrp-admin.war" includes="**/*" excludes="${excludes}"/> 
+
+    		<zipfileset dir="${2.7.2-xml}/core/src/resources/portal-core-sar/" includes="**/*" excludes="${excludes}"/> 
+    		<zipfileset dir="${2.7.2-xml}/core-admin/src/resources/portal-admin-war/" prefix="portal-admin.sar/portal-admin.war" includes="**/*" excludes="${excludes}"/> 
+    		<zipfileset dir="${2.7.2-xml}/core-cms/src/resources/portal-cms-war/" prefix="portal-cms.sar/portal-cms.war" includes="**/*" excludes="${excludes}"/> 
+    		<zipfileset dir="${2.7.2-xml}/core-wsrp/src/resources/portal-wsrp-admin-war/" prefix="portal-wsrp.sar/portal-wsrp-admin.war" includes="**/*" excludes="${excludes}"/>
+    		<!--
+    		<zipfileset dir="${2.7.2-xml}/core-samples/src/resources/portal-portlet-samples-war/" prefix="samples/portal-portlet-samples.war" includes="**/*" excludes="${excludes}"/> 
+    		<zipfileset dir="${2.7.2-xml}/core-samples/src/resources/portal-users-samples-war/" prefix="samples/portal-users-samples.sar/portal-users-samples.war" includes="**/*" excludes="${excludes}"/>
+    		--> 
+
+    		<zipfileset dir="${2.7.2-jsf}/core-admin/src/resources/portal-admin-war/" prefix="portal-admin.sar/portal-admin.war" includes="**/*" excludes="${excludes}"/> 
+    		<zipfileset dir="${2.7.2-jsf}/core-cms/src/resources/portal-cms-war/" prefix="portal-cms.sar/portal-cms.war" includes="**/*" excludes="${excludes}"/> 
+    	</zip>
+    	<zip zipfile="${destdir}/build/jboss-portal-2.7.3.zip" >
+    		<zipfileset dir="${2.7.3}/ascii/core/src/resources/portal-core-sar/" includes="**/*" excludes="${excludes}"/> 
+    		<zipfileset dir="${2.7.3}/ascii/core/src/resources/portal-core-war/" prefix="portal-core.war" includes="**/*" excludes="${excludes}"/> 
+    		<zipfileset dir="${2.7.3}/ascii/core/src/resources/portal-server-war/" prefix="portal-server.war" includes="**/*" excludes="${excludes}"/> 
+    		<zipfileset dir="${2.7.3}/ascii/core-admin/src/resources/portal-admin-war/" prefix="portal-admin.sar/portal-admin.war" includes="**/*" excludes="${excludes}"/> 
+    		<zipfileset dir="${2.7.3}/ascii/core-cms/src/resources/portal-cms-war/" prefix="portal-cms.sar/portal-cms.war" includes="**/*" excludes="${excludes}"/> 
+    		<zipfileset dir="${2.7.3}/ascii/core-identity/src/resources/portal-identity-sar/" prefix="portal-identity.sar" includes="**/*" excludes="${excludes}"/> 
+    		<zipfileset dir="${2.7.3}/ascii/core-samples/src/resources/portal-users-samples-war/" prefix="samples/portal-users-samples.sar/portal-users-samples.war" includes="**/*" excludes="${excludes}"/> 
+    		<zipfileset dir="${2.7.3}/ascii/core-wsrp/src/resources/portal-wsrp-admin-war/" prefix="portal-wsrp.sar/portal-wsrp-admin.war" includes="**/*" excludes="${excludes}"/> 
+
+    		<zipfileset dir="${2.7.3-xml}/core/src/resources/portal-core-sar/" includes="**/*" excludes="${excludes}"/> 
+    		<zipfileset dir="${2.7.3-xml}/core-admin/src/resources/portal-admin-war/" prefix="portal-admin.sar/portal-admin.war" includes="**/*" excludes="${excludes}"/> 
+    		<zipfileset dir="${2.7.3-xml}/core-cms/src/resources/portal-cms-war/" prefix="portal-cms.sar/portal-cms.war" includes="**/*" excludes="${excludes}"/> 
+    		<zipfileset dir="${2.7.3-xml}/core-wsrp/src/resources/portal-wsrp-admin-war/" prefix="portal-wsrp.sar/portal-wsrp-admin.war" includes="**/*" excludes="${excludes}"/> 
+    		<zipfileset dir="${2.7.3-xml}/core-samples/src/resources/portal-portlet-samples-war/" prefix="samples/portal-portlet-samples.war" includes="**/*" excludes="${excludes}"/> 
+    		<zipfileset dir="${2.7.3-xml}/core-samples/src/resources/portal-users-samples-war/" prefix="samples/portal-users-samples.sar/portal-users-samples.war" includes="**/*" excludes="${excludes}"/> 
+    	</zip>
+    </target>
+
+
+	<target name="jboss-portal.update" depends="native2ascii" 
+    	description="Update the ascii property files to a JBoss Portal project">
+    	<copy todir="/workspace/portal/jboss-portal-2.6.6.GA-src">
+    		<fileset dir="${2.6.6}/ascii">
+    	    	<include name="**/*_zh.properties"/>
+    	    </fileset>
+    	</copy>
+    	<copy todir="/workspace/portal/JBoss_Portal_2_7_2">
+    		<fileset dir="${2.7.2}/ascii">
+    	    	<include name="**/*.properties"/>
+    	    </fileset>
+    		<fileset dir="${2.7.2-xml}">
+    	    	<include name="**/*.xml"/>
+    	    </fileset>
+    		<fileset dir="${2.7.2-jsf}">
+    	    	<include name="**/*.xhtml"/>
+    	    </fileset>
+    	</copy>
+    	<copy todir="/workspace/portal/JBoss_Portal_Branch_2_7">
+    		<fileset dir="${2.7.3}/ascii">
+    	    	<include name="**/*_zh.properties"/>
+    	    </fileset>
+    		<fileset dir="${2.7.3-xml}">
+    	    	<include name="**/*.xml"/>
+    	    </fileset>
+    	</copy>
+    </target>
+
+
+</project>

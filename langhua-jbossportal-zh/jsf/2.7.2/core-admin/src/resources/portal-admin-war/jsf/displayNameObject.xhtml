@@ -1,0 +1,89 @@
+<div
+      xmlns="http://www.w3.org/1999/xhtml"
+      xmlns:ui="http://java.sun.com/jsf/facelets"
+      xmlns:h="http://java.sun.com/jsf/html"
+      xmlns:f="http://java.sun.com/jsf/core"
+      xmlns:c="http://java.sun.com/jstl/core">
+   <ui:composition template="objectTemplate.xhtml">
+      <ui:param name="portalObjectScreen" value="#{bundle.DISPLAY_NAMES}"/>
+
+      <ui:define name="content">
+         <br/>
+         <div class="float-left third-width">
+            <h:form id="display-name-form">
+               <h3 class="sectionTitle zero">#{bundle.ADD_DISPLAY_NAMES}</h3>
+
+               <div class="portlet-area-body">
+                  <h:inputText id="newName" value="#{addDisplayNameAction.newText}" required="true"/>
+                  <h:selectOneMenu id="locales" value="#{addDisplayNameAction.newLocale}">
+                     <f:selectItems value="#{addDisplayNameAction.locales}"/>
+                  </h:selectOneMenu>
+                  <c:if test="#{addDisplayNameAction.newText ne null}">
+                  <h:commandButton id="add-display" value="#{bundle.COMMON_MODIFY_NAME}" action="#{addDisplayNameAction.addDisplayName}"
+                                   styleClass="portlet-form-button"/>
+                  </c:if>
+                  <c:if test="#{addDisplayNameAction.newText eq null}">
+                  <h:commandButton id="add-display" value="#{bundle.COMMON_ADD_NAME}" action="#{addDisplayNameAction.addDisplayName}"
+                                   styleClass="portlet-form-button"/>
+                  </c:if>
+               </div>
+            </h:form>
+         </div>
+
+         <div class="float-right two-third-width">
+            <h:form id="display-name-form1">
+               <h3 class="sectionTitle zero">#{bundle.CURRENT_DISPLAY_NAMES}</h3>
+
+               <div class="portlet-area-body">
+
+                  <h:dataTable id="locale-datatable" var="value" value="#{addDisplayNameAction.currentLocales}" styleClass="objectList datatable"
+                               rowClasses="portlet-section-body,portlet-section-alternate"
+                               columnClasses="objectNameColumn, objectActionColumn"
+                               headerClass="portlet-section-header">
+                     <h:column>
+                        <f:facet name="header">
+                           <h:outputText value="#{bundle.COMMON_LOCALE}"/>
+                        </f:facet>
+                        #{value.localeDisplayName}
+                     </h:column>
+                     <h:column>
+                        <f:facet name="header">
+                           <h:outputText value="#{bundle.COMMON_DISPLAY_NAME}"/>
+                        </f:facet>
+                        #{value.text}
+                     </h:column>
+                     <h:column>
+                        <f:facet name="header">
+                           <h:outputText value="#{bundle.COMMON_DELETE}"/>
+                        </f:facet>
+
+                        <div style="width:150px"><h:commandLink id="delete" action="#{addDisplayNameAction.editDisplayName}">
+                           <h:outputText styleClass="actionDelete" value="#{bundle.COMMON_DELETE}"/>
+                           <f:param name="locale" value="#{value.locale}"/>
+                           <f:param name="editAction" value="delete"/>
+                        </h:commandLink></div>
+                     </h:column>
+                     <h:column>
+                        <f:facet name="header">
+                           <h:outputText value="#{bundle.RENAME}"/>
+                        </f:facet>
+
+                        <div style="width:150px"><h:commandLink id="rename" action="#{addDisplayNameAction.editDisplayName}">
+                           <h:outputText styleClass="actionRename" value="#{bundle.RENAME}"/>
+                           <f:param name="locale" value="#{value.locale}"/>
+                           <f:param name="editAction" value="rename"/>
+                        </h:commandLink></div>
+                     </h:column>
+                  </h:dataTable>
+
+               </div>
+            </h:form>
+
+         </div>
+
+
+         <br class="clear"/>
+
+      </ui:define>
+   </ui:composition>
+</div>

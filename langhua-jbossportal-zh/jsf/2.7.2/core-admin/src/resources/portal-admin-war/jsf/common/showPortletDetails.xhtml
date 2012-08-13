@@ -1,0 +1,235 @@
+<div xmlns:ui="http://java.sun.com/jsf/facelets"
+     xmlns:h="http://java.sun.com/jsf/html"
+     xmlns:f="http://java.sun.com/jsf/core"
+     xmlns:c="http://java.sun.com/jstl/core"
+     xmlns:portal="http://www.jboss.org/portal">
+
+<div class="details-container">
+<h:form id="common-show-portlet-detail-form">
+<div class="full-width details-header">
+   <div class="main-header">
+      <br/>
+      <img src="#{portlet.smallIconLocation}" alt="" style="margin: 0 5px 0 5px;" class="float-left"/>
+
+      <h:commandLink id="select"
+              action="#{portletmgr.selectPortlet}">
+         <f:param name="id" value="#{portlet.context.id}"/>
+         <f:param name="plugin" value="manager"/>
+
+         <h2 class="half-width">#{portlet.name}</h2>
+      </h:commandLink>
+
+      <p style="margin: 0 5px 0 5px;">#{portlet.description.value}</p>
+      <br class="clear"/>
+   </div>
+   <div class="full-width sub-header1">
+      <ul>
+         <li class="third-width"><label>#{bundle.COMMON_TITLE}: </label>#{portlet.title.value}</li>
+         <li class="third-width"><label>#{bundle.COMMON_KEYWORDS}: </label>#{portlet.keywords.value}</li>
+         <f:subview id="locales" rendered="#{not empty portlet.locales}">
+            <li class="third-width"><label>#{bundle.COMMON_LOCALES}: </label>
+               <c:forEach items="#{portlet.locales}" var="locale">
+                  <h:graphicImage style="margin: 0 3px 0 3px 0;" value="/img/locales/#{locale}.gif" alt="#{locale}"/> &#160;
+               </c:forEach>
+            </li>
+         </f:subview>
+      </ul>
+      <br class="clear"/>
+   </div>
+   <div class="full-width sub-header2">
+      <ul>
+         <li class="third-width"><label>#{bundle.COMMON_TRANSPORT_GUARANTEES}: </label>
+            <c:forEach var="transportGuarantees" items="#{portlet.transportGuarantees}">
+               #{transportGuarantees} &#160;
+            </c:forEach>
+         </li>
+         <li class="third-width"><label>#{bundle.COMMON_CACHE_EXPIRATION}: </label>#{portlet.info.cache.expirationSecs} #{bundle.COMMON_SECONDS}</li>
+      </ul>
+      <br class="clear"/>
+   </div>
+</div>
+</h:form>
+<div class="details-body">
+
+<div class="half-width float-left details-left-col">
+   <portal:box class="whiteWithLtGreyHeader meta-box">
+      <h3>#{bundle.COMMON_MEDIA_TYPES}</h3>
+      <dl>
+         <c:forEach var="mediaType" items="#{portlet.mediaTypes}">
+            <dt>
+               #{mediaType.value}
+            </dt>
+            <dd>
+               <span><label>#{bundle.COMMON_NAME}: </label>#{mediaType.type.name}</span>
+            </dd>
+         </c:forEach>
+      </dl>
+   </portal:box>
+   <portal:box class="whiteWithLtGreyHeader meta-box">
+      <h3>#{bundle.COMMON_PORTLET_MODES}</h3>
+      <dl>
+         <c:forEach var="mode" items="#{portlet.modes}">
+            <dt>
+               #{mode.modeName}
+            </dt>
+            <dd>
+               <span><label>#{mode.description.defaultLocale}: </label>#{mode.description.value}</span>
+            </dd>
+         </c:forEach>
+      </dl>
+   </portal:box>
+   <portal:box class="whiteWithLtGreyHeader meta-box">
+      <h3>#{bundle.COMMON_WINDOW_STATES}</h3>
+      <dl>
+         <c:forEach var="windowState" items="#{portlet.windowStates}">
+            <dt>
+               #{windowState.windowStateName}
+            </dt>
+            <dd>
+               <span><label>#{windowState.description.defaultLocale}: </label>#{windowState.description.value}</span>
+            </dd>
+         </c:forEach>
+      </dl>
+   </portal:box>
+   <portal:box class="whiteWithLtGreyHeader meta-box">
+      <h3>#{bundle.PREFERENCES}</h3>
+      <dl>
+         <c:forEach var="preferenceKey" items="#{portlet.preferenceKeys}">
+            <dt>
+               #{preferenceKey}
+            </dt>
+            <dd>
+               <span><label>#{bundle.COMMON_VALUE}: </label></span>
+            </dd>
+         </c:forEach>
+      </dl>
+   </portal:box>
+   <portal:box class="whiteWithLtGreyHeader meta-box">
+      <h3>#{bundle.COMMON_PUBLIC_RENDER_PARAMETERS}</h3>
+      <dl>
+         <c:forEach var="publicParam" items="#{portlet.publicParameters}">
+            <dt>
+               #{publicParam.name}
+            </dt>
+            <dd>
+               <span><label>#{bundle.COMMON_ID}: </label>#{publicParam.id}</span>&#160;<span><label>#{bundle.COMMON_DESCRIPTION}: </label>#{publicParam.description.defaultString}</span>
+            </dd>
+         </c:forEach>
+      </dl>
+   </portal:box>
+   <br class="clear"/>
+
+</div>
+
+<div class="half-width float-right details-right-col">
+
+<f:subview rendered="#{showDisplayNameEditor}" id="display-names-view">
+
+   <div class="whiteWithLtGreyHeader meta-box">
+
+   <h3 class="blue">#{bundle.COMMON_ADD_INSTANCE_DISPLAY_NAMES}</h3>
+   <div class="pad5">
+      <h:form id="add-display-name-form" style="background-color:transparent;width:100%;margin:0;padding:0;display:inline;">
+         <h:inputText id="newName" value="#{instanceDisplayNameAction.newText}" required="true"/>
+         <h:message for="newName" errorClass="portlet-msg-error"/>
+         <h:selectOneMenu id="locales" value="#{instanceDisplayNameAction.newLocale}">
+            <f:selectItems value="#{instanceDisplayNameAction.locales}"/>
+         </h:selectOneMenu>
+         <c:if test="#{instanceDisplayNameAction.newText ne null}">
+         <h:commandButton id="addDisplay" value="#{bundle.COMMON_MODIFY_NAME}"
+                          action="#{instanceDisplayNameAction.addDisplayName}" styleClass="portlet-form-button"/>
+         </c:if>
+         <c:if test="#{instanceDisplayNameAction.newText eq null}">
+         <h:commandButton id="addDisplay" value="#{bundle.COMMON_ADD_NAME}"
+                          action="#{instanceDisplayNameAction.addDisplayName}" styleClass="portlet-form-button"/>
+         </c:if>
+      </h:form>
+   </div>
+   <br/>
+   <h3 class="blue">#{bundle.COMMON_CURRENT_INSTANCE_DISPLAY_NAMES}</h3>
+   <div class="pad5">
+      <h:form id="instance-display-form" style="display:inline;width:100%;">
+         <h:dataTable id="locale-datatable" var="value" value="#{instanceDisplayNameAction.currentLocales}"
+                      styleClass="objectList datatable"
+                      rowClasses="portlet-section-body,portlet-section-alternate-blue"
+                      columnClasses="objectNameColumn, objectActionColumn"
+                      headerClass="portlet-section-header">
+            <h:column>
+               <f:facet name="header">
+                  <h:outputText value="#{bundle.COMMON_LOCALE}"/>
+               </f:facet>
+               #{value.localeDisplayName}
+            </h:column>
+            <h:column>
+               <f:facet name="header">
+                  <h:outputText value="#{bundle.COMMON_DISPLAY_NAME}"/>
+               </f:facet>
+               #{value.text}
+            </h:column>
+            <h:column>
+               <f:facet name="header">
+                  <h:outputText value="#{bundle.COMMON_DELETE}"/>
+               </f:facet>
+
+               <div><h:commandLink id="delete-link" action="#{instanceDisplayNameAction.editDisplayName}">
+                  <h:outputText styleClass="actionDelete" value="#{bundle.COMMON_DELETE}"/>
+                  <f:param name="locale" value="#{value.locale}"/>
+                  <f:param name="editAction" value="delete"/>
+               </h:commandLink></div>
+            </h:column>
+            <h:column>
+               <f:facet name="header">
+                  <h:outputText value="#{bundle.RENAME}"/>
+               </f:facet>
+
+               <div style="width:150px">
+                  <h:commandLink id="edit-link"  action="#{instanceDisplayNameAction.editDisplayName}">
+                  <h:outputText styleClass="actionRename" value="#{bundle.RENAME}"/>
+                  <f:param name="locale" value="#{value.locale}"/>
+                  <f:param name="editAction" value="rename"/>
+               </h:commandLink></div>
+            </h:column>
+         </h:dataTable>
+      </h:form>
+   </div>
+   </div>
+
+</f:subview>
+
+<br class="clear"/>
+
+   <portal:box class="whiteWithLtGreyHeader meta-box">
+
+   <h3>#{bundle.COMMON_PRODUCED_EVENTS}</h3>
+   <dl>
+      <c:forEach var="producedEvent" items="#{portlet.producedEvents}">
+         <dt>
+            #{producedEvent.displayName.defaultString}
+         </dt>
+         <dd>
+
+         </dd>
+      </c:forEach>
+   </dl>
+</portal:box>
+<portal:box class="whiteWithLtGreyHeader meta-box">
+   <h3>#{bundle.COMMON_CONSUMED_EVENTS}</h3>
+   <dl>
+      <c:forEach var="consumedEvent" items="#{portlet.consumedEvents}">
+         <dt>
+            #{consumedEvent.displayName.defaultString}
+         </dt>
+         <dd>
+
+         </dd>
+      </c:forEach>
+   </dl>
+
+</portal:box>
+</div>
+
+<br class="clear"/>
+</div>
+<br class="clear"/>
+</div>
+</div>

@@ -1,0 +1,508 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   ~ JBoss, a division of Red Hat                                              ~
+   ~ Copyright 2006, Red Hat Middleware, LLC, and individual                   ~
+   ~ contributors as indicated by the @authors tag. See the                    ~
+   ~ copyright.txt in the distribution for a full listing of                   ~
+   ~ individual contributors.                                                  ~
+   ~                                                                           ~
+   ~ This is free software; you can redistribute it and/or modify it           ~
+   ~ under the terms of the GNU Lesser General Public License as               ~
+   ~ published by the Free Software Foundation; either version 2.1 of          ~
+   ~ the License, or (at your option) any later version.                       ~
+   ~                                                                           ~
+   ~ This software is distributed in the hope that it will be useful,          ~
+   ~ but WITHOUT ANY WARRANTY; without even the implied warranty of            ~
+   ~ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU          ~
+   ~ Lesser General Public License for more details.                           ~
+   ~                                                                           ~
+   ~ You should have received a copy of the GNU Lesser General Public          ~
+   ~ License along with this software; if not, write to the Free               ~
+   ~ Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA        ~
+   ~ 02110-1301 USA, or see the FSF site: http://www.fsf.org.                  ~
+   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~-->
+
+<portlet-app xmlns="http://java.sun.com/xml/ns/portlet/portlet-app_2_0.xsd"
+   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+   xsi:schemaLocation="http://java.sun.com/xml/ns/portlet/portlet-app_2_0.xsd http://java.sun.com/xml/ns/portlet/portlet-app_2_0.xsd"
+   version="2.0">
+   <portlet>
+      <description>Mode Portlet</description>
+      <portlet-name>ModePortlet</portlet-name>
+      <display-name>Mode Portlet</display-name>
+      <portlet-class>org.jboss.portal.core.samples.basic.ModePortlet</portlet-class>
+      <supports>
+         <mime-type>text/html</mime-type>
+         <portlet-mode>VIEW</portlet-mode>
+         <portlet-mode>EDIT</portlet-mode>
+         <portlet-mode>ADMIN</portlet-mode>
+      </supports>
+      <portlet-info>
+         <title>Mode Portlet</title>
+         <keywords>sample,test</keywords>
+      </portlet-info>
+   </portlet>
+   <portlet>
+      <description>Portlet to test modification of head content</description>
+      <portlet-name>HeaderContentPortlet</portlet-name>
+      <display-name>Header Content Portlet</display-name>
+
+      <portlet-class>
+         org.jboss.portal.core.samples.basic.HeaderContentPortlet
+      </portlet-class>
+      <supports>
+         <mime-type>text/html</mime-type>
+      </supports>
+      <portlet-info>
+         <title>Header Content portlet</title>
+         <keywords>sample,test</keywords>
+      </portlet-info>
+   </portlet>
+   <portlet>
+      <description>Event Portlet</description>
+      <portlet-name>EventPortlet</portlet-name>
+      <display-name>Event Portlet</display-name>
+      <portlet-class>
+         org.jboss.portal.core.samples.basic.event.EventPortlet
+      </portlet-class>
+      <supports>
+         <mime-type>text/html</mime-type>
+         <portlet-mode>VIEW</portlet-mode>
+      </supports>
+      <portlet-info>
+         <title>Portal Node Event Listener</title>
+         <keywords>sample,test</keywords>
+      </portlet-info>
+   </portlet>
+   <portlet>
+      <description>A test portlet</description>
+      <description xml:lang="fr">C'est une portlet de test</description>
+      <description xml:lang="pt_BR">Portlet de teste</description>
+      <description xml:lang="zh">一个测试用Portlet</description>
+      <portlet-name>TestPortlet</portlet-name>
+      <display-name>Test Portlet</display-name>
+      <display-name xml:lang="fr">Portlet Test</display-name>
+      <display-name xml:lang="pt_BR">Portlet de Teste</display-name>
+      <display-name xml:lang="zh">测试Portlet</display-name>
+      <portlet-class>org.jboss.portal.core.samples.basic.TestPortlet</portlet-class>
+      <supports>
+         <mime-type>text/html</mime-type>
+         <portlet-mode>VIEW</portlet-mode>
+         <portlet-mode>EDIT</portlet-mode>
+      </supports>
+      <portlet-info>
+         <title>Test portlet</title>
+         <keywords>sample,test</keywords>
+      </portlet-info>
+      <portlet-preferences>
+         <preference>
+            <name>read-write foo</name>
+            <value>bar</value>
+         </preference>
+         <preference>
+            <name>read-only foo</name>
+            <value>bar</value>
+            <read-only>true</read-only>
+         </preference>
+         <preference>
+            <name>read-write foo[]</name>
+            <value>bar0</value>
+            <value>bar1</value>
+         </preference>
+         <preference>
+            <name>html chars</name>
+            <value><![CDATA[<&>"]]></value>
+         </preference>
+      </portlet-preferences>
+      <security-role-ref>
+         <role-name>Admin</role-name>
+      </security-role-ref>
+      <security-role-ref>
+         <role-name>User</role-name>
+      </security-role-ref>
+      <security-role-ref>
+         <role-name>Authenticated</role-name>
+      </security-role-ref>
+      <supported-publishing-event>
+         <qname xmlns:jbp="urn:jboss:portal">jbp:signOut</qname>
+      </supported-publishing-event>
+
+   </portlet>
+   <portlet>
+      <description>Portlet displaying the number of it's action/render calls</description>
+      <portlet-name>CounterPortlet</portlet-name>
+      <display-name>Counter Portlet</display-name>
+      <portlet-class>org.jboss.portal.core.samples.basic.CounterPortlet</portlet-class>
+      <supports>
+         <mime-type>text/html</mime-type>
+      </supports>
+      <portlet-info>
+         <title>Counter portlet</title>
+         <keywords>sample,test</keywords>
+      </portlet-info>
+   </portlet>
+   <portlet>
+      <description>Counter Portlet with cache support</description>
+      <portlet-name>CachedCounterPortlet</portlet-name>
+      <display-name>Cached Counter Portlet</display-name>
+      <portlet-class>org.jboss.portal.core.samples.basic.CounterPortlet</portlet-class>
+      <expiration-cache>60</expiration-cache>
+      <supports>
+         <mime-type>text/html</mime-type>
+      </supports>
+      <portlet-info>
+         <title>Cached Counter portlet</title>
+      </portlet-info>
+   </portlet>
+   <portlet>
+      <description>Portlet for testing behaviour on exceptions</description>
+      <portlet-name>ExceptionPortlet</portlet-name>
+      <display-name>Exception Portlet</display-name>
+      <portlet-class>org.jboss.portal.core.samples.basic.ExceptionPortlet</portlet-class>
+      <supports>
+         <mime-type>text/html</mime-type>
+      </supports>
+      <portlet-info>
+         <title>Exception portlet</title>
+         <keywords>sample,test</keywords>
+      </portlet-info>
+   </portlet>
+   <portlet>
+      <description>Portlet using portlet session</description>
+      <portlet-name>PortletSessionPortlet</portlet-name>
+      <display-name>Portlet Session Portlet</display-name>
+      <portlet-class>
+         org.jboss.portal.core.samples.basic.PortletSessionPortlet
+      </portlet-class>
+      <supports>
+         <mime-type>text/html</mime-type>
+      </supports>
+      <portlet-info>
+         <title>Portlet session portlet</title>
+         <keywords>sample,test</keywords>
+      </portlet-info>
+   </portlet>
+   <portlet>
+      <description>Portlet for demonstrating IPC</description>
+      <portlet-name>PortletA</portlet-name>
+      <display-name>Portlet A</display-name>
+      <portlet-class>org.jboss.portal.core.samples.basic.event.PortletA</portlet-class>
+      <supports>
+         <mime-type>text/html</mime-type>
+         <portlet-mode>VIEW</portlet-mode>
+      </supports>
+      <portlet-info>
+         <title>Test Event A</title>
+         <keywords>sample,test</keywords>
+      </portlet-info>
+   </portlet>
+   <portlet>
+      <description>Portlet for demonstrating IPC</description>
+      <portlet-name>PortletB</portlet-name>
+      <display-name>Portlet B</display-name>
+      <portlet-class>org.jboss.portal.core.samples.basic.event.PortletB</portlet-class>
+      <supports>
+         <mime-type>text/html</mime-type>
+         <portlet-mode>VIEW</portlet-mode>
+      </supports>
+      <portlet-info>
+         <title>Test Event B</title>
+         <keywords>sample,test</keywords>
+      </portlet-info>
+   </portlet>
+   <portlet>
+      <description>
+         Portlet showing different ways to properly display and submit unicode text
+      </description>
+      <portlet-name>CharsetPortlet</portlet-name>
+      <display-name>Charset Portlet</display-name>
+      <portlet-class>org.jboss.portal.core.samples.basic.CharsetPortlet</portlet-class>
+      <supports>
+         <mime-type>text/html</mime-type>
+         <portlet-mode>VIEW</portlet-mode>
+         <portlet-mode>HELP</portlet-mode>
+      </supports>
+      <portlet-info>
+         <title>Test charset</title>
+         <keywords>sample,test</keywords>
+      </portlet-info>
+   </portlet>
+   <portlet>
+      <description>Portlet for testing encoding</description>
+      <portlet-name>EncodingPortlet</portlet-name>
+      <display-name>Encoding Portlet</display-name>
+      <portlet-class>org.jboss.portal.core.samples.basic.EncodingPortlet</portlet-class>
+      <supports>
+         <mime-type>text/html</mime-type>
+         <portlet-mode>VIEW</portlet-mode>
+      </supports>
+      <portlet-info>
+         <title>Test charset</title>
+         <keywords>sample,test</keywords>
+      </portlet-info>
+   </portlet>
+   <portlet>
+      <description>Secured Test Portlet</description>
+      <portlet-name>SecuredTestPortlet</portlet-name>
+      <display-name>Secured Test Portlet</display-name>
+      <portlet-class>org.jboss.portal.core.samples.basic.TestPortlet</portlet-class>
+      <supports>
+         <mime-type>text/html</mime-type>
+         <portlet-mode>VIEW</portlet-mode>
+         <portlet-mode>HELP</portlet-mode>
+         <portlet-mode>EDIT</portlet-mode>
+      </supports>
+      <portlet-info>
+         <title>Secured test portlet</title>
+         <keywords>sample,test</keywords>
+      </portlet-info>
+   </portlet>
+   <portlet>
+      <description>URL Portlet</description>
+      <portlet-name>URLPortlet</portlet-name>
+      <display-name>URL Portlet</display-name>
+      <portlet-class>org.jboss.portal.core.samples.basic.URLPortlet</portlet-class>
+      <supports>
+         <mime-type>text/html</mime-type>
+         <portlet-mode>VIEW</portlet-mode>
+      </supports>
+      <portlet-info>
+         <title>URL Portlet</title>
+         <keywords>sample,test</keywords>
+      </portlet-info>
+   </portlet>
+   <portlet>
+      <description>serveResource Demo Portlet</description>
+      <portlet-name>RepeatRefreshPortlet</portlet-name>
+      <display-name>serveResource Demo Portlet</display-name>
+      <portlet-class>org.jboss.portal.core.samples.basic.RepeatRefreshPortlet</portlet-class>
+      <supports>
+         <mime-type>text/html</mime-type>
+         <portlet-mode>VIEW</portlet-mode>
+      </supports>
+      <portlet-info>
+         <title>serveResource Demo Portlet</title>
+         <keywords>sample,test</keywords>
+      </portlet-info>
+   </portlet>
+   <portlet>
+      <description>Async URL Portlet</description>
+      <portlet-name>AsyncURLPortlet</portlet-name>
+      <display-name>Async URL Portlet</display-name>
+      <portlet-class>org.jboss.portal.core.samples.basic.URLPortlet</portlet-class>
+      <supports>
+         <mime-type>text/html</mime-type>
+         <portlet-mode>VIEW</portlet-mode>
+      </supports>
+      <portlet-info>
+         <title>URL Portlet</title>
+         <keywords>sample,test</keywords>
+      </portlet-info>
+   </portlet>
+   <portlet>
+      <portlet-name>BasicPortlet</portlet-name>
+      <display-name>Basic Portlet</display-name>
+      <portlet-class>org.jboss.portal.core.samples.basic.BasicPortlet</portlet-class>
+      <supports>
+         <mime-type>text/html</mime-type>
+         <portlet-mode>VIEW</portlet-mode>
+      </supports>
+      <portlet-info>
+         <title>Basic Portlet</title>
+         <keywords>sample,test</keywords>
+      </portlet-info>
+   </portlet>
+   <portlet>
+      <description>File System Content Driven Portlet</description>
+      <portlet-name>FSContentDrivenPortlet</portlet-name>
+      <display-name>File System Content Driven Portlet</display-name>
+      <portlet-class>
+         org.jboss.portal.core.samples.basic.FSContentDrivenPortlet
+      </portlet-class>
+      <supports>
+         <mime-type>text/html</mime-type>
+         <portlet-mode>VIEW</portlet-mode>
+         <portlet-mode>EDIT_CONTENT</portlet-mode>
+      </supports>
+      <portlet-info>
+         <title>File Portlet</title>
+         <keywords>sample,test</keywords>
+      </portlet-info>
+      <supported-publishing-event>
+         <qname xmlns:x="urn:jboss:portal:content">x:select</qname>
+      </supported-publishing-event>
+      <supported-public-render-parameter>uri</supported-public-render-parameter>
+   </portlet>
+   <portlet>
+      <description>File Upload Portlet</description>
+      <portlet-name>FileUploadPortlet</portlet-name>
+      <display-name>File Upload Portlet</display-name>
+      <portlet-class>org.jboss.portal.core.samples.basic.FileUploadPortlet</portlet-class>
+      <supports>
+         <mime-type>text/html</mime-type>
+      </supports>
+      <portlet-info>
+         <title>File Upload Portlet</title>
+         <keywords>sample,test</keywords>
+      </portlet-info>
+   </portlet>
+   <portlet>
+      <description>Portlet which performs a programmatic submit of a form</description>
+      <portlet-name>FormAutoSubmitPortlet</portlet-name>
+      <display-name>Form auto submit Portlet</display-name>
+      <portlet-class>
+         org.jboss.portal.core.samples.basic.FormAutoSubmitPortlet
+      </portlet-class>
+      <supports>
+         <mime-type>text/html</mime-type>
+         <portlet-mode>VIEW</portlet-mode>
+      </supports>
+      <portlet-info>
+         <title>Auto submit Portlet</title>
+         <keywords>sample,test</keywords>
+      </portlet-info>
+   </portlet>
+   <portlet>
+      <description>Portlet which displays the window ID</description>
+      <portlet-name>WindowIDPortlet</portlet-name>
+      <display-name>Window ID Portlet</display-name>
+      <portlet-class>org.jboss.portal.core.samples.basic.WindowIDPortlet</portlet-class>
+      <supports>
+         <mime-type>text/html</mime-type>
+         <portlet-mode>VIEW</portlet-mode>
+      </supports>
+      <portlet-info>
+         <title>Window ID Portlet</title>
+         <keywords>sample,test</keywords>
+      </portlet-info>
+   </portlet>
+   <portlet>
+      <description>Portlet that manipulates its public render parameters</description>
+      <portlet-name>PublicParametersPortlet1</portlet-name>
+      <display-name>Public Parameters Portlet 1</display-name>
+      <portlet-class>
+         org.jboss.portal.core.samples.basic.PublicParametersPortlet
+      </portlet-class>
+      <supports>
+         <mime-type>text/html</mime-type>
+      </supports>
+      <portlet-info>
+         <title>Public Parameters Portlet</title>
+         <keywords>sample,test</keywords>
+      </portlet-info>
+      <supported-public-render-parameter>foo</supported-public-render-parameter>
+      <supported-public-render-parameter>bar</supported-public-render-parameter>
+   </portlet>
+   <portlet>
+      <description>Portlet that manipulates its public render parameters</description>
+      <portlet-name>PublicParametersPortlet2</portlet-name>
+      <display-name>Public Parameters Portlet 2</display-name>
+      <portlet-class>
+         org.jboss.portal.core.samples.basic.PublicParametersPortlet
+      </portlet-class>
+      <supports>
+         <mime-type>text/html</mime-type>
+      </supports>
+      <portlet-info>
+         <title>Public Parameters Portlet</title>
+         <keywords>sample,test</keywords>
+      </portlet-info>
+      <supported-public-render-parameter>foo</supported-public-render-parameter>
+      <supported-public-render-parameter>juu</supported-public-render-parameter>
+   </portlet>
+   <portlet>
+      <description>Portlet that manipulates its public render parameters</description>
+      <portlet-name>PublicParametersPortlet3</portlet-name>
+      <display-name>Public Parameters Portlet 3</display-name>
+      <portlet-class>
+         org.jboss.portal.core.samples.basic.PublicParametersPortlet
+      </portlet-class>
+      <supports>
+         <mime-type>text/html</mime-type>
+      </supports>
+      <portlet-info>
+         <title>Public Parameters Portlet</title>
+         <keywords>sample,test</keywords>
+      </portlet-info>
+      <supported-public-render-parameter>bar</supported-public-render-parameter>
+      <supported-public-render-parameter>juu</supported-public-render-parameter>
+   </portlet>
+
+   <user-attribute>
+      <name>user.name.nickName</name>
+   </user-attribute>
+   <user-attribute>
+      <name>user.login.id</name>
+   </user-attribute>
+   <user-attribute>
+      <name>user.business-info.online.email</name>
+   </user-attribute>
+   <user-attribute>
+      <name>user.name.given</name>
+   </user-attribute>
+   <user-attribute>
+      <name>user.name.family</name>
+   </user-attribute>
+   <user-attribute>
+      <name>portal.user.locale</name>
+   </user-attribute>
+   <user-attribute>
+      <name>portal.user.signature</name>
+   </user-attribute>
+   <user-attribute>
+      <name>portal.user.last-login-date</name>
+   </user-attribute>
+
+   <security-constraint>
+      <portlet-collection>
+         <portlet-name>SecuredTestPortlet</portlet-name>
+      </portlet-collection>
+      <user-data-constraint>
+         <transport-guarantee>CONFIDENTIAL</transport-guarantee>
+      </user-data-constraint>
+   </security-constraint>
+
+   <filter>
+      <filter-name>JBoss Portlet Filter</filter-name>
+      <filter-class>org.jboss.portlet.filter.JBossPortletFilter</filter-class>
+      <lifecycle>ACTION_PHASE</lifecycle>
+      <lifecycle>RENDER_PHASE</lifecycle>
+   </filter>
+
+   <filter-mapping>
+      <filter-name>JBoss Portlet Filter</filter-name>
+      <portlet-name>TestPortlet</portlet-name>
+      <portlet-name>ModePortlet</portlet-name>
+   </filter-mapping>
+
+   <event-definition>
+      <qname xmlns:x="urn:jboss:portal:content">x:select</qname>
+      <value-type>java.lang.String</value-type>
+   </event-definition>
+
+   <event-definition>
+      <qname xmlns:jbp="urn:jboss:portal">jbp:signOut</qname>
+      <value-type>java.lang.String</value-type>
+   </event-definition>
+
+   <public-render-parameter>
+      <identifier>foo</identifier>
+      <name>foo</name>
+   </public-render-parameter>
+
+   <public-render-parameter>
+      <identifier>bar</identifier>
+      <name>bar</name>
+   </public-render-parameter>
+
+   <public-render-parameter>
+      <identifier>juu</identifier>
+      <name>juu</name>
+   </public-render-parameter>
+
+   <public-render-parameter>
+      <identifier>uri</identifier>
+      <qname xmlns:c="urn:jboss:portal:content">c:uri</qname>
+   </public-render-parameter>
+
+</portlet-app>
