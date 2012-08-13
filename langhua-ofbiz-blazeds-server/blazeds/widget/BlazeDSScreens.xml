@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This library is part of OFBiz-MainManager component  of Langhua
+ 
+Copyright (C) 2008  Beijing Langhua Ltd. (http://www.langhua.cn)
+ 
+This library is free software; you can redistribute it and/or
+modify it under the terms of the GNU Lesser General Public
+License as published by the Free Software Foundation; either
+version 2.1 of the License, or (at your option) any later version.
+ 
+This library is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+Lesser General Public License for more details.
+
+For the latest version about this module, please see the
+project website: http://www.langhua.cn/langhua/ofbiz-components/OFBiz-MainManager
+ 
+For more information on Apache OFBiz, please see the
+project website: http://ofbiz.apache.org/
+
+You should have received a copy of the GNU Lesser General Public
+License along with this library; if not, write to the Free Software
+Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+-->
+
+<screens xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
+        xsi:noNamespaceSchemaLocation="http://www.ofbiz.org/dtds/widget-screen.xsd">
+    <screen name="CommonBlazeDSDecorator">
+        <section>
+            <widgets>
+                <decorator-screen name="main-decorator" location="component://blazeds/widget/CommonScreens.xml">
+                    <decorator-section name="body">
+                        <section>
+                          
+                            <widgets>
+                                <section>
+                                    
+                                    <widgets>
+                                        </widgets>
+                                </section>
+
+                                <decorator-section-include name="body"/>
+                            </widgets>
+                            <fail-widgets>
+                                <label style="head3"></label>
+                            </fail-widgets>
+                        </section>                    
+                    </decorator-section>
+                </decorator-screen>
+            </widgets>
+        </section>
+    </screen>
+    <screen name="main">
+        <section>
+            <actions>               
+               <set field="headerItem" value="Main"/>
+               <script location="component://blazeds/webapp/blazeds/WEB-INF/actions/main.bsh"/>  
+           </actions>
+            <widgets>
+                <decorator-screen name="CommonBlazeDSDecorator">
+                    <decorator-section name="body">
+                        <section>
+                            <widgets>
+                                <platform-specific>                                
+                             <html><html-template location="component://blazeds/webapp/blazeds/main.ftl"/></html>
+                            </platform-specific>
+                            </widgets>
+                            
+                         </section>                    
+                    </decorator-section>
+                </decorator-screen>
+            </widgets>
+        </section>
+    </screen>
+</screens>
