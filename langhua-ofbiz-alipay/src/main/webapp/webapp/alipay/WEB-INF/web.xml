@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This library is part of OFBiz-AliPay Component of Langhua
+ 
+Copyright (C) 2009  Langhua Opensource Foundation (http://langhua.org)
+ 
+This library is free software; you can redistribute it and/or
+modify it under the terms of the GNU Lesser General Public
+License as published by the Free Software Foundation; either
+version 3.0 of the License, or (at your option) any later version.
+ 
+This library is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+Lesser General Public License for more details.
+
+For the latest version about this module, please see the
+project website: http://langhua.org/opensource/ofbiz/ofbiz-alipay/
+ 
+For more information on Apache OFBiz, please see the
+project website: http://ofbiz.apache.org/
+
+For more information on AliPay, please see its website:
+https://www.alipay.com/
+
+You should have received a copy of the GNU Lesser General Public
+License along with this library; if not, write to the Free Software
+Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+-->
+
+<web-app>
+    <display-name>Open For Business - Alipay Component</display-name>
+    <description>Alipay Component of the Open For Business Project</description>
+    <context-param>
+        <param-name>localDispatcherName</param-name>
+        <param-value>alipay</param-value>
+        <description>A unique name used to identify/recognize the local dispatcher for the Service Engine</description>
+    </context-param>
+    <context-param>
+        <param-name>mainDecoratorLocation</param-name>
+        <param-value>component://alipay/widget/alipay/CommonScreens.xml</param-value>
+        <description>The location of the main-decorator screen to use for this webapp; referred to as a context variable in screen def XML files.</description>
+    </context-param>
+     
+    <context-param>
+        <param-name>entityDelegatorName</param-name><param-value>default</param-value>
+        <description>The Name of the Entity Delegator to use, defined in entityengine.xml</description>
+    </context-param>
+
+    <filter>
+        <filter-name>ContextFilter</filter-name>
+        <display-name>ContextFilter</display-name>
+        <filter-class>org.ofbiz.webapp.control.ContextFilter</filter-class>
+        <init-param><param-name>disableContextSecurity</param-name><param-value>N</param-value></init-param>
+        <init-param>
+            <param-name>allowedPaths</param-name>
+            <param-value>/control:/select:/index.html:/index.jsp:/default.html:/default.jsp:/images:/includes/maincss.css:/alipay</param-value>
+        </init-param>
+        <init-param><param-name>errorCode</param-name><param-value>403</param-value></init-param>
+        <init-param><param-name>redirectPath</param-name><param-value>/control/main</param-value></init-param>        
+    </filter>
+    <filter-mapping>
+        <filter-name>ContextFilter</filter-name>
+        <url-pattern>/*</url-pattern>
+    </filter-mapping> 
+    
+    <filter>
+		<filter-name>Set Character Encoding</filter-name>
+		<filter-class>org.apache.servlet.SetCharacterEncodingFilter</filter-class>
+		<init-param>
+			<param-name>encoding</param-name>
+			<param-value>UTF-8</param-value>
+		</init-param>
+	</filter>
+	<filter-mapping>
+		<filter-name>Set Character Encoding</filter-name>
+		<url-pattern>/*</url-pattern>
+	</filter-mapping>
+    <listener><listener-class>org.ofbiz.webapp.control.ControlEventListener</listener-class></listener>
+    <listener><listener-class>org.ofbiz.webapp.control.LoginEventListener</listener-class></listener>
+    <!-- NOTE: not all app servers support mounting implementations of the HttpSessionActivationListener interface -->
+    <!-- <listener><listener-class>org.ofbiz.webapp.control.ControlActivationEventListener</listener-class></listener> -->
+  
+    <servlet>
+        <servlet-name>ControlServlet</servlet-name>
+        <display-name>ControlServlet</display-name>
+        <description>Main Control Servlet</description>
+        <servlet-class>org.ofbiz.webapp.control.ControlServlet</servlet-class>
+        <load-on-startup>1</load-on-startup>
+    </servlet>
+    <servlet-mapping><servlet-name>ControlServlet</servlet-name><url-pattern>/control/*</url-pattern></servlet-mapping>
+   
+   
+   
+   
+   
+    <session-config><session-timeout>60</session-timeout><!-- in minutes --></session-config>
+
+    <welcome-file-list>
+        <welcome-file>index.jsp</welcome-file>
+        <welcome-file>index.html</welcome-file>
+        <welcome-file>index.htm</welcome-file>
+    </welcome-file-list>
+</web-app>
