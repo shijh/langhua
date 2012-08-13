@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:Application xmlns:mx="http://www.adobe.com/2006/mxml" layout="horizontal" width="100%" height="100%" creationComplete="init()" xmlns:views="views.*">
+<mx:Script>
+	<![CDATA[
+		import mx.controls.LinkButton;
+		import mx.events.ItemClickEvent;
+		import mx.controls.Alert;
+		import mx.rpc.events.ResultEvent;
+		import mx.rpc.events.FaultEvent;
+		import mx.collections.ArrayCollection;
+		[Bindable]
+		private var dataList:ArrayCollection=new ArrayCollection();
+		[Bindable]
+		private var dataName:ArrayCollection=new ArrayCollection();
+		private function init():void{
+			ExampleObject.getProductList();
+		}
+		private function arrayHandler(event:ResultEvent):void{
+			dataName=event.result as ArrayCollection;
+			ExampleObject.getProductLists(dataName[0].Id.toString());
+		}
+		private function arrayList(event:ResultEvent):void{
+			dataList=event.result as ArrayCollection;
+		}
+		private function faultHandler(event:FaultEvent):void{
+			Alert.show(event.fault.message,event.fault.faultCode);
+		}
+		private function priceFormat(data:Object, column:DataGridColumn):String{
+      		return "Name:"+data.Name+"List Price:"+data.ListPrice+"\n"+"Base Price:"+data.BasePrice+"\n"+"Promotion Price:"+data.PromotionPrice+"\n"+"Special Price"+data.SpecialPrice;
+      	}
+      	private function onItem(event:ItemClickEvent):void{
+      		ExampleObject.getProductLists(event.item.Id);
+      	}
+
+	]]>
+</mx:Script>
+	<mx:RemoteObject id="ExampleObject" destination="ExampleClass" result="arrayHandler(event)" fault="faultHandler(event)" showBusyCursor="true" requestTimeout="10">
+		<mx:method name="getProductList" result="arrayHandler(event)"/>
+		<mx:method name="getProductLists" result="arrayList(event)"/>
+	</mx:RemoteObject>
+	<mx:HBox width="100%" height="100%">
+		 <mx:LinkBar id="lb" width="20%" dataProvider="{dataName}" labelField="Id"  height="100%" direction="vertical" backgroundColor="white" backgroundAlpha=".8" itemClick="onItem(event)"/>
+		 <mx:DataGrid id="booksGrid" variableRowHeight="true" selectable="true" dataProvider="{dataList}" width="100%" height="100%">
+    		<mx:columns>
+    		  <mx:DataGridColumn dataField="Image" headerText="Image">
+				<mx:itemRenderer>
+					<mx:Component>
+					<mx:VBox horizontalScrollPolicy="off" verticalScrollPolicy="off" verticalAlign="middle" horizontalAlign="center">
+						<mx:Image source="{data.Image}" showBusyCursor="true"/>
+				    </mx:VBox>
+					</mx:Component>
+				</mx:itemRenderer>
+	  </mx:DataGridColumn>
+      <mx:DataGridColumn  headerText="Price" labelFunction="priceFormat" textAlign="center"/>
+    </mx:columns>
+  </mx:DataGrid>
+	</mx:HBox>
+</mx:Application>
