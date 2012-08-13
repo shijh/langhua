@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE deployments PUBLIC
+   "-//JBoss Portal//DTD Portlet Instances 2.6//EN"
+   "http://www.jboss.org/portal/dtd/portlet-instances_2_6.dtd">
+<deployments>
+	<deployment>
+		<if-exists>overwrite</if-exists>
+		<instance>
+			<instance-id>OFBizCartPortletInstance</instance-id>
+			<portlet-ref>OFBizCartPortlet</portlet-ref>
+			<preferences>
+				<preference>
+					<name>ofbizrmi</name>
+					<value>rmi://localhost:1099/RMIDispatcher</value>
+				</preference>
+				<preference>
+					<name>categoryId</name>
+					<value>PROMOTIONS</value>
+				</preference>
+			</preferences>
+		</instance>
+	</deployment>
+	<deployment>
+		<if-exists>overwrite</if-exists>
+		<instance>
+			<instance-id>OFBizCatalogPortletInstance</instance-id>
+			<portlet-ref>OFBizCatalogPortlet</portlet-ref>
+			<preferences>
+				<preference>
+					<name>ofbizurl</name>
+					<value>http://localhost:8080</value>
+				</preference>
+				<preference>
+					<name>ofbizrmi</name>
+					<value>rmi://localhost:1099/RMIDispatcher</value>
+				</preference>
+				<preference>
+					<name>categoryId</name>
+					<value>PROMOTIONS</value>
+				</preference>
+			</preferences>
+		</instance>
+	</deployment>
+</deployments>

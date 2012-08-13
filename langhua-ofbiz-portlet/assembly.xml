@@ -1,0 +1,34 @@
+<assembly>
+   <id>shoppingcart-portlet</id>
+   <formats>
+      <format>war</format>
+   </formats>
+   <includeBaseDirectory>false</includeBaseDirectory>
+
+   <fileSets>
+      <fileSet>
+         <directory>src/main/shoppingcart-portlet-war</directory>
+         <outputDirectory></outputDirectory>
+      </fileSet>
+      <fileSet>
+         <directory>target</directory>
+         <outputDirectory>WEB-INF/lib</outputDirectory>
+         <includes>
+            <include>${artifactId}-${version}.jar</include>
+         </includes>
+      </fileSet>
+   </fileSets>
+
+	<dependencySets>
+		<dependencySet>
+			<outputDirectory>WEB-INF/lib</outputDirectory>
+			<scope>runtime</scope>
+			<includes />
+			<excludes>
+				<exclude>javax.portlet:portlet-api</exclude>
+				<exclude>junit:junit</exclude>
+				<exclude>javax.servlet:servlet-api</exclude>
+			</excludes>
+		</dependencySet>
+	</dependencySets>
+</assembly>

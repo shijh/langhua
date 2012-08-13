@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE deployments PUBLIC
+   "-//JBoss Portal//DTD Portal Object 2.6//EN"
+   "http://www.jboss.org/portal/dtd/portal-object_2_6.dtd">
+<deployments>
+	<deployment>
+		<parent-ref>default.default</parent-ref>
+		<if-exists>overwrite</if-exists>
+		<window>
+			<window-name>OFBizCartPortletWindow</window-name>
+			<instance-ref>OFBizCartPortletInstance</instance-ref>
+			<region>left</region>
+			<height>1</height>
+		</window>
+	</deployment>
+	<deployment>
+		<parent-ref>default.default</parent-ref>
+		<if-exists>overwrite</if-exists>
+		<window>
+			<window-name>OFBizCatalogPortletWindow</window-name>
+			<instance-ref>OFBizCatalogPortletInstance</instance-ref>
+			<region>center</region>
+			<height>1</height>
+		</window>
+	</deployment>
+</deployments>

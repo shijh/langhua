@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<portlet-app xmlns="http://java.sun.com/xml/ns/portlet/portlet-app_2_0.xsd"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://java.sun.com/xml/ns/portlet/portlet-app_2_0.xsd http://java.sun.com/xml/ns/portlet/portlet-app_2_0.xsd"
+	version="2.0">
+	<portlet>
+		<description>OFBiz Catalog Portlet</description>
+		<portlet-name>OFBizCatalogPortlet</portlet-name>
+		<display-name>OFBiz Catalog Portlet</display-name>
+		<display-name xml:lang="zh">OFBiz产品目录</display-name>
+		<portlet-class>org.langhua.ofbiz.portlet.shoppingcart.CatalogPortlet</portlet-class>
+		<supports>
+			<mime-type>text/html</mime-type>
+			<portlet-mode>VIEW</portlet-mode>
+		</supports>
+		<portlet-info>
+			<title>OFBiz Catalog Portlet</title>
+			<keywords>ofbiz,event,catalog</keywords>
+		</portlet-info>
+		<supported-publishing-event>
+			<qname xmlns:jbp='urn:ofbiz:portlet:shoppingcart:event'>jbp:CartEvent</qname>
+		</supported-publishing-event>
+	</portlet>
+
+	<portlet>
+		<description>OFBiz Cart Portlet</description>
+		<portlet-name>OFBizCartPortlet</portlet-name>
+		<display-name>OFBiz Cart Portlet</display-name>
+		<display-name xml:lang="zh">OFBiz购物车</display-name>
+		<portlet-class>org.langhua.ofbiz.portlet.shoppingcart.CartPortlet</portlet-class>
+		<supports>
+			<mime-type>text/html</mime-type>
+			<portlet-mode>VIEW</portlet-mode>
+		</supports>
+		<portlet-info>
+			<title>OFBiz Cart Portlet</title>
+			<keywords>ofbiz,event,cart</keywords>
+		</portlet-info>
+		<supported-processing-event>
+			<qname xmlns:jbp='urn:ofbiz:portlet:shoppingcart:event'>jbp:CartEvent</qname>
+		</supported-processing-event>
+	</portlet>
+
+	<event-definition>
+		<qname xmlns:jbp='urn:ofbiz:portlet:shoppingcart:event'>jbp:CartEvent</qname>
+		<value-type>org.langhua.ofbiz.portlet.shoppingcart.CartEvent</value-type>
+	</event-definition>
+</portlet-app>
+
