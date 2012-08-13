@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+ This library is part of OFBiz-LearningCurve component of Langhua
+
+ Copyright (C) 2009  Beijing Langhua Ltd. (http://www.langhua.cn)
+
+ This library is free software; you can redistribute it and/or
+ modify it under the terms of the GNU Lesser General Public
+ License as published by the Free Software Foundation; either
+ version 3.0 of the License, or (at your option) any later version.
+
+ This library is distributed in the hope that it will be useful,
+ but WITHOUT ANY WARRANTY; without even the implied warranty of
+ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+ Lesser General Public License for more details.
+
+ For the latest version about this module, please see the
+ project website: http://www.langhua.cn/langhua/ofbiz-components/OFBiz-LearningCurve
+ 
+ For more information on Apache OFBiz, please see the
+ project website: http://ofbiz.apache.org/
+
+ You should have received a copy of the GNU Lesser General Public
+ License along with this library; if not, write to the Free Software
+ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+-->
+  <resource xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+    <property key="LeastSquareOutOfRange">
+        <value xml:lang="en">The least square ${leastSquare} is out of range from 0.0 to 1.0. </value>
+        <value xml:lang="zh">${leastSquare}超出了0.0到1.0的允许值范围。</value>
+    </property>
+    <property key="NewUnitNumberMustBePositive">
+        <value xml:lang="en">The new unit number ${newUnitNumber} must be a positive number. </value>
+        <value xml:lang="zh">${newUnitNumber}必须是正数。</value>
+    </property>
+    <property key="HistoryDataCannotBeNull"  >
+        <value xml:lang="en">The history data matrix cannot be null.</value>
+        <value xml:lang="zh">历史数据矩阵不能是null。</value>
+    </property>
+    <property key="HistoryDataTooFew">
+        <value xml:lang="en">History data are too few, the amount should be at least 3. Now it's ${historyData}. </value>
+        <value xml:lang="zh">历史数据量太少了，现在是${historyData}个，而要进行估算，至少要有3个。</value>
+    </property> 
+    <property key="UnkownMethodType">
+        <value xml:lang="en">${methodType} is an unkown method type. 1 for Wright and 2 for Crawford. </value>
+        <value xml:lang="zh">${methodType}是个未知的方法类型。1代表Wright法，2代表Crawford法。</value>
+    </property>
+</resource>
