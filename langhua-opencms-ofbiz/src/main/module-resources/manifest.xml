@@ -1,0 +1,480 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<export>
+	<info>
+		<creator>shijh</creator>
+		<opencms_version>7.0.5</opencms_version>
+		<createdate>Mon, 05 Oct 2009 13:31:07 GMT</createdate>
+		<infoproject>Offline</infoproject>
+		<export_version>7</export_version>
+	</info>
+	<module>
+		<name>org.langhua.opencms.ofbiz</name>
+		<nicename><![CDATA[OpenCms-7.0.5_OFBiz-09.04 module]]></nicename>
+		<group>Langhua Opensource Foundation</group>
+		<class/>
+		<description><![CDATA[Integrate OpenCms with OFBiz through RMI. You can get the source code from http://langhua.org/opensource/opencms/opencms-ofbiz/]]></description>
+		<version>2.0.5.1</version>
+		<authorname><![CDATA[Shi Yusen]]></authorname>
+		<authoremail><![CDATA[shiys@langhua.cn]]></authoremail>
+		<datecreated/>
+		<userinstalled/>
+		<dateinstalled/>
+		<dependencies/>
+		<exportpoints>
+			<exportpoint uri="/system/modules/org.langhua.opencms.ofbiz/lib/" destination="WEB-INF/lib/"/>
+			<exportpoint uri="/system/modules/org.langhua.opencms.ofbiz/classes/" destination="WEB-INF/classes/"/>
+		</exportpoints>
+		<resources>
+			<resource uri="/system/modules/org.langhua.opencms.ofbiz/"/>
+		</resources>
+		<parameters>
+			<param name="ofbizurl">http://127.0.0.1:8080</param>
+		</parameters>
+	</module>
+	<files>
+		<file>
+			<destination>system</destination>
+			<type>folder</type>
+			<uuidstructure>cf7b0208-02d8-11de-a201-97b676828a11</uuidstructure>
+			<datelastmodified>Mon, 27 Mar 2006 12:00:00 GMT</datelastmodified>
+			<userlastmodified>Admin</userlastmodified>
+			<datecreated>Wed, 25 Feb 2009 01:08:28 GMT</datecreated>
+			<usercreated>Admin</usercreated>
+			<flags>0</flags>
+			<properties/>
+			<relations/>
+			<accesscontrol>
+				<accessentry>
+					<uuidprincipal>GROUP.Users</uuidprincipal>
+					<flags>34</flags>
+					<permissionset>
+						<allowed>1</allowed>
+						<denied>0</denied>
+					</permissionset>
+				</accessentry>
+			</accesscontrol>
+		</file>
+		<file>
+			<destination>system/modules</destination>
+			<type>folder</type>
+			<uuidstructure>cfd4ba01-02d8-11de-a201-97b676828a11</uuidstructure>
+			<datelastmodified>Wed, 25 Feb 2009 01:08:29 GMT</datelastmodified>
+			<userlastmodified>Admin</userlastmodified>
+			<datecreated>Wed, 25 Feb 2009 01:08:29 GMT</datecreated>
+			<usercreated>Admin</usercreated>
+			<flags>0</flags>
+			<properties/>
+			<relations/>
+			<accesscontrol>
+				<accessentry>
+					<uuidprincipal>ROLE.WORKPLACE_USER</uuidprincipal>
+					<flags>514</flags>
+					<permissionset>
+						<allowed>5</allowed>
+						<denied>0</denied>
+					</permissionset>
+				</accessentry>
+			</accesscontrol>
+		</file>
+		<file>
+			<destination>system/modules/org.langhua.opencms.ofbiz</destination>
+			<type>folder</type>
+			<uuidstructure>49603b6d-b18a-11de-b6bd-97b676828a11</uuidstructure>
+			<datelastmodified>Wed, 07 Mar 2007 08:01:14 GMT</datelastmodified>
+			<userlastmodified>Admin</userlastmodified>
+			<datecreated>Wed, 07 Mar 2007 08:01:14 GMT</datecreated>
+			<usercreated>Admin</usercreated>
+			<flags>0</flags>
+			<properties/>
+			<relations/>
+			<accesscontrol/>
+		</file>
+		<file>
+			<destination>system/modules/org.langhua.opencms.ofbiz/classes</destination>
+			<type>folder</type>
+			<uuidstructure>4983f00f-b18a-11de-b6bd-97b676828a11</uuidstructure>
+			<datelastmodified>Wed, 07 Mar 2007 08:01:14 GMT</datelastmodified>
+			<userlastmodified>Admin</userlastmodified>
+			<datecreated>Wed, 07 Mar 2007 08:01:14 GMT</datecreated>
+			<usercreated>Admin</usercreated>
+			<flags>0</flags>
+			<properties/>
+			<relations/>
+			<accesscontrol/>
+		</file>
+		<file>
+			<source>system/modules/org.langhua.opencms.ofbiz/classes/cache.properties</source>
+			<destination>system/modules/org.langhua.opencms.ofbiz/classes/cache.properties</destination>
+			<type>plain</type>
+			<uuidstructure>4992bd20-b18a-11de-b6bd-97b676828a11</uuidstructure>
+			<uuidresource>40d14f88-d18b-11db-89f7-009096c70c3c</uuidresource>
+			<datelastmodified>Tue, 13 Mar 2007 17:50:08 GMT</datelastmodified>
+			<userlastmodified>Admin</userlastmodified>
+			<datecreated>Tue, 13 Mar 2007 17:49:55 GMT</datecreated>
+			<usercreated>Admin</usercreated>
+			<flags>0</flags>
+			<properties/>
+			<relations/>
+			<accesscontrol/>
+		</file>
+		<file>
+			<source>system/modules/org.langhua.opencms.ofbiz/classes/debug.properties</source>
+			<destination>system/modules/org.langhua.opencms.ofbiz/classes/debug.properties</destination>
+			<type>plain</type>
+			<uuidstructure>49a7cbc1-b18a-11de-b6bd-97b676828a11</uuidstructure>
+			<uuidresource>26dcc29c-d18c-11db-89f7-009096c70c3c</uuidresource>
+			<datelastmodified>Tue, 13 Mar 2007 17:56:29 GMT</datelastmodified>
+			<userlastmodified>Admin</userlastmodified>
+			<datecreated>Tue, 13 Mar 2007 17:56:21 GMT</datecreated>
+			<usercreated>Admin</usercreated>
+			<flags>0</flags>
+			<properties/>
+			<relations/>
+			<accesscontrol/>
+		</file>
+		<file>
+			<source>system/modules/org.langhua.opencms.ofbiz/classes/jsse.properties</source>
+			<destination>system/modules/org.langhua.opencms.ofbiz/classes/jsse.properties</destination>
+			<type>plain</type>
+			<uuidstructure>49b07e52-b18a-11de-b6bd-97b676828a11</uuidstructure>
+			<uuidresource>6bbce6c5-d18c-11db-89f7-009096c70c3c</uuidresource>
+			<datelastmodified>Wed, 11 Jul 2007 21:10:31 GMT</datelastmodified>
+			<userlastmodified>Admin</userlastmodified>
+			<datecreated>Tue, 13 Mar 2007 17:58:17 GMT</datecreated>
+			<usercreated>Admin</usercreated>
+			<flags>0</flags>
+			<properties/>
+			<relations/>
+			<accesscontrol/>
+		</file>
+		<file>
+			<source>system/modules/org.langhua.opencms.ofbiz/classes/log4j.xml</source>
+			<destination>system/modules/org.langhua.opencms.ofbiz/classes/log4j.xml</destination>
+			<type>plain</type>
+			<uuidstructure>0789d818-b1b3-11de-a93f-97b676828a11</uuidstructure>
+			<uuidresource>0789d819-b1b3-11de-a93f-97b676828a11</uuidresource>
+			<datelastmodified>Mon, 05 Oct 2009 13:29:06 GMT</datelastmodified>
+			<userlastmodified>shijh</userlastmodified>
+			<datecreated>Mon, 05 Oct 2009 13:28:55 GMT</datecreated>
+			<usercreated>shijh</usercreated>
+			<flags>0</flags>
+			<properties/>
+			<relations/>
+			<accesscontrol/>
+		</file>
+		<file>
+			<source>system/modules/org.langhua.opencms.ofbiz/classes/ofbizrmi.jks</source>
+			<destination>system/modules/org.langhua.opencms.ofbiz/classes/ofbizrmi.jks</destination>
+			<type>binary</type>
+			<uuidstructure>c65c8a3e-b18a-11de-b6bd-97b676828a11</uuidstructure>
+			<uuidresource>c65c8a3f-b18a-11de-b6bd-97b676828a11</uuidresource>
+			<datelastmodified>Mon, 05 Oct 2009 08:40:59 GMT</datelastmodified>
+			<userlastmodified>shijh</userlastmodified>
+			<datecreated>Mon, 05 Oct 2009 08:40:45 GMT</datecreated>
+			<usercreated>shijh</usercreated>
+			<flags>0</flags>
+			<properties/>
+			<relations/>
+			<accesscontrol/>
+		</file>
+		<file>
+			<source>system/modules/org.langhua.opencms.ofbiz/classes/ofbiztrust.jks</source>
+			<destination>system/modules/org.langhua.opencms.ofbiz/classes/ofbiztrust.jks</destination>
+			<type>binary</type>
+			<uuidstructure>d3a4f611-b18a-11de-b6bd-97b676828a11</uuidstructure>
+			<uuidresource>d3a4f612-b18a-11de-b6bd-97b676828a11</uuidresource>
+			<datelastmodified>Mon, 05 Oct 2009 08:41:13 GMT</datelastmodified>
+			<userlastmodified>shijh</userlastmodified>
+			<datecreated>Mon, 05 Oct 2009 08:41:08 GMT</datecreated>
+			<usercreated>shijh</usercreated>
+			<flags>0</flags>
+			<properties>
+				<property>
+					<name>Title</name>
+					<value><![CDATA[ofbiztrust]]></value>
+				</property>
+			</properties>
+			<relations/>
+			<accesscontrol/>
+		</file>
+		<file>
+			<destination>system/modules/org.langhua.opencms.ofbiz/classes/org</destination>
+			<type>folder</type>
+			<uuidstructure>49bdebd4-b18a-11de-b6bd-97b676828a11</uuidstructure>
+			<datelastmodified>Wed, 07 Mar 2007 08:01:14 GMT</datelastmodified>
+			<userlastmodified>Admin</userlastmodified>
+			<datecreated>Wed, 07 Mar 2007 08:01:14 GMT</datecreated>
+			<usercreated>Admin</usercreated>
+			<flags>0</flags>
+			<properties/>
+			<relations/>
+			<accesscontrol/>
+		</file>
+		<file>
+			<destination>system/modules/org.langhua.opencms.ofbiz/classes/org/langhua</destination>
+			<type>folder</type>
+			<uuidstructure>49c1bc66-b18a-11de-b6bd-97b676828a11</uuidstructure>
+			<datelastmodified>Wed, 07 Mar 2007 08:01:14 GMT</datelastmodified>
+			<userlastmodified>Admin</userlastmodified>
+			<datecreated>Wed, 07 Mar 2007 08:01:14 GMT</datecreated>
+			<usercreated>Admin</usercreated>
+			<flags>0</flags>
+			<properties/>
+			<relations/>
+			<accesscontrol/>
+		</file>
+		<file>
+			<destination>system/modules/org.langhua.opencms.ofbiz/classes/org/langhua/opencms</destination>
+			<type>folder</type>
+			<uuidstructure>49c47b88-b18a-11de-b6bd-97b676828a11</uuidstructure>
+			<datelastmodified>Wed, 07 Mar 2007 08:01:14 GMT</datelastmodified>
+			<userlastmodified>Admin</userlastmodified>
+			<datecreated>Wed, 07 Mar 2007 08:01:14 GMT</datecreated>
+			<usercreated>Admin</usercreated>
+			<flags>0</flags>
+			<properties/>
+			<relations/>
+			<accesscontrol/>
+		</file>
+		<file>
+			<destination>system/modules/org.langhua.opencms.ofbiz/classes/org/langhua/opencms/ofbiz</destination>
+			<type>folder</type>
+			<uuidstructure>49c8250a-b18a-11de-b6bd-97b676828a11</uuidstructure>
+			<datelastmodified>Wed, 07 Mar 2007 08:01:14 GMT</datelastmodified>
+			<userlastmodified>Admin</userlastmodified>
+			<datecreated>Wed, 07 Mar 2007 08:01:14 GMT</datecreated>
+			<usercreated>Admin</usercreated>
+			<flags>0</flags>
+			<properties/>
+			<relations/>
+			<accesscontrol/>
+		</file>
+		<file>
+			<source>system/modules/org.langhua.opencms.ofbiz/classes/org/langhua/opencms/ofbiz/workplace.properties</source>
+			<destination>system/modules/org.langhua.opencms.ofbiz/classes/org/langhua/opencms/ofbiz/workplace.properties</destination>
+			<type>plain</type>
+			<uuidstructure>49cc6acb-b18a-11de-b6bd-97b676828a11</uuidstructure>
+			<uuidresource>12267b2a-f47e-11db-b45d-009096c70c3c</uuidresource>
+			<datelastmodified>Fri, 27 Apr 2007 07:50:32 GMT</datelastmodified>
+			<userlastmodified>Admin</userlastmodified>
+			<datecreated>Fri, 27 Apr 2007 05:13:44 GMT</datecreated>
+			<usercreated>Admin</usercreated>
+			<flags>0</flags>
+			<properties/>
+			<relations/>
+			<accesscontrol/>
+		</file>
+		<file>
+			<source>system/modules/org.langhua.opencms.ofbiz/classes/org/langhua/opencms/ofbiz/workplace_zh.properties</source>
+			<destination>system/modules/org.langhua.opencms.ofbiz/classes/org/langhua/opencms/ofbiz/workplace_zh.properties</destination>
+			<type>plain</type>
+			<uuidstructure>49d14ccc-b18a-11de-b6bd-97b676828a11</uuidstructure>
+			<uuidresource>2c37264d-f47e-11db-b45d-009096c70c3c</uuidresource>
+			<datelastmodified>Fri, 27 Apr 2007 07:52:55 GMT</datelastmodified>
+			<userlastmodified>Admin</userlastmodified>
+			<datecreated>Fri, 27 Apr 2007 05:14:28 GMT</datecreated>
+			<usercreated>Admin</usercreated>
+			<flags>0</flags>
+			<properties/>
+			<relations/>
+			<accesscontrol/>
+		</file>
+		<file>
+			<destination>system/modules/org.langhua.opencms.ofbiz/docs</destination>
+			<type>folder</type>
+			<uuidstructure>49d4f64e-b18a-11de-b6bd-97b676828a11</uuidstructure>
+			<datelastmodified>Tue, 13 Mar 2007 04:38:11 GMT</datelastmodified>
+			<userlastmodified>Admin</userlastmodified>
+			<datecreated>Tue, 13 Mar 2007 04:38:11 GMT</datecreated>
+			<usercreated>Admin</usercreated>
+			<flags>0</flags>
+			<properties/>
+			<relations/>
+			<accesscontrol/>
+		</file>
+		<file>
+			<source>system/modules/org.langhua.opencms.ofbiz/docs/ofbizrmiclient.jsp</source>
+			<destination>system/modules/org.langhua.opencms.ofbiz/docs/ofbizrmiclient.jsp</destination>
+			<type>jsp</type>
+			<uuidstructure>49d78e5f-b18a-11de-b6bd-97b676828a11</uuidstructure>
+			<uuidresource>4cd30696-d192-11db-8246-009096c70c3c</uuidresource>
+			<datelastmodified>Mon, 05 Oct 2009 09:05:25 GMT</datelastmodified>
+			<userlastmodified>shijh</userlastmodified>
+			<datecreated>Tue, 13 Mar 2007 18:40:22 GMT</datecreated>
+			<usercreated>Admin</usercreated>
+			<flags>0</flags>
+			<properties>
+				<property type="shared">
+					<name>export</name>
+					<value><![CDATA[false]]></value>
+				</property>
+			</properties>
+			<relations/>
+			<accesscontrol/>
+		</file>
+		<file>
+			<destination>system/modules/org.langhua.opencms.ofbiz/lib</destination>
+			<type>folder</type>
+			<uuidstructure>49e08f12-b18a-11de-b6bd-97b676828a11</uuidstructure>
+			<datelastmodified>Wed, 07 Mar 2007 08:01:14 GMT</datelastmodified>
+			<userlastmodified>Admin</userlastmodified>
+			<datecreated>Wed, 07 Mar 2007 08:01:14 GMT</datecreated>
+			<usercreated>Admin</usercreated>
+			<flags>0</flags>
+			<properties/>
+			<relations/>
+			<accesscontrol/>
+		</file>
+		<file>
+			<source>system/modules/org.langhua.opencms.ofbiz/lib/avalon-util-exception.jar</source>
+			<destination>system/modules/org.langhua.opencms.ofbiz/lib/avalon-util-exception.jar</destination>
+			<type>binary</type>
+			<uuidstructure>49e522f3-b18a-11de-b6bd-97b676828a11</uuidstructure>
+			<uuidresource>1e9b9841-2fe2-11dc-bdf0-33ba47dd91db</uuidresource>
+			<datelastmodified>Wed, 11 Jul 2007 19:08:40 GMT</datelastmodified>
+			<userlastmodified>Admin</userlastmodified>
+			<datecreated>Wed, 11 Jul 2007 19:08:33 GMT</datecreated>
+			<usercreated>Admin</usercreated>
+			<flags>0</flags>
+			<properties/>
+			<relations/>
+			<accesscontrol/>
+		</file>
+		<file>
+			<source>system/modules/org.langhua.opencms.ofbiz/lib/icu4j.jar</source>
+			<destination>system/modules/org.langhua.opencms.ofbiz/lib/icu4j.jar</destination>
+			<type>binary</type>
+			<uuidstructure>49f4b354-b18a-11de-b6bd-97b676828a11</uuidstructure>
+			<uuidresource>f5c0c34d-2fe1-11dc-bdf0-33ba47dd91db</uuidresource>
+			<datelastmodified>Wed, 11 Jul 2007 19:07:33 GMT</datelastmodified>
+			<userlastmodified>Admin</userlastmodified>
+			<datecreated>Wed, 11 Jul 2007 19:07:25 GMT</datecreated>
+			<usercreated>Admin</usercreated>
+			<flags>0</flags>
+			<properties/>
+			<relations/>
+			<accesscontrol/>
+		</file>
+		<file>
+			<source>system/modules/org.langhua.opencms.ofbiz/lib/javolution.jar</source>
+			<destination>system/modules/org.langhua.opencms.ofbiz/lib/javolution.jar</destination>
+			<type>binary</type>
+			<uuidstructure>4a31e365-b18a-11de-b6bd-97b676828a11</uuidstructure>
+			<uuidresource>63b09e31-d18b-11db-89f7-009096c70c3c</uuidresource>
+			<datelastmodified>Tue, 13 Mar 2007 17:51:06 GMT</datelastmodified>
+			<userlastmodified>Admin</userlastmodified>
+			<datecreated>Tue, 13 Mar 2007 17:50:54 GMT</datecreated>
+			<usercreated>Admin</usercreated>
+			<flags>0</flags>
+			<properties/>
+			<relations/>
+			<accesscontrol/>
+		</file>
+		<file>
+			<source>system/modules/org.langhua.opencms.ofbiz/lib/jdbm.jar</source>
+			<destination>system/modules/org.langhua.opencms.ofbiz/lib/jdbm.jar</destination>
+			<type>binary</type>
+			<uuidstructure>4a4c2226-b18a-11de-b6bd-97b676828a11</uuidstructure>
+			<uuidresource>71980925-d18b-11db-89f7-009096c70c3c</uuidresource>
+			<datelastmodified>Tue, 13 Mar 2007 17:51:27 GMT</datelastmodified>
+			<userlastmodified>Admin</userlastmodified>
+			<datecreated>Tue, 13 Mar 2007 17:51:17 GMT</datecreated>
+			<usercreated>Admin</usercreated>
+			<flags>0</flags>
+			<properties/>
+			<relations/>
+			<accesscontrol/>
+		</file>
+		<file>
+			<source>system/modules/org.langhua.opencms.ofbiz/lib/ofbiz-base.jar</source>
+			<destination>system/modules/org.langhua.opencms.ofbiz/lib/ofbiz-base.jar</destination>
+			<type>binary</type>
+			<uuidstructure>4a5b6467-b18a-11de-b6bd-97b676828a11</uuidstructure>
+			<uuidresource>7d7ee929-d18b-11db-89f7-009096c70c3c</uuidresource>
+			<datelastmodified>Tue, 13 Mar 2007 17:52:10 GMT</datelastmodified>
+			<userlastmodified>Admin</userlastmodified>
+			<datecreated>Tue, 13 Mar 2007 17:51:37 GMT</datecreated>
+			<usercreated>Admin</usercreated>
+			<flags>0</flags>
+			<properties/>
+			<relations/>
+			<accesscontrol/>
+		</file>
+		<file>
+			<source>system/modules/org.langhua.opencms.ofbiz/lib/ofbiz-entity.jar</source>
+			<destination>system/modules/org.langhua.opencms.ofbiz/lib/ofbiz-entity.jar</destination>
+			<type>binary</type>
+			<uuidstructure>4a6e9e48-b18a-11de-b6bd-97b676828a11</uuidstructure>
+			<uuidresource>d917dea2-d72a-11db-bf38-009096c70c3c</uuidresource>
+			<datelastmodified>Tue, 20 Mar 2007 21:35:07 GMT</datelastmodified>
+			<userlastmodified>Admin</userlastmodified>
+			<datecreated>Tue, 20 Mar 2007 21:34:56 GMT</datecreated>
+			<usercreated>Admin</usercreated>
+			<flags>0</flags>
+			<properties/>
+			<relations/>
+			<accesscontrol/>
+		</file>
+		<file>
+			<source>system/modules/org.langhua.opencms.ofbiz/lib/ofbiz-order.jar</source>
+			<destination>system/modules/org.langhua.opencms.ofbiz/lib/ofbiz-order.jar</destination>
+			<type>binary</type>
+			<uuidstructure>4acbf8f0-b18d-11de-be16-97b676828a11</uuidstructure>
+			<uuidresource>4acbf8f1-b18d-11de-be16-97b676828a11</uuidresource>
+			<datelastmodified>Mon, 05 Oct 2009 08:58:58 GMT</datelastmodified>
+			<userlastmodified>shijh</userlastmodified>
+			<datecreated>Mon, 05 Oct 2009 08:58:47 GMT</datecreated>
+			<usercreated>shijh</usercreated>
+			<flags>0</flags>
+			<properties/>
+			<relations/>
+			<accesscontrol/>
+		</file>
+		<file>
+			<source>system/modules/org.langhua.opencms.ofbiz/lib/ofbiz-rmi-api.jar</source>
+			<destination>system/modules/org.langhua.opencms.ofbiz/lib/ofbiz-rmi-api.jar</destination>
+			<type>binary</type>
+			<uuidstructure>f579bd17-b18b-11de-b6bd-97b676828a11</uuidstructure>
+			<uuidresource>f579bd18-b18b-11de-b6bd-97b676828a11</uuidresource>
+			<datelastmodified>Mon, 05 Oct 2009 08:49:22 GMT</datelastmodified>
+			<userlastmodified>shijh</userlastmodified>
+			<datecreated>Mon, 05 Oct 2009 08:49:14 GMT</datecreated>
+			<usercreated>shijh</usercreated>
+			<flags>0</flags>
+			<properties/>
+			<relations/>
+			<accesscontrol/>
+		</file>
+		<file>
+			<source>system/modules/org.langhua.opencms.ofbiz/lib/ofbiz-rmi-client.jar</source>
+			<destination>system/modules/org.langhua.opencms.ofbiz/lib/ofbiz-rmi-client.jar</destination>
+			<type>binary</type>
+			<uuidstructure>e3c5b9c4-b18b-11de-b6bd-97b676828a11</uuidstructure>
+			<uuidresource>e3c5b9c5-b18b-11de-b6bd-97b676828a11</uuidresource>
+			<datelastmodified>Mon, 05 Oct 2009 08:48:53 GMT</datelastmodified>
+			<userlastmodified>shijh</userlastmodified>
+			<datecreated>Mon, 05 Oct 2009 08:48:44 GMT</datecreated>
+			<usercreated>shijh</usercreated>
+			<flags>0</flags>
+			<properties/>
+			<relations/>
+			<accesscontrol/>
+		</file>
+		<file>
+			<source>system/modules/org.langhua.opencms.ofbiz/lib/ofbiz-service.jar</source>
+			<destination>system/modules/org.langhua.opencms.ofbiz/lib/ofbiz-service.jar</destination>
+			<type>binary</type>
+			<uuidstructure>4ace9899-b18a-11de-b6bd-97b676828a11</uuidstructure>
+			<uuidresource>868fecdd-d18b-11db-89f7-009096c70c3c</uuidresource>
+			<datelastmodified>Wed, 11 Jul 2007 20:36:18 GMT</datelastmodified>
+			<userlastmodified>Admin</userlastmodified>
+			<datecreated>Tue, 13 Mar 2007 17:51:52 GMT</datecreated>
+			<usercreated>Admin</usercreated>
+			<flags>0</flags>
+			<properties/>
+			<relations/>
+			<accesscontrol/>
+		</file>
+	</files>
+</export>

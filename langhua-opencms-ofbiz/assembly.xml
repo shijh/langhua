@@ -1,0 +1,35 @@
+<assembly>
+	<id>bin</id>
+	<formats>
+		<format>zip</format>
+	</formats>
+	<includeBaseDirectory>false</includeBaseDirectory>
+	<fileSets>
+		<fileSet>
+			<lineEnding>unix</lineEnding>
+			<useDefaultExcludes>true</useDefaultExcludes>
+			<useStrictFiltering>false</useStrictFiltering>
+			<directory>${basedir}/src/main/module-resources</directory>
+			<outputDirectory></outputDirectory>
+			<includes>
+				<include>**/*.xml</include>
+				<include>**/*.properties</include>
+				<include>**/*.jks</include>
+				<include>**/*.jsp</include>
+			</includes>
+		</fileSet>
+	</fileSets>
+	<dependencySets>
+		<dependencySet>
+			<outputFileNameMapping>${artifact.artifactId}.${artifact.extension}</outputFileNameMapping>
+			<outputDirectory>system/modules/org.langhua.opencms.ofbiz/lib
+			</outputDirectory>
+			<scope>runtime</scope>
+			<includes />
+			<excludes>
+				<exclude>opencms:opencms</exclude>
+				<exclude>opencms-ofbiz:opencms-ofbiz</exclude>
+			</excludes>
+		</dependencySet>
+	</dependencySets>
+</assembly>
