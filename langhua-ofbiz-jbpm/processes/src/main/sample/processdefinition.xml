@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<process-definition
+  xmlns="urn:jbpm.org:jpdl-3.1"  name="sample">
+  
+    <!-- SWIMLANES (= process roles) -->
+
+  <swimlane name="editor">
+     <assignment expression="group(FULLADMIN)" />
+  </swimlane>
+  
+  <swimlane name="manager">
+     <assignment expression="group(FULLADMIN)" />
+  </swimlane>
+    
+   <!-- NODES -->
+   
+   <start-state name="start">
+      <task swimlane="editor" >
+		  <controller>
+		      <variable name="include-form(start, component://jbpm/widget/sample.xml)" />
+		  </controller>
+	  </task>
+	  <event type="task-create"></event>
+      <transition name="start" to="task"></transition>
+   </start-state>
+   <task-node name="task">
+      <task swimlane="manager">
+        <controller>
+          <variable name="include-form(end, component://jbpm/widget/sample.xml)" />
+        </controller>
+      </task>
+      <transition name="end" to="end1"></transition>
+   </task-node>
+   <end-state name="end1"></end-state>
+</process-definition>

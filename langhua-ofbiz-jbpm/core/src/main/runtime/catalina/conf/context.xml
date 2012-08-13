@@ -1,0 +1,10 @@
+<!-- The contents of this file will be loaded for each web application -->
+<Context>
+
+  <Resource name="jBPM_DS" auth="Container" type="javax.sql.DataSource" removeAbandoned="true"
+       maxActive="30" maxIdle="3" maxWait="2000" 
+       username="root" password="111111" driverClassName="com.mysql.jdbc.Driver"
+       factory="org.apache.commons.dbcp.BasicDataSourceFactory"
+       url="jdbc:mysql://localhost:3306/ofbizjbpm?autoReconnect=true"/> 
+
+</Context>

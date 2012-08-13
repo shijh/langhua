@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<process-diagram name="sample" width="464" height="324">
+  <node name="start" x="151" y="85" width="140" height="40">
+    <transition name="start">
+      <label x="5" y="-10"/>
+    </transition>
+  </node>
+  <node name="task" x="150" y="185" width="140" height="40">
+    <transition name="end">
+      <label x="5" y="-10"/>
+    </transition>
+  </node>
+  <node name="end1" x="151" y="279" width="140" height="40"/>
+</process-diagram>
