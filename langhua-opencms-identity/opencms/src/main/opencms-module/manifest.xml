@@ -1,0 +1,373 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<export>
+	<info>
+		<creator>Admin</creator>
+		<opencms_version>7.0.5</opencms_version>
+		<createdate>Mon, 18 Aug 2008 02:54:02 GMT</createdate>
+		<project>Offline</project>
+		<export_version>7</export_version>
+	</info>
+	<module>
+		<name>org.langhua.opencms.identity</name>
+		<nicename><![CDATA[Langhua OpenCms Identity Module]]></nicename>
+		<group>Langhua Opensource Foundation</group>
+		<class/>
+		<description><![CDATA[For more information on this module, please visit <a href="http://langhua.org/portal/portal/default/OpenCms" target="_blank">Langhua Opensource Foundation</a>.]]></description>
+		<version>1.0.5.10</version>
+		<authorname><![CDATA[Shi Yusen]]></authorname>
+		<authoremail><![CDATA[shiys@langhua.cn]]></authoremail>
+		<datecreated/>
+		<userinstalled/>
+		<dateinstalled/>
+		<dependencies>
+			<dependency name="org.opencms.workplace" version="7.0.5"/>
+		</dependencies>
+		<exportpoints>
+			<exportpoint uri="/system/modules/org.langhua.opencms.identity/lib/" destination="WEB-INF/lib/"/>
+			<exportpoint uri="/system/modules/org.langhua.opencms.identity/classes/" destination="WEB-INF/classes/"/>
+		</exportpoints>
+		<resources>
+			<resource uri="/system/modules/org.langhua.opencms.identity/"/>
+		</resources>
+		<parameters>
+                <!-- OpenCms-CAS-JBoss Portal authz configurations 
+                <param name="AuthHandler">org.langhua.opencms.identity.sso.cas.db.jbossportal.CmsJBossPortalAuthorizationHandler</param>
+                <param name="CasUrl">https://127.0.0.1:443/cas</param>
+                <param name="CasLoginUri">/login</param>
+                <param name="CasValidateUri">/serviceValidate</param>
+                <param name="CasLogoutUri">/logout</param>
+                -->
+		        <!-- OpenCms-CAS-JBoss Portal authn configurations -->
+                <param name="AuthHandler">org.langhua.opencms.identity.sso.cas.db.jbossportal.CmsJBossPortalAuthnHandler</param>
+                <param name="AutoUserRoleName">RoleWorkplaceUsers</param>
+                <param name="CasUrl">https://127.0.0.1:443/cas</param>
+                <param name="CasLoginUri">/login</param>
+                <param name="CasValidateUri">/serviceValidate</param>
+                <param name="CasLogoutUri">/logout</param>
+		        <!-- OpenCms-OFBiz authz configurations
+                <param name="AuthHandler">org.langhua.opencms.identity.db.ofbiz.CmsOFBizAuthorizationHandler</param>
+                <param name="RmiServer">rmi://127.0.0.1:1099/RMIDispatcher</param>
+                <param name="UseCmsLoginWhenOFBizFail">true</param>
+                <param name="syncUser">true</param>
+                -->
+                <!-- OpenCms-OFBiz authn configurations 
+                <param name="AuthHandler">org.langhua.opencms.identity.db.ofbiz.CmsOFBizAuthenticationHandler</param>
+                <param name="RmiServer">rmi://127.0.0.1:1099/RMIDispatcher</param>
+                <param name="UseCmsLoginWhenOFBizFail">true</param>
+                <param name="syncUser">true</param>
+                -->
+                <!-- OpenCms-CAS-LDAP authn configurations
+                <param name="Attribute">uid=%u</param>
+                <param name="AuthHandler">org.langhua.opencms.identity.sso.cas.ldap.CmsCasLdapAuthenticationHandler</param>
+                <param name="AuthnType">simple</param>
+                <param name="AutoUserRoleName">RoleWorkplaceUsers</param>
+                <param name="CasUrl">https://127.0.0.1:443/cas</param>
+                <param name="CasLoginUri">/login</param>
+                <param name="CasValidateUri">/serviceValidate</param>
+                <param name="CasLenientURL">http://127.0.0.1/cas</param>
+                <param name="CasLogoutUri">/logout</param>
+                -->
+                <!-- OpenCms-CAS-LDAP authz configurations
+                <param name="Attribute">uid=%u</param>
+                <param name="AuthHandler">org.langhua.opencms.identity.sso.cas.ldap.CmsCasLdapAuthorizationHandler</param>
+                <param name="AuthnType">simple</param>
+                <param name="AutoUserRoleName">RoleWorkplaceUsers</param>
+                <param name="CasUrl">https://127.0.0.1:443/cas</param>
+                <param name="CasLoginUri">/login</param>
+                <param name="CasValidateUri">/serviceValidate</param>
+                <param name="CasLenientURL">http://127.0.0.1/cas</param>
+                <param name="CasLogoutUri">/logout</param>
+                <param name="LdapBaseDN">o=langhua,c=cn</param>
+                <param name="GroupSearchDN">ou=groups,ou=opencms,ou=applications,o=langhua,c=cn</param>
+                <param name="RoleSearchDN">ou=roles,ou=opencms,ou=applications,o=langhua,c=cn</param>
+                -->
+                <!--  OpenCms-OpenLDAP authn configurations
+                <param name="AuthHandler">org.langhua.opencms.identity.ldap.openldap.CmsOpenLDAPAuthenticationHandler</param>
+                <param name="Attribute">uid=%u</param>
+                <param name="LdapURL">ldap://127.0.0.1:389</param>
+                <param name="LdapBaseDN">o=langhua,c=cn</param>
+                <param name="GroupSearchDN">ou=groups,ou=opencms,ou=applications,o=langhua,c=cn</param>
+                <param name="RoleSearchDN">ou=roles,ou=opencms,ou=applications,o=langhua,c=cn</param>
+                <param name="LdapAuthnType">simple</param>
+                <param name="LdapScope">sub</param>
+                <param name="LdapFilter">(objectclass=*)</param>
+                <param name="LdapUserNameAttribute">null</param>
+                <param name="LdapAuthnUserDN">null</param>
+                <param name="LdapUserPassword">null</param>
+                <param name="syncUser">true</param>
+                <param name="UseCmsLoginWhenLDAPFail">true</param>
+                 -->
+                <!--  OpenCms-OpenLDAP authz configurations
+                <param name="AuthHandler">org.langhua.opencms.identity.ldap.openldap.CmsOpenLDAPAuthorizationHandler</param>
+                <param name="Attribute">uid=%u</param>
+                <param name="LdapURL">ldap://127.0.0.1:389</param>
+                <param name="LdapBaseDN">o=langhua,c=cn</param>
+                <param name="GroupSearchDN">ou=groups,ou=opencms,ou=applications,o=langhua,c=cn</param>
+                <param name="RoleSearchDN">ou=roles,ou=opencms,ou=applications,o=langhua,c=cn</param>
+                <param name="LdapAuthnType">simple</param>
+                <param name="LdapScope">sub</param>
+                <param name="LdapFilter">(objectclass=*)</param>
+                <param name="LdapUserNameAttribute">null</param>
+                <param name="LdapAuthnUserDN">null</param>
+                <param name="LdapUserPassword">null</param>
+                <param name="AuthzType">member</param>
+                <param name="DerefAliases">finding</param>
+                <param name="syncUser">true</param>
+                <param name="UseCmsLoginWhenLDAPFail">true</param>
+                 -->
+                <!--  OpenCms-ActiveDirectory authn configurations
+                <param name="AuthHandler">org.langhua.opencms.identity.ldap.activedirectory.CmsActiveDirectoryAuthenticationHandler</param>
+                <param name="Attribute">cn=%u</param>
+                <param name="LdapURL">ldap://127.0.0.1:389</param>
+                <param name="LdapBaseDN">o=langhua,c=cn</param>
+                <param name="GroupSearchDN">ou=groups,ou=opencms,ou=applications,o=langhua,c=cn</param>
+                <param name="RoleSearchDN">ou=roles,ou=opencms,ou=applications,o=langhua,c=cn</param>
+                <param name="LdapAuthnType">simple</param>
+                <param name="LdapScope">sub</param>
+                <param name="LdapFilter">(objectclass=*)</param>
+                <param name="LdapUserNameAttribute">null</param>
+                <param name="LdapAuthnUserDN">null</param>
+                <param name="LdapUserPassword">null</param>
+                <param name="SearchType"></param>
+                <param name="UserDNForSearch">cn=anon,ou=staff,o=langhua,c=cn</param>
+                <param name="PasswordForSearch">anon</param>
+                <param name="syncUser">true</param>
+                <param name="UseCmsLoginWhenLDAPFail">true</param>
+                 -->
+		</parameters>
+	</module>
+	<files>
+		<file>
+			<destination>system</destination>
+			<type>folder</type>
+			<uuidstructure>dcd0d7db-5d6f-11dd-a395-23acaca5823c</uuidstructure>
+			<datelastmodified>Tue, 29 Jul 2008 13:11:32 GMT</datelastmodified>
+			<userlastmodified>Admin</userlastmodified>
+			<datecreated>Tue, 29 Jul 2008 13:11:32 GMT</datecreated>
+			<usercreated>Admin</usercreated>
+			<flags>0</flags>
+			<properties/>
+			<relations/>
+			<accesscontrol>
+				<accessentry>
+					<uuidprincipal>GROUP.Users</uuidprincipal>
+					<flags>34</flags>
+					<permissionset>
+						<allowed>1</allowed>
+						<denied>0</denied>
+					</permissionset>
+				</accessentry>
+			</accesscontrol>
+		</file>
+		<file>
+			<destination>system/modules</destination>
+			<type>folder</type>
+			<uuidstructure>df2ffcc4-5d6f-11dd-a395-23acaca5823c</uuidstructure>
+			<datelastmodified>Tue, 29 Jul 2008 13:11:35 GMT</datelastmodified>
+			<userlastmodified>Admin</userlastmodified>
+			<datecreated>Tue, 29 Jul 2008 13:11:35 GMT</datecreated>
+			<usercreated>Admin</usercreated>
+			<flags>0</flags>
+			<properties/>
+			<relations/>
+			<accesscontrol/>
+		</file>
+		<file>
+			<destination>system/modules/org.langhua.opencms.identity</destination>
+			<type>folder</type>
+			<uuidstructure>c58a64b5-2a25-11dc-8876-0b3e276481d5</uuidstructure>
+			<datelastmodified>Wed, 04 Jul 2007 11:57:43 GMT</datelastmodified>
+			<userlastmodified>Admin</userlastmodified>
+			<datecreated>Wed, 04 Jul 2007 11:57:43 GMT</datecreated>
+			<usercreated>Admin</usercreated>
+			<flags>0</flags>
+			<properties/>
+			<relations/>
+			<accesscontrol/>
+		</file>
+		<file>
+			<destination>system/modules/org.langhua.opencms.identity/classes</destination>
+			<type>folder</type>
+			<uuidstructure>c5c7e2ef-2a25-11dc-8876-0b3e276481d5</uuidstructure>
+			<datelastmodified>Wed, 04 Jul 2007 11:57:43 GMT</datelastmodified>
+			<userlastmodified>Admin</userlastmodified>
+			<datecreated>Wed, 04 Jul 2007 11:57:43 GMT</datecreated>
+			<usercreated>Admin</usercreated>
+			<flags>0</flags>
+			<properties/>
+			<relations/>
+			<accesscontrol/>
+		</file>
+		<file>
+			<destination>system/modules/org.langhua.opencms.identity/classes/org</destination>
+			<type>folder</type>
+			<uuidstructure>adc9c957-2ca9-11dc-bdb3-0b3e276481d5</uuidstructure>
+			<datelastmodified>Sat, 07 Jul 2007 16:46:59 GMT</datelastmodified>
+			<userlastmodified>Admin</userlastmodified>
+			<datecreated>Sat, 07 Jul 2007 16:46:59 GMT</datecreated>
+			<usercreated>Admin</usercreated>
+			<flags>0</flags>
+			<properties/>
+			<relations/>
+			<accesscontrol/>
+		</file>
+		<file>
+			<destination>system/modules/org.langhua.opencms.identity/classes/org/opencms</destination>
+			<type>folder</type>
+			<uuidstructure>b89f6069-2ca9-11dc-bdb3-0b3e276481d5</uuidstructure>
+			<datelastmodified>Sat, 07 Jul 2007 16:47:17 GMT</datelastmodified>
+			<userlastmodified>Admin</userlastmodified>
+			<datecreated>Sat, 07 Jul 2007 16:47:17 GMT</datecreated>
+			<usercreated>Admin</usercreated>
+			<flags>0</flags>
+			<properties/>
+			<relations/>
+			<accesscontrol/>
+		</file>
+		<file>
+			<destination>system/modules/org.langhua.opencms.identity/classes/org/opencms/db</destination>
+			<type>folder</type>
+			<uuidstructure>c70dae9b-2ca9-11dc-bdb3-0b3e276481d5</uuidstructure>
+			<datelastmodified>Sat, 07 Jul 2007 16:47:41 GMT</datelastmodified>
+			<userlastmodified>Admin</userlastmodified>
+			<datecreated>Sat, 07 Jul 2007 16:47:41 GMT</datecreated>
+			<usercreated>Admin</usercreated>
+			<flags>0</flags>
+			<properties/>
+			<relations/>
+			<accesscontrol/>
+		</file>
+		<file>
+			<source>system/modules/org.langhua.opencms.identity/classes/org/opencms/db/CmsDriverManager$CmsReadChangedProjectResourceMode.class</source>
+			<destination>system/modules/org.langhua.opencms.identity/classes/org/opencms/db/CmsDriverManager$CmsReadChangedProjectResourceMode.class</destination>
+			<type>binary</type>
+			<uuidstructure>e00855e0-2ca9-11dc-bdb3-0b3e276481d5</uuidstructure>
+			<uuidresource>e00855e1-2ca9-11dc-bdb3-0b3e276481d5</uuidresource>
+			<datelastmodified>Tue, 16 Sep 2008 11:32:51 GMT</datelastmodified>
+			<userlastmodified>Admin</userlastmodified>
+			<datecreated>Sat, 07 Jul 2007 16:48:23 GMT</datecreated>
+			<usercreated>Admin</usercreated>
+			<flags>0</flags>
+			<properties/>
+			<relations/>
+			<accesscontrol/>
+		</file>
+		<file>
+			<source>system/modules/org.langhua.opencms.identity/classes/org/opencms/db/CmsDriverManager.class</source>
+			<destination>system/modules/org.langhua.opencms.identity/classes/org/opencms/db/CmsDriverManager.class</destination>
+			<type>binary</type>
+			<uuidstructure>d45f422d-2ca9-11dc-bdb3-0b3e276481d5</uuidstructure>
+			<uuidresource>d45f422e-2ca9-11dc-bdb3-0b3e276481d5</uuidresource>
+			<datelastmodified>Tue, 16 Sep 2008 11:32:51 GMT</datelastmodified>
+			<userlastmodified>Admin</userlastmodified>
+			<datecreated>Sat, 07 Jul 2007 16:48:03 GMT</datecreated>
+			<usercreated>Admin</usercreated>
+			<flags>0</flags>
+			<properties/>
+			<relations/>
+			<accesscontrol/>
+		</file>
+		<file>
+			<destination>system/modules/org.langhua.opencms.identity/classes/org/opencms/workplace</destination>
+			<type>folder</type>
+			<uuidstructure>58960679-6c85-11dd-bf41-00188bce24eb</uuidstructure>
+			<datelastmodified>Sun, 17 Aug 2008 17:53:06 GMT</datelastmodified>
+			<userlastmodified>Admin</userlastmodified>
+			<datecreated>Sun, 17 Aug 2008 17:53:06 GMT</datecreated>
+			<usercreated>Admin</usercreated>
+			<flags>0</flags>
+			<properties/>
+			<relations/>
+			<accesscontrol/>
+		</file>
+		<file>
+			<source>system/modules/org.langhua.opencms.identity/classes/org/opencms/workplace/CmsLogin.class</source>
+			<destination>system/modules/org.langhua.opencms.identity/classes/org/opencms/workplace/CmsLogin.class</destination>
+			<type>binary</type>
+			<uuidstructure>ccb1fe6b-6c85-11dd-bf41-00188bce24eb</uuidstructure>
+			<uuidresource>ccb1fe6c-6c85-11dd-bf41-00188bce24eb</uuidresource>
+			<datelastmodified>Tue, 16 Sep 2008 11:32:49 GMT</datelastmodified>
+			<userlastmodified>Admin</userlastmodified>
+			<datecreated>Sun, 17 Aug 2008 17:56:21 GMT</datecreated>
+			<usercreated>Admin</usercreated>
+			<flags>0</flags>
+			<properties/>
+			<relations/>
+			<accesscontrol/>
+		</file>
+		<file>
+			<destination>system/modules/org.langhua.opencms.identity/lib</destination>
+			<type>folder</type>
+			<uuidstructure>c5c4396d-2a25-11dc-8876-0b3e276481d5</uuidstructure>
+			<datelastmodified>Wed, 04 Jul 2007 11:57:43 GMT</datelastmodified>
+			<userlastmodified>Admin</userlastmodified>
+			<datecreated>Wed, 04 Jul 2007 11:57:43 GMT</datecreated>
+			<usercreated>Admin</usercreated>
+			<flags>0</flags>
+			<properties/>
+			<relations/>
+			<accesscontrol/>
+		</file>
+		<file>
+			<source>system/modules/org.langhua.opencms.identity/lib/jxplorer-zh.jar</source>
+			<destination>system/modules/org.langhua.opencms.identity/lib/jxplorer-zh.jar</destination>
+			<type>binary</type>
+			<uuidstructure>8d955d12-0cba-11de-9303-97b676828a11</uuidstructure>
+			<uuidresource>8d955d13-0cba-11de-9303-97b676828a11</uuidresource>
+			<datelastmodified>Mon, 09 Mar 2009 14:57:14 GMT</datelastmodified>
+			<userlastmodified>Admin</userlastmodified>
+			<datecreated>Mon, 09 Mar 2009 14:57:04 GMT</datecreated>
+			<usercreated>Admin</usercreated>
+			<flags>0</flags>
+			<properties/>
+			<relations/>
+			<accesscontrol/>
+		</file>
+		<file>
+			<source>system/modules/org.langhua.opencms.identity/lib/opencms-identity.jar</source>
+			<destination>system/modules/org.langhua.opencms.identity/lib/opencms-identity.jar</destination>
+			<type>binary</type>
+			<uuidstructure>6d1bb4b7-83e3-11dd-bf41-23acaca5823c</uuidstructure>
+			<uuidresource>6d1bb4b8-83e3-11dd-bf41-23acaca5823c</uuidresource>
+			<datelastmodified>Tue, 16 Sep 2008 11:34:30 GMT</datelastmodified>
+			<userlastmodified>Admin</userlastmodified>
+			<datecreated>Tue, 16 Sep 2008 11:34:30 GMT</datecreated>
+			<usercreated>Admin</usercreated>
+			<flags>0</flags>
+			<properties/>
+			<relations/>
+			<accesscontrol/>
+		</file>
+		<file>
+			<source>system/modules/org.langhua.opencms.identity/lib/cas-client-core.jar</source>
+			<destination>system/modules/org.langhua.opencms.identity/lib/cas-client-core.jar</destination>
+			<type>binary</type>
+			<uuidstructure>a802f4c5-25f3-11de-a050-97b676828a11</uuidstructure>
+			<uuidresource>a802f4c6-25f3-11de-a050-97b676828a11</uuidresource>
+			<datelastmodified>Fri, 10 Apr 2009 17:19:01 GMT</datelastmodified>
+			<userlastmodified>Admin</userlastmodified>
+			<datecreated>Fri, 10 Apr 2009 17:18:49 GMT</datecreated>
+			<usercreated>Admin</usercreated>
+			<flags>0</flags>
+			<properties/>
+			<relations/>
+			<accesscontrol/>
+		</file>
+        <file>
+            <source>system/modules/org.langhua.opencms.identity/lib/cas-server-core.jar</source>
+            <destination>system/modules/org.langhua.opencms.identity/lib/cas-server-core.jar</destination>
+            <type>binary</type>
+            <uuidstructure>f351a296-c202-11de-a289-47308c5a8ee5</uuidstructure>
+            <uuidresource>f351a297-c202-11de-a289-47308c5a8ee5</uuidresource>
+            <datelastmodified>Mon, 26 Oct 2009 07:41:29 GMT</datelastmodified>
+            <userlastmodified>Admin</userlastmodified>
+            <datecreated>Mon, 26 Oct 2009 07:41:19 GMT</datecreated>
+            <usercreated>Admin</usercreated>
+            <flags>0</flags>
+            <properties/>
+            <relations/>
+            <accesscontrol/>
+        </file>
+	</files>
+</export>

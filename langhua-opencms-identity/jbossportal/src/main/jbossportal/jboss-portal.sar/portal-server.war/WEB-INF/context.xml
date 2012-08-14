@@ -1,0 +1,11 @@
+<?xml version="1.0"?>
+<Context>
+    <Valve
+        className="cn.langhua.portal.identity.cas.CasHTTPAuthenticationValve"
+        casLogin="http://localhost/cas/login"
+        casLogout="http://localhost/cas/logout?service=http://localhost/portal/"
+        casValidatePrefix="http://localhost/cas/"
+        casServiceValidate="serviceValidate" casServerName="localhost"
+        authType="FORM" casRenew="false" />
+
+</Context>

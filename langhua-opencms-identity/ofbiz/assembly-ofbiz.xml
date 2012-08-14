@@ -1,0 +1,25 @@
+<assembly>
+	<id>ofbiz-bin</id>
+	<formats>
+		<format>zip</format>
+	</formats>
+	<includeBaseDirectory>false</includeBaseDirectory>
+	<fileSets>
+		<fileSet>
+			<lineEnding>unix</lineEnding>
+			<useDefaultExcludes>true</useDefaultExcludes>
+			<useStrictFiltering>false</useStrictFiltering>
+			<directory>${basedir}/src/main/ofbiz-component</directory>
+			<outputDirectory></outputDirectory>
+			<includes>
+				<include>**/*.xml</include>
+				<include>**/*.txt</include>
+				<include>**/*.dtd</include>
+				<include>**/*.jsp</include>
+				<include>**/*.xsd</include>
+				<include>**/*.jar</include>
+				<include>**/*.properties</include>
+			</includes>
+		</fileSet>
+	</fileSets>
+</assembly>
