@@ -1,0 +1,24 @@
+<xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified">
+	
+	<xsd:include schemaLocation="opencms://opencms-xmlcontent.xsd"/>
+	<xsd:include schemaLocation="opencms://system/modules/org.langhua.opencms.search.pipeline/schemas/narrowcontent.xsd"/>	
+	<xsd:element name="QueryContents" type="OpenCmsQueryContents"/>	
+	<xsd:complexType name="OpenCmsQueryContents">
+		<xsd:sequence>
+			<xsd:element name="QueryContent" type="OpenCmsQueryContent" minOccurs="0" maxOccurs="unbounded"/>
+		</xsd:sequence>
+	</xsd:complexType>
+	<xsd:complexType name="OpenCmsQueryContent">
+		<xsd:sequence>
+		  <xsd:element name="queryname" type="OpenCmsString"/>
+	      <xsd:element name="narrowcontent" type="OpenCmsNarrowContent" minOccurs="0" maxOccurs="unbounded"/>
+		</xsd:sequence>
+		<xsd:attribute name="language" type="OpenCmsLocale" use="optional"/>
+	</xsd:complexType>
+	<xsd:annotation>
+		<xsd:appinfo> 
+                <validationrules/>
+            <resourcebundle name="org.langhua.opencms.search.pipeline.workplace"/>                                          
+		</xsd:appinfo>
+	</xsd:annotation>  
+</xsd:schema>

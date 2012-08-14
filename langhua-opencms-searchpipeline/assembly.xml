@@ -1,0 +1,32 @@
+<assembly>
+    <id>bin</id>
+    <formats>
+        <format>zip</format>
+    </formats>
+    <includeBaseDirectory>false</includeBaseDirectory>
+    <fileSets>
+        <fileSet>
+            <lineEnding>unix</lineEnding>
+            <useDefaultExcludes>true</useDefaultExcludes>
+            <useStrictFiltering>false</useStrictFiltering>
+            <directory>${basedir}/src/main/module</directory>
+            <outputDirectory></outputDirectory>
+            <includes>
+                <include>**/*.xml</include>
+                <include>**/*.xsd</include>
+                <include>**/*.js</include>
+                <include>**/*.properties</include>
+                <include>**/*.jsp</include>
+                <include>**/democonfig</include>
+            </includes>
+        </fileSet>
+    </fileSets>
+    <files>
+        <file>
+            <source>${basedir}/target/search-pipeline-1.0.5.jar</source>
+            <outputDirectory>/system/modules/org.langhua.opencms.search.pipeline/lib</outputDirectory>
+            <destName>search-pipeline-1.0.5.jar</destName>
+            <filtered>false</filtered>
+        </file>
+    </files>
+</assembly>
