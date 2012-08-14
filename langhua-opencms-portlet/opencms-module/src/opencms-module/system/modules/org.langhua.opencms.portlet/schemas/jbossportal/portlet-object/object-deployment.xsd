@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified">
+	<xsd:include schemaLocation="opencms://opencms-xmlcontent.xsd"/>
+	<xsd:include schemaLocation="opencms://system/modules/org.langhua.opencms.portlet/schemas/jbossportal/portlet-object/object-context.xsd"/>
+	<xsd:include schemaLocation="opencms://system/modules/org.langhua.opencms.portlet/schemas/jbossportal/portlet-object/object-portal.xsd"/>
+	<xsd:include schemaLocation="opencms://system/modules/org.langhua.opencms.portlet/schemas/jbossportal/portlet-object/object-page.xsd"/>
+	<xsd:include schemaLocation="opencms://system/modules/org.langhua.opencms.portlet/schemas/jbossportal/portlet-object/object-window.xsd"/>
+        <xsd:element name="ObjectDeployments" type="OpenCmsObjectDeployments"/>
+	<xsd:complexType name="OpenCmsObjectDeployments">
+		<xsd:sequence>
+			<xsd:element name="ObjectDeployment" type="OpenCmsObjectDeployment" minOccurs="0" maxOccurs="unbounded"/>
+		</xsd:sequence>
+	</xsd:complexType>
+
+	<xsd:complexType name="OpenCmsObjectDeployment">
+		<xsd:sequence>
+                        <xsd:element name="parent-ref" type="OpenCmsString" minOccurs="0" />
+			<xsd:element name="if-exists" type="OpenCmsString" minOccurs="0" />
+                        <xsd:element name="context" type="OpenCmsObjectContext" minOccurs="0" />
+                        <xsd:element name="portal" type="OpenCmsObjectPortal" minOccurs="0" />
+                        <xsd:element name="page" type="OpenCmsObjectPage" minOccurs="0" />
+                        <xsd:element name="window" type="OpenCmsObjectWindow" minOccurs="0" />
+		</xsd:sequence>
+		<xsd:attribute name="language" type="OpenCmsLocale" use="optional"/>
+	</xsd:complexType>
+	<xsd:annotation>
+		<xsd:appinfo>
+			<resourcebundle name="org.langhua.opencms.portlet.workplace"/>
+			<layouts>
+				<layout element="if-exists" widget="SelectorWidget" configuration="overwrite:${key.jboss.portlet.object.if-exists.overwrite}|keep*:${key.jboss.portlet.object.if-exists.keep}" />
+			</layouts>
+			<defaults>
+				<default element="parent-ref" value="default.default"/>
+			</defaults>
+		</xsd:appinfo>
+	</xsd:annotation>
+</xsd:schema>

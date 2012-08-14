@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<PortletObjects xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="opencms://system/modules/org.langhua.opencms.portlet/schemas/jbossportal/portlet-object.xsd">
+  <PortletObject language="en">
+    <deployment>
+      <parent-ref><![CDATA[default.default]]></parent-ref>
+      <if-exists><![CDATA[keep]]></if-exists>
+      <window>
+        <window-name><![CDATA[HelloOpenCms2PortletWindow]]></window-name>
+        <instance-ref><![CDATA[HelloOpenCms2PortletInstance]]></instance-ref>
+        <region><![CDATA[center]]></region>
+        <height><![CDATA[1]]></height>
+      </window>
+    </deployment>
+  </PortletObject>
+</PortletObjects>

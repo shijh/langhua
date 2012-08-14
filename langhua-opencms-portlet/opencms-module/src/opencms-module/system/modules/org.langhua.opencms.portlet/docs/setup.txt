@@ -1,0 +1,52 @@
+The target of OpenCms-Portlet module is to make OpenCms as an effective portlet content production platform, especially easily to build portlet war file.
+
+The module in this release works on OpenCms 7.0.3, jboss-portal-2.6.6.GA, JDK 1.6.0.
+
+License:
+OpenCms-Portlet module is in LGPL license.
+
+Functions:
+1. Using the friendly OpenCms XML Editor to edit the whole set of the configuration files for jboss-portal.
+2. XSD and DTD validation during exporting portlet war file.
+
+Usage:
+1. Import the module and restart OpenCms servlet.
+
+2. In Explorer view of OpenCms backoffice, select New -> Extended folder -> JBossPortal and create a portal folder.
+
+3. Edit the xml files under the portal folder.
+
+4. Publish the portal folder.
+
+5. In Online project, in context menu, select Export Portlet War and export a portlet war file to real file system.
+
+6. Copy the war file to jboss portal deploy folder, the portlet will work automatically.
+
+
+How this module work:
+Client        JBoss Portal        OpenCms
+  |------req------>|                 |
+  |          OpenCms Portlet         |
+  |                |------req------->|
+  |                |<-----res--------|
+  |<-----res-------|                 |
+
+
+Bug Feedback:
+If you find any bugs in this module, please feedback to this mail list.
+
+
+Source Code:
+You can download this module and source code from OpenCms-Portlet project in sourceforge.net:
+SVN access:
+http://www.langhua.cn/langhua/modules/portlet/
+username: anon
+password: anon
+
+ViewVC access:
+http://www.langhua.cn/viewvc/modules/portlet/
+
+
+Thanks:
+Thanks Polar Research Institute of China who sponsored the release of this module.
+

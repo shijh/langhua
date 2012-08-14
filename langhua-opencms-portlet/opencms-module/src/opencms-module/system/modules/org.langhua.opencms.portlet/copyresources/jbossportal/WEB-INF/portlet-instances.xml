@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<PortletInstances xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="opencms://system/modules/org.langhua.opencms.portlet/schemas/jbossportal/portlet-instances.xsd">
+  <PortletInstances language="en">
+    <deployment>
+      <if-exists><![CDATA[overwrite]]></if-exists>
+      <instance>
+        <instance-id><![CDATA[HelloOpenCmsPortletInstance]]></instance-id>
+        <portlet-ref><![CDATA[HelloOpenCmsPortlet]]></portlet-ref>
+        <preferences>
+          <preference>
+            <name><![CDATA[url]]></name>
+            <value><![CDATA[http://www.langhua.cn/en/]]></value>
+          </preference>
+        </preferences>
+      </instance>
+    </deployment>
+  </PortletInstances>
+</PortletInstances>

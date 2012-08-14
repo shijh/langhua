@@ -1,0 +1,285 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<!--~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  ~ JBoss, a division of Red Hat                                              ~
+  ~ Copyright 2006, Red Hat Middleware, LLC, and individual                   ~
+  ~ contributors as indicated by the @authors tag. See the                    ~
+  ~ copyright.txt in the distribution for a full listing of                   ~
+  ~ individual contributors.                                                  ~
+  ~                                                                           ~
+  ~ This is free software; you can redistribute it and/or modify it           ~
+  ~ under the terms of the GNU Lesser General Public License as               ~
+  ~ published by the Free Software Foundation; either version 2.1 of          ~
+  ~ the License, or (at your option) any later version.                       ~
+  ~                                                                           ~
+  ~ This software is distributed in the hope that it will be useful,          ~
+  ~ but WITHOUT ANY WARRANTY; without even the implied warranty of            ~
+  ~ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU          ~
+  ~ Lesser General Public License for more details.                           ~
+  ~                                                                           ~
+  ~ You should have received a copy of the GNU Lesser General Public          ~
+  ~ License along with this software; if not, write to the Free               ~
+  ~ Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA        ~
+  ~ 02110-1301 USA, or see the FSF site: http://www.fsf.org.                  ~
+  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~-->
+
+<!-- The additional configuration elements of the JBoss portlet container.
+
+<!DOCTYPE portlet-app PUBLIC
+   "-//JBoss Portal//DTD JBoss Portlet 2.6//EN"
+   "http://www.jboss.org/portal/dtd/jboss-portlet_2_6.dtd">
+-->
+
+<!--
+The remotable element is used to configure the default behavior of the portlets with
+respect to WSRP exposure.
+
+For each portlet defined in portlet.xml, it is possible to configure specific
+settings of the portlet container.
+
+It is also possible to inject services in the portlet context of the application
+using the service elements.
+-->
+<!ELEMENT portlet-app (remotable?,portlet*,service*)>
+
+<!--
+Additional configuration for a portlet.
+
+The portlet-name defines the name of the portlet. It must match a portlet defined already
+in portlet.xml of the same web application.
+
+The remotable element configures the portlet exposure to WSRP. If no value is present
+then the value considered is either the value defined globally at the portlet
+application level or false.
+
+The trans-attribute value specifies the behavior of the portlet when it is invoked at
+runtime with respect to the transactionnal context. According to how the portlet is
+invoked a transaction may exist or not before the portlet is invoked. Usually in the
+local context the portal transaction could be present. By default the value considered is
+ NotSupported which means that the portal transaction will be suspended for the duration
+ of the portlet invocation.
+
+Example:
+
+<portlet>
+   <portlet-name>MyPortlet</portlet-name>
+   <remotable>true</remotable>
+   <trans-attribute>Required</trans-attribute>
+</portlet>
+
+-->
+<!ELEMENT portlet (portlet-name,remotable?,ajax?,session-config?,transaction?,
+          header-content?,portlet-info?)>
+
+<!--
+The portlet name.
+-->
+<!ELEMENT portlet-name (#PCDATA)>
+
+<!--
+The remotable value is used for WSRP exposure. The accepted values are the
+litterals true of false.
+-->
+<!ELEMENT remotable (#PCDATA)>
+
+<!--
+The ajax tag allows to configure the ajax capabilities of the portlet. If
+the portlet is tagged as partial-refresh then the portal may use partial page
+refreshing and render only that portlet. If the portlet partial-refresh value
+is false, then the portal will perform a full page refresh when the portlet is refreshed.
+-->
+<!ELEMENT ajax (partial-refresh)>
+
+<!--
+The authorized values for the partial-refresh element are true or false.
+-->
+<!ELEMENT partial-refresh (#PCDATA)>
+
+<!--
+Additional portlet information
+-->
+<!ELEMENT portlet-info (icon?)>
+
+<!--
+Defines icons for the portlet, they can be used by the administration portlet
+to represent a particular portlet.
+-->
+<!ELEMENT icon (small-icon?, large-icon?)>
+
+<!--
+A small icon image, usually 16x16, gif, jpg and png are usually supported.
+An absolute URL or a URL starting with a '/' in the context of the webapp are accepted:
+eg. http://www.example.com/images/smallIcon.png
+eg. /images/smallIcon.png
+-->
+<!ELEMENT small-icon (#PCDATA)>
+
+<!--
+A large icon image, usually 32x32, gif, jpg and png are usually supported.
+An absolute URL or a URL starting with a '/' in the context of the webapp are accepted:
+eg. http://www.example.com/images/smallIcon.png
+eg. /images/smallIcon.png
+-->
+<!ELEMENT large-icon (#PCDATA)>
+
+<!--
+This element configure the portlet session of the portlet.
+
+The distributed element instructs the container to distribute the session attributes
+using the portal session replication. It applies only to local portlets are not to
+remote portlets. The default value is false.
+
+Example:
+
+<session-config>
+   <distributed>true</distributed>
+</session-config>
+
+-->
+<!ELEMENT session-config (distributed)>
+
+<!--
+The authorized values for the distributed element are true or false.
+-->
+<!ELEMENT distributed (#PCDATA)>
+
+<!--
+Defines how the portlet behaves with the transactionnal context. The default value
+is Never.
+
+Example:
+
+<transaction>
+   <trans-attribute>Required</transaction>
+<transaction>
+-->
+<!ELEMENT transaction (trans-attribute)>
+
+<!--
+The trans-attribute value defines the transactionnal behavior. The accepted values
+are Required, Mandatory, Never, Supports, NotSupported and RequiresNew.
+-->
+<!ELEMENT trans-attribute (#PCDATA)>
+
+<!--
+Specify content which should be included in the portal aggregated page when the portlet
+is present on that page. This setting only applies when the portlet is used in the local mode.
+-->
+<!ELEMENT header-content (link|script|meta)*>
+
+<!--
+Creates a header markup element for linked resources,
+see http://www.w3.org/TR/html401/struct/links.html#h-12.3
+
+At runtime the href attribute value will be prefixed with the context path
+of the web application.
+
+Example:
+
+<link rel="stylesheet" type="text/css" href="/style.css" media="screen"/>
+
+will produce at runtime the following markup
+
+<link rel="stylesheet" type="text/css" href="/my-web-application/style.css" media="screen"/>
+-->
+<!ATTLIST link
+   href CDATA #IMPLIED
+   rel CDATA #IMPLIED
+   type CDATA #IMPLIED
+   media CDATA #IMPLIED
+   title CDATA #IMPLIED>
+
+<!--
+No content is allowed inside an link element.
+-->
+<!ELEMENT link EMPTY>
+
+<!--
+Creates a header markup for scripting,
+see http://www.w3.org/TR/html401/interact/scripts.html
+
+At runtime the src attribute value will be prefixed with the context path
+of the web application.
+
+Example 1:
+
+<script type="text/javascript" src="/myscript.js"></script>
+
+will produce at runtime the following markup
+
+<script type="text/javascript" src="/my-web-application/myscript.js"></script>
+
+Example 2:
+
+<script type="text/javascript">
+	function hello() {
+		alert('Hello');
+	}
+</script>
+-->
+<!ATTLIST script
+   src CDATA #IMPLIED
+   type CDATA #IMPLIED
+   language CDATA #IMPLIED>
+
+<!--
+The script header element can contain inline script definitions.
+-->
+<!ELEMENT script (#PCDATA)>
+
+<!--
+Creates a header markup for adding meta data to a page,
+see http://www.w3.org/TR/html401/struct/global.html#h-7.4.4
+
+Example:
+
+<meta name="keywords" content="jboss, portal, redhat"/>
+-->
+<!ATTLIST meta
+   name CDATA #REQUIRED
+   content CDATA #REQUIRED>
+
+<!--
+No content is allowed for meta element.
+-->
+<!ELEMENT meta EMPTY>
+
+<!--
+Declare a service that will be injected by the portlet container as an
+attribute of the portlet context.
+
+Example:
+
+<service>
+   <service-name>UserModule</service-name>
+   <service-class>org.jboss.portal.identity.UserModule</service-class>
+   <service-ref>:service=Module,type=User</service-ref>
+</service>
+
+In the portlet it is then possible to use it by doing a lookup on the service
+name, for example in the init() lifecycle method :
+
+public void init()
+{
+   UserModule userModule = (UserModule)getPortletContext().getAttribute("UserModule");
+}
+
+-->
+<!ELEMENT service (service-name,service-class,service-ref)>
+
+<!--
+The service name that will be used to bind the service as a portlet context attribute.
+-->
+<!ELEMENT service-name (#PCDATA)>
+
+<!--
+The full qualified name of the interface that the service implements.
+-->
+<!ELEMENT service-class (#PCDATA)>
+
+<!--
+The reference to the service. In the JMX Microkernel environment it consist of the JMX
+name of the service MBean. For an MBean reference if the domain is left out, then the
+current domain of the portal will be used.
+-->
+<!ELEMENT service-ref (#PCDATA)>

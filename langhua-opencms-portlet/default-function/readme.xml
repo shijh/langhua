@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<functions>
+	<function>
+		<file>portlet_editor.jsp</file>
+		<description xml:lang="zh">
+			<![CDATA[添加getIconLarge方法获取大样式图片以方便portlet查找]]>
+		</description>
+		<portlet-configuration xml:lang="zh">
+			<![CDATA[
+				在jbossportal类型文件夹下与WEB-INF同级目录,添加图片库文件夹,在库内上传portlet大小图标
+				配置jboss-portlet.xml文件,添加portlet元素 portlet-name值与portlet-info元素下的small-icon和large-icon值
+				portlet-name值为此portlet的名字
+				small-icon值为小图标路径 填写方法：/{图片库名称}/{小图标名称}
+				large-icon值为大图标路径 填写方法：/{图片库名称}/{大图标名称}
+			]]>
+		</portlet-configuration>
+	</function>
+</functions>

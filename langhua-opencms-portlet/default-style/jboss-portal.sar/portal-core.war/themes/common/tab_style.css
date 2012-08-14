@@ -1,0 +1,72 @@
+div.tab-ui div.no-tab-container{
+   padding: 15px 0 10px 0;
+}
+.tab-ui table {
+   border: 0;
+   border-collapse:collapse;
+}
+div.tab-ui div.tab-container{
+   border-bottom:1px solid #B3C0C7;
+   border-right:1px solid #B3C0C7;
+   border-left:1px solid #B3C0C7;
+   padding: 15px 0 10px 0;
+}
+.tab-ui th {
+   text-align: left;
+   border: 0;
+   padding-bottom: 2px;
+   padding-top: 2px;
+   font-size: 11px;
+}
+.tab-ui td {
+   padding-bottom: 2px;
+   padding-top: 2px;
+}
+.tab-ui ul.pagination {
+   margin: 0;
+   padding: .2em;
+}
+
+.tab-ui ul.pagination li {
+   text-align: center;
+   list-style-type: none;
+   display: inline;
+   margin-right: 2px;
+}
+
+.tab-ui ul.pagination li.selected {
+   font-weight: bold;
+   background-color: #eef;
+   border-bottom: 2px solid #656565;
+}
+
+.pagination a, .pagination a:visited, .pagination a:hover {
+   text-decoration: none;
+}
+/* Top nav. */
+
+.tab-ui ul.topnav {
+   margin: 0;
+   padding: 4px 0px 3px;
+   border-bottom: 1px solid #b3c0c7;
+}
+
+.tab-ui ul.topnav li {
+   list-style-type: none;
+   display: inline;
+   margin: 0;
+   padding: 3px 0.5em;
+   margin-left: 5px;
+   border: 1px solid #b3c0c7;
+   border-bottom: none;
+   background-color: #f2f4f5;
+}
+
+.tab-ui ul.topnav li:hover {
+   background-color: #fff;
+}
+
+.tab-ui ul.topnav li.currentTab {
+   background-color: white;
+   border-bottom: 1px solid white;
+}

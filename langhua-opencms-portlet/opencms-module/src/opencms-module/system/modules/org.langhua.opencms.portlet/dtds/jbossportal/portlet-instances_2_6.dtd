@@ -1,0 +1,173 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<!--~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  ~ JBoss, a division of Red Hat                                              ~
+  ~ Copyright 2006, Red Hat Middleware, LLC, and individual                   ~
+  ~ contributors as indicated by the @authors tag. See the                    ~
+  ~ copyright.txt in the distribution for a full listing of                   ~
+  ~ individual contributors.                                                  ~
+  ~                                                                           ~
+  ~ This is free software; you can redistribute it and/or modify it           ~
+  ~ under the terms of the GNU Lesser General Public License as               ~
+  ~ published by the Free Software Foundation; either version 2.1 of          ~
+  ~ the License, or (at your option) any later version.                       ~
+  ~                                                                           ~
+  ~ This software is distributed in the hope that it will be useful,          ~
+  ~ but WITHOUT ANY WARRANTY; without even the implied warranty of            ~
+  ~ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU          ~
+  ~ Lesser General Public License for more details.                           ~
+  ~                                                                           ~
+  ~ You should have received a copy of the GNU Lesser General Public          ~
+  ~ License along with this software; if not, write to the Free               ~
+  ~ Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA        ~
+  ~ 02110-1301 USA, or see the FSF site: http://www.fsf.org.                  ~
+  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~-->
+
+<!--
+<!DOCTYPE deployments PUBLIC
+   "-//JBoss Portal//DTD Portlet Instances 2.6//EN"
+   "http://www.jboss.org/portal/dtd/portlet-instances_2_6.dtd">
+-->
+
+<!--
+The deployements element is a container for deployment elements.
+-->
+<!ELEMENT deployments (deployment*)>
+
+<!--
+The deployment is a container for an instance element.
+-->
+<!ELEMENT deployment (if-exists?,instance)>
+
+<!--
+The if-exists element is used to define action to take if instance with such name is
+already present. Possible values are overwrite  or keep  . Overwrite  will destroy the
+existing object in the database and create a new one, based on the content of the
+deployment. Keep  will maintain the existing object deployment or create a new one if
+it does not yet exist.
+-->
+<!ELEMENT if-exists (#PCDATA)>
+
+<!--
+The instance element is used to create an instance of a portlet from the portlet
+application of the same war file containing the portlet-instances.xml file. The portlet
+will be created and configured only if the portlet is present and an instance with
+such a name does not already exist.
+
+Example :
+
+<instance>
+   <instance-id>MyPortletInstance</instance-id>
+   <portlet-ref>MyPortlet</portlet-ref>
+   <preferences>
+      <preference>
+         <name>abc</name>
+         <value>def</value>
+      </preference>
+   </preferences>
+   <security-constraint>
+      <policy-permission>
+         <role-name>User</role-name>
+         <action-name>view</action-name>
+      </policy-permission>
+   </security-constraint>
+</instance>
+
+-->
+<!ELEMENT instance (instance-id,portlet-ref,display-name*,preferences?,
+          security-constraint?, (display-name* | (resource-bundle, supported-locale+)))>
+
+
+<!ELEMENT resource-bundle (#PCDATA)>
+
+<!ELEMENT supported-locale (#PCDATA)>
+
+
+<!--
+The identifier of the instance.
+-->
+<!ELEMENT instance-id (#PCDATA)>
+
+<!--
+The reference to the portlet which is its portlet name.
+-->
+<!ELEMENT portlet-ref (#PCDATA)>
+
+<!--
+Display name is the string used to represent this instance
+-->
+<!ELEMENT display-name (#PCDATA)>
+<!ATTLIST display-name
+  xml:lang        NMTOKEN       #IMPLIED
+>
+
+<!--
+The preferences element configures the instance with a specific set of preferences.
+-->
+<!ELEMENT preferences (preference+)>
+
+<!--
+The preference configure one preference of a set of preferences.
+-->
+<!ELEMENT preference (name,value+)>
+
+<!--
+A name.
+-->
+<!ELEMENT name (#PCDATA)>
+
+<!--
+A string value.
+-->
+<!ELEMENT value (#PCDATA)>
+
+<!--
+The security-constraint element is a container for policy-permission elements
+
+Examples:
+
+<security-constraint>
+    <policy-permission>
+       <role-name>User</role-name>
+       <action-name>view</action-name>
+    </policy-permission>
+</security-constraint>
+
+<security-constraint>
+    <policy-permission>
+       <unchecked/>
+       <action-name>view</action-name>
+    </policy-permission>
+</security-constraint>
+-->
+<!ELEMENT security-constraint (policy-permission*)>
+
+<!--
+The policy-permission element is used to secure a specific portlet instance based on a
+user's role.
+-->
+<!ELEMENT policy-permission (action-name*,unchecked?,role-name*)>
+
+<!--
+The action-name element is used to define the access rights given to the role defined.
+Possible values are:
+
+    * view - Users can view the page.
+    * viewrecursive - Users can view the page and child pages.
+    * personalize - Users are able to view AND personalize the page.
+    * personalizerecursive - Users are able to view AND personalize the page AND its child
+      pages.
+-->
+<!ELEMENT action-name (#PCDATA)>
+
+<!--
+The unchecked element is used to define (if present) that anyone can view this instance
+-->
+<!ELEMENT unchecked EMPTY>
+
+<!--
+The role-name element is used to define a role that this security constraint will apply to
+
+    * <role-name>SOMEROLE</role-name> Access to this instance is limited to the defined role.
+-->
+<!ELEMENT role-name (#PCDATA)>

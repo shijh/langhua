@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified">
+	<xsd:include schemaLocation="opencms://opencms-xmlcontent.xsd"/>
+	<xsd:include schemaLocation="opencms://system/modules/org.langhua.opencms.portlet/schemas/jbossportal/portlet-object/object-window-content.xsd"/>
+	<xsd:include schemaLocation="opencms://system/modules/org.langhua.opencms.portlet/schemas/jbossportal/common/common-property.xsd"/>
+        <xsd:element name="ObjectWindows" type="OpenCmsObjectWindows"/>
+	<xsd:complexType name="OpenCmsObjectWindows">
+		<xsd:sequence>
+			<xsd:element name="ObjectWindow" type="OpenCmsObjectWindow" minOccurs="0" maxOccurs="unbounded"/>
+		</xsd:sequence>
+	</xsd:complexType>
+
+	<xsd:complexType name="OpenCmsObjectWindow">
+		<xsd:sequence>
+			<xsd:element name="window-name" type="OpenCmsString" />
+			<xsd:element name="instance-ref" type="OpenCmsString" minOccurs="0" />
+                        <xsd:element name="content" type="OpenCmsObjectWindowContent" minOccurs="0" />
+                        <xsd:element name="region" type="OpenCmsString" />
+                        <xsd:element name="height" type="OpenCmsString" default="1" />
+                        <xsd:element name="initial-window-state" type="OpenCmsString" minOccurs="0" />
+                        <xsd:element name="initial-mode" type="OpenCmsString" minOccurs="0" />
+                        <xsd:element name="properties" type="OpenCmsCommonProperty" minOccurs="0" />
+                        <xsd:element name="listener" type="OpenCmsString" minOccurs="0" />
+                        <xsd:element name="display-name" type="OpenCmsString" minOccurs="0" maxOccurs="unbounded" />
+                        <xsd:element name="resource-bundle" type="OpenCmsString" minOccurs="0" />
+                        <xsd:element name="supported-locale" type="OpenCmsString" minOccurs="0" maxOccurs="unbounded" />
+		</xsd:sequence>
+		<xsd:attribute name="language" type="OpenCmsLocale" use="optional"/>
+	</xsd:complexType>
+	<xsd:annotation>
+		<xsd:appinfo>
+			<resourcebundle name="org.langhua.opencms.portlet.workplace"/>
+			<layouts>
+				<layout element="region" widget="SelectorWidget" configuration="left*:${key.jboss.portlet.object.window.region.left}
+                                      |center:${key.jboss.portlet.object.window.region.center}
+                                      |right:${key.jboss.portlet.object.window.region.right}
+                                      |top:${key.jboss.portlet.object.window.region.top}" />
+				<layout element="initial-window-state" widget="SelectorWidget" configuration="normal*:${key.jboss.portlet.object.window.state.normal}
+                                      |minimized:${key.jboss.portlet.object.window.state.minimized}
+                                      |maximized:${key.jboss.portlet.object.window.state.maximized}" />
+				<layout element="initial-mode" widget="SelectorWidget" configuration="view*:${key.jboss.portlet.object.supported.mode.view}
+                                      |edit:${key.jboss.portlet.object.supported.mode.edit}
+                                      |help:${key.jboss.portlet.object.supported.mode.help}
+                                      |content:${key.jboss.portlet.object.supported.mode.content}" />
+			</layouts>
+			<validationrules>
+                                <rule element="height" regex="^[1-9]$|^[1-9][0-9]+$" message="${key.editor.errormessage.jboss.portal.object.window.height.mustbenumber}" />
+			</validationrules>
+		</xsd:appinfo>
+	</xsd:annotation>
+</xsd:schema>

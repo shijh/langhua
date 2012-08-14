@@ -1,0 +1,25 @@
+<xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified">	
+	<xsd:include schemaLocation="opencms://opencms-xmlcontent.xsd"/>
+	<xsd:include schemaLocation="opencms://system/modules/org.langhua.opencms.portlet/schemas/jbossportal/portlet-instances/instance-instance.xsd"/>
+	<xsd:element name="InstanceDeployments" type="OpenCmsInstanceDeployments"/>
+	<xsd:complexType name="OpenCmsInstanceDeployments">
+		<xsd:sequence>
+			<xsd:element name="InstanceDeployment" type="OpenCmsInstanceDeployment" minOccurs="0" maxOccurs="unbounded"/>
+		</xsd:sequence>
+	</xsd:complexType>
+	<xsd:complexType name="OpenCmsInstanceDeployment">
+		<xsd:sequence>
+			<xsd:element name="if-exists" type="OpenCmsString" minOccurs="0" />
+			<xsd:element name="instance" type="OpenCmsInstanceInstance" />
+		</xsd:sequence>
+		<xsd:attribute name="language" type="OpenCmsLocale" use="optional"/>
+	</xsd:complexType>
+	<xsd:annotation>
+		<xsd:appinfo>
+			<resourcebundle name="org.langhua.opencms.portlet.workplace"/>                                             			
+			<layouts>
+				<layout element="if-exists" widget="SelectorWidget" configuration="overwrite:${key.jboss.portlet.object.if-exists.overwrite}|keep*:${key.jboss.portlet.object.if-exists.keep}" />
+			</layouts>
+		</xsd:appinfo>
+	</xsd:annotation>  
+</xsd:schema>

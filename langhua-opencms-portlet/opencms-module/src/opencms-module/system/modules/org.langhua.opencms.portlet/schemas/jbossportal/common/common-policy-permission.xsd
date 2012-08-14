@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified">
+	<xsd:include schemaLocation="opencms://opencms-xmlcontent.xsd"/>
+        <xsd:element name="CommonPolicyPermissions" type="OpenCmsCommonPolicyPermissions"/>
+	<xsd:complexType name="OpenCmsCommonPolicyPermissions">
+		<xsd:sequence>
+			<xsd:element name="CommonPolicyPermission" type="OpenCmsCommonPolicyPermission" minOccurs="0" maxOccurs="unbounded"/>
+		</xsd:sequence>
+	</xsd:complexType>
+
+	<xsd:complexType name="OpenCmsCommonPolicyPermission">
+		<xsd:sequence>
+                        <xsd:element name="role-name" type="OpenCmsString" minOccurs="0" />
+                        <xsd:element name="unchecked" type="OpenCmsBoolean" minOccurs="0" />
+                        <xsd:element name="action-name" type="OpenCmsString" />
+		</xsd:sequence>
+		<xsd:attribute name="language" type="OpenCmsLocale" use="optional"/>
+	</xsd:complexType>
+	<xsd:annotation>
+		<xsd:appinfo>
+			<resourcebundle name="org.langhua.opencms.portlet.workplace"/>
+			<layouts>
+				<layout element="action-name" widget="SelectorWidget" configuration="view*:${key.jboss.portlet.object.securtiy.constraint.action-name.view}
+                                         |viewrecursive:${key.jboss.portlet.object.securtiy.constraint.action-name.viewrecursive}
+                                         |personalize:${key.jboss.portlet.object.securtiy.constraint.action-name.personalize}
+                                         |personalizerecursive:${key.jboss.portlet.object.securtiy.constraint.action-name.personalizerecursive}" />
+			</layouts>
+		</xsd:appinfo>
+	</xsd:annotation>
+</xsd:schema>

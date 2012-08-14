@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified">
+	<xsd:include schemaLocation="opencms://opencms-xmlcontent.xsd"/>	
+	<xsd:include schemaLocation="opencms://system/modules/org.langhua.opencms.portlet/schemas/portletType/portlet-type-more.xsd"/>
+	<xsd:element name="PortletContents" type="OpenCmsPortletContents"/>	
+	<xsd:complexType name="OpenCmsPortletContents">
+		<xsd:sequence>
+			<xsd:element name="PortletContent" type="OpenCmsPortletContent" minOccurs="0" maxOccurs="unbounded"/>
+		</xsd:sequence>
+	</xsd:complexType>
+	<xsd:complexType name="OpenCmsPortletContent">
+		<xsd:sequence>
+			<xsd:element name="newsUrl" type="OpenCmsVfsFile" />
+		 	<xsd:element name="number" type="OpenCmsString"/>
+			<xsd:element name="isNews" type="OpenCmsBoolean"  default="true"/>
+			<xsd:element name="isXmlpage" type="OpenCmsBoolean"  default="false"/>
+			<xsd:element name="isPointer" type="OpenCmsBoolean"  default="false"/>
+			<xsd:element name="isSortByTime" type="OpenCmsBoolean"  default="true"/>
+			<xsd:element name="isSortByName" type="OpenCmsBoolean"  default="false"/>
+			<xsd:element name="isShowTime" type="OpenCmsBoolean"  default="true"/>
+			<xsd:element name="pageTarget" type="OpenCmsString" />
+			<xsd:element name="timeFormat" type="OpenCmsString" minOccurs="0"/>
+			<xsd:element name="className" type="OpenCmsString" minOccurs="0"/>
+			<xsd:element name="portlet-more" type="OpenCmsPortletTypeMore" minOccurs="0" />
+		</xsd:sequence>
+		<xsd:attribute name="language" type="OpenCmsLocale" use="required"/>
+	</xsd:complexType>
+	<xsd:annotation>
+		<xsd:appinfo>
+		<resourcebundle name="org.langhua.opencms.portlet.workplace"/>
+		<layouts>
+		<layout element="pageTarget" widget="SelectorWidget" configuration="blank*:${key.jboss.portlet.type.pageTarget.blank}
+                                      |self:${key.jboss.portlet.type.pageTarget.self}
+                                      |top:${key.jboss.portlet.type.pageTarget.top}
+				      				  |parent:${key.jboss.portlet.type.pageTarget.parent}" />			
+		</layouts>
+		</xsd:appinfo>
+	</xsd:annotation>  
+</xsd:schema>

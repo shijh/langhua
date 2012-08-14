@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified">
+	<xsd:include schemaLocation="opencms://opencms-xmlcontent.xsd"/>
+        <xsd:include schemaLocation="opencms://system/modules/org.langhua.opencms.portlet/schemas/jbossportal/jboss-portlet/portlet-link.xsd"/>
+        <xsd:include schemaLocation="opencms://system/modules/org.langhua.opencms.portlet/schemas/jbossportal/jboss-portlet/portlet-script.xsd"/>
+        <xsd:include schemaLocation="opencms://system/modules/org.langhua.opencms.portlet/schemas/jbossportal/jboss-portlet/portlet-meta.xsd"/>
+        <xsd:element name="PortletHeaderContents" type="OpenCmsPortletHeaderContents"/>
+	<xsd:complexType name="OpenCmsPortletHeaderContents">
+		<xsd:sequence>
+			<xsd:element name="PortletHeaderContent" type="OpenCmsPortletHeaderContent" minOccurs="0" maxOccurs="unbounded"/>
+		</xsd:sequence>
+	</xsd:complexType>
+
+	<xsd:complexType name="OpenCmsPortletHeaderContent">
+		<xsd:sequence>
+			<xsd:element name="link" type="OpenCmsPortletLink" minOccurs="0" maxOccurs="0" />
+                        <xsd:element name="script" type="OpenCmsPortletScript" minOccurs="0" maxOccurs="unbounded" />
+                        <xsd:element name="meta" type="OpenCmsPortletMeta" minOccurs="0"  maxOccurs="0" />
+		</xsd:sequence>
+		<xsd:attribute name="language" type="OpenCmsLocale" use="optional"/>
+	</xsd:complexType>
+	<xsd:annotation>
+		<xsd:appinfo>
+			<resourcebundle name="org.langhua.opencms.portlet.workplace"/>
+		</xsd:appinfo>
+	</xsd:annotation>  
+</xsd:schema>

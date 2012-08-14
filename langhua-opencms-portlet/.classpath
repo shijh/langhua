@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<classpath>
+	<classpathentry kind="src" path="module-core/src/test/java"/>
+	<classpathentry kind="src" path="portlets-jsr286/src/main/java"/>
+	<classpathentry kind="src" path="portlets/src/test/java"/>
+	<classpathentry kind="src" path="opencms-module/src/main/java"/>
+	<classpathentry kind="src" path="opencms-module/src/test/java"/>
+	<classpathentry kind="src" path="portlets-jsr286/src/test/java"/>
+	<classpathentry kind="src" path="portlets/src/main/java"/>
+	<classpathentry kind="src" path="module-core/src/main/java"/>
+	<classpathentry kind="con" path="org.eclipse.iam.jdt.core.mavenClasspathContainer"/>
+	<classpathentry kind="con" path="org.devzuz.q.maven.jdt.core.mavenClasspathContainer"/>
+	<classpathentry kind="con" path="org.eclipse.jdt.junit.JUNIT_CONTAINER/3"/>
+	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
+	<classpathentry kind="output" path="target/classes"/>
+</classpath>

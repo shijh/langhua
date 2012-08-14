@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified">
+	<xsd:include schemaLocation="opencms://opencms-xmlcontent.xsd"/>
+        <xsd:element name="ObjectSupportedModes" type="OpenCmsObjectSupportedModes"/>
+	<xsd:complexType name="OpenCmsObjectSupportedModes">
+		<xsd:sequence>
+			<xsd:element name="ObjectSupportedMode" type="OpenCmsObjectSupportedMode" minOccurs="0" maxOccurs="unbounded"/>
+		</xsd:sequence>
+	</xsd:complexType>
+
+	<xsd:complexType name="OpenCmsObjectSupportedMode">
+		<xsd:sequence>
+                        <xsd:element name="mode" type="OpenCmsString" maxOccurs="unbounded" />
+		</xsd:sequence>
+		<xsd:attribute name="language" type="OpenCmsLocale" use="optional"/>
+	</xsd:complexType>
+	<xsd:annotation>
+		<xsd:appinfo>
+			<resourcebundle name="org.langhua.opencms.portlet.workplace"/>
+			<layouts>
+				<layout element="mode" widget="SelectorWidget" configuration="view*:${key.jboss.portlet.object.supported.mode.view}
+                                      |edit:${key.jboss.portlet.object.supported.mode.edit}
+                                      |help:${key.jboss.portlet.object.supported.mode.help}
+                                      |content:${key.jboss.portlet.object.supported.mode.content}" />
+			</layouts>
+		</xsd:appinfo>
+	</xsd:annotation>
+</xsd:schema>

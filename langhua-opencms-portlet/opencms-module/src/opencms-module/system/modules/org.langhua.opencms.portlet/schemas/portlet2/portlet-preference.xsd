@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified">
+	<xsd:include schemaLocation="opencms://opencms-xmlcontent.xsd"/>
+        <xsd:include schemaLocation="opencms://system/modules/org.langhua.opencms.portlet/schemas/portlet2/portlet-preference-detail.xsd"/>
+        <xsd:element name="PortletPreferences" type="OpenCmsPortletPreferences"/>
+	<xsd:complexType name="OpenCmsPortletPreferences">
+		<xsd:sequence>
+			<xsd:element name="PortletPreference" type="OpenCmsPortletPreference" minOccurs="0" maxOccurs="unbounded"/>
+		</xsd:sequence>
+	</xsd:complexType>
+
+	<xsd:complexType name="OpenCmsPortletPreference">
+		<xsd:sequence>
+			<xsd:element name="preference" type="OpenCmsPortletPreferenceDetail" minOccurs="0" maxOccurs="unbounded" />
+			<xsd:element name="preferences-validator" type="OpenCmsString" minOccurs="0" />
+		</xsd:sequence>
+		<xsd:attribute name="language" type="OpenCmsLocale" use="optional"/>
+	</xsd:complexType>
+	<xsd:annotation>
+		<xsd:appinfo>
+			<resourcebundle name="org.langhua.opencms.portlet.workplace"/>
+		</xsd:appinfo>
+	</xsd:annotation>  
+</xsd:schema>

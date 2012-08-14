@@ -1,0 +1,122 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<!--~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  ~ JBoss, a division of Red Hat                                              ~
+  ~ Copyright 2006, Red Hat Middleware, LLC, and individual                   ~
+  ~ contributors as indicated by the @authors tag. See the                    ~
+  ~ copyright.txt in the distribution for a full listing of                   ~
+  ~ individual contributors.                                                  ~
+  ~                                                                           ~
+  ~ This is free software; you can redistribute it and/or modify it           ~
+  ~ under the terms of the GNU Lesser General Public License as               ~
+  ~ published by the Free Software Foundation; either version 2.1 of          ~
+  ~ the License, or (at your option) any later version.                       ~
+  ~                                                                           ~
+  ~ This software is distributed in the hope that it will be useful,          ~
+  ~ but WITHOUT ANY WARRANTY; without even the implied warranty of            ~
+  ~ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU          ~
+  ~ Lesser General Public License for more details.                           ~
+  ~                                                                           ~
+  ~ You should have received a copy of the GNU Lesser General Public          ~
+  ~ License along with this software; if not, write to the Free               ~
+  ~ Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA        ~
+  ~ 02110-1301 USA, or see the FSF site: http://www.fsf.org.                  ~
+  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~-->
+
+<!--
+<!DOCTYPE profile PUBLIC
+   "-//JBoss Portal//DTD JBoss User Profile Configuration 1.0//EN"
+   "http://www.jboss.org/portal/dtd/profile-config_2_6.dtd">
+-->
+
+
+<!--<profile>
+   --><!--Database mapping - jbp_user table column mapping--><!--
+   <property>
+      <name>portal.user.name.given</name>
+      <type>java.lang.String</type>
+      <access-mode>read-write</access-mode>
+      <usage>mandatory</usage>
+      <display-name xml:lang="en">Name</display-name>
+      <description xml:lang="en">The user name</description>
+      <mapping>
+         <database>
+            <type>column</type>
+            <value>jbp_username</value>
+         </database>
+      </mapping>
+   </property>-->
+
+<!--
+.
+-->
+<!ELEMENT profile (property+) >
+
+<!--
+.
+-->
+<!ELEMENT property (name, type, access-mode, usage, display-name, description, mapping) >
+
+<!--
+.
+-->
+<!ELEMENT name (#PCDATA) >
+
+<!--
+.
+-->
+<!ELEMENT type (#PCDATA)>
+
+<!--
+.
+-->
+<!ELEMENT access-mode (#PCDATA) >
+
+<!--
+.
+-->
+<!ELEMENT usage (#PCDATA) >
+
+<!--
+.
+-->
+<!ELEMENT display-name (#PCDATA) >
+
+<!ATTLIST display-name
+          xml:lang CDATA #IMPLIED>
+
+<!--
+.
+-->
+<!ELEMENT description (#PCDATA) >
+
+<!ATTLIST description
+          xml:lang CDATA #IMPLIED>
+<!--
+.
+-->
+<!ELEMENT mapping (database?, ldap?) >
+
+<!--
+.
+-->
+<!ELEMENT database (type, value) >
+
+<!--
+.
+-->
+<!--<!ELEMENT type (#PCDATA) >-->
+
+<!--
+.
+-->
+<!ELEMENT value (#PCDATA) >
+
+<!--
+.
+-->
+<!ELEMENT ldap (value) >
+
+
+
+

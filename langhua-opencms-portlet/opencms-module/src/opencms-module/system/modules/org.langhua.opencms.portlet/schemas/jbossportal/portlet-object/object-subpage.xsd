@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified">
+	<xsd:include schemaLocation="opencms://opencms-xmlcontent.xsd"/>
+	<xsd:include schemaLocation="opencms://system/modules/org.langhua.opencms.portlet/schemas/jbossportal/portlet-object/object-window.xsd"/>
+	<xsd:include schemaLocation="opencms://system/modules/org.langhua.opencms.portlet/schemas/jbossportal/common/common-security-constraint.xsd"/>
+        <xsd:element name="ObjectSubPages" type="OpenCmsObjectSubPages"/>
+	<xsd:complexType name="OpenCmsObjectSubPages">
+		<xsd:sequence>
+			<xsd:element name="ObjectSubPage" type="OpenCmsObjectSubPage" minOccurs="0" maxOccurs="unbounded"/>
+		</xsd:sequence>
+	</xsd:complexType>
+
+	<xsd:complexType name="OpenCmsObjectSubPage">
+		<xsd:sequence>
+			<xsd:element name="page-name" type="OpenCmsString" />
+                        <xsd:element name="properties" type="OpenCmsString" minOccurs="0" />
+                        <xsd:element name="listener" type="OpenCmsString" minOccurs="0" />
+                        <xsd:element name="security-constraint" type="OpenCmsCommonSecurityConstraint" minOccurs="0" maxOccurs="unbounded"/>
+                        <xsd:element name="window" type="OpenCmsObjectWindow" minOccurs="0" />
+                        <xsd:element name="display-name" type="OpenCmsString" minOccurs="0" />
+                        <xsd:element name="resource-bundle" type="OpenCmsString" minOccurs="0" />
+                        <xsd:element name="supported-locale" type="OpenCmsString" minOccurs="0" maxOccurs="unbounded" />
+		</xsd:sequence>
+		<xsd:attribute name="language" type="OpenCmsLocale" use="optional"/>
+	</xsd:complexType>
+	<xsd:annotation>
+		<xsd:appinfo>
+			<resourcebundle name="org.langhua.opencms.portlet.workplace"/>
+			<validationrules/>
+		</xsd:appinfo>
+	</xsd:annotation>
+</xsd:schema>

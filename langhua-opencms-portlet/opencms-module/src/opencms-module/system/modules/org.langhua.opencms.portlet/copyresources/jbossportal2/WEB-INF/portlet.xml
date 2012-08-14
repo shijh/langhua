@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<PortletApps xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="opencms://system/modules/org.langhua.opencms.portlet/schemas/portlet2.xsd">
+  <PortletApp language="en">
+    <portlet>
+      <portlet-name><![CDATA[HelloOpenCms2Portlet]]></portlet-name>
+      <portlet-class><![CDATA[org.langhua.opencms.portal.portlet.jsr286.PortalTag]]></portlet-class>
+      <supports>
+        <mime-type><![CDATA[text/html]]></mime-type>
+        <portlet-mode><![CDATA[view]]></portlet-mode>
+        <portlet-mode><![CDATA[help]]></portlet-mode>
+      </supports>
+      <supported-locale><![CDATA[en]]></supported-locale>
+      <supported-locale><![CDATA[zh]]></supported-locale>
+      <resource-bundle><![CDATA[workplace]]></resource-bundle>
+      <portlet-info>
+        <title><![CDATA[Hello OpenCms User 2]]></title>
+      </portlet-info>
+    </portlet>
+    <filter>
+      <filter-name><![CDATA[JBossPortletFilter]]></filter-name>
+      <filter-class><![CDATA[org.jboss.portlet.filter.JBossPortletFilter]]></filter-class>
+      <lifecycle><![CDATA[ACTION_PHASE]]></lifecycle>
+      <lifecycle><![CDATA[RENDER_PHASE]]></lifecycle>
+    </filter>
+    <filter-mapping>
+      <filter-name><![CDATA[JBossPortletFilter]]></filter-name>
+      <portlet-name><![CDATA[HelloOpenCms2Portlet]]></portlet-name>
+    </filter-mapping>
+  </PortletApp>
+</PortletApps>

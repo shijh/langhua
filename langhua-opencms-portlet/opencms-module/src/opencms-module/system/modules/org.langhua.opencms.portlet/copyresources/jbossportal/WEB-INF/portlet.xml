@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<PortletApps xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="opencms://system/modules/org.langhua.opencms.portlet/schemas/portlet.xsd">
+  <PortletApp language="en">
+    <portlet>
+      <portlet-name><![CDATA[HelloOpenCmsPortlet]]></portlet-name>
+      <portlet-class><![CDATA[org.langhua.opencms.portal.PortalTag]]></portlet-class>
+      <supports>
+        <mime-type><![CDATA[text/html]]></mime-type>
+        <portlet-mode><![CDATA[view]]></portlet-mode>
+        <portlet-mode><![CDATA[help]]></portlet-mode>
+      </supports>
+      <supported-locale><![CDATA[en]]></supported-locale>
+      <supported-locale><![CDATA[zh]]></supported-locale>
+      <resource-bundle><![CDATA[workplace]]></resource-bundle>
+      <portlet-info>
+        <title><![CDATA[Hello OpenCms User]]></title>
+      </portlet-info>
+    </portlet>
+  </PortletApp>
+</PortletApps>

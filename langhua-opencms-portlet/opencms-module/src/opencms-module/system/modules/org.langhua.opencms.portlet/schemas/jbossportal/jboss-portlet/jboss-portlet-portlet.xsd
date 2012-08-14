@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified">
+	<xsd:include schemaLocation="opencms://opencms-xmlcontent.xsd"/>
+        <xsd:include schemaLocation="opencms://system/modules/org.langhua.opencms.portlet/schemas/jbossportal/jboss-portlet/portlet-header-content.xsd"/>
+        <xsd:include schemaLocation="opencms://system/modules/org.langhua.opencms.portlet/schemas/jbossportal/jboss-portlet/portlet-icon.xsd"/>
+        <xsd:include schemaLocation="opencms://system/modules/org.langhua.opencms.portlet/schemas/jbossportal/jboss-portlet/portlet-session-config.xsd"/>
+        <xsd:include schemaLocation="opencms://system/modules/org.langhua.opencms.portlet/schemas/jbossportal/jboss-portlet/portlet-ajax.xsd"/>
+        <xsd:include schemaLocation="opencms://system/modules/org.langhua.opencms.portlet/schemas/jbossportal/jboss-portlet/portlet-transaction.xsd"/>
+        <xsd:element name="Portlets" type="OpenCmsPortlets"/>
+	<xsd:complexType name="OpenCmsPortlets">
+		<xsd:sequence>
+			<xsd:element name="Portlet" type="OpenCmsPortlet" minOccurs="0" maxOccurs="unbounded"/>
+		</xsd:sequence>
+	</xsd:complexType>
+
+	<xsd:complexType name="OpenCmsPortlet">
+		<xsd:sequence>
+			<xsd:element name="portlet-name" type="OpenCmsString" />
+			<xsd:element name="remotable" type="OpenCmsBoolean" minOccurs="0" />
+                        <xsd:element name="ajax" type="OpenCmsPortletAjax" minOccurs="0" />
+                        <xsd:element name="session-config" type="OpenCmsPortletSessionConfig" minOccurs="0" />
+                        <xsd:element name="transaction" type="OpenCmsPortletTransaction" minOccurs="0" />
+                        <xsd:element name="header-content" type="OpenCmsPortletHeaderContent" minOccurs="0" />
+                        <xsd:element name="portlet-info" type="OpenCmsPortletIcon" minOccurs="0" />
+		</xsd:sequence>
+		<xsd:attribute name="language" type="OpenCmsLocale" use="optional"/>
+	</xsd:complexType>
+	<xsd:annotation>
+		<xsd:appinfo>
+			<resourcebundle name="org.langhua.opencms.portlet.workplace"/>
+		</xsd:appinfo>
+	</xsd:annotation>  
+</xsd:schema>

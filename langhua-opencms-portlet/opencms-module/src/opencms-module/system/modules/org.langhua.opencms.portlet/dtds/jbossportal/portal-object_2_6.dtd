@@ -1,0 +1,330 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<!--~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  ~ JBoss, a division of Red Hat                                              ~
+  ~ Copyright 2006, Red Hat Middleware, LLC, and individual                   ~
+  ~ contributors as indicated by the @authors tag. See the                    ~
+  ~ copyright.txt in the distribution for a full listing of                   ~
+  ~ individual contributors.                                                  ~
+  ~                                                                           ~
+  ~ This is free software; you can redistribute it and/or modify it           ~
+  ~ under the terms of the GNU Lesser General Public License as               ~
+  ~ published by the Free Software Foundation; either version 2.1 of          ~
+  ~ the License, or (at your option) any later version.                       ~
+  ~                                                                           ~
+  ~ This software is distributed in the hope that it will be useful,          ~
+  ~ but WITHOUT ANY WARRANTY; without even the implied warranty of            ~
+  ~ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU          ~
+  ~ Lesser General Public License for more details.                           ~
+  ~                                                                           ~
+  ~ You should have received a copy of the GNU Lesser General Public          ~
+  ~ License along with this software; if not, write to the Free               ~
+  ~ Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA        ~
+  ~ 02110-1301 USA, or see the FSF site: http://www.fsf.org.                  ~
+  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~-->
+
+<!--
+<!DOCTYPE deployments PUBLIC
+   "-//JBoss Portal//DTD Portal Object 2.6//EN"
+   "http://www.jboss.org/portal/dtd/portal-object_2_6.dtd">
+-->
+
+<!--
+The deployements element is a generic container for deployment elements.
+-->
+<!ELEMENT deployments (deployment*)>
+
+<!--
+The deployment is a generic container for portal object elements. The parent-ref
+child gives the name of the parent object that the current object will use as parent.
+The optional if-exists element define the behavior when a portal object which
+an identical name is already child of the parent element. The default behavior of
+the if-exist tag is to keep the existing object and not create a new object. The
+last element is the portal object itself.
+
+Example:
+
+<deployment>
+   <parent-ref>default</parent-ref>
+   <page>
+      ...
+   </page>
+</deployment>
+
+All portal objects have a common configuration which can be :
+
+1/ a listener : specifies the id of a listener is the listener registry. A listener
+object is able to listen portal events which apply to the portal node hierarchy.
+
+2/ properties : a set of generic properties owned by the portal object. Some
+properties can drive the behavior of the object.
+
+3/ security-constraint : defines security configuration of the portal object.
+
+-->
+<!ELEMENT deployment (parent-ref?,if-exists?,(context|portal|page|window))>
+
+<!--
+Contains a reference to the parent object. The naming convention for naming object
+is to concatenate the names of the path to the object and separate the names by a dot.
+If the path is empty then the empty string must be used.
+
+Example:
+
+<parent-ref/> the root having an empty path
+
+<parent-ref>default</parent-ref> the object with the name default under the root
+having the path (default)
+
+<parent-ref>default.default</parent-ref> the object with the path (default,default)
+
+-->
+<!ELEMENT parent-ref (#PCDATA)>
+
+<!--
+The authorized values are overwrite and keep. Overwrite means that the existing
+object will be destroyed and the current declaration will be used. Keep means that
+the existing object will not be destroyed and no creation hence will be done.
+-->
+<!ELEMENT if-exists (#PCDATA)>
+
+<!--
+A portal object of type context. A context type represent a node in the tree which
+does not have a visual representation. It can exist only under the root. A context can
+only have children with the portal type.
+-->
+<!ELEMENT context (context-name,properties?,listener?,security-constraint?,portal*,
+          (display-name* | (resource-bundle, supported-locale+)))>
+
+<!--
+The context name value.
+-->
+<!ELEMENT context-name (#PCDATA)>
+
+<!--
+A portal object of type portal. A portal type represents a virtual portal and can
+have children of type page. In addition of the common portal object elements it support
+also the declaration of the modes and the window states it supports. If no declaration
+of modes or window states is done then the default value will be respectively
+(view,edit,help) and (normal,minimized,maximized).
+-->
+<!ELEMENT portal (portal-name,supported-modes,supported-window-states?,properties?,
+                  listener?,security-constraint?,page*, 
+                  (display-name* | (resource-bundle, supported-locale+)))>
+
+<!--
+The portal name value.
+-->
+<!ELEMENT portal-name (#PCDATA)>
+
+
+<!--
+The supported modes of a portal.
+
+Example:
+
+<supported-mode>
+   <mode>view</mode>
+   <mode>edit</mode>
+   <mode>help</mode>
+</supported-mode>
+-->
+<!ELEMENT supported-modes (mode*)>
+
+<!--
+A portlet mode value.
+-->
+<!ELEMENT mode (#PCDATA)>
+
+<!--
+The supported window states of a portal.
+
+Example:
+
+<supported-window-states>
+   <window-state>normal</window-state>
+   <window-state>minimized</window-state>
+   <window-state>maximized</window-state>
+</supported-window-states>
+
+-->
+<!ELEMENT supported-window-states (window-state*)>
+
+<!--
+A window state value.
+-->
+<!ELEMENT window-state (#PCDATA)>
+
+<!--
+A portal object of type page. A page type represents a page which can have children of
+type page and window. The children windows are the windows of the page and the children
+pages are the subpages of this page.
+-->
+<!ELEMENT page (page-name,properties?,listener?,security-constraint?,(page|window)*,
+          (display-name* | (resource-bundle, supported-locale+)))>
+
+<!ELEMENT display-name (#PCDATA)>
+<!ATTLIST display-name
+  xml:lang        NMTOKEN       #IMPLIED
+>
+
+<!ELEMENT resource-bundle (#PCDATA)>
+
+<!ELEMENT supported-locale (#PCDATA)>
+
+<!--
+The page name value.
+-->
+<!ELEMENT page-name (#PCDATA)>
+
+<!--
+A portal object of type window. A window type represents a window. Beside the common
+properties a window has a content and belong to a region on the page.
+
+The instance-ref or content tags are used to define the content of the window. The
+usage of the content tag is generic and can be used to describe any kind of content.
+The instance-ref is a shortcut to define a content type of portlet which points to a
+portlet instance.
+
+The region and height defines how the window is placed in the page.
+-->
+<!ELEMENT window (window-name,(instance-ref|content),region,height,
+          initial-window-state?,initial-mode?,properties?,listener?,
+          (display-name* | (resource-bundle, supported-locale+)))>
+
+<!--
+The window name value.
+-->
+<!ELEMENT window-name (#PCDATA)>
+
+<!--
+Define the content of the window as a reference to a portlet instance. The value
+is the id of the instance.
+
+Example:
+
+<instance-ref>MyPortletInstance</instance-ref>
+
+-->
+<!ELEMENT instance-ref (#PCDATA)>
+
+<!--
+Define the content of the window in a generic manner. The content is define by
+the type of the content and an URI which acts as an identificator for the content.
+
+Example:
+
+<content>
+   <content-type>portlet</content-type>
+   <content-uri>MyPortletInstance</content-uri>
+</content>
+
+<content>
+   <content-type>cms</content-type>
+   <content-uri>/default/index.html</content-uri>
+</content>
+
+-->
+<!ELEMENT content (content-type,content-uri)>
+
+<!--
+The content type of the window.
+-->
+<!ELEMENT content-type (#PCDATA)>
+
+<!--
+The content URI of the window.
+-->
+<!ELEMENT content-uri (#PCDATA)>
+
+<!--
+The region the window belongs to.
+-->
+<!ELEMENT region (#PCDATA)>
+
+<!--
+The window state to use when the window is first accessed
+-->
+<!ELEMENT initial-window-state (#PCDATA)>
+
+<!--
+The mode to use when the window is first accessed
+-->
+<!ELEMENT initial-mode (#PCDATA)>
+
+<!--
+The height of the window in the particular region.
+-->
+<!ELEMENT height (#PCDATA)>
+
+<!--
+Define a listener for a portal object. The value is the id of the listener.
+-->
+<!ELEMENT listener (#PCDATA)>
+
+<!--
+A set of generic properties for the portal object.
+-->
+<!ELEMENT properties (property*)>
+
+<!--
+A generic string property.
+-->
+<!ELEMENT property (name,value)>
+
+<!--
+A name value.
+-->
+<!ELEMENT name (#PCDATA)>
+
+<!--
+A value.
+-->
+<!ELEMENT value (#PCDATA)>
+
+<!--
+The security-constraint element is a container for policy-permission elements
+
+Examples:
+
+<security-constraint>
+    <policy-permission>
+       <role-name>User</role-name>
+       <action-name>view</action-name>
+    </policy-permission>
+</security-constraint>
+
+<security-constraint>
+    <policy-permission>
+       <unchecked/>
+       <action-name>view</action-name>
+    </policy-permission>
+</security-constraint>
+-->
+<!ELEMENT security-constraint (policy-permission*)>
+
+<!--
+The policy-permission element is used to secure a specific portal page based on a
+user's role.
+-->
+<!ELEMENT policy-permission (action-name*,unchecked?,role-name*)>
+
+<!--
+The role-name element is used to define a role that this security constraint will apply to
+
+    * <role-name>SOMEROLE</role-name> Access to this portal page is limited to the defined role.
+-->
+<!ELEMENT action-name (#PCDATA)>
+
+<!--
+The unchecked element is used to define (if present) that anyone can view this portal page
+-->
+<!ELEMENT unchecked EMPTY>
+
+<!--
+The action-name element is used to define the access rights given to the role defined.
+Possible values are:
+
+    * view - Users can view the page.
+-->
+<!ELEMENT role-name (#PCDATA)>

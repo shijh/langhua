@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified">
+	<xsd:include schemaLocation="opencms://opencms-xmlcontent.xsd"/>
+    <xsd:element name="PortletTypeMores" type="OpenCmsPortletTypeMores"/>
+	<xsd:complexType name="OpenCmsPortletTypeMores">
+		<xsd:sequence>
+			<xsd:element name="PortletTypeMore" type="OpenCmsPortletTypeMore" minOccurs="0" maxOccurs="unbounded"/>
+		</xsd:sequence>
+	</xsd:complexType>
+	<xsd:complexType name="OpenCmsPortletTypeMore">
+		<xsd:sequence>
+			<xsd:element name="MoreText" type="OpenCmsString"/>
+			<xsd:element name="MoreURL" type="OpenCmsString" minOccurs="0"/>
+			<xsd:element name="MorePageTarget" type="OpenCmsString" />
+			<xsd:element name="MoreClassName" type="OpenCmsString" minOccurs="0"/>
+		</xsd:sequence>
+		<xsd:attribute name="language" type="OpenCmsLocale" use="optional"/>
+	</xsd:complexType>
+	<xsd:annotation>
+		<xsd:appinfo>
+			<resourcebundle name="org.langhua.opencms.portlet.workplace"/>
+			<layouts>
+				<layout element="MorePageTarget" widget="SelectorWidget" configuration="blank*:${key.jboss.portlet.type.pageTarget.blank}
+                                      |self:${key.jboss.portlet.type.pageTarget.self}
+                                      |top:${key.jboss.portlet.type.pageTarget.top}
+				      				  |parent:${key.jboss.portlet.type.pageTarget.parent}" />			
+			</layouts>
+		</xsd:appinfo>
+	</xsd:annotation>  
+</xsd:schema>

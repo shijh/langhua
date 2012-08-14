@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified">
+	<xsd:include schemaLocation="opencms://opencms-xmlcontent.xsd"/>
+        <xsd:element name="PortletIconDetails" type="OpenCmsPortletIconDetails"/>	
+	<xsd:complexType name="OpenCmsPortletIconDetails">
+		<xsd:sequence>
+			<xsd:element name="PortletIconDetail" type="OpenCmsPortletIconDetail" minOccurs="0" maxOccurs="unbounded"/>
+		</xsd:sequence>
+	</xsd:complexType>
+
+	<xsd:complexType name="OpenCmsPortletIconDetail">
+		<xsd:sequence>
+			<xsd:element name="small-icon" type="OpenCmsString" />
+                        <xsd:element name="large-icon" type="OpenCmsString" />
+		</xsd:sequence>
+		<xsd:attribute name="language" type="OpenCmsLocale" use="optional"/>
+	</xsd:complexType>
+	<xsd:annotation>
+		<xsd:appinfo>
+			<resourcebundle name="org.langhua.opencms.portlet.workplace"/>
+		</xsd:appinfo>
+	</xsd:annotation>  
+</xsd:schema>

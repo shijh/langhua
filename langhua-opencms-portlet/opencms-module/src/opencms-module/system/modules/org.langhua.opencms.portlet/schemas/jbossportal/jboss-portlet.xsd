@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified">
+	<xsd:include schemaLocation="opencms://opencms-xmlcontent.xsd"/>
+        <xsd:include schemaLocation="opencms://system/modules/org.langhua.opencms.portlet/schemas/jbossportal/jboss-portlet/jboss-portlet-portlet.xsd"/>
+        <xsd:include schemaLocation="opencms://system/modules/org.langhua.opencms.portlet/schemas/jbossportal/jboss-portlet/jboss-portlet-service.xsd"/>
+        <xsd:element name="PortletApps" type="OpenCmsPortletApps"/>	
+	<xsd:complexType name="OpenCmsPortletApps">
+		<xsd:sequence>
+			<xsd:element name="PortletApp" type="OpenCmsPortletApp" minOccurs="0" maxOccurs="unbounded"/>
+		</xsd:sequence>
+	</xsd:complexType>
+
+	<xsd:complexType name="OpenCmsPortletApp">
+		<xsd:sequence>
+			<xsd:element name="remotable" type="OpenCmsBoolean" minOccurs="0" />
+                        <xsd:element name="portlet" type="OpenCmsPortlet" minOccurs="0" maxOccurs="unbounded" />
+                        <xsd:element name="service" type="OpenCmsPortletService" minOccurs="0" maxOccurs="unbounded" />
+		</xsd:sequence>
+		<xsd:attribute name="language" type="OpenCmsLocale" use="required"/>
+	</xsd:complexType>
+	<xsd:annotation>
+		<xsd:appinfo>
+			<resourcebundle name="org.langhua.opencms.portlet.workplace"/>
+		</xsd:appinfo>
+	</xsd:annotation>  
+</xsd:schema>

@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified">
+	<xsd:include schemaLocation="opencms://opencms-xmlcontent.xsd"/>
+	<xsd:include schemaLocation="opencms://system/modules/org.langhua.opencms.portlet/schemas/jbossportal/common/common-preference-detail.xsd"/>
+        <xsd:element name="CommonPreferences" type="OpenCmsCommonPreferences"/>
+	<xsd:complexType name="OpenCmsCommonPreferences">
+		<xsd:sequence>
+			<xsd:element name="CommonPreference" type="OpenCmsCommonPreference" minOccurs="0" maxOccurs="unbounded" />
+		</xsd:sequence>
+	</xsd:complexType>
+
+	<xsd:complexType name="OpenCmsCommonPreference">
+		<xsd:sequence>
+                        <xsd:element name="preference" type="OpenCmsCommonPreferenceDetail" maxOccurs="unbounded" />
+		</xsd:sequence>
+		<xsd:attribute name="language" type="OpenCmsLocale" use="optional"/>
+	</xsd:complexType>
+	<xsd:annotation>
+		<xsd:appinfo>
+			<resourcebundle name="org.langhua.opencms.portlet.workplace"/>
+		</xsd:appinfo>
+	</xsd:annotation>
+</xsd:schema>

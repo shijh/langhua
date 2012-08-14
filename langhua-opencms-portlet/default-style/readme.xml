@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<styles>
+	<style>
+		<file>tab_style.css</file>
+		<description xml:lang="zh">
+			<![CDATA[porltet默认标签样式]]>
+		</description>
+		<style-app xml:lang="zh">
+			<![CDATA[
+				在portal项目标准样式portal_style.css文件内添加@import url("../common/tab_style.css");
+			]]>
+		</style-app>
+	</style>
+	<style>
+		<file>portlet_type_style.css</file>
+		<description xml:lang="zh">
+			<![CDATA[
+				portlet类型默认样式（其中包括portlet列表页面，portletGeneric内容页面等opencms类型默认样式）
+			]]>
+		</description>
+		<style-app xml:lang="zh">
+			<![CDATA[
+				在portal项目标准样式portal_style.css文件内添加 @import url("../common/portlet_type_style.css");
+			]]>
+		</style-app>
+	</style>
+</styles>
