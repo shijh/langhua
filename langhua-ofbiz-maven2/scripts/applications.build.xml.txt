@@ -1,0 +1,16 @@
+    <!-- ================================================================== -->
+    <!-- Maven2 Deploy                                                      -->
+    <!-- ================================================================== -->
+
+    <target name="maven2deploy">
+   	    <subant target="maven2deploy" inheritall="false">
+			<property name="ofbiz.jar.output" value="${ofbiz.jar.output}" />
+			<property name="ofbiz.sources.output" value="${ofbiz.sources.output}" />
+			<property name="ofbiz.javadoc.output" value="${ofbiz.javadoc.output}" />
+			<property name="maven-repository-id" value="${maven-repository-id}" />
+			<property name="maven-repository-url" value="${maven-repository-url}" />
+			<property name="mvn" value="${mvn}" />
+			<property name="ofbiz-maven-groupid" value="${ofbiz-maven-groupid}" />
+    	    <filelist refid="application-builds"/>
+    	</subant>
+    </target>

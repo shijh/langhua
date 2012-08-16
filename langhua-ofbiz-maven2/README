@@ -1,0 +1,24 @@
+Usage Guide for Langhua-OFBiz-Maven2 Project
+
+
+Purpose
+This project is on building ofbiz's jar, sources.jar and javadoc.jar files and submitting them to maven repository to help you developing OFBiz components in maven style.
+
+
+Usage
+1. Download source code of this project from github.com.
+
+2. Copy and paste the content of scripts/common.xml.txt into ofbiz common.xml.
+
+3. Copy and paste the content of scripts/build.xml.txt into ofbiz build.xml.
+
+4. Copy and paste the content of scripts/framework.build.xml.txt into ofbiz framework/build.xml.
+
+5. Copy and paste the content of scripts/applications.build.xml.txt into ofbiz applications/build.xml.
+
+6. Copy and paste the content of scripts/specialpurpose.build.xml.txt into ofbiz specialpurpose/build.xml.
+
+7. Change the version.number, ofbiz-basedir, mvn, maven-repository-url and maven-repository-id in ofbiz-maven2's build.xml if necessary.
+
+8. In ofbiz-maven2 project, run maven2deploy target, the jar, sources.jar and javadoc.jar will be deployed to maven repository.
+

@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<project name="OFBiz Maven2 Deploy" default="maven2deploy" basedir=".">
+	<property name="version.number" value="09.04" />
+	<property name="ofbiz-basedir" value="/Users/ShiJinghai/Documents/workspace/ofbiz/ofbiz-9.4" />
+	
+	<property name="ofbiz.jar.output" location="${basedir}/jar" />
+	<property name="ofbiz.sources.output" location="${basedir}/sources" />
+	<property name="ofbiz.javadoc.output" location="${basedir}/javadoc" />
+	<property name="ofbiz.pom.output" location="${basedir}/pom" />
+
+	<property name="mvn" location="/usr/bin/mvn" />
+	<property name="maven-repository-url" value="file:///Users/ShiJinghai/.m2/repository" />
+	<property name="maven-repository-id" value="local-repository" />
+	<property name="ofbiz-maven-groupid" value="org.ofbiz" />
+
+	<target name="clean" description="Cleans the jar, sources, javadoc, apidoc and pom directories">
+		<delete dir="${ofbiz.jar.output}" />
+		<delete dir="${ofbiz.sources.output}" />
+		<delete dir="${ofbiz.javadoc.output}" />
+		<delete dir="${ofbiz.pom.output}" />
+	</target>
+
+	<target name="maven2deploy" description="Deploy the jar, sources.jar and javadoc.jar files to maven central">
+		<mkdir dir="${ofbiz.jar.output}" />
+		<mkdir dir="${ofbiz.sources.output}" />
+		<mkdir dir="${ofbiz.javadoc.output}" />
+		<mkdir dir="${ofbiz.pom.output}" />
+
+		<ant antfile="${ofbiz-basedir}/build.xml" target="maven2deploy" inheritAll="false">
+			<property name="ofbiz.jar.output" value="${ofbiz.jar.output}" />
+			<property name="ofbiz.sources.output" value="${ofbiz.sources.output}" />
+			<property name="ofbiz.javadoc.output" value="${ofbiz.javadoc.output}" />
+			<property name="maven-repository-id" value="${maven-repository-id}" />
+			<property name="maven-repository-url" value="${maven-repository-url}" />
+			<property name="mvn" value="${mvn}" />
+			<property name="ofbiz-maven-groupid" value="${ofbiz-maven-groupid}" />
+			<property name="version.number" value="${version.number}" />
+		</ant>
+
+	</target>
+</project>

@@ -1,0 +1,26 @@
+    <!-- ================================================================== -->
+    <!-- Maven2 Deploy                                                      -->
+    <!-- ================================================================== -->
+
+    <target name="maven2deploy">
+        <echo message="[Maven2Deploy] ========== Start =========="/>
+
+        <subant target="maven2deploy" inheritall="false">
+			<property name="ofbiz.jar.output" value="${ofbiz.jar.output}" />
+			<property name="ofbiz.sources.output" value="${ofbiz.sources.output}" />
+            <filelist dir="." files="framework/build.xml"/>
+        </subant>
+        <subant target="maven2deploy" inheritall="false" failonerror="${applications.present}">
+			<property name="ofbiz.jar.output" value="${ofbiz.jar.output}" />
+			<property name="ofbiz.sources.output" value="${ofbiz.sources.output}" />
+            <filelist dir="." files="applications/build.xml"/>
+        </subant>
+        <subant target="maven2deploy" inheritall="false" failonerror="${specialpurpose.present}">
+			<property name="ofbiz.jar.output" value="${ofbiz.jar.output}" />
+			<property name="ofbiz.sources.output" value="${ofbiz.sources.output}" />
+            <filelist dir="." files="specialpurpose/build.xml"/>
+        </subant>
+        <antcall target="clean-svninfo"></antcall>
+
+        <echo message="[Maven2Deploy] ========== Done =========="/>
+    </target>
