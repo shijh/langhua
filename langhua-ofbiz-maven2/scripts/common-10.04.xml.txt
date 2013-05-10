@@ -1,0 +1,47 @@
+    <target name="maven2deploy" depends="all">
+        <jar jarfile="${build.dir}/lib/${name}-sources.jar">
+            <fileset dir="${src.dir}"/>
+            <zipfileset dir="${ofbiz.home.dir}" prefix="META-INF" includes="NOTICE,LICENSE"/>
+        </jar>
+        <jar jarfile="${build.dir}/lib/${name}-javadoc.jar">
+            <fileset dir="${build.dir}/javadocs"/>
+        </jar>
+        <move file="${build.dir}/lib/${name}-sources.jar" todir="${ofbiz.sources.output}"/>
+        <exec executable="${mvn}">
+            <arg value="deploy:deploy-file" />
+            <arg value="-Dfile=${ofbiz.sources.output}/${name}-sources.jar" />
+            <arg value="-DrepositoryId=${maven-repository-id}" />
+            <arg value="-Durl=${maven-repository-url}" />
+            <arg value="-Dpackaging=jar" />
+            <arg value="-Dclassifier=sources" />
+            <arg value="-DgroupId=${ofbiz-maven-groupid}" />
+            <arg value="-DartifactId=${name}" />
+            <arg value="-Dversion=${version.number}" />
+        </exec>
+        <move file="${build.dir}/lib/${name}-javadoc.jar" todir="${ofbiz.javadoc.output}"/>
+        <exec executable="${mvn}">
+            <arg value="deploy:deploy-file" />
+            <arg value="-Dfile=${ofbiz.javadoc.output}/${name}-javadoc.jar" />
+            <arg value="-DrepositoryId=${maven-repository-id}" />
+            <arg value="-Durl=${maven-repository-url}" />
+            <arg value="-Dpackaging=jar" />
+            <arg value="-Dclassifier=javadoc" />
+            <arg value="-DgroupId=${ofbiz-maven-groupid}" />
+            <arg value="-DartifactId=${name}" />
+            <arg value="-Dversion=${version.number}" />
+        </exec>
+        <antcall target="simpleCopy"/>
+        <exec executable="${mvn}">
+            <arg value="deploy:deploy-file" />
+            <arg value="-Dfile=${ofbiz.jar.output}/${name}.jar" />
+            <arg value="-DrepositoryId=${maven-repository-id}" />
+            <arg value="-Durl=${maven-repository-url}" />
+            <arg value="-Dpackaging=jar" />
+            <arg value="-DgroupId=${ofbiz-maven-groupid}" />
+            <arg value="-DartifactId=${name}" />
+            <arg value="-Dversion=${version.number}" />
+        </exec>
+    </target>
+    <target name="simpleCopy">
+        <copy file="${build.dir}/lib/${name}.jar" todir="${ofbiz.jar.output}"/>
+    </target>
