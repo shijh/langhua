@@ -24,11 +24,84 @@ under the License.
     <vendor>OFBiz</vendor>
     <version>1.0</version>
 
-    <service name="testAxis2SOAPClient" engine="java" export="true" validate="false" require-new-transaction="true"
-            location="org.ofbiz.common.CommonServices" invoke="testSOAPService">
+    <service name="testAxis2SOAPClient" engine="java" export="false" validate="false" require-new-transaction="true"
+            location="org.langhua.ofbiz.axis2.samples.client.TestAxis2Clients" invoke="testAxis2SOAP">
         <description>Test SOAP service</description>
-        <attribute name="testing" type="org.ofbiz.entity.GenericValue" mode="IN" optional="false"/>
-        <attribute name="testingNodes" type="List" mode="OUT" optional="true"/>
+        <attribute name="targetEPR" type="String" mode="IN" optional="true"/>
+        <attribute name="action" type="String" mode="IN" optional="true"/>
+        <attribute name="nameSpace" type="String" mode="IN" optional="true"/>
+        <attribute name="localPort" type="String" mode="IN" optional="true"/>
+        <attribute name="method" type="String" mode="IN" optional="true"/>
+        <attribute name="parameters" type="java.util.Map" mode="IN" optional="true"/>
+        <attribute name="response" type="String" mode="OUT" optional="true"/>
+    </service>
+
+    <service name="testAxis2ADBUpdateStockPrice" engine="java" export="false" validate="false" require-new-transaction="true"
+            location="org.langhua.ofbiz.axis2.samples.client.TestAxis2Clients" invoke="testAxis2ADBUpdateStockPrice">
+        <description>Test Axis2 Quick start sample: ADB update stock price</description>
+        <attribute name="targetEPR" type="String" mode="IN" optional="true"/>
+        <attribute name="symbol" type="String" mode="IN" optional="false"/>
+        <attribute name="price" type="Double" mode="IN" optional="false"/>
+        <attribute name="response" type="String" mode="OUT" optional="true"/>
+    </service>
+
+    <service name="testAxis2ADBGetStockPrice" engine="java" export="false" validate="false" require-new-transaction="true"
+            location="org.langhua.ofbiz.axis2.samples.client.TestAxis2Clients" invoke="testAxis2ADBGetStockPrice">
+        <description>Test Axis2 Quick start sample: ADB get stock price</description>
+        <attribute name="targetEPR" type="String" mode="IN" optional="true"/>
+        <attribute name="symbol" type="String" mode="IN" optional="false"/>
+        <attribute name="response" type="String" mode="OUT" optional="true"/>
+    </service>
+
+    <service name="testAxis2AxiomUpdateStockPrice" engine="java" export="false" validate="false" require-new-transaction="true"
+            location="org.langhua.ofbiz.axis2.samples.client.TestAxis2Clients" invoke="testAxis2AxiomUpdateStockPrice">
+        <description>Test Axis2 Quick start sample: Axiom update stock price</description>
+        <attribute name="targetEPR" type="String" mode="IN" optional="true"/>
+        <attribute name="symbol" type="String" mode="IN" optional="false"/>
+        <attribute name="price" type="Double" mode="IN" optional="false"/>
+        <attribute name="response" type="String" mode="OUT" optional="true"/>
+    </service>
+
+    <service name="testAxis2AxiomGetStockPrice" engine="java" export="false" validate="false" require-new-transaction="true"
+            location="org.langhua.ofbiz.axis2.samples.client.TestAxis2Clients" invoke="testAxis2AxiomGetStockPrice">
+        <description>Test Axis2 Quick start sample: Axiom get stock price</description>
+        <attribute name="targetEPR" type="String" mode="IN" optional="true"/>
+        <attribute name="symbol" type="String" mode="IN" optional="false"/>
+        <attribute name="response" type="String" mode="OUT" optional="true"/>
+    </service>
+
+    <service name="testAxis2JiBXUpdateStockPrice" engine="java" export="false" validate="false" require-new-transaction="true"
+            location="org.langhua.ofbiz.axis2.samples.client.TestAxis2Clients" invoke="testAxis2JiBXUpdateStockPrice">
+        <description>Test Axis2 Quick start sample: JiBX update stock price</description>
+        <attribute name="targetEPR" type="String" mode="IN" optional="true"/>
+        <attribute name="symbol" type="String" mode="IN" optional="false"/>
+        <attribute name="price" type="Double" mode="IN" optional="false"/>
+        <attribute name="response" type="String" mode="OUT" optional="true"/>
+    </service>
+
+    <service name="testAxis2JiBXGetStockPrice" engine="java" export="false" validate="false" require-new-transaction="true"
+            location="org.langhua.ofbiz.axis2.samples.client.TestAxis2Clients" invoke="testAxis2JiBXGetStockPrice">
+        <description>Test Axis2 Quick start sample: JiBX get stock price</description>
+        <attribute name="targetEPR" type="String" mode="IN" optional="true"/>
+        <attribute name="symbol" type="String" mode="IN" optional="false"/>
+        <attribute name="response" type="String" mode="OUT" optional="true"/>
+    </service>
+
+    <service name="testAxis2XmlbeansUpdateStockPrice" engine="java" export="false" validate="false" require-new-transaction="true"
+            location="org.langhua.ofbiz.axis2.samples.client.TestAxis2Clients" invoke="testAxis2XmlbeansUpdateStockPrice">
+        <description>Test Axis2 Quick start sample: Xmlbeans update stock price</description>
+        <attribute name="targetEPR" type="String" mode="IN" optional="true"/>
+        <attribute name="symbol" type="String" mode="IN" optional="false"/>
+        <attribute name="price" type="Double" mode="IN" optional="false"/>
+        <attribute name="response" type="String" mode="OUT" optional="true"/>
+    </service>
+
+    <service name="testAxis2XmlbeansGetStockPrice" engine="java" export="false" validate="false" require-new-transaction="true"
+            location="org.langhua.ofbiz.axis2.samples.client.TestAxis2Clients" invoke="testAxis2XmlbeansGetStockPrice">
+        <description>Test Axis2 Quick start sample: Xmlbeans get stock price</description>
+        <attribute name="targetEPR" type="String" mode="IN" optional="true"/>
+        <attribute name="symbol" type="String" mode="IN" optional="false"/>
+        <attribute name="response" type="String" mode="OUT" optional="true"/>
     </service>
 
 </services>

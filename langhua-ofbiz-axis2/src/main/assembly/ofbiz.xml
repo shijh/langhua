@@ -31,11 +31,41 @@
 			<outputDirectory>${ofbizDeploy}/axis2/webapp/axis2/</outputDirectory>
 			<excludes>
 				<exclude>**/web.xml</exclude>
+				<exclude>**/*-LICENSE.txt</exclude>
+				<!-- exclude the jar which causes servlet container LinkageError (class loader error) -->
+				<exclude>**/xmlbeans-*.jar</exclude>
 			</excludes>
 		</fileSet>
 		<fileSet>
 			<directory>src/main/ofbiz/axis2</directory>
 			<outputDirectory>${ofbizDeploy}/axis2</outputDirectory>
+		</fileSet>
+		<fileSet>
+			<directory>target/extracted-axis2/WEB-INF/lib</directory>
+			<outputDirectory>framework/service/lib</outputDirectory>
+			<includes>
+				<include>axiom-api-*.jar</include>
+				<include>axiom-impl-*.jar</include>
+				<include>axis2-kernel-*.jar</include>
+				<include>axis2-transport-*.jar</include>
+				<include>neethi-*.jar</include>
+				<include>wsdl4j-*.jar</include>
+				<include>XmlSchema-*.jar</include>
+			</includes>
+		</fileSet>
+		<fileSet>
+			<directory>target/extracted-axis2/WEB-INF/lib</directory>
+			<outputDirectory>${ofbizDeploy}/axis2/lib</outputDirectory>
+			<includes>
+			    <!-- for adb client -->
+				<include>axis2-adb-*.jar</include>
+				<!-- for jibx client -->
+				<include>axis2-jibx-*.jar</include>
+				<include>jibx-*.jar</include>
+				<!-- for xmlbeans client -->
+				<include>axis2-xmlbeans-*.jar</include>
+				<include>xmlbeans-*.jar</include>
+			</includes>
 		</fileSet>
     </fileSets>
 	<files>
