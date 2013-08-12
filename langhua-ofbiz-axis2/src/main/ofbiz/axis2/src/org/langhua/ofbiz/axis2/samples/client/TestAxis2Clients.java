@@ -12,6 +12,8 @@ import org.apache.axis2.addressing.EndpointReference;
 import org.apache.axis2.client.Options;
 import org.apache.axis2.client.ServiceClient;
 import org.ofbiz.base.util.Debug;
+import org.ofbiz.base.util.FileUtil;
+import org.ofbiz.base.util.UtilProperties;
 import org.ofbiz.base.util.UtilValidate;
 import org.ofbiz.common.ApplicationParamUtil;
 import org.ofbiz.service.DispatchContext;
@@ -46,6 +48,7 @@ public class TestAxis2Clients {
         String method = (String) context.get("method");
         String localPort = (String) context.get("localPort");
         Map<String, String> parameters = (Map<String, String>) context.get("parameters");
+        setSSLProperties(target);
 
         try {
             OMElement payload = getOMElement(nameSpace, localPort, method, parameters);
@@ -103,6 +106,7 @@ public class TestAxis2Clients {
         if (UtilValidate.isEmpty(target)) {
         	target = defaultStockEPR;
         }
+        setSSLProperties(target);
 
         try {
         	samples.quickstart.service.adb.StockQuoteServiceStub stub = new samples.quickstart.service.adb.StockQuoteServiceStub(target);
@@ -119,7 +123,7 @@ public class TestAxis2Clients {
         return response;
     }
 
-    /**
+	/**
      * Test Axis2 Quick Start Sample: Stock Quote Service, Get stock price method (ADB)
      * @param dctx The DispatchContext that this service is operating in
      * @param context Map containing the input parameters
@@ -132,6 +136,7 @@ public class TestAxis2Clients {
         if (UtilValidate.isEmpty(target)) {
         	target = defaultStockEPR;
         }
+        setSSLProperties(target);
 
         try {
         	samples.quickstart.service.adb.StockQuoteServiceStub stub = new samples.quickstart.service.adb.StockQuoteServiceStub(target);
@@ -161,6 +166,7 @@ public class TestAxis2Clients {
         if (UtilValidate.isEmpty(target)) {
         	target = defaultStockEPR;
         }
+        setSSLProperties(target);
 
         try {
             OMElement updatePayload = updatePayload(symbol, price);
@@ -195,6 +201,7 @@ public class TestAxis2Clients {
         if (UtilValidate.isEmpty(target)) {
         	target = defaultStockEPR;
         }
+        setSSLProperties(target);
 
         try {
             OMElement getPricePayload = getPricePayload(symbol);
@@ -259,6 +266,7 @@ public class TestAxis2Clients {
         if (UtilValidate.isEmpty(target)) {
         	target = defaultStockEPR;
         }
+        setSSLProperties(target);
 
         try {
         	samples.quickstart.service.jibx.StockQuoteServiceStub stub = new samples.quickstart.service.jibx.StockQuoteServiceStub(target);
@@ -284,6 +292,7 @@ public class TestAxis2Clients {
         if (UtilValidate.isEmpty(target)) {
         	target = defaultStockEPR;
         }
+        setSSLProperties(target);
 
         try {
         	samples.quickstart.service.jibx.StockQuoteServiceStub stub = new samples.quickstart.service.jibx.StockQuoteServiceStub(target);
@@ -310,6 +319,7 @@ public class TestAxis2Clients {
         if (UtilValidate.isEmpty(target)) {
         	target = defaultStockEPR;
         }
+        setSSLProperties(target);
 
         try {
         	samples.quickstart.service.xmlbeans.StockQuoteServiceStub stub = new samples.quickstart.service.xmlbeans.StockQuoteServiceStub(target);
@@ -340,6 +350,7 @@ public class TestAxis2Clients {
         if (UtilValidate.isEmpty(target)) {
         	target = defaultStockEPR;
         }
+        setSSLProperties(target);
 
         try {
         	samples.quickstart.service.xmlbeans.StockQuoteServiceStub stub = new samples.quickstart.service.xmlbeans.StockQuoteServiceStub(target);
@@ -355,4 +366,13 @@ public class TestAxis2Clients {
 		}
         return response;
     }
+
+    private static void setSSLProperties(String target) {
+    	if (target.toLowerCase().startsWith("https://")) {
+    		String trustStore = UtilProperties.getPropertyValue("axis2client", "axis2.client.ssl.trustStore", "framework/base/config/ofbizssl.jks");
+    		String trustStorePassword = UtilProperties.getPropertyValue("axis2client", "axis2.client.ssl.trustStorePassword", "changeit");
+            System.setProperty("javax.net.ssl.trustStore", FileUtil.getFile(trustStore).getAbsolutePath());
+            System.setProperty("javax.net.ssl.trustStorePassword", trustStorePassword);
+    	}
+	}
 }
