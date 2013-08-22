@@ -26,6 +26,7 @@
         <format>zip</format>
     </formats>
     <fileSets>
+        <!-- axis2 files -->
 		<fileSet>
 			<directory>target/extracted-axis2</directory>
 			<outputDirectory>${ofbizDeploy}/axis2/webapp/axis2/</outputDirectory>
@@ -67,6 +68,67 @@
 				<include>xmlbeans-*.jar</include>
 			</includes>
 		</fileSet>
+
+        <!-- rampart files -->
+		<fileSet>
+			<directory>target/extracted-rampart/rampart-${project.parent.version}/lib</directory>
+			<outputDirectory>${ofbizDeploy}/axis2/webapp/axis2/WEB-INF/lib</outputDirectory>
+			<excludes>
+				<exclude>*-LICENSE.txt</exclude>
+				<!-- exclude the jar which causes signature validation error -->
+				<exclude>wss4j-*.jar</exclude>
+				<!-- duplicated jar -->
+				<exclude>velocity-*.jar</exclude>
+			</excludes>
+		</fileSet>
+		<fileSet>
+			<directory>target/extracted-rampart/rampart-${project.parent.version}/lib</directory>
+			<outputDirectory>${ofbizDeploy}/axis2/lib</outputDirectory>
+			<excludes>
+				<exclude>*-LICENSE.txt</exclude>
+				<!-- duplicated jar -->
+				<exclude>velocity-*.jar</exclude>
+				<exclude>common-*.jar</exclude>
+			</excludes>
+		</fileSet>
+		<fileSet>
+			<directory>target/extracted-rampart/rampart-${project.parent.version}/modules</directory>
+			<outputDirectory>${ofbizDeploy}/axis2/webapp/axis2/WEB-INF/modules</outputDirectory>
+			<includes>
+				<include>*.mar</include>
+			</includes>
+		</fileSet>
+		<fileSet>
+			<directory>target/extracted-rampart/rampart-${project.parent.version}/samples/keys</directory>
+			<outputDirectory>${ofbizDeploy}/axis2/config</outputDirectory>
+			<includes>
+				<include>client.*</include>
+			</includes>
+		</fileSet>
+		<fileSet>
+			<directory>target/extracted-rampart/rampart-${project.parent.version}/samples/policy</directory>
+			<outputDirectory>${ofbizDeploy}/axis2/config/rampart</outputDirectory>
+			<includes>
+				<include>**/policy.xml</include>
+			</includes>
+			<excludes>
+				<exclude>**/sample-tomcat/*</exclude>
+			</excludes>
+		</fileSet>
+		<fileSet>
+			<directory>target/extracted-rampart/rampart-${project.parent.version}/modules</directory>
+			<outputDirectory>${ofbizDeploy}/axis2/config/rampart/modules</outputDirectory>
+			<includes>
+				<include>rampart-${project.parent.version}.mar</include>
+			</includes>
+		</fileSet>
+		<fileSet>
+			<directory>target/extracted-axis2/WEB-INF/modules</directory>
+			<outputDirectory>${ofbizDeploy}/axis2/config/rampart/modules</outputDirectory>
+			<includes>
+				<include>addressing-${project.parent.version}.mar</include>
+			</includes>
+		</fileSet>
     </fileSets>
 	<files>
 		<file>
@@ -75,4 +137,14 @@
 			<destName>ofbiz-${ofbizVersion}-axis2-${project.parent.version}.jar</destName>
 		</file>
 	</files>
+
+	<dependencySets>
+	    <!-- rampart samples jar -->
+		<dependencySet>
+            <outputDirectory>${ofbizDeploy}/axis2/lib</outputDirectory>
+			<includes>
+				<include>org.apache.rampart:rampart-sample:jar:${project.parent.version}</include>
+			</includes>
+		</dependencySet>
+	</dependencySets>
 </assembly>

@@ -6,11 +6,17 @@ import org.apache.axiom.om.OMAbstractFactory;
 import org.apache.axiom.om.OMElement;
 import org.apache.axiom.om.OMFactory;
 import org.apache.axiom.om.OMNamespace;
+import org.apache.axiom.om.impl.builder.StAXOMBuilder;
 import org.apache.axis2.AxisFault;
 import org.apache.axis2.Constants;
 import org.apache.axis2.addressing.EndpointReference;
 import org.apache.axis2.client.Options;
 import org.apache.axis2.client.ServiceClient;
+import org.apache.axis2.context.ConfigurationContext;
+import org.apache.axis2.context.ConfigurationContextFactory;
+import org.apache.neethi.Policy;
+import org.apache.neethi.PolicyEngine;
+import org.apache.rampart.RampartMessageData;
 import org.ofbiz.base.util.Debug;
 import org.ofbiz.base.util.FileUtil;
 import org.ofbiz.base.util.UtilProperties;
@@ -375,4 +381,60 @@ public class TestAxis2Clients {
             System.setProperty("javax.net.ssl.trustStorePassword", trustStorePassword);
     	}
 	}
+
+    /**
+     * Test Axis2 Rampart Policy Sample
+     * @param dctx The DispatchContext that this service is operating in
+     * @param context Map containing the input parameters
+     * @return Map with the result of the service, the output parameters
+     */
+    public static Map<String, Object> testAxis2RampartPolicySample(DispatchContext dctx, Map<String, ?> context) {
+        Map<String, Object> response = ServiceUtil.returnSuccess();
+        String sample = (String) context.get("sample");
+        if (UtilValidate.isEmpty(sample)) {
+        	sample = "sample01";
+        }
+        String target = (String) context.get("targetEPR");
+        if (UtilValidate.isEmpty(target)) {
+        	target = "http://localhost:8080/axis2/services/" + sample;
+        }
+        setSSLProperties(target);
+
+        try {
+            ConfigurationContext ctx = ConfigurationContextFactory.createConfigurationContextFromFileSystem(FileUtil.getFile("hot-deploy/axis2/config/rampart").getAbsolutePath(), null);
+            
+            ServiceClient client = new ServiceClient(ctx, null);
+            Options options = new Options();
+            options.setAction("urn:echo");
+            options.setTo(new EndpointReference(target));
+            options.setProperty(RampartMessageData.KEY_RAMPART_POLICY,  loadPolicy(FileUtil.getFile("hot-deploy/axis2/config/rampart/" + sample + "/policy.xml").getAbsolutePath()));
+            client.setOptions(options);
+            
+            client.engageModule("addressing");
+            client.engageModule("rampart");
+
+            OMElement res = client.sendReceive(getPayload("Hello world", sample));
+            Debug.logInfo(res.toString(), module);
+        } catch (Exception e) {
+        	Debug.logError(e.toString(), module);
+            return ServiceUtil.returnError(e.getMessage());
+		}
+        return response;
+    }
+
+    private static Policy loadPolicy(String xmlPath) throws Exception {
+        StAXOMBuilder builder = new StAXOMBuilder(xmlPath);
+        return PolicyEngine.getPolicy(builder.getDocumentElement());
+    }
+    
+    private static OMElement getPayload(String value, String sample) {
+        OMFactory factory = OMAbstractFactory.getOMFactory();
+        OMNamespace ns = factory.createOMNamespace("http://" + sample + ".policy.samples.rampart.apache.org","ns1");
+        OMElement elem = factory.createOMElement("echo", ns);
+        OMElement childElem = factory.createOMElement("param0", ns);
+        childElem.setText(value);
+        elem.addChild(childElem);
+        
+        return elem;
+    }
 }

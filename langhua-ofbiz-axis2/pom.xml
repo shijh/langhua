@@ -87,6 +87,24 @@
 			<version>${project.parent.version}</version>
 			<scope>provided</scope>
 		</dependency>
+		<dependency>
+		    <groupId>org.apache.rampart</groupId>
+			<artifactId>rampart-dist</artifactId>
+			<version>${project.parent.version}</version>
+			<scope>provided</scope>
+			<classifier>bin</classifier>
+			<type>zip</type>
+		</dependency>
+		<dependency>
+		    <groupId>org.apache.rampart</groupId>
+			<artifactId>rampart-sample</artifactId>
+			<version>${project.parent.version}</version>
+			<scope>runtime</scope>
+		</dependency>
+		<dependency>
+			<groupId>commons-logging</groupId>
+			<artifactId>commons-logging</artifactId>
+		</dependency>
 	</dependencies>
 
 	<build>
@@ -117,6 +135,15 @@
 									<type>war</type>
 									<overWrite>true</overWrite>
 									<outputDirectory>target/extracted-axis2</outputDirectory>
+								</artifactItem>
+								<artifactItem>
+									<groupId>org.apache.rampart</groupId>
+									<artifactId>rampart-dist</artifactId>
+									<version>${project.parent.version}</version>
+			                        <classifier>bin</classifier>
+									<type>zip</type>
+									<overWrite>true</overWrite>
+									<outputDirectory>target/extracted-rampart</outputDirectory>
 								</artifactItem>
 							</artifactItems>
 						</configuration>
