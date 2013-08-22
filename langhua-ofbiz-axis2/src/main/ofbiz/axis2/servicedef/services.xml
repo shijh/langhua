@@ -104,4 +104,12 @@ under the License.
         <attribute name="response" type="String" mode="OUT" optional="true"/>
     </service>
 
+    <service name="testAxis2RampartPolicySample" engine="java" export="false" validate="false" require-new-transaction="true"
+            location="org.langhua.ofbiz.axis2.samples.client.TestAxis2Clients" invoke="testAxis2RampartPolicySample">
+        <description>Test Axis2 Rampart Sample</description>
+        <attribute name="targetEPR" type="String" mode="IN" optional="true"/>
+        <attribute name="sample" type="String" mode="IN" optional="false"/>
+        <attribute name="response" type="String" mode="OUT" optional="true"/>
+    </service>
+
 </services>

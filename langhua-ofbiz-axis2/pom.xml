@@ -96,12 +96,6 @@
 			<type>zip</type>
 		</dependency>
 		<dependency>
-		    <groupId>org.apache.rampart</groupId>
-			<artifactId>rampart-sample</artifactId>
-			<version>${project.parent.version}</version>
-			<scope>runtime</scope>
-		</dependency>
-		<dependency>
 			<groupId>commons-logging</groupId>
 			<artifactId>commons-logging</artifactId>
 		</dependency>

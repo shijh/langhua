@@ -137,14 +137,4 @@
 			<destName>ofbiz-${ofbizVersion}-axis2-${project.parent.version}.jar</destName>
 		</file>
 	</files>
-
-	<dependencySets>
-	    <!-- rampart samples jar -->
-		<dependencySet>
-            <outputDirectory>${ofbizDeploy}/axis2/lib</outputDirectory>
-			<includes>
-				<include>org.apache.rampart:rampart-sample:jar:${project.parent.version}</include>
-			</includes>
-		</dependencySet>
-	</dependencySets>
 </assembly>

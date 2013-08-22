@@ -1,0 +1,43 @@
+User Guide for OFBiz-Axis2 Component
+====================================
+
+
+Purpose:
+This OFBiz-Axis2 component is to make OFBiz be an Axis2 server.
+
+
+Installation:
+1. Run maven clean and install and a zip file will be created under target folder.
+2. Unzip the zip file.
+3. Copy the framework folder to your OFBiz.
+4. Copy the hot-deploy or specialpurpose folder to your OFBiz.
+5. If it's specialpurpose folder, you have to add axis2 component in specialpurpose/component-load.xml manually:
+   <load-component component-location="axis2"/>
+
+
+Hot-deploy or specialpurpose
+In pom.xml, you can change ofbizDeploy property from hot-deploy (by default) to specialpurpose, run maven clean and install to generate the zip file, unzip the file and you'll see there's a specialpurpose folder.
+
+
+Axis2 client jars
+By OOTB, OFBiz is a web service client, and some earlier version Axis2 jars are deployed under /framework/service/lib/. To make this component work, the jars have to be replaced with new ones.
+
+
+Run Axis2 Quick Start Samples in OFBiz-Axis2
+1. Start OFBiz
+2. Visit http://localhost:8080/axis2/
+3. Login with username admin and password ofbiz
+4. Upload one of the Axis2 quick start sample services from axis2/samples/axis2/
+5. Login https://localhost:8443/webtools/
+6. Run any service pair of testAxis2ADBUpdateStockPrice/testAxis2ADBGetStockPrice, testAxis2AxiomUpdateStockPrice/testAxis2AxiomGetStockPrice, testAxis2JiBXUpdateStockPrice/testAxis2JiBXGetStockPrice or testAxis2XmlbeansUpdateStockPrice/testAxis2XmlbeansGetStockPrice according to the sample you uploaded.
+7. Check service result in logs
+
+
+Run Axis2 Rampart Policy Samples in OFBiz-Axis2
+1. Start OFBiz
+2. Login http://localhost:8080/axis2/
+3. Upload one of the Axis2 Rampart policy samples from axis2/samples/rampart/policy/
+4. Login https://localhost:8443/webtools/
+5. Run testAxis2RampartPolicySample service
+6. Check service result in logs
+
