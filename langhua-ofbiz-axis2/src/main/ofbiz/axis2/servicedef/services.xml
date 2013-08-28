@@ -112,4 +112,13 @@ under the License.
         <attribute name="response" type="String" mode="OUT" optional="true"/>
     </service>
 
+    <service name="testAxis2RampartMTOMSample" engine="java" export="false" validate="false" require-new-transaction="true"
+            location="org.langhua.ofbiz.axis2.samples.client.TestAxis2Clients" invoke="testAxis2RampartMTOMSample">
+        <description>Test Axis2 Rampart MTOM Sample</description>
+        <attribute name="targetEPR" type="String" mode="IN" optional="true"/>
+        <attribute name="sample" type="String" mode="IN" optional="false"/>
+        <attribute name="file" type="String" mode="IN" optional="false"/>
+        <attribute name="dest" type="String" mode="IN" optional="false"/>
+        <attribute name="response" type="String" mode="OUT" optional="true"/>
+    </service>
 </services>

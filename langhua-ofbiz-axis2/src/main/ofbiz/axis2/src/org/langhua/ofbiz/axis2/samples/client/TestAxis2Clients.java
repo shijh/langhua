@@ -1,6 +1,11 @@
 package org.langhua.ofbiz.axis2.samples.client;
 
+import java.io.File;
+import java.rmi.RemoteException;
 import java.util.Map;
+
+import javax.activation.DataHandler;
+import javax.activation.FileDataSource;
 
 import org.apache.axiom.om.OMAbstractFactory;
 import org.apache.axiom.om.OMElement;
@@ -17,6 +22,7 @@ import org.apache.axis2.context.ConfigurationContextFactory;
 import org.apache.neethi.Policy;
 import org.apache.neethi.PolicyEngine;
 import org.apache.rampart.RampartMessageData;
+import org.apache.ws.axis2.mtomsample.MTOMSampleMTOMSampleSOAP11Port_httpStub;
 import org.ofbiz.base.util.Debug;
 import org.ofbiz.base.util.FileUtil;
 import org.ofbiz.base.util.UtilProperties;
@@ -437,4 +443,78 @@ public class TestAxis2Clients {
         
         return elem;
     }
+
+    /**
+     * Test Axis2 Rampart MTOM Sample
+     * @param dctx The DispatchContext that this service is operating in
+     * @param context Map containing the input parameters
+     * @return Map with the result of the service, the output parameters
+     */
+    public static Map<String, Object> testAxis2RampartMTOMSample(DispatchContext dctx, Map<String, ?> context) {
+        Map<String, Object> response = ServiceUtil.returnSuccess();
+        String sample = (String) context.get("sample");
+        if (UtilValidate.isEmpty(sample)) {
+        	sample = "sample03";
+        }
+        String file = (String) context.get("file");
+        String dest = (String) context.get("dest");
+        String target = (String) context.get("targetEPR");
+        if (UtilValidate.isEmpty(target)) {
+        	target = "http://localhost:8080/axis2/services/MTOMSample";
+        }
+        setSSLProperties(target);
+
+        try {
+            File sourceFile = FileUtil.getFile(file);
+            transferFile(sourceFile, dest, sample, target);
+        } catch (Exception e) {
+        	Debug.logError(e.toString(), module);
+            return ServiceUtil.returnError(e.getMessage());
+		}
+        return response;
+    }
+
+	private static void transferFile(File file, String destination, String sample, String target)
+			throws Exception {
+        ConfigurationContext ctx = ConfigurationContextFactory.createConfigurationContextFromFileSystem(FileUtil.getFile("hot-deploy/axis2/config/rampart").getAbsolutePath(), null);
+		MTOMSampleMTOMSampleSOAP11Port_httpStub serviceStub = new MTOMSampleMTOMSampleSOAP11Port_httpStub(
+				ctx,
+				target
+		);
+
+		ServiceClient client = serviceStub._getServiceClient();
+		Options options = client.getOptions();
+		// Enable MTOM in the client side
+		options.setProperty(
+				Constants.Configuration.ENABLE_MTOM, Constants.VALUE_TRUE);
+		//Increase the time out when sending large attachments
+		options.setTimeOutInMilliSeconds(10000);
+        options.setProperty(RampartMessageData.KEY_RAMPART_POLICY,  loadPolicy(FileUtil.getFile("hot-deploy/axis2/config/rampart/" + sample + "/policy.xml").getAbsolutePath()));
+        client.setOptions(options);
+        
+        client.engageModule("addressing");
+        client.engageModule("rampart");
+
+		// Populating the code generated beans
+		MTOMSampleMTOMSampleSOAP11Port_httpStub.AttachmentRequest attachmentRequest = new MTOMSampleMTOMSampleSOAP11Port_httpStub.AttachmentRequest();
+		MTOMSampleMTOMSampleSOAP11Port_httpStub.AttachmentType attachmentType = new MTOMSampleMTOMSampleSOAP11Port_httpStub.AttachmentType();
+		MTOMSampleMTOMSampleSOAP11Port_httpStub.Base64Binary base64Binary = new MTOMSampleMTOMSampleSOAP11Port_httpStub.Base64Binary();
+
+		// Creating a javax.activation.FileDataSource from the input file.
+		FileDataSource fileDataSource = new FileDataSource(file);
+
+		// Create a dataHandler using the fileDataSource. Any implementation of
+		// javax.activation.DataSource interface can fit here.
+		DataHandler dataHandler = new DataHandler(fileDataSource);
+		base64Binary.setBase64Binary(dataHandler);
+        MTOMSampleMTOMSampleSOAP11Port_httpStub.ContentType_type0 param = new MTOMSampleMTOMSampleSOAP11Port_httpStub.ContentType_type0();
+        param.setContentType_type0(dataHandler.getContentType());
+        base64Binary.setContentType(param);
+		attachmentType.setBinaryData(base64Binary);
+		attachmentType.setFileName(destination);
+		attachmentRequest.setAttachmentRequest(attachmentType);
+
+		MTOMSampleMTOMSampleSOAP11Port_httpStub.AttachmentResponse response = serviceStub.attachment(attachmentRequest);
+		Debug.logInfo(response.getAttachmentResponse(), module);
+	}
 }

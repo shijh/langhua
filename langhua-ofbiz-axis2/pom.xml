@@ -91,9 +91,15 @@
 		    <groupId>org.apache.rampart</groupId>
 			<artifactId>rampart-dist</artifactId>
 			<version>${project.parent.version}</version>
-			<scope>provided</scope>
+			<scope>runtime</scope>
 			<classifier>bin</classifier>
 			<type>zip</type>
+			<exclusions>
+				<exclusion>
+					<groupId>org.apache.xalan</groupId>
+					<artifactId>xalan</artifactId>
+				</exclusion>
+    		</exclusions>
 		</dependency>
 		<dependency>
 			<groupId>commons-logging</groupId>

@@ -41,3 +41,16 @@ Run Axis2 Rampart Policy Samples in OFBiz-Axis2
 5. Run testAxis2RampartPolicySample service
 6. Check service result in logs
 
+
+Run Axis2 MTOM Rampart Sample in OFBiz-Axis2
+1. Run "generate.client" target of axis2/samples/mtom-rampart-sample/build.xml, a sample-mtom-client.jar will be built and deployed to axis2/lib/
+2. Run "generate.service" target of axis2/samples/mtom-rampart-sample/build.xml, a sample-mtom.aar will be built under axis2/samples/mtom-rampart-sample/build/service/
+3. Start OFBiz
+4. Login http://localhost:8080/axis2/
+5. Upload the sample-mtom.aar
+4. Login https://localhost:8443/webtools/
+5. Run testAxis2RampartMTOMSample service, fill sample field with sample03, as I combined mtom's services.xml and rampart policy sample03's together 
+6. Check service result in logs, i.e. "[   TestAxis2Clients.java:518:INFO ] File saved succesfully."
+
+
+--- END ---
