@@ -29,6 +29,7 @@
     <a href="/mfg/control/main">工单</a>
     <a href="/mfg/control/products">产品与 BOM</a>
     <a href="/mfg/control/materials">物料批次</a>
+    <a href="/mfg/control/delivery">出货单</a>
     <a href="/mfg/control/dashboard">看板</a>
     <a href="/mfg/control/sn">SN 查询</a>
 </p>
@@ -70,7 +71,7 @@
                 <td>
                     <#list (order.shortages)![] as line>
                         <#if line_index lt 5>
-                            ${line.componentCode!}<#if (line.isKeyPart)!'N' == 'Y'> <b>★</b></#if>
+                            ${line.componentCode!}<#if (line.isKeyPart!'N') == 'Y'> <b>★</b></#if>
                             欠 ${((line.requiredQty)!0 - (line.issuedQty)!0)?string("0.##")}
                             <span class="hint">(需 ${((line.requiredQty)!0)?string("0.##")} / 发 ${((line.issuedQty)!0)?string("0.##")})</span><br/>
                         </#if>

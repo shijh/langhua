@@ -10,6 +10,8 @@
 <#assign defects = (info.defects)![]>
 <#assign lots = (info.lots)![]>
 <#assign replacements = (info.replacements)![]>
+<#assign deliveryInfo = (info.delivery)!{}>
+<#assign tests = (info.tests)![]>
 <#assign errList = (errorMessageList)![]>
 <html>
 <head>
@@ -25,6 +27,7 @@
         .nav a { margin-right: 1em; }
         .hint { color: #666; font-size: .85em; }
         .error { color: #b00000; font-weight: bold; }
+        .ok { color: #1a7f37; font-weight: bold; }
     </style>
 </head>
 <body>
@@ -33,6 +36,7 @@
     <a href="/mfg/control/products">产品与 BOM</a>
     <a href="/mfg/control/materials">物料批次</a>
     <a href="/mfg/control/shortage">齐套预警</a>
+    <a href="/mfg/control/delivery">出货单</a>
     <a href="/mfg/control/dashboard">看板</a>
     <a href="/mfg/control/sn"><b>SN 查询</b></a>
 </p>
@@ -119,6 +123,39 @@
         </table>
     <#else>
         <p class="hint">该工单还没有发料记录（在工单页登记发料后即可追溯）。</p>
+    </#if>
+
+    <h2>测试结果</h2>
+    <#if tests?has_content>
+        <table>
+            <tr><th>时间</th><th>工位</th><th>测试项</th><th class="num">测量值</th><th>单位</th><th>判定</th></tr>
+            <#list tests as t>
+                <tr>
+                    <td><#if t.testDate??>${t.testDate?string("MM-dd HH:mm")}</#if></td>
+                    <td>${t.station!}</td>
+                    <td>${t.testItem!}</td>
+                    <td class="num"><#if t.measureValue??>${t.measureValue?string("0.####")}</#if></td>
+                    <td>${t.unitOfMeasure!}</td>
+                    <td><#if (t.passFail!'Y') == 'N'><span class="error">FAIL</span><#else><span class="ok">PASS</span></#if></td>
+                </tr>
+            </#list>
+        </table>
+    <#else>
+        <p class="hint">没有测试数据（在工单页用 CSV 导入测试结果）。</p>
+    </#if>
+
+    <h2>出货信息（保修起算）</h2>
+    <#if (deliveryInfo.deliveryId)??>
+        <table>
+            <tr><th>出货单</th><td>${deliveryInfo.deliveryId}</td></tr>
+            <tr><th>客户</th><td>${deliveryInfo.customerName!}</td></tr>
+            <tr><th>客户订单号</th><td>${deliveryInfo.customerPo!}</td></tr>
+            <tr><th>出货日期</th>
+                <td><#if deliveryInfo.deliveryDate??>${deliveryInfo.deliveryDate?string("yyyy-MM-dd")}</#if></td></tr>
+            <tr><th>快递</th><td>${deliveryInfo.carrier!} ${deliveryInfo.trackingNo!}</td></tr>
+        </table>
+    <#else>
+        <p class="hint">尚未出货（在「出货单」页登记后，这里会显示客户与保修起算日）。</p>
     </#if>
 
     <h2>返修换件（精确记录）</h2>

@@ -140,4 +140,26 @@
             </widgets>
         </section>
     </screen>
+
+    <!-- Delivery orders -->
+    <screen name="delivery">
+        <section>
+            <actions>
+                <set field="title" value="Deliveries"/>
+                <service service-name="mfgDeliveryList" result-map="deliveryList" auto-field-map="false">
+                    <field-map field-name="customerName" from-field="parameters.customerName"/>
+                </service>
+                <service service-name="mfgDeliveryDetail" result-map="deliveryDetail" auto-field-map="false">
+                    <field-map field-name="deliveryId" from-field="parameters.deliveryId"/>
+                </service>
+            </actions>
+            <widgets>
+                <platform-specific>
+                    <html>
+                        <html-template location="component://mfg/webapp/mfg/delivery.ftl"/>
+                    </html>
+                </platform-specific>
+            </widgets>
+        </section>
+    </screen>
 </screens>

@@ -43,6 +43,7 @@
     <a href="/mfg/control/products">产品与 BOM</a>
     <a href="/mfg/control/materials">物料批次</a>
     <a href="/mfg/control/shortage">齐套预警</a>
+    <a href="/mfg/control/delivery">出货单</a>
     <a href="/mfg/control/dashboard">看板</a>
     <a href="/mfg/control/sn">SN 查询</a>
 </p>
@@ -64,6 +65,9 @@
         &nbsp; 良品 <b>${(d.totalQtyOk)?string("0")}</b>
         &nbsp; 不良 <b>${(d.totalQtyNg)?string("0")}</b>
         &nbsp; SN <b>${sns?size}</b>
+        &nbsp; 测试通过率
+        <b><#if ((d.testedSnCount)!0) gt 0>${((d.testYield)!0)?string("0.#")}%<#else>-</#if></b>
+        <span class="hint">(已测 ${(d.testedSnCount)!0} 台 / 其中不合格 ${(d.failedSnCount)!0} 台)</span>
     </p>
 
     <#if errList?has_content>
@@ -200,7 +204,7 @@
                 <tr>
                     <td>${line.componentCode!}</td>
                     <td>${line.componentName!}</td>
-                    <td><#if (line.isKeyPart)!'N' == 'Y'>是<#else>-</#if></td>
+                    <td><#if (line.isKeyPart!'N') == 'Y'>是<#else>-</#if></td>
                     <td class="num">${((line.requiredQty)!0)?string("0.##")}</td>
                     <td class="num">${((line.issuedQty)!0)?string("0.##")}</td>
                     <td class="num"><#if ((line.shortage)!0) gt 0><span class="error">${line.shortage?string("0.##")}</span><#else>-</#if></td>
@@ -286,8 +290,18 @@
             </p>
         </form>
     </fieldset>
-</body>
-</html>
+
+    <fieldset>
+        <legend>导入测试结果（CSV）</legend>
+        <form method="post" action="/mfg/control/testImportCsv">
+            <input type="hidden" name="workOrderId" value="${wo.workOrderId}"/>
+            <textarea name="csv" rows="4" cols="90"># sn,station,item,value,unit,pass
+ITMFG-261021-0001,FCT,VBAT,3.72,V,Y
+ITMFG-261021-0001,FCT,IQ,12.4,mA,Y</textarea>
+            <p class="hint">每行：SN,工位,测试项,测量值,单位,判定(Y/N)；未知 SN 的行会被跳过。</p>
+            <p><input type="submit" value="导入"/></p>
+        </form>
+    </fieldset>
 </#if>
 </body>
 </html>

@@ -284,4 +284,79 @@
             <index-field name="workOrderId"/>
         </index>
     </entity>
+
+    <entity entity-name="MfgDelivery"
+            package-name="org.langhua.ofbiz.mfg"
+            title="Delivery order">
+        <description>Units shipped to a customer; the delivery date starts the warranty</description>
+        <field name="deliveryId" type="id"><description>Delivery number, DO-yyMMdd-NN</description></field>
+        <field name="customerName" type="name"><description>Customer the units were shipped to</description></field>
+        <field name="customerPo" type="short-varchar"><description>Customer purchase order, optional</description></field>
+        <field name="deliveryDate" type="date"><description>Date shipped, warranty start</description></field>
+        <field name="carrier" type="short-varchar"><description>Courier</description></field>
+        <field name="trackingNo" type="short-varchar"><description>Tracking number</description></field>
+        <field name="workOrderId" type="id"><description>Work order the units came from, optional</description></field>
+        <field name="note" type="description"/>
+        <field name="createdStamp" type="date-time"/>
+        <field name="createdTxStamp" type="date-time"/>
+        <field name="lastUpdatedStamp" type="date-time"/>
+        <field name="lastUpdatedTxStamp" type="date-time"/>
+        <prim-key field="deliveryId"/>
+        <index name="MFG_DELIVERY_CUSTOMER" unique="false">
+            <index-field name="customerName"/>
+        </index>
+        <index name="MFG_DELIVERY_DATE" unique="false">
+            <index-field name="deliveryDate"/>
+        </index>
+    </entity>
+
+    <entity entity-name="MfgDeliverySn"
+            package-name="org.langhua.ofbiz.mfg"
+            title="Delivered unit">
+        <description>One serial number shipped with a delivery order</description>
+        <field name="deliveryId" type="id"><description>Delivery order</description></field>
+        <field name="sn" type="id"><description>Serial number shipped</description></field>
+        <field name="createdStamp" type="date-time"/>
+        <field name="createdTxStamp" type="date-time"/>
+        <field name="lastUpdatedStamp" type="date-time"/>
+        <field name="lastUpdatedTxStamp" type="date-time"/>
+        <prim-key field="deliveryId"/>
+        <prim-key field="sn"/>
+        <relation type="one" fk-name="MFG_DELIV_SN_DELIVERY" rel-entity-name="MfgDelivery">
+            <key-map field-name="deliveryId"/>
+        </relation>
+        <relation type="one" fk-name="MFG_DELIV_SN_SN" rel-entity-name="MfgSn">
+            <key-map field-name="sn"/>
+        </relation>
+        <index name="MFG_DELIV_SN_SN_IDX" unique="false">
+            <index-field name="sn"/>
+        </index>
+    </entity>
+
+    <entity entity-name="MfgTestResult"
+            package-name="org.langhua.ofbiz.mfg"
+            title="Test result">
+        <description>One measured item of one unit at a test station, imported from the test bench CSV</description>
+        <field name="resultId" type="id"><description>Result number</description></field>
+        <field name="sn" type="id"><description>Unit under test</description></field>
+        <field name="workOrderId" type="id"><description>Work order of the unit</description></field>
+        <field name="station" type="short-varchar"><description>Station, e.g. FCT or AGEING</description></field>
+        <field name="testItem" type="short-varchar"><description>Measured item, e.g. VBAT</description></field>
+        <field name="measureValue" type="floating-point"><description>Measured value</description></field>
+        <field name="unitOfMeasure" type="short-varchar"><description>Unit, e.g. V or mA</description></field>
+        <field name="passFail" type="indicator"><description>Y when the item passed</description></field>
+        <field name="testDate" type="date-time"><description>When the unit was tested</description></field>
+        <field name="note" type="description"/>
+        <field name="createdStamp" type="date-time"/>
+        <field name="createdTxStamp" type="date-time"/>
+        <field name="lastUpdatedStamp" type="date-time"/>
+        <field name="lastUpdatedTxStamp" type="date-time"/>
+        <prim-key field="resultId"/>
+        <index name="MFG_TEST_SN_IDX" unique="false">
+            <index-field name="sn"/>
+        </index>
+        <index name="MFG_TEST_WO_IDX" unique="false">
+            <index-field name="workOrderId"/>
+        </index>
+    </entity>
 </entitymodel>

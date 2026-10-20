@@ -168,4 +168,35 @@ public class MfgServicesTest {
         assertNull(MfgServices.fifoSlice(List.of("A-0001"), List.of(0.0), 0));
         assertNull(MfgServices.fifoSlice(List.of("A-0001"), List.of(1.0), 5));
     }
+
+    @Test
+    public void splitsSerialNumberLists() {
+        List<String> sns = MfgServices.parseSnList("SN-1, SN-2\nSN-3\tSN-1");
+
+        assertEquals(3, sns.size());
+        assertEquals("SN-1", sns.get(0));
+        assertEquals("SN-2", sns.get(1));
+        assertEquals("SN-3", sns.get(2));
+        assertTrue(MfgServices.parseSnList(null).isEmpty());
+        assertTrue(MfgServices.parseSnList("  ,  \n").isEmpty());
+    }
+
+    @Test
+    public void parsesTestResultCsv() {
+        String csv = "ITMFG-261021-0001,FCT,VBAT,3.72,V,Y\n"
+                + "# comment\n"
+                + "ITMFG-261021-0002,AGEING,CURRENT,12.5,mA,N\n";
+
+        List<String[]> rows = MfgServices.parseTestCsv(csv);
+
+        assertEquals(2, rows.size());
+        assertEquals("ITMFG-261021-0001", rows.get(0)[0]);
+        assertEquals("FCT", rows.get(0)[1]);
+        assertEquals("VBAT", rows.get(0)[2]);
+        assertEquals("3.72", rows.get(0)[3]);
+        assertEquals("V", rows.get(0)[4]);
+        assertEquals("Y", rows.get(0)[5]);
+        assertEquals("N", rows.get(1)[5]);
+        assertTrue(MfgServices.parseTestCsv(null).isEmpty());
+    }
 }

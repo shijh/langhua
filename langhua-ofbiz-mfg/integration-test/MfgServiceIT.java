@@ -68,6 +68,7 @@ public final class MfgServiceIT {
     private static final Pattern WORK_ORDER_ID = Pattern.compile("WO-\\d{6}-\\d{3}");
     private static final Pattern SERIAL_NUMBER = Pattern.compile(SN_PREFIX + "-\\d{6}-\\d{4}");
     private static final Pattern LOT_ID = Pattern.compile("LOT-\\d{6}-\\d{2}");
+    private static final Pattern DELIVERY_ID = Pattern.compile("DO-\\d{6}-\\d{2}");
     private static final String KEY_COMPONENT = "U1-BT5-SOC";
     private static final String SUPPLIER_LOT = "DC-IT-2410";
 
@@ -79,6 +80,7 @@ public final class MfgServiceIT {
     private String workOrderId;
     private String serialNumber;
     private String lotId;
+    private String deliveryId;
     private final java.util.List<String> importedLotIds = new java.util.ArrayList<>();
 
     private MfgServiceIT(String baseUrl, String user, String password) {
@@ -118,6 +120,9 @@ public final class MfgServiceIT {
             it.importsLotsFromCsv();
             it.estimatesSnRangeByFifo();
             it.recordsReplacement();
+            it.importsTestResults();
+            it.createsDelivery();
+            it.rejectsDuplicateDelivery();
             it.rejectsZeroHoursReport();
         } finally {
             it.tearDown();
@@ -547,6 +552,89 @@ public final class MfgServiceIT {
                 "replacement missing from the serial number history");
     }
 
+    private void importsTestResults() throws IOException {
+        if (serialNumber == null) {
+            return;
+        }
+        String csv = serialNumber + ",FCT,VBAT,3.72,V,Y\n"
+                + serialNumber + ",FCT,IQ,12.4,mA,N\n"
+                + "SN-UNKNOWN,FCT,VBAT,3.7,V,Y";
+        Map<String, String> form = new LinkedHashMap<>();
+        form.put("csv", csv);
+        form.put("workOrderId", workOrderId == null ? "" : workOrderId);
+
+        Response response = invoke("mfgTestImportCsv", form);
+        check("test import: service call returns HTTP 200", response.status == 200,
+                "HTTP " + response.status);
+        check("test import: two rows imported", response.body.contains("importedCount"),
+                "no 'importedCount' in response");
+        check("test import: the unknown serial number is skipped",
+                response.body.contains("skippedCount"), "no 'skippedCount' in response");
+
+        Map<String, String> detail = new LinkedHashMap<>();
+        detail.put("sn", serialNumber);
+        response = invoke("mfgSnDetail", detail);
+        check("test import: results are visible on the unit",
+                response.body.contains("VBAT") && response.body.contains("passFail"),
+                "test results missing from the serial number history");
+
+        if (workOrderId != null) {
+            Map<String, String> order = new LinkedHashMap<>();
+            order.put("workOrderId", workOrderId);
+            response = invoke("mfgWorkOrderDetail", order);
+            check("test import: work order reports the test yield",
+                    response.body.contains("testYield"), "no 'testYield' in response");
+        }
+    }
+
+    private void createsDelivery() throws IOException {
+        if (serialNumber == null || workOrderId == null) {
+            return;
+        }
+        Map<String, String> form = new LinkedHashMap<>();
+        form.put("customerName", "IT customer");
+        form.put("customerPo", "PO-IT-1");
+        form.put("deliveryDate", "2026-10-21");
+        form.put("carrier", "SF");
+        form.put("trackingNo", "SF-IT-DLV");
+        form.put("workOrderId", workOrderId);
+        form.put("qty", "1");
+
+        Response response = invoke("mfgDeliverySave", form);
+        check("delivery: service call returns HTTP 200", response.status == 200,
+                "HTTP " + response.status);
+        deliveryId = firstMatch(DELIVERY_ID, response.body);
+        check("delivery: identifier generated", deliveryId != null, "no DO- identifier in response");
+        System.out.println("[delivery] " + deliveryId);
+
+        Map<String, String> detail = new LinkedHashMap<>();
+        detail.put("deliveryId", deliveryId == null ? "" : deliveryId);
+        response = invoke("mfgDeliveryDetail", detail);
+        check("delivery: the shipped unit is listed", response.body.contains(serialNumber),
+                "serial number missing from the delivery");
+
+        Map<String, String> snDetail = new LinkedHashMap<>();
+        snDetail.put("sn", serialNumber);
+        response = invoke("mfgSnDetail", snDetail);
+        check("delivery: visible on the serial number history",
+                response.body.contains("IT customer"), "customer missing on the unit");
+    }
+
+    private void rejectsDuplicateDelivery() throws IOException {
+        if (serialNumber == null) {
+            return;
+        }
+        Map<String, String> form = new LinkedHashMap<>();
+        form.put("customerName", "IT customer");
+        form.put("sns", serialNumber);
+
+        Response response = invoke("mfgDeliverySave", form);
+        check("delivery: shipping the same unit twice is rejected",
+                response.body.contains("has already been delivered"),
+                "no validation error in response");
+        System.out.println("[invalid delivery] error reported as expected");
+    }
+
     private void rejectsZeroHoursReport() throws IOException {
         if (workOrderId == null) {
             return;
@@ -556,7 +644,6 @@ public final class MfgServiceIT {
         form.put("opSeq", "10");
         form.put("workHours", "0");
         form.put("qtyOk", "1");
-
         Response response = invoke("mfgReportCreate", form);
         check("invalid report: service reports an error",
                 response.body.contains("workHours must be greater than zero"),

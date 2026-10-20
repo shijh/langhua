@@ -19,9 +19,11 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 
 import org.apache.ofbiz.entity.Delegator;
 import org.apache.ofbiz.entity.GenericEntityException;
@@ -55,6 +57,8 @@ public final class MfgServices {
 
     public static final String SHIP_OUT = "MFG_SHIP_OUT";
     public static final String SHIP_IN = "MFG_SHIP_IN";
+
+    public static final String SN_SHIPPED = "MFG_SHIPPED";
 
     private static final DateTimeFormatter DAY = DateTimeFormatter.ofPattern("yyMMdd");
 
@@ -302,6 +306,26 @@ public final class MfgServices {
             result.put("reportedHours", Double.valueOf(sumHours(reports)));
             result.put("totalQtyOk", Long.valueOf(sumQty(reports, "qtyOk")));
             result.put("totalQtyNg", Long.valueOf(sumQty(reports, "qtyNg")));
+
+            List<GenericValue> tests = EntityQuery.use(delegator).from("MfgTestResult")
+                    .where("workOrderId", workOrderId).queryList();
+            Set<String> testedSns = new LinkedHashSet<>();
+            Set<String> failedSns = new LinkedHashSet<>();
+            for (GenericValue test : tests) {
+                String testSn = test.getString("sn");
+                if (testSn == null) {
+                    continue;
+                }
+                testedSns.add(testSn);
+                if ("N".equals(test.getString("passFail"))) {
+                    failedSns.add(testSn);
+                }
+            }
+            result.put("testedSnCount", Integer.valueOf(testedSns.size()));
+            result.put("failedSnCount", Integer.valueOf(failedSns.size()));
+            double testYield = testedSns.isEmpty() ? 0.0
+                    : (testedSns.size() - failedSns.size()) * 100.0 / testedSns.size();
+            result.put("testYield", Double.valueOf(testYield));
             return result;
         } catch (GenericEntityException e) {
             return ServiceUtil.returnError("Could not read the work order: " + e.getMessage());
@@ -484,6 +508,18 @@ public final class MfgServices {
             }
             List<GenericValue> replacements = EntityQuery.use(delegator).from("MfgReplacement")
                     .where("sn", sn).orderBy("createdStamp").queryList();
+            List<GenericValue> deliveryItems = EntityQuery.use(delegator).from("MfgDeliverySn")
+                    .where("sn", sn).queryList();
+            Map<String, Object> deliveryMap = null;
+            if (!deliveryItems.isEmpty()) {
+                GenericValue delivery = EntityQuery.use(delegator).from("MfgDelivery")
+                        .where("deliveryId", deliveryItems.get(0).getString("deliveryId")).queryOne();
+                if (delivery != null) {
+                    deliveryMap = toDeliveryMap(delivery);
+                }
+            }
+            List<GenericValue> tests = EntityQuery.use(delegator).from("MfgTestResult")
+                    .where("sn", sn).orderBy("-testDate").queryList();
 
             Map<String, Object> result = ServiceUtil.returnSuccess();
             result.put("snRecord", toSnMap(unit));
@@ -492,6 +528,8 @@ public final class MfgServices {
             result.put("defects", toDefectMaps(unitDefects));
             result.put("lots", lotMaps);
             result.put("replacements", toReplacementMaps(replacements));
+            result.put("delivery", deliveryMap);
+            result.put("tests", toTestResultMaps(tests));
             return result;
         } catch (GenericEntityException e) {
             return ServiceUtil.returnError("Could not read the serial number: " + e.getMessage());
@@ -1424,6 +1462,355 @@ public final class MfgServices {
             rows.add(row);
         }
         return rows;
+    }
+
+    // ------------------------------------------------------------- delivery and testing
+
+    /**
+     * Creates a delivery order and binds the shipped serial numbers to it. Either {@code sns} is
+     * given (whitespace or comma separated), or {@code workOrderId} + {@code qty} are used to pick
+     * the next undelivered units of that work order.
+     *
+     * @param dctx the dispatch context
+     * @param context service context, see {@code servicedef/services.xml#mfgDeliverySave}
+     * @return the service result containing {@code deliveryId} and {@code snCount}
+     */
+    public static Map<String, Object> deliverySave(DispatchContext dctx, Map<String, ? extends Object> context) {
+        Delegator delegator = dctx.getDelegator();
+        String customerName = toText(context.get("customerName"));
+        if (customerName == null) {
+            return ServiceUtil.returnError("customerName is required");
+        }
+        try {
+            List<String> sns = parseSnList(toText(context.get("sns")));
+            String workOrderId = toText(context.get("workOrderId"));
+            long qty = toLong(context.get("qty"), 0);
+            if (sns.isEmpty()) {
+                if (workOrderId == null) {
+                    return ServiceUtil.returnError("sns or workOrderId is required");
+                }
+                if (qty <= 0) {
+                    return ServiceUtil.returnError("qty must be a positive number when workOrderId is used");
+                }
+                List<GenericValue> units = EntityQuery.use(delegator).from("MfgSn")
+                        .where("workOrderId", workOrderId).orderBy("sn").queryList();
+                for (GenericValue unit : units) {
+                    if (sns.size() >= qty) {
+                        break;
+                    }
+                    String sn = unit.getString("sn");
+                    if (!isDelivered(delegator, sn)) {
+                        sns.add(sn);
+                    }
+                }
+                if (sns.isEmpty()) {
+                    return ServiceUtil.returnError("No undelivered serial number left on [" + workOrderId + "]");
+                }
+            }
+            for (String sn : sns) {
+                if (EntityQuery.use(delegator).from("MfgSn").where("sn", sn).queryOne() == null) {
+                    return ServiceUtil.returnError("Unknown serial number [" + sn + "]");
+                }
+                if (isDelivered(delegator, sn)) {
+                    return ServiceUtil.returnError("Serial number [" + sn + "] has already been delivered");
+                }
+            }
+
+            String deliveryId = nextDeliveryId(delegator, LocalDate.now());
+            GenericValue delivery = delegator.makeValue("MfgDelivery");
+            delivery.set("deliveryId", deliveryId);
+            delivery.set("customerName", customerName);
+            delivery.set("customerPo", toText(context.get("customerPo")));
+            Object deliveryDate = parseDate(context.get("deliveryDate"));
+            delivery.set("deliveryDate", deliveryDate == null
+                    ? java.sql.Date.valueOf(LocalDate.now()) : deliveryDate);
+            delivery.set("carrier", toText(context.get("carrier")));
+            delivery.set("trackingNo", toText(context.get("trackingNo")));
+            delivery.set("workOrderId", workOrderId);
+            delivery.set("note", toText(context.get("note")));
+            delegator.create(delivery);
+
+            for (String sn : sns) {
+                GenericValue item = delegator.makeValue("MfgDeliverySn");
+                item.set("deliveryId", deliveryId);
+                item.set("sn", sn);
+                delegator.create(item);
+                GenericValue unit = EntityQuery.use(delegator).from("MfgSn").where("sn", sn).queryOne();
+                if (unit != null) {
+                    unit.set("statusId", SN_SHIPPED);
+                    delegator.store(unit);
+                }
+            }
+
+            Map<String, Object> result = ServiceUtil.returnSuccess();
+            result.put("deliveryId", deliveryId);
+            result.put("snCount", String.valueOf(sns.size()));
+            return result;
+        } catch (GenericEntityException e) {
+            return ServiceUtil.returnError("Could not create the delivery: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Lists delivery orders, newest first, with the number of shipped units.
+     *
+     * @param dctx the dispatch context
+     * @param context service context, see {@code servicedef/services.xml#mfgDeliveryList}
+     * @return the service result containing {@code deliveries}
+     */
+    public static Map<String, Object> deliveryList(DispatchContext dctx, Map<String, ? extends Object> context) {
+        Delegator delegator = dctx.getDelegator();
+        String customerName = toText(context.get("customerName"));
+        try {
+            EntityQuery query = EntityQuery.use(delegator).from("MfgDelivery");
+            if (customerName != null) {
+                query = query.where("customerName", customerName);
+            }
+            List<GenericValue> deliveries = query.orderBy("-deliveryDate").queryList();
+            List<Map<String, Object>> list = new ArrayList<>(deliveries.size());
+            for (GenericValue delivery : deliveries) {
+                Map<String, Object> map = toDeliveryMap(delivery);
+                List<GenericValue> items = EntityQuery.use(delegator).from("MfgDeliverySn")
+                        .where("deliveryId", delivery.getString("deliveryId")).queryList();
+                map.put("snCount", Integer.valueOf(items.size()));
+                list.add(map);
+            }
+            Map<String, Object> result = ServiceUtil.returnSuccess();
+            result.put("deliveries", list);
+            result.put("customerName", customerName);
+            return result;
+        } catch (GenericEntityException e) {
+            return ServiceUtil.returnError("Could not read the deliveries: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Returns one delivery order with its shipped units.
+     *
+     * @param dctx the dispatch context
+     * @param context service context, see {@code servicedef/services.xml#mfgDeliveryDetail}
+     * @return the service result containing {@code delivery} and {@code units}
+     */
+    public static Map<String, Object> deliveryDetail(DispatchContext dctx, Map<String, ? extends Object> context) {
+        Delegator delegator = dctx.getDelegator();
+        String deliveryId = toText(context.get("deliveryId"));
+        Map<String, Object> empty = ServiceUtil.returnSuccess();
+        empty.put("units", new ArrayList<Map<String, Object>>());
+        if (deliveryId == null) {
+            return empty;
+        }
+        try {
+            GenericValue delivery = EntityQuery.use(delegator).from("MfgDelivery")
+                    .where("deliveryId", deliveryId).queryOne();
+            if (delivery == null) {
+                return empty;
+            }
+            List<GenericValue> items = EntityQuery.use(delegator).from("MfgDeliverySn")
+                    .where("deliveryId", deliveryId).orderBy("sn").queryList();
+            List<Map<String, Object>> units = new ArrayList<>(items.size());
+            for (GenericValue item : items) {
+                String sn = item.getString("sn");
+                GenericValue unit = EntityQuery.use(delegator).from("MfgSn").where("sn", sn).queryOne();
+                Map<String, Object> map = new LinkedHashMap<>();
+                map.put("sn", sn);
+                map.put("productCode", unit == null ? null : unit.getString("productCode"));
+                map.put("workOrderId", unit == null ? null : unit.getString("workOrderId"));
+                map.put("statusId", unit == null ? null : unit.getString("statusId"));
+                units.add(map);
+            }
+            Map<String, Object> result = ServiceUtil.returnSuccess();
+            result.put("delivery", toDeliveryMap(delivery));
+            result.put("units", units);
+            return result;
+        } catch (GenericEntityException e) {
+            return ServiceUtil.returnError("Could not read the delivery: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Imports test bench results from CSV text. Each line is
+     * {@code sn,station,item,value,unit,pass}; lines of unknown serial numbers are skipped.
+     *
+     * @param dctx the dispatch context
+     * @param context service context, see {@code servicedef/services.xml#mfgTestImportCsv}
+     * @return the service result containing {@code importedCount} and {@code skippedCount}
+     */
+    public static Map<String, Object> testImportCsv(DispatchContext dctx, Map<String, ? extends Object> context) {
+        Delegator delegator = dctx.getDelegator();
+        String csv = toText(context.get("csv"));
+        if (csv == null) {
+            return ServiceUtil.returnError("csv is required");
+        }
+        List<String[]> rows = parseTestCsv(csv);
+        if (rows.isEmpty()) {
+            return ServiceUtil.returnError("No test line could be parsed, expected sn,station,item,value,unit,pass");
+        }
+        try {
+            int imported = 0;
+            int skipped = 0;
+            Timestamp now = new Timestamp(System.currentTimeMillis());
+            for (String[] row : rows) {
+                String sn = row[0];
+                GenericValue unit = EntityQuery.use(delegator).from("MfgSn").where("sn", sn).queryOne();
+                if (unit == null) {
+                    skipped++;
+                    continue;
+                }
+                GenericValue result = delegator.makeValue("MfgTestResult");
+                result.set("resultId", delegator.getNextSeqId("MfgTestResult"));
+                result.set("sn", sn);
+                result.set("workOrderId", unit.getString("workOrderId"));
+                result.set("station", row[1] == null ? "FCT" : row[1].toUpperCase(Locale.ROOT));
+                result.set("testItem", row[2]);
+                result.set("measureValue", Double.valueOf(toDouble(row[3], 0.0)));
+                result.set("unitOfMeasure", row[4]);
+                result.set("passFail", "N".equalsIgnoreCase(row[5]) ? "N" : "Y");
+                result.set("testDate", now);
+                delegator.create(result);
+                imported++;
+            }
+            if (imported == 0) {
+                return ServiceUtil.returnError("No serial number of the file is known, " + skipped + " line(s) skipped");
+            }
+            Map<String, Object> result = ServiceUtil.returnSuccess();
+            result.put("importedCount", String.valueOf(imported));
+            result.put("skippedCount", String.valueOf(skipped));
+            // carried through the redirect so the page returns to the work order
+            result.put("workOrderId", toText(context.get("workOrderId")));
+            return result;
+        } catch (GenericEntityException e) {
+            return ServiceUtil.returnError("Could not import the test results: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Lists test results of one unit, or the most recent results when no serial number is given.
+     *
+     * @param dctx the dispatch context
+     * @param context service context, see {@code servicedef/services.xml#mfgTestResultList}
+     * @return the service result containing {@code results}
+     */
+    public static Map<String, Object> testResultList(DispatchContext dctx, Map<String, ? extends Object> context) {
+        Delegator delegator = dctx.getDelegator();
+        String sn = toText(context.get("sn"));
+        try {
+            EntityQuery query = EntityQuery.use(delegator).from("MfgTestResult");
+            if (sn != null) {
+                query = query.where("sn", sn);
+            }
+            List<GenericValue> results = query.orderBy("-testDate").queryList();
+            Map<String, Object> result = ServiceUtil.returnSuccess();
+            result.put("results", toTestResultMaps(results));
+            result.put("sn", sn);
+            return result;
+        } catch (GenericEntityException e) {
+            return ServiceUtil.returnError("Could not read the test results: " + e.getMessage());
+        }
+    }
+
+    private static boolean isDelivered(Delegator delegator, String sn) throws GenericEntityException {
+        return EntityQuery.use(delegator).from("MfgDeliverySn").where("sn", sn).queryOne() != null;
+    }
+
+    private static Map<String, Object> toDeliveryMap(GenericValue delivery) {
+        Map<String, Object> map = new LinkedHashMap<>();
+        map.put("deliveryId", delivery.getString("deliveryId"));
+        map.put("customerName", delivery.getString("customerName"));
+        map.put("customerPo", delivery.getString("customerPo"));
+        map.put("deliveryDate", delivery.getDate("deliveryDate"));
+        map.put("carrier", delivery.getString("carrier"));
+        map.put("trackingNo", delivery.getString("trackingNo"));
+        map.put("workOrderId", delivery.getString("workOrderId"));
+        map.put("note", delivery.getString("note"));
+        return map;
+    }
+
+    private static List<Map<String, Object>> toTestResultMaps(List<GenericValue> results) {
+        List<Map<String, Object>> list = new ArrayList<>(results.size());
+        for (GenericValue result : results) {
+            Map<String, Object> map = new LinkedHashMap<>();
+            map.put("resultId", result.getString("resultId"));
+            map.put("sn", result.getString("sn"));
+            map.put("station", result.getString("station"));
+            map.put("testItem", result.getString("testItem"));
+            map.put("measureValue", result.getDouble("measureValue"));
+            map.put("unitOfMeasure", result.getString("unitOfMeasure"));
+            map.put("passFail", result.getString("passFail"));
+            map.put("testDate", result.getTimestamp("testDate"));
+            list.add(map);
+        }
+        return list;
+    }
+
+    /**
+     * Splits a whitespace or comma separated list of serial numbers.
+     *
+     * @param text the raw text, may be {@code null}
+     * @return the serial numbers, never {@code null}
+     */
+    static List<String> parseSnList(String text) {
+        List<String> sns = new ArrayList<>();
+        if (text == null) {
+            return sns;
+        }
+        for (String candidate : text.split("[,\\s]+")) {
+            String sn = candidate.trim();
+            if (!sn.isEmpty() && !sns.contains(sn)) {
+                sns.add(sn);
+            }
+        }
+        return sns;
+    }
+
+    /**
+     * Parses test bench CSV text into rows of {@code sn, station, item, value, unit, pass}.
+     * Empty lines and lines starting with {@code #} are ignored.
+     *
+     * @param csv the CSV text
+     * @return the parsed rows, never {@code null}
+     */
+    static List<String[]> parseTestCsv(String csv) {
+        List<String[]> rows = new ArrayList<>();
+        if (csv == null) {
+            return rows;
+        }
+        for (String line : csv.replace("\r\n", "\n").replace('\r', '\n').split("\n")) {
+            String trimmed = line.trim();
+            if (trimmed.isEmpty() || trimmed.startsWith("#")) {
+                continue;
+            }
+            String[] cells = splitCsvLine(trimmed);
+            String sn = unquote(cells[0]);
+            if (sn.isEmpty()) {
+                continue;
+            }
+            String[] row = new String[6];
+            row[0] = sn;
+            row[1] = cells.length > 1 ? unquote(cells[1]) : null;
+            row[2] = cells.length > 2 ? unquote(cells[2]) : null;
+            row[3] = cells.length > 3 ? unquote(cells[3]) : null;
+            row[4] = cells.length > 4 ? unquote(cells[4]) : null;
+            row[5] = cells.length > 5 ? unquote(cells[5]) : null;
+            rows.add(row);
+        }
+        return rows;
+    }
+
+    private static String formatDeliveryId(LocalDate date, int sequence) {
+        return "DO-" + date.format(DAY) + "-" + String.format(Locale.ROOT, "%02d", sequence);
+    }
+
+    private static String nextDeliveryId(Delegator delegator, LocalDate today) throws GenericEntityException {
+        String prefix = "DO-" + today.format(DAY) + "-";
+        List<GenericValue> existing = EntityQuery.use(delegator).from("MfgDelivery").queryList();
+        int max = 0;
+        for (GenericValue delivery : existing) {
+            String id = delivery.getString("deliveryId");
+            if (id != null && id.startsWith(prefix)) {
+                max = Math.max(max, parseTrailingNumber(id.substring(prefix.length())));
+            }
+        }
+        return formatDeliveryId(today, max + 1);
     }
 
     // ------------------------------------------------------------------ helpers

@@ -94,6 +94,9 @@
         <attribute name="reportedHours" type="Double" mode="OUT" optional="true"/>
         <attribute name="totalQtyOk" type="Long" mode="OUT" optional="true"/>
         <attribute name="totalQtyNg" type="Long" mode="OUT" optional="true"/>
+        <attribute name="testedSnCount" type="Integer" mode="OUT" optional="true"/>
+        <attribute name="failedSnCount" type="Integer" mode="OUT" optional="true"/>
+        <attribute name="testYield" type="Double" mode="OUT" optional="true"/>
     </service>
 
     <!-- ==================== shop floor ==================== -->
@@ -135,6 +138,8 @@
         <attribute name="defects" type="java.util.List" mode="OUT" optional="true"/>
         <attribute name="lots" type="java.util.List" mode="OUT" optional="true"/>
         <attribute name="replacements" type="java.util.List" mode="OUT" optional="true"/>
+        <attribute name="delivery" type="java.util.Map" mode="OUT" optional="true"/>
+        <attribute name="tests" type="java.util.List" mode="OUT" optional="true"/>
     </service>
 
     <service name="mfgDefectCreate" engine="java"
@@ -283,5 +288,62 @@
         <attribute name="hours" type="Double" mode="IN" optional="true"/>
         <attribute name="note" type="String" mode="IN" optional="true"/>
         <attribute name="replacementId" type="String" mode="OUT" optional="true"/>
+    </service>
+
+    <!-- ==================== delivery and testing ==================== -->
+
+    <service name="mfgDeliverySave" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgServices" invoke="deliverySave"
+            auth="false" use-transaction="false">
+        <description>Create a delivery order and bind serial numbers to it (delivery date = warranty start)</description>
+        <attribute name="customerName" type="String" mode="IN" optional="false"/>
+        <attribute name="customerPo" type="String" mode="IN" optional="true"/>
+        <attribute name="deliveryDate" type="String" mode="IN" optional="true"/>
+        <attribute name="carrier" type="String" mode="IN" optional="true"/>
+        <attribute name="trackingNo" type="String" mode="IN" optional="true"/>
+        <attribute name="workOrderId" type="String" mode="IN" optional="true"/>
+        <attribute name="qty" type="Long" mode="IN" optional="true"/>
+        <attribute name="sns" type="String" mode="IN" optional="true"/>
+        <attribute name="note" type="String" mode="IN" optional="true"/>
+        <attribute name="deliveryId" type="String" mode="OUT" optional="true"/>
+        <attribute name="snCount" type="String" mode="OUT" optional="true"/>
+    </service>
+
+    <service name="mfgDeliveryList" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgServices" invoke="deliveryList"
+            auth="false" use-transaction="false">
+        <description>List delivery orders with the number of shipped units</description>
+        <attribute name="customerName" type="String" mode="IN" optional="true"/>
+        <attribute name="customerName" type="String" mode="OUT" optional="true"/>
+        <attribute name="deliveries" type="java.util.List" mode="OUT" optional="true"/>
+    </service>
+
+    <service name="mfgDeliveryDetail" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgServices" invoke="deliveryDetail"
+            auth="false" use-transaction="false">
+        <description>One delivery order with its shipped serial numbers</description>
+        <attribute name="deliveryId" type="String" mode="IN" optional="true"/>
+        <attribute name="delivery" type="java.util.Map" mode="OUT" optional="true"/>
+        <attribute name="units" type="java.util.List" mode="OUT" optional="true"/>
+    </service>
+
+    <service name="mfgTestImportCsv" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgServices" invoke="testImportCsv"
+            auth="false" use-transaction="false">
+        <description>Import test bench results from CSV: sn,station,item,value,unit,pass</description>
+        <attribute name="csv" type="String" mode="IN" optional="false"/>
+        <attribute name="workOrderId" type="String" mode="IN" optional="true"/>
+        <attribute name="importedCount" type="String" mode="OUT" optional="true"/>
+        <attribute name="skippedCount" type="String" mode="OUT" optional="true"/>
+        <attribute name="workOrderId" type="String" mode="OUT" optional="true"/>
+    </service>
+
+    <service name="mfgTestResultList" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgServices" invoke="testResultList"
+            auth="false" use-transaction="false">
+        <description>Test results of one unit, or the most recent results</description>
+        <attribute name="sn" type="String" mode="IN" optional="true"/>
+        <attribute name="sn" type="String" mode="OUT" optional="true"/>
+        <attribute name="results" type="java.util.List" mode="OUT" optional="true"/>
     </service>
 </services>

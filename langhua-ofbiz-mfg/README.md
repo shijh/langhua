@@ -26,6 +26,8 @@
 | **批次追溯** | 反向：批次 → 工单 → SN 数量，用于供应商报批后的召回范围 |
 | **FIFO 推定** | 同工单用了多批次时，按发料先后推定各批次覆盖的 SN 区间（仅估算，界面有标注） |
 | **返修换件** | 单板级精确记录：SN + 位号/料号 + 原批次 → 新批次 + 原因 + 工时 |
+| **出货单** | 出货到客户（可手填 SN 或按工单+数量自动取），出货日即保修起算 |
+| **测试数据** | 测试台 CSV 导入（SN,工位,测试项,测量值,单位,判定），工单自动算一次通过率 |
 
 ## 目录结构
 
@@ -67,7 +69,7 @@ https://localhost:8443/mfg/control/main
 ```
 
 首次启动会根据 `entitydef/entitymodel.xml` 自动建表（Derby 下为 `MFG_PRODUCT`、`MFG_BOM_ITEM`、`MFG_ROUTING`、
-`MFG_WORK_ORDER`、`MFG_SN`、`MFG_REPORT`、`MFG_DEFECT`、`MFG_MATERIAL_LOT`、`MFG_MATERIAL_ISSUE`、`MFG_SHIPMENT`、`MFG_REPLACEMENT`）。
+`MFG_WORK_ORDER`、`MFG_SN`、`MFG_REPORT`、`MFG_DEFECT`、`MFG_MATERIAL_LOT`、`MFG_MATERIAL_ISSUE`、`MFG_SHIPMENT`、`MFG_REPLACEMENT`、`MFG_DELIVERY`、`MFG_DELIVERY_SN`、`MFG_TEST_RESULT`）。
 
 ## 数据模型
 
@@ -83,6 +85,9 @@ https://localhost:8443/mfg/control/main
 | `MfgMaterialIssue` | 发料：`issueId`、`workOrderId`、`componentCode`、`lotId`、`qty`、`issuedDate`、可选 `designators` / `snFrom` / `snTo` |
 | `MfgShipment` | 外协收发：`shipmentId`、`workOrderId`、`directionId`（`MFG_SHIP_OUT` / `MFG_SHIP_IN`）、`qty`、`defectQty`、`carrier`、`trackingNo` |
 | `MfgReplacement` | 返修换件：`replacementId`、`sn`、`componentCode`、`oldLotId` → `newLotId`、`qty`、`reason`、`hours` |
+| `MfgDelivery` | 出货单：`deliveryId`（DO-yyMMdd-NN）、`customerName`、`customerPo`、`deliveryDate`、`carrier`、`trackingNo`、`workOrderId` |
+| `MfgDeliverySn` | 出货明细：`deliveryId` + `sn`（联合主键），一个 SN 只能出一次货 |
+| `MfgTestResult` | 测试结果：`resultId`、`sn`、`workOrderId`、`station`、`testItem`、`measureValue`、`unitOfMeasure`、`passFail`、`testDate` |
 
 ## 服务
 
@@ -104,6 +109,8 @@ https://localhost:8443/mfg/control/main
 | `mfgLotImportCsv` | 从 CSV 批量导入到货批次 |
 | `mfgShortageList` | 在制工单的欠料清单（按交期排序） |
 | `mfgReplacementSave` | 登记单板级换件（原批次 → 新批次） |
+| `mfgDeliverySave` / `mfgDeliveryList` / `mfgDeliveryDetail` | 出货单（SN 绑定、防重复出货、保修起算） |
+| `mfgTestImportCsv` / `mfgTestResultList` | 测试结果 CSV 导入与查询 |
 
 示例（Web Tools → Run Service → `mfgBomImport`）：
 
@@ -126,6 +133,7 @@ csv         = R0402-10K,10K 0402 resistor,4,R1-R4,N
 | `/mfg/control/dashboard` | 车间看板 |
 | `/mfg/control/materials` | 物料批次台账、收货登记、CSV 批量导入、按批次反向追溯 |
 | `/mfg/control/shortage` | 齐套预警：按交期列出欠料工单与明细 |
+| `/mfg/control/delivery` | 出货单：新建、列表、明细；出货后 SN 变为 `MFG_SHIPPED` |
 
 访问控制由 `ofbiz-component.xml` 的 `base-permission="OFBTOOLS"` 决定；
 `data/MfgSecurityPermissionSeedData.xml` 定义 `MFG_VIEW` / `MFG_ADMIN` 并授予 `SUPER`、`FULLADMIN`。
@@ -151,11 +159,12 @@ productSave → bomImport → routingSave → productDetail
            → workOrderDetail → dashboard
            → lotSave → issueSave → shipmentSave → workOrderMaterials → traceByLot
            → shortageList → lotImportCsv → FIFO 推定 → replacementSave
+           → testImportCsv → deliverySave → 重复出货拒绝
            → 非法报工（workHours = 0）/ 错料发料（批次不属于该料号）
 ```
 
-共 65 项断言，全部通过时退出码为 0。测试是**可重复执行**的：每次创建/更新产品型号 `ITMFG`、替换其 BOM、
-新建一张工单、物料批次，以及相应的报工、不良、发料、收发与换件记录。
+共 75 项断言，全部通过时退出码为 0。测试是**可重复执行**的：每次创建/更新产品型号 `ITMFG`、替换其 BOM、
+新建一张工单、物料批次与出货单，以及相应的报工、不良、发料、收发、换件与测试数据。
 
 前置条件：OFBiz 已启动、已执行 `loadAll`、mfg 组件已部署。
 
@@ -175,7 +184,8 @@ java -cp "build/test-classes:ofbiz.jar:junit-4.13.2.jar:hamcrest-core-1.3.jar" \
       org.junit.runner.JUnitCore org.langhua.ofbiz.mfg.MfgServicesTest
 ```
 
-覆盖 BOM / 批次 CSV 解析（引号、缺列、CRLF、注释行、大小写归一）、FIFO 推定切片，以及 SN / 工单编号格式（共 13 个用例）。
+覆盖 BOM / 批次 / 测试结果 CSV 解析（引号、缺列、CRLF、注释行、大小写归一）、SN 列表拆分、FIFO 推定切片，
+以及 SN / 工单编号格式（共 15 个用例）。
 
 ## 追溯精度说明（重要）
 
@@ -186,6 +196,7 @@ SMT 为外协，且对方**不提供上料 / 换料记录**，因此追溯精度
 | 工单级 → 批次集合 | **准确** | 物料全部自采，发料由我方登记（`MfgMaterialIssue`） |
 | FIFO 推定 SN 区间 | **估算** | 同工单多批次时，按发料先后与数量比例拆分 SN 序列 |
 | 单板换件 | **准确** | 组装 / 返修环节由我方操作，登记 `MfgReplacement` |
+| 出厂 → 客户 | **准确** | 出货单把 SN 绑定到客户与出货日（保修起算），一个 SN 只能出一次 |
 
 所以“召回排查”的推荐做法：先用批次反向追溯圈定工单与推定 SN 区间，再到 SN 页看是否有换件记录确认。
 
@@ -206,7 +217,7 @@ SMT 为外协，且对方**不提供上料 / 换料记录**，因此追溯精度
 
 ## 后续想法
 
-- 出货单与客户 SN 绑定（出厂记录 + 保修起算）。
-- 来料检验（IQC）记录：到货批次可直接标记合格/不合格，并影响可发料性。
-- 测试数据导入（FCT 结果 CSV → 按 SN 写入参数与判定）。
-- 看板自动刷新与钉钉/邮件告警（欠料、良率异常）。
+- 来料检验（IQC）：到货批次标记合格/不合格，并影响可发料性。
+- 保修/售后单：按出货日自动算保修期，与返修换件、不良记录关联。
+- 看板自动刷新与钉钉/邮件告警（欠料、测试通过率异常）。
+- 报表导出：良率趋势、工时趋势（可回接学习曲线组件）。
