@@ -1,15 +1,21 @@
 <#ftl encoding="UTF-8">
 <#--
-  One work order: header, operation progress, reporting, serial numbers, defects.
+  One work order: header, operation progress, reporting, serial numbers, defects,
+  kitting, material issues and shipments to / from the SMT house.
   Data: detail.workOrder, detail.operations, detail.sns, detail.defects,
-        detail.reportedHours, detail.totalQtyOk, detail.totalQtyNg
+        detail.reportedHours, detail.totalQtyOk, detail.totalQtyNg,
+        material.lines, material.issues, material.shipments, material.kitComplete
 -->
 <#assign d = (detail)!{}>
 <#assign wo = (d.workOrder)!{}>
 <#assign operations = (d.operations)![]>
 <#assign sns = (d.sns)![]>
 <#assign defects = (d.defects)![]>
-<#assign ra = (requestAttributes)!{}>
+<#assign mat = (material)!{}>
+<#assign lines = (mat.lines)![]>
+<#assign issues = (mat.issues)![]>
+<#assign shipments = (mat.shipments)![]>
+<#assign errList = (errorMessageList)![]>
 <html>
 <head>
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
@@ -23,6 +29,7 @@
         .num { text-align: right; }
         .nav a { margin-right: 1em; }
         .error { color: #b00000; font-weight: bold; }
+        .ok { color: #1a7f37; font-weight: bold; }
         .hint { color: #666; font-size: .85em; }
         fieldset { border: 1px solid #ddd; padding: .6em 1em; margin-top: 1em; }
         .big { font-size: 1.5em; font-weight: bold; }
@@ -57,8 +64,8 @@
         &nbsp; SN <b>${sns?size}</b>
     </p>
 
-    <#if ra["_ERROR_MESSAGE_"]?? && ra["_ERROR_MESSAGE_"]?has_content>
-        <p class="error">${ra["_ERROR_MESSAGE_"]}</p>
+    <#if errList?has_content>
+        <p class="error"><#list errList as msg>${msg}<#if msg_has_next><br/></#if></#list></p>
     </#if>
 
     <h2>工序进度</h2>
@@ -173,6 +180,112 @@
             </p>
         </form>
     </fieldset>
+
+    <h2>物料齐套（BOM 需求 vs 已发料）</h2>
+    <p>
+        <#if (mat.kitComplete)!false>
+            <span class="ok">已齐套</span>
+        <#else>
+            <span class="error">有欠料</span>
+        </#if>
+        <span class="hint">发往 SMT 的套数合计 ${((mat.outQty)!0)?string("0.##")}，回厂板数 ${((mat.inQty)!0)?string("0.##")}，回厂不良 ${((mat.inDefectQty)!0)?string("0.##")}</span>
+    </p>
+    <#if lines?has_content>
+        <table>
+            <tr><th>元件料号</th><th>名称</th><th>关键件</th>
+                <th class="num">需求</th><th class="num">已发</th><th class="num">欠料</th></tr>
+            <#list lines as line>
+                <tr>
+                    <td>${line.componentCode!}</td>
+                    <td>${line.componentName!}</td>
+                    <td><#if (line.isKeyPart)!'N' == 'Y'>是<#else>-</#if></td>
+                    <td class="num">${((line.requiredQty)!0)?string("0.##")}</td>
+                    <td class="num">${((line.issuedQty)!0)?string("0.##")}</td>
+                    <td class="num"><#if ((line.shortage)!0) gt 0><span class="error">${line.shortage?string("0.##")}</span><#else>-</#if></td>
+                </tr>
+            </#list>
+        </table>
+    <#else>
+        <p class="hint">该型号还没有 BOM，先去「产品与 BOM」导入。</p>
+    </#if>
+
+    <h2>发料记录（批次）</h2>
+    <#if issues?has_content>
+        <table>
+            <tr><th>批次</th><th>供应商</th><th>供应商批号</th><th>元件料号</th>
+                <th class="num">数量</th><th>位号</th><th>SN 区间</th></tr>
+            <#list issues as it>
+                <tr>
+                    <td><a href="/mfg/control/materials?lotId=${it.lotId}">${it.lotId!}</a></td>
+                    <td>${it.supplierName!}</td>
+                    <td>${it.supplierLot!}</td>
+                    <td>${it.componentCode!}</td>
+                    <td class="num">${((it.qty)!0)?string("0.##")}</td>
+                    <td>${it.designators!}</td>
+                    <td><#if it.snFrom??>${it.snFrom}</#if><#if it.snTo??> ~ ${it.snTo}</#if></td>
+                </tr>
+            </#list>
+        </table>
+    <#else>
+        <p class="hint">还没有发料记录。</p>
+    </#if>
+
+    <fieldset>
+        <legend>登记发料</legend>
+        <form method="post" action="/mfg/control/issueSave">
+            <input type="hidden" name="workOrderId" value="${wo.workOrderId}"/>
+            <p>
+                元件料号 <input type="text" name="componentCode" size="16" placeholder="如 U1-BT5-SOC"/>
+                批次 <input type="text" name="lotId" size="14" placeholder="LOT-261020-01"/>
+                数量 <input type="text" name="qty" size="6" value="1"/>
+                位号 <input type="text" name="designators" size="12" placeholder="可选"/>
+                <input type="submit" value="发料"/>
+            </p>
+        </form>
+        <p class="hint">批次在「<a href="/mfg/control/materials">物料批次</a>」页登记（料号 + 供应商批号 + 数量）。</p>
+    </fieldset>
+
+    <h2>外协收发（快递）</h2>
+    <#if shipments?has_content>
+        <table>
+            <tr><th>方向</th><th>日期</th><th class="num">数量</th><th class="num">不良</th>
+                <th>快递</th><th>单号</th><th>备注</th></tr>
+            <#list shipments as sh>
+                <tr>
+                    <td><#if sh.directionId! == 'MFG_SHIP_IN'>回厂收货<#else>发往 SMT</#if></td>
+                    <td><#if sh.shipmentDate??>${sh.shipmentDate?string("yyyy-MM-dd")}</#if></td>
+                    <td class="num">${((sh.qty)!0)?string("0.##")}</td>
+                    <td class="num">${((sh.defectQty)!0)?string("0.##")}</td>
+                    <td>${sh.carrier!}</td>
+                    <td>${sh.trackingNo!}</td>
+                    <td>${sh.note!}</td>
+                </tr>
+            </#list>
+        </table>
+    <#else>
+        <p class="hint">还没有收发记录。</p>
+    </#if>
+
+    <fieldset>
+        <legend>登记收发</legend>
+        <form method="post" action="/mfg/control/shipmentSave">
+            <input type="hidden" name="workOrderId" value="${wo.workOrderId}"/>
+            <p>
+                方向
+                <select name="directionId">
+                    <option value="MFG_SHIP_OUT">发往 SMT（物料）</option>
+                    <option value="MFG_SHIP_IN">回厂收货（板子）</option>
+                </select>
+                数量 <input type="text" name="qty" size="6" value="1"/>
+                不良 <input type="text" name="defectQty" size="5" value="0"/>
+                快递 <input type="text" name="carrier" size="10" value="顺丰"/>
+                单号 <input type="text" name="trackingNo" size="16"/>
+                <input type="submit" value="保存"/>
+            </p>
+        </form>
+    </fieldset>
+</body>
+</html>
 </#if>
 </body>
 </html>

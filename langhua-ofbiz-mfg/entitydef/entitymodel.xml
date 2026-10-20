@@ -169,26 +169,87 @@
         </index>
     </entity>
 
-    <entity entity-name="MfgMaterialTrace"
+    <entity entity-name="MfgMaterialLot"
             package-name="org.langhua.ofbiz.mfg"
-            title="Material trace">
-        <description>Component lot used by a work order; designators and SN range are optional</description>
-        <field name="workOrderId" type="id"><description>Work order</description></field>
-        <field name="lineSeq" type="numeric"><description>Line number inside the trace table</description></field>
+            title="Material lot">
+        <description>One purchased lot / reel of a component: supplier lot or date code and quantity received</description>
+        <field name="lotId" type="id"><description>Internal lot id, LOT-yyMMdd-NN</description></field>
         <field name="componentCode" type="id"><description>Component part number</description></field>
-        <field name="lotCode" type="short-varchar"><description>Supplier or SMT lot / reel code</description></field>
-        <field name="designators" type="very-long"><description>Designators covered by this reel, when known</description></field>
-        <field name="snFrom" type="id"><description>First serial number covered</description></field>
-        <field name="snTo" type="id"><description>Last serial number covered</description></field>
+        <field name="componentName" type="name"><description>Component description</description></field>
+        <field name="supplierName" type="name"><description>Where the lot was bought</description></field>
+        <field name="supplierLot" type="short-varchar"><description>Supplier lot / reel / date code printed on the label</description></field>
+        <field name="receivedQty" type="floating-point"><description>Quantity received</description></field>
+        <field name="receivedDate" type="date"><description>Date received from the supplier</description></field>
         <field name="note" type="description"/>
         <field name="createdStamp" type="date-time"/>
         <field name="createdTxStamp" type="date-time"/>
         <field name="lastUpdatedStamp" type="date-time"/>
         <field name="lastUpdatedTxStamp" type="date-time"/>
-        <prim-key field="workOrderId"/>
-        <prim-key field="lineSeq"/>
-        <relation type="one" fk-name="MFG_TRACE_WO" rel-entity-name="MfgWorkOrder">
+        <prim-key field="lotId"/>
+        <index name="MFG_LOT_COMPONENT" unique="false">
+            <index-field name="componentCode"/>
+        </index>
+        <index name="MFG_LOT_SUPPLIER" unique="false">
+            <index-field name="supplierLot"/>
+        </index>
+    </entity>
+
+    <entity entity-name="MfgMaterialIssue"
+            package-name="org.langhua.ofbiz.mfg"
+            title="Material issue">
+        <description>Components issued to a work order: which lot went into which build</description>
+        <field name="issueId" type="id"><description>Issue number</description></field>
+        <field name="workOrderId" type="id"><description>Work order the material was issued to</description></field>
+        <field name="componentCode" type="id"><description>Component part number</description></field>
+        <field name="lotId" type="id"><description>Lot that was issued</description></field>
+        <field name="qty" type="floating-point"><description>Issued quantity</description></field>
+        <field name="issuedDate" type="date"><description>Date of issue</description></field>
+        <field name="designators" type="very-long"><description>Designators covered, when the SMT house reports reel changes</description></field>
+        <field name="snFrom" type="id"><description>First serial number covered, when known</description></field>
+        <field name="snTo" type="id"><description>Last serial number covered, when known</description></field>
+        <field name="note" type="description"/>
+        <field name="createdStamp" type="date-time"/>
+        <field name="createdTxStamp" type="date-time"/>
+        <field name="lastUpdatedStamp" type="date-time"/>
+        <field name="lastUpdatedTxStamp" type="date-time"/>
+        <prim-key field="issueId"/>
+        <relation type="one" fk-name="MFG_ISSUE_WO" rel-entity-name="MfgWorkOrder">
             <key-map field-name="workOrderId"/>
         </relation>
+        <relation type="one" fk-name="MFG_ISSUE_LOT" rel-entity-name="MfgMaterialLot">
+            <key-map field-name="lotId"/>
+        </relation>
+        <index name="MFG_ISSUE_WO_IDX" unique="false">
+            <index-field name="workOrderId"/>
+        </index>
+        <index name="MFG_ISSUE_LOT_IDX" unique="false">
+            <index-field name="lotId"/>
+        </index>
+    </entity>
+
+    <entity entity-name="MfgShipment"
+            package-name="org.langhua.ofbiz.mfg"
+            title="Shipment">
+        <description>Material sent to the SMT house or boards received back, with courier details</description>
+        <field name="shipmentId" type="id"><description>Shipment number</description></field>
+        <field name="workOrderId" type="id"><description>Work order</description></field>
+        <field name="directionId" type="id"><description>MFG_SHIP_OUT to the SMT house, MFG_SHIP_IN back to us</description></field>
+        <field name="shipmentDate" type="date"><description>Date shipped or received</description></field>
+        <field name="qty" type="floating-point"><description>Kits sent out, or boards received back</description></field>
+        <field name="defectQty" type="floating-point"><description>Defective boards found on receipt</description></field>
+        <field name="carrier" type="short-varchar"><description>Courier</description></field>
+        <field name="trackingNo" type="short-varchar"><description>Tracking number</description></field>
+        <field name="note" type="description"/>
+        <field name="createdStamp" type="date-time"/>
+        <field name="createdTxStamp" type="date-time"/>
+        <field name="lastUpdatedStamp" type="date-time"/>
+        <field name="lastUpdatedTxStamp" type="date-time"/>
+        <prim-key field="shipmentId"/>
+        <relation type="one" fk-name="MFG_SHIP_WO" rel-entity-name="MfgWorkOrder">
+            <key-map field-name="workOrderId"/>
+        </relation>
+        <index name="MFG_SHIP_WO_IDX" unique="false">
+            <index-field name="workOrderId"/>
+        </index>
     </entity>
 </entitymodel>

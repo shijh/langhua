@@ -53,6 +53,9 @@ public final class MfgServices {
     public static final String SN_COMPLETED = "MFG_COMPLETED";
     public static final String SN_SCRAPPED = "MFG_SCRAPPED";
 
+    public static final String SHIP_OUT = "MFG_SHIP_OUT";
+    public static final String SHIP_IN = "MFG_SHIP_IN";
+
     private static final DateTimeFormatter DAY = DateTimeFormatter.ofPattern("yyMMdd");
 
     private MfgServices() {
@@ -425,7 +428,7 @@ public final class MfgServices {
      *
      * @param dctx the dispatch context
      * @param context service context, see {@code servicedef/services.xml#mfgSnDetail}
-     * @return the service result containing {@code snRecord}, {@code workOrder}, {@code reports}, {@code defects}, {@code traces}
+     * @return the service result containing {@code snRecord}, {@code workOrder}, {@code reports}, {@code defects}, {@code lots}
      */
     public static Map<String, Object> snDetail(DispatchContext dctx, Map<String, ? extends Object> context) {
         Delegator delegator = dctx.getDelegator();
@@ -436,7 +439,7 @@ public final class MfgServices {
                 Map<String, Object> result = ServiceUtil.returnSuccess();
                 result.put("reports", empty);
                 result.put("defects", empty);
-                result.put("traces", empty);
+                result.put("lots", empty);
                 return result;
             }
             GenericValue unit = EntityQuery.use(delegator).from("MfgSn").where("sn", sn).queryOne();
@@ -444,7 +447,7 @@ public final class MfgServices {
                 Map<String, Object> result = ServiceUtil.returnSuccess();
                 result.put("reports", empty);
                 result.put("defects", empty);
-                result.put("traces", empty);
+                result.put("lots", empty);
                 return result;
             }
             String workOrderId = unit.getString("workOrderId");
@@ -469,15 +472,21 @@ public final class MfgServices {
                     unitDefects.add(defect);
                 }
             }
-            List<GenericValue> traces = EntityQuery.use(delegator).from("MfgMaterialTrace")
-                    .where("workOrderId", workOrderId).orderBy("lineSeq").queryList();
+            List<GenericValue> issues = EntityQuery.use(delegator).from("MfgMaterialIssue")
+                    .where("workOrderId", workOrderId).orderBy("createdStamp").queryList();
+            List<Map<String, Object>> lotMaps = new ArrayList<>(issues.size());
+            for (GenericValue issue : issues) {
+                GenericValue lot = EntityQuery.use(delegator).from("MfgMaterialLot")
+                        .where("lotId", issue.getString("lotId")).queryOne();
+                lotMaps.add(toIssueMap(issue, lot));
+            }
 
             Map<String, Object> result = ServiceUtil.returnSuccess();
             result.put("snRecord", toSnMap(unit));
             result.put("workOrder", order == null ? null : toWorkOrderMap(order));
             result.put("reports", toReportMaps(unitReports));
             result.put("defects", toDefectMaps(unitDefects));
-            result.put("traces", toTraceMaps(traces));
+            result.put("lots", lotMaps);
             return result;
         } catch (GenericEntityException e) {
             return ServiceUtil.returnError("Could not read the serial number: " + e.getMessage());
@@ -583,6 +592,476 @@ public final class MfgServices {
         } catch (GenericEntityException e) {
             return ServiceUtil.returnError("Could not build the dashboard: " + e.getMessage());
         }
+    }
+
+    // ------------------------------------------------------------ material and outsourcing
+
+    /**
+     * Creates or updates one material lot. When {@code lotId} is empty a new identifier
+     * {@code LOT-yyMMdd-NN} is generated.
+     *
+     * @param dctx the dispatch context
+     * @param context service context, see {@code servicedef/services.xml#mfgLotSave}
+     * @return the service result containing {@code lotId}
+     */
+    public static Map<String, Object> lotSave(DispatchContext dctx, Map<String, ? extends Object> context) {
+        Delegator delegator = dctx.getDelegator();
+        String componentCode = toText(context.get("componentCode"));
+        if (componentCode == null) {
+            return ServiceUtil.returnError("componentCode is required");
+        }
+        double receivedQty = toDouble(context.get("receivedQty"), 0.0);
+        if (receivedQty <= 0.0) {
+            return ServiceUtil.returnError("receivedQty must be greater than zero");
+        }
+        try {
+            String lotId = toText(context.get("lotId"));
+            if (lotId == null) {
+                lotId = nextLotId(delegator, LocalDate.now());
+            }
+            GenericValue lot = delegator.makeValue("MfgMaterialLot");
+            lot.set("lotId", lotId);
+            lot.set("componentCode", componentCode);
+            lot.set("componentName", toText(context.get("componentName")));
+            lot.set("supplierName", toText(context.get("supplierName")));
+            lot.set("supplierLot", toText(context.get("supplierLot")));
+            lot.set("receivedQty", Double.valueOf(receivedQty));
+            Object receivedDate = parseDate(context.get("receivedDate"));
+            lot.set("receivedDate", receivedDate == null
+                    ? java.sql.Date.valueOf(LocalDate.now()) : receivedDate);
+            lot.set("note", toText(context.get("note")));
+            delegator.createOrStore(lot);
+
+            Map<String, Object> result = ServiceUtil.returnSuccess();
+            result.put("lotId", lotId);
+            return result;
+        } catch (GenericEntityException e) {
+            return ServiceUtil.returnError("Could not save the material lot: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Lists material lots, newest first, with the quantity already issued.
+     *
+     * @param dctx the dispatch context
+     * @param context service context, see {@code servicedef/services.xml#mfgLotList}
+     * @return the service result containing {@code lots}
+     */
+    public static Map<String, Object> lotList(DispatchContext dctx, Map<String, ? extends Object> context) {
+        Delegator delegator = dctx.getDelegator();
+        String componentCode = toText(context.get("componentCode"));
+        try {
+            EntityQuery query = EntityQuery.use(delegator).from("MfgMaterialLot");
+            if (componentCode != null) {
+                query = query.where("componentCode", componentCode);
+            }
+            List<GenericValue> lots = query.orderBy("-createdStamp").queryList();
+            Map<String, Double> issued = issuedQtyByLot(delegator);
+            List<Map<String, Object>> list = new ArrayList<>(lots.size());
+            for (GenericValue lot : lots) {
+                list.add(toLotMap(lot, issued.get(lot.getString("lotId"))));
+            }
+            Map<String, Object> result = ServiceUtil.returnSuccess();
+            result.put("lots", list);
+            result.put("componentCode", componentCode);
+            return result;
+        } catch (GenericEntityException e) {
+            return ServiceUtil.returnError("Could not read the material lots: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Issues one lot to a work order, which is what makes the traceability chain
+     * "serial number - work order - component lot" possible.
+     *
+     * @param dctx the dispatch context
+     * @param context service context, see {@code servicedef/services.xml#mfgIssueSave}
+     * @return the service result containing {@code issueId}
+     */
+    public static Map<String, Object> issueSave(DispatchContext dctx, Map<String, ? extends Object> context) {
+        Delegator delegator = dctx.getDelegator();
+        String workOrderId = toText(context.get("workOrderId"));
+        String componentCode = toText(context.get("componentCode"));
+        String lotId = toText(context.get("lotId"));
+        double qty = toDouble(context.get("qty"), 0.0);
+        if (workOrderId == null) {
+            return ServiceUtil.returnError("workOrderId is required");
+        }
+        if (componentCode == null) {
+            return ServiceUtil.returnError("componentCode is required");
+        }
+        if (lotId == null) {
+            return ServiceUtil.returnError("lotId is required");
+        }
+        if (qty <= 0.0) {
+            return ServiceUtil.returnError("qty must be greater than zero");
+        }
+        try {
+            if (EntityQuery.use(delegator).from("MfgWorkOrder").where("workOrderId", workOrderId).queryOne() == null) {
+                return ServiceUtil.returnError("Unknown work order [" + workOrderId + "]");
+            }
+            GenericValue lot = EntityQuery.use(delegator).from("MfgMaterialLot").where("lotId", lotId).queryOne();
+            if (lot == null) {
+                return ServiceUtil.returnError("Unknown material lot [" + lotId + "]");
+            }
+            String lotComponent = lot.getString("componentCode");
+            if (lotComponent != null && !lotComponent.equals(componentCode)) {
+                return ServiceUtil.returnError("Lot [" + lotId + "] belongs to component [" + lotComponent
+                        + "], not [" + componentCode + "]");
+            }
+            String issueId = delegator.getNextSeqId("MfgMaterialIssue");
+            GenericValue issue = delegator.makeValue("MfgMaterialIssue");
+            issue.set("issueId", issueId);
+            issue.set("workOrderId", workOrderId);
+            issue.set("componentCode", componentCode);
+            issue.set("lotId", lotId);
+            issue.set("qty", Double.valueOf(qty));
+            Object issuedDate = parseDate(context.get("issuedDate"));
+            issue.set("issuedDate", issuedDate == null
+                    ? java.sql.Date.valueOf(LocalDate.now()) : issuedDate);
+            issue.set("designators", toText(context.get("designators")));
+            issue.set("snFrom", toText(context.get("snFrom")));
+            issue.set("snTo", toText(context.get("snTo")));
+            issue.set("note", toText(context.get("note")));
+            delegator.create(issue);
+
+            Map<String, Object> result = ServiceUtil.returnSuccess();
+            result.put("issueId", issueId);
+            return result;
+        } catch (GenericEntityException e) {
+            return ServiceUtil.returnError("Could not issue the material: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Returns the material picture of one work order: BOM requirement against issued quantity
+     * (kitting), the issued lots and the shipments to / from the SMT house.
+     *
+     * @param dctx the dispatch context
+     * @param context service context, see {@code servicedef/services.xml#mfgWorkOrderMaterials}
+     * @return the service result containing {@code lines}, {@code issues}, {@code shipments} and {@code kitComplete}
+     */
+    public static Map<String, Object> workOrderMaterials(DispatchContext dctx, Map<String, ? extends Object> context) {
+        Delegator delegator = dctx.getDelegator();
+        String workOrderId = toText(context.get("workOrderId"));
+        Map<String, Object> empty = ServiceUtil.returnSuccess();
+        empty.put("lines", new ArrayList<Map<String, Object>>());
+        empty.put("issues", new ArrayList<Map<String, Object>>());
+        empty.put("shipments", new ArrayList<Map<String, Object>>());
+        empty.put("kitComplete", Boolean.TRUE);
+        empty.put("outQty", Double.valueOf(0.0));
+        empty.put("inQty", Double.valueOf(0.0));
+        empty.put("inDefectQty", Double.valueOf(0.0));
+        if (workOrderId == null) {
+            return empty;
+        }
+        try {
+            GenericValue order = EntityQuery.use(delegator).from("MfgWorkOrder")
+                    .where("workOrderId", workOrderId).queryOne();
+            if (order == null) {
+                return empty;
+            }
+            String productCode = order.getString("productCode");
+            long plannedQty = toLong(order.get("plannedQty"), 0);
+
+            List<GenericValue> bomItems = EntityQuery.use(delegator).from("MfgBomItem")
+                    .where("productCode", productCode).orderBy("lineSeq").queryList();
+            List<GenericValue> issues = EntityQuery.use(delegator).from("MfgMaterialIssue")
+                    .where("workOrderId", workOrderId).orderBy("-createdStamp").queryList();
+            List<GenericValue> shipments = EntityQuery.use(delegator).from("MfgShipment")
+                    .where("workOrderId", workOrderId).orderBy("-shipmentDate").queryList();
+
+            Map<String, Double> issuedByComponent = new LinkedHashMap<>();
+            for (GenericValue issue : issues) {
+                String componentCode = issue.getString("componentCode");
+                Double current = issuedByComponent.get(componentCode);
+                double qty = issue.getDouble("qty") == null ? 0.0 : issue.getDouble("qty").doubleValue();
+                issuedByComponent.put(componentCode, Double.valueOf((current == null ? 0.0 : current.doubleValue()) + qty));
+            }
+
+            List<Map<String, Object>> lines = new ArrayList<>(bomItems.size());
+            boolean kitComplete = true;
+            for (GenericValue item : bomItems) {
+                String componentCode = item.getString("componentCode");
+                double required = (item.getDouble("qty") == null ? 0.0 : item.getDouble("qty").doubleValue())
+                        * plannedQty;
+                Double issued = issuedByComponent.get(componentCode);
+                double issuedQty = issued == null ? 0.0 : issued.doubleValue();
+                double shortage = required - issuedQty;
+                if (shortage > 0.0001) {
+                    kitComplete = false;
+                }
+                Map<String, Object> line = new LinkedHashMap<>();
+                line.put("componentCode", componentCode);
+                line.put("componentName", item.getString("componentName"));
+                line.put("isKeyPart", item.getString("isKeyPart"));
+                line.put("requiredQty", Double.valueOf(required));
+                line.put("issuedQty", Double.valueOf(issuedQty));
+                line.put("shortage", Double.valueOf(Math.max(0.0, shortage)));
+                lines.add(line);
+            }
+
+            List<Map<String, Object>> issueMaps = new ArrayList<>(issues.size());
+            for (GenericValue issue : issues) {
+                GenericValue lot = EntityQuery.use(delegator).from("MfgMaterialLot")
+                        .where("lotId", issue.getString("lotId")).queryOne();
+                issueMaps.add(toIssueMap(issue, lot));
+            }
+            List<Map<String, Object>> shipmentMaps = new ArrayList<>(shipments.size());
+            double outQty = 0.0;
+            double inQty = 0.0;
+            double inDefectQty = 0.0;
+            for (GenericValue shipment : shipments) {
+                shipmentMaps.add(toShipmentMap(shipment));
+                double qty = shipment.getDouble("qty") == null ? 0.0 : shipment.getDouble("qty").doubleValue();
+                double defectQty = shipment.getDouble("defectQty") == null
+                        ? 0.0 : shipment.getDouble("defectQty").doubleValue();
+                if (SHIP_IN.equals(shipment.getString("directionId"))) {
+                    inQty += qty;
+                    inDefectQty += defectQty;
+                } else {
+                    outQty += qty;
+                }
+            }
+
+            Map<String, Object> result = ServiceUtil.returnSuccess();
+            result.put("workOrder", toWorkOrderMap(order));
+            result.put("lines", lines);
+            result.put("issues", issueMaps);
+            result.put("shipments", shipmentMaps);
+            result.put("kitComplete", Boolean.valueOf(kitComplete));
+            result.put("outQty", Double.valueOf(outQty));
+            result.put("inQty", Double.valueOf(inQty));
+            result.put("inDefectQty", Double.valueOf(inDefectQty));
+            return result;
+        } catch (GenericEntityException e) {
+            return ServiceUtil.returnError("Could not read the work order material: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Records material sent to the SMT house or boards received back.
+     *
+     * @param dctx the dispatch context
+     * @param context service context, see {@code servicedef/services.xml#mfgShipmentSave}
+     * @return the service result containing {@code shipmentId}
+     */
+    public static Map<String, Object> shipmentSave(DispatchContext dctx, Map<String, ? extends Object> context) {
+        Delegator delegator = dctx.getDelegator();
+        String workOrderId = toText(context.get("workOrderId"));
+        String directionId = toText(context.get("directionId"));
+        if (workOrderId == null) {
+            return ServiceUtil.returnError("workOrderId is required");
+        }
+        if (directionId == null) {
+            directionId = SHIP_OUT;
+        }
+        if (!SHIP_IN.equals(directionId) && !SHIP_OUT.equals(directionId)) {
+            return ServiceUtil.returnError("directionId must be " + SHIP_OUT + " or " + SHIP_IN);
+        }
+        double qty = toDouble(context.get("qty"), 0.0);
+        double defectQty = toDouble(context.get("defectQty"), 0.0);
+        if (qty <= 0.0) {
+            return ServiceUtil.returnError("qty must be greater than zero");
+        }
+        if (defectQty < 0.0) {
+            return ServiceUtil.returnError("defectQty must not be negative");
+        }
+        if (defectQty > qty) {
+            return ServiceUtil.returnError("defectQty must not exceed qty");
+        }
+        try {
+            if (EntityQuery.use(delegator).from("MfgWorkOrder").where("workOrderId", workOrderId).queryOne() == null) {
+                return ServiceUtil.returnError("Unknown work order [" + workOrderId + "]");
+            }
+            String shipmentId = delegator.getNextSeqId("MfgShipment");
+            GenericValue shipment = delegator.makeValue("MfgShipment");
+            shipment.set("shipmentId", shipmentId);
+            shipment.set("workOrderId", workOrderId);
+            shipment.set("directionId", directionId);
+            Object shipmentDate = parseDate(context.get("shipmentDate"));
+            shipment.set("shipmentDate", shipmentDate == null
+                    ? java.sql.Date.valueOf(LocalDate.now()) : shipmentDate);
+            shipment.set("qty", Double.valueOf(qty));
+            shipment.set("defectQty", Double.valueOf(defectQty));
+            shipment.set("carrier", toText(context.get("carrier")));
+            shipment.set("trackingNo", toText(context.get("trackingNo")));
+            shipment.set("note", toText(context.get("note")));
+            delegator.create(shipment);
+
+            Map<String, Object> result = ServiceUtil.returnSuccess();
+            result.put("shipmentId", shipmentId);
+            return result;
+        } catch (GenericEntityException e) {
+            return ServiceUtil.returnError("Could not record the shipment: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Backward trace: which work orders and how many serial numbers used a given lot. This is the
+     * query that tells the recall scope when a supplier reports a problem.
+     *
+     * @param dctx the dispatch context
+     * @param context service context, see {@code servicedef/services.xml#mfgTraceByLot}
+     * @return the service result containing {@code lots}, {@code workOrders} and {@code totalSnCount}
+     */
+    public static Map<String, Object> traceByLot(DispatchContext dctx, Map<String, ? extends Object> context) {
+        Delegator delegator = dctx.getDelegator();
+        String lotId = toText(context.get("lotId"));
+        String supplierLot = toText(context.get("supplierLot"));
+        if (lotId == null && supplierLot == null) {
+            // the material page always calls this service, an empty query is not an error
+            Map<String, Object> empty = ServiceUtil.returnSuccess();
+            empty.put("lots", new ArrayList<Map<String, Object>>());
+            empty.put("workOrders", new ArrayList<Map<String, Object>>());
+            empty.put("totalSnCount", Long.valueOf(0));
+            return empty;
+        }
+        try {
+            List<GenericValue> lots = new ArrayList<>();
+            if (lotId != null) {
+                GenericValue lot = EntityQuery.use(delegator).from("MfgMaterialLot")
+                        .where("lotId", lotId).queryOne();
+                if (lot != null) {
+                    lots.add(lot);
+                }
+            } else {
+                lots = EntityQuery.use(delegator).from("MfgMaterialLot")
+                        .where("supplierLot", supplierLot).queryList();
+            }
+            List<Map<String, Object>> lotMaps = new ArrayList<>(lots.size());
+            Map<String, Double> issuedByLot = issuedQtyByLot(delegator);
+            for (GenericValue lot : lots) {
+                lotMaps.add(toLotMap(lot, issuedByLot.get(lot.getString("lotId"))));
+            }
+
+            List<String> lotIds = new ArrayList<>(lots.size());
+            for (GenericValue lot : lots) {
+                lotIds.add(lot.getString("lotId"));
+            }
+
+            List<GenericValue> allIssues = EntityQuery.use(delegator).from("MfgMaterialIssue").queryList();
+            Map<String, Boolean> workOrderIds = new LinkedHashMap<>();
+            for (GenericValue issue : allIssues) {
+                if (lotIds.contains(issue.getString("lotId"))) {
+                    workOrderIds.put(issue.getString("workOrderId"), Boolean.TRUE);
+                }
+            }
+
+            List<Map<String, Object>> traces = new ArrayList<>(workOrderIds.size());
+            long totalSn = 0;
+            for (String workOrderId : workOrderIds.keySet()) {
+                GenericValue order = EntityQuery.use(delegator).from("MfgWorkOrder")
+                        .where("workOrderId", workOrderId).queryOne();
+                if (order == null) {
+                    continue;
+                }
+                List<GenericValue> units = EntityQuery.use(delegator).from("MfgSn")
+                        .where("workOrderId", workOrderId).queryList();
+                List<GenericValue> defects = EntityQuery.use(delegator).from("MfgDefect")
+                        .where("workOrderId", workOrderId).queryList();
+                totalSn += units.size();
+                Map<String, Object> trace = new LinkedHashMap<>();
+                trace.put("workOrderId", workOrderId);
+                trace.put("productCode", order.getString("productCode"));
+                trace.put("statusId", order.getString("statusId"));
+                trace.put("customerName", order.getString("customerName"));
+                trace.put("plannedQty", order.getLong("plannedQty"));
+                trace.put("snCount", Integer.valueOf(units.size()));
+                trace.put("defectCount", Integer.valueOf(defects.size()));
+                traces.add(trace);
+            }
+
+            Map<String, Object> result = ServiceUtil.returnSuccess();
+            result.put("lots", lotMaps);
+            result.put("workOrders", traces);
+            result.put("totalSnCount", Long.valueOf(totalSn));
+            result.put("lotId", lotId);
+            result.put("supplierLot", supplierLot);
+            return result;
+        } catch (GenericEntityException e) {
+            return ServiceUtil.returnError("Could not trace the lot: " + e.getMessage());
+        }
+    }
+
+    private static Map<String, Double> issuedQtyByLot(Delegator delegator) throws GenericEntityException {
+        Map<String, Double> totals = new LinkedHashMap<>();
+        List<GenericValue> issues = EntityQuery.use(delegator).from("MfgMaterialIssue").queryList();
+        for (GenericValue issue : issues) {
+            String lotId = issue.getString("lotId");
+            Double current = totals.get(lotId);
+            Double qty = issue.getDouble("qty");
+            totals.put(lotId, Double.valueOf((current == null ? 0.0 : current.doubleValue())
+                    + (qty == null ? 0.0 : qty.doubleValue())));
+        }
+        return totals;
+    }
+
+    private static Map<String, Object> toLotMap(GenericValue lot, Double issuedQty) {
+        Map<String, Object> map = new LinkedHashMap<>();
+        map.put("lotId", lot.getString("lotId"));
+        map.put("componentCode", lot.getString("componentCode"));
+        map.put("componentName", lot.getString("componentName"));
+        map.put("supplierName", lot.getString("supplierName"));
+        map.put("supplierLot", lot.getString("supplierLot"));
+        map.put("receivedQty", lot.getDouble("receivedQty"));
+        map.put("receivedDate", lot.getDate("receivedDate"));
+        map.put("issuedQty", issuedQty == null ? Double.valueOf(0.0) : issuedQty);
+        double received = lot.getDouble("receivedQty") == null ? 0.0 : lot.getDouble("receivedQty").doubleValue();
+        double issued = issuedQty == null ? 0.0 : issuedQty.doubleValue();
+        map.put("remainingQty", Double.valueOf(received - issued));
+        map.put("note", lot.getString("note"));
+        return map;
+    }
+
+    private static Map<String, Object> toIssueMap(GenericValue issue, GenericValue lot) {
+        Map<String, Object> map = new LinkedHashMap<>();
+        map.put("issueId", issue.getString("issueId"));
+        map.put("workOrderId", issue.getString("workOrderId"));
+        map.put("componentCode", issue.getString("componentCode"));
+        map.put("lotId", issue.getString("lotId"));
+        map.put("qty", issue.getDouble("qty"));
+        map.put("issuedDate", issue.getDate("issuedDate"));
+        map.put("designators", issue.getString("designators"));
+        map.put("snFrom", issue.getString("snFrom"));
+        map.put("snTo", issue.getString("snTo"));
+        map.put("note", issue.getString("note"));
+        if (lot != null) {
+            map.put("supplierName", lot.getString("supplierName"));
+            map.put("supplierLot", lot.getString("supplierLot"));
+            map.put("receivedDate", lot.getDate("receivedDate"));
+        }
+        return map;
+    }
+
+    private static Map<String, Object> toShipmentMap(GenericValue shipment) {
+        Map<String, Object> map = new LinkedHashMap<>();
+        map.put("shipmentId", shipment.getString("shipmentId"));
+        map.put("directionId", shipment.getString("directionId"));
+        map.put("shipmentDate", shipment.getDate("shipmentDate"));
+        map.put("qty", shipment.getDouble("qty"));
+        map.put("defectQty", shipment.getDouble("defectQty"));
+        map.put("carrier", shipment.getString("carrier"));
+        map.put("trackingNo", shipment.getString("trackingNo"));
+        map.put("note", shipment.getString("note"));
+        return map;
+    }
+
+    private static String formatLotId(LocalDate date, int sequence) {
+        return "LOT-" + date.format(DAY) + "-" + String.format(Locale.ROOT, "%02d", sequence);
+    }
+
+    private static String nextLotId(Delegator delegator, LocalDate today) throws GenericEntityException {
+        String prefix = "LOT-" + today.format(DAY) + "-";
+        List<GenericValue> existing = EntityQuery.use(delegator).from("MfgMaterialLot").queryList();
+        int max = 0;
+        for (GenericValue lot : existing) {
+            String id = lot.getString("lotId");
+            if (id != null && id.startsWith(prefix)) {
+                max = Math.max(max, parseTrailingNumber(id.substring(prefix.length())));
+            }
+        }
+        return formatLotId(today, max + 1);
     }
 
     // ------------------------------------------------------------------ helpers
@@ -854,20 +1333,6 @@ public final class MfgServices {
             map.put("responsibility", defect.getString("responsibility"));
             map.put("repairHours", defect.getDouble("repairHours"));
             map.put("createdStamp", defect.get("createdStamp"));
-            list.add(map);
-        }
-        return list;
-    }
-
-    private static List<Map<String, Object>> toTraceMaps(List<GenericValue> traces) {
-        List<Map<String, Object>> list = new ArrayList<>(traces.size());
-        for (GenericValue trace : traces) {
-            Map<String, Object> map = new LinkedHashMap<>();
-            map.put("componentCode", trace.getString("componentCode"));
-            map.put("lotCode", trace.getString("lotCode"));
-            map.put("designators", trace.getString("designators"));
-            map.put("snFrom", trace.getString("snFrom"));
-            map.put("snTo", trace.getString("snTo"));
             list.add(map);
         }
         return list;

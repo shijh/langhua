@@ -16,8 +16,13 @@
 | SN 管理 | 按工单批量生成 `前缀-yyMMdd-NNNN`，单板全生命周期状态 |
 | 工序报工 | 按工单/工序列报工时与合格/不良数量，支持绑定到具体 SN |
 | 不良记录 | 不良代码、责任归属（自制/外协/来料）、返修工时 |
-| SN 履历 | 一块板：报工记录 + 不良记录 + 物料追溯 |
+| SN 履历 | 一块板：报工记录 + 不良记录 + 所用物料批次 |
 | 看板 | 在制工单数/数量、今日工时、今日良率、最近报工 |
+| **物料批次** | 采购到货台账：内部批次 `LOT-yyMMdd-NN`、供应商批号/DateCode、到货数量 |
+| **发料** | 按工单发料（料号 + 批次 + 数量 + 位号），形成“SN → 工单 → 批次”链路 |
+| **齐套** | BOM 需求（用量 × 计划数）vs 已发料，自动算出欠料行 |
+| **外协收发** | 发往 SMT 的套数、回厂板数与不良数、快递单号 |
+| **批次追溯** | 反向：批次 → 工单 → SN 数量，用于供应商报批后的召回范围 |
 
 ## 目录结构
 
@@ -59,7 +64,7 @@ https://localhost:8443/mfg/control/main
 ```
 
 首次启动会根据 `entitydef/entitymodel.xml` 自动建表（Derby 下为 `MFG_PRODUCT`、`MFG_BOM_ITEM`、`MFG_ROUTING`、
-`MFG_WORK_ORDER`、`MFG_SN`、`MFG_REPORT`、`MFG_DEFECT`、`MFG_MATERIAL_TRACE`）。
+`MFG_WORK_ORDER`、`MFG_SN`、`MFG_REPORT`、`MFG_DEFECT`、`MFG_MATERIAL_LOT`、`MFG_MATERIAL_ISSUE`、`MFG_SHIPMENT`）。
 
 ## 数据模型
 
@@ -70,9 +75,10 @@ https://localhost:8443/mfg/control/main
 | `MfgRouting` | 工序模板：`productCode` + `opSeq`（联合主键）、`opName`、`workCenter`、`stdHours` |
 | `MfgWorkOrder` | 工单：`workOrderId`、`productCode`、`plannedQty`、`statusId`、`dueDate`、`customerName`、`smtVendor` |
 | `MfgSn` | 单板：`sn`（主键）、`workOrderId`、`productCode`、状态 |
-| `MfgReport` | 报工：`reportId`、`workOrderId`、`opSeq`、`sn`（可选）、`operatorName`、`workHours`、`qtyOk`、`qtyNg` |
-| `MfgDefect` | 不良：`defectId`、`workOrderId`、`sn`、`opSeq`、`defectCode`、`qty`、`responsibility`、`repairHours` |
-| `MfgMaterialTrace` | 物料追溯：工单/SN 与元件批次、料站、位号的绑定（M2 使用） |
+| `MfgReport` | 报工：`reportId`、`workOrderId`、`opSeq`、`sn`（可选）、`operatorName`、`workHours`、`qtyOk`、`qtyNg` || `MfgDefect` | 不良：`defectId`、`workOrderId`、`sn`、`opSeq`、`defectCode`、`qty`、`responsibility`、`repairHours` |
+| `MfgMaterialLot` | 物料批次：`lotId`（主键，LOT-yyMMdd-NN）、`componentCode`、`supplierName`、`supplierLot`（DateCode）、`receivedQty`、`receivedDate` |
+| `MfgMaterialIssue` | 发料：`issueId`、`workOrderId`、`componentCode`、`lotId`、`qty`、`issuedDate`、可选 `designators` / `snFrom` / `snTo` |
+| `MfgShipment` | 外协收发：`shipmentId`、`workOrderId`、`directionId`（`MFG_SHIP_OUT` / `MFG_SHIP_IN`）、`qty`、`defectQty`、`carrier`、`trackingNo` |
 
 ## 服务
 
@@ -86,6 +92,11 @@ https://localhost:8443/mfg/control/main
 | `mfgReportCreate` | 报工（工时 + 合格/不良数，可绑定 SN） |
 | `mfgDefectCreate` | 登记不良与返修工时 |
 | `mfgDashboard` | 看板数据 |
+| `mfgLotSave` / `mfgLotList` | 物料批次台账（到货、已发、剩余） |
+| `mfgIssueSave` | 向工单发料（校验批次属于该料号） |
+| `mfgWorkOrderMaterials` | 齐套（BOM 需求 vs 已发）、发料清单、外协收发汇总 |
+| `mfgShipmentSave` | 记录发往 SMT（`MFG_SHIP_OUT`）与回厂收货（`MFG_SHIP_IN`） |
+| `mfgTraceByLot` | 反向追溯：批次 → 工单 → SN 数（召回范围） |
 
 示例（Web Tools → Run Service → `mfgBomImport`）：
 
@@ -104,8 +115,9 @@ csv         = R0402-10K,10K 0402 resistor,4,R1-R4,N
 | `/mfg/control/main` | 工单列表 + 新建工单（含产品型号下拉） |
 | `/mfg/control/products?productCode=...` | 产品型号、BOM 导入与工艺路线维护 |
 | `/mfg/control/workOrder?workOrderId=...` | 工单详情：工序进度、报工、SN 生成、不良登记 |
-| `/mfg/control/sn?sn=...` | 单板履历：报工、不良、物料追溯 |
+| `/mfg/control/sn?sn=...` | 单板履历：报工、不良、所用物料批次 |
 | `/mfg/control/dashboard` | 车间看板 |
+| `/mfg/control/materials` | 物料批次台账、收货登记、按批次反向追溯 |
 
 访问控制由 `ofbiz-component.xml` 的 `base-permission="OFBTOOLS"` 决定；
 `data/MfgSecurityPermissionSeedData.xml` 定义 `MFG_VIEW` / `MFG_ADMIN` 并授予 `SUPER`、`FULLADMIN`。
@@ -128,11 +140,13 @@ csv         = R0402-10K,10K 0402 resistor,4,R1-R4,N
 ```
 productSave → bomImport → routingSave → productDetail
            → workOrderCreate → snRegister → reportCreate → defectCreate
-           → workOrderDetail → dashboard → 非法报工（workHours = 0）
+           → workOrderDetail → dashboard
+           → lotSave → issueSave → shipmentSave → workOrderMaterials → traceByLot
+           → 非法报工（workHours = 0）/ 错料发料（批次不属于该料号）
 ```
 
-共 36 项断言，全部通过时退出码为 0。测试是**可重复执行**的：每次创建/更新产品型号 `ITMFG`、替换其 BOM，
-再新建一张工单及一条报工、一条不良记录。
+共 54 项断言，全部通过时退出码为 0。测试是**可重复执行**的：每次创建/更新产品型号 `ITMFG`、替换其 BOM、
+新建一张工单、一个物料批次，以及相应的报工、不良、发料与收发记录。
 
 前置条件：OFBiz 已启动、已执行 `loadAll`、mfg 组件已部署。
 
@@ -161,12 +175,16 @@ java -cp "build/test-classes:ofbiz.jar:junit-4.13.2.jar:hamcrest-core-1.3.jar" \
 - **重定向参数**：`<redirect-parameter>` 只接受 **String** 类型的请求属性，Integer 会抛
   `ClassCastException`，因此 `mfgBomImport.importedCount` 返回 String。
 - **字段类型**：24.09 没有 `id-ne`，主键用 `id`；`numeric` 对应 Java `Long`；`indicator` 为 `Y/N`。
+- **页面错误提示**：屏幕渲染的 FTL 取不到 `requestAttributes["_ERROR_MESSAGE_"]`，因为
+  `ScreenRenderer` 会把它取走并从 request 上移除；模板里要用上下文中的 `errorMessageList`
+  （列表时用 `<#list>` 展开）。
 - **插件编译**：`plugins/` 下的目录必须先有 `build.gradle`（哪怕没有依赖），否则不会被编译，
   运行期报 `ClassNotFoundException`。
 - **`<classpath type="dir" location="config"/>`**：需要在组件里真的存在 `config/` 目录，
   因此放入 `MfgUiLabels.xml`。
 
-## 后续（M2 / M3）
+## 后续（M3）
 
-- **M2**：外协上料记录导入（料盘批次 ↔ 料站 ↔ 位号），测试结果导入，良率与返修分析。
-- **M3**：物料齐套/欠料预警、出货单、车间电子看板（自动刷新）。
+- 物料齐套预警（提前按工单/交期算欠料清单）、出货单与客户 SN 绑定、车间看板自动刷新。
+- 若要升级到**位号级 / 板序号级**追溯：只需把 SMT 厂提供的换料记录（时间或板序号）
+  写入 `MfgMaterialIssue.designators` 与 `snFrom` / `snTo`，无需改表结构。

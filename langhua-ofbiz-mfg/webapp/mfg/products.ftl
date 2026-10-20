@@ -9,7 +9,7 @@
 <#assign product = (d.product)!{}>
 <#assign bomItems = (d.bomItems)![]>
 <#assign routings = (d.routings)![]>
-<#assign ra = (requestAttributes)!{}>
+<#assign errList = (errorMessageList)![]>
 <html>
 <head>
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
@@ -40,8 +40,8 @@
 
 <h1>产品与 BOM</h1>
 
-<#if ra["_ERROR_MESSAGE_"]?? && ra["_ERROR_MESSAGE_"]?has_content>
-    <p class="error">${ra["_ERROR_MESSAGE_"]}</p>
+<#if errList?has_content>
+    <p class="error"><#list errList as msg>${msg}<#if msg_has_next><br/></#if></#list></p>
 </#if>
 <#if parameters.importedCount??>
     <p class="ok">已导入 ${parameters.importedCount} 行 BOM。</p>

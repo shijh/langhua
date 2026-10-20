@@ -39,8 +39,9 @@ import javax.net.ssl.X509TrustManager;
  * <p>Unlike the unit tests, this exercises the services through OFBiz's own service engine
  * (attribute validation, transaction, entity engine and database) over the Web Tools endpoint
  * {@code /webtools/control/scheduleServiceSync} with {@code _RUN_SYNC_=Y}. It walks the whole
- * M1 flow: product model, BOM import, routing, work order, serial numbers, work report, defect,
- * work order detail and dashboard.
+ * flow: product model, BOM import, routing, work order, serial numbers, work report, defect,
+ * work order detail, dashboard, material lots, issues to the work order, shipments to / from
+ * the SMT house and the backward lot trace.
  *
  * <p>Prerequisites: a running OFBiz instance with the mfg component deployed and data loaded
  * ({@code gradlew loadAll}), and a user allowed to invoke services (the default
@@ -66,6 +67,9 @@ public final class MfgServiceIT {
 
     private static final Pattern WORK_ORDER_ID = Pattern.compile("WO-\\d{6}-\\d{3}");
     private static final Pattern SERIAL_NUMBER = Pattern.compile(SN_PREFIX + "-\\d{6}-\\d{4}");
+    private static final Pattern LOT_ID = Pattern.compile("LOT-\\d{6}-\\d{2}");
+    private static final String KEY_COMPONENT = "U1-BT5-SOC";
+    private static final String SUPPLIER_LOT = "DC-IT-2410";
 
     private final String baseUrl;
     private final String user;
@@ -74,6 +78,7 @@ public final class MfgServiceIT {
 
     private String workOrderId;
     private String serialNumber;
+    private String lotId;
 
     private MfgServiceIT(String baseUrl, String user, String password) {
         this.baseUrl = baseUrl.endsWith("/") ? baseUrl.substring(0, baseUrl.length() - 1) : baseUrl;
@@ -102,6 +107,12 @@ public final class MfgServiceIT {
             it.recordsDefect();
             it.readsWorkOrderDetail();
             it.readsDashboard();
+            it.createsMaterialLot();
+            it.issuesMaterialLot();
+            it.rejectsIssueOfForeignLot();
+            it.recordsShipments();
+            it.readsWorkOrderMaterials();
+            it.tracesLotBackwards();
             it.rejectsZeroHoursReport();
         } finally {
             it.tearDown();
@@ -337,6 +348,118 @@ public final class MfgServiceIT {
                 "no 'openOrderCount' in response");
         check("dashboard: reports today's hours", response.body.contains("todayHours"),
                 "no 'todayHours' in response");
+    }
+
+    private void createsMaterialLot() throws IOException {
+        Map<String, String> form = new LinkedHashMap<>();
+        form.put("componentCode", KEY_COMPONENT);
+        form.put("componentName", "Main SoC");
+        form.put("supplierName", "IT-supplier");
+        form.put("supplierLot", SUPPLIER_LOT);
+        form.put("receivedQty", "120");
+
+        Response response = invoke("mfgLotSave", form);
+        check("lot: service call returns HTTP 200", response.status == 200, "HTTP " + response.status);
+        lotId = firstMatch(LOT_ID, response.body);
+        check("lot: identifier generated", lotId != null, "no LOT- identifier in response");
+        check("lot: no service error", !response.body.contains("receivedQty must be greater than zero"),
+                "unexpected service error");
+        System.out.println("[material lot] " + lotId);
+    }
+
+    private void issuesMaterialLot() throws IOException {
+        if (workOrderId == null || lotId == null) {
+            return;
+        }
+        Map<String, String> form = new LinkedHashMap<>();
+        form.put("workOrderId", workOrderId);
+        form.put("componentCode", KEY_COMPONENT);
+        form.put("lotId", lotId);
+        form.put("qty", "2");
+        form.put("designators", "U1");
+
+        Response response = invoke("mfgIssueSave", form);
+        check("issue: service call returns HTTP 200", response.status == 200, "HTTP " + response.status);
+        check("issue: identifier created", response.body.contains("issueId"), "no 'issueId' in response");
+    }
+
+    private void rejectsIssueOfForeignLot() throws IOException {
+        if (workOrderId == null || lotId == null) {
+            return;
+        }
+        Map<String, String> form = new LinkedHashMap<>();
+        form.put("workOrderId", workOrderId);
+        form.put("componentCode", "BAT-18650");
+        form.put("lotId", lotId);
+        form.put("qty", "1");
+
+        Response response = invoke("mfgIssueSave", form);
+        check("issue: a lot of another component is rejected",
+                response.body.contains("belongs to component"), "no validation error in response");
+        System.out.println("[invalid issue] error reported as expected");
+    }
+
+    private void recordsShipments() throws IOException {
+        if (workOrderId == null) {
+            return;
+        }
+        Map<String, String> out = new LinkedHashMap<>();
+        out.put("workOrderId", workOrderId);
+        out.put("directionId", "MFG_SHIP_OUT");
+        out.put("qty", "50");
+        out.put("carrier", "SF");
+        out.put("trackingNo", "SF-IT-OUT");
+        Response response = invoke("mfgShipmentSave", out);
+        check("shipment out: returns HTTP 200", response.status == 200, "HTTP " + response.status);
+        check("shipment out: identifier created", response.body.contains("shipmentId"),
+                "no 'shipmentId' in response");
+
+        Map<String, String> in = new LinkedHashMap<>();
+        in.put("workOrderId", workOrderId);
+        in.put("directionId", "MFG_SHIP_IN");
+        in.put("qty", "48");
+        in.put("defectQty", "2");
+        in.put("carrier", "SF");
+        in.put("trackingNo", "SF-IT-IN");
+        response = invoke("mfgShipmentSave", in);
+        check("shipment in: returns HTTP 200", response.status == 200, "HTTP " + response.status);
+        check("shipment in: no service error", !response.body.contains("defectQty must not exceed qty"),
+                "unexpected service error");
+    }
+
+    private void readsWorkOrderMaterials() throws IOException {
+        if (workOrderId == null) {
+            return;
+        }
+        Map<String, String> form = new LinkedHashMap<>();
+        form.put("workOrderId", workOrderId);
+
+        Response response = invoke("mfgWorkOrderMaterials", form);
+        check("materials: service call returns HTTP 200", response.status == 200, "HTTP " + response.status);
+        check("materials: BOM requirement lines are returned", response.body.contains(KEY_COMPONENT),
+                "no " + KEY_COMPONENT + " in response");
+        check("materials: issued lot is returned", lotId != null && response.body.contains(lotId),
+                "lot missing in response");
+        check("materials: kitting flag is returned", response.body.contains("kitComplete"),
+                "no 'kitComplete' in response");
+        check("materials: shipments are returned", response.body.contains("SF-IT-IN"),
+                "no tracking number in response");
+    }
+
+    private void tracesLotBackwards() throws IOException {
+        if (lotId == null || workOrderId == null) {
+            return;
+        }
+        Map<String, String> form = new LinkedHashMap<>();
+        form.put("lotId", lotId);
+
+        Response response = invoke("mfgTraceByLot", form);
+        check("trace: service call returns HTTP 200", response.status == 200, "HTTP " + response.status);
+        check("trace: the work order is found from the lot", response.body.contains(workOrderId),
+                "work order missing from trace");
+        check("trace: serial number count is reported", response.body.contains("totalSnCount"),
+                "no 'totalSnCount' in response");
+        System.out.println("[trace] lot " + lotId + " -> " + workOrderId);
     }
 
     private void rejectsZeroHoursReport() throws IOException {

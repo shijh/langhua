@@ -9,5 +9,7 @@
     <entity-group group="org.apache.ofbiz" entity="MfgSn"/>
     <entity-group group="org.apache.ofbiz" entity="MfgReport"/>
     <entity-group group="org.apache.ofbiz" entity="MfgDefect"/>
-    <entity-group group="org.apache.ofbiz" entity="MfgMaterialTrace"/>
+    <entity-group group="org.apache.ofbiz" entity="MfgMaterialLot"/>
+    <entity-group group="org.apache.ofbiz" entity="MfgMaterialIssue"/>
+    <entity-group group="org.apache.ofbiz" entity="MfgShipment"/>
 </entitygroup>

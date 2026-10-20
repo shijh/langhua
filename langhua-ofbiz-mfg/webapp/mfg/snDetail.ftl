@@ -1,15 +1,15 @@
 <#ftl encoding="UTF-8">
 <#--
   Serial number history.
-  Data: snInfo.snRecord, snInfo.workOrder, snInfo.reports, snInfo.defects, snInfo.traces
+  Data: snInfo.snRecord, snInfo.workOrder, snInfo.reports, snInfo.defects, snInfo.lots
 -->
 <#assign info = (snInfo)!{}>
 <#assign unit = (info.snRecord)!{}>
 <#assign wo = (info.workOrder)!{}>
 <#assign reports = (info.reports)![]>
 <#assign defects = (info.defects)![]>
-<#assign traces = (info.traces)![]>
-<#assign ra = (requestAttributes)!{}>
+<#assign lots = (info.lots)![]>
+<#assign errList = (errorMessageList)![]>
 <html>
 <head>
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
@@ -41,8 +41,8 @@
     <input type="submit" value="查询"/>
 </form>
 
-<#if ra["_ERROR_MESSAGE_"]?? && ra["_ERROR_MESSAGE_"]?has_content>
-    <p class="error">${ra["_ERROR_MESSAGE_"]}</p>
+<#if errList?has_content>
+    <p class="error"><#list errList as msg>${msg}<#if msg_has_next><br/></#if></#list></p>
 </#if>
 
 <#if unit.sn??>
@@ -98,20 +98,24 @@
     </#if>
 
     <h2>物料追溯（批次级）</h2>
-    <#if traces?has_content>
+    <#if lots?has_content>
         <table>
-            <tr><th>元件料号</th><th>批次 / 料盘</th><th>位号</th><th>SN 区间</th></tr>
-            <#list traces as t>
+            <tr><th>元件料号</th><th>内部批次</th><th>供应商</th><th>供应商批号</th>
+                <th class="num">已发数量</th><th>位号</th><th>SN 区间</th></tr>
+            <#list lots as l>
                 <tr>
-                    <td>${t.componentCode!}</td>
-                    <td>${t.lotCode!}</td>
-                    <td>${t.designators!}</td>
-                    <td><#if t.snFrom??>${t.snFrom}</#if><#if t.snTo??> ~ ${t.snTo}</#if></td>
+                    <td>${l.componentCode!}</td>
+                    <td><a href="/mfg/control/materials?lotId=${l.lotId}">${l.lotId!}</a></td>
+                    <td>${l.supplierName!}</td>
+                    <td>${l.supplierLot!}</td>
+                    <td class="num">${((l.qty)!0)?string("0.##")}</td>
+                    <td>${l.designators!}</td>
+                    <td><#if l.snFrom??>${l.snFrom}</#if><#if l.snTo??> ~ ${l.snTo}</#if></td>
                 </tr>
             </#list>
         </table>
     <#else>
-        <p class="hint">该工单还没有物料追溯记录（M2 支持从外协上料记录导入）。</p>
+        <p class="hint">该工单还没有发料记录（在工单页登记发料后即可追溯）。</p>
     </#if>
 <#elseif (parameters.sn)?? && parameters.sn?has_content>
     <p class="error">未找到 SN：${parameters.sn}</p>

@@ -7,7 +7,7 @@
 <#assign orders = (lr.workOrders)![]>
 <#assign pl = (productList)!{}>
 <#assign products = (pl.products)![]>
-<#assign ra = (requestAttributes)!{}>
+<#assign errList = (errorMessageList)![]>
 <html>
 <head>
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
@@ -37,8 +37,8 @@
 
 <h1>工单</h1>
 
-<#if ra["_ERROR_MESSAGE_"]?? && ra["_ERROR_MESSAGE_"]?has_content>
-    <p class="error">${ra["_ERROR_MESSAGE_"]}</p>
+<#if errList?has_content>
+    <p class="error"><#list errList as msg>${msg}<#if msg_has_next><br/></#if></#list></p>
 </#if>
 
 <fieldset>

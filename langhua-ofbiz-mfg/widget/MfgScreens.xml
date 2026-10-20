@@ -51,6 +51,9 @@
                 <service service-name="mfgWorkOrderDetail" result-map="detail" auto-field-map="false">
                     <field-map field-name="workOrderId" from-field="parameters.workOrderId"/>
                 </service>
+                <service service-name="mfgWorkOrderMaterials" result-map="material" auto-field-map="false">
+                    <field-map field-name="workOrderId" from-field="parameters.workOrderId"/>
+                </service>
             </actions>
             <widgets>
                 <platform-specific>
@@ -92,6 +95,29 @@
                 <platform-specific>
                     <html>
                         <html-template location="component://mfg/webapp/mfg/dashboard.ftl"/>
+                    </html>
+                </platform-specific>
+            </widgets>
+        </section>
+    </screen>
+
+    <!-- Material lots and backward trace -->
+    <screen name="materials">
+        <section>
+            <actions>
+                <set field="title" value="Material Lots"/>
+                <service service-name="mfgLotList" result-map="lotResult" auto-field-map="false">
+                    <field-map field-name="componentCode" from-field="parameters.componentCode"/>
+                </service>
+                <service service-name="mfgTraceByLot" result-map="trace" auto-field-map="false">
+                    <field-map field-name="lotId" from-field="parameters.lotId"/>
+                    <field-map field-name="supplierLot" from-field="parameters.supplierLot"/>
+                </service>
+            </actions>
+            <widgets>
+                <platform-specific>
+                    <html>
+                        <html-template location="component://mfg/webapp/mfg/materials.ftl"/>
                     </html>
                 </platform-specific>
             </widgets>

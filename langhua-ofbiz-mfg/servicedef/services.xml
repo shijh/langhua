@@ -133,7 +133,7 @@
         <attribute name="workOrder" type="java.util.Map" mode="OUT" optional="true"/>
         <attribute name="reports" type="java.util.List" mode="OUT" optional="true"/>
         <attribute name="defects" type="java.util.List" mode="OUT" optional="true"/>
-        <attribute name="traces" type="java.util.List" mode="OUT" optional="true"/>
+        <attribute name="lots" type="java.util.List" mode="OUT" optional="true"/>
     </service>
 
     <service name="mfgDefectCreate" engine="java"
@@ -162,5 +162,90 @@
         <attribute name="todayQtyNg" type="Long" mode="OUT" optional="true"/>
         <attribute name="todayYield" type="Double" mode="OUT" optional="true"/>
         <attribute name="recentReports" type="java.util.List" mode="OUT" optional="true"/>
+    </service>
+
+    <!-- ==================== material and outsourcing ==================== -->
+
+    <service name="mfgLotSave" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgServices" invoke="lotSave"
+            auth="false" use-transaction="false">
+        <description>Create or update a material lot; lotId LOT-yyMMdd-NN is generated when omitted</description>
+        <attribute name="lotId" type="String" mode="IN" optional="true"/>
+        <attribute name="componentCode" type="String" mode="IN" optional="false"/>
+        <attribute name="componentName" type="String" mode="IN" optional="true"/>
+        <attribute name="supplierName" type="String" mode="IN" optional="true"/>
+        <attribute name="supplierLot" type="String" mode="IN" optional="true"/>
+        <attribute name="receivedQty" type="Double" mode="IN" optional="false"/>
+        <attribute name="receivedDate" type="String" mode="IN" optional="true"/>
+        <attribute name="note" type="String" mode="IN" optional="true"/>
+        <attribute name="lotId" type="String" mode="OUT" optional="true"/>
+    </service>
+
+    <service name="mfgLotList" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgServices" invoke="lotList"
+            auth="false" use-transaction="false">
+        <description>List material lots with received, issued and remaining quantities</description>
+        <attribute name="componentCode" type="String" mode="IN" optional="true"/>
+        <attribute name="componentCode" type="String" mode="OUT" optional="true"/>
+        <attribute name="lots" type="java.util.List" mode="OUT" optional="true"/>
+    </service>
+
+    <service name="mfgIssueSave" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgServices" invoke="issueSave"
+            auth="false" use-transaction="false">
+        <description>Issue one material lot to a work order</description>
+        <attribute name="workOrderId" type="String" mode="IN" optional="false"/>
+        <attribute name="componentCode" type="String" mode="IN" optional="false"/>
+        <attribute name="lotId" type="String" mode="IN" optional="false"/>
+        <attribute name="qty" type="Double" mode="IN" optional="false"/>
+        <attribute name="issuedDate" type="String" mode="IN" optional="true"/>
+        <attribute name="designators" type="String" mode="IN" optional="true"/>
+        <attribute name="snFrom" type="String" mode="IN" optional="true"/>
+        <attribute name="snTo" type="String" mode="IN" optional="true"/>
+        <attribute name="note" type="String" mode="IN" optional="true"/>
+        <attribute name="issueId" type="String" mode="OUT" optional="true"/>
+    </service>
+
+    <service name="mfgWorkOrderMaterials" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgServices" invoke="workOrderMaterials"
+            auth="false" use-transaction="false">
+        <description>Kitting (BOM requirement vs issued), issued lots and shipments of one work order</description>
+        <attribute name="workOrderId" type="String" mode="IN" optional="true"/>
+        <attribute name="workOrder" type="java.util.Map" mode="OUT" optional="true"/>
+        <attribute name="lines" type="java.util.List" mode="OUT" optional="true"/>
+        <attribute name="issues" type="java.util.List" mode="OUT" optional="true"/>
+        <attribute name="shipments" type="java.util.List" mode="OUT" optional="true"/>
+        <attribute name="kitComplete" type="Boolean" mode="OUT" optional="true"/>
+        <attribute name="outQty" type="Double" mode="OUT" optional="true"/>
+        <attribute name="inQty" type="Double" mode="OUT" optional="true"/>
+        <attribute name="inDefectQty" type="Double" mode="OUT" optional="true"/>
+    </service>
+
+    <service name="mfgShipmentSave" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgServices" invoke="shipmentSave"
+            auth="false" use-transaction="false">
+        <description>Record material sent to the SMT house (MFG_SHIP_OUT) or boards received back (MFG_SHIP_IN)</description>
+        <attribute name="workOrderId" type="String" mode="IN" optional="false"/>
+        <attribute name="directionId" type="String" mode="IN" optional="true"/>
+        <attribute name="qty" type="Double" mode="IN" optional="false"/>
+        <attribute name="defectQty" type="Double" mode="IN" optional="true"/>
+        <attribute name="shipmentDate" type="String" mode="IN" optional="true"/>
+        <attribute name="carrier" type="String" mode="IN" optional="true"/>
+        <attribute name="trackingNo" type="String" mode="IN" optional="true"/>
+        <attribute name="note" type="String" mode="IN" optional="true"/>
+        <attribute name="shipmentId" type="String" mode="OUT" optional="true"/>
+    </service>
+
+    <service name="mfgTraceByLot" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgServices" invoke="traceByLot"
+            auth="false" use-transaction="false">
+        <description>Backward trace: work orders and serial numbers that used a lot</description>
+        <attribute name="lotId" type="String" mode="IN" optional="true"/>
+        <attribute name="supplierLot" type="String" mode="IN" optional="true"/>
+        <attribute name="lotId" type="String" mode="OUT" optional="true"/>
+        <attribute name="supplierLot" type="String" mode="OUT" optional="true"/>
+        <attribute name="lots" type="java.util.List" mode="OUT" optional="true"/>
+        <attribute name="workOrders" type="java.util.List" mode="OUT" optional="true"/>
+        <attribute name="totalSnCount" type="Long" mode="OUT" optional="true"/>
     </service>
 </services>

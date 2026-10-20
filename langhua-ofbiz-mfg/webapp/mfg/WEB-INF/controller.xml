@@ -95,9 +95,42 @@
         <response name="error" type="view" value="workOrder"/>
     </request-map>
 
+    <request-map uri="materials">
+        <security https="true" auth="true"/>
+        <response name="success" type="view" value="materials"/>
+    </request-map>
+
+    <request-map uri="lotSave">
+        <security https="true" auth="true"/>
+        <event type="service" invoke="mfgLotSave"/>
+        <response name="success" type="request-redirect" value="materials">
+            <redirect-parameter name="lotId"/>
+        </response>
+        <response name="error" type="view" value="materials"/>
+    </request-map>
+
+    <request-map uri="issueSave">
+        <security https="true" auth="true"/>
+        <event type="service" invoke="mfgIssueSave"/>
+        <response name="success" type="request-redirect" value="workOrder">
+            <redirect-parameter name="workOrderId"/>
+        </response>
+        <response name="error" type="view" value="workOrder"/>
+    </request-map>
+
+    <request-map uri="shipmentSave">
+        <security https="true" auth="true"/>
+        <event type="service" invoke="mfgShipmentSave"/>
+        <response name="success" type="request-redirect" value="workOrder">
+            <redirect-parameter name="workOrderId"/>
+        </response>
+        <response name="error" type="view" value="workOrder"/>
+    </request-map>
+
     <view-map name="main" type="screen" page="component://mfg/widget/MfgScreens.xml#main"/>
     <view-map name="products" type="screen" page="component://mfg/widget/MfgScreens.xml#products"/>
     <view-map name="workOrder" type="screen" page="component://mfg/widget/MfgScreens.xml#workOrder"/>
     <view-map name="sn" type="screen" page="component://mfg/widget/MfgScreens.xml#sn"/>
     <view-map name="dashboard" type="screen" page="component://mfg/widget/MfgScreens.xml#dashboard"/>
+    <view-map name="materials" type="screen" page="component://mfg/widget/MfgScreens.xml#materials"/>
 </site-conf>
