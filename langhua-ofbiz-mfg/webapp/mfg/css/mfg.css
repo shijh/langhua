@@ -1,0 +1,69 @@
+/*
+ * Shared styles of the hardware assembly (MES) screens.
+ * Served as a static file: /mfg/css/mfg.css (see web.xml allowedPaths).
+ */
+body { font-family: Arial, Helvetica, sans-serif; margin: 1.5em; color: #222; }
+h1 { font-size: 1.35em; }
+h2 { font-size: 1.05em; margin-top: 1.4em; }
+h3 { font-size: 1em; margin-top: 1.2em; }
+
+table { border-collapse: collapse; margin-top: .6em; }
+th, td { border: 1px solid #ccc; padding: 4px 10px; text-align: left; vertical-align: top; }
+th { background: #f3f3f3; }
+
+.num { text-align: right; }
+.error { color: #b00000; font-weight: bold; }
+.ok { color: #1a7f37; font-weight: bold; }
+.warn { color: #9a6700; font-weight: bold; }
+.hint { color: #666; font-size: .85em; }
+.big { font-size: 1.3em; font-weight: bold; }
+
+.nav { margin: 0 0 1em 0; padding-bottom: .5em; border-bottom: 1px solid #ddd; }
+.nav a { margin-right: 1em; }
+
+fieldset { border: 1px solid #ddd; padding: .6em 1em; margin-top: 1em; }
+form.inline { display: inline; }
+textarea { font-family: Consolas, monospace; }
+textarea.bom { width: 46em; height: 7em; font-size: .85em; }
+code { background: #f6f6f6; padding: 1px 4px; }
+
+/* paging footer of the list screens */
+.pager { margin-top: .9em; }
+.pager a { margin-left: .6em; }
+
+/* dashboard cards and charts */
+.cards { display: flex; gap: 1em; margin-top: 1em; flex-wrap: wrap; }
+.card { border: 1px solid #ddd; border-radius: 6px; padding: .8em 1.2em; min-width: 9em; }
+.card .label { color: #666; font-size: .85em; }
+.card .value { font-size: 1.6em; font-weight: bold; margin-top: .2em; }
+
+.chart { display: flex; align-items: flex-end; gap: 2px; height: 140px; margin-top: .8em;
+         border-bottom: 1px solid #ccc; padding-bottom: 2px; }
+.chart .col { flex: 1; display: flex; align-items: flex-end; gap: 1px; height: 100%; }
+.chart .bar { width: 50%; min-height: 1px; border-radius: 1px 1px 0 0; }
+.chart .bar.ship { background: #4a7ebb; }
+.chart .bar.claim { background: #b00000; }
+.legend span { margin-right: 1em; font-size: .85em; }
+.legend i { display: inline-block; width: .8em; height: .8em; margin-right: .3em; }
+.xaxis { display: flex; gap: 2px; color: #666; font-size: .75em; margin-top: .2em; }
+.xaxis .tick { flex: 1; text-align: center; }
+
+.hbars { margin-top: .6em; }
+.hbar { display: flex; align-items: center; margin: .3em 0; }
+.hbar .name { width: 8em; font-size: .9em; }
+.hbar .track { flex: 1; background: #f0f0f0; height: 1.1em; border-radius: 3px; }
+.hbar .fill { background: #9a6700; height: 1.1em; border-radius: 3px; }
+.hbar .value { width: 10em; text-align: right; font-size: .9em; }
+
+/* quality report KPI tiles */
+.kpi { display: inline-block; border: 1px solid #ddd; padding: .6em 1em; margin: .4em .6em .4em 0; min-width: 8em; }
+.kpi .label { color: #666; font-size: .82em; }
+.kpi .value { font-size: 1.5em; font-weight: bold; }
+
+/* warnings about the buyer risk list */
+.banner { border-left: 4px solid #b00000; background: #fdf2f2; padding: .6em .9em; margin-top: .8em; }
+
+/* SN lists and shipping labels */
+.sn-list { line-height: 1.5em; }
+.sn-list a { margin-right: .6em; white-space: nowrap; }
+.label { background: #fafafa; }

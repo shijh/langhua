@@ -48,9 +48,9 @@ langhua-ofbiz-mfg/
 ├── servicedef/
 │   └── services.xml                     # 42 个服务
 ├── widget/
-│   ├── MfgCommonScreens.xml             # 登录/错误页 decorator
-│   └── MfgScreens.xml                   # 12 个页面
-├── webapp/mfg/                          # controller.xml + web.xml + 12 个 FTL + js/
+│   ├── MfgCommonScreens.xml             # 登录/错误页 decorator + 页面布局装饰器 mfg-decorator
+│   └── MfgScreens.xml                   # 12 个页面（内容包在 mfg-decorator 里）
+├── webapp/mfg/                          # controller.xml + web.xml + 12 个 FTL + decorator.ftl + css/ + js/
 ├── src/main/java/org/langhua/ofbiz/mfg/
 └── src/test/java/org/langhua/ofbiz/mfg/
 ```
@@ -174,6 +174,30 @@ csv         = R0402-10K,10K 0402 resistor,4,R1-R4,N
 
 访问控制由 `ofbiz-component.xml` 的 `base-permission="OFBTOOLS"` 决定；
 `data/MfgSecurityPermissionSeedData.xml` 定义 `MFG_VIEW` / `MFG_ADMIN` 并授予 `SUPER`、`FULLADMIN`。
+
+## 页面布局：单一装饰器
+
+页面外壳（`<html>`/`<head>`/样式表/顶部导航）只在一个地方定义，避免 12 个模板各写一遍：
+
+- `widget/MfgCommonScreens.xml` 的 `mfg-decorator` 渲染 `webapp/mfg/decorator.ftl`；
+- `widget/MfgScreens.xml` 的每个屏幕把自己的内容放进 `decorator-screen` 的 `body` 段：
+
+```xml
+<widgets>
+    <decorator-screen name="mfg-decorator" location="component://mfg/widget/MfgCommonScreens.xml">
+        <decorator-section name="body">
+            ...原有内容...
+        </decorator-section>
+    </decorator-screen>
+</widgets>
+```
+
+- 每个屏幕的 `actions` 里设两个上下文变量：`pageTitle`（页面标题）和 `activeMenu`（当前菜单键）；
+- `decorator.ftl` 用 `<@navItem>` 宏输出导航，`activeMenu` 匹配的那一项加粗高亮，`<#if sections??>${sections.render("body")}</#if>` 输出页面内容；
+- 样式集中在 `webapp/mfg/css/mfg.css`（`web.xml` 的 `allowedPaths` 加了 `:/css`），模板里不再有 `<style>` 块。
+
+所以**加一个菜单项**或**改一次配色**都只改 `decorator.ftl` / `mfg.css` 两个文件，
+模板只负责自己的表格和表单；模板里保留 `<h1>` 作为页面正文标题。
 
 ## 与学习曲线组件的关系
 
@@ -320,6 +344,15 @@ PDA/手机扫码作业、车间大屏、对外客户门户。
 - **屏幕目录结构**：`<screen>` 下**只能有一个** `<section>`；需要按条件分支时，在 `widgets` 里嵌套多个
   `<section>`，条件写成 `<condition><if-empty field="..."/></condition>`（“非空”用 `<not><if-empty/></not>`，
   `if-not-empty` 不是合法元素）。
+- **装饰器（decorator）**：`<decorator-screen>` 放在 `widgets` 里，页面内容必须写在
+  `<decorator-section name="body">` 中，装饰器模板用 `sections.render("body")` 输出；
+  装饰器里读得到屏幕 `actions` 设的上下文变量（`pageTitle` / `activeMenu`），
+  所以“当前菜单高亮”不用从 URL 猜。
+- **静态资源放行**：`webapp/mfg/WEB-INF/web.xml` 的 `ControlFilter` 只放行 `allowedPaths` 里的前缀，
+  新增 `css/` 目录就要加 `:/css`，否则样式表 404。
+- **FreeMarker 的 `#if` 优先级**：`(x)?default(1) gt 1` 会被解析成 `(x)?default(1 gt 1)`，必须写成
+  `((x)!0) gt 0` 或 `#if (x?default(1)) gt 1`；包含 `?url` 的模板要有
+  `<#setting url_escaping_charset="UTF-8">`，否则分页链接直接报错。
 
 ## 后续想法
 

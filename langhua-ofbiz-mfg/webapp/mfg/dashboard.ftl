@@ -19,55 +19,6 @@
     <#elseif (code!'') == 'DESIGN'>设计
     <#else>-</#if>
 </#macro>
-<html>
-<head>
-    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
-    <title>看板 - Hardware Assembly</title>
-    <style type="text/css">
-        body { font-family: Arial, Helvetica, sans-serif; margin: 1.5em; color: #222; }
-        h1 { font-size: 1.3em; } h2 { font-size: 1.05em; margin-top: 1.4em; }
-        .nav a { margin-right: 1em; }
-        table { border-collapse: collapse; margin-top: .6em; }
-        th, td { border: 1px solid #ccc; padding: 4px 10px; text-align: left; }
-        th { background: #f3f3f3; }
-        .num { text-align: right; }
-        .cards { display: flex; gap: 1em; margin-top: 1em; flex-wrap: wrap; }
-        .card { border: 1px solid #ddd; border-radius: 6px; padding: .8em 1.2em; min-width: 9em; }
-        .card .label { color: #666; font-size: .85em; }
-        .card .value { font-size: 1.6em; font-weight: bold; margin-top: .2em; }
-        .hint { color: #666; font-size: .85em; }
-        .chart { display: flex; align-items: flex-end; gap: 2px; height: 140px; margin-top: .8em;
-                 border-bottom: 1px solid #ccc; padding-bottom: 2px; }
-        .chart .col { flex: 1; display: flex; align-items: flex-end; gap: 1px; height: 100%; }
-        .chart .bar { width: 50%; min-height: 1px; border-radius: 1px 1px 0 0; }
-        .chart .bar.ship { background: #4a7ebb; }
-        .chart .bar.claim { background: #b00000; }
-        .legend span { margin-right: 1em; font-size: .85em; }
-        .legend i { display: inline-block; width: .8em; height: .8em; margin-right: .3em; }
-        .hbars { margin-top: .6em; }
-        .hbar { display: flex; align-items: center; margin: .3em 0; }
-        .hbar .name { width: 8em; font-size: .9em; }
-        .hbar .track { flex: 1; background: #f0f0f0; height: 1.1em; border-radius: 3px; }
-        .hbar .fill { background: #9a6700; height: 1.1em; border-radius: 3px; }
-        .hbar .value { width: 9em; text-align: right; font-size: .9em; }
-        .xaxis { display: flex; gap: 2px; color: #666; font-size: .75em; margin-top: .2em; }
-        .xaxis .tick { flex: 1; text-align: center; }
-    </style>
-</head>
-<body>
-<p class="nav">
-    <a href="/mfg/control/main">工单</a>
-    <a href="/mfg/control/products">产品与 BOM</a>
-    <a href="/mfg/control/materials">物料批次</a>
-    <a href="/mfg/control/delivery">出货单</a>
-    <a href="/mfg/control/vendors">外协厂家</a>
-    <a href="/mfg/control/claims">售后单</a>
-    <a href="/mfg/control/buyers">买家名单</a>
-    <a href="/mfg/control/quality">质量指标</a>
-    <a href="/mfg/control/shortage">齐套预警</a>
-    <a href="/mfg/control/dashboard"><b>看板</b></a>
-    <a href="/mfg/control/sn">SN 查询</a>
-</p>
 
 <h1>车间看板</h1>
 <p class="hint">最后更新 ${(t.refreshedAt)!'-'}　<span id="refresh-hint">页面每 60 秒自动刷新</span></p>
@@ -189,5 +140,4 @@
 </#if>
 
 <script src="/mfg/js/dashboardRefresh.js"></script>
-</body>
-</html>
+

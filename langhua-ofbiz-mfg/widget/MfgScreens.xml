@@ -8,6 +8,8 @@
         <section>
             <actions>
                 <set field="title" value="Work Orders"/>
+                <set field="pageTitle" value="工单"/>
+                <set field="activeMenu" value="main"/>
                 <service service-name="mfgProductList" result-map="productList" auto-field-map="false"/>
                 <service service-name="mfgWorkOrderList" result-map="listResult" auto-field-map="false">
                     <field-map field-name="statusId" from-field="parameters.statusId"/>
@@ -16,11 +18,15 @@
                 </service>
             </actions>
             <widgets>
-                <platform-specific>
-                    <html>
-                        <html-template location="component://mfg/webapp/mfg/workOrders.ftl"/>
-                    </html>
-                </platform-specific>
+                <decorator-screen name="mfg-decorator" location="component://mfg/widget/MfgCommonScreens.xml">
+                    <decorator-section name="body">
+                        <platform-specific>
+                            <html>
+                                <html-template location="component://mfg/webapp/mfg/workOrders.ftl"/>
+                            </html>
+                        </platform-specific>
+                    </decorator-section>
+                </decorator-screen>
             </widgets>
         </section>
     </screen>
@@ -30,6 +36,8 @@
         <section>
             <actions>
                 <set field="title" value="Product Models"/>
+                <set field="pageTitle" value="产品与 BOM"/>
+                <set field="activeMenu" value="products"/>
                 <service service-name="mfgProductList" result-map="listResult" auto-field-map="false">
                     <field-map field-name="search" from-field="parameters.search"/>
                     <field-map field-name="page" from-field="parameters.page"/>
@@ -39,11 +47,15 @@
                 </service>
             </actions>
             <widgets>
-                <platform-specific>
-                    <html>
-                        <html-template location="component://mfg/webapp/mfg/products.ftl"/>
-                    </html>
-                </platform-specific>
+                <decorator-screen name="mfg-decorator" location="component://mfg/widget/MfgCommonScreens.xml">
+                    <decorator-section name="body">
+                        <platform-specific>
+                            <html>
+                                <html-template location="component://mfg/webapp/mfg/products.ftl"/>
+                            </html>
+                        </platform-specific>
+                    </decorator-section>
+                </decorator-screen>
             </widgets>
         </section>
     </screen>
@@ -59,6 +71,8 @@
                     </condition>
                     <actions>
                         <set field="title" value="Work Orders"/>
+                        <set field="pageTitle" value="工单"/>
+                        <set field="activeMenu" value="main"/>
                         <service service-name="mfgProductList" result-map="productList" auto-field-map="false"/>
                         <service service-name="mfgWorkOrderList" result-map="listResult" auto-field-map="false">
                             <field-map field-name="statusId" from-field="parameters.statusId"/>
@@ -67,11 +81,15 @@
                         </service>
                     </actions>
                     <widgets>
-                        <platform-specific>
-                            <html>
-                                <html-template location="component://mfg/webapp/mfg/workOrders.ftl"/>
-                            </html>
-                        </platform-specific>
+                        <decorator-screen name="mfg-decorator" location="component://mfg/widget/MfgCommonScreens.xml">
+                            <decorator-section name="body">
+                                <platform-specific>
+                                    <html>
+                                        <html-template location="component://mfg/webapp/mfg/workOrders.ftl"/>
+                                    </html>
+                                </platform-specific>
+                            </decorator-section>
+                        </decorator-screen>
                     </widgets>
                 </section>
                 <!-- detail mode -->
@@ -83,6 +101,8 @@
                     </condition>
                     <actions>
                         <set field="title" value="Work Order"/>
+                        <set field="pageTitle" value="工单详情"/>
+                        <set field="activeMenu" value="main"/>
                         <service service-name="mfgWorkOrderDetail" result-map="detail" auto-field-map="false">
                             <field-map field-name="workOrderId" from-field="parameters.workOrderId"/>
                         </service>
@@ -91,11 +111,15 @@
                         </service>
                     </actions>
                     <widgets>
-                        <platform-specific>
-                            <html>
-                                <html-template location="component://mfg/webapp/mfg/workOrderDetail.ftl"/>
-                            </html>
-                        </platform-specific>
+                        <decorator-screen name="mfg-decorator" location="component://mfg/widget/MfgCommonScreens.xml">
+                            <decorator-section name="body">
+                                <platform-specific>
+                                    <html>
+                                        <html-template location="component://mfg/webapp/mfg/workOrderDetail.ftl"/>
+                                    </html>
+                                </platform-specific>
+                            </decorator-section>
+                        </decorator-screen>
                     </widgets>
                 </section>
             </widgets>
@@ -107,16 +131,22 @@
         <section>
             <actions>
                 <set field="title" value="Serial Number"/>
+                <set field="pageTitle" value="SN 履历"/>
+                <set field="activeMenu" value="sn"/>
                 <service service-name="mfgSnDetail" result-map="snInfo" auto-field-map="false">
                     <field-map field-name="sn" from-field="parameters.sn"/>
                 </service>
             </actions>
             <widgets>
-                <platform-specific>
-                    <html>
-                        <html-template location="component://mfg/webapp/mfg/snDetail.ftl"/>
-                    </html>
-                </platform-specific>
+                <decorator-screen name="mfg-decorator" location="component://mfg/widget/MfgCommonScreens.xml">
+                    <decorator-section name="body">
+                        <platform-specific>
+                            <html>
+                                <html-template location="component://mfg/webapp/mfg/snDetail.ftl"/>
+                            </html>
+                        </platform-specific>
+                    </decorator-section>
+                </decorator-screen>
             </widgets>
         </section>
     </screen>
@@ -126,17 +156,23 @@
         <section>
             <actions>
                 <set field="title" value="Dashboard"/>
+                <set field="pageTitle" value="看板"/>
+                <set field="activeMenu" value="dashboard"/>
                 <service service-name="mfgDashboard" result-map="board" auto-field-map="false"/>
                 <service service-name="mfgDashboardTrends" result-map="trends" auto-field-map="false">
                     <field-map field-name="dayCount" from-field="parameters.days"/>
                 </service>
             </actions>
             <widgets>
-                <platform-specific>
-                    <html>
-                        <html-template location="component://mfg/webapp/mfg/dashboard.ftl"/>
-                    </html>
-                </platform-specific>
+                <decorator-screen name="mfg-decorator" location="component://mfg/widget/MfgCommonScreens.xml">
+                    <decorator-section name="body">
+                        <platform-specific>
+                            <html>
+                                <html-template location="component://mfg/webapp/mfg/dashboard.ftl"/>
+                            </html>
+                        </platform-specific>
+                    </decorator-section>
+                </decorator-screen>
             </widgets>
         </section>
     </screen>
@@ -146,6 +182,8 @@
         <section>
             <actions>
                 <set field="title" value="Material Lots"/>
+                <set field="pageTitle" value="物料批次"/>
+                <set field="activeMenu" value="materials"/>
                 <service service-name="mfgLotList" result-map="lotResult" auto-field-map="false">
                     <field-map field-name="componentCode" from-field="parameters.componentCode"/>
                     <field-map field-name="search" from-field="parameters.search"/>
@@ -157,11 +195,15 @@
                 </service>
             </actions>
             <widgets>
-                <platform-specific>
-                    <html>
-                        <html-template location="component://mfg/webapp/mfg/materials.ftl"/>
-                    </html>
-                </platform-specific>
+                <decorator-screen name="mfg-decorator" location="component://mfg/widget/MfgCommonScreens.xml">
+                    <decorator-section name="body">
+                        <platform-specific>
+                            <html>
+                                <html-template location="component://mfg/webapp/mfg/materials.ftl"/>
+                            </html>
+                        </platform-specific>
+                    </decorator-section>
+                </decorator-screen>
             </widgets>
         </section>
     </screen>
@@ -171,17 +213,23 @@
         <section>
             <actions>
                 <set field="title" value="Material Shortage"/>
+                <set field="pageTitle" value="齐套预警"/>
+                <set field="activeMenu" value="shortage"/>
                 <service service-name="mfgShortageList" result-map="shortage" auto-field-map="false">
                     <field-map field-name="search" from-field="parameters.search"/>
                     <field-map field-name="page" from-field="parameters.page"/>
                 </service>
             </actions>
             <widgets>
-                <platform-specific>
-                    <html>
-                        <html-template location="component://mfg/webapp/mfg/shortage.ftl"/>
-                    </html>
-                </platform-specific>
+                <decorator-screen name="mfg-decorator" location="component://mfg/widget/MfgCommonScreens.xml">
+                    <decorator-section name="body">
+                        <platform-specific>
+                            <html>
+                                <html-template location="component://mfg/webapp/mfg/shortage.ftl"/>
+                            </html>
+                        </platform-specific>
+                    </decorator-section>
+                </decorator-screen>
             </widgets>
         </section>
     </screen>
@@ -190,6 +238,8 @@
         <section>
             <actions>
                 <set field="title" value="Deliveries"/>
+                <set field="pageTitle" value="出货单"/>
+                <set field="activeMenu" value="delivery"/>
                 <service service-name="mfgDeliveryList" result-map="deliveryList" auto-field-map="false">
                     <field-map field-name="customerName" from-field="parameters.customerName"/>
                     <field-map field-name="search" from-field="parameters.search"/>
@@ -200,11 +250,15 @@
                 </service>
             </actions>
             <widgets>
-                <platform-specific>
-                    <html>
-                        <html-template location="component://mfg/webapp/mfg/delivery.ftl"/>
-                    </html>
-                </platform-specific>
+                <decorator-screen name="mfg-decorator" location="component://mfg/widget/MfgCommonScreens.xml">
+                    <decorator-section name="body">
+                        <platform-specific>
+                            <html>
+                                <html-template location="component://mfg/webapp/mfg/delivery.ftl"/>
+                            </html>
+                        </platform-specific>
+                    </decorator-section>
+                </decorator-screen>
             </widgets>
         </section>
     </screen>
@@ -214,17 +268,23 @@
         <section>
             <actions>
                 <set field="title" value="Vendors"/>
+                <set field="pageTitle" value="外协厂家"/>
+                <set field="activeMenu" value="vendors"/>
                 <service service-name="mfgVendorList" result-map="vendorList" auto-field-map="false">
                     <field-map field-name="search" from-field="parameters.search"/>
                     <field-map field-name="page" from-field="parameters.page"/>
                 </service>
             </actions>
             <widgets>
-                <platform-specific>
-                    <html>
-                        <html-template location="component://mfg/webapp/mfg/vendors.ftl"/>
-                    </html>
-                </platform-specific>
+                <decorator-screen name="mfg-decorator" location="component://mfg/widget/MfgCommonScreens.xml">
+                    <decorator-section name="body">
+                        <platform-specific>
+                            <html>
+                                <html-template location="component://mfg/webapp/mfg/vendors.ftl"/>
+                            </html>
+                        </platform-specific>
+                    </decorator-section>
+                </decorator-screen>
             </widgets>
         </section>
     </screen>
@@ -233,6 +293,8 @@
         <section>
             <actions>
                 <set field="title" value="Warranty Claims"/>
+                <set field="pageTitle" value="售后单"/>
+                <set field="activeMenu" value="claims"/>
                 <service service-name="mfgClaimList" result-map="claimList" auto-field-map="false">
                     <field-map field-name="sn" from-field="parameters.sn"/>
                     <field-map field-name="statusId" from-field="parameters.statusId"/>
@@ -245,11 +307,15 @@
                 </service>
             </actions>
             <widgets>
-                <platform-specific>
-                    <html>
-                        <html-template location="component://mfg/webapp/mfg/claims.ftl"/>
-                    </html>
-                </platform-specific>
+                <decorator-screen name="mfg-decorator" location="component://mfg/widget/MfgCommonScreens.xml">
+                    <decorator-section name="body">
+                        <platform-specific>
+                            <html>
+                                <html-template location="component://mfg/webapp/mfg/claims.ftl"/>
+                            </html>
+                        </platform-specific>
+                    </decorator-section>
+                </decorator-screen>
             </widgets>
         </section>
     </screen>
@@ -258,6 +324,8 @@
         <section>
             <actions>
                 <set field="title" value="Buyer Risk List"/>
+                <set field="pageTitle" value="买家名单"/>
+                <set field="activeMenu" value="buyers"/>
                 <service service-name="mfgBuyerFlagList" result-map="flagList" auto-field-map="false">
                     <field-map field-name="keyword" from-field="parameters.keyword"/>
                     <field-map field-name="riskLevel" from-field="parameters.riskLevel"/>
@@ -271,11 +339,15 @@
                 </service>
             </actions>
             <widgets>
-                <platform-specific>
-                    <html>
-                        <html-template location="component://mfg/webapp/mfg/buyers.ftl"/>
-                    </html>
-                </platform-specific>
+                <decorator-screen name="mfg-decorator" location="component://mfg/widget/MfgCommonScreens.xml">
+                    <decorator-section name="body">
+                        <platform-specific>
+                            <html>
+                                <html-template location="component://mfg/webapp/mfg/buyers.ftl"/>
+                            </html>
+                        </platform-specific>
+                    </decorator-section>
+                </decorator-screen>
             </widgets>
         </section>
     </screen>
@@ -284,17 +356,23 @@
         <section>
             <actions>
                 <set field="title" value="Quality"/>
+                <set field="pageTitle" value="质量指标"/>
+                <set field="activeMenu" value="quality"/>
                 <service service-name="mfgQualityReport" result-map="quality" auto-field-map="false">
                     <field-map field-name="fromDate" from-field="parameters.fromDate"/>
                     <field-map field-name="toDate" from-field="parameters.toDate"/>
                 </service>
             </actions>
             <widgets>
-                <platform-specific>
-                    <html>
-                        <html-template location="component://mfg/webapp/mfg/quality.ftl"/>
-                    </html>
-                </platform-specific>
+                <decorator-screen name="mfg-decorator" location="component://mfg/widget/MfgCommonScreens.xml">
+                    <decorator-section name="body">
+                        <platform-specific>
+                            <html>
+                                <html-template location="component://mfg/webapp/mfg/quality.ftl"/>
+                            </html>
+                        </platform-specific>
+                    </decorator-section>
+                </decorator-screen>
             </widgets>
         </section>
     </screen>

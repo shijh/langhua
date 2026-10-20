@@ -9,39 +9,6 @@
 <#assign pl = (productList)!{}>
 <#assign products = (pl.products)![]>
 <#assign errList = (errorMessageList)![]>
-<html>
-<head>
-    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
-    <title>工单 - Hardware Assembly</title>
-    <style type="text/css">
-        body { font-family: Arial, Helvetica, sans-serif; margin: 1.5em; color: #222; }
-        h1 { font-size: 1.4em; } h2 { font-size: 1.05em; margin-top: 1.4em; }
-        table { border-collapse: collapse; margin-top: .6em; }
-        th, td { border: 1px solid #ccc; padding: 4px 10px; text-align: left; }
-        th { background: #f3f3f3; }
-        .num { text-align: right; }
-        .nav a { margin-right: 1em; }
-        .error { color: #b00000; font-weight: bold; }
-        .ok { color: #1a7f37; font-weight: bold; }
-        .hint { color: #666; font-size: .85em; }
-        form.inline { display: inline; }
-        fieldset { border: 1px solid #ddd; padding: .6em 1em; margin-top: 1em; }
-    </style>
-</head>
-<body>
-<p class="nav">
-    <a href="/mfg/control/main"><b>工单</b></a>
-    <a href="/mfg/control/products">产品与 BOM</a>
-    <a href="/mfg/control/materials">物料批次</a>
-    <a href="/mfg/control/shortage">齐套预警</a>
-    <a href="/mfg/control/delivery">出货单</a>
-    <a href="/mfg/control/vendors">外协厂家</a>
-    <a href="/mfg/control/claims">售后单</a>
-    <a href="/mfg/control/buyers">买家名单</a>
-    <a href="/mfg/control/quality">质量指标</a>
-    <a href="/mfg/control/dashboard">看板</a>
-    <a href="/mfg/control/sn">SN 查询</a>
-</p>
 
 <h1>工单</h1>
 
@@ -128,5 +95,4 @@
         </#if>
     </p>
 </#if>
-</body>
-</html>
+

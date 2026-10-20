@@ -25,41 +25,6 @@
     <#elseif (code!'') == 'THREAT'>差评勒索
     <#else>-</#if>
 </#macro>
-<html>
-<head>
-    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
-    <title>买家名单 - Hardware Assembly</title>
-    <style type="text/css">
-        body { font-family: Arial, Helvetica, sans-serif; margin: 1.5em; color: #222; }
-        h1 { font-size: 1.3em; } h2 { font-size: 1.05em; margin-top: 1.4em; }
-        table { border-collapse: collapse; margin-top: .6em; }
-        th, td { border: 1px solid #ccc; padding: 4px 10px; text-align: left; vertical-align: top; }
-        th { background: #f3f3f3; }
-        .num { text-align: right; }
-        .nav a { margin-right: 1em; }
-        .error { color: #b00000; font-weight: bold; }
-        .ok { color: #1a7f37; font-weight: bold; }
-        .warn { color: #9a6700; font-weight: bold; }
-        .hint { color: #666; font-size: .85em; }
-        fieldset { border: 1px solid #ddd; padding: .6em 1em; margin-top: 1em; }
-        .big { font-size: 1.3em; font-weight: bold; }
-        .banner { border-left: 4px solid #b00000; background: #fdf2f2; padding: .6em .9em; margin-top: .8em; }
-    </style>
-</head>
-<body>
-<p class="nav">
-    <a href="/mfg/control/main">工单</a>
-    <a href="/mfg/control/products">产品与 BOM</a>
-    <a href="/mfg/control/materials">物料批次</a>
-    <a href="/mfg/control/delivery">出货单</a>
-    <a href="/mfg/control/vendors">外协厂家</a>
-    <a href="/mfg/control/claims">售后单</a>
-    <a href="/mfg/control/buyers"><b>买家名单</b></a>
-    <a href="/mfg/control/quality">质量指标</a>
-    <a href="/mfg/control/shortage">齐套预警</a>
-    <a href="/mfg/control/dashboard">看板</a>
-    <a href="/mfg/control/sn">SN 查询</a>
-</p>
 
 <h1>买家风险名单（内部）</h1>
 
@@ -245,5 +210,4 @@
 <#else>
     <p class="hint">还没有带买家昵称的售后单。</p>
 </#if>
-</body>
-</html>
+
