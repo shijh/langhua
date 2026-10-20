@@ -13,10 +13,31 @@
 
     <request-map uri="estimate">
         <security https="true" auth="true"/>
-        <event type="service" invoke="learningCurveEstimate"/>
-        <response name="success" type="view" value="main"/>
+        <event type="service" invoke="learningCurveSaveEstimate"/>
+        <response name="success" type="redirect" value="recordDetail">
+            <redirect-parameter name="estimateId"/>
+        </response>
         <response name="error" type="view" value="main"/>
     </request-map>
 
+    <request-map uri="records">
+        <security https="true" auth="true"/>
+        <response name="success" type="view" value="records"/>
+    </request-map>
+
+    <request-map uri="recordDetail">
+        <security https="true" auth="true"/>
+        <response name="success" type="view" value="recordDetail"/>
+    </request-map>
+
+    <request-map uri="exportCsv">
+        <security https="true" auth="true"/>
+        <event type="java" path="org.langhua.ofbiz.learningcurve.LearningCurveEvents" invoke="exportEstimateCsv"/>
+        <response name="success" type="none"/>
+        <response name="error" type="view" value="records"/>
+    </request-map>
+
     <view-map name="main" type="screen" page="component://learningcurve/widget/LearningCurveScreens.xml#main"/>
+    <view-map name="records" type="screen" page="component://learningcurve/widget/LearningCurveScreens.xml#records"/>
+    <view-map name="recordDetail" type="screen" page="component://learningcurve/widget/LearningCurveScreens.xml#recordDetail"/>
 </site-conf>

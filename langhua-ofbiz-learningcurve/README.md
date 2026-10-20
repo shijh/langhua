@@ -10,7 +10,9 @@
 - `OFBizLearningCurveHandler`：数据转换（Wright / Crawford）、最小二乘拟合、剔除异常点、估算
 - `I_OFBizLearningCurve`：接口定义（`WRIGHT = 1`、`CRAWFORD = 2`）
 - `LearningCurveServices`：OFBiz 服务门面（可通过服务引擎调用）
-- Web 页面：录入历史数据、查看估算结果（`/learningcurve/control/main`）
+- Web 页面：录入历史数据并**保存估算记录**、记录列表、单条详情（含趋势图）与 CSV 导出
+- 口径可切换：`COST`（成本，元）与 `HOURS`（工时，小时），同一套算法
+- 估算记录按 **产品型号 / 项目 + 批次** 两个维度存储（`LearningCurveEstimate` / `LearningCurveBatch`）
 
 ## 目录结构
 
@@ -22,11 +24,15 @@ langhua-ofbiz-learningcurve/
 │   └── LearningCurveErrorUiLabels.xml   # 多语言错误提示
 ├── data/
 │   └── LearningCurveSecurityPermissionSeedData.xml   # 权限与权限组种子数据
+├── entitydef/
+│   ├── entitymodel.xml                  # 估算记录 / 批次实体
+│   └── entitygroup.xml                  # 实体分组（org.apache.ofbiz）
 ├── servicedef/
 │   └── services.xml                     # 服务定义
 ├── widget/
-│   └── LearningCurveCommonScreens.xml   # 登录/错误页使用的 decorator
-├── webapp/learningcurve/                # 估算页面（controller.xml + estimation.ftl）
+│   ├── LearningCurveCommonScreens.xml   # 登录/错误页使用的 decorator
+│   └── LearningCurveScreens.xml         # 估算、记录列表、记录详情页面
+├── webapp/learningcurve/                # controller.xml + estimation/records/recordDetail.ftl
 ├── src/main/java/org/langhua/ofbiz/learningcurve/
 ├── src/test/java/org/langhua/ofbiz/learningcurve/
 └── integration-test/LearningCurveServiceIT.java
@@ -57,6 +63,9 @@ Windows 下用 `gradlew.bat`，`JAVA_HOME` 指向 JDK 17。
 | --- | --- |
 | `learningCurveEstimate` | 估算后续 N 个单位的总成本与单位成本，返回 `estimate`、`unitCost` 及拟合参数 |
 | `learningCurveParameters` | 仅返回拟合参数（斜率、截距、R²、合格/剔除行数） |
+| `learningCurveSaveEstimate` | 计算并**保存**一条估算记录（含历史批次），返回 `estimateId` |
+| `learningCurveListEstimates` | 按产品型号（可选）列出已保存记录，按创建时间倒序 |
+| `learningCurveChartData` | 返回详情页所需数据：记录头、批次列表、趋势图坐标点、坐标轴最大值 |
 
 参数说明：
 
@@ -89,6 +98,24 @@ https://localhost:8443/learningcurve/control/main
 页面录入历史数据后提交，直接调用 `learningCurveEstimate` 服务并展示估算结果与拟合参数。
 访问控制由 `ofbiz-component.xml` 中的 `base-permission="OFBTOOLS"` 决定。
 
+| 路径 | 说明 |
+| --- | --- |
+| `/learningcurve/control/main` | 估算表单：产品型号、口径（成本/工时）、历史批次、待估算单位数、期望 R²、方法 |
+| `POST /learningcurve/control/estimate` | 调用 `learningCurveSaveEstimate` 保存记录，跳转到详情页 |
+| `/learningcurve/control/records` | 记录列表，可按产品型号筛选 |
+| `/learningcurve/control/recordDetail?estimateId=...` | 详情：估算结果、历史批次、趋势图（SVG）、CSV 下载 |
+| `/learningcurve/control/exportCsv?estimateId=...` | 导出该记录为 CSV（`text/csv`） |
+
+## 数据模型
+
+| 实体 | 说明 |
+| --- | --- |
+| `LearningCurveEstimate` | 估算记录头：`estimateId`（主键）、`productCode`、`measureType`、`methodType`、`leastSquareTarget`、`newUnitNumber`、`estimateTotal`、`estimateUnit`、`slope`、`intercept`、`leastSquareActual`、`qualifiedRows`、`filteredRows`、`historyData`、四个审计时间戳 |
+| `LearningCurveBatch` | 历史批次明细：`estimateId` + `batchSeq`（联合主键）、`lotSize`、`lotValue`；通过 `LC_BATCH_EST` 关联头记录 |
+
+首次启动时 OFBiz 会根据 `entitydef/entitymodel.xml` 自动建表（Derby 下为 `LEARNING_CURVE_ESTIMATE`、`LEARNING_CURVE_BATCH`）。
+字段类型使用 OFBiz 24.09 的定义（注意：`id-ne` 等旧类型已不存在，主键用 `id`，整数用 `numeric` → Java `Long`）。
+
 ## 权限
 
 `data/LearningCurveSecurityPermissionSeedData.xml` 定义两个权限：
@@ -103,8 +130,9 @@ https://localhost:8443/learningcurve/control/main
 ## 集成测试
 
 `integration-test/LearningCurveServiceIT.java` 通过 OFBiz 服务引擎（Web Tools 的
-`scheduleServiceSync` + `_RUN_SYNC_=Y`）真正调用 `learningCurveEstimate`，覆盖 Wright、Crawford
-两种算法与非法输入，全部通过时退出码为 0。
+`scheduleServiceSync` + `_RUN_SYNC_=Y`）真正调用服务，覆盖 `learningCurveEstimate` 的 Wright、Crawford
+两种算法与非法输入，并通过 `learningCurveSaveEstimate` / `learningCurveListEstimates` /
+`learningCurveChartData` 验证「保存 → 列表 → 详情图表」整条链路（含数据库写入），全部通过时退出码为 0。
 
 前置条件：OFBiz 已启动、已执行 `loadAll`、组件已部署。
 

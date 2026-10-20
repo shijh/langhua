@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<entitymodel xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="https://ofbiz.apache.org/dtds/entitymodel.xsd">
+
+    <title>Learning Curve Entities</title>
+    <description>Cost / work-time learning curve estimates (internal use)</description>
+
+    <entity entity-name="LearningCurveEstimate"
+            package-name="org.langhua.ofbiz.learningcurve"
+            title="Learning curve estimate header">
+        <description>One estimation run: product, measurement type, method and fitted parameters</description>
+        <field name="estimateId" type="id"><description>Primary key</description></field>
+        <field name="productCode" type="short-varchar"><description>Product model / project code</description></field>
+        <field name="measureType" type="short-varchar"><description>COST or HOURS</description></field>
+        <field name="methodType" type="numeric"><description>1 = Wright, 2 = Crawford</description></field>
+        <field name="leastSquareTarget" type="floating-point"><description>Requested R squared</description></field>
+        <field name="newUnitNumber" type="floating-point"><description>Number of new units estimated</description></field>
+        <field name="estimateTotal" type="floating-point"><description>Estimated total cost / hours</description></field>
+        <field name="estimateUnit" type="floating-point"><description>Estimated unit cost / hours</description></field>
+        <field name="slope" type="floating-point"><description>Fitted slope</description></field>
+        <field name="intercept" type="floating-point"><description>Fitted intercept</description></field>
+        <field name="leastSquareActual" type="floating-point"><description>Achieved R squared</description></field>
+        <field name="qualifiedRows" type="numeric"><description>Rows kept in the fit</description></field>
+        <field name="filteredRows" type="numeric"><description>Outliers removed</description></field>
+        <field name="historyData" type="very-long"><description>Raw input, units:value;units:value</description></field>
+        <field name="createdStamp" type="date-time"/>
+        <field name="createdTxStamp" type="date-time"/>
+        <field name="lastUpdatedStamp" type="date-time"/>
+        <field name="lastUpdatedTxStamp" type="date-time"/>
+        <prim-key field="estimateId"/>
+        <index name="LC_EST_PRODUCT" unique="false">
+            <index-field name="productCode"/>
+        </index>
+        <index name="LC_EST_CREATED" unique="false">
+            <index-field name="createdStamp"/>
+        </index>
+    </entity>
+
+    <entity entity-name="LearningCurveBatch"
+            package-name="org.langhua.ofbiz.learningcurve"
+            title="Learning curve history batch">
+        <description>History batch used by an estimate: lot size and its total cost / hours</description>
+        <field name="estimateId" type="id"><description>Parent estimate</description></field>
+        <field name="batchSeq" type="numeric"><description>Batch number inside the estimate</description></field>
+        <field name="lotSize" type="floating-point"><description>Units produced in this batch</description></field>
+        <field name="lotValue" type="floating-point"><description>Total cost / hours of this batch</description></field>
+        <prim-key field="estimateId"/>
+        <prim-key field="batchSeq"/>
+        <relation type="one" fk-name="LC_BATCH_EST" rel-entity-name="LearningCurveEstimate">
+            <key-map field-name="estimateId"/>
+        </relation>
+    </entity>
+</entitymodel>

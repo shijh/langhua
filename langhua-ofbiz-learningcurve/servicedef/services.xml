@@ -52,4 +52,57 @@
         <attribute name="qualifiedRowCount" type="Integer" mode="OUT"/>
         <attribute name="filteredRowCount" type="Integer" mode="OUT"/>
     </service>
+
+    <!--
+        Computes the estimate and stores it (header + history batches) so it can be listed and exported.
+    -->
+    <service name="learningCurveSaveEstimate" engine="java"
+            location="org.langhua.ofbiz.learningcurve.LearningCurveServices" invoke="saveEstimate"
+            auth="false" export="false" validate="true">
+        <description>Compute and store a learning curve estimate</description>
+        <attribute name="productCode" type="String" mode="IN" optional="false">
+            <description>Product model / project code</description>
+        </attribute>
+        <attribute name="measureType" type="String" mode="IN" optional="true" default-value="COST">
+            <description>COST or HOURS</description>
+        </attribute>
+        <attribute name="historyData" type="String" mode="IN" optional="false">
+            <description>History data encoded as "units:value;units:value;..."</description>
+        </attribute>
+        <attribute name="newUnitNumber" type="Double" mode="IN" optional="false"/>
+        <attribute name="leastSquare" type="Double" mode="IN" optional="true" default-value="0.95"/>
+        <attribute name="methodType" type="Integer" mode="IN" optional="true" default-value="1"/>
+        <attribute name="estimateId" type="String" mode="OUT"/>
+        <attribute name="estimate" type="Double" mode="OUT"/>
+        <attribute name="unitCost" type="Double" mode="OUT"/>
+        <attribute name="slope" type="Double" mode="OUT"/>
+        <attribute name="intercept" type="Double" mode="OUT"/>
+        <attribute name="leastSquareActual" type="Double" mode="OUT"/>
+        <attribute name="qualifiedRowCount" type="Integer" mode="OUT"/>
+        <attribute name="filteredRowCount" type="Integer" mode="OUT"/>
+    </service>
+
+    <!-- Stored estimates, newest first (optionally filtered by product code) -->
+    <service name="learningCurveListEstimates" engine="java"
+            location="org.langhua.ofbiz.learningcurve.LearningCurveServices" invoke="listEstimates"
+            auth="false" export="false" validate="true">
+        <description>List stored learning curve estimates</description>
+        <attribute name="productCode" type="String" mode="IN" optional="true"/>
+        <attribute name="estimates" type="java.util.List" mode="OUT"/>
+    </service>
+
+    <!-- Chart series (actual vs fitted unit values) for one stored estimate -->
+    <service name="learningCurveChartData" engine="java"
+            location="org.langhua.ofbiz.learningcurve.LearningCurveServices" invoke="chartData"
+            auth="false" export="false" validate="true">
+        <description>Chart series of a stored estimate</description>
+        <attribute name="estimateId" type="String" mode="IN" optional="false"/>
+        <attribute name="estimate" type="java.util.Map" mode="OUT"/>
+        <attribute name="batches" type="java.util.List" mode="OUT"/>
+        <attribute name="points" type="java.util.List" mode="OUT"/>
+        <attribute name="maxX" type="Double" mode="OUT"/>
+        <attribute name="maxY" type="Double" mode="OUT"/>
+        <attribute name="productCode" type="String" mode="OUT"/>
+        <attribute name="measureType" type="String" mode="OUT"/>
+    </service>
 </services>

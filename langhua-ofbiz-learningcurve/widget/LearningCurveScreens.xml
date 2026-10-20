@@ -3,7 +3,7 @@
         xmlns="http://ofbiz.apache.org/Widget-Screen"
         xsi:schemaLocation="http://ofbiz.apache.org/Widget-Screen http://ofbiz.apache.org/dtds/widget-screen.xsd">
 
-    <!-- Learning curve estimation page; body rendered by estimation.ftl -->
+    <!-- Estimation form -->
     <screen name="main">
         <section>
             <actions>
@@ -13,6 +13,42 @@
                 <platform-specific>
                     <html>
                         <html-template location="component://learningcurve/webapp/learningcurve/estimation.ftl"/>
+                    </html>
+                </platform-specific>
+            </widgets>
+        </section>
+    </screen>
+
+    <!-- Stored estimates -->
+    <screen name="records">
+        <section>
+            <actions>
+                <service service-name="learningCurveListEstimates" result-map="listResult" auto-field-map="false">
+                    <field-map field-name="productCode" from-field="parameters.productCode"/>
+                </service>
+            </actions>
+            <widgets>
+                <platform-specific>
+                    <html>
+                        <html-template location="component://learningcurve/webapp/learningcurve/records.ftl"/>
+                    </html>
+                </platform-specific>
+            </widgets>
+        </section>
+    </screen>
+
+    <!-- One stored estimate: header, batches, chart -->
+    <screen name="recordDetail">
+        <section>
+            <actions>
+                <service service-name="learningCurveChartData" result-map="chart" auto-field-map="false">
+                    <field-map field-name="estimateId" from-field="parameters.estimateId"/>
+                </service>
+            </actions>
+            <widgets>
+                <platform-specific>
+                    <html>
+                        <html-template location="component://learningcurve/webapp/learningcurve/recordDetail.ftl"/>
                     </html>
                 </platform-specific>
             </widgets>

@@ -25,6 +25,8 @@ import java.security.SecureRandom;
 import java.security.cert.X509Certificate;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import javax.net.ssl.HttpsURLConnection;
 import javax.net.ssl.SSLContext;
@@ -50,6 +52,7 @@ import javax.net.ssl.X509TrustManager;
 public final class LearningCurveServiceIT {
 
     private static final String SERVICE_NAME = "learningCurveEstimate";
+    private static final String PRODUCT_CODE = "IT-MODEL-A";
 
     private final String baseUrl;
     private final String user;
@@ -76,6 +79,7 @@ public final class LearningCurveServiceIT {
             it.estimateWright();
             it.estimateCrawford();
             it.rejectsMalformedHistoryData();
+            it.savesAndReadsBack();
         } finally {
             it.tearDown();
         }
@@ -172,6 +176,63 @@ public final class LearningCurveServiceIT {
         form.put("leastSquare", leastSquare);
         form.put("methodType", methodType);
         return post("/webtools/control/scheduleServiceSync", form);
+    }
+
+    /**
+     * Stores an estimate through the {@code learningCurveSaveEstimate} service and reads it back
+     * through {@code learningCurveChartData}, which proves the entity model, the insert and the
+     * chart query all work against the database.
+     */
+    private void savesAndReadsBack() throws IOException {
+        Map<String, String> form = new LinkedHashMap<>();
+        form.put("SERVICE_NAME", "learningCurveSaveEstimate");
+        form.put("_RUN_SYNC_", "Y");
+        form.put("productCode", PRODUCT_CODE);
+        form.put("measureType", "COST");
+        form.put("historyData", "2:200;3:285;5:450");
+        form.put("newUnitNumber", "5");
+        form.put("leastSquare", "0.95");
+        form.put("methodType", "1");
+        Response saved = post("/webtools/control/scheduleServiceSync", form);
+
+        check("save: service call returns HTTP 200", saved.status == 200, "HTTP " + saved.status);
+        check("save: response contains estimateId", saved.body.contains("estimateId"),
+                "no 'estimateId' in response");
+        check("save: unit cost stored", saved.body.contains("88.03"), "expected 88.03 in response");
+        String estimateId = extractEstimateId(saved.body);
+        check("save: estimateId parsed", estimateId != null, "could not parse estimateId");
+        System.out.println("[save] estimateId = " + estimateId);
+
+        Map<String, String> listForm = new LinkedHashMap<>();
+        listForm.put("SERVICE_NAME", "learningCurveListEstimates");
+        listForm.put("_RUN_SYNC_", "Y");
+        listForm.put("productCode", PRODUCT_CODE);
+        Response listed = post("/webtools/control/scheduleServiceSync", listForm);
+        check("list: service call returns HTTP 200", listed.status == 200, "HTTP " + listed.status);
+        check("list: saved product is returned", listed.body.contains(PRODUCT_CODE),
+                "expected " + PRODUCT_CODE + " in response");
+
+        if (estimateId != null) {
+            Map<String, String> chartForm = new LinkedHashMap<>();
+            chartForm.put("SERVICE_NAME", "learningCurveChartData");
+            chartForm.put("_RUN_SYNC_", "Y");
+            chartForm.put("estimateId", estimateId);
+            Response chart = post("/webtools/control/scheduleServiceSync", chartForm);
+            check("chart: service call returns HTTP 200", chart.status == 200, "HTTP " + chart.status);
+            check("chart: response contains the chart points", chart.body.contains("points"),
+                    "no 'points' in response");
+            check("chart: response contains the product code", chart.body.contains(PRODUCT_CODE),
+                    "expected " + PRODUCT_CODE + " in response");
+        }
+    }
+
+    private static String extractEstimateId(String body) {
+        Matcher matcher = Pattern.compile("estimateId\\s*</td>\\s*<td>\\s*([0-9]+)").matcher(body);
+        if (matcher.find()) {
+            return matcher.group(1);
+        }
+        Matcher loose = Pattern.compile("estimateId[^0-9]{0,40}([0-9]+)").matcher(body);
+        return loose.find() ? loose.group(1) : null;
     }
 
     private Response post(String path, Map<String, String> form) throws IOException {
