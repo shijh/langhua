@@ -55,7 +55,7 @@ Windows 下用 `gradlew.bat`，`JAVA_HOME` 指向 JDK 17。
 
 | 服务名 | 说明 |
 | --- | --- |
-| `learningCurveEstimate` | 估算后续 N 个单位的总成本，返回 `estimate` 及拟合参数 |
+| `learningCurveEstimate` | 估算后续 N 个单位的总成本与单位成本，返回 `estimate`、`unitCost` 及拟合参数 |
 | `learningCurveParameters` | 仅返回拟合参数（斜率、截距、R²、合格/剔除行数） |
 
 参数说明：

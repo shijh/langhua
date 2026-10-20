@@ -26,6 +26,7 @@
             <description>1 = Wright, 2 = Crawford</description>
         </attribute>
         <attribute name="estimate" type="Double" mode="OUT"/>
+        <attribute name="unitCost" type="Double" mode="OUT"/>
         <attribute name="slope" type="Double" mode="OUT"/>
         <attribute name="intercept" type="Double" mode="OUT"/>
         <attribute name="leastSquareActual" type="Double" mode="OUT"/>

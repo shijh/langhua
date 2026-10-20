@@ -53,6 +53,7 @@ public class LearningCurveServicesTest {
 
         assertFalse(ServiceUtil.isError(result));
         assertEquals(440.18817654561616, ((Double) result.get("estimate")).doubleValue(), 1e-6);
+        assertEquals(88.03763530912323, ((Double) result.get("unitCost")).doubleValue(), 1e-6);
         assertNotNull(result.get("slope"));
         assertNotNull(result.get("intercept"));
         assertNotNull(result.get("leastSquareActual"));

@@ -18,5 +18,5 @@
         <response name="error" type="view" value="main"/>
     </request-map>
 
-    <view-map name="main" type="ftl" page="component://learningcurve/webapp/learningcurve/estimation.ftl"/>
+    <view-map name="main" type="screen" page="component://learningcurve/widget/LearningCurveScreens.xml#main"/>
 </site-conf>

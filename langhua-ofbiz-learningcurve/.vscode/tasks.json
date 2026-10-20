@@ -331,6 +331,94 @@
 			],
 			"problemMatcher": [],
 			"group": "build"
+		},
+		{
+			"label": "ofbiz-grab-ftl-error",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\grab-ftl-error.bat"
+			],
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "ofbiz-probe-ftl-context",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\probe-ftl-context.bat"
+			],
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "ofbiz-probe-parameters-key",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\probe-parameters-key.bat"
+			],
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "del-ftl",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\del-ftl.bat"
+			],
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "ofbiz-deploy-v2",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\deploy-v2.bat"
+			],
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "ofbiz-check-v2",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\check-v2.bat"
+			],
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "ofbiz-unit-tests-v2",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\run-tests.bat"
+			],
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "ofbiz-it-v2",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\final-verify.bat"
+			],
+			"problemMatcher": [],
+			"group": "test"
 		}
 	]
 }

@@ -73,6 +73,7 @@ public final class LearningCurveServices {
 
             Map<String, Object> result = ServiceUtil.returnSuccess();
             result.put("estimate", Double.valueOf(estimate));
+            result.put("unitCost", Double.valueOf(newUnitNumber > 0.0 ? estimate / newUnitNumber : 0.0));
             putCurveParameters(result, curve);
             return result;
         } catch (GeneralException e) {
