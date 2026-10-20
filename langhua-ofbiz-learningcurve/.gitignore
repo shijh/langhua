@@ -1,3 +1,5 @@
 /target
 /build
 /runtime
+/.gradle
+/.settings/org.eclipse.buildship.core.prefs
