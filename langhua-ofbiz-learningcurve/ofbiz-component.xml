@@ -6,6 +6,18 @@
     <resource-loader name="main" type="component"/>
     <classpath type="dir" location="config"/>
 
+    <!-- Security permissions of the component -->
+    <entity-resource type="data" reader-name="seed" loader="main" location="data/LearningCurveSecurityPermissionSeedData.xml"/>
+
     <!-- Learning curve estimation services -->
     <service-resource type="model" loader="main" location="servicedef/services.xml"/>
+
+    <!-- Web application: estimation page -->
+    <webapp name="learningcurve"
+            title="Learning Curve"
+            server="default-server"
+            location="webapp/learningcurve"
+            base-permission="OFBTOOLS"
+            mount-point="/learningcurve"
+            app-bar-display="false"/>
 </ofbiz-component>

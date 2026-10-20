@@ -10,6 +10,7 @@
 - `OFBizLearningCurveHandler`：数据转换（Wright / Crawford）、最小二乘拟合、剔除异常点、估算
 - `I_OFBizLearningCurve`：接口定义（`WRIGHT = 1`、`CRAWFORD = 2`）
 - `LearningCurveServices`：OFBiz 服务门面（可通过服务引擎调用）
+- Web 页面：录入历史数据、查看估算结果（`/learningcurve/control/main`）
 
 ## 目录结构
 
@@ -19,10 +20,16 @@ langhua-ofbiz-learningcurve/
 ├── build.gradle                         # 第三方依赖（gov.nist.math:jama）
 ├── config/
 │   └── LearningCurveErrorUiLabels.xml   # 多语言错误提示
+├── data/
+│   └── LearningCurveSecurityPermissionSeedData.xml   # 权限与权限组种子数据
 ├── servicedef/
 │   └── services.xml                     # 服务定义
+├── widget/
+│   └── LearningCurveCommonScreens.xml   # 登录/错误页使用的 decorator
+├── webapp/learningcurve/                # 估算页面（controller.xml + estimation.ftl）
 ├── src/main/java/org/langhua/ofbiz/learningcurve/
-└── src/test/java/org/langhua/ofbiz/learningcurve/
+├── src/test/java/org/langhua/ofbiz/learningcurve/
+└── integration-test/LearningCurveServiceIT.java
 ```
 
 ## 部署
@@ -70,6 +77,42 @@ methodType    = 1
 ```
 
 返回：`estimate ≈ 440.188`（Wright）；`methodType = 2` 时 `estimate ≈ 445.511`（Crawford）。
+
+## Web 页面
+
+部署并启动后访问（需登录，OFBiz 管理员即可）：
+
+```
+https://localhost:8443/learningcurve/control/main
+```
+
+页面录入历史数据后提交，直接调用 `learningCurveEstimate` 服务并展示估算结果与拟合参数。
+访问控制由 `ofbiz-component.xml` 中的 `base-permission="OFBTOOLS"` 决定。
+
+## 权限
+
+`data/LearningCurveSecurityPermissionSeedData.xml` 定义两个权限：
+
+| 权限 | 说明 |
+| --- | --- |
+| `LEARNINGCURVE_VIEW` | 查看 / 执行估算 |
+| `LEARNINGCURVE_ADMIN` | 组件全部操作 |
+
+`loadAll` 时两者授予 `SUPER` 组；如需授权给其它安全组，追加 `SecurityGroupPermission` 记录即可。
+
+## 集成测试
+
+`integration-test/LearningCurveServiceIT.java` 通过 OFBiz 服务引擎（Web Tools 的
+`scheduleServiceSync` + `_RUN_SYNC_=Y`）真正调用 `learningCurveEstimate`，覆盖 Wright、Crawford
+两种算法与非法输入，全部通过时退出码为 0。
+
+前置条件：OFBiz 已启动、已执行 `loadAll`、组件已部署。
+
+```bash
+javac --release 17 -encoding UTF-8 -d build/it-classes integration-test/LearningCurveServiceIT.java
+java -cp build/it-classes LearningCurveServiceIT
+# 可选参数：-Dofbiz.url=... -Dofbiz.user=... -Dofbiz.password=...
+```
 
 ## 单元测试
 

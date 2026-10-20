@@ -1,0 +1,248 @@
+/*
+ * This library is part of OFBiz-LearningCurve component of Langhua
+ *
+ * Copyright (C) 2010  Langhua Opensource Foundation (http://langhua.org)
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation; either
+ * version 3.0 of the License, or (at your option) any later version.
+ */
+
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.OutputStream;
+import java.net.CookieHandler;
+import java.net.CookieManager;
+import java.net.CookiePolicy;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+import java.security.SecureRandom;
+import java.security.cert.X509Certificate;
+import java.util.LinkedHashMap;
+import java.util.Map;
+
+import javax.net.ssl.HttpsURLConnection;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.TrustManager;
+import javax.net.ssl.X509TrustManager;
+
+/**
+ * Integration test for the {@code learningCurveEstimate} service.
+ *
+ * <p>Unlike the unit tests, this exercises the service through OFBiz's own service engine
+ * ({@code ModelService} validation + {@code dispatcher.runSync}) over the Web Tools endpoint
+ * {@code /webtools/control/scheduleServiceSync} with {@code _RUN_SYNC_=Y}.
+ *
+ * <p>Prerequisites: a running OFBiz instance with the learningcurve component deployed and
+ * data loaded ({@code gradlew loadAll}), and a user allowed to invoke services
+ * (the default {@code admin/ofbiz} user is fine).
+ *
+ * <p>Configuration (system properties): {@code ofbiz.url}, {@code ofbiz.user}, {@code ofbiz.password}.
+ * Defaults: {@code https://localhost:8443}, {@code admin}, {@code ofbiz}.
+ *
+ * <p>Exit code is 0 when all checks pass, 1 otherwise.
+ */
+public final class LearningCurveServiceIT {
+
+    private static final String SERVICE_NAME = "learningCurveEstimate";
+
+    private final String baseUrl;
+    private final String user;
+    private final String password;
+    private int failures;
+
+    private LearningCurveServiceIT(String baseUrl, String user, String password) {
+        this.baseUrl = baseUrl.endsWith("/") ? baseUrl.substring(0, baseUrl.length() - 1) : baseUrl;
+        this.user = user;
+        this.password = password;
+    }
+
+    public static void main(String[] args) throws Exception {
+        String baseUrl = System.getProperty("ofbiz.url", "https://localhost:8443");
+        String user = System.getProperty("ofbiz.user", "admin");
+        String password = System.getProperty("ofbiz.password", "ofbiz");
+
+        System.out.println("Integration test against " + baseUrl + " as user " + user);
+
+        LearningCurveServiceIT it = new LearningCurveServiceIT(baseUrl, user, password);
+        it.setUp();
+        try {
+            it.login();
+            it.estimateWright();
+            it.estimateCrawford();
+            it.rejectsMalformedHistoryData();
+        } finally {
+            it.tearDown();
+        }
+
+        System.out.println();
+        if (it.failures == 0) {
+            System.out.println("INTEGRATION TEST PASSED");
+            System.exit(0);
+        }
+        System.out.println("INTEGRATION TEST FAILED (" + it.failures + " check(s))");
+        System.exit(1);
+    }
+
+    private void setUp() throws Exception {
+        // OFBiz development instances use a self-signed certificate
+        TrustManager[] trustAll = new TrustManager[] {
+            new X509TrustManager() {
+                @Override
+                public X509Certificate[] getAcceptedIssuers() {
+                    return new X509Certificate[0];
+                }
+
+                @Override
+                public void checkClientTrusted(X509Certificate[] chain, String authType) {
+                }
+
+                @Override
+                public void checkServerTrusted(X509Certificate[] chain, String authType) {
+                }
+            }
+        };
+        SSLContext sslContext = SSLContext.getInstance("TLS");
+        sslContext.init(null, trustAll, new SecureRandom());
+        HttpsURLConnection.setDefaultSSLSocketFactory(sslContext.getSocketFactory());
+        HttpsURLConnection.setDefaultHostnameVerifier((hostname, session) -> true);
+
+        CookieManager cookieManager = new CookieManager(null, CookiePolicy.ACCEPT_ALL);
+        CookieHandler.setDefault(cookieManager);
+    }
+
+    private void tearDown() {
+        // nothing to release
+    }
+
+    private void login() throws IOException {
+        Map<String, String> form = new LinkedHashMap<>();
+        form.put("USERNAME", user);
+        form.put("PASSWORD", password);
+        form.put("JavaScriptEnabled", "Y");
+
+        Response response = post("/webtools/control/login", form);
+        check("login returns HTTP 200", response.status == 200, "HTTP " + response.status);
+        check("login page does not report a login error", !response.body.contains("following error occurred during login"),
+                "login error in response");
+    }
+
+    private void estimateWright() throws IOException {
+        Response response = invoke("2:200;3:285;5:450", "5", "0.95", "1");
+
+        check("wright: service call returns HTTP 200", response.status == 200, "HTTP " + response.status);
+        check("wright: response contains the estimate field", response.body.contains("estimate"),
+                "no 'estimate' in response");
+        check("wright: response contains the expected estimate", response.body.contains("440.18"),
+                "expected 440.18 in response");
+        check("wright: no service error", !response.body.contains("Invalid historyData entry"),
+                "unexpected service error");
+        System.out.println("[wright] " + firstLineWith(response.body, "estimate"));
+    }
+
+    private void estimateCrawford() throws IOException {
+        Response response = invoke("2:200;3:285;5:450", "5", "0.95", "2");
+
+        check("crawford: service call returns HTTP 200", response.status == 200, "HTTP " + response.status);
+        check("crawford: response contains the expected estimate", response.body.contains("445.51"),
+                "expected 445.51 in response");
+        System.out.println("[crawford] " + firstLineWith(response.body, "estimate"));
+    }
+
+    private void rejectsMalformedHistoryData() throws IOException {
+        Response response = invoke("not-a-number", "5", "0.95", "1");
+
+        check("invalid input: service reports an error", response.body.contains("Invalid historyData entry"),
+                "no validation error in response");
+        System.out.println("[invalid input] error reported as expected");
+    }
+
+    private Response invoke(String historyData, String newUnitNumber, String leastSquare, String methodType)
+            throws IOException {
+        Map<String, String> form = new LinkedHashMap<>();
+        form.put("SERVICE_NAME", SERVICE_NAME);
+        form.put("_RUN_SYNC_", "Y");
+        form.put("historyData", historyData);
+        form.put("newUnitNumber", newUnitNumber);
+        form.put("leastSquare", leastSquare);
+        form.put("methodType", methodType);
+        return post("/webtools/control/scheduleServiceSync", form);
+    }
+
+    private Response post(String path, Map<String, String> form) throws IOException {
+        StringBuilder body = new StringBuilder();
+        for (Map.Entry<String, String> entry : form.entrySet()) {
+            if (body.length() > 0) {
+                body.append('&');
+            }
+            body.append(URLEncoder.encode(entry.getKey(), StandardCharsets.UTF_8))
+                .append('=')
+                .append(URLEncoder.encode(entry.getValue(), StandardCharsets.UTF_8));
+        }
+        byte[] payload = body.toString().getBytes(StandardCharsets.UTF_8);
+
+        HttpURLConnection connection = (HttpURLConnection) new URL(baseUrl + path).openConnection();
+        connection.setRequestMethod("POST");
+        connection.setDoOutput(true);
+        connection.setInstanceFollowRedirects(true);
+        connection.setConnectTimeout(15000);
+        connection.setReadTimeout(60000);
+        connection.setRequestProperty("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8");
+        connection.setRequestProperty("Accept", "text/html,application/xhtml+xml");
+        connection.setRequestProperty("User-Agent", "LearningCurveServiceIT");
+
+        try (OutputStream out = connection.getOutputStream()) {
+            out.write(payload);
+        }
+
+        int status = connection.getResponseCode();
+        InputStream stream = status >= 400 ? connection.getErrorStream() : connection.getInputStream();
+        String responseBody = stream == null ? "" : readAll(stream);
+        connection.disconnect();
+        return new Response(status, responseBody);
+    }
+
+    private static String readAll(InputStream stream) throws IOException {
+        StringBuilder text = new StringBuilder();
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(stream, StandardCharsets.UTF_8))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                text.append(line).append('\n');
+            }
+        }
+        return text.toString();
+    }
+
+    private static String firstLineWith(String text, String needle) {
+        for (String line : text.split("\n")) {
+            if (line.contains(needle)) {
+                return line.trim().replaceAll("\\s+", " ");
+            }
+        }
+        return "(not found)";
+    }
+
+    private void check(String description, boolean condition, String detail) {
+        if (condition) {
+            System.out.println("  OK   " + description);
+        } else {
+            failures++;
+            System.out.println("  FAIL " + description + " -> " + detail);
+        }
+    }
+
+    private static final class Response {
+        private final int status;
+        private final String body;
+
+        private Response(int status, String body) {
+            this.status = status;
+            this.body = body;
+        }
+    }
+}

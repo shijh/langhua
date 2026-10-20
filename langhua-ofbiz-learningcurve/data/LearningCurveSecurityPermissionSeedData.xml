@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<entity-engine-xml>
+    <!-- Learning Curve component permissions -->
+    <SecurityPermission description="View and run Learning Curve estimations." permissionId="LEARNINGCURVE_VIEW"/>
+    <SecurityPermission description="ALL operations in the Learning Curve component." permissionId="LEARNINGCURVE_ADMIN"/>
+
+    <!-- super user: grant the full component permission -->
+    <SecurityGroupPermission fromDate="2026-10-20 00:00:00.0" groupId="SUPER" permissionId="LEARNINGCURVE_ADMIN"/>
+    <SecurityGroupPermission fromDate="2026-10-20 00:00:00.0" groupId="SUPER" permissionId="LEARNINGCURVE_VIEW"/>
+</entity-engine-xml>
