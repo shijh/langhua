@@ -1,0 +1,93 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "java-upgrade-baseline-compile",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"set \"JAVA_HOME=C:\\Users\\shi.jinghai-honor\\.jdks\\corretto-1.8.0_372\" && D:\\tools\\maven-3.6.3\\bin\\mvn.cmd -B clean test-compile"
+			],
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "java-upgrade-step2-baseline",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\baseline.bat"
+			],
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "java-upgrade-find-legacy-jars",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\findjars.bat"
+			],
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "java-upgrade-find-jars-2",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\findjars2.bat"
+			],
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "java-upgrade-find-jars-3",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\find3.bat"
+			],
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "java-upgrade-step3-build-jdk25",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\build25.bat"
+			],
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "java-upgrade-javac25-verify",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\verify25.bat"
+			],
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "java-upgrade-pom-check",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\pomcheck.bat"
+			],
+			"problemMatcher": [],
+			"group": "build"
+		}
+	]
+}
