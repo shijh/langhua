@@ -1,4 +1,5 @@
 <#ftl encoding="UTF-8">
+<#setting url_escaping_charset="UTF-8">
 <#--
   Outsourcing vendors (SMT / PCB) with the shipping details used when material is couriered.
   Data: vendorList.vendors (each with shippingLabel)

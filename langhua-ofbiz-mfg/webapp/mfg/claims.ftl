@@ -1,4 +1,5 @@
 <#ftl encoding="UTF-8">
+<#setting url_escaping_charset="UTF-8">
 <#--
   Warranty claims (after sales). Warranty status is derived from the delivery date and the product
   warranty months, so the operator immediately sees whether the repair is covered.

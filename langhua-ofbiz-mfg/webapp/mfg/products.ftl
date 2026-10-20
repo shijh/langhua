@@ -1,4 +1,5 @@
 <#ftl encoding="UTF-8">
+<#setting url_escaping_charset="UTF-8">
 <#--
   Product models: BOM import and routing maintenance.
   Data: listResult.products, detail.product, detail.bomItems, detail.routings

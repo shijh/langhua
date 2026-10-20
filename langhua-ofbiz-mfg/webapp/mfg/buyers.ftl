@@ -1,4 +1,5 @@
 <#ftl encoding="UTF-8">
+<#setting url_escaping_charset="UTF-8">
 <#--
   Internal buyer risk list. A hit only shows a warning before shipping: the law and the marketplace
   still require us to serve every legal after sales request, so nothing is blocked here.

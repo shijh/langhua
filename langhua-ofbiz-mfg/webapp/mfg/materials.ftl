@@ -1,4 +1,5 @@
 <#ftl encoding="UTF-8">
+<#setting url_escaping_charset="UTF-8">
 <#--
   Material lot ledger and backward trace.
   Data: lotResult.lots, trace.lots, trace.workOrders, trace.totalSnCount

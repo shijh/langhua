@@ -1,4 +1,5 @@
 <#ftl encoding="UTF-8">
+<#setting url_escaping_charset="UTF-8">
 <#--
   Work order list and creation form.
   Data: listResult.workOrders, productList.products, parameters.statusId

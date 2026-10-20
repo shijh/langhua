@@ -1,4 +1,5 @@
 <#ftl encoding="UTF-8">
+<#setting url_escaping_charset="UTF-8">
 <#--
   Material shortage warning: open work orders ordered by due date with the lines that are short.
   Data: shortage.orders, shortage.orderCount, shortage.shortageOrderCount
@@ -71,7 +72,7 @@
                 <td>${order.customerName!}</td>
                 <td>${order.smtVendor!}</td>
                 <td class="num">
-                    <#if (order.shortageLineCount)!0 gt 0>
+                    <#if ((order.shortageLineCount)!0) gt 0>
                         <span class="error">${order.shortageLineCount}</span>/<#if order.lineCount??>${order.lineCount}</#if>
                     <#else>
                         <span class="ok">0</span>/<#if order.lineCount??>${order.lineCount}</#if>

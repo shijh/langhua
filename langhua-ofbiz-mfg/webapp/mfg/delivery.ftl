@@ -1,4 +1,5 @@
 <#ftl encoding="UTF-8">
+<#setting url_escaping_charset="UTF-8">
 <#--
   Delivery orders: shipping units to customers, which also starts the warranty.
   Data: deliveryList.deliveries, deliveryDetail.delivery, deliveryDetail.units
