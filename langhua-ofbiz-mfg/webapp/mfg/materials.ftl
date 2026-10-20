@@ -31,6 +31,7 @@
 <p class="nav">
     <a href="/mfg/control/main">工单</a>
     <a href="/mfg/control/products">产品与 BOM</a>
+    <a href="/mfg/control/shortage">齐套预警</a>
     <a href="/mfg/control/dashboard">看板</a>
     <a href="/mfg/control/sn">SN 查询</a>
 </p>
@@ -55,6 +56,19 @@
         </p>
     </form>
     <p class="hint">批次号自动生成（LOT-yyMMdd-NN）；同一料号可登记多个批次。</p>
+</fieldset>
+
+<fieldset>
+    <legend>批量导入到货（CSV）</legend>
+    <form method="post" action="/mfg/control/lotImportCsv">
+        <textarea name="csv" rows="6" cols="90">U1-BT5-SOC,主控 SoC,立创商城,DC2410A,120,2026-10-20
+C0402-100N,100nF 0402 电容,立创商城,DC2409B,500,2026-10-19</textarea>
+        <p class="hint">每行：料号,名称,供应商,供应商批号/DateCode,数量,到货日期(yyyy-MM-dd，可空)</p>
+        <p><input type="submit" value="导入"/></p>
+    </form>
+    <#if (parameters.importedCount)??>
+        <p class="ok">已导入 ${parameters.importedCount} 个批次。</p>
+    </#if>
 </fieldset>
 
 <h2>批次台账</h2>
@@ -101,7 +115,8 @@
     <#if tracedOrders?has_content>
         <table>
             <tr><th>工单</th><th>产品型号</th><th>状态</th><th>客户/项目</th>
-                <th class="num">计划数量</th><th class="num">已建 SN</th><th class="num">不良记录</th></tr>
+                <th class="num">计划数量</th><th class="num">已建 SN</th><th class="num">不良记录</th>
+                <th>推定 SN 区间（FIFO）</th></tr>
             <#list tracedOrders as order>
                 <tr>
                     <td><a href="/mfg/control/workOrder?workOrderId=${order.workOrderId}">${order.workOrderId!}</a></td>
@@ -111,9 +126,17 @@
                     <td class="num">${(order.plannedQty)?string("0")}</td>
                     <td class="num">${(order.snCount)?string("0")}</td>
                     <td class="num">${(order.defectCount)?string("0")}</td>
+                    <td>
+                        <#list (order.estimates)![] as est>
+                            ${est.componentCode!}: ${est.estimatedSnFrom!} ~ ${est.estimatedSnTo!}
+                            <span class="hint">(${est.estimatedSnCount!0}/${est.issueCount!0})</span><br/>
+                        </#list>
+                    </td>
                 </tr>
             </#list>
         </table>
+        <p class="hint">推定区间是把工单内的 SN 按发料先后均分得出的估算值（SMT 厂不提供换料记录），
+            用于缩小排查范围；若需要精确到单板，请在 SN 页登记实际换件记录。</p>
         <p class="hint">这就是供应商报批次问题时的召回范围：上面所有 SN 都用了该批次。</p>
     <#else>
         <p class="hint">该批次还没有发料给任何工单（或尚未回厂建 SN）。</p>

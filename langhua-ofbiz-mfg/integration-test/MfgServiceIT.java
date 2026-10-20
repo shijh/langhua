@@ -79,6 +79,7 @@ public final class MfgServiceIT {
     private String workOrderId;
     private String serialNumber;
     private String lotId;
+    private final java.util.List<String> importedLotIds = new java.util.ArrayList<>();
 
     private MfgServiceIT(String baseUrl, String user, String password) {
         this.baseUrl = baseUrl.endsWith("/") ? baseUrl.substring(0, baseUrl.length() - 1) : baseUrl;
@@ -113,6 +114,10 @@ public final class MfgServiceIT {
             it.recordsShipments();
             it.readsWorkOrderMaterials();
             it.tracesLotBackwards();
+            it.readsShortageList();
+            it.importsLotsFromCsv();
+            it.estimatesSnRangeByFifo();
+            it.recordsReplacement();
             it.rejectsZeroHoursReport();
         } finally {
             it.tearDown();
@@ -460,6 +465,86 @@ public final class MfgServiceIT {
         check("trace: serial number count is reported", response.body.contains("totalSnCount"),
                 "no 'totalSnCount' in response");
         System.out.println("[trace] lot " + lotId + " -> " + workOrderId);
+    }
+
+    private void readsShortageList() throws IOException {
+        Response response = invoke("mfgShortageList", new LinkedHashMap<String, String>());
+        check("shortage: service call returns HTTP 200", response.status == 200,
+                "HTTP " + response.status);
+        check("shortage: open orders are counted", response.body.contains("shortageOrderCount"),
+                "no 'shortageOrderCount' in response");
+        check("shortage: the test work order is listed", workOrderId != null
+                && response.body.contains(workOrderId), "work order missing from the shortage list");
+    }
+
+    private void importsLotsFromCsv() throws IOException {
+        String csv = KEY_COMPONENT + ",Main SoC,IT-supplier,DC-IT-A,10,2026-10-21\n"
+                + KEY_COMPONENT + ",Main SoC,IT-supplier,DC-IT-B,10,2026-10-21";
+        Map<String, String> form = new LinkedHashMap<>();
+        form.put("csv", csv);
+
+        Response response = invoke("mfgLotImportCsv", form);
+        check("lot import: service call returns HTTP 200", response.status == 200,
+                "HTTP " + response.status);
+        check("lot import: two lots imported", response.body.contains("importedCount"),
+                "no 'importedCount' in response");
+        Matcher matcher = LOT_ID.matcher(response.body);
+        while (matcher.find()) {
+            importedLotIds.add(matcher.group());
+        }
+        check("lot import: identifiers generated", importedLotIds.size() >= 2,
+                "found " + importedLotIds.size() + " lot ids");
+        System.out.println("[lot import] " + importedLotIds);
+    }
+
+    private void estimatesSnRangeByFifo() throws IOException {
+        if (workOrderId == null || importedLotIds.size() < 2) {
+            return;
+        }
+        for (int i = 0; i < 2; i++) {
+            Map<String, String> form = new LinkedHashMap<>();
+            form.put("workOrderId", workOrderId);
+            form.put("componentCode", KEY_COMPONENT);
+            form.put("lotId", importedLotIds.get(i));
+            form.put("qty", "1.5");
+            invoke("mfgIssueSave", form);
+        }
+
+        Map<String, String> form = new LinkedHashMap<>();
+        form.put("lotId", importedLotIds.get(0));
+        Response response = invoke("mfgTraceByLot", form);
+        check("fifo: trace returns estimated range", response.body.contains("estimatedSnFrom")
+                && response.body.contains("estimatedSnTo"), "no estimated range in response");
+        check("fifo: estimate is placed on a serial number of the work order",
+                serialNumber != null && response.body.contains("estimatedSnCount"),
+                "no 'estimatedSnCount' in response");
+    }
+
+    private void recordsReplacement() throws IOException {
+        if (serialNumber == null || workOrderId == null) {
+            return;
+        }
+        Map<String, String> form = new LinkedHashMap<>();
+        form.put("sn", serialNumber);
+        form.put("componentCode", KEY_COMPONENT);
+        form.put("oldLotId", lotId == null ? "" : lotId);
+        form.put("newLotId", importedLotIds.isEmpty() ? "" : importedLotIds.get(0));
+        form.put("qty", "1");
+        form.put("reason", "IT-NO-POWER");
+        form.put("hours", "0.3");
+
+        Response response = invoke("mfgReplacementSave", form);
+        check("replacement: service call returns HTTP 200", response.status == 200,
+                "HTTP " + response.status);
+        check("replacement: identifier created", response.body.contains("replacementId"),
+                "no 'replacementId' in response");
+
+        Map<String, String> detail = new LinkedHashMap<>();
+        detail.put("sn", serialNumber);
+        response = invoke("mfgSnDetail", detail);
+        check("replacement: shown in the serial number history",
+                response.body.contains("replacementId") && response.body.contains("IT-NO-POWER"),
+                "replacement missing from the serial number history");
     }
 
     private void rejectsZeroHoursReport() throws IOException {

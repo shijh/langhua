@@ -122,4 +122,50 @@ public class MfgServicesTest {
         assertEquals("BT5-261020-9999", MfgServices.formatSn("BT5", day, 9999));
         assertEquals("WO-261020-999", MfgServices.formatWorkOrderId(day, 999));
     }
+
+    @Test
+    public void parsesLotCsv() {
+        String csv = "u1-bt5-soc,主控 SoC,立创商城,DC2410A,120,2026-10-20\n"
+                + "# a comment line\n"
+                + "BAT-18650,电池,某电池厂,2026W40,50\n";
+
+        List<String[]> rows = MfgServices.parseLotCsv(csv);
+
+        assertEquals(2, rows.size());
+        assertEquals("U1-BT5-SOC", rows.get(0)[0]);
+        assertEquals("主控 SoC", rows.get(0)[1]);
+        assertEquals("立创商城", rows.get(0)[2]);
+        assertEquals("DC2410A", rows.get(0)[3]);
+        assertEquals("120", rows.get(0)[4]);
+        assertEquals("2026-10-20", rows.get(0)[5]);
+        assertEquals("BAT-18650", rows.get(1)[0]);
+        assertNull(rows.get(1)[5]);
+    }
+
+    @Test
+    public void parsesEmptyLotCsvAsEmptyList() {
+        assertTrue(MfgServices.parseLotCsv(null).isEmpty());
+        assertTrue(MfgServices.parseLotCsv("   \n\r\n").isEmpty());
+    }
+
+    @Test
+    public void splitsSerialNumbersFirstInFirstOut() {
+        List<String> sns = List.of("A-0001", "A-0002", "A-0003", "A-0004");
+        List<Double> quantities = List.of(1.0, 3.0);
+
+        int[] firstIssue = MfgServices.fifoSlice(sns, quantities, 0);
+        assertEquals(0, firstIssue[0]);
+        assertEquals(0, firstIssue[1]);
+
+        int[] secondIssue = MfgServices.fifoSlice(sns, quantities, 1);
+        assertEquals(1, secondIssue[0]);
+        assertEquals(3, secondIssue[1]);
+    }
+
+    @Test
+    public void refusesToSplitWithoutUsableInput() {
+        assertNull(MfgServices.fifoSlice(List.of(), List.of(1.0), 0));
+        assertNull(MfgServices.fifoSlice(List.of("A-0001"), List.of(0.0), 0));
+        assertNull(MfgServices.fifoSlice(List.of("A-0001"), List.of(1.0), 5));
+    }
 }

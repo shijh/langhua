@@ -12,4 +12,5 @@
     <entity-group group="org.apache.ofbiz" entity="MfgMaterialLot"/>
     <entity-group group="org.apache.ofbiz" entity="MfgMaterialIssue"/>
     <entity-group group="org.apache.ofbiz" entity="MfgShipment"/>
+    <entity-group group="org.apache.ofbiz" entity="MfgReplacement"/>
 </entitygroup>

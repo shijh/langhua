@@ -123,4 +123,21 @@
             </widgets>
         </section>
     </screen>
+
+    <!-- Material shortage warning -->
+    <screen name="shortage">
+        <section>
+            <actions>
+                <set field="title" value="Material Shortage"/>
+                <service service-name="mfgShortageList" result-map="shortage" auto-field-map="false"/>
+            </actions>
+            <widgets>
+                <platform-specific>
+                    <html>
+                        <html-template location="component://mfg/webapp/mfg/shortage.ftl"/>
+                    </html>
+                </platform-specific>
+            </widgets>
+        </section>
+    </screen>
 </screens>

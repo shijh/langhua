@@ -134,6 +134,7 @@
         <attribute name="reports" type="java.util.List" mode="OUT" optional="true"/>
         <attribute name="defects" type="java.util.List" mode="OUT" optional="true"/>
         <attribute name="lots" type="java.util.List" mode="OUT" optional="true"/>
+        <attribute name="replacements" type="java.util.List" mode="OUT" optional="true"/>
     </service>
 
     <service name="mfgDefectCreate" engine="java"
@@ -247,5 +248,40 @@
         <attribute name="lots" type="java.util.List" mode="OUT" optional="true"/>
         <attribute name="workOrders" type="java.util.List" mode="OUT" optional="true"/>
         <attribute name="totalSnCount" type="Long" mode="OUT" optional="true"/>
+    </service>
+
+    <service name="mfgLotImportCsv" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgServices" invoke="lotImportCsv"
+            auth="false" use-transaction="false">
+        <description>Import lots from CSV: componentCode,componentName,supplierName,supplierLot,qty,receivedDate</description>
+        <attribute name="csv" type="String" mode="IN" optional="false"/>
+        <attribute name="importedCount" type="String" mode="OUT" optional="true"/>
+        <attribute name="lotIds" type="java.util.List" mode="OUT" optional="true"/>
+    </service>
+
+    <service name="mfgShortageList" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgServices" invoke="shortageList"
+            auth="false" use-transaction="false">
+        <description>Open work orders ordered by due date with their material shortages</description>
+        <attribute name="orders" type="java.util.List" mode="OUT" optional="true"/>
+        <attribute name="orderCount" type="Integer" mode="OUT" optional="true"/>
+        <attribute name="shortageOrderCount" type="Long" mode="OUT" optional="true"/>
+    </service>
+
+    <service name="mfgReplacementSave" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgServices" invoke="replacementSave"
+            auth="false" use-transaction="false">
+        <description>Record a component replaced on one unit during repair (old lot and new lot)</description>
+        <attribute name="sn" type="String" mode="IN" optional="false"/>
+        <attribute name="componentCode" type="String" mode="IN" optional="false"/>
+        <attribute name="oldLotId" type="String" mode="IN" optional="true"/>
+        <attribute name="newLotId" type="String" mode="IN" optional="true"/>
+        <attribute name="qty" type="Double" mode="IN" optional="true"/>
+        <attribute name="opSeq" type="Long" mode="IN" optional="true"/>
+        <attribute name="replacedDate" type="String" mode="IN" optional="true"/>
+        <attribute name="reason" type="String" mode="IN" optional="true"/>
+        <attribute name="hours" type="Double" mode="IN" optional="true"/>
+        <attribute name="note" type="String" mode="IN" optional="true"/>
+        <attribute name="replacementId" type="String" mode="OUT" optional="true"/>
     </service>
 </services>

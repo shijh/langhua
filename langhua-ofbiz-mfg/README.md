@@ -18,11 +18,14 @@
 | 不良记录 | 不良代码、责任归属（自制/外协/来料）、返修工时 |
 | SN 履历 | 一块板：报工记录 + 不良记录 + 所用物料批次 |
 | 看板 | 在制工单数/数量、今日工时、今日良率、最近报工 |
-| **物料批次** | 采购到货台账：内部批次 `LOT-yyMMdd-NN`、供应商批号/DateCode、到货数量 |
+| **物料批次** | 采购到货台账：内部批次 `LOT-yyMMdd-NN`、供应商批号/DateCode、到货数量；支持 CSV 批量导入 |
 | **发料** | 按工单发料（料号 + 批次 + 数量 + 位号），形成“SN → 工单 → 批次”链路 |
 | **齐套** | BOM 需求（用量 × 计划数）vs 已发料，自动算出欠料行 |
+| **齐套预警** | 按交期列出所有在制工单的欠料明细（欠料行数 / 欠料总量） |
 | **外协收发** | 发往 SMT 的套数、回厂板数与不良数、快递单号 |
 | **批次追溯** | 反向：批次 → 工单 → SN 数量，用于供应商报批后的召回范围 |
+| **FIFO 推定** | 同工单用了多批次时，按发料先后推定各批次覆盖的 SN 区间（仅估算，界面有标注） |
+| **返修换件** | 单板级精确记录：SN + 位号/料号 + 原批次 → 新批次 + 原因 + 工时 |
 
 ## 目录结构
 
@@ -64,7 +67,7 @@ https://localhost:8443/mfg/control/main
 ```
 
 首次启动会根据 `entitydef/entitymodel.xml` 自动建表（Derby 下为 `MFG_PRODUCT`、`MFG_BOM_ITEM`、`MFG_ROUTING`、
-`MFG_WORK_ORDER`、`MFG_SN`、`MFG_REPORT`、`MFG_DEFECT`、`MFG_MATERIAL_LOT`、`MFG_MATERIAL_ISSUE`、`MFG_SHIPMENT`）。
+`MFG_WORK_ORDER`、`MFG_SN`、`MFG_REPORT`、`MFG_DEFECT`、`MFG_MATERIAL_LOT`、`MFG_MATERIAL_ISSUE`、`MFG_SHIPMENT`、`MFG_REPLACEMENT`）。
 
 ## 数据模型
 
@@ -79,6 +82,7 @@ https://localhost:8443/mfg/control/main
 | `MfgMaterialLot` | 物料批次：`lotId`（主键，LOT-yyMMdd-NN）、`componentCode`、`supplierName`、`supplierLot`（DateCode）、`receivedQty`、`receivedDate` |
 | `MfgMaterialIssue` | 发料：`issueId`、`workOrderId`、`componentCode`、`lotId`、`qty`、`issuedDate`、可选 `designators` / `snFrom` / `snTo` |
 | `MfgShipment` | 外协收发：`shipmentId`、`workOrderId`、`directionId`（`MFG_SHIP_OUT` / `MFG_SHIP_IN`）、`qty`、`defectQty`、`carrier`、`trackingNo` |
+| `MfgReplacement` | 返修换件：`replacementId`、`sn`、`componentCode`、`oldLotId` → `newLotId`、`qty`、`reason`、`hours` |
 
 ## 服务
 
@@ -96,7 +100,10 @@ https://localhost:8443/mfg/control/main
 | `mfgIssueSave` | 向工单发料（校验批次属于该料号） |
 | `mfgWorkOrderMaterials` | 齐套（BOM 需求 vs 已发）、发料清单、外协收发汇总 |
 | `mfgShipmentSave` | 记录发往 SMT（`MFG_SHIP_OUT`）与回厂收货（`MFG_SHIP_IN`） |
-| `mfgTraceByLot` | 反向追溯：批次 → 工单 → SN 数（召回范围） |
+| `mfgTraceByLot` | 反向追溯：批次 → 工单 → SN 数（召回范围），并给出 FIFO 推定 SN 区间 |
+| `mfgLotImportCsv` | 从 CSV 批量导入到货批次 |
+| `mfgShortageList` | 在制工单的欠料清单（按交期排序） |
+| `mfgReplacementSave` | 登记单板级换件（原批次 → 新批次） |
 
 示例（Web Tools → Run Service → `mfgBomImport`）：
 
@@ -117,7 +124,8 @@ csv         = R0402-10K,10K 0402 resistor,4,R1-R4,N
 | `/mfg/control/workOrder?workOrderId=...` | 工单详情：工序进度、报工、SN 生成、不良登记 |
 | `/mfg/control/sn?sn=...` | 单板履历：报工、不良、所用物料批次 |
 | `/mfg/control/dashboard` | 车间看板 |
-| `/mfg/control/materials` | 物料批次台账、收货登记、按批次反向追溯 |
+| `/mfg/control/materials` | 物料批次台账、收货登记、CSV 批量导入、按批次反向追溯 |
+| `/mfg/control/shortage` | 齐套预警：按交期列出欠料工单与明细 |
 
 访问控制由 `ofbiz-component.xml` 的 `base-permission="OFBTOOLS"` 决定；
 `data/MfgSecurityPermissionSeedData.xml` 定义 `MFG_VIEW` / `MFG_ADMIN` 并授予 `SUPER`、`FULLADMIN`。
@@ -142,11 +150,12 @@ productSave → bomImport → routingSave → productDetail
            → workOrderCreate → snRegister → reportCreate → defectCreate
            → workOrderDetail → dashboard
            → lotSave → issueSave → shipmentSave → workOrderMaterials → traceByLot
+           → shortageList → lotImportCsv → FIFO 推定 → replacementSave
            → 非法报工（workHours = 0）/ 错料发料（批次不属于该料号）
 ```
 
-共 54 项断言，全部通过时退出码为 0。测试是**可重复执行**的：每次创建/更新产品型号 `ITMFG`、替换其 BOM、
-新建一张工单、一个物料批次，以及相应的报工、不良、发料与收发记录。
+共 65 项断言，全部通过时退出码为 0。测试是**可重复执行**的：每次创建/更新产品型号 `ITMFG`、替换其 BOM、
+新建一张工单、物料批次，以及相应的报工、不良、发料、收发与换件记录。
 
 前置条件：OFBiz 已启动、已执行 `loadAll`、mfg 组件已部署。
 
@@ -166,7 +175,19 @@ java -cp "build/test-classes:ofbiz.jar:junit-4.13.2.jar:hamcrest-core-1.3.jar" \
       org.junit.runner.JUnitCore org.langhua.ofbiz.mfg.MfgServicesTest
 ```
 
-覆盖 BOM CSV 解析（引号、缺列、CRLF、注释行、大小写归一）与 SN / 工单编号格式。
+覆盖 BOM / 批次 CSV 解析（引号、缺列、CRLF、注释行、大小写归一）、FIFO 推定切片，以及 SN / 工单编号格式（共 13 个用例）。
+
+## 追溯精度说明（重要）
+
+SMT 为外协，且对方**不提供上料 / 换料记录**，因此追溯精度分三层：
+
+| 层级 | 精度 | 数据来源 |
+| --- | --- | --- |
+| 工单级 → 批次集合 | **准确** | 物料全部自采，发料由我方登记（`MfgMaterialIssue`） |
+| FIFO 推定 SN 区间 | **估算** | 同工单多批次时，按发料先后与数量比例拆分 SN 序列 |
+| 单板换件 | **准确** | 组装 / 返修环节由我方操作，登记 `MfgReplacement` |
+
+所以“召回排查”的推荐做法：先用批次反向追溯圈定工单与推定 SN 区间，再到 SN 页看是否有换件记录确认。
 
 ## 开发说明（OFBiz 24.09 踩坑记录）
 
@@ -183,8 +204,9 @@ java -cp "build/test-classes:ofbiz.jar:junit-4.13.2.jar:hamcrest-core-1.3.jar" \
 - **`<classpath type="dir" location="config"/>`**：需要在组件里真的存在 `config/` 目录，
   因此放入 `MfgUiLabels.xml`。
 
-## 后续（M3）
+## 后续想法
 
-- 物料齐套预警（提前按工单/交期算欠料清单）、出货单与客户 SN 绑定、车间看板自动刷新。
-- 若要升级到**位号级 / 板序号级**追溯：只需把 SMT 厂提供的换料记录（时间或板序号）
-  写入 `MfgMaterialIssue.designators` 与 `snFrom` / `snTo`，无需改表结构。
+- 出货单与客户 SN 绑定（出厂记录 + 保修起算）。
+- 来料检验（IQC）记录：到货批次可直接标记合格/不合格，并影响可发料性。
+- 测试数据导入（FCT 结果 CSV → 按 SN 写入参数与判定）。
+- 看板自动刷新与钉钉/邮件告警（欠料、良率异常）。

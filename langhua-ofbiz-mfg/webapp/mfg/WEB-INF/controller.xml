@@ -127,10 +127,34 @@
         <response name="error" type="view" value="workOrder"/>
     </request-map>
 
+    <request-map uri="shortage">
+        <security https="true" auth="true"/>
+        <response name="success" type="view" value="shortage"/>
+    </request-map>
+
+    <request-map uri="lotImportCsv">
+        <security https="true" auth="true"/>
+        <event type="service" invoke="mfgLotImportCsv"/>
+        <response name="success" type="request-redirect" value="materials">
+            <redirect-parameter name="importedCount"/>
+        </response>
+        <response name="error" type="view" value="materials"/>
+    </request-map>
+
+    <request-map uri="replacementSave">
+        <security https="true" auth="true"/>
+        <event type="service" invoke="mfgReplacementSave"/>
+        <response name="success" type="request-redirect" value="sn">
+            <redirect-parameter name="sn"/>
+        </response>
+        <response name="error" type="view" value="sn"/>
+    </request-map>
+
     <view-map name="main" type="screen" page="component://mfg/widget/MfgScreens.xml#main"/>
     <view-map name="products" type="screen" page="component://mfg/widget/MfgScreens.xml#products"/>
     <view-map name="workOrder" type="screen" page="component://mfg/widget/MfgScreens.xml#workOrder"/>
     <view-map name="sn" type="screen" page="component://mfg/widget/MfgScreens.xml#sn"/>
     <view-map name="dashboard" type="screen" page="component://mfg/widget/MfgScreens.xml#dashboard"/>
     <view-map name="materials" type="screen" page="component://mfg/widget/MfgScreens.xml#materials"/>
+    <view-map name="shortage" type="screen" page="component://mfg/widget/MfgScreens.xml#shortage"/>
 </site-conf>

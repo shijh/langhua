@@ -252,4 +252,36 @@
             <index-field name="workOrderId"/>
         </index>
     </entity>
+
+    <entity entity-name="MfgReplacement"
+            package-name="org.langhua.ofbiz.mfg"
+            title="Replacement during repair">
+        <description>Component swapped on one unit during repair or rework, with the old and new lot</description>
+        <field name="replacementId" type="id"><description>Replacement number</description></field>
+        <field name="sn" type="id"><description>Unit that was repaired</description></field>
+        <field name="workOrderId" type="id"><description>Work order of the unit</description></field>
+        <field name="componentCode" type="id"><description>Component that was replaced</description></field>
+        <field name="opSeq" type="numeric"><description>Operation where the replacement happened</description></field>
+        <field name="oldLotId" type="id"><description>Lot removed from the unit</description></field>
+        <field name="newLotId" type="id"><description>Lot installed on the unit</description></field>
+        <field name="qty" type="floating-point"><description>Replaced quantity</description></field>
+        <field name="replacedDate" type="date"><description>Date of the replacement</description></field>
+        <field name="reason" type="short-varchar"><description>Why it was replaced, e.g. NO_POWER</description></field>
+        <field name="hours" type="floating-point"><description>Rework hours</description></field>
+        <field name="note" type="description"/>
+        <field name="createdStamp" type="date-time"/>
+        <field name="createdTxStamp" type="date-time"/>
+        <field name="lastUpdatedStamp" type="date-time"/>
+        <field name="lastUpdatedTxStamp" type="date-time"/>
+        <prim-key field="replacementId"/>
+        <relation type="one" fk-name="MFG_REPL_SN" rel-entity-name="MfgSn">
+            <key-map field-name="sn"/>
+        </relation>
+        <index name="MFG_REPL_SN_IDX" unique="false">
+            <index-field name="sn"/>
+        </index>
+        <index name="MFG_REPL_WO_IDX" unique="false">
+            <index-field name="workOrderId"/>
+        </index>
+    </entity>
 </entitymodel>

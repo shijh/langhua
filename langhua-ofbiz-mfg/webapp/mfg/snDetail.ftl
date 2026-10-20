@@ -9,6 +9,7 @@
 <#assign reports = (info.reports)![]>
 <#assign defects = (info.defects)![]>
 <#assign lots = (info.lots)![]>
+<#assign replacements = (info.replacements)![]>
 <#assign errList = (errorMessageList)![]>
 <html>
 <head>
@@ -30,6 +31,8 @@
 <p class="nav">
     <a href="/mfg/control/main">工单</a>
     <a href="/mfg/control/products">产品与 BOM</a>
+    <a href="/mfg/control/materials">物料批次</a>
+    <a href="/mfg/control/shortage">齐套预警</a>
     <a href="/mfg/control/dashboard">看板</a>
     <a href="/mfg/control/sn"><b>SN 查询</b></a>
 </p>
@@ -117,6 +120,44 @@
     <#else>
         <p class="hint">该工单还没有发料记录（在工单页登记发料后即可追溯）。</p>
     </#if>
+
+    <h2>返修换件（精确记录）</h2>
+    <#if replacements?has_content>
+        <table>
+            <tr><th>日期</th><th>料号</th><th>原批次</th><th>新批次</th>
+                <th class="num">数量</th><th>原因</th><th class="num">工时</th></tr>
+            <#list replacements as r>
+                <tr>
+                    <td><#if r.replacedDate??>${r.replacedDate?string("yyyy-MM-dd")}</#if></td>
+                    <td>${r.componentCode!}</td>
+                    <td><#if r.oldLotId??><a href="/mfg/control/materials?lotId=${r.oldLotId}">${r.oldLotId}</a></#if></td>
+                    <td><#if r.newLotId??><a href="/mfg/control/materials?lotId=${r.newLotId}">${r.newLotId}</a></#if></td>
+                    <td class="num">${((r.qty)!0)?string("0.##")}</td>
+                    <td>${r.reason!}</td>
+                    <td class="num">${((r.hours)!0)?string("0.##")}</td>
+                </tr>
+            </#list>
+        </table>
+    <#else>
+        <p class="hint">没有换件记录。SMT 阶段不提供换料记录，因此相关批次只能到工单级；
+            组装/返修阶段换件请在这里登记，可精确到单板。</p>
+    </#if>
+
+    <fieldset>
+        <legend>登记换件</legend>
+        <form method="post" action="/mfg/control/replacementSave">
+            <input type="hidden" name="sn" value="${unit.sn!}"/>
+            <p>
+                料号 <input type="text" name="componentCode" size="16" value="U1-BT5-SOC"/>
+                原批次 <input type="text" name="oldLotId" size="14" placeholder="可选"/>
+                新批次 <input type="text" name="newLotId" size="14" placeholder="可选"/>
+                数量 <input type="text" name="qty" size="4" value="1"/>
+                原因 <input type="text" name="reason" size="12" value="NO_POWER"/>
+                工时 <input type="text" name="hours" size="5" value="0.2"/>
+                <input type="submit" value="保存"/>
+            </p>
+        </form>
+    </fieldset>
 <#elseif (parameters.sn)?? && parameters.sn?has_content>
     <p class="error">未找到 SN：${parameters.sn}</p>
 <#else>
