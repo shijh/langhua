@@ -116,6 +116,13 @@ https://localhost:8443/learningcurve/control/main
 首次启动时 OFBiz 会根据 `entitydef/entitymodel.xml` 自动建表（Derby 下为 `LEARNING_CURVE_ESTIMATE`、`LEARNING_CURVE_BATCH`）。
 字段类型使用 OFBiz 24.09 的定义（注意：`id-ne` 等旧类型已不存在，主键用 `id`，整数用 `numeric` → Java `Long`）。
 
+## 中文编码注意
+
+- 每个 `.ftl` 的**第一行**必须是 `<#ftl encoding="UTF-8"/>`。OFBiz 的 FreeMarker 配置没有设置默认编码，
+  会退化为 JVM 默认字符集（中文 Windows + JDK 17 下是 GBK），UTF-8 模板会被按 GBK 解码，输出二次编码的乱码。
+- 页面响应头为 `text/html;charset=UTF-8`，源文件请统一保存为 UTF-8（无 BOM）。
+- CSV 导出带 UTF-8 BOM，便于 Excel 正确识别中文产品型号。
+
 ## 权限
 
 `data/LearningCurveSecurityPermissionSeedData.xml` 定义两个权限：

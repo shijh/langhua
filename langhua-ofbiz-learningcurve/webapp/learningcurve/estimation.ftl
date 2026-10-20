@@ -1,3 +1,4 @@
+<#ftl encoding="UTF-8">
 <#--
   Estimation form.
   Input: productCode, measureType (COST/HOURS), historyData, newUnitNumber, leastSquare, methodType

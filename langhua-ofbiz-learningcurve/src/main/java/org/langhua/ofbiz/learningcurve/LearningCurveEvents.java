@@ -58,6 +58,8 @@ public final class LearningCurveEvents {
                     "attachment; filename=learningcurve-" + estimateId + ".csv");
 
             PrintWriter writer = response.getWriter();
+            // byte order mark so spreadsheet applications detect UTF-8 (Chinese product codes)
+            writer.print('\uFEFF');
             writer.println("estimateId,productCode,measureType,methodType,leastSquareTarget,newUnitNumber,"
                     + "estimateTotal,estimateUnit,slope,intercept,leastSquareActual,qualifiedRows,filteredRows,createdStamp");
             writer.println(join(estimate.get("estimateId"), estimate.get("productCode"), estimate.get("measureType"),

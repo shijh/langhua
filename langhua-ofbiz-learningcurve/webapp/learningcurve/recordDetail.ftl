@@ -1,3 +1,4 @@
+<#ftl encoding="UTF-8">
 <#--
   One stored estimate: header, history batches, learning curve chart.
   Data: chart.estimate (map), chart.batches (list), chart.points (list), chart.maxX / chart.maxY

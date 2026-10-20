@@ -1,3 +1,4 @@
+<#ftl encoding="UTF-8">
 <#--
   List of stored estimates (newest first, optional productCode filter).
   Data: listResult.estimates (list of maps)
