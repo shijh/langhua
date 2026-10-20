@@ -14,7 +14,7 @@
     <request-map uri="estimate">
         <security https="true" auth="true"/>
         <event type="service" invoke="learningCurveSaveEstimate"/>
-        <response name="success" type="redirect" value="recordDetail">
+        <response name="success" type="request-redirect" value="recordDetail">
             <redirect-parameter name="estimateId"/>
         </response>
         <response name="error" type="view" value="main"/>
