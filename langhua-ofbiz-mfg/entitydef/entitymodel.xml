@@ -451,6 +451,7 @@
         <field name="evidenceNote" type="very-long"><description>Evidence kept for a possible appeal: screenshots, video files, ticket numbers</description></field>
         <field name="statusId" type="id"><description>MFG_FLAG_ACTIVE or MFG_FLAG_RELEASED</description></field>
         <field name="releasedDate" type="date"><description>Date the flag was lifted, so a buyer is never blocked forever</description></field>
+        <field name="expiresDate" type="date"><description>Date the flag stops applying on its own, personal data is not kept longer than needed</description></field>
         <field name="note" type="description"/>
         <field name="createdStamp" type="date-time"/>
         <field name="createdTxStamp" type="date-time"/>

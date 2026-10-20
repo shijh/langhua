@@ -86,6 +86,9 @@ public final class MfgServices {
 
     public static final String CHANNEL_TAOBAO = "TAOBAO";
 
+    /** Months a risk list entry stays valid before it expires on its own. */
+    public static final int RISK_VALID_MONTHS = 12;
+
     /** Claims inside the observation window that already suggest a watch. */
     public static final int RISK_WATCH_CLAIMS = 3;
     /** Claims inside the observation window that suggest a manual review. */
@@ -2758,7 +2761,12 @@ public final class MfgServices {
         if (channelId == null) {
             channelId = CHANNEL_TAOBAO;
         }
-        String mobile = normalizeMobile(toText(context.get("receiverMobile")));
+        String rawMobile = toText(context.get("receiverMobile"));
+        String mobile = normalizeMobile(rawMobile);
+        if (rawMobile != null && mobile == null) {
+            return ServiceUtil.returnError("receiverMobile must be a full eleven digit number; a masked "
+                    + "number such as 138****2222 cannot identify a buyer");
+        }
         String buyerNick = toText(context.get("buyerNick"));
         String buyerKey = buyerKey(channelId, mobile, buyerNick);
         if (buyerKey == null) {
@@ -2784,6 +2792,16 @@ public final class MfgServices {
         try {
             GenericValue flag = EntityQuery.use(delegator).from("MfgBuyerFlag")
                     .where("buyerKey", buyerKey).queryOne();
+            if (flag == null && mobile != null) {
+                // an older entry may have been keyed on the mobile: reuse it instead of duplicating
+                List<GenericValue> candidates = EntityQuery.use(delegator).from("MfgBuyerFlag").queryList();
+                for (GenericValue candidate : candidates) {
+                    if (mobile.equals(candidate.getString("receiverMobile"))) {
+                        flag = candidate;
+                        break;
+                    }
+                }
+            }
             boolean create = flag == null;
             if (create) {
                 flag = delegator.makeValue("MfgBuyerFlag");
@@ -2819,6 +2837,13 @@ public final class MfgServices {
             flag.set("statusId", statusId);
             flag.set("releasedDate", FLAG_RELEASED.equals(statusId)
                     ? java.sql.Date.valueOf(LocalDate.now()) : null);
+            java.sql.Date expiresDate = (java.sql.Date) parseDate(context.get("expiresDate"));
+            if (expiresDate == null && create) {
+                expiresDate = java.sql.Date.valueOf(LocalDate.now().plusMonths(RISK_VALID_MONTHS));
+            }
+            if (expiresDate != null) {
+                flag.set("expiresDate", expiresDate);
+            }
             if (create) {
                 delegator.create(flag);
             } else {
@@ -2870,7 +2895,8 @@ public final class MfgServices {
                 }
                 list.add(map);
                 if (RISK_BLOCK.equals(flag.getString("riskLevel"))
-                        && isFlagActive(flag.getString("statusId"))) {
+                        && isFlagLive(flag.getString("statusId"), flag.getDate("expiresDate"),
+                                java.sql.Date.valueOf(LocalDate.now()))) {
                     blockCount++;
                 }
             }
@@ -2906,8 +2932,9 @@ public final class MfgServices {
             List<Map<String, Object>> hits = new ArrayList<>();
             String bestLevel = null;
             List<GenericValue> flags = EntityQuery.use(delegator).from("MfgBuyerFlag").queryList();
+            java.sql.Date today = java.sql.Date.valueOf(LocalDate.now());
             for (GenericValue flag : flags) {
-                if (!isFlagActive(flag.getString("statusId"))) {
+                if (!isFlagLive(flag.getString("statusId"), flag.getDate("expiresDate"), today)) {
                     continue;
                 }
                 boolean byMobile = mobile != null && mobile.equals(flag.getString("receiverMobile"));
@@ -2997,12 +3024,18 @@ public final class MfgServices {
 
     /**
      * Normalizes a mobile number to its digits, so formatting differences do not break matching.
+     * Masked numbers such as {@code 138****2222} are rejected: they cannot identify a buyer and
+     * would make different buyers collide on the same key.
      *
      * @param mobile the raw number
-     * @return the digits, or {@code null} when fewer than seven are left
+     * @return the eleven digits, or {@code null} when the number is masked or incomplete
      */
     static String normalizeMobile(String mobile) {
         if (mobile == null) {
+            return null;
+        }
+        if (mobile.indexOf('*') >= 0 || mobile.indexOf('x') >= 0 || mobile.indexOf('X') >= 0
+                || mobile.indexOf('＊') >= 0) {
             return null;
         }
         StringBuilder digits = new StringBuilder();
@@ -3012,27 +3045,27 @@ public final class MfgServices {
                 digits.append(c);
             }
         }
-        return digits.length() >= 7 ? digits.toString() : null;
+        return digits.length() == 11 ? digits.toString() : null;
     }
 
     /**
-     * Builds the matching key of a buyer: the mobile number when known, the nickname otherwise.
+     * Builds the matching key of a buyer. The marketplace nickname comes first because it is
+always
+     * available on an order, while the mobile number is often masked or replaced by a privacy
+     * number; the mobile is only used when no nickname was given.
      *
      * @param channelId the marketplace, {@code TAOBAO} today
-     * @param mobile the receiver mobile, may be {@code null}
+     * @param mobile the receiver mobile, may be {@code null} or masked
      * @param buyerNick the marketplace nickname, may be {@code null}
      * @return the key, or {@code null} when neither is usable
      */
     static String buyerKey(String channelId, String mobile, String buyerNick) {
         String prefix = CHANNEL_TAOBAO.equals(channelId) || channelId == null ? "TB" : channelId;
-        String digits = normalizeMobile(mobile);
-        if (digits != null) {
-            return prefix + ":" + digits;
-        }
         if (buyerNick != null && !buyerNick.trim().isEmpty()) {
             return prefix + ":N:" + buyerNick.trim().toLowerCase(Locale.ROOT);
         }
-        return null;
+        String digits = normalizeMobile(mobile);
+        return digits == null ? null : prefix + ":" + digits;
     }
 
     /**
@@ -3063,6 +3096,24 @@ public final class MfgServices {
     }
 
     /**
+     * Tells whether a risk list entry applies today: active and not expired.
+     *
+     * @param statusId the entry status
+     * @param expiresDate the date the entry stops applying, may be {@code null} for no limit
+     * @param today today
+     * @return {@code true} only when the entry is active and not yet expired
+     */
+    static boolean isFlagLive(String statusId, java.sql.Date expiresDate, java.sql.Date today) {
+        if (!isFlagActive(statusId)) {
+            return false;
+        }
+        if (expiresDate == null || today == null) {
+            return true;
+        }
+        return !today.after(expiresDate);
+    }
+
+    /**
      * Suggests a risk level from the after sales history; the operator still decides.
      *
      * @param claimCount number of claims of the buyer
@@ -3090,8 +3141,10 @@ public final class MfgServices {
             return false;
         }
         List<GenericValue> flags = EntityQuery.use(delegator).from("MfgBuyerFlag").queryList();
+        java.sql.Date today = java.sql.Date.valueOf(LocalDate.now());
         for (GenericValue flag : flags) {
-            if (buyerNick.equals(flag.getString("buyerNick")) && isFlagActive(flag.getString("statusId"))) {
+            if (buyerNick.equals(flag.getString("buyerNick"))
+                    && isFlagLive(flag.getString("statusId"), flag.getDate("expiresDate"), today)) {
                 return true;
             }
         }
@@ -3105,8 +3158,10 @@ public final class MfgServices {
         }
         String level = null;
         List<GenericValue> flags = EntityQuery.use(delegator).from("MfgBuyerFlag").queryList();
+        java.sql.Date today = java.sql.Date.valueOf(LocalDate.now());
         for (GenericValue flag : flags) {
-            if (!buyerNick.equals(flag.getString("buyerNick")) || !isFlagActive(flag.getString("statusId"))) {
+            if (!buyerNick.equals(flag.getString("buyerNick"))
+                    || !isFlagLive(flag.getString("statusId"), flag.getDate("expiresDate"), today)) {
                 continue;
             }
             if (RISK_BLOCK.equals(flag.getString("riskLevel"))) {
@@ -3131,6 +3186,9 @@ public final class MfgServices {
         map.put("evidenceNote", flag.getString("evidenceNote"));
         map.put("statusId", flag.getString("statusId"));
         map.put("releasedDate", flag.getDate("releasedDate"));
+        map.put("expiresDate", flag.getDate("expiresDate"));
+        map.put("live", isFlagLive(flag.getString("statusId"), flag.getDate("expiresDate"),
+                java.sql.Date.valueOf(LocalDate.now())) ? "Y" : "N");
         map.put("note", flag.getString("note"));
         map.put("createdStamp", flag.getTimestamp("createdStamp"));
         return map;

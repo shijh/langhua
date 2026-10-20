@@ -711,8 +711,8 @@ public final class MfgServiceIT {
 
         Response response = invoke("mfgBuyerFlagSave", form);
         check("buyer flag: service call returns HTTP 200", response.status == 200, "HTTP " + response.status);
-        check("buyer flag: key built from the mobile", response.body.contains("TB:" + BUYER_MOBILE),
-                "no TB: key in response");
+        check("buyer flag: key built from the nickname", response.body.contains("TB:N:" + BUYER_NICK),
+                "no TB:N: key in response");
         check("buyer flag: level kept", response.body.contains("WATCH"), "level missing from the response");
 
         response = invoke("mfgBuyerFlagList", new LinkedHashMap<String, String>());
@@ -728,6 +728,12 @@ public final class MfgServiceIT {
         Response response = invoke("mfgBuyerFlagCheck", form);
         check("buyer flag: formatted mobile still matches", response.body.contains(BUYER_NICK),
                 "no hit for the formatted mobile");
+
+        Map<String, String> masked = new LinkedHashMap<>();
+        masked.put("receiverMobile", "138****2222");
+        response = invoke("mfgBuyerFlagSave", masked);
+        check("buyer flag: a masked mobile is rejected", response.body.contains("cannot identify a buyer"),
+                "masked mobile was accepted");
     }
 
     private void releasesBuyerFlag() throws IOException {

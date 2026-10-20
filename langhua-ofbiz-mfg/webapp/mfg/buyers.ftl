@@ -79,8 +79,8 @@
     <legend>登记 / 修改名单</legend>
     <form method="post" action="/mfg/control/buyerFlagSave">
         <p>
-            收货手机号 <input type="text" name="receiverMobile" size="16" placeholder="主要匹配键，如 13800002222"/>
-            买家昵称 <input type="text" name="buyerNick" size="16" placeholder="次要匹配键"/>
+            收货手机号 <input type="text" name="receiverMobile" size="16" placeholder="11 位真号；脱敏号不可用"/>
+            买家昵称 <input type="text" name="buyerNick" size="16" placeholder="主匹配键"/>
             收件人 <input type="text" name="receiverName" size="10"/>
         </p>
         <p>
@@ -105,11 +105,14 @@
             证据说明 <input type="text" name="evidenceNote" size="62" placeholder="聊天截图/开箱视频文件名/平台申诉单号，用于日后申诉"/>
         </p>
         <p>
-            备注 <input type="text" name="note" size="30"/>
+            备注 <input type="text" name="note" size="26"/>
+            到期日 <input type="text" name="expiresDate" size="10" placeholder="留空 = 12 个月后自动失效"/>
             <input type="submit" value="保存"/>
         </p>
     </form>
-    <p class="hint">手机号会统一成纯数字后作为主键（<code>TB:13800002222</code>），列表里只显示打码号码。</p>
+    <p class="hint">匹配键以<b>买家昵称</b>为主（订单上一定有），手机号是次要键且<b>只收 11 位真号</b>：
+        脱敏号（如 <code>138****2222</code>）会被拒绝，否则不同买家会撞到同一个键。
+        名单默认 12 个月后自动失效，避免“永久拉黑”的合规风险。</p>
 </fieldset>
 
 <fieldset>
@@ -162,7 +165,7 @@
 <#if flags?has_content>
     <table>
         <tr><th>匹配键</th><th>手机号</th><th>昵称</th><th>收件人</th><th>等级</th><th>原因</th>
-            <th>证据</th><th>状态</th><th>登记时间</th><th>操作</th></tr>
+            <th>证据</th><th>状态</th><th>到期日</th><th>登记时间</th><th>操作</th></tr>
         <#list flags as f>
             <tr>
                 <td>${f.buyerKey!}</td>
@@ -174,6 +177,8 @@
                 <td>${f.evidenceNote!}</td>
                 <td><#if (f.statusId!'') == 'MFG_FLAG_ACTIVE'><span class="warn">生效中</span>
                     <#else><span class="hint">已解除<#if f.releasedDate??>（${f.releasedDate?string("yyyy-MM-dd")}）</#if></span></#if></td>
+                <td><#if f.expiresDate??>${f.expiresDate?string("yyyy-MM-dd")}<#else>-</#if>
+                    <#if (f.live!'N') == 'N'><span class="hint">（已失效）</span></#if></td>
                 <td><#if f.createdStamp??>${f.createdStamp?string("yyyy-MM-dd HH:mm")}</#if></td>
                 <td>
                     <#if (f.statusId!'') == 'MFG_FLAG_ACTIVE'>

@@ -302,16 +302,20 @@ public class MfgServicesTest {
         assertEquals("13800002222", MfgServices.normalizeMobile("+86 138 0000 2222".substring(3)));
         assertEquals("13800002222", MfgServices.normalizeMobile(" 13800002222 "));
         assertNull(MfgServices.normalizeMobile("123"));
+        // a masked number cannot identify a buyer, so it must never become a key
+        assertNull(MfgServices.normalizeMobile("138****2222"));
+        assertNull(MfgServices.normalizeMobile("138xxxx2222"));
         assertNull(MfgServices.normalizeMobile(null));
     }
 
     @Test
     public void buildsTheBuyerKeyFromMobileOrNick() {
-        assertEquals("TB:13800002222",
-                MfgServices.buyerKey(MfgServices.CHANNEL_TAOBAO, "138-0000-2222", "nick"));
-        // without a usable mobile the nickname is the key, lower cased
+        // the nickname wins: it is always available, the mobile is often masked
+        assertEquals("TB:N:nick", MfgServices.buyerKey(MfgServices.CHANNEL_TAOBAO, "138-0000-2222", "nick"));
         assertEquals("TB:N:buyer_1", MfgServices.buyerKey(MfgServices.CHANNEL_TAOBAO, null, "Buyer_1"));
-        assertEquals("TB:N:buyer_1", MfgServices.buyerKey(null, "12", "Buyer_1"));
+        assertEquals("TB:13800002222", MfgServices.buyerKey(MfgServices.CHANNEL_TAOBAO, "13800002222", null));
+        assertEquals("TB:13800002222", MfgServices.buyerKey(null, "13800002222", "  "));
+        assertNull(MfgServices.buyerKey(MfgServices.CHANNEL_TAOBAO, "138****2222", null));
         assertNull(MfgServices.buyerKey(MfgServices.CHANNEL_TAOBAO, null, "  "));
     }
 
@@ -319,7 +323,9 @@ public class MfgServicesTest {
     public void masksMobileNumbers() {
         assertEquals("138****2222", MfgServices.maskMobile("13800002222"));
         assertEquals("138****2222", MfgServices.maskMobile("138-0000-2222"));
-        assertEquals("1****7", MfgServices.maskMobile("1234567"));
+        // a number that is already masked or incomplete is shown as it came
+        assertEquals("138****2222", MfgServices.maskMobile("138****2222"));
+        assertEquals("1234567", MfgServices.maskMobile("1234567"));
         assertEquals("", MfgServices.maskMobile(null));
     }
 
@@ -338,5 +344,17 @@ public class MfgServicesTest {
         assertTrue(MfgServices.isFlagActive(MfgServices.FLAG_ACTIVE));
         assertTrue(!MfgServices.isFlagActive(MfgServices.FLAG_RELEASED));
         assertTrue(!MfgServices.isFlagActive(null));
+    }
+
+    @Test
+    public void flagsStopApplyingWhenTheyExpire() {
+        java.sql.Date today = java.sql.Date.valueOf("2026-10-21");
+
+        assertTrue(MfgServices.isFlagLive(MfgServices.FLAG_ACTIVE, java.sql.Date.valueOf("2027-10-21"), today));
+        assertTrue(MfgServices.isFlagLive(MfgServices.FLAG_ACTIVE, today, today));
+        assertTrue(!MfgServices.isFlagLive(MfgServices.FLAG_ACTIVE, java.sql.Date.valueOf("2026-10-20"), today));
+        // no expiry means it keeps applying while active
+        assertTrue(MfgServices.isFlagLive(MfgServices.FLAG_ACTIVE, null, today));
+        assertTrue(!MfgServices.isFlagLive(MfgServices.FLAG_RELEASED, null, today));
     }
 }

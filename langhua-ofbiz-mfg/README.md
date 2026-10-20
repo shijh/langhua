@@ -76,7 +76,7 @@ https://localhost:8443/mfg/control/main
 工单表会自动新增 `SMT_VENDOR_ID` 列（指向 `MfgVendor`），产品表会自动新增 `WARRANTY_MONTHS`（保修月数，空则按 12），
 售后单表会自动新增淘宝侧列（`CLAIM_TYPE`、`TRADE_NO`、`BUYER_NICK`、`SIGNED_DATE`、`SEVEN_DAY_DEADLINE`、
 `AFTER_SALE_DEADLINE`、`REFUND_AMOUNT`、`DEDUCT_AMOUNT`、`FREIGHT_PAYER`、`RETURN_TRACKING_NO`、
-`RECEIVED_BACK_DATE`、`INSPECT_RESULT`、`VENDOR_CLAIM_STATUS`、`REPAIR_WORK_ORDER_ID`、`EXCHANGE_DELIVERY_ID`）。
+`RECEIVED_BACK_DATE`、`INSPECT_RESULT`、`VENDOR_CLAIM_STATUS`、`REPAIR_WORK_ORDER_ID`、`EXCHANGE_DELIVERY_ID`、`BUYER_RISK_LEVEL`）。
 
 ## 数据模型
 
@@ -194,10 +194,11 @@ productSave → bomImport → routingSave → productDetail
            → claimCreate → claimDetail → claimList → snDetail（含售后）→ claimUpdate（关闭）
            → claimRepair → claimExchange → 重复开单拒绝
            → buyerFlagSave → buyerFlagCheck → 售后单继承风险等级 → 解除后不再命中
+           → 脱敏手机号被拒绝
            → 非法报工（workHours = 0）/ 错料发料（批次不属于该料号）/ 非法售后状态
 ```
 
-共 121 项断言，全部通过时退出码为 0。测试是**可重复执行**的：每次创建/更新产品型号 `ITMFG`、替换其 BOM、
+共 122 项断言，全部通过时退出码为 0。测试是**可重复执行**的：每次创建/更新产品型号 `ITMFG`、替换其 BOM、
 新建一张工单、物料批次与出货单，以及相应的报工、不良、发料、收发、换件与测试数据。
 
 前置条件：OFBiz 已启动、已执行 `loadAll`、mfg 组件已部署。
@@ -220,7 +221,7 @@ java -cp "build/test-classes:ofbiz.jar:junit-4.13.2.jar:hamcrest-core-1.3.jar" \
 
 覆盖 BOM / 批次 / 测试结果 CSV 解析（引号、缺列、CRLF、注释行、大小写归一）、SN 列表拆分、FIFO 推定切片、
 邮寄标签格式、SN / 工单编号格式，保修到期日、7 天 / 15 天窗口、剩余小时与运费承担，
-以及买家匹配键、手机号归一化与打码、风险等级建议（共 30 个用例）。
+以及买家匹配键、手机号归一化与打码、风险等级建议、名单到期判定（共 31 个用例）。
 
 ## 追溯精度说明（重要）
 
@@ -262,14 +263,18 @@ SMT 为外协，且对方**不提供上料 / 换料记录**，因此追溯精度
 
 | 项目 | 说明 |
 | --- | --- |
-| 匹配键 | 主键是**收货手机号**（`TB:13800002222`，自动去空格/短横线），没有手机号时退回昵称（`TB:N:nick`） |
+| 匹配键 | **买家昵称优先**（订单上一定有）`TB:N:nil`；没有昵称时才用手机号 `TB:13800002222`；手机号必须 11 位真号，**脱敏号（138****2222）直接拒绝**，否则不同买家会撞同一个键 |
 | 等级 | `WATCH` 观察（只提示）/ `BLOCK` 人工复核（发货前必看） |
 | 原因 | `FREQ_RETURN` 高频无理由退货、`EMPTY_BOX` 空包少件、`SWAP` 调包、`ABUSE_7DAY` 滥用 7 天无理由、`FAKE_CLAIM` 虚假质量问题、`THREAT` 差评勒索 |
 | 证据 | `evidenceNote` 存聊天截图/开箱视频文件名/平台申诉单号，日后申诉用 |
-| 生效与解除 | `statusId` + `releasedDate`，页面上可一键解除/恢复，**不做永久拉黑** |
+| 生效与失效 | `statusId` + `releasedDate` 可手动解除；`expiresDate` 默认 12 个月自动失效，**不做永久拉黑** |
 | 效果 | 售后单登记时自动把当时的风险等级快照到 `MfgClaim.buyerRiskLevel`，售后单页显示警示条；名单**不拦截**登记、换货或出货 |
-| 隐私 | 列表只显示打码号码（`139****3333`），原始号码仅用于表单回填 |
+| 隐私 | 列表只显示打码号码（`139****6666`），原始号码仅用于表单回填；不保存身份证等实名信息 |
 | 建议名单 | 售后历史汇总按昵称聚合：单数 ≥ 3 或退款 ≥ 500 元建议观察，≥ 5 或 ≥ 1000 元建议人工复核（阈值是 `MfgServices.RISK_WATCH_*` / `RISK_BLOCK_*` 常量） |
+
+> **为什么昵称优先**：淘宝订单里收件人姓名/手机号经常是脱敏或平台隐私号（`张**`、`138****2222`、临时号码），
+> 拿不到可靠的真实号码；买家昵称与订单号则是明文。若将来通过打单 ERP 拿到真实号码，
+> 存进 `receiverMobile` 即可参与匹配，`buyerKey` 仍以昵称为主，不需改结构。
 
 > **合规红线**：质量问题三包与 7 天无理由是法定义务，名单只能改变“怎么发/怎么留证”，不能改变“是否服务”。
 > 若买家投诉歧视，有 `evidenceNote` 与解除机制才说得清。

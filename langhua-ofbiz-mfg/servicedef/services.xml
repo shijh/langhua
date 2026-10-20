@@ -507,6 +507,7 @@
         <attribute name="reasonCode" type="String" mode="IN" optional="true"/>
         <attribute name="evidenceNote" type="String" mode="IN" optional="true"/>
         <attribute name="statusId" type="String" mode="IN" optional="true"/>
+        <attribute name="expiresDate" type="String" mode="IN" optional="true"/>
         <attribute name="note" type="String" mode="IN" optional="true"/>
         <attribute name="buyerKey" type="String" mode="OUT" optional="true"/>
         <attribute name="riskLevel" type="String" mode="OUT" optional="true"/>
