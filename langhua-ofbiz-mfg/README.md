@@ -120,6 +120,28 @@ csv         = R0402-10K,10K 0402 resistor,4,R1-R4,N
 
 因此 `langhua-ofbiz-learningcurve` 的手工录入 `historyData` 可以逐步被"按批次导出的实际工时"替代。
 
+## 集成测试
+
+`integration-test/MfgServiceIT.java` 通过 OFBiz 服务引擎（Web Tools 的 `scheduleServiceSync` + `_RUN_SYNC_=Y`）
+真正调用服务，覆盖 M1 全链路：
+
+```
+productSave → bomImport → routingSave → productDetail
+           → workOrderCreate → snRegister → reportCreate → defectCreate
+           → workOrderDetail → dashboard → 非法报工（workHours = 0）
+```
+
+共 36 项断言，全部通过时退出码为 0。测试是**可重复执行**的：每次创建/更新产品型号 `ITMFG`、替换其 BOM，
+再新建一张工单及一条报工、一条不良记录。
+
+前置条件：OFBiz 已启动、已执行 `loadAll`、mfg 组件已部署。
+
+```bash
+javac --release 17 -encoding UTF-8 -d build/it-classes integration-test/MfgServiceIT.java
+java -cp build/it-classes MfgServiceIT
+# 可选参数：-Dofbiz.url=... -Dofbiz.user=... -Dofbiz.password=...
+```
+
 ## 单元测试
 
 ```bash
