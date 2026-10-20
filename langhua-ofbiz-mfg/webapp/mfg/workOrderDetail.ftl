@@ -199,7 +199,10 @@
             <tr><th>地址</th><td>${vendorInfo.addressText!}</td></tr>
             <tr><th>客户编号</th><td>${vendorInfo.customerCode!}</td></tr>
             <tr><th>邮寄标签</th>
-                <td><textarea rows="5" cols="60" readonly="readonly">${vendorInfo.shippingLabel!}</textarea></td></tr>
+                <td>
+                    <textarea rows="5" cols="60" readonly="readonly">${vendorInfo.shippingLabel!}</textarea>
+                    <br/><button type="button" onclick="mfgCopyLabel(this)">复制标签</button>
+                </td></tr>
         </table>
     <#else>
         <p class="hint">还没有关联外协厂家。在下面选择，或先到「外协厂家」页新增。</p>
@@ -334,5 +337,6 @@ ITMFG-261021-0001,FCT,IQ,12.4,mA,Y</textarea>
         </form>
     </fieldset>
 </#if>
+<#include "component://mfg/webapp/mfg/copyLabel.ftl"/>
 </body>
 </html>

@@ -87,12 +87,17 @@
                 <td>${v.contactMobile!}</td>
                 <td>${v.customerCode!}</td>
                 <td>${v.addressText!}</td>
-                <td class="label"><textarea rows="4" cols="46" readonly="readonly">${v.shippingLabel!}</textarea></td>
+                <td class="label">
+                    <textarea rows="4" cols="46" readonly="readonly">${v.shippingLabel!}</textarea>
+                    <br/><button type="button" onclick="mfgCopyLabel(this)">复制标签</button>
+                </td>
             </tr>
         </#list>
     </table>
 <#else>
     <p class="hint">还没有厂家记录。</p>
 </#if>
+
+<#include "component://mfg/webapp/mfg/copyLabel.ftl"/>
 </body>
 </html>

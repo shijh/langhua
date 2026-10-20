@@ -29,7 +29,6 @@
 | **出货单** | 出货到客户（可手填 SN 或按工单+数量自动取），出货日即保修起算 |
 | **测试数据** | 测试台 CSV 导入（SN,工位,测试项,测量值,单位,判定），工单自动算一次通过率 |
 | **外协厂家** | 厂家档案：收件人、手机号、收货地址、**厂家给我们的客户编号**，一键生成可直接复制的邮寄标签 |
-
 ## 目录结构
 
 ```
@@ -140,6 +139,13 @@ csv         = R0402-10K,10K 0402 resistor,4,R1-R4,N
 | `/mfg/control/shortage` | 齐套预警：按交期列出欠料工单与明细 |
 | `/mfg/control/delivery` | 出货单：新建、列表、明细；出货后 SN 变为 `MFG_SHIPPED` |
 | `/mfg/control/vendors` | 外协厂家：档案维护 + 可复制的邮寄标签（收件人/手机/地址/客户编号） |
+
+邮寄标签旁边有 **「复制标签」按钮**（`webapp/mfg/copyLabel.ftl` 里的 `mfgCopyLabel()`）：
+优先用 `navigator.clipboard`（需要 HTTPS，本机 OFBiz 就是 HTTPS），失败时回退到
+`document.execCommand('copy')`，复制成功后按钮短暂显示「已复制」。
+
+> 注：OFBiz 默认发出 `Content-Security-Policy-Report-Only`，不会阻止内联脚本；若以后改成强制模式（去掉 `-Report-Only`），
+> 需要把 `copyLabel.ftl` 里的脚本改成外部 `.js` 文件并放到允许的静态路径下。
 
 访问控制由 `ofbiz-component.xml` 的 `base-permission="OFBTOOLS"` 决定；
 `data/MfgSecurityPermissionSeedData.xml` 定义 `MFG_VIEW` / `MFG_ADMIN` 并授予 `SUPER`、`FULLADMIN`。
