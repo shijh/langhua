@@ -29,10 +29,10 @@ package org.langhua.ofbiz.learningcurve;
 import java.util.Locale;
 import java.util.Map;
 
-import org.ofbiz.base.util.Debug;
-import org.ofbiz.base.util.GeneralException;
-import org.ofbiz.base.util.UtilMisc;
-import org.ofbiz.base.util.UtilProperties;
+import org.apache.ofbiz.base.util.Debug;
+import org.apache.ofbiz.base.util.GeneralException;
+import org.apache.ofbiz.base.util.UtilMisc;
+import org.apache.ofbiz.base.util.UtilProperties;
 
 import Jama.Matrix;
 
@@ -65,7 +65,7 @@ public class OFBizLearningCurveHandler implements I_OFBizLearningCurve {
 	 *      jama.Matrix, double, java.util.Map, int)
 	 */
 	public double getEstimate(double leastSquare,
-			Matrix historyData, double newUnitNumber, Map context, int type)
+			Matrix historyData, double newUnitNumber, Map<String, Object> context, int type)
 			throws GeneralException {
 		Locale locale = (Locale) context.get("locale");
 		checkData(leastSquare, historyData, newUnitNumber, locale);
@@ -95,7 +95,7 @@ public class OFBizLearningCurveHandler implements I_OFBizLearningCurve {
 	 *      jama.Matrix, java.util.Map, int)
 	 */
 	public LearningCurve getLearningCurve(double leastSquare,
-			Matrix historyData, Map context, int type) throws GeneralException {
+			Matrix historyData, Map<String, Object> context, int type) throws GeneralException {
 		Locale locale = (Locale) context.get("locale");
 		checkData(leastSquare, historyData, locale);
 		double cumulativeX = getCumulativeX(historyData);

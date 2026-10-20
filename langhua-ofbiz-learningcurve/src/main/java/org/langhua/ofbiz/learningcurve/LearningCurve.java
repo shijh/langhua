@@ -34,7 +34,7 @@ import Jama.Matrix;
  * @author Shi Yusen, shiys@langhua.cn
  *
  */
-public class LearningCurve extends Object {
+public class LearningCurve implements Cloneable {
 	
 	/** The slope value in the learning curve formula. */
 	private double m_slope;
@@ -226,7 +226,8 @@ public class LearningCurve extends Object {
 	 * 
 	 * @return a cloned LearningCurve object of this instance
 	 */
-	public Object clone() {
+	@Override
+	public LearningCurve clone() {
 		return new LearningCurve(m_slope,
 				m_intercept,
 				m_leastSquare,

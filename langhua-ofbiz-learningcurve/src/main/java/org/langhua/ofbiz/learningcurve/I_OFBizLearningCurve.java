@@ -28,7 +28,7 @@ package org.langhua.ofbiz.learningcurve;
 
 import java.util.Map;
 
-import org.ofbiz.base.util.GeneralException;
+import org.apache.ofbiz.base.util.GeneralException;
 
 import Jama.Matrix;
 
@@ -63,9 +63,9 @@ public interface I_OFBizLearningCurve {
 	 * 
 	 * @return the total estimated cost of the new units
 	 * 
-	 * @throws org.ofbiz.base.util.GeneralException if any error was found
+	 * @throws org.apache.ofbiz.base.util.GeneralException if any error was found
 	 */
-	double getEstimate(double leastSquare, Matrix historyData, double newUnitNumber, Map context, int type) throws GeneralException;
+	double getEstimate(double leastSquare, Matrix historyData, double newUnitNumber, Map<String, Object> context, int type) throws GeneralException;
 	
 	/**
 	 * Get estimate cost.
@@ -83,8 +83,8 @@ public interface I_OFBizLearningCurve {
 	 * 
 	 * @return the LearningCurve object
 	 * 
-	 * @throws org.ofbiz.base.util.GeneralException if any error was found
+	 * @throws org.apache.ofbiz.base.util.GeneralException if any error was found
 	 */
-	LearningCurve getLearningCurve(double leastSquare, Matrix historyData, Map context, int type) throws GeneralException;
+	LearningCurve getLearningCurve(double leastSquare, Matrix historyData, Map<String, Object> context, int type) throws GeneralException;
 
 }

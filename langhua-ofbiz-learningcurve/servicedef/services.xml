@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="https://ofbiz.apache.org/dtds/services.xsd">
+
+    <!--
+        Estimates the cost of the next units using a learning curve.
+
+        historyData: history of lots, encoded as "units:cost;units:cost;..."
+                     example "2:200;3:285;5:450" (2 units cost 200, 3 units cost 285, 5 units cost 450)
+        methodType:  1 = Wright, 2 = Crawford (default 1)
+    -->
+    <service name="learningCurveEstimate" engine="java"
+            location="org.langhua.ofbiz.learningcurve.LearningCurveServices" invoke="learningCurveEstimate"
+            auth="false" export="false" validate="true">
+        <description>Estimate the cost of the next units with a Wright or Crawford learning curve</description>
+        <attribute name="historyData" type="String" mode="IN" optional="false">
+            <description>History data encoded as "units:cost;units:cost;..."</description>
+        </attribute>
+        <attribute name="newUnitNumber" type="Double" mode="IN" optional="false">
+            <description>Number of new units to estimate</description>
+        </attribute>
+        <attribute name="leastSquare" type="Double" mode="IN" optional="true" default-value="0.95">
+            <description>Desired coefficient of determination (0.0 - 1.0)</description>
+        </attribute>
+        <attribute name="methodType" type="Integer" mode="IN" optional="true" default-value="1">
+            <description>1 = Wright, 2 = Crawford</description>
+        </attribute>
+        <attribute name="estimate" type="Double" mode="OUT"/>
+        <attribute name="slope" type="Double" mode="OUT"/>
+        <attribute name="intercept" type="Double" mode="OUT"/>
+        <attribute name="leastSquareActual" type="Double" mode="OUT"/>
+        <attribute name="qualifiedRowCount" type="Integer" mode="OUT"/>
+    </service>
+
+    <!--
+        Returns the fitted curve parameters without estimating a new lot.
+    -->
+    <service name="learningCurveParameters" engine="java"
+            location="org.langhua.ofbiz.learningcurve.LearningCurveServices" invoke="learningCurveParameters"
+            auth="false" export="false" validate="true">
+        <description>Return the fitted learning curve parameters</description>
+        <attribute name="historyData" type="String" mode="IN" optional="false">
+            <description>History data encoded as "units:cost;units:cost;..."</description>
+        </attribute>
+        <attribute name="leastSquare" type="Double" mode="IN" optional="true" default-value="0.95"/>
+        <attribute name="methodType" type="Integer" mode="IN" optional="true" default-value="1"/>
+        <attribute name="slope" type="Double" mode="OUT"/>
+        <attribute name="intercept" type="Double" mode="OUT"/>
+        <attribute name="leastSquareActual" type="Double" mode="OUT"/>
+        <attribute name="cumulativeX" type="Double" mode="OUT"/>
+        <attribute name="qualifiedRowCount" type="Integer" mode="OUT"/>
+        <attribute name="filteredRowCount" type="Integer" mode="OUT"/>
+    </service>
+</services>

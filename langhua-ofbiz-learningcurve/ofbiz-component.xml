@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ofbiz-component name="learningcurve"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="https://ofbiz.apache.org/dtds/ofbiz-component.xsd">
+    <!-- Component sources live in src/main/java and are compiled by the OFBiz build -->
+    <resource-loader name="main" type="component"/>
+    <classpath type="dir" location="config"/>
+
+    <!-- Learning curve estimation services -->
+    <service-resource type="model" loader="main" location="servicedef/services.xml"/>
+</ofbiz-component>

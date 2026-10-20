@@ -2,103 +2,38 @@
 	"version": "2.0.0",
 	"tasks": [
 		{
-			"label": "java-upgrade-baseline-compile",
+			"label": "OFBiz: build plugin",
 			"type": "shell",
 			"command": "cmd",
 			"args": [
 				"/c",
-				"set \"JAVA_HOME=C:\\Users\\shi.jinghai-honor\\.jdks\\corretto-1.8.0_372\" && D:\\tools\\maven-3.6.3\\bin\\mvn.cmd -B clean test-compile"
+				"set \"JAVA_HOME=C:\\Users\\shi.jinghai-honor\\.jdks\\corretto-17.0.11\" && cd /d F:\\build-ofbiz\\apache-ofbiz-24.09.07 && gradlew.bat --no-daemon --console=plain jar"
 			],
 			"problemMatcher": [],
 			"group": "build"
 		},
 		{
-			"label": "java-upgrade-step2-baseline",
+			"label": "OFBiz: start server",
 			"type": "shell",
 			"command": "cmd",
 			"args": [
 				"/c",
-				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\baseline.bat"
+				"set \"JAVA_HOME=C:\\Users\\shi.jinghai-honor\\.jdks\\corretto-17.0.11\" && cd /d F:\\build-ofbiz\\apache-ofbiz-24.09.07 && gradlew.bat --no-daemon --console=plain ofbiz"
 			],
 			"problemMatcher": [],
+			"isBackground": true,
 			"group": "build"
 		},
 		{
-			"label": "java-upgrade-find-legacy-jars",
+			"label": "LearningCurve: run unit tests",
 			"type": "shell",
 			"command": "cmd",
 			"args": [
 				"/c",
-				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\findjars.bat"
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\run-tests.bat"
 			],
 			"problemMatcher": [],
-			"group": "build"
-		},
-		{
-			"label": "java-upgrade-find-jars-2",
-			"type": "shell",
-			"command": "cmd",
-			"args": [
-				"/c",
-				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\findjars2.bat"
-			],
-			"problemMatcher": [],
-			"group": "build"
-		},
-		{
-			"label": "java-upgrade-find-jars-3",
-			"type": "shell",
-			"command": "cmd",
-			"args": [
-				"/c",
-				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\find3.bat"
-			],
-			"problemMatcher": [],
-			"group": "build"
-		},
-		{
-			"label": "java-upgrade-step3-build-jdk25",
-			"type": "shell",
-			"command": "cmd",
-			"args": [
-				"/c",
-				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\build25.bat"
-			],
-			"problemMatcher": [],
-			"group": "build"
-		},
-		{
-			"label": "java-upgrade-javac25-verify",
-			"type": "shell",
-			"command": "cmd",
-			"args": [
-				"/c",
-				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\verify25.bat"
-			],
-			"problemMatcher": [],
-			"group": "build"
-		},
-		{
-			"label": "java-upgrade-pom-check",
-			"type": "shell",
-			"command": "cmd",
-			"args": [
-				"/c",
-				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\pomcheck.bat"
-			],
-			"problemMatcher": [],
-			"group": "build"
-		},
-		{
-			"label": "java-upgrade-step5-final-validation",
-			"type": "shell",
-			"command": "cmd",
-			"args": [
-				"/c",
-				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\final.bat"
-			],
-			"problemMatcher": [],
-			"group": "build"
+			"group": "test"
 		}
 	]
 }
