@@ -400,6 +400,21 @@
         <field name="receivedDate" type="date"><description>Date the unit came back</description></field>
         <field name="issueDesc" type="very-long"><description>Reported problem</description></field>
         <field name="statusId" type="id"><description>MFG_RMA_OPEN, MFG_RMA_REPAIRED, MFG_RMA_REPLACED or MFG_RMA_CLOSED</description></field>
+        <field name="claimType" type="short-varchar"><description>RTN (return and refund), EXCH (exchange), REPAIR or REFUND_ONLY</description></field>
+        <field name="tradeNo" type="short-varchar"><description>Marketplace order number, e.g. the Taobao trade id</description></field>
+        <field name="buyerNick" type="name"><description>Buyer nickname on the marketplace</description></field>
+        <field name="signedDate" type="date"><description>Date the buyer signed for the parcel, start of the seven and fifteen day windows</description></field>
+        <field name="sevenDayDeadline" type="date-time"><description>End of the seven day no-reason return window: signed date, next midnight plus 168 hours</description></field>
+        <field name="afterSaleDeadline" type="date-time"><description>End of the fifteen day after sales window counted from the signed date</description></field>
+        <field name="refundAmount" type="currency-amount"><description>Amount refunded to the buyer</description></field>
+        <field name="deductAmount" type="currency-amount"><description>Amount deducted for missing accessories or gifts</description></field>
+        <field name="freightPayer" type="short-varchar"><description>SELLER when we pay the freight, BUYER otherwise</description></field>
+        <field name="returnTrackingNo" type="short-varchar"><description>Tracking number of the parcel the buyer sent back</description></field>
+        <field name="receivedBackDate" type="date"><description>Date the returned unit arrived back at our warehouse</description></field>
+        <field name="inspectResult" type="short-varchar"><description>QUALITY, NO_FAULT, HUMAN or UNKNOWN after inspection</description></field>
+        <field name="vendorClaimStatus" type="short-varchar"><description>Claim raised against the SMT house or the component supplier: NONE, SENT or RECOVERED</description></field>
+        <field name="repairWorkOrderId" type="id"><description>Repair work order created for this claim</description></field>
+        <field name="exchangeDeliveryId" type="id"><description>Delivery order of the replacement unit</description></field>
         <field name="responsibility" type="short-varchar"><description>HOUSE, SMT, SUPPLIER or DESIGN</description></field>
         <field name="repairHours" type="floating-point"><description>Hours spent on the repair</description></field>
         <field name="closedDate" type="date"><description>Date the claim was closed</description></field>

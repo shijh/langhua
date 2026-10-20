@@ -240,4 +240,59 @@ public class MfgServicesTest {
         assertTrue(!MfgServices.isInWarranty(null, java.sql.Date.valueOf("2026-10-01")));
         assertTrue(!MfgServices.isInWarranty(end, null));
     }
+
+    @Test
+    public void endsTheNoReasonWindowEightDaysAfterSigning() {
+        java.sql.Date signed = java.sql.Date.valueOf("2026-10-01");
+
+        // midnight after the signed day, plus 168 hours
+        assertEquals("2026-10-09 00:00:00.0", MfgServices.sevenDayDeadline(signed).toString());
+        assertNull(MfgServices.sevenDayDeadline(null));
+    }
+
+    @Test
+    public void endsTheAfterSalesWindowFifteenDaysAfterSigning() {
+        java.sql.Date signed = java.sql.Date.valueOf("2026-10-01");
+
+        assertEquals("2026-10-16 23:59:59.0", MfgServices.afterSaleDeadline(signed).toString());
+        assertNull(MfgServices.afterSaleDeadline(null));
+    }
+
+    @Test
+    public void tellsWhetherTheReturnIsInsideTheNoReasonWindow() {
+        java.sql.Date signed = java.sql.Date.valueOf("2026-10-01");
+
+        assertTrue(MfgServices.isWithinSevenDays(signed, java.sql.Date.valueOf("2026-10-01")));
+        assertTrue(MfgServices.isWithinSevenDays(signed, java.sql.Date.valueOf("2026-10-08")));
+        assertTrue(!MfgServices.isWithinSevenDays(signed, java.sql.Date.valueOf("2026-10-09")));
+        assertTrue(!MfgServices.isWithinSevenDays(null, java.sql.Date.valueOf("2026-10-01")));
+        assertTrue(!MfgServices.isWithinSevenDays(signed, null));
+    }
+
+    @Test
+    public void countsTheHoursLeftUntilADeadline() {
+        java.sql.Timestamp deadline = java.sql.Timestamp.valueOf("2026-10-16 12:00:00");
+        java.time.LocalDateTime now = java.time.LocalDateTime.of(2026, 10, 15, 10, 30);
+
+        assertEquals(25L, MfgServices.hoursLeft(deadline, now));
+        assertEquals(-2L, MfgServices.hoursLeft(deadline,
+                java.time.LocalDateTime.of(2026, 10, 16, 13, 30)));
+        assertEquals(0L, MfgServices.hoursLeft(null, now));
+    }
+
+    @Test
+    public void flagsDeadlinesThatExpireSoon() {
+        assertTrue(MfgServices.isExpiringSoon(MfgServices.DEADLINE_WARNING_HOURS));
+        assertTrue(MfgServices.isExpiringSoon(0L));
+        assertTrue(!MfgServices.isExpiringSoon(MfgServices.DEADLINE_WARNING_HOURS + 1));
+        assertTrue(!MfgServices.isExpiringSoon(-1L));
+    }
+
+    @Test
+    public void picksTheDefaultFreightPayerByClaimType() {
+        assertEquals(MfgServices.FREIGHT_BUYER, MfgServices.defaultFreightPayer(MfgServices.CLAIM_RTN));
+        assertEquals(MfgServices.FREIGHT_BUYER, MfgServices.defaultFreightPayer(MfgServices.CLAIM_EXCH));
+        assertEquals(MfgServices.FREIGHT_SELLER, MfgServices.defaultFreightPayer(MfgServices.CLAIM_REPAIR));
+        assertEquals(MfgServices.FREIGHT_SELLER, MfgServices.defaultFreightPayer(MfgServices.CLAIM_REFUND_ONLY));
+    }
 }

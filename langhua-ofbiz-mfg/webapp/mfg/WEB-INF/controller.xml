@@ -218,6 +218,24 @@
         <response name="error" type="view" value="claims"/>
     </request-map>
 
+    <request-map uri="claimExchange">
+        <security https="true" auth="true"/>
+        <event type="service" invoke="mfgClaimExchange"/>
+        <response name="success" type="request-redirect" value="claims">
+            <redirect-parameter name="claimId"/>
+        </response>
+        <response name="error" type="view" value="claims"/>
+    </request-map>
+
+    <request-map uri="claimRepair">
+        <security https="true" auth="true"/>
+        <event type="service" invoke="mfgClaimRepair"/>
+        <response name="success" type="request-redirect" value="claims">
+            <redirect-parameter name="claimId"/>
+        </response>
+        <response name="error" type="view" value="claims"/>
+    </request-map>
+
     <view-map name="main" type="screen" page="component://mfg/widget/MfgScreens.xml#main"/>
     <view-map name="products" type="screen" page="component://mfg/widget/MfgScreens.xml#products"/>
     <view-map name="workOrder" type="screen" page="component://mfg/widget/MfgScreens.xml#workOrder"/>

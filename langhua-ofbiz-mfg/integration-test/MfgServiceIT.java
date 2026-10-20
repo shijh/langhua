@@ -85,6 +85,8 @@ public final class MfgServiceIT {
     private String deliveryId;
     private String vendorId;
     private String claimId;
+    private String exchangeSn;
+    private String repairWorkOrderId;
     private final java.util.List<String> importedLotIds = new java.util.ArrayList<>();
 
     private MfgServiceIT(String baseUrl, String user, String password) {
@@ -131,6 +133,8 @@ public final class MfgServiceIT {
             it.attachesVendorToWorkOrder();
             it.registersWarrantyClaim();
             it.readsWarrantyClaim();
+            it.opensRepairWorkOrder();
+            it.shipsReplacement();
             it.closesWarrantyClaim();
             it.rejectsBadClaimStatus();
             it.rejectsZeroHoursReport();
@@ -698,6 +702,10 @@ public final class MfgServiceIT {
         Map<String, String> form = new LinkedHashMap<>();
         form.put("sn", serialNumber);
         form.put("receivedDate", "2026-10-21");
+        form.put("signedDate", "2026-10-21");
+        form.put("claimType", "EXCH");
+        form.put("tradeNo", "TB-IT-9001");
+        form.put("buyerNick", "it_buyer");
         form.put("responsibility", "SMT-VENDOR");
         form.put("issueDesc", "Charging port loose after three months");
 
@@ -708,6 +716,9 @@ public final class MfgServiceIT {
         System.out.println("[claim] " + claimId);
         check("warranty: the flag is returned", response.body.contains("inWarranty"),
                 "no inWarranty attribute in response");
+        check("warranty: the type is kept", response.body.contains("EXCH"), "type missing from the response");
+        check("warranty: the no reason window is derived from the signed date",
+                response.body.contains("2026-10-29"), "expected the seven day deadline on 2026-10-29");
 
         Map<String, String> detail = new LinkedHashMap<>();
         detail.put("claimId", claimId == null ? "" : claimId);
@@ -737,6 +748,67 @@ public final class MfgServiceIT {
                 "claim missing from the unit history");
     }
 
+    private void opensRepairWorkOrder() throws IOException {
+        if (claimId == null) {
+            return;
+        }
+        Map<String, String> form = new LinkedHashMap<>();
+        form.put("claimId", claimId);
+        form.put("dueDate", "2026-10-28");
+
+        Response response = invoke("mfgClaimRepair", form);
+        check("warranty: repair work order returns HTTP 200", response.status == 200,
+                "HTTP " + response.status);
+        repairWorkOrderId = firstMatch(WORK_ORDER_ID, response.body);
+        check("warranty: repair work order created", repairWorkOrderId != null, "no WO- id in response");
+        check("warranty: repair work order is a new one", !workOrderId.equals(repairWorkOrderId),
+                "repair reuses the production work order");
+        System.out.println("[repair work order] " + repairWorkOrderId);
+
+        response = invoke("mfgClaimRepair", form);
+        check("warranty: a second repair work order is rejected",
+                response.body.contains("already has repair work order"), "no validation error in response");
+    }
+
+    private void shipsReplacement() throws IOException {
+        if (claimId == null) {
+            return;
+        }
+        Map<String, String> form = new LinkedHashMap<>();
+        form.put("claimId", claimId);
+        form.put("carrier", "SF");
+        form.put("trackingNo", "SF-IT-BACK");
+
+        Response response = invoke("mfgClaimExchange", form);
+        check("warranty: exchange returns HTTP 200", response.status == 200, "HTTP " + response.status);
+        String exchangeDeliveryId = firstMatch(DELIVERY_ID, response.body);
+        check("warranty: replacement delivery created", exchangeDeliveryId != null,
+                "no DO- id in response");
+        System.out.println("[exchange delivery] " + exchangeDeliveryId);
+        check("warranty: the claim is marked as replaced", response.body.contains("MFG_RMA_REPLACED"),
+                "status not updated");
+
+        Map<String, String> detail = new LinkedHashMap<>();
+        detail.put("claimId", claimId);
+        response = invoke("mfgClaimDetail", detail);
+        exchangeSn = firstMatchOtherThan(SERIAL_NUMBER, response.body, serialNumber);
+        check("warranty: a replacement unit is picked", exchangeSn != null,
+                "no other serial number on the claim");
+        check("warranty: the replacement is not the returned unit", !serialNumber.equals(exchangeSn),
+                "the returned unit was shipped again");
+
+        Map<String, String> unit = new LinkedHashMap<>();
+        unit.put("sn", exchangeSn == null ? "" : exchangeSn);
+        response = invoke("mfgSnDetail", unit);
+        check("warranty: the replacement unit is shipped", response.body.contains("MFG_SHIPPED"),
+                "unit status not updated");
+
+        response = invoke("mfgClaimExchange", form);
+        check("warranty: a second exchange is rejected",
+                response.body.contains("already has a replacement delivery"),
+                "no validation error in response");
+    }
+
     private void closesWarrantyClaim() throws IOException {
         if (claimId == null) {
             return;
@@ -744,7 +816,15 @@ public final class MfgServiceIT {
         Map<String, String> form = new LinkedHashMap<>();
         form.put("claimId", claimId);
         form.put("statusId", "MFG_RMA_CLOSED");
+        form.put("claimType", "EXCH");
         form.put("repairHours", "1.25");
+        form.put("inspectResult", "QUALITY");
+        form.put("freightPayer", "SELLER");
+        form.put("refundAmount", "129");
+        form.put("deductAmount", "0");
+        form.put("returnTrackingNo", "SF-IT-RETURN");
+        form.put("receivedBackDate", "2026-10-21");
+        form.put("vendorClaimStatus", "SENT");
         form.put("note", "Resoldered the port, retested OK");
 
         Response response = invoke("mfgClaimUpdate", form);
@@ -756,6 +836,11 @@ public final class MfgServiceIT {
         response = invoke("mfgClaimDetail", detail);
         check("warranty: close date stamped", response.body.contains("closedDate"), "no closedDate attribute");
         check("warranty: repair hours stored", response.body.contains("1.25"), "repair hours missing");
+        check("warranty: inspection result stored", response.body.contains("QUALITY"),
+                "inspection result missing");
+        check("warranty: refund amount stored", response.body.contains("129"), "refund amount missing");
+        check("warranty: return tracking stored", response.body.contains("SF-IT-RETURN"),
+                "return tracking missing");
     }
 
     private void rejectsBadClaimStatus() throws IOException {
@@ -842,6 +927,16 @@ public final class MfgServiceIT {
     private static String firstMatch(Pattern pattern, String text) {
         Matcher matcher = pattern.matcher(text);
         return matcher.find() ? matcher.group() : null;
+    }
+
+    private static String firstMatchOtherThan(Pattern pattern, String text, String exclude) {
+        Matcher matcher = pattern.matcher(text);
+        while (matcher.find()) {
+            if (exclude == null || !matcher.group().equals(exclude)) {
+                return matcher.group();
+            }
+        }
+        return null;
     }
 
     private void check(String description, boolean condition, String detail) {

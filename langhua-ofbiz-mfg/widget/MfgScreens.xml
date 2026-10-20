@@ -216,6 +216,7 @@
                 <service service-name="mfgClaimList" result-map="claimList" auto-field-map="false">
                     <field-map field-name="sn" from-field="parameters.sn"/>
                     <field-map field-name="statusId" from-field="parameters.statusId"/>
+                    <field-map field-name="claimType" from-field="parameters.claimType"/>
                 </service>
                 <service service-name="mfgClaimDetail" result-map="claimDetail" auto-field-map="false">
                     <field-map field-name="claimId" from-field="parameters.claimId"/>

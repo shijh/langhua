@@ -30,6 +30,7 @@
 | **测试数据** | 测试台 CSV 导入（SN,工位,测试项,测量值,单位,判定），工单自动算一次通过率 |
 | **外协厂家** | 厂家档案：收件人、手机号、收货地址、**厂家给我们的客户编号**，一键生成可直接复制的邮寄标签 |
 | **售后单** | 客户退回登记：SN → 出货日自动算保修到期与保内/保外，责任归属、返修工时、处理状态，SN 页同步显示售后历史 |
+| **淘宝售后合规** | 售后类型（退货退款/换货/维修/仅退款）、淘宝订单号、买家签收日；**7 天无理由（168 小时）与 15 天售后窗口自动计算**，列表标出即将到期；换货自动出出货单，维修自动开返修工单 |
 ## 目录结构
 
 ```
@@ -44,7 +45,7 @@ langhua-ofbiz-mfg/
 │   ├── entitymodel.xml                  # 16 个业务实体
 │   └── entitygroup.xml
 ├── servicedef/
-│   └── services.xml                     # 34 个服务
+│   └── services.xml                     # 36 个服务
 ├── widget/
 │   ├── MfgCommonScreens.xml             # 登录/错误页 decorator
 │   └── MfgScreens.xml                   # 10 个页面
@@ -71,7 +72,10 @@ https://localhost:8443/mfg/control/main
 
 首次启动会根据 `entitydef/entitymodel.xml` 自动建表（Derby 下为 `MFG_PRODUCT`、`MFG_BOM_ITEM`、`MFG_ROUTING`、
 `MFG_WORK_ORDER`、`MFG_SN`、`MFG_REPORT`、`MFG_DEFECT`、`MFG_MATERIAL_LOT`、`MFG_MATERIAL_ISSUE`、`MFG_SHIPMENT`、`MFG_REPLACEMENT`、`MFG_DELIVERY`、`MFG_DELIVERY_SN`、`MFG_TEST_RESULT`、`MFG_VENDOR`、`MFG_WARRANTY_CLAIM`）。
-工单表会自动新增 `SMT_VENDOR_ID` 列（指向 `MfgVendor`），产品表会自动新增 `WARRANTY_MONTHS`（保修月数，空则按 12）。
+工单表会自动新增 `SMT_VENDOR_ID` 列（指向 `MfgVendor`），产品表会自动新增 `WARRANTY_MONTHS`（保修月数，空则按 12），
+售后单表会自动新增淘宝侧列（`CLAIM_TYPE`、`TRADE_NO`、`BUYER_NICK`、`SIGNED_DATE`、`SEVEN_DAY_DEADLINE`、
+`AFTER_SALE_DEADLINE`、`REFUND_AMOUNT`、`DEDUCT_AMOUNT`、`FREIGHT_PAYER`、`RETURN_TRACKING_NO`、
+`RECEIVED_BACK_DATE`、`INSPECT_RESULT`、`VENDOR_CLAIM_STATUS`、`REPAIR_WORK_ORDER_ID`、`EXCHANGE_DELIVERY_ID`）。
 
 ## 数据模型
 
@@ -91,7 +95,7 @@ https://localhost:8443/mfg/control/main
 | `MfgDeliverySn` | 出货明细：`deliveryId` + `sn`（联合主键），一个 SN 只能出一次货 |
 | `MfgTestResult` | 测试结果：`resultId`、`sn`、`workOrderId`、`station`、`testItem`、`measureValue`、`unitOfMeasure`、`passFail`、`testDate` |
 | `MfgVendor` | 外协厂家：`vendorId`（V-yyMMdd-NN）、`vendorName`、`vendorType`、`contactName`（收件人）、`contactMobile`、`addressText`、`customerCode`（厂家给我们的编号） |
-| `MfgWarrantyClaim` | 售后单：`claimId`（RMA-yyMMdd-NN）、`sn`、`workOrderId`、`customerName`、`deliveryId` / `deliveryDate`（保修起算）、`warrantyEndDate`、`inWarranty`、`receivedDate`、`issueDesc`、`statusId`、`responsibility`、`repairHours`、`closedDate` |
+| `MfgWarrantyClaim` | 售后单：`claimId`（RMA-yyMMdd-NN）、`sn`、`workOrderId`、`customerName`、`deliveryId` / `deliveryDate`（保修起算）、`warrantyEndDate`、`inWarranty`、`receivedDate`、`issueDesc`、`statusId`、`responsibility`、`repairHours`、`closedDate`；淘宝侧：`claimType`（RTN/EXCH/REPAIR/REFUND_ONLY）、`tradeNo`、`buyerNick`、`signedDate`、`sevenDayDeadline`、`afterSaleDeadline`、`refundAmount`、`deductAmount`、`freightPayer`、`returnTrackingNo`、`receivedBackDate`、`inspectResult`、`vendorClaimStatus`、`repairWorkOrderId`、`exchangeDeliveryId` |
 
 ## 服务
 
@@ -117,9 +121,11 @@ https://localhost:8443/mfg/control/main
 | `mfgTestImportCsv` / `mfgTestResultList` | 测试结果 CSV 导入与查询 |
 | `mfgVendorSave` / `mfgVendorList` | 外协厂家档案（含邮寄标签） |
 | `mfgWorkOrderVendor` | 给工单指定外协厂家（收货信息随之显示在工单页） |
-| `mfgClaimCreate` | 登记售后单：按 SN 找出货单与产品保修月数，自动算 `warrantyEndDate` 与保内/保外 |
-| `mfgClaimUpdate` | 处理售后单：状态（`MFG_RMA_OPEN` / `REPAIRED` / `REPLACED` / `CLOSED`）、责任、返修工时、备注 |
-| `mfgClaimList` / `mfgClaimDetail` | 售后单列表（可按 SN / 状态过滤）与详情（含 SN 履历、出货单、换件与不良数） |
+| `mfgClaimCreate` | 登记售后单：按 SN 找出货单与产品保修月数，自动算 `warrantyEndDate` 与保内/保外；再按买家签收日算 7 天（168 小时）与 15 天窗口 |
+| `mfgClaimUpdate` | 处理售后单：状态、类型、检测结论、退款/扣款、运费承担、退回单号与回库日、索赔状态、返修工时；修正签收日会重算两个窗口 |
+| `mfgClaimList` / `mfgClaimDetail` | 售后单列表（按 SN / 类型 / 状态过滤，带剩余小时与即将到期计数）与详情（含换货出货单、换出新机、返修工单、换件与不良数） |
+| `mfgClaimExchange` | 换货：自动取同型号未出货的一台（或指定 `newSn`），生成出货单并置为已出货，售后单转 `MFG_RMA_REPLACED` |
+| `mfgClaimRepair` | 维修：为退回的单板开一张返修工单，返工工时与换件照常记录 |
 
 示例（Web Tools → Run Service → `mfgBomImport`）：
 
@@ -144,7 +150,7 @@ csv         = R0402-10K,10K 0402 resistor,4,R1-R4,N
 | `/mfg/control/shortage` | 齐套预警：按交期列出欠料工单与明细 |
 | `/mfg/control/delivery` | 出货单：新建、列表、明细；出货后 SN 变为 `MFG_SHIPPED` |
 | `/mfg/control/vendors` | 外协厂家：档案维护 + 可复制的邮寄标签（收件人/手机/地址/客户编号） |
-| `/mfg/control/claims` | 售后单：登记、按 SN/状态过滤、处理（状态/责任/工时/备注）；`sn` 页同步显示售后历史 |
+| `/mfg/control/claims` | 售后单：登记（类型/订单号/买家/签收日）、按 SN/类型/状态过滤、7 天与 15 天窗口倒计时、处理（检测结论、退款、运费、索赔）、换货与开返修工单 |
 
 邮寄标签旁边有 **「复制标签」按钮**：脚本在静态文件 `webapp/mfg/js/copyLabel.js`，
 页面只引 `<script src="/mfg/js/copyLabel.js"></script>`（`web.xml` 的 `allowedPaths` 里加了 `:/js`）。
@@ -180,10 +186,11 @@ productSave → bomImport → routingSave → productDetail
            → testImportCsv → deliverySave → 重复出货拒绝
            → vendorSave → workOrderVendor
            → claimCreate → claimDetail → claimList → snDetail（含售后）→ claimUpdate（关闭）
+           → claimRepair → claimExchange → 重复开单拒绝
            → 非法报工（workHours = 0）/ 错料发料（批次不属于该料号）/ 非法售后状态
 ```
 
-共 96 项断言，全部通过时退出码为 0。测试是**可重复执行**的：每次创建/更新产品型号 `ITMFG`、替换其 BOM、
+共 112 项断言，全部通过时退出码为 0。测试是**可重复执行**的：每次创建/更新产品型号 `ITMFG`、替换其 BOM、
 新建一张工单、物料批次与出货单，以及相应的报工、不良、发料、收发、换件与测试数据。
 
 前置条件：OFBiz 已启动、已执行 `loadAll`、mfg 组件已部署。
@@ -205,7 +212,7 @@ java -cp "build/test-classes:ofbiz.jar:junit-4.13.2.jar:hamcrest-core-1.3.jar" \
 ```
 
 覆盖 BOM / 批次 / 测试结果 CSV 解析（引号、缺列、CRLF、注释行、大小写归一）、SN 列表拆分、FIFO 推定切片、
-邮寄标签格式、SN / 工单编号格式，以及保修到期日与保内判定（共 19 个用例）。
+邮寄标签格式、SN / 工单编号格式，以及保修到期日、7 天 / 15 天窗口、剩余小时与运费承担（共 25 个用例）。
 
 ## 追溯精度说明（重要）
 
@@ -220,6 +227,25 @@ SMT 为外协，且对方**不提供上料 / 换料记录**，因此追溯精度
 | 保修判定 | **准确** | 售后单按出货日 + 型号保修月数算到期日；未出货的 SN 一律判为保外 |
 
 所以“召回排查”的推荐做法：先用批次反向追溯圈定工单与推定 SN 区间，再到 SN 页看是否有换件记录确认。
+
+## 电商售后规则对应（淘宝）
+
+依据《淘宝网七天无理由退货规范》（ruleId 5507，2025-07-28 修订）与《淘宝平台争议处理规则》（ruleId 99），
+售后单里把平台要求落成了字段与校验：
+
+| 平台要求 | 系统中的落点 |
+| --- | --- |
+| 7 天无理由 = 签收**次日零时**起满 **168 小时** | `MfgServices.sevenDayDeadline()`：签收日 + 8 天 00:00，存入 `SEVEN_DAY_DEADLINE` |
+| 售后入口：确认收货后 15 天内 | `MfgServices.afterSaleDeadline()`：签收日 + 15 天 23:59:59 |
+| 数码/家电类**必须**支持 7 天无理由；智能商品（激活即贬值）卖家可选 | `claimType` 区分 `RTN`（退货退款）与 `REFUND_ONLY`，登记时必选 |
+| 商品完好：配件/说明书/三包卡齐全，无激活、无难以恢复的使用痕迹 | `deductAmount`（缺件/赠品折价扣款）+ `inspectResult` 检测结论 |
+| 运费“谁过错谁承担”：卖家责任来回运费我方；无理由退回买家承担 | `freightPayer`（登记时按类型给默认值，处理时可改） |
+| 质量问题举证：肉眼不可识别时卖家要出合格证/执行标准等，送检费卖家承担 | `inspectResult=QUALITY` 后可将检测成本记入 `repairHours` / `note`，`vendorClaimStatus` 向 SMT/供应商索赔 |
+| 质量问题属实须承担退货、更换、维修 | `mfgClaimExchange`（换货自动出出货单）/ `mfgClaimRepair`（开返修工单） |
+| 判定后需主动召回 | 已有的“批次 → 工单 → SN 区间”反向追溯 + `mfgTraceByLot` |
+
+> 规则会变，落地前建议再核对一次商家中心的最新文本；本组件的期限常量集中在
+> `MfgServices.SEVEN_DAY_HOURS` / `AFTER_SALE_DAYS` / `DEADLINE_WARNING_HOURS`，改一处即可。
 
 ## 开发说明（OFBiz 24.09 踩坑记录）
 
@@ -242,6 +268,7 @@ SMT 为外协，且对方**不提供上料 / 换料记录**，因此追溯精度
 ## 后续想法
 
 - 来料检验（IQC）：到货批次标记合格/不合格，并影响可发料性。
-- 售后成本统计：按型号/责任方汇总返修工时与换件数量。
-- 看板自动刷新与钉钉/邮件告警（欠料、测试通过率异常）。
+- 售后成本统计：按型号/责任方汇总退款、返修工时与换件数量，出品质退款率。
+- 淘宝订单号自动对单（开放平台/导出表导入），省掉手录订单号。
+- 看板自动刷新与钉钉/邮件告警（欠料、测试通过率异常、售后即将超时）。
 - 报表导出：良率趋势、工时趋势（可回接学习曲线组件）。
