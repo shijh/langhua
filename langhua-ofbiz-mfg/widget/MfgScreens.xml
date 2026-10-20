@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<screens xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xmlns="http://ofbiz.apache.org/Widget-Screen"
+        xsi:schemaLocation="http://ofbiz.apache.org/Widget-Screen http://ofbiz.apache.org/dtds/widget-screen.xsd">
+
+    <!-- Work order list + creation form -->
+    <screen name="main">
+        <section>
+            <actions>
+                <set field="title" value="Work Orders"/>
+                <service service-name="mfgProductList" result-map="productList" auto-field-map="false"/>
+                <service service-name="mfgWorkOrderList" result-map="listResult" auto-field-map="false">
+                    <field-map field-name="statusId" from-field="parameters.statusId"/>
+                </service>
+            </actions>
+            <widgets>
+                <platform-specific>
+                    <html>
+                        <html-template location="component://mfg/webapp/mfg/workOrders.ftl"/>
+                    </html>
+                </platform-specific>
+            </widgets>
+        </section>
+    </screen>
+
+    <!-- Product models: BOM and routing maintenance -->
+    <screen name="products">
+        <section>
+            <actions>
+                <set field="title" value="Product Models"/>
+                <service service-name="mfgProductList" result-map="listResult" auto-field-map="false"/>
+                <service service-name="mfgProductDetail" result-map="detail" auto-field-map="false">
+                    <field-map field-name="productCode" from-field="parameters.productCode"/>
+                </service>
+            </actions>
+            <widgets>
+                <platform-specific>
+                    <html>
+                        <html-template location="component://mfg/webapp/mfg/products.ftl"/>
+                    </html>
+                </platform-specific>
+            </widgets>
+        </section>
+    </screen>
+
+    <!-- One work order: progress, reporting, units, defects -->
+    <screen name="workOrder">
+        <section>
+            <actions>
+                <set field="title" value="Work Order"/>
+                <service service-name="mfgWorkOrderDetail" result-map="detail" auto-field-map="false">
+                    <field-map field-name="workOrderId" from-field="parameters.workOrderId"/>
+                </service>
+            </actions>
+            <widgets>
+                <platform-specific>
+                    <html>
+                        <html-template location="component://mfg/webapp/mfg/workOrderDetail.ftl"/>
+                    </html>
+                </platform-specific>
+            </widgets>
+        </section>
+    </screen>
+
+    <!-- Serial number history -->
+    <screen name="sn">
+        <section>
+            <actions>
+                <set field="title" value="Serial Number"/>
+                <service service-name="mfgSnDetail" result-map="snInfo" auto-field-map="false">
+                    <field-map field-name="sn" from-field="parameters.sn"/>
+                </service>
+            </actions>
+            <widgets>
+                <platform-specific>
+                    <html>
+                        <html-template location="component://mfg/webapp/mfg/snDetail.ftl"/>
+                    </html>
+                </platform-specific>
+            </widgets>
+        </section>
+    </screen>
+
+    <!-- Shop floor dashboard -->
+    <screen name="dashboard">
+        <section>
+            <actions>
+                <set field="title" value="Dashboard"/>
+                <service service-name="mfgDashboard" result-map="board" auto-field-map="false"/>
+            </actions>
+            <widgets>
+                <platform-specific>
+                    <html>
+                        <html-template location="component://mfg/webapp/mfg/dashboard.ftl"/>
+                    </html>
+                </platform-specific>
+            </widgets>
+        </section>
+    </screen>
+</screens>

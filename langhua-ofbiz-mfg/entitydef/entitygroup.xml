@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<entitygroup xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="https://ofbiz.apache.org/dtds/entitygroup.xsd">
+
+    <entity-group group="org.apache.ofbiz" entity="MfgProduct"/>
+    <entity-group group="org.apache.ofbiz" entity="MfgBomItem"/>
+    <entity-group group="org.apache.ofbiz" entity="MfgRouting"/>
+    <entity-group group="org.apache.ofbiz" entity="MfgWorkOrder"/>
+    <entity-group group="org.apache.ofbiz" entity="MfgSn"/>
+    <entity-group group="org.apache.ofbiz" entity="MfgReport"/>
+    <entity-group group="org.apache.ofbiz" entity="MfgDefect"/>
+    <entity-group group="org.apache.ofbiz" entity="MfgMaterialTrace"/>
+</entitygroup>

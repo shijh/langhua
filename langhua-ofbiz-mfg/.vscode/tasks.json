@@ -1,0 +1,34 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "MFG: build plugin",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"gradlew.bat --no-daemon --console=plain jar"
+			],
+			"options": {
+				"cwd": "${config:ofbiz.home}"
+			},
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "MFG: start server",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"gradlew.bat --no-daemon --console=plain ofbiz"
+			],
+			"options": {
+				"cwd": "${config:ofbiz.home}"
+			},
+			"problemMatcher": [],
+			"isBackground": true,
+			"group": "build"
+		}
+	]
+}

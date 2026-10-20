@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ofbiz-component xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="https://ofbiz.apache.org/dtds/ofbiz-component.xsd"
+        name="mfg"
+        title="Hardware Assembly"
+        enabled="true">
+
+    <resource-loader name="main" type="component"/>
+
+    <classpath type="dir" location="config"/>
+
+    <entity-resource type="model" reader-name="main" loader="main" location="entitydef/entitymodel.xml"/>
+    <entity-resource type="group" reader-name="main" loader="main" location="entitydef/entitygroup.xml"/>
+    <entity-resource type="data" reader-name="seed" loader="main" location="data/MfgSecurityPermissionSeedData.xml"/>
+
+    <service-resource type="model" loader="main" location="servicedef/services.xml"/>
+
+    <webapp name="mfg"
+            title="Hardware Assembly"
+            server="default-server"
+            location="webapp/mfg"
+            base-permission="OFBTOOLS"
+            mount-point="/mfg"
+            app-bar-display="false"/>
+</ofbiz-component>

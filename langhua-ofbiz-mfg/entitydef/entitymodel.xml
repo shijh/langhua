@@ -1,0 +1,194 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<entitymodel xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="https://ofbiz.apache.org/dtds/entitymodel.xsd">
+
+    <title>Hardware Assembly Entities</title>
+    <description>Product models, BOM, routing, work orders, serial numbers, work reports and defects</description>
+
+    <entity entity-name="MfgProduct"
+            package-name="org.langhua.ofbiz.mfg"
+            title="Product model">
+        <description>A hardware model that is assembled, tested and packed in house</description>
+        <field name="productCode" type="id"><description>Model code, e.g. BT5</description></field>
+        <field name="productName" type="name"><description>Display name</description></field>
+        <field name="snPrefix" type="very-short"><description>Prefix used when serial numbers are generated</description></field>
+        <field name="standardHours" type="floating-point"><description>Standard assembly hours per unit</description></field>
+        <field name="statusId" type="id"><description>MFG_ACTIVE or MFG_INACTIVE</description></field>
+        <field name="note" type="description"/>
+        <field name="createdStamp" type="date-time"/>
+        <field name="createdTxStamp" type="date-time"/>
+        <field name="lastUpdatedStamp" type="date-time"/>
+        <field name="lastUpdatedTxStamp" type="date-time"/>
+        <prim-key field="productCode"/>
+    </entity>
+
+    <entity entity-name="MfgBomItem"
+            package-name="org.langhua.ofbiz.mfg"
+            title="BOM line">
+        <description>One component of a product model, including its reference designators</description>
+        <field name="productCode" type="id"><description>Parent model</description></field>
+        <field name="lineSeq" type="numeric"><description>Line number inside the BOM</description></field>
+        <field name="componentCode" type="id"><description>Component part number</description></field>
+        <field name="componentName" type="name"><description>Component description</description></field>
+        <field name="qty" type="floating-point"><description>Quantity per unit</description></field>
+        <field name="designators" type="very-long"><description>Reference designators, e.g. R1-R12,C3</description></field>
+        <field name="isKeyPart" type="indicator"><description>Y when the part has to be traced</description></field>
+        <field name="note" type="description"/>
+        <field name="createdStamp" type="date-time"/>
+        <field name="createdTxStamp" type="date-time"/>
+        <field name="lastUpdatedStamp" type="date-time"/>
+        <field name="lastUpdatedTxStamp" type="date-time"/>
+        <prim-key field="productCode"/>
+        <prim-key field="lineSeq"/>
+        <relation type="one" fk-name="MFG_BOM_PRODUCT" rel-entity-name="MfgProduct">
+            <key-map field-name="productCode"/>
+        </relation>
+    </entity>
+
+    <entity entity-name="MfgRouting"
+            package-name="org.langhua.ofbiz.mfg"
+            title="Routing operation template">
+        <description>Operation template of a product model: assembly, ageing, test, packing</description>
+        <field name="productCode" type="id"><description>Parent model</description></field>
+        <field name="opSeq" type="numeric"><description>Operation sequence, 10, 20, 30 ...</description></field>
+        <field name="opName" type="name"><description>Operation name</description></field>
+        <field name="workCenter" type="short-varchar"><description>Work center / station</description></field>
+        <field name="stdHours" type="floating-point"><description>Standard hours per unit</description></field>
+        <field name="note" type="description"/>
+        <field name="createdStamp" type="date-time"/>
+        <field name="createdTxStamp" type="date-time"/>
+        <field name="lastUpdatedStamp" type="date-time"/>
+        <field name="lastUpdatedTxStamp" type="date-time"/>
+        <prim-key field="productCode"/>
+        <prim-key field="opSeq"/>
+        <relation type="one" fk-name="MFG_ROUTE_PRODUCT" rel-entity-name="MfgProduct">
+            <key-map field-name="productCode"/>
+        </relation>
+    </entity>
+
+    <entity entity-name="MfgWorkOrder"
+            package-name="org.langhua.ofbiz.mfg"
+            title="Work order">
+        <description>Production order for a quantity of one product model</description>
+        <field name="workOrderId" type="id"><description>Work order number</description></field>
+        <field name="productCode" type="id"><description>Model to build</description></field>
+        <field name="plannedQty" type="numeric"><description>Planned quantity</description></field>
+        <field name="statusId" type="id"><description>MFG_CREATED, MFG_IN_PROGRESS, MFG_COMPLETED, MFG_CLOSED</description></field>
+        <field name="dueDate" type="date"><description>Requested finish date</description></field>
+        <field name="customerName" type="name"><description>Customer or internal project</description></field>
+        <field name="smtVendor" type="name"><description>Outsourced SMT supplier</description></field>
+        <field name="note" type="description"/>
+        <field name="createdStamp" type="date-time"/>
+        <field name="createdTxStamp" type="date-time"/>
+        <field name="lastUpdatedStamp" type="date-time"/>
+        <field name="lastUpdatedTxStamp" type="date-time"/>
+        <prim-key field="workOrderId"/>
+        <relation type="one" fk-name="MFG_WO_PRODUCT" rel-entity-name="MfgProduct">
+            <key-map field-name="productCode"/>
+        </relation>
+        <index name="MFG_WO_STATUS" unique="false">
+            <index-field name="statusId"/>
+        </index>
+    </entity>
+
+    <entity entity-name="MfgSn"
+            package-name="org.langhua.ofbiz.mfg"
+            title="Serial number">
+        <description>One physical unit of a work order, traced from assembly to shipment</description>
+        <field name="sn" type="id"><description>Serial number, e.g. BT5-261020-0001</description></field>
+        <field name="workOrderId" type="id"><description>Owning work order</description></field>
+        <field name="productCode" type="id"><description>Model</description></field>
+        <field name="statusId" type="id"><description>MFG_IN_PROGRESS, MFG_COMPLETED, MFG_SCRAPPED</description></field>
+        <field name="note" type="description"/>
+        <field name="createdStamp" type="date-time"/>
+        <field name="createdTxStamp" type="date-time"/>
+        <field name="lastUpdatedStamp" type="date-time"/>
+        <field name="lastUpdatedTxStamp" type="date-time"/>
+        <prim-key field="sn"/>
+        <relation type="one" fk-name="MFG_SN_WO" rel-entity-name="MfgWorkOrder">
+            <key-map field-name="workOrderId"/>
+        </relation>
+        <index name="MFG_SN_WO_IDX" unique="false">
+            <index-field name="workOrderId"/>
+        </index>
+    </entity>
+
+    <entity entity-name="MfgReport"
+            package-name="org.langhua.ofbiz.mfg"
+            title="Work report">
+        <description>Reported labour of one operation: hours and quantities</description>
+        <field name="reportId" type="id"><description>Report number</description></field>
+        <field name="workOrderId" type="id"><description>Work order</description></field>
+        <field name="opSeq" type="numeric"><description>Operation sequence</description></field>
+        <field name="sn" type="id"><description>Optional single unit the report belongs to</description></field>
+        <field name="operatorName" type="name"><description>Who performed the work</description></field>
+        <field name="workHours" type="floating-point"><description>Reported hours</description></field>
+        <field name="qtyOk" type="numeric"><description>Good quantity</description></field>
+        <field name="qtyNg" type="numeric"><description>Rejected quantity</description></field>
+        <field name="reportDate" type="date-time"><description>When the work was reported</description></field>
+        <field name="note" type="description"/>
+        <field name="createdStamp" type="date-time"/>
+        <field name="createdTxStamp" type="date-time"/>
+        <field name="lastUpdatedStamp" type="date-time"/>
+        <field name="lastUpdatedTxStamp" type="date-time"/>
+        <prim-key field="reportId"/>
+        <relation type="one" fk-name="MFG_REPORT_WO" rel-entity-name="MfgWorkOrder">
+            <key-map field-name="workOrderId"/>
+        </relation>
+        <index name="MFG_REPORT_WO_IDX" unique="false">
+            <index-field name="workOrderId"/>
+        </index>
+        <index name="MFG_REPORT_DATE" unique="false">
+            <index-field name="reportDate"/>
+        </index>
+    </entity>
+
+    <entity entity-name="MfgDefect"
+            package-name="org.langhua.ofbiz.mfg"
+            title="Defect record">
+        <description>Non conformance found on one operation, with repair hours</description>
+        <field name="defectId" type="id"><description>Defect number</description></field>
+        <field name="workOrderId" type="id"><description>Work order</description></field>
+        <field name="sn" type="id"><description>Unit the defect was found on</description></field>
+        <field name="opSeq" type="numeric"><description>Operation where it was found</description></field>
+        <field name="defectCode" type="short-varchar"><description>Defect code, e.g. MISSING_PART</description></field>
+        <field name="qty" type="numeric"><description>Defective quantity</description></field>
+        <field name="responsibility" type="short-varchar"><description>HOUSE, SMT, SUPPLIER or DESIGN</description></field>
+        <field name="repairHours" type="floating-point"><description>Hours spent repairing</description></field>
+        <field name="note" type="description"/>
+        <field name="createdStamp" type="date-time"/>
+        <field name="createdTxStamp" type="date-time"/>
+        <field name="lastUpdatedStamp" type="date-time"/>
+        <field name="lastUpdatedTxStamp" type="date-time"/>
+        <prim-key field="defectId"/>
+        <relation type="one" fk-name="MFG_DEFECT_WO" rel-entity-name="MfgWorkOrder">
+            <key-map field-name="workOrderId"/>
+        </relation>
+        <index name="MFG_DEFECT_WO_IDX" unique="false">
+            <index-field name="workOrderId"/>
+        </index>
+    </entity>
+
+    <entity entity-name="MfgMaterialTrace"
+            package-name="org.langhua.ofbiz.mfg"
+            title="Material trace">
+        <description>Component lot used by a work order; designators and SN range are optional</description>
+        <field name="workOrderId" type="id"><description>Work order</description></field>
+        <field name="lineSeq" type="numeric"><description>Line number inside the trace table</description></field>
+        <field name="componentCode" type="id"><description>Component part number</description></field>
+        <field name="lotCode" type="short-varchar"><description>Supplier or SMT lot / reel code</description></field>
+        <field name="designators" type="very-long"><description>Designators covered by this reel, when known</description></field>
+        <field name="snFrom" type="id"><description>First serial number covered</description></field>
+        <field name="snTo" type="id"><description>Last serial number covered</description></field>
+        <field name="note" type="description"/>
+        <field name="createdStamp" type="date-time"/>
+        <field name="createdTxStamp" type="date-time"/>
+        <field name="lastUpdatedStamp" type="date-time"/>
+        <field name="lastUpdatedTxStamp" type="date-time"/>
+        <prim-key field="workOrderId"/>
+        <prim-key field="lineSeq"/>
+        <relation type="one" fk-name="MFG_TRACE_WO" rel-entity-name="MfgWorkOrder">
+            <key-map field-name="workOrderId"/>
+        </relation>
+    </entity>
+</entitymodel>

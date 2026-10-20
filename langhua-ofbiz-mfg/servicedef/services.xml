@@ -1,0 +1,166 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="https://ofbiz.apache.org/dtds/services.xsd">
+
+    <!-- ==================== product models ==================== -->
+
+    <service name="mfgProductSave" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgServices" invoke="productSave"
+            auth="false" use-transaction="false">
+        <description>Create or update a product model</description>
+        <attribute name="productCode" type="String" mode="IN" optional="false"/>
+        <attribute name="productName" type="String" mode="IN" optional="true"/>
+        <attribute name="snPrefix" type="String" mode="IN" optional="true"/>
+        <attribute name="standardHours" type="Double" mode="IN" optional="true"/>
+        <attribute name="statusId" type="String" mode="IN" optional="true"/>
+        <attribute name="note" type="String" mode="IN" optional="true"/>
+        <attribute name="productCode" type="String" mode="OUT" optional="true"/>
+    </service>
+
+    <service name="mfgProductList" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgServices" invoke="productList"
+            auth="false" use-transaction="false">
+        <description>List product models with BOM and routing counts</description>
+        <attribute name="products" type="java.util.List" mode="OUT" optional="true"/>
+    </service>
+
+    <service name="mfgProductDetail" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgServices" invoke="productDetail"
+            auth="false" use-transaction="false">
+        <description>Return one product model with its BOM and routing</description>
+        <attribute name="productCode" type="String" mode="IN" optional="true"/>
+        <attribute name="product" type="java.util.Map" mode="OUT" optional="true"/>
+        <attribute name="bomItems" type="java.util.List" mode="OUT" optional="true"/>
+        <attribute name="routings" type="java.util.List" mode="OUT" optional="true"/>
+    </service>
+
+    <service name="mfgBomImport" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgServices" invoke="bomImport"
+            auth="false" use-transaction="false">
+        <description>Import BOM lines from CSV: componentCode,componentName,qty,designators,isKeyPart</description>
+        <attribute name="productCode" type="String" mode="IN" optional="false"/>
+        <attribute name="csv" type="String" mode="IN" optional="false"/>
+        <attribute name="replace" type="String" mode="IN" optional="true"/>
+        <attribute name="productCode" type="String" mode="OUT" optional="true"/>
+        <attribute name="importedCount" type="String" mode="OUT" optional="true"/>
+    </service>
+
+    <service name="mfgRoutingSave" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgServices" invoke="routingSave"
+            auth="false" use-transaction="false">
+        <description>Create or update one routing operation</description>
+        <attribute name="productCode" type="String" mode="IN" optional="false"/>
+        <attribute name="opSeq" type="Long" mode="IN" optional="false"/>
+        <attribute name="opName" type="String" mode="IN" optional="false"/>
+        <attribute name="workCenter" type="String" mode="IN" optional="true"/>
+        <attribute name="stdHours" type="Double" mode="IN" optional="true"/>
+        <attribute name="note" type="String" mode="IN" optional="true"/>
+        <attribute name="productCode" type="String" mode="OUT" optional="true"/>
+        <attribute name="opSeq" type="Long" mode="OUT" optional="true"/>
+    </service>
+
+    <!-- ==================== work orders ==================== -->
+
+    <service name="mfgWorkOrderCreate" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgServices" invoke="workOrderCreate"
+            auth="false" use-transaction="false">
+        <description>Create a work order, identifier WO-yyMMdd-NNN</description>
+        <attribute name="productCode" type="String" mode="IN" optional="false"/>
+        <attribute name="plannedQty" type="Long" mode="IN" optional="false"/>
+        <attribute name="dueDate" type="String" mode="IN" optional="true"/>
+        <attribute name="customerName" type="String" mode="IN" optional="true"/>
+        <attribute name="smtVendor" type="String" mode="IN" optional="true"/>
+        <attribute name="note" type="String" mode="IN" optional="true"/>
+        <attribute name="workOrderId" type="String" mode="OUT" optional="true"/>
+    </service>
+
+    <service name="mfgWorkOrderList" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgServices" invoke="workOrderList"
+            auth="false" use-transaction="false">
+        <description>List work orders, newest first</description>
+        <attribute name="statusId" type="String" mode="IN" optional="true"/>
+        <attribute name="workOrders" type="java.util.List" mode="OUT" optional="true"/>
+    </service>
+
+    <service name="mfgWorkOrderDetail" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgServices" invoke="workOrderDetail"
+            auth="false" use-transaction="false">
+        <description>One work order with operation progress, units and defects</description>
+        <attribute name="workOrderId" type="String" mode="IN" optional="false"/>
+        <attribute name="workOrder" type="java.util.Map" mode="OUT" optional="true"/>
+        <attribute name="operations" type="java.util.List" mode="OUT" optional="true"/>
+        <attribute name="sns" type="java.util.List" mode="OUT" optional="true"/>
+        <attribute name="defects" type="java.util.List" mode="OUT" optional="true"/>
+        <attribute name="reportedHours" type="Double" mode="OUT" optional="true"/>
+        <attribute name="totalQtyOk" type="Long" mode="OUT" optional="true"/>
+        <attribute name="totalQtyNg" type="Long" mode="OUT" optional="true"/>
+    </service>
+
+    <!-- ==================== shop floor ==================== -->
+
+    <service name="mfgReportCreate" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgServices" invoke="reportCreate"
+            auth="false" use-transaction="false">
+        <description>Report labour hours and quantities for one operation</description>
+        <attribute name="workOrderId" type="String" mode="IN" optional="false"/>
+        <attribute name="opSeq" type="Long" mode="IN" optional="false"/>
+        <attribute name="sn" type="String" mode="IN" optional="true"/>
+        <attribute name="operatorName" type="String" mode="IN" optional="true"/>
+        <attribute name="workHours" type="Double" mode="IN" optional="false"/>
+        <attribute name="qtyOk" type="Long" mode="IN" optional="true"/>
+        <attribute name="qtyNg" type="Long" mode="IN" optional="true"/>
+        <attribute name="note" type="String" mode="IN" optional="true"/>
+        <attribute name="reportId" type="String" mode="OUT" optional="true"/>
+    </service>
+
+    <service name="mfgSnRegister" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgServices" invoke="snRegister"
+            auth="false" use-transaction="false">
+        <description>Generate serial numbers prefix-yyMMdd-NNNN for a work order</description>
+        <attribute name="workOrderId" type="String" mode="IN" optional="false"/>
+        <attribute name="qty" type="Long" mode="IN" optional="false"/>
+        <attribute name="sns" type="java.util.List" mode="OUT" optional="true"/>
+        <attribute name="firstSn" type="String" mode="OUT" optional="true"/>
+        <attribute name="lastSn" type="String" mode="OUT" optional="true"/>
+    </service>
+
+    <service name="mfgSnDetail" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgServices" invoke="snDetail"
+            auth="false" use-transaction="false">
+        <description>Full history of one serial number</description>
+        <attribute name="sn" type="String" mode="IN" optional="true"/>
+        <attribute name="snRecord" type="java.util.Map" mode="OUT" optional="true"/>
+        <attribute name="workOrder" type="java.util.Map" mode="OUT" optional="true"/>
+        <attribute name="reports" type="java.util.List" mode="OUT" optional="true"/>
+        <attribute name="defects" type="java.util.List" mode="OUT" optional="true"/>
+        <attribute name="traces" type="java.util.List" mode="OUT" optional="true"/>
+    </service>
+
+    <service name="mfgDefectCreate" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgServices" invoke="defectCreate"
+            auth="false" use-transaction="false">
+        <description>Record a defect with repair hours</description>
+        <attribute name="workOrderId" type="String" mode="IN" optional="false"/>
+        <attribute name="sn" type="String" mode="IN" optional="true"/>
+        <attribute name="opSeq" type="Long" mode="IN" optional="true"/>
+        <attribute name="defectCode" type="String" mode="IN" optional="false"/>
+        <attribute name="qty" type="Long" mode="IN" optional="true"/>
+        <attribute name="responsibility" type="String" mode="IN" optional="true"/>
+        <attribute name="repairHours" type="Double" mode="IN" optional="true"/>
+        <attribute name="note" type="String" mode="IN" optional="true"/>
+        <attribute name="defectId" type="String" mode="OUT" optional="true"/>
+    </service>
+
+    <service name="mfgDashboard" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgServices" invoke="dashboard"
+            auth="false" use-transaction="false">
+        <description>Shop floor dashboard figures</description>
+        <attribute name="openOrderCount" type="Long" mode="OUT" optional="true"/>
+        <attribute name="openPlannedQty" type="Long" mode="OUT" optional="true"/>
+        <attribute name="todayHours" type="Double" mode="OUT" optional="true"/>
+        <attribute name="todayQtyOk" type="Long" mode="OUT" optional="true"/>
+        <attribute name="todayQtyNg" type="Long" mode="OUT" optional="true"/>
+        <attribute name="todayYield" type="Double" mode="OUT" optional="true"/>
+        <attribute name="recentReports" type="java.util.List" mode="OUT" optional="true"/>
+    </service>
+</services>

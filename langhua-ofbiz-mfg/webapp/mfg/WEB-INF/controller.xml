@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<site-conf xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xmlns="http://ofbiz.apache.org/Site-Conf"
+        xsi:schemaLocation="http://ofbiz.apache.org/Site-Conf http://ofbiz.apache.org/dtds/site-conf.xsd">
+
+    <include location="component://common/webcommon/WEB-INF/common-controller.xml"/>
+    <description>Hardware Assembly Component Site Configuration File</description>
+
+    <request-map uri="main">
+        <security https="true" auth="true"/>
+        <response name="success" type="view" value="main"/>
+    </request-map>
+
+    <request-map uri="products">
+        <security https="true" auth="true"/>
+        <response name="success" type="view" value="products"/>
+    </request-map>
+
+    <request-map uri="workOrder">
+        <security https="true" auth="true"/>
+        <response name="success" type="view" value="workOrder"/>
+    </request-map>
+
+    <request-map uri="sn">
+        <security https="true" auth="true"/>
+        <response name="success" type="view" value="sn"/>
+    </request-map>
+
+    <request-map uri="dashboard">
+        <security https="true" auth="true"/>
+        <response name="success" type="view" value="dashboard"/>
+    </request-map>
+
+    <request-map uri="productSave">
+        <security https="true" auth="true"/>
+        <event type="service" invoke="mfgProductSave"/>
+        <response name="success" type="request-redirect" value="products">
+            <redirect-parameter name="productCode"/>
+        </response>
+        <response name="error" type="view" value="products"/>
+    </request-map>
+
+    <request-map uri="bomImport">
+        <security https="true" auth="true"/>
+        <event type="service" invoke="mfgBomImport"/>
+        <response name="success" type="request-redirect" value="products">
+            <redirect-parameter name="productCode"/>
+            <redirect-parameter name="importedCount"/>
+        </response>
+        <response name="error" type="view" value="products"/>
+    </request-map>
+
+    <request-map uri="routingSave">
+        <security https="true" auth="true"/>
+        <event type="service" invoke="mfgRoutingSave"/>
+        <response name="success" type="request-redirect" value="products">
+            <redirect-parameter name="productCode"/>
+        </response>
+        <response name="error" type="view" value="products"/>
+    </request-map>
+
+    <request-map uri="workOrderCreate">
+        <security https="true" auth="true"/>
+        <event type="service" invoke="mfgWorkOrderCreate"/>
+        <response name="success" type="request-redirect" value="workOrder">
+            <redirect-parameter name="workOrderId"/>
+        </response>
+        <response name="error" type="view" value="main"/>
+    </request-map>
+
+    <request-map uri="reportCreate">
+        <security https="true" auth="true"/>
+        <event type="service" invoke="mfgReportCreate"/>
+        <response name="success" type="request-redirect" value="workOrder">
+            <redirect-parameter name="workOrderId"/>
+        </response>
+        <response name="error" type="view" value="workOrder"/>
+    </request-map>
+
+    <request-map uri="snRegister">
+        <security https="true" auth="true"/>
+        <event type="service" invoke="mfgSnRegister"/>
+        <response name="success" type="request-redirect" value="workOrder">
+            <redirect-parameter name="workOrderId"/>
+        </response>
+        <response name="error" type="view" value="workOrder"/>
+    </request-map>
+
+    <request-map uri="defectCreate">
+        <security https="true" auth="true"/>
+        <event type="service" invoke="mfgDefectCreate"/>
+        <response name="success" type="request-redirect" value="workOrder">
+            <redirect-parameter name="workOrderId"/>
+        </response>
+        <response name="error" type="view" value="workOrder"/>
+    </request-map>
+
+    <view-map name="main" type="screen" page="component://mfg/widget/MfgScreens.xml#main"/>
+    <view-map name="products" type="screen" page="component://mfg/widget/MfgScreens.xml#products"/>
+    <view-map name="workOrder" type="screen" page="component://mfg/widget/MfgScreens.xml#workOrder"/>
+    <view-map name="sn" type="screen" page="component://mfg/widget/MfgScreens.xml#sn"/>
+    <view-map name="dashboard" type="screen" page="component://mfg/widget/MfgScreens.xml#dashboard"/>
+</site-conf>

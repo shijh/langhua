@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<resource xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="https://ofbiz.apache.org/dtds/ofbiz-component.xsd">
+    <property key="MfgStatusCreated">
+        <value xml:lang="en">Created</value>
+        <value xml:lang="zh">已创建</value>
+    </property>
+    <property key="MfgStatusInProgress">
+        <value xml:lang="en">In progress</value>
+        <value xml:lang="zh">生产中</value>
+    </property>
+    <property key="MfgStatusCompleted">
+        <value xml:lang="en">Completed</value>
+        <value xml:lang="zh">已完工</value>
+    </property>
+    <property key="MfgStatusClosed">
+        <value xml:lang="en">Closed</value>
+        <value xml:lang="zh">已关闭</value>
+    </property>
+    <property key="MfgStatusScrapped">
+        <value xml:lang="en">Scrapped</value>
+        <value xml:lang="zh">已报废</value>
+    </property>
+    <property key="MfgStatusActive">
+        <value xml:lang="en">Active</value>
+        <value xml:lang="zh">启用</value>
+    </property>
+    <property key="MfgStatusInactive">
+        <value xml:lang="en">Inactive</value>
+        <value xml:lang="zh">停用</value>
+    </property>
+</resource>

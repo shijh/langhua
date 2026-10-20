@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<entity-engine-xml>
+
+    <SecurityPermission description="View work orders, serial numbers and the dashboard"
+            permissionId="MFG_VIEW"/>
+    <SecurityPermission description="Full access to product models, BOM, routing and work orders"
+            permissionId="MFG_ADMIN"/>
+
+    <SecurityGroupPermission groupId="SUPER" permissionId="MFG_VIEW" fromDate="2010-01-01 00:00:00.000"/>
+    <SecurityGroupPermission groupId="SUPER" permissionId="MFG_ADMIN" fromDate="2010-01-01 00:00:00.000"/>
+    <SecurityGroupPermission groupId="FULLADMIN" permissionId="MFG_VIEW" fromDate="2010-01-01 00:00:00.000"/>
+    <SecurityGroupPermission groupId="FULLADMIN" permissionId="MFG_ADMIN" fromDate="2010-01-01 00:00:00.000"/>
+</entity-engine-xml>
