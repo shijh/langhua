@@ -140,12 +140,12 @@ csv         = R0402-10K,10K 0402 resistor,4,R1-R4,N
 | `/mfg/control/delivery` | 出货单：新建、列表、明细；出货后 SN 变为 `MFG_SHIPPED` |
 | `/mfg/control/vendors` | 外协厂家：档案维护 + 可复制的邮寄标签（收件人/手机/地址/客户编号） |
 
-邮寄标签旁边有 **「复制标签」按钮**（`webapp/mfg/copyLabel.ftl` 里的 `mfgCopyLabel()`）：
-优先用 `navigator.clipboard`（需要 HTTPS，本机 OFBiz 就是 HTTPS），失败时回退到
-`document.execCommand('copy')`，复制成功后按钮短暂显示「已复制」。
+邮寄标签旁边有 **「复制标签」按钮**：脚本在静态文件 `webapp/mfg/js/copyLabel.js`，
+页面只引 `<script src="/mfg/js/copyLabel.js"></script>`（`web.xml` 的 `allowedPaths` 里加了 `:/js`）。
+优先用 `navigator.clipboard`（需要 HTTPS，本机 OFBiz 就是 HTTPS），失败时回退到 `document.execCommand('copy')`，
+复制成功后按钮短暂显示「已复制」。
 
-> 注：OFBiz 默认发出 `Content-Security-Policy-Report-Only`，不会阻止内联脚本；若以后改成强制模式（去掉 `-Report-Only`），
-> 需要把 `copyLabel.ftl` 里的脚本改成外部 `.js` 文件并放到允许的静态路径下。
+> 因为脚本是外部的，将来 OFBiz 把 `Content-Security-Policy` 从 `Report-Only` 改为强制模式也不需要改动（`default-src 'self'` 允许同源脚本）。
 
 访问控制由 `ofbiz-component.xml` 的 `base-permission="OFBTOOLS"` 决定；
 `data/MfgSecurityPermissionSeedData.xml` 定义 `MFG_VIEW` / `MFG_ADMIN` 并授予 `SUPER`、`FULLADMIN`。

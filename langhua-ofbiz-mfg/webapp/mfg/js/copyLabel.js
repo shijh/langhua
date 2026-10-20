@@ -1,10 +1,13 @@
-<#ftl encoding="UTF-8">
-<#--
-  Shared helper for the "copy to clipboard" buttons.
-  Every button sits next to a readonly textarea holding the text to copy, so the button finds it
-  through its parent element. Falls back to document.execCommand for older engines.
--->
-<script type="text/javascript">
+/*
+ * Copy to clipboard helper of the hardware assembly component.
+ *
+ * The button sits next to a readonly textarea holding the text to copy, so the button finds the
+ * text through its parent element. navigator.clipboard is used when available (needs a secure
+ * context, which the OFBiz HTTPS port provides), with document.execCommand as a fallback.
+ *
+ * Kept in a static file instead of an inline <script> so a future enforcing
+ * Content-Security-Policy (default-src 'self') does not break it.
+ */
 function mfgCopyLabel(button) {
     var holder = button.parentNode;
     var box = holder ? holder.querySelector('textarea') : null;
@@ -39,4 +42,3 @@ function mfgCopyLabel(button) {
         fallback();
     }
 }
-</script>

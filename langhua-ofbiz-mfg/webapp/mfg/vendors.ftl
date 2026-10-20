@@ -98,6 +98,6 @@
     <p class="hint">还没有厂家记录。</p>
 </#if>
 
-<#include "component://mfg/webapp/mfg/copyLabel.ftl"/>
+<script type="text/javascript" src="/mfg/js/copyLabel.js"></script>
 </body>
 </html>

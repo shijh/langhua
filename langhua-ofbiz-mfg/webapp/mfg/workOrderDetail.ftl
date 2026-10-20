@@ -337,6 +337,6 @@ ITMFG-261021-0001,FCT,IQ,12.4,mA,Y</textarea>
         </form>
     </fieldset>
 </#if>
-<#include "component://mfg/webapp/mfg/copyLabel.ftl"/>
+<script type="text/javascript" src="/mfg/js/copyLabel.js"></script>
 </body>
 </html>
