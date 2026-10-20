@@ -357,4 +357,46 @@ public class MfgServicesTest {
         assertTrue(MfgServices.isFlagLive(MfgServices.FLAG_ACTIVE, null, today));
         assertTrue(!MfgServices.isFlagLive(MfgServices.FLAG_RELEASED, null, today));
     }
+
+    @Test
+    public void formatsPercentages() {
+        assertEquals("2.5", MfgServices.percent(1, 40));
+        assertEquals("0.0", MfgServices.percent(0, 40));
+        assertEquals("100.0", MfgServices.percent(7, 7));
+        // no denominator, no percentage
+        assertEquals("-", MfgServices.percent(3, 0));
+        assertEquals("5.0", MfgServices.percentOf(50.0, 1000.0));
+        assertEquals("-", MfgServices.percentOf(50.0, 0.0));
+    }
+
+    @Test
+    public void agesClaimsAndBucketsThem() {
+        assertEquals(0, MfgServices.daysBetween(java.sql.Date.valueOf("2026-10-01"),
+                java.sql.Date.valueOf("2026-10-01")));
+        assertEquals(30, MfgServices.daysBetween(java.sql.Date.valueOf("2026-10-01"),
+                java.sql.Date.valueOf("2026-10-31")));
+        assertEquals(-1, MfgServices.daysBetween(null, java.sql.Date.valueOf("2026-10-31")));
+
+        assertEquals("0-30", MfgServices.ageBucket(0));
+        assertEquals("0-30", MfgServices.ageBucket(30));
+        assertEquals("31-90", MfgServices.ageBucket(31));
+        assertEquals("91-180", MfgServices.ageBucket(180));
+        assertEquals(">180", MfgServices.ageBucket(181));
+        assertEquals("未知", MfgServices.ageBucket(-1));
+    }
+
+    @Test
+    public void addsUpTheCostOfOneClaim() {
+        // refund + freight + one hour of labour
+        assertEquals(200.0, MfgServices.claimCost(150.0, 20.0, 0.5, 60.0), 0.001);
+        assertEquals(0.0, MfgServices.claimCost(0.0, 0.0, 0.0, 60.0), 0.001);
+    }
+
+    @Test
+    public void tellsWhetherARedLineIsCrossed() {
+        assertTrue(MfgServices.isOverLimit(3, 100, 2.0));
+        assertTrue(!MfgServices.isOverLimit(2, 100, 2.0));
+        assertTrue(!MfgServices.isOverLimit(3, 0, 2.0));
+        assertTrue(MfgServices.isOverLimit(60.0, 1000.0, 5.0));
+    }
 }

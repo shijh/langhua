@@ -248,6 +248,11 @@
         <response name="error" type="view" value="buyers"/>
     </request-map>
 
+    <request-map uri="quality">
+        <security https="true" auth="true"/>
+        <response name="success" type="view" value="quality"/>
+    </request-map>
+
     <view-map name="main" type="screen" page="component://mfg/widget/MfgScreens.xml#main"/>
     <view-map name="products" type="screen" page="component://mfg/widget/MfgScreens.xml#products"/>
     <view-map name="workOrder" type="screen" page="component://mfg/widget/MfgScreens.xml#workOrder"/>
@@ -259,4 +264,5 @@
     <view-map name="vendors" type="screen" page="component://mfg/widget/MfgScreens.xml#vendors"/>
     <view-map name="claims" type="screen" page="component://mfg/widget/MfgScreens.xml#claims"/>
     <view-map name="buyers" type="screen" page="component://mfg/widget/MfgScreens.xml#buyers"/>
+    <view-map name="quality" type="screen" page="component://mfg/widget/MfgScreens.xml#quality"/>
 </site-conf>

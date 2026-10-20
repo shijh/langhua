@@ -14,6 +14,7 @@
         <field name="snPrefix" type="very-short"><description>Prefix used when serial numbers are generated</description></field>
         <field name="standardHours" type="floating-point"><description>Standard assembly hours per unit</description></field>
         <field name="warrantyMonths" type="numeric"><description>Warranty in months from the delivery date, 12 when empty</description></field>
+        <field name="salePrice" type="currency-amount"><description>Typical selling price, used to turn the after sales cost into a percentage</description></field>
         <field name="statusId" type="id"><description>MFG_ACTIVE or MFG_INACTIVE</description></field>
         <field name="note" type="description"/>
         <field name="createdStamp" type="date-time"/>

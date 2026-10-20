@@ -58,6 +58,7 @@
     <a href="/mfg/control/vendors">外协厂家</a>
     <a href="/mfg/control/claims"><b>售后单</b></a>
     <a href="/mfg/control/buyers">买家名单</a>
+    <a href="/mfg/control/quality">质量指标</a>
     <a href="/mfg/control/shortage">齐套预警</a>
     <a href="/mfg/control/dashboard">看板</a>
     <a href="/mfg/control/sn">SN 查询</a>

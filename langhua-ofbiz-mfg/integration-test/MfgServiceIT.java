@@ -142,6 +142,7 @@ public final class MfgServiceIT {
             it.closesWarrantyClaim();
             it.rejectsBadClaimStatus();
             it.releasesBuyerFlag();
+            it.readsQualityReport();
             it.rejectsZeroHoursReport();
         } finally {
             it.tearDown();
@@ -206,6 +207,8 @@ public final class MfgServiceIT {
         form.put("productName", "Integration test model");
         form.put("snPrefix", SN_PREFIX);
         form.put("standardHours", "0.45");
+        form.put("warrantyMonths", "12");
+        form.put("salePrice", "299");
 
         Response response = invoke("mfgProductSave", form);
         check("product: service call returns HTTP 200", response.status == 200, "HTTP " + response.status);
@@ -751,6 +754,26 @@ public final class MfgServiceIT {
         response = invoke("mfgBuyerFlagCheck", checkForm);
         check("buyer flag: released flag no longer matches", !response.body.contains(BUYER_NICK),
                 "released flag still matches");
+    }
+
+    private void readsQualityReport() throws IOException {
+        Map<String, String> form = new LinkedHashMap<>();
+        form.put("fromDate", "2026-01-01");
+        form.put("toDate", "2026-12-31");
+
+        Response response = invoke("mfgQualityReport", form);
+        check("quality: service call returns HTTP 200", response.status == 200, "HTTP " + response.status);
+        check("quality: shipped units reported", response.body.contains("shippedUnits"),
+                "no shippedUnits in response");
+        check("quality: rates calculated", response.body.contains("returnRate")
+                        && response.body.contains("costRate"),
+                "rates missing from the response");
+        check("quality: cost turned into money", response.body.contains("costTotal"),
+                "no costTotal in response");
+        check("quality: model breakdown present", response.body.contains(PRODUCT_CODE),
+                "model missing from the breakdown");
+        check("quality: red lines evaluated", response.body.contains("overRepairLimit"),
+                "no red line flag in response");
     }
 
     private void registersWarrantyClaim() throws IOException {

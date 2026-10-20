@@ -46,11 +46,11 @@ langhua-ofbiz-mfg/
 │   ├── entitymodel.xml                  # 17 个业务实体
 │   └── entitygroup.xml
 ├── servicedef/
-│   └── services.xml                     # 40 个服务
+│   └── services.xml                     # 41 个服务
 ├── widget/
 │   ├── MfgCommonScreens.xml             # 登录/错误页 decorator
-│   └── MfgScreens.xml                   # 11 个页面
-├── webapp/mfg/                          # controller.xml + web.xml + 11 个 FTL + js/
+│   └── MfgScreens.xml                   # 12 个页面
+├── webapp/mfg/                          # controller.xml + web.xml + 12 个 FTL + js/
 ├── src/main/java/org/langhua/ofbiz/mfg/
 └── src/test/java/org/langhua/ofbiz/mfg/
 ```
@@ -131,6 +131,7 @@ https://localhost:8443/mfg/control/main
 | `mfgBuyerFlagSave` / `mfgBuyerFlagList` | 买家风险名单维护与列表（手机号打码显示，可解除/恢复） |
 | `mfgBuyerFlagCheck` | 发货前按手机号（自动去格式）或昵称查名单，返回命中项与最高风险等级 |
 | `mfgBuyerRiskList` | 按买家昵称聚合售后历史（单数、退款合计、最后收件日）并给出建议等级，仅建议不自动拉黑 |
+| `mfgQualityReport` | 售后质量报表：退货/换货/返修/成本率 + 金额 + 按型号、责任方、批次、失效天数、检测结论分解 + 红线判定 |
 
 示例（Web Tools → Run Service → `mfgBomImport`）：
 
@@ -157,6 +158,7 @@ csv         = R0402-10K,10K 0402 resistor,4,R1-R4,N
 | `/mfg/control/vendors` | 外协厂家：档案维护 + 可复制的邮寄标签（收件人/手机/地址/客户编号） |
 | `/mfg/control/claims` | 售后单：登记（类型/订单号/买家/签收日）、按 SN/类型/状态过滤、7 天与 15 天窗口倒计时、处理（检测结论、退款、运费、索赔）、换货与开返修工单 |
 | `/mfg/control/buyers` | 买家名单：登记/解除、发货前查询命中、售后历史汇总与建议等级 |
+| `/mfg/control/quality` | 质量指标：四率 + 成本率、钱花在哪、按型号/责任方/批次/失效时间/检测结论分解、红线告警 |
 
 邮寄标签旁边有 **「复制标签」按钮**：脚本在静态文件 `webapp/mfg/js/copyLabel.js`，
 页面只引 `<script src="/mfg/js/copyLabel.js"></script>`（`web.xml` 的 `allowedPaths` 里加了 `:/js`）。
@@ -194,11 +196,11 @@ productSave → bomImport → routingSave → productDetail
            → claimCreate → claimDetail → claimList → snDetail（含售后）→ claimUpdate（关闭）
            → claimRepair → claimExchange → 重复开单拒绝
            → buyerFlagSave → buyerFlagCheck → 售后单继承风险等级 → 解除后不再命中
-           → 脱敏手机号被拒绝
+           → 脱敏手机号被拒绝 → qualityReport（四率 + 成本 + 红线）
            → 非法报工（workHours = 0）/ 错料发料（批次不属于该料号）/ 非法售后状态
 ```
 
-共 122 项断言，全部通过时退出码为 0。测试是**可重复执行**的：每次创建/更新产品型号 `ITMFG`、替换其 BOM、
+共 128 项断言，全部通过时退出码为 0。测试是**可重复执行**的：每次创建/更新产品型号 `ITMFG`、替换其 BOM、
 新建一张工单、物料批次与出货单，以及相应的报工、不良、发料、收发、换件与测试数据。
 
 前置条件：OFBiz 已启动、已执行 `loadAll`、mfg 组件已部署。
@@ -221,7 +223,7 @@ java -cp "build/test-classes:ofbiz.jar:junit-4.13.2.jar:hamcrest-core-1.3.jar" \
 
 覆盖 BOM / 批次 / 测试结果 CSV 解析（引号、缺列、CRLF、注释行、大小写归一）、SN 列表拆分、FIFO 推定切片、
 邮寄标签格式、SN / 工单编号格式，保修到期日、7 天 / 15 天窗口、剩余小时与运费承担，
-以及买家匹配键、手机号归一化与打码、风险等级建议、名单到期判定（共 31 个用例）。
+以及买家匹配键、手机号归一化与打码、风险等级建议、名单到期判定，还有百分比、日期差与失效分档、售后成本计算、红线判定（共 35 个用例）。
 
 ## 追溯精度说明（重要）
 

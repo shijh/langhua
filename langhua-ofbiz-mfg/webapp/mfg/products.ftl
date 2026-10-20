@@ -40,6 +40,7 @@
     <a href="/mfg/control/vendors">外协厂家</a>
     <a href="/mfg/control/claims">售后单</a>
     <a href="/mfg/control/buyers">买家名单</a>
+    <a href="/mfg/control/quality">质量指标</a>
     <a href="/mfg/control/dashboard">看板</a>
     <a href="/mfg/control/sn">SN 查询</a>
 </p>
@@ -61,6 +62,8 @@
             名称 <input type="text" name="productName" size="22" value="${product.productName!''}"/>
             SN 前缀 <input type="text" name="snPrefix" size="8" value="${product.snPrefix!''}"/>
             标准工时/台 <input type="text" name="standardHours" size="6" value="<#if product.standardHours??>${product.standardHours?string("0.##")}</#if>"/>
+            保修月数 <input type="text" name="warrantyMonths" size="4" value="${product.warrantyMonths!12}"/>
+            售价 <input type="text" name="salePrice" size="7" value="${product.salePrice!0}"/>
             <input type="submit" value="保存"/>
         </p>
     </form>

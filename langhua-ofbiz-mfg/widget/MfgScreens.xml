@@ -256,4 +256,23 @@
             </widgets>
         </section>
     </screen>
+    <!-- After sales quality -->
+    <screen name="quality">
+        <section>
+            <actions>
+                <set field="title" value="Quality"/>
+                <service service-name="mfgQualityReport" result-map="quality" auto-field-map="false">
+                    <field-map field-name="fromDate" from-field="parameters.fromDate"/>
+                    <field-map field-name="toDate" from-field="parameters.toDate"/>
+                </service>
+            </actions>
+            <widgets>
+                <platform-specific>
+                    <html>
+                        <html-template location="component://mfg/webapp/mfg/quality.ftl"/>
+                    </html>
+                </platform-specific>
+            </widgets>
+        </section>
+    </screen>
 </screens>

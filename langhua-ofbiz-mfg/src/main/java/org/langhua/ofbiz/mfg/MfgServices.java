@@ -98,6 +98,17 @@ public final class MfgServices {
     /** Refund total that suggests a manual review. */
     public static final double RISK_BLOCK_REFUND = 1000.0;
 
+    /** Labour cost per hour used to turn repair hours into money. */
+    public static final double QUALITY_HOURLY_RATE = 60.0;
+    /** Freight we absorb for one claim when we pay it. */
+    public static final double QUALITY_FREIGHT_COST = 20.0;
+    /** Red line: share of claims that come back within thirty days, in percent. */
+    public static final double QUALITY_REPAIR_RATE_LIMIT = 2.0;
+    /** Red line: after sales cost as a share of sales, in percent. */
+    public static final double QUALITY_COST_RATE_LIMIT = 5.0;
+    /** Red line: a lot carrying this many times the average claim density is suspicious. */
+    public static final double QUALITY_LOT_FACTOR = 3.0;
+
     /** Hours of the no-reason return window, counted from midnight after the signed date. */
     public static final long SEVEN_DAY_HOURS = 168L;
     /** Days of the marketplace after sales window, counted from the signed date. */
@@ -132,6 +143,7 @@ public final class MfgServices {
             product.set("standardHours", Double.valueOf(toDouble(context.get("standardHours"), 0.0)));
             long warrantyMonths = toLong(context.get("warrantyMonths"), 12);
             product.set("warrantyMonths", Long.valueOf(warrantyMonths <= 0 ? 12 : warrantyMonths));
+            product.set("salePrice", Double.valueOf(toDouble(context.get("salePrice"), 0.0)));
             String statusId = toText(context.get("statusId"));
             product.set("statusId", statusId == null ? STATUS_ACTIVE : statusId);
             product.set("note", toText(context.get("note")));
@@ -3194,6 +3206,424 @@ always
         return map;
     }
 
+    // ------------------------------------------------------- after sales quality
+
+    /**
+     * Builds the after sales quality report: return, exchange and repair rates, the money they
+     * cost, and the breakdowns that tell where the money goes.
+     *
+     * @param dctx the dispatch context
+     * @param context service context, see {@code servicedef/services.xml#mfgQualityReport}
+     * @return the service result with the rates, the totals and the breakdown lists
+     */
+    public static Map<String, Object> qualityReport(DispatchContext dctx, Map<String, ? extends Object> context) {
+        Delegator delegator = dctx.getDelegator();
+        java.sql.Date toDate = (java.sql.Date) parseDate(context.get("toDate"));
+        if (toDate == null) {
+            toDate = java.sql.Date.valueOf(LocalDate.now());
+        }
+        java.sql.Date fromDate = (java.sql.Date) parseDate(context.get("fromDate"));
+        if (fromDate == null) {
+            fromDate = java.sql.Date.valueOf(toDate.toLocalDate().minusDays(89));
+        }
+        try {
+            Map<String, GenericValue> products = new LinkedHashMap<>();
+            for (GenericValue product : EntityQuery.use(delegator).from("MfgProduct").queryList()) {
+                products.put(product.getString("productCode"), product);
+            }
+            Map<String, String> snToProduct = new LinkedHashMap<>();
+            for (GenericValue unit : EntityQuery.use(delegator).from("MfgSn").queryList()) {
+                snToProduct.put(unit.getString("sn"), unit.getString("productCode"));
+            }
+
+            // units actually sold in the period: replacement deliveries are not a sale
+            Map<String, Map<String, Object>> byProduct = new LinkedHashMap<>();
+            long shippedUnits = 0;
+            long deliveries = 0;
+            double salesTotal = 0.0;
+            for (GenericValue delivery : EntityQuery.use(delegator).from("MfgDelivery").queryList()) {
+                java.sql.Date deliveryDate = delivery.getDate("deliveryDate");
+                if (deliveryDate == null || deliveryDate.before(fromDate) || deliveryDate.after(toDate)) {
+                    continue;
+                }
+                String note = delivery.getString("note");
+                if (note != null && note.startsWith("换货")) {
+                    continue;
+                }
+                List<GenericValue> items = EntityQuery.use(delegator).from("MfgDeliverySn")
+                        .where("deliveryId", delivery.getString("deliveryId")).queryList();
+                boolean counted = false;
+                for (GenericValue item : items) {
+                    String productCode = snToProduct.get(item.getString("sn"));
+                    if (productCode == null) {
+                        continue;
+                    }
+                    Map<String, Object> row = productRow(byProduct, productCode);
+                    row.put("shippedUnits", Long.valueOf(((Long) row.get("shippedUnits")).longValue() + 1));
+                    shippedUnits++;
+                    counted = true;
+                }
+                if (counted) {
+                    deliveries++;
+                }
+            }
+            for (Map.Entry<String, Map<String, Object>> entry : byProduct.entrySet()) {
+                GenericValue product = products.get(entry.getKey());
+                double price = product == null || product.getDouble("salePrice") == null
+                        ? 0.0 : product.getDouble("salePrice").doubleValue();
+                double rowSales = ((Long) entry.getValue().get("shippedUnits")).longValue() * price;
+                entry.getValue().put("salePrice", Double.valueOf(price));
+                entry.getValue().put("sales", Double.valueOf(rowSales));
+                salesTotal += rowSales;
+            }
+
+            long claimCount = 0;
+            long rtnCount = 0;
+            long exchCount = 0;
+            long repairCount = 0;
+            long refundOnlyCount = 0;
+            long claimsWithin30 = 0;
+            double refundTotal = 0.0;
+            double freightTotal = 0.0;
+            double hoursTotal = 0.0;
+            double costTotal = 0.0;
+            Map<String, Map<String, Object>> byResponsibility = new LinkedHashMap<>();
+            Map<String, Long> byAge = new LinkedHashMap<>();
+            Map<String, Long> byInspect = new LinkedHashMap<>();
+            Map<String, Long> claimsPerSn = new LinkedHashMap<>();
+            Map<String, Long> claimsPerLot = new LinkedHashMap<>();
+            Map<String, GenericValue> lots = new LinkedHashMap<>();
+            Map<String, List<String>> lotsOfWorkOrder = new LinkedHashMap<>();
+
+            for (GenericValue claim : EntityQuery.use(delegator).from("MfgWarrantyClaim").queryList()) {
+                java.sql.Date receivedDate = claim.getDate("receivedDate");
+                if (receivedDate == null || receivedDate.before(fromDate) || receivedDate.after(toDate)) {
+                    continue;
+                }
+                claimCount++;
+                String claimType = claim.getString("claimType");
+                if (CLAIM_EXCH.equals(claimType)) {
+                    exchCount++;
+                } else if (CLAIM_REPAIR.equals(claimType)) {
+                    repairCount++;
+                } else if (CLAIM_REFUND_ONLY.equals(claimType)) {
+                    refundOnlyCount++;
+                } else {
+                    rtnCount++;
+                }
+
+                double refund = claim.getDouble("refundAmount") == null
+                        ? 0.0 : claim.getDouble("refundAmount").doubleValue();
+                double hours = claim.getDouble("repairHours") == null
+                        ? 0.0 : claim.getDouble("repairHours").doubleValue();
+                double freight = FREIGHT_SELLER.equals(claim.getString("freightPayer"))
+                        ? QUALITY_FREIGHT_COST : 0.0;
+                double cost = claimCost(refund, freight, hours, QUALITY_HOURLY_RATE);
+                refundTotal += refund;
+                freightTotal += freight;
+                hoursTotal += hours;
+                costTotal += cost;
+
+                int days = daysBetween(claim.getDate("deliveryDate"), receivedDate);
+                if (days >= 0 && days <= 30) {
+                    claimsWithin30++;
+                }
+
+                String sn = claim.getString("sn");
+                String productCode = snToProduct.get(sn);
+                if (productCode != null) {
+                    Map<String, Object> row = productRow(byProduct, productCode);
+                    row.put("claimCount", Long.valueOf(((Long) row.get("claimCount")).longValue() + 1));
+                    row.put("refundTotal", Double.valueOf(sumOf(row, "refundTotal") + refund));
+                    row.put("repairHours", Double.valueOf(sumOf(row, "repairHours") + hours));
+                    row.put("cost", Double.valueOf(sumOf(row, "cost") + cost));
+                }
+
+                String responsibility = claim.getString("responsibility");
+                Map<String, Object> respRow = productRow(byResponsibility,
+                        responsibility == null ? "-" : responsibility);
+                respRow.put("claimCount", Long.valueOf(((Long) respRow.get("claimCount")).longValue() + 1));
+                respRow.put("refundTotal", Double.valueOf(sumOf(respRow, "refundTotal") + refund));
+                respRow.put("repairHours", Double.valueOf(sumOf(respRow, "repairHours") + hours));
+                respRow.put("cost", Double.valueOf(sumOf(respRow, "cost") + cost));
+
+                bump(byAge, ageBucket(days));
+                bump(byInspect, claim.getString("inspectResult") == null
+                        ? "UNKNOWN" : claim.getString("inspectResult"));
+                bump(claimsPerSn, sn);
+                for (String lotId : lotsOf(delegator, claim.getString("workOrderId"), lotsOfWorkOrder)) {
+                    bump(claimsPerLot, lotId);
+                    if (!lots.containsKey(lotId)) {
+                        GenericValue lot = EntityQuery.use(delegator).from("MfgMaterialLot")
+                                .where("lotId", lotId).queryOne();
+                        if (lot != null) {
+                            lots.put(lotId, lot);
+                        }
+                    }
+                }
+            }
+
+            List<Map<String, Object>> productRows = new ArrayList<>();
+            for (Map<String, Object> row : byProduct.values()) {
+                long shipped = ((Long) row.get("shippedUnits")).longValue();
+                long claims = ((Long) row.get("claimCount")).longValue();
+                row.put("claimRate", percent(claims, shipped));
+                row.put("costRate", percentOf(sumOf(row, "cost"), sumOf(row, "sales")));
+                productRows.add(row);
+            }
+            productRows.sort(new Comparator<Map<String, Object>>() {
+                @Override
+                public int compare(Map<String, Object> left, Map<String, Object> right) {
+                    return ((Long) right.get("claimCount")).compareTo((Long) left.get("claimCount"));
+                }
+            });
+
+            List<Map<String, Object>> responsibilityRows = new ArrayList<>(byResponsibility.values());
+            responsibilityRows.sort(new Comparator<Map<String, Object>>() {
+                @Override
+                public int compare(Map<String, Object> left, Map<String, Object> right) {
+                    return ((Long) right.get("claimCount")).compareTo((Long) left.get("claimCount"));
+                }
+            });
+
+            double averageClaimsPerLot = claimsPerLot.isEmpty() ? 0.0
+                    : (double) claimCount / (double) claimsPerLot.size();
+            List<Map<String, Object>> lotRows = new ArrayList<>();
+            for (Map.Entry<String, Long> entry : claimsPerLot.entrySet()) {
+                GenericValue lot = lots.get(entry.getKey());
+                Map<String, Object> row = new LinkedHashMap<>();
+                row.put("lotId", entry.getKey());
+                row.put("componentCode", lot == null ? null : lot.getString("componentCode"));
+                row.put("supplierName", lot == null ? null : lot.getString("supplierName"));
+                row.put("supplierLot", lot == null ? null : lot.getString("supplierLot"));
+                row.put("claimCount", entry.getValue());
+                row.put("average", Double.valueOf(averageClaimsPerLot));
+                row.put("suspicious", entry.getValue().longValue() >= QUALITY_LOT_FACTOR * averageClaimsPerLot
+                        && entry.getValue().longValue() > 1 ? "Y" : "N");
+                lotRows.add(row);
+            }
+            lotRows.sort(new Comparator<Map<String, Object>>() {
+                @Override
+                public int compare(Map<String, Object> left, Map<String, Object> right) {
+                    return ((Long) right.get("claimCount")).compareTo((Long) left.get("claimCount"));
+                }
+            });
+
+            long repeatedSnCount = 0;
+            for (Long times : claimsPerSn.values()) {
+                if (times.longValue() > 1) {
+                    repeatedSnCount++;
+                }
+            }
+
+            List<Map<String, Object>> ageRows = new ArrayList<>();
+            for (String bucket : new String[] {"0-30", "31-90", "91-180", ">180", "未知"}) {
+                Long value = byAge.get(bucket);
+                if (value == null || value.longValue() == 0) {
+                    continue;
+                }
+                Map<String, Object> row = new LinkedHashMap<>();
+                row.put("bucket", bucket);
+                row.put("claimCount", value);
+                ageRows.add(row);
+            }
+            List<Map<String, Object>> inspectRows = new ArrayList<>();
+            for (Map.Entry<String, Long> entry : byInspect.entrySet()) {
+                Map<String, Object> row = new LinkedHashMap<>();
+                row.put("inspectResult", entry.getKey());
+                row.put("claimCount", entry.getValue());
+                inspectRows.add(row);
+            }
+
+            String costRate = percentOf(costTotal, salesTotal);
+            String repairRate30 = percent(claimsWithin30, shippedUnits);
+
+            Map<String, Object> result = ServiceUtil.returnSuccess();
+            result.put("fromDate", fromDate);
+            result.put("toDate", toDate);
+            result.put("deliveries", Long.valueOf(deliveries));
+            result.put("shippedUnits", Long.valueOf(shippedUnits));
+            result.put("claimCount", Long.valueOf(claimCount));
+            result.put("rtnCount", Long.valueOf(rtnCount));
+            result.put("exchCount", Long.valueOf(exchCount));
+            result.put("repairCount", Long.valueOf(repairCount));
+            result.put("refundOnlyCount", Long.valueOf(refundOnlyCount));
+            result.put("claimsWithin30", Long.valueOf(claimsWithin30));
+            result.put("repeatedSnCount", Long.valueOf(repeatedSnCount));
+            result.put("returnRate", percent(rtnCount, shippedUnits));
+            result.put("exchangeRate", percent(exchCount, shippedUnits));
+            result.put("repairRate", percent(repairCount, shippedUnits));
+            result.put("claimRate", percent(claimCount, shippedUnits));
+            result.put("repairRate30", repairRate30);
+            result.put("refundTotal", Double.valueOf(refundTotal));
+            result.put("freightTotal", Double.valueOf(freightTotal));
+            result.put("hoursTotal", Double.valueOf(hoursTotal));
+            result.put("costTotal", Double.valueOf(costTotal));
+            result.put("costPerUnit", Double.valueOf(shippedUnits == 0 ? 0.0 : costTotal / shippedUnits));
+            result.put("salesTotal", Double.valueOf(salesTotal));
+            result.put("costRate", costRate);
+            result.put("hourlyRate", Double.valueOf(QUALITY_HOURLY_RATE));
+            result.put("freightPerClaim", Double.valueOf(QUALITY_FREIGHT_COST));
+            result.put("repairRateLimit", Double.valueOf(QUALITY_REPAIR_RATE_LIMIT));
+            result.put("costRateLimit", Double.valueOf(QUALITY_COST_RATE_LIMIT));
+            result.put("lotFactor", Double.valueOf(QUALITY_LOT_FACTOR));
+            result.put("overRepairLimit", isOverLimit(claimsWithin30, shippedUnits,
+                    QUALITY_REPAIR_RATE_LIMIT) ? "Y" : "N");
+            result.put("overCostLimit", isOverLimit(costTotal, salesTotal,
+                    QUALITY_COST_RATE_LIMIT) ? "Y" : "N");
+            result.put("products", productRows);
+            result.put("responsibilities", responsibilityRows);
+            result.put("lots", lotRows);
+            result.put("ages", ageRows);
+            result.put("inspections", inspectRows);
+            return result;
+        } catch (GenericEntityException e) {
+            return ServiceUtil.returnError("Could not build the quality report: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Formats a ratio as a percentage with one decimal, for the reports.
+     *
+     * @param part the numerator
+     * @param whole the denominator
+     * @return the percentage, or {@code "-"} when the denominator is zero
+     */
+    static String percent(long part, long whole) {
+        if (whole <= 0) {
+            return "-";
+        }
+        return percentOf(part, whole);
+    }
+
+    /**
+     * Formats a money ratio as a percentage with one decimal.
+     *
+     * @param part the numerator
+     * @param whole the denominator
+     * @return the percentage, or {@code "-"} when the denominator is zero
+     */
+    static String percentOf(double part, double whole) {
+        if (whole <= 0.0) {
+            return "-";
+        }
+        return String.format(Locale.ROOT, "%.1f", part * 100.0 / whole);
+    }
+
+    /**
+     * Days between two dates, used to age a claim.
+     *
+     * @param from the earlier date, usually the delivery date
+     * @param to the later date, usually the date the unit came back
+     * @return the days, or {@code -1} when either date is missing
+     */
+    static int daysBetween(java.sql.Date from, java.sql.Date to) {
+        if (from == null || to == null) {
+            return -1;
+        }
+        return (int) java.time.temporal.ChronoUnit.DAYS.between(from.toLocalDate(), to.toLocalDate());
+    }
+
+    /**
+     * Buckets the age of a claim, so early failures can be told apart from wear.
+     *
+     * @param days days between delivery and return
+     * @return the bucket label
+     */
+    static String ageBucket(int days) {
+        if (days < 0) {
+            return "未知";
+        }
+        if (days <= 30) {
+            return "0-30";
+        }
+        if (days <= 90) {
+            return "31-90";
+        }
+        if (days <= 180) {
+            return "91-180";
+        }
+        return ">180";
+    }
+
+    /**
+     * Money one claim cost us: the refund, the freight we paid and the repair labour.
+     *
+     * @param refund amount refunded
+     * @param freight freight we paid
+     * @param hours repair hours
+     * @param hourlyRate labour cost per hour
+     * @return the cost
+     */
+    static double claimCost(double refund, double freight, double hours, double hourlyRate) {
+        return refund + freight + hours * hourlyRate;
+    }
+
+    /**
+     * Tells whether a measured ratio passed a red line.
+     *
+     * @param part the numerator
+     * @param whole the denominator
+     * @param limit the red line in percent
+     * @return {@code true} when the ratio is above the limit
+     */
+    static boolean isOverLimit(double part, double whole, double limit) {
+        if (whole <= 0.0) {
+            return false;
+        }
+        return part * 100.0 / whole > limit;
+    }
+
+    private static Map<String, Object> productRow(Map<String, Map<String, Object>> rows, String key) {
+        Map<String, Object> row = rows.get(key);
+        if (row == null) {
+            row = new LinkedHashMap<>();
+            row.put("productCode", key);
+            row.put("shippedUnits", Long.valueOf(0));
+            row.put("claimCount", Long.valueOf(0));
+            row.put("refundTotal", Double.valueOf(0.0));
+            row.put("repairHours", Double.valueOf(0.0));
+            row.put("cost", Double.valueOf(0.0));
+            row.put("sales", Double.valueOf(0.0));
+            rows.put(key, row);
+        }
+        return row;
+    }
+
+    private static double sumOf(Map<String, Object> row, String key) {
+        Object value = row.get(key);
+        return value == null ? 0.0 : ((Double) value).doubleValue();
+    }
+
+    private static void bump(Map<String, Long> counters, String key) {
+        if (key == null) {
+            return;
+        }
+        Long current = counters.get(key);
+        counters.put(key, Long.valueOf(current == null ? 1 : current.longValue() + 1));
+    }
+
+    private static List<String> lotsOf(Delegator delegator, String workOrderId,
+            Map<String, List<String>> cache) throws GenericEntityException {
+        if (workOrderId == null) {
+            return new ArrayList<>();
+        }
+        List<String> cached = cache.get(workOrderId);
+        if (cached != null) {
+            return cached;
+        }
+        List<String> lotIds = new ArrayList<>();
+        for (GenericValue issue : EntityQuery.use(delegator).from("MfgMaterialIssue")
+                .where("workOrderId", workOrderId).queryList()) {
+            String lotId = issue.getString("lotId");
+            if (lotId != null && !lotIds.contains(lotId)) {
+                lotIds.add(lotId);
+            }
+        }
+        cache.put(workOrderId, lotIds);
+        return lotIds;
+    }
+
     // ------------------------------------------------------------------ helpers
 
     /**
@@ -3543,6 +3973,7 @@ always
                 map.put("snPrefix", product.getString("snPrefix"));
                 map.put("standardHours", product.getDouble("standardHours"));
                 map.put("warrantyMonths", product.getLong("warrantyMonths"));
+                map.put("salePrice", product.getDouble("salePrice"));
                 map.put("statusId", product.getString("statusId"));
                 map.put("bomCount", Integer.valueOf(count(delegator, "MfgBomItem", productCode)));
                 map.put("routingCount", Integer.valueOf(count(delegator, "MfgRouting", productCode)));
@@ -3627,6 +4058,7 @@ always
         map.put("snPrefix", product.getString("snPrefix"));
         map.put("standardHours", product.getDouble("standardHours"));
         map.put("warrantyMonths", product.getLong("warrantyMonths"));
+        map.put("salePrice", product.getDouble("salePrice"));
         map.put("statusId", product.getString("statusId"));
         map.put("note", product.getString("note"));
         return map;

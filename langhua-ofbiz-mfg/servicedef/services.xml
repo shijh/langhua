@@ -13,6 +13,7 @@
         <attribute name="snPrefix" type="String" mode="IN" optional="true"/>
         <attribute name="standardHours" type="Double" mode="IN" optional="true"/>
         <attribute name="warrantyMonths" type="Long" mode="IN" optional="true"/>
+        <attribute name="salePrice" type="Double" mode="IN" optional="true"/>
         <attribute name="statusId" type="String" mode="IN" optional="true"/>
         <attribute name="note" type="String" mode="IN" optional="true"/>
         <attribute name="productCode" type="String" mode="OUT" optional="true"/>
@@ -538,6 +539,51 @@
         <attribute name="riskLevel" type="String" mode="OUT" optional="true"/>
         <attribute name="buyerNick" type="String" mode="OUT" optional="true"/>
         <attribute name="receiverMobile" type="String" mode="OUT" optional="true"/>
+    </service>
+
+    <!-- ==================== after sales quality ==================== -->
+
+    <service name="mfgQualityReport" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgServices" invoke="qualityReport"
+            auth="false" use-transaction="false">
+        <description>Return, exchange and repair rates with the cost they cause and the breakdowns behind them</description>
+        <attribute name="fromDate" type="String" mode="IN" optional="true"/>
+        <attribute name="toDate" type="String" mode="IN" optional="true"/>
+        <attribute name="fromDate" type="java.sql.Date" mode="OUT" optional="true"/>
+        <attribute name="toDate" type="java.sql.Date" mode="OUT" optional="true"/>
+        <attribute name="deliveries" type="Long" mode="OUT" optional="true"/>
+        <attribute name="shippedUnits" type="Long" mode="OUT" optional="true"/>
+        <attribute name="claimCount" type="Long" mode="OUT" optional="true"/>
+        <attribute name="rtnCount" type="Long" mode="OUT" optional="true"/>
+        <attribute name="exchCount" type="Long" mode="OUT" optional="true"/>
+        <attribute name="repairCount" type="Long" mode="OUT" optional="true"/>
+        <attribute name="refundOnlyCount" type="Long" mode="OUT" optional="true"/>
+        <attribute name="claimsWithin30" type="Long" mode="OUT" optional="true"/>
+        <attribute name="repeatedSnCount" type="Long" mode="OUT" optional="true"/>
+        <attribute name="returnRate" type="String" mode="OUT" optional="true"/>
+        <attribute name="exchangeRate" type="String" mode="OUT" optional="true"/>
+        <attribute name="repairRate" type="String" mode="OUT" optional="true"/>
+        <attribute name="claimRate" type="String" mode="OUT" optional="true"/>
+        <attribute name="repairRate30" type="String" mode="OUT" optional="true"/>
+        <attribute name="refundTotal" type="Double" mode="OUT" optional="true"/>
+        <attribute name="freightTotal" type="Double" mode="OUT" optional="true"/>
+        <attribute name="hoursTotal" type="Double" mode="OUT" optional="true"/>
+        <attribute name="costTotal" type="Double" mode="OUT" optional="true"/>
+        <attribute name="costPerUnit" type="Double" mode="OUT" optional="true"/>
+        <attribute name="salesTotal" type="Double" mode="OUT" optional="true"/>
+        <attribute name="costRate" type="String" mode="OUT" optional="true"/>
+        <attribute name="hourlyRate" type="Double" mode="OUT" optional="true"/>
+        <attribute name="freightPerClaim" type="Double" mode="OUT" optional="true"/>
+        <attribute name="repairRateLimit" type="Double" mode="OUT" optional="true"/>
+        <attribute name="costRateLimit" type="Double" mode="OUT" optional="true"/>
+        <attribute name="lotFactor" type="Double" mode="OUT" optional="true"/>
+        <attribute name="overRepairLimit" type="String" mode="OUT" optional="true"/>
+        <attribute name="overCostLimit" type="String" mode="OUT" optional="true"/>
+        <attribute name="products" type="java.util.List" mode="OUT" optional="true"/>
+        <attribute name="responsibilities" type="java.util.List" mode="OUT" optional="true"/>
+        <attribute name="lots" type="java.util.List" mode="OUT" optional="true"/>
+        <attribute name="ages" type="java.util.List" mode="OUT" optional="true"/>
+        <attribute name="inspections" type="java.util.List" mode="OUT" optional="true"/>
     </service>
 
     <service name="mfgBuyerRiskList" engine="java"
