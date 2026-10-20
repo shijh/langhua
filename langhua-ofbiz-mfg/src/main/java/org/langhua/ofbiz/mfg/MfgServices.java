@@ -117,6 +117,7 @@ public final class MfgServices {
     public static final long DEADLINE_WARNING_HOURS = 24L;
 
     private static final DateTimeFormatter DAY = DateTimeFormatter.ofPattern("yyMMdd");
+    private static final DateTimeFormatter MONTH_DAY = DateTimeFormatter.ofPattern("MM-dd");
 
     private MfgServices() {
     }
@@ -3207,6 +3208,196 @@ always
     }
 
     // ------------------------------------------------------- after sales quality
+
+    /**
+     * Daily series and after sales KPI for the dashboard, rendered as plain HTML bars so the page
+     * needs no chart library and works offline.
+     *
+     * @param dctx the dispatch context
+     * @param context service context, see {@code servicedef/services.xml#mfgDashboardTrends}
+     * @return the service result containing {@code kpi}, {@code days} and {@code responsibilities}
+     */
+    public static Map<String, Object> dashboardTrends(DispatchContext dctx, Map<String, ? extends Object> context) {
+        Delegator delegator = dctx.getDelegator();
+        long days = toLong(context.get("dayCount"), 30);
+        if (days <= 0 || days > 180) {
+            days = 30;
+        }
+        LocalDate today = LocalDate.now();
+        LocalDate start = today.minusDays(days - 1);
+        java.sql.Date fromDate = java.sql.Date.valueOf(start);
+        java.sql.Date toDate = java.sql.Date.valueOf(today);
+        try {
+            Map<String, Long> shippedByDay = new LinkedHashMap<>();
+            Map<String, Long> claimsByDay = new LinkedHashMap<>();
+            for (String label : lastDayLabels(today, (int) days)) {
+                shippedByDay.put(label, Long.valueOf(0));
+                claimsByDay.put(label, Long.valueOf(0));
+            }
+
+            long shippedUnits = 0;
+            for (GenericValue delivery : EntityQuery.use(delegator).from("MfgDelivery").queryList()) {
+                java.sql.Date deliveryDate = delivery.getDate("deliveryDate");
+                if (deliveryDate == null || deliveryDate.before(fromDate) || deliveryDate.after(toDate)) {
+                    continue;
+                }
+                String note = delivery.getString("note");
+                if (note != null && note.startsWith("换货")) {
+                    continue;
+                }
+                String label = deliveryDate.toLocalDate().format(MONTH_DAY);
+                if (!shippedByDay.containsKey(label)) {
+                    continue;
+                }
+                long units = EntityQuery.use(delegator).from("MfgDeliverySn")
+                        .where("deliveryId", delivery.getString("deliveryId")).queryList().size();
+                shippedByDay.put(label, Long.valueOf(shippedByDay.get(label).longValue() + units));
+                shippedUnits += units;
+            }
+
+            long claimCount = 0;
+            long openClaims = 0;
+            double refundTotal = 0.0;
+            double hoursTotal = 0.0;
+            double costTotal = 0.0;
+            Map<String, Double> costByResponsibility = new LinkedHashMap<>();
+            Map<String, Long> countByResponsibility = new LinkedHashMap<>();
+            for (GenericValue claim : EntityQuery.use(delegator).from("MfgWarrantyClaim").queryList()) {
+                if (RMA_OPEN.equals(claim.getString("statusId"))) {
+                    openClaims++;
+                }
+                java.sql.Date receivedDate = claim.getDate("receivedDate");
+                if (receivedDate == null || receivedDate.before(fromDate) || receivedDate.after(toDate)) {
+                    continue;
+                }
+                claimCount++;
+                String label = receivedDate.toLocalDate().format(MONTH_DAY);
+                if (claimsByDay.containsKey(label)) {
+                    claimsByDay.put(label, Long.valueOf(claimsByDay.get(label).longValue() + 1));
+                }
+                double refund = claim.getDouble("refundAmount") == null
+                        ? 0.0 : claim.getDouble("refundAmount").doubleValue();
+                double hours = claim.getDouble("repairHours") == null
+                        ? 0.0 : claim.getDouble("repairHours").doubleValue();
+                double freight = FREIGHT_SELLER.equals(claim.getString("freightPayer"))
+                        ? QUALITY_FREIGHT_COST : 0.0;
+                double cost = claimCost(refund, freight, hours, QUALITY_HOURLY_RATE);
+                refundTotal += refund;
+                hoursTotal += hours;
+                costTotal += cost;
+                String responsibility = claim.getString("responsibility");
+                if (responsibility == null) {
+                    responsibility = "-";
+                }
+                Double current = costByResponsibility.get(responsibility);
+                costByResponsibility.put(responsibility, Double.valueOf(current == null ? cost
+                        : current.doubleValue() + cost));
+                Long times = countByResponsibility.get(responsibility);
+                countByResponsibility.put(responsibility, Long.valueOf(times == null ? 1
+                        : times.longValue() + 1));
+            }
+
+            long maxShipped = 1;
+            long maxClaims = 1;
+            for (Long value : shippedByDay.values()) {
+                maxShipped = Math.max(maxShipped, value.longValue());
+            }
+            for (Long value : claimsByDay.values()) {
+                maxClaims = Math.max(maxClaims, value.longValue());
+            }
+            List<Map<String, Object>> dayRows = new ArrayList<>(shippedByDay.size());
+            for (Map.Entry<String, Long> entry : shippedByDay.entrySet()) {
+                Map<String, Object> row = new LinkedHashMap<>();
+                long shipped = entry.getValue().longValue();
+                Long claims = claimsByDay.get(entry.getKey());
+                long claimValue = claims == null ? 0 : claims.longValue();
+                row.put("date", entry.getKey());
+                row.put("shipped", Long.valueOf(shipped));
+                row.put("claims", Long.valueOf(claimValue));
+                row.put("shipPct", Long.valueOf(percentOfMax(shipped, maxShipped)));
+                row.put("claimPct", Long.valueOf(percentOfMax(claimValue, maxClaims)));
+                dayRows.add(row);
+            }
+
+            double maxCost = 1.0;
+            for (Double value : costByResponsibility.values()) {
+                maxCost = Math.max(maxCost, value.doubleValue());
+            }
+            List<Map<String, Object>> responsibilityRows = new ArrayList<>();
+            for (Map.Entry<String, Double> entry : costByResponsibility.entrySet()) {
+                Map<String, Object> row = new LinkedHashMap<>();
+                row.put("responsibility", entry.getKey());
+                row.put("claimCount", countByResponsibility.get(entry.getKey()));
+                row.put("cost", entry.getValue());
+                row.put("pct", Long.valueOf(Math.round(entry.getValue().doubleValue() * 100.0 / maxCost)));
+                responsibilityRows.add(row);
+            }
+            responsibilityRows.sort(new Comparator<Map<String, Object>>() {
+                @Override
+                public int compare(Map<String, Object> left, Map<String, Object> right) {
+                    return ((Double) right.get("cost")).compareTo((Double) left.get("cost"));
+                }
+            });
+
+            Map<String, Object> kpi = new LinkedHashMap<>();
+            kpi.put("shippedUnits", Long.valueOf(shippedUnits));
+            kpi.put("claimCount", Long.valueOf(claimCount));
+            kpi.put("openClaims", Long.valueOf(openClaims));
+            kpi.put("claimRate", percent(claimCount, shippedUnits));
+            kpi.put("refundTotal", Double.valueOf(refundTotal));
+            kpi.put("hoursTotal", Double.valueOf(hoursTotal));
+            kpi.put("costTotal", Double.valueOf(costTotal));
+            kpi.put("costPerUnit", Double.valueOf(shippedUnits == 0 ? 0.0 : costTotal / shippedUnits));
+
+            Map<String, Object> result = ServiceUtil.returnSuccess();
+            result.put("kpi", kpi);
+            result.put("days", dayRows);
+            result.put("responsibilities", responsibilityRows);
+            result.put("fromDate", fromDate);
+            result.put("toDate", toDate);
+            result.put("refreshedAt", java.time.LocalTime.now()
+                    .format(DateTimeFormatter.ofPattern("HH:mm:ss", Locale.ROOT)));
+            return result;
+        } catch (GenericEntityException e) {
+            return ServiceUtil.returnError("Could not build the dashboard series: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Labels of the last {@code days} days, oldest first, as used on the dashboard axis.
+     *
+     * @param end the last day
+     * @param days how many days to list
+     * @return the labels in {@code MM-dd} form
+     */
+    static List<String> lastDayLabels(LocalDate end, int days) {
+        List<String> labels = new ArrayList<>();
+        if (end == null || days <= 0) {
+            return labels;
+        }
+        for (int i = days - 1; i >= 0; i--) {
+            labels.add(end.minusDays(i).format(MONTH_DAY));
+        }
+        return labels;
+    }
+
+    /**
+     * Scales a value against the largest one so a bar can be drawn without any chart library.
+     *
+     * @param value the value
+     * @param max the largest value of the series
+     * @return the percentage of the largest value, 0 for zero and at least 2 for a non zero value
+     */
+    static long percentOfMax(long value, long max) {
+        if (value <= 0) {
+            return 0;
+        }
+        if (max <= 0) {
+            return 100;
+        }
+        long pct = Math.round(value * 100.0 / max);
+        return Math.max(2, pct);
+    }
 
     /**
      * Builds the after sales quality report: return, exchange and repair rates, the money they

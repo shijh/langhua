@@ -17,7 +17,7 @@
 | 工序报工 | 按工单/工序列报工时与合格/不良数量，支持绑定到具体 SN |
 | 不良记录 | 不良代码、责任归属（自制/外协/来料）、返修工时 |
 | SN 履历 | 一块板：报工记录 + 不良记录 + 所用物料批次 |
-| 看板 | 在制工单数/数量、今日工时、今日良率、最近报工 |
+| **看板** | 在制工单数/数量、今日工时、今日良率；**售后 KPI（出货台数、售后单、发生率、未结、成本）** + 每日出货/售后柱图 + 责任方成本横条，60 秒自动刷新 |
 | **物料批次** | 采购到货台账：内部批次 `LOT-yyMMdd-NN`、供应商批号/DateCode、到货数量；支持 CSV 批量导入 |
 | **发料** | 按工单发料（料号 + 批次 + 数量 + 位号），形成“SN → 工单 → 批次”链路 |
 | **齐套** | BOM 需求（用量 × 计划数）vs 已发料，自动算出欠料行 |
@@ -46,7 +46,7 @@ langhua-ofbiz-mfg/
 │   ├── entitymodel.xml                  # 17 个业务实体
 │   └── entitygroup.xml
 ├── servicedef/
-│   └── services.xml                     # 41 个服务
+│   └── services.xml                     # 42 个服务
 ├── widget/
 │   ├── MfgCommonScreens.xml             # 登录/错误页 decorator
 │   └── MfgScreens.xml                   # 12 个页面
@@ -132,6 +132,7 @@ https://localhost:8443/mfg/control/main
 | `mfgBuyerFlagCheck` | 发货前按手机号（自动去格式）或昵称查名单，返回命中项与最高风险等级 |
 | `mfgBuyerRiskList` | 按买家昵称聚合售后历史（单数、退款合计、最后收件日）并给出建议等级，仅建议不自动拉黑 |
 | `mfgQualityReport` | 售后质量报表：退货/换货/返修/成本率 + 金额 + 按型号、责任方、批次、失效天数、检测结论分解 + 红线判定 |
+| `mfgDashboardTrends` | 看板数据：近 N 天每日出货/售后序列（已按最大值缩放到百分比）+ 售后 KPI + 责任方成本 |
 
 示例（Web Tools → Run Service → `mfgBomImport`）：
 
@@ -151,7 +152,7 @@ csv         = R0402-10K,10K 0402 resistor,4,R1-R4,N
 | `/mfg/control/products?productCode=...` | 产品型号、BOM 导入与工艺路线维护 |
 | `/mfg/control/workOrder?workOrderId=...` | 工单详情：工序进度、报工、SN 生成、不良登记 |
 | `/mfg/control/sn?sn=...` | 单板履历：报工、不良、所用物料批次 |
-| `/mfg/control/dashboard` | 车间看板 |
+| `/mfg/control/dashboard` | 车间看板：生产卡片 + 售后 KPI + 每日柱图 + 责任方成本 + 最近报工，60 秒自动刷新 |
 | `/mfg/control/materials` | 物料批次台账、收货登记、CSV 批量导入、按批次反向追溯 |
 | `/mfg/control/shortage` | 齐套预警：按交期列出欠料工单与明细 |
 | `/mfg/control/delivery` | 出货单：新建、列表、明细；出货后 SN 变为 `MFG_SHIPPED` |
@@ -197,10 +198,11 @@ productSave → bomImport → routingSave → productDetail
            → claimRepair → claimExchange → 重复开单拒绝
            → buyerFlagSave → buyerFlagCheck → 售后单继承风险等级 → 解除后不再命中
            → 脱敏手机号被拒绝 → qualityReport（四率 + 成本 + 红线）
+           → dashboardTrends（序列 + KPI）
            → 非法报工（workHours = 0）/ 错料发料（批次不属于该料号）/ 非法售后状态
 ```
 
-共 128 项断言，全部通过时退出码为 0。测试是**可重复执行**的：每次创建/更新产品型号 `ITMFG`、替换其 BOM、
+共 133 项断言，全部通过时退出码为 0。测试是**可重复执行**的：每次创建/更新产品型号 `ITMFG`、替换其 BOM、
 新建一张工单、物料批次与出货单，以及相应的报工、不良、发料、收发、换件与测试数据。
 
 前置条件：OFBiz 已启动、已执行 `loadAll`、mfg 组件已部署。
@@ -223,7 +225,7 @@ java -cp "build/test-classes:ofbiz.jar:junit-4.13.2.jar:hamcrest-core-1.3.jar" \
 
 覆盖 BOM / 批次 / 测试结果 CSV 解析（引号、缺列、CRLF、注释行、大小写归一）、SN 列表拆分、FIFO 推定切片、
 邮寄标签格式、SN / 工单编号格式，保修到期日、7 天 / 15 天窗口、剩余小时与运费承担，
-以及买家匹配键、手机号归一化与打码、风险等级建议、名单到期判定，还有百分比、日期差与失效分档、售后成本计算、红线判定（共 35 个用例）。
+以及买家匹配键、手机号归一化与打码、风险等级建议、名单到期判定，还有百分比、日期差与失效分档、售后成本计算、红线判定、看板坐标轴与柱高缩放（共 37 个用例）。
 
 ## 追溯精度说明（重要）
 
@@ -280,6 +282,21 @@ SMT 为外协，且对方**不提供上料 / 换料记录**，因此追溯精度
 
 > **合规红线**：质量问题三包与 7 天无理由是法定义务，名单只能改变“怎么发/怎么留证”，不能改变“是否服务”。
 > 若买家投诉歧视，有 `evidenceNote` 与解除机制才说得清。
+
+## 前端选型：为什么看板不上框架
+
+看板一律用**服务端渲染 + 原生 CSS/JS**，不引入 React/Vue，也不引图表库：
+
+| 顾虑 | 现状做法 |
+| --- | --- |
+| 构建链 | OFBiz 只有 Gradle；前端零构建，改模板即生效 |
+| 内容安全策略 | CSP `default-src 'self'`，外部 CDN 会被拦；本环境也下载不到 CDN 资源 |
+| 图表 | 柱状图用 `div` 高度百分比，横条用 `width` 百分比（`mfgDashboardTrends` 已把数值缩放到 0–100） |
+| 自动刷新 | `webapp/mfg/js/dashboardRefresh.js` 每 60 秒 `location.reload()`，保留 URL 上的筛选参数 |
+| 降级 | 关掉 JS 看板照样能看，只是不自动刷新 |
+
+只有三种情况才值得单独立项选型，而且应做成**独立应用**而不是混进 OFBiz 视图：
+PDA/手机扫码作业、车间大屏、对外客户门户。
 
 ## 开发说明（OFBiz 24.09 踩坑记录）
 

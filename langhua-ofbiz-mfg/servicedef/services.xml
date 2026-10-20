@@ -543,6 +543,19 @@
 
     <!-- ==================== after sales quality ==================== -->
 
+    <service name="mfgDashboardTrends" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgServices" invoke="dashboardTrends"
+            auth="false" use-transaction="false">
+        <description>Daily shipped / claim series and after sales KPI for the dashboard bars</description>
+        <attribute name="dayCount" type="Long" mode="IN" optional="true"/>
+        <attribute name="kpi" type="java.util.Map" mode="OUT" optional="true"/>
+        <attribute name="days" type="java.util.List" mode="OUT" optional="true"/>
+        <attribute name="responsibilities" type="java.util.List" mode="OUT" optional="true"/>
+        <attribute name="fromDate" type="java.sql.Date" mode="OUT" optional="true"/>
+        <attribute name="toDate" type="java.sql.Date" mode="OUT" optional="true"/>
+        <attribute name="refreshedAt" type="String" mode="OUT" optional="true"/>
+    </service>
+
     <service name="mfgQualityReport" engine="java"
             location="org.langhua.ofbiz.mfg.MfgServices" invoke="qualityReport"
             auth="false" use-transaction="false">

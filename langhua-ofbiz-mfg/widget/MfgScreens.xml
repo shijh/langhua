@@ -120,6 +120,9 @@
             <actions>
                 <set field="title" value="Dashboard"/>
                 <service service-name="mfgDashboard" result-map="board" auto-field-map="false"/>
+                <service service-name="mfgDashboardTrends" result-map="trends" auto-field-map="false">
+                    <field-map field-name="dayCount" from-field="parameters.days"/>
+                </service>
             </actions>
             <widgets>
                 <platform-specific>

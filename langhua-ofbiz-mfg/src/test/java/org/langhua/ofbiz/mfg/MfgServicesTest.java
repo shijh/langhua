@@ -399,4 +399,28 @@ public class MfgServicesTest {
         assertTrue(!MfgServices.isOverLimit(3, 0, 2.0));
         assertTrue(MfgServices.isOverLimit(60.0, 1000.0, 5.0));
     }
+
+    @Test
+    public void listsTheLastDaysOldestFirst() {
+        java.time.LocalDate end = LocalDate.of(2026, 10, 21);
+
+        java.util.List<String> labels = MfgServices.lastDayLabels(end, 3);
+        assertEquals(3, labels.size());
+        assertEquals("10-19", labels.get(0));
+        assertEquals("10-20", labels.get(1));
+        assertEquals("10-21", labels.get(2));
+
+        assertTrue(MfgServices.lastDayLabels(end, 0).isEmpty());
+        assertTrue(MfgServices.lastDayLabels(null, 5).isEmpty());
+    }
+
+    @Test
+    public void scalesBarsAgainstTheLargestValue() {
+        assertEquals(100L, MfgServices.percentOfMax(10, 10));
+        assertEquals(50L, MfgServices.percentOfMax(5, 10));
+        assertEquals(0L, MfgServices.percentOfMax(0, 10));
+        // a value that exists is always visible, even when it is tiny
+        assertEquals(2L, MfgServices.percentOfMax(1, 1000));
+        assertEquals(100L, MfgServices.percentOfMax(3, 0));
+    }
 }

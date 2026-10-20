@@ -118,6 +118,7 @@ public final class MfgServiceIT {
             it.recordsDefect();
             it.readsWorkOrderDetail();
             it.readsDashboard();
+            it.readsDashboardTrends();
             it.createsMaterialLot();
             it.issuesMaterialLot();
             it.rejectsIssueOfForeignLot();
@@ -284,6 +285,23 @@ public final class MfgServiceIT {
         workOrderId = firstMatch(WORK_ORDER_ID, response.body);
         check("work order: identifier created", workOrderId != null, "no WO- identifier in response");
         System.out.println("[work order] " + workOrderId);
+    }
+
+    private void readsDashboardTrends() throws IOException {
+        Map<String, String> form = new LinkedHashMap<>();
+        form.put("dayCount", "7");
+
+        Response response = invoke("mfgDashboardTrends", form);
+        check("dashboard trends: service call returns HTTP 200", response.status == 200,
+                "HTTP " + response.status);
+        check("dashboard trends: kpi block returned", response.body.contains("shippedUnits"),
+                "no shippedUnits in response");
+        check("dashboard trends: daily series returned", response.body.contains("shipPct"),
+                "no scaled series in response");
+        check("dashboard trends: responsibility split returned",
+                response.body.contains("responsibilities"), "no responsibility split in response");
+        check("dashboard trends: refresh stamp returned", response.body.contains("refreshedAt"),
+                "no refresh stamp in response");
     }
 
     private void registersSerialNumbers() throws IOException {
