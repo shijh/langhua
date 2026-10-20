@@ -87,6 +87,8 @@ public final class MfgServiceIT {
     private String claimId;
     private String exchangeSn;
     private String repairWorkOrderId;
+    private static final String BUYER_MOBILE = "13900001111";
+    private static final String BUYER_NICK = "it_buyer";
     private final java.util.List<String> importedLotIds = new java.util.ArrayList<>();
 
     private MfgServiceIT(String baseUrl, String user, String password) {
@@ -131,12 +133,15 @@ public final class MfgServiceIT {
             it.rejectsDuplicateDelivery();
             it.savesVendor();
             it.attachesVendorToWorkOrder();
+            it.savesBuyerFlag();
+            it.checksBuyerFlag();
             it.registersWarrantyClaim();
             it.readsWarrantyClaim();
             it.opensRepairWorkOrder();
             it.shipsReplacement();
             it.closesWarrantyClaim();
             it.rejectsBadClaimStatus();
+            it.releasesBuyerFlag();
             it.rejectsZeroHoursReport();
         } finally {
             it.tearDown();
@@ -695,6 +700,53 @@ public final class MfgServiceIT {
                 "shipping label missing on the work order");
     }
 
+    private void savesBuyerFlag() throws IOException {
+        Map<String, String> form = new LinkedHashMap<>();
+        form.put("receiverMobile", BUYER_MOBILE);
+        form.put("buyerNick", BUYER_NICK);
+        form.put("receiverName", "IT Buyer");
+        form.put("riskLevel", "WATCH");
+        form.put("reasonCode", "FREQ_RETURN");
+        form.put("evidenceNote", "two no-reason returns in thirty days");
+
+        Response response = invoke("mfgBuyerFlagSave", form);
+        check("buyer flag: service call returns HTTP 200", response.status == 200, "HTTP " + response.status);
+        check("buyer flag: key built from the mobile", response.body.contains("TB:" + BUYER_MOBILE),
+                "no TB: key in response");
+        check("buyer flag: level kept", response.body.contains("WATCH"), "level missing from the response");
+
+        response = invoke("mfgBuyerFlagList", new LinkedHashMap<String, String>());
+        check("buyer flag: listed", response.body.contains(BUYER_NICK), "nickname missing from the list");
+        check("buyer flag: masked mobile offered", response.body.contains("maskedMobile"),
+                "no maskedMobile attribute in the list");
+    }
+
+    private void checksBuyerFlag() throws IOException {
+        Map<String, String> form = new LinkedHashMap<>();
+        form.put("receiverMobile", "139-0000-1111");
+
+        Response response = invoke("mfgBuyerFlagCheck", form);
+        check("buyer flag: formatted mobile still matches", response.body.contains(BUYER_NICK),
+                "no hit for the formatted mobile");
+    }
+
+    private void releasesBuyerFlag() throws IOException {
+        Map<String, String> form = new LinkedHashMap<>();
+        form.put("receiverMobile", BUYER_MOBILE);
+        form.put("buyerNick", BUYER_NICK);
+        form.put("riskLevel", "WATCH");
+        form.put("statusId", "MFG_FLAG_RELEASED");
+
+        Response response = invoke("mfgBuyerFlagSave", form);
+        check("buyer flag: release returns HTTP 200", response.status == 200, "HTTP " + response.status);
+
+        Map<String, String> checkForm = new LinkedHashMap<>();
+        checkForm.put("receiverMobile", BUYER_MOBILE);
+        response = invoke("mfgBuyerFlagCheck", checkForm);
+        check("buyer flag: released flag no longer matches", !response.body.contains(BUYER_NICK),
+                "released flag still matches");
+    }
+
     private void registersWarrantyClaim() throws IOException {
         if (serialNumber == null) {
             return;
@@ -705,7 +757,7 @@ public final class MfgServiceIT {
         form.put("signedDate", "2026-10-21");
         form.put("claimType", "EXCH");
         form.put("tradeNo", "TB-IT-9001");
-        form.put("buyerNick", "it_buyer");
+        form.put("buyerNick", BUYER_NICK);
         form.put("responsibility", "SMT-VENDOR");
         form.put("issueDesc", "Charging port loose after three months");
 
@@ -717,6 +769,8 @@ public final class MfgServiceIT {
         check("warranty: the flag is returned", response.body.contains("inWarranty"),
                 "no inWarranty attribute in response");
         check("warranty: the type is kept", response.body.contains("EXCH"), "type missing from the response");
+        check("warranty: the buyer risk level is inherited", response.body.contains("WATCH"),
+                "risk level missing from the response");
         check("warranty: the no reason window is derived from the signed date",
                 response.body.contains("2026-10-29"), "expected the seven day deadline on 2026-10-29");
 

@@ -18,4 +18,5 @@
     <entity-group group="org.apache.ofbiz" entity="MfgTestResult"/>
     <entity-group group="org.apache.ofbiz" entity="MfgVendor"/>
     <entity-group group="org.apache.ofbiz" entity="MfgWarrantyClaim"/>
+    <entity-group group="org.apache.ofbiz" entity="MfgBuyerFlag"/>
 </entitygroup>

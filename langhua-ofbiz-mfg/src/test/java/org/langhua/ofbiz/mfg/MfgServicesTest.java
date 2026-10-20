@@ -295,4 +295,48 @@ public class MfgServicesTest {
         assertEquals(MfgServices.FREIGHT_SELLER, MfgServices.defaultFreightPayer(MfgServices.CLAIM_REPAIR));
         assertEquals(MfgServices.FREIGHT_SELLER, MfgServices.defaultFreightPayer(MfgServices.CLAIM_REFUND_ONLY));
     }
+
+    @Test
+    public void normalizesMobileNumbers() {
+        assertEquals("13800002222", MfgServices.normalizeMobile("138-0000-2222"));
+        assertEquals("13800002222", MfgServices.normalizeMobile("+86 138 0000 2222".substring(3)));
+        assertEquals("13800002222", MfgServices.normalizeMobile(" 13800002222 "));
+        assertNull(MfgServices.normalizeMobile("123"));
+        assertNull(MfgServices.normalizeMobile(null));
+    }
+
+    @Test
+    public void buildsTheBuyerKeyFromMobileOrNick() {
+        assertEquals("TB:13800002222",
+                MfgServices.buyerKey(MfgServices.CHANNEL_TAOBAO, "138-0000-2222", "nick"));
+        // without a usable mobile the nickname is the key, lower cased
+        assertEquals("TB:N:buyer_1", MfgServices.buyerKey(MfgServices.CHANNEL_TAOBAO, null, "Buyer_1"));
+        assertEquals("TB:N:buyer_1", MfgServices.buyerKey(null, "12", "Buyer_1"));
+        assertNull(MfgServices.buyerKey(MfgServices.CHANNEL_TAOBAO, null, "  "));
+    }
+
+    @Test
+    public void masksMobileNumbers() {
+        assertEquals("138****2222", MfgServices.maskMobile("13800002222"));
+        assertEquals("138****2222", MfgServices.maskMobile("138-0000-2222"));
+        assertEquals("1****7", MfgServices.maskMobile("1234567"));
+        assertEquals("", MfgServices.maskMobile(null));
+    }
+
+    @Test
+    public void suggestsARiskLevelFromTheHistory() {
+        assertNull(MfgServices.suggestRiskLevel(0, 0.0));
+        assertNull(MfgServices.suggestRiskLevel(2, 499.0));
+        assertEquals(MfgServices.RISK_WATCH, MfgServices.suggestRiskLevel(3, 0.0));
+        assertEquals(MfgServices.RISK_WATCH, MfgServices.suggestRiskLevel(1, 500.0));
+        assertEquals(MfgServices.RISK_BLOCK, MfgServices.suggestRiskLevel(5, 0.0));
+        assertEquals(MfgServices.RISK_BLOCK, MfgServices.suggestRiskLevel(1, 1000.0));
+    }
+
+    @Test
+    public void onlyActiveFlagsApply() {
+        assertTrue(MfgServices.isFlagActive(MfgServices.FLAG_ACTIVE));
+        assertTrue(!MfgServices.isFlagActive(MfgServices.FLAG_RELEASED));
+        assertTrue(!MfgServices.isFlagActive(null));
+    }
 }

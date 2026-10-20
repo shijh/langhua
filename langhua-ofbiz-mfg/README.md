@@ -31,6 +31,7 @@
 | **外协厂家** | 厂家档案：收件人、手机号、收货地址、**厂家给我们的客户编号**，一键生成可直接复制的邮寄标签 |
 | **售后单** | 客户退回登记：SN → 出货日自动算保修到期与保内/保外，责任归属、返修工时、处理状态，SN 页同步显示售后历史 |
 | **淘宝售后合规** | 售后类型（退货退款/换货/维修/仅退款）、淘宝订单号、买家签收日；**7 天无理由（168 小时）与 15 天售后窗口自动计算**，列表标出即将到期；换货自动出出货单，维修自动开返修工单 |
+| **买家名单（风控）** | 内部风险名单：手机号为主键、昵称次之，观察 / 人工复核两级，带原因与证据；售后单登记时自动继承风险等级并在页面警示；名单只提示、**不拒绝任何法定售后** |
 ## 目录结构
 
 ```
@@ -42,14 +43,14 @@ langhua-ofbiz-mfg/
 ├── data/
 │   └── MfgSecurityPermissionSeedData.xml # 权限与权限组种子数据
 ├── entitydef/
-│   ├── entitymodel.xml                  # 16 个业务实体
+│   ├── entitymodel.xml                  # 17 个业务实体
 │   └── entitygroup.xml
 ├── servicedef/
-│   └── services.xml                     # 36 个服务
+│   └── services.xml                     # 40 个服务
 ├── widget/
 │   ├── MfgCommonScreens.xml             # 登录/错误页 decorator
-│   └── MfgScreens.xml                   # 10 个页面
-├── webapp/mfg/                          # controller.xml + web.xml + 10 个 FTL + js/
+│   └── MfgScreens.xml                   # 11 个页面
+├── webapp/mfg/                          # controller.xml + web.xml + 11 个 FTL + js/
 ├── src/main/java/org/langhua/ofbiz/mfg/
 └── src/test/java/org/langhua/ofbiz/mfg/
 ```
@@ -96,6 +97,7 @@ https://localhost:8443/mfg/control/main
 | `MfgTestResult` | 测试结果：`resultId`、`sn`、`workOrderId`、`station`、`testItem`、`measureValue`、`unitOfMeasure`、`passFail`、`testDate` |
 | `MfgVendor` | 外协厂家：`vendorId`（V-yyMMdd-NN）、`vendorName`、`vendorType`、`contactName`（收件人）、`contactMobile`、`addressText`、`customerCode`（厂家给我们的编号） |
 | `MfgWarrantyClaim` | 售后单：`claimId`（RMA-yyMMdd-NN）、`sn`、`workOrderId`、`customerName`、`deliveryId` / `deliveryDate`（保修起算）、`warrantyEndDate`、`inWarranty`、`receivedDate`、`issueDesc`、`statusId`、`responsibility`、`repairHours`、`closedDate`；淘宝侧：`claimType`（RTN/EXCH/REPAIR/REFUND_ONLY）、`tradeNo`、`buyerNick`、`signedDate`、`sevenDayDeadline`、`afterSaleDeadline`、`refundAmount`、`deductAmount`、`freightPayer`、`returnTrackingNo`、`receivedBackDate`、`inspectResult`、`vendorClaimStatus`、`repairWorkOrderId`、`exchangeDeliveryId` |
+| `MfgBuyerFlag` | 买家风险名单：`buyerKey`（`TB:手机号` 或 `TB:N:昵称`）、`channelId`、`buyerNick`、`receiverName`、`receiverMobile`、`addressText`、`riskLevel`（WATCH/BLOCK）、`reasonCode`、`evidenceNote`、`statusId`（ACTIVE/RELEASED）、`releasedDate` |
 
 ## 服务
 
@@ -126,6 +128,9 @@ https://localhost:8443/mfg/control/main
 | `mfgClaimList` / `mfgClaimDetail` | 售后单列表（按 SN / 类型 / 状态过滤，带剩余小时与即将到期计数）与详情（含换货出货单、换出新机、返修工单、换件与不良数） |
 | `mfgClaimExchange` | 换货：自动取同型号未出货的一台（或指定 `newSn`），生成出货单并置为已出货，售后单转 `MFG_RMA_REPLACED` |
 | `mfgClaimRepair` | 维修：为退回的单板开一张返修工单，返工工时与换件照常记录 |
+| `mfgBuyerFlagSave` / `mfgBuyerFlagList` | 买家风险名单维护与列表（手机号打码显示，可解除/恢复） |
+| `mfgBuyerFlagCheck` | 发货前按手机号（自动去格式）或昵称查名单，返回命中项与最高风险等级 |
+| `mfgBuyerRiskList` | 按买家昵称聚合售后历史（单数、退款合计、最后收件日）并给出建议等级，仅建议不自动拉黑 |
 
 示例（Web Tools → Run Service → `mfgBomImport`）：
 
@@ -151,6 +156,7 @@ csv         = R0402-10K,10K 0402 resistor,4,R1-R4,N
 | `/mfg/control/delivery` | 出货单：新建、列表、明细；出货后 SN 变为 `MFG_SHIPPED` |
 | `/mfg/control/vendors` | 外协厂家：档案维护 + 可复制的邮寄标签（收件人/手机/地址/客户编号） |
 | `/mfg/control/claims` | 售后单：登记（类型/订单号/买家/签收日）、按 SN/类型/状态过滤、7 天与 15 天窗口倒计时、处理（检测结论、退款、运费、索赔）、换货与开返修工单 |
+| `/mfg/control/buyers` | 买家名单：登记/解除、发货前查询命中、售后历史汇总与建议等级 |
 
 邮寄标签旁边有 **「复制标签」按钮**：脚本在静态文件 `webapp/mfg/js/copyLabel.js`，
 页面只引 `<script src="/mfg/js/copyLabel.js"></script>`（`web.xml` 的 `allowedPaths` 里加了 `:/js`）。
@@ -187,10 +193,11 @@ productSave → bomImport → routingSave → productDetail
            → vendorSave → workOrderVendor
            → claimCreate → claimDetail → claimList → snDetail（含售后）→ claimUpdate（关闭）
            → claimRepair → claimExchange → 重复开单拒绝
+           → buyerFlagSave → buyerFlagCheck → 售后单继承风险等级 → 解除后不再命中
            → 非法报工（workHours = 0）/ 错料发料（批次不属于该料号）/ 非法售后状态
 ```
 
-共 112 项断言，全部通过时退出码为 0。测试是**可重复执行**的：每次创建/更新产品型号 `ITMFG`、替换其 BOM、
+共 121 项断言，全部通过时退出码为 0。测试是**可重复执行**的：每次创建/更新产品型号 `ITMFG`、替换其 BOM、
 新建一张工单、物料批次与出货单，以及相应的报工、不良、发料、收发、换件与测试数据。
 
 前置条件：OFBiz 已启动、已执行 `loadAll`、mfg 组件已部署。
@@ -212,7 +219,8 @@ java -cp "build/test-classes:ofbiz.jar:junit-4.13.2.jar:hamcrest-core-1.3.jar" \
 ```
 
 覆盖 BOM / 批次 / 测试结果 CSV 解析（引号、缺列、CRLF、注释行、大小写归一）、SN 列表拆分、FIFO 推定切片、
-邮寄标签格式、SN / 工单编号格式，以及保修到期日、7 天 / 15 天窗口、剩余小时与运费承担（共 25 个用例）。
+邮寄标签格式、SN / 工单编号格式，保修到期日、7 天 / 15 天窗口、剩余小时与运费承担，
+以及买家匹配键、手机号归一化与打码、风险等级建议（共 30 个用例）。
 
 ## 追溯精度说明（重要）
 
@@ -246,6 +254,25 @@ SMT 为外协，且对方**不提供上料 / 换料记录**，因此追溯精度
 
 > 规则会变，落地前建议再核对一次商家中心的最新文本；本组件的期限常量集中在
 > `MfgServices.SEVEN_DAY_HOURS` / `AFTER_SALE_DAYS` / `DEADLINE_WARNING_HOURS`，改一处即可。
+
+## 买家名单（内部风控，不是拒卖清单）
+
+`/mfg/control/buyers` 维护一份内部风险名单，解决“同一个买家反复无理由退货 / 空包 / 调包”的问题，
+但**刻意不阻断业务**：
+
+| 项目 | 说明 |
+| --- | --- |
+| 匹配键 | 主键是**收货手机号**（`TB:13800002222`，自动去空格/短横线），没有手机号时退回昵称（`TB:N:nick`） |
+| 等级 | `WATCH` 观察（只提示）/ `BLOCK` 人工复核（发货前必看） |
+| 原因 | `FREQ_RETURN` 高频无理由退货、`EMPTY_BOX` 空包少件、`SWAP` 调包、`ABUSE_7DAY` 滥用 7 天无理由、`FAKE_CLAIM` 虚假质量问题、`THREAT` 差评勒索 |
+| 证据 | `evidenceNote` 存聊天截图/开箱视频文件名/平台申诉单号，日后申诉用 |
+| 生效与解除 | `statusId` + `releasedDate`，页面上可一键解除/恢复，**不做永久拉黑** |
+| 效果 | 售后单登记时自动把当时的风险等级快照到 `MfgClaim.buyerRiskLevel`，售后单页显示警示条；名单**不拦截**登记、换货或出货 |
+| 隐私 | 列表只显示打码号码（`139****3333`），原始号码仅用于表单回填 |
+| 建议名单 | 售后历史汇总按昵称聚合：单数 ≥ 3 或退款 ≥ 500 元建议观察，≥ 5 或 ≥ 1000 元建议人工复核（阈值是 `MfgServices.RISK_WATCH_*` / `RISK_BLOCK_*` 常量） |
+
+> **合规红线**：质量问题三包与 7 天无理由是法定义务，名单只能改变“怎么发/怎么留证”，不能改变“是否服务”。
+> 若买家投诉歧视，有 `evidenceNote` 与解除机制才说得清。
 
 ## 开发说明（OFBiz 24.09 踩坑记录）
 

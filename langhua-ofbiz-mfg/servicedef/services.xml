@@ -409,6 +409,7 @@
         <attribute name="claimId" type="String" mode="OUT" optional="true"/>
         <attribute name="inWarranty" type="String" mode="OUT" optional="true"/>
         <attribute name="claimType" type="String" mode="OUT" optional="true"/>
+        <attribute name="buyerRiskLevel" type="String" mode="OUT" optional="true"/>
         <attribute name="sevenDayNoReason" type="String" mode="OUT" optional="true"/>
         <attribute name="sevenDayDeadline" type="String" mode="OUT" optional="true"/>
         <attribute name="afterSaleDeadline" type="String" mode="OUT" optional="true"/>
@@ -489,5 +490,60 @@
         <attribute name="dueDate" type="String" mode="IN" optional="true"/>
         <attribute name="claimId" type="String" mode="OUT" optional="true"/>
         <attribute name="workOrderId" type="String" mode="OUT" optional="true"/>
+    </service>
+
+    <!-- ==================== buyer risk list ==================== -->
+
+    <service name="mfgBuyerFlagSave" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgServices" invoke="buyerFlagSave"
+            auth="false" use-transaction="false">
+        <description>Add or update a buyer on the internal risk list; it only warns, it never refuses a request</description>
+        <attribute name="buyerNick" type="String" mode="IN" optional="true"/>
+        <attribute name="receiverMobile" type="String" mode="IN" optional="true"/>
+        <attribute name="receiverName" type="String" mode="IN" optional="true"/>
+        <attribute name="addressText" type="String" mode="IN" optional="true"/>
+        <attribute name="channelId" type="String" mode="IN" optional="true"/>
+        <attribute name="riskLevel" type="String" mode="IN" optional="true"/>
+        <attribute name="reasonCode" type="String" mode="IN" optional="true"/>
+        <attribute name="evidenceNote" type="String" mode="IN" optional="true"/>
+        <attribute name="statusId" type="String" mode="IN" optional="true"/>
+        <attribute name="note" type="String" mode="IN" optional="true"/>
+        <attribute name="buyerKey" type="String" mode="OUT" optional="true"/>
+        <attribute name="riskLevel" type="String" mode="OUT" optional="true"/>
+        <attribute name="statusId" type="String" mode="OUT" optional="true"/>
+    </service>
+
+    <service name="mfgBuyerFlagList" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgServices" invoke="buyerFlagList"
+            auth="false" use-transaction="false">
+        <description>List the buyer risk list with masked mobile numbers</description>
+        <attribute name="keyword" type="String" mode="IN" optional="true"/>
+        <attribute name="riskLevel" type="String" mode="IN" optional="true"/>
+        <attribute name="statusId" type="String" mode="IN" optional="true"/>
+        <attribute name="flags" type="java.util.List" mode="OUT" optional="true"/>
+        <attribute name="flagCount" type="Integer" mode="OUT" optional="true"/>
+        <attribute name="blockCount" type="Long" mode="OUT" optional="true"/>
+        <attribute name="keyword" type="String" mode="OUT" optional="true"/>
+    </service>
+
+    <service name="mfgBuyerFlagCheck" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgServices" invoke="buyerFlagCheck"
+            auth="false" use-transaction="false">
+        <description>Look a buyer up by mobile number or nickname before shipping</description>
+        <attribute name="receiverMobile" type="String" mode="IN" optional="true"/>
+        <attribute name="buyerNick" type="String" mode="IN" optional="true"/>
+        <attribute name="hit" type="String" mode="OUT" optional="true"/>
+        <attribute name="flags" type="java.util.List" mode="OUT" optional="true"/>
+        <attribute name="riskLevel" type="String" mode="OUT" optional="true"/>
+        <attribute name="buyerNick" type="String" mode="OUT" optional="true"/>
+        <attribute name="receiverMobile" type="String" mode="OUT" optional="true"/>
+    </service>
+
+    <service name="mfgBuyerRiskList" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgServices" invoke="buyerRiskList"
+            auth="false" use-transaction="false">
+        <description>Aggregate the after sales history per buyer and suggest a risk level</description>
+        <attribute name="buyers" type="java.util.List" mode="OUT" optional="true"/>
+        <attribute name="buyerCount" type="Integer" mode="OUT" optional="true"/>
     </service>
 </services>

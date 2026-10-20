@@ -78,6 +78,23 @@ public final class MfgServices {
     public static final String INSPECT_HUMAN = "HUMAN";
     public static final String INSPECT_UNKNOWN = "UNKNOWN";
 
+    public static final String RISK_WATCH = "WATCH";
+    public static final String RISK_BLOCK = "BLOCK";
+
+    public static final String FLAG_ACTIVE = "MFG_FLAG_ACTIVE";
+    public static final String FLAG_RELEASED = "MFG_FLAG_RELEASED";
+
+    public static final String CHANNEL_TAOBAO = "TAOBAO";
+
+    /** Claims inside the observation window that already suggest a watch. */
+    public static final int RISK_WATCH_CLAIMS = 3;
+    /** Claims inside the observation window that suggest a manual review. */
+    public static final int RISK_BLOCK_CLAIMS = 5;
+    /** Refund total that already suggests a watch. */
+    public static final double RISK_WATCH_REFUND = 500.0;
+    /** Refund total that suggests a manual review. */
+    public static final double RISK_BLOCK_REFUND = 1000.0;
+
     /** Hours of the no-reason return window, counted from midnight after the signed date. */
     public static final long SEVEN_DAY_HOURS = 168L;
     /** Days of the marketplace after sales window, counted from the signed date. */
@@ -2094,6 +2111,7 @@ public final class MfgServices {
             }
 
             String claimId = nextClaimId(delegator, LocalDate.now());
+            String buyerNick = toText(context.get("buyerNick"));
             GenericValue claim = delegator.makeValue("MfgWarrantyClaim");
             claim.set("claimId", claimId);
             claim.set("sn", sn);
@@ -2109,7 +2127,7 @@ public final class MfgServices {
             claim.set("statusId", RMA_OPEN);
             claim.set("claimType", claimType);
             claim.set("tradeNo", toText(context.get("tradeNo")));
-            claim.set("buyerNick", toText(context.get("buyerNick")));
+            claim.set("buyerNick", buyerNick);
             claim.set("signedDate", signedDate);
             claim.set("sevenDayDeadline", sevenDayDeadline(signedDate));
             claim.set("afterSaleDeadline", afterSaleDeadline(signedDate));
@@ -2119,6 +2137,7 @@ public final class MfgServices {
             claim.set("responsibility", toText(context.get("responsibility")));
             claim.set("repairHours", Double.valueOf(toDouble(context.get("repairHours"), 0.0)));
             claim.set("vendorClaimStatus", "NONE");
+            claim.set("buyerRiskLevel", activeRiskLevel(delegator, buyerNick));
             claim.set("note", toText(context.get("note")));
             delegator.create(claim);
 
@@ -2126,6 +2145,7 @@ public final class MfgServices {
             result.put("claimId", claimId);
             result.put("inWarranty", claim.getString("inWarranty"));
             result.put("claimType", claimType);
+            result.put("buyerRiskLevel", claim.getString("buyerRiskLevel"));
             result.put("sevenDayNoReason",
                     isWithinSevenDays(signedDate, receivedDate) ? "Y" : "N");
             java.sql.Timestamp sevenDay = sevenDayDeadline(signedDate);
@@ -2695,6 +2715,7 @@ public final class MfgServices {
         map.put("receivedBackDate", claim.getDate("receivedBackDate"));
         map.put("inspectResult", claim.getString("inspectResult"));
         map.put("vendorClaimStatus", claim.getString("vendorClaimStatus"));
+        map.put("buyerRiskLevel", claim.getString("buyerRiskLevel"));
         map.put("repairWorkOrderId", claim.getString("repairWorkOrderId"));
         map.put("exchangeDeliveryId", claim.getString("exchangeDeliveryId"));
         map.put("responsibility", claim.getString("responsibility"));
@@ -2719,6 +2740,400 @@ public final class MfgServices {
             }
         }
         return formatClaimId(today, max + 1);
+    }
+
+    // ------------------------------------------------------------- buyer risk list
+
+    /**
+     * Saves or updates a buyer on the internal risk list. The list only adds a warning before
+     * shipping; a legal after sales request is never refused because of it.
+     *
+     * @param dctx the dispatch context
+     * @param context service context, see {@code servicedef/services.xml#mfgBuyerFlagSave}
+     * @return the service result containing {@code buyerKey}, {@code riskLevel} and {@code statusId}
+     */
+    public static Map<String, Object> buyerFlagSave(DispatchContext dctx, Map<String, ? extends Object> context) {
+        Delegator delegator = dctx.getDelegator();
+        String channelId = toText(context.get("channelId"));
+        if (channelId == null) {
+            channelId = CHANNEL_TAOBAO;
+        }
+        String mobile = normalizeMobile(toText(context.get("receiverMobile")));
+        String buyerNick = toText(context.get("buyerNick"));
+        String buyerKey = buyerKey(channelId, mobile, buyerNick);
+        if (buyerKey == null) {
+            return ServiceUtil.returnError("receiverMobile or buyerNick is required");
+        }
+        String riskLevel = toText(context.get("riskLevel"));
+        if (riskLevel == null) {
+            riskLevel = RISK_WATCH;
+        } else if (!RISK_WATCH.equals(riskLevel) && !RISK_BLOCK.equals(riskLevel)) {
+            return ServiceUtil.returnError("riskLevel must be " + RISK_WATCH + " or " + RISK_BLOCK);
+        }
+        String statusId = toText(context.get("statusId"));
+        if (statusId == null) {
+            statusId = FLAG_ACTIVE;
+        } else if (!FLAG_ACTIVE.equals(statusId) && !FLAG_RELEASED.equals(statusId)) {
+            return ServiceUtil.returnError("statusId must be " + FLAG_ACTIVE + " or " + FLAG_RELEASED);
+        }
+        String reasonCode = toText(context.get("reasonCode"));
+        if (reasonCode != null && !isKnownReason(reasonCode)) {
+            return ServiceUtil.returnError("reasonCode must be one of FREQ_RETURN, EMPTY_BOX, SWAP, "
+                    + "ABUSE_7DAY, FAKE_CLAIM or THREAT");
+        }
+        try {
+            GenericValue flag = EntityQuery.use(delegator).from("MfgBuyerFlag")
+                    .where("buyerKey", buyerKey).queryOne();
+            boolean create = flag == null;
+            if (create) {
+                flag = delegator.makeValue("MfgBuyerFlag");
+                flag.set("buyerKey", buyerKey);
+                flag.set("channelId", channelId);
+            }
+            if (buyerNick != null) {
+                flag.set("buyerNick", buyerNick);
+            }
+            if (mobile != null) {
+                flag.set("receiverMobile", mobile);
+            }
+            String receiverName = toText(context.get("receiverName"));
+            if (receiverName != null) {
+                flag.set("receiverName", receiverName);
+            }
+            String addressText = toText(context.get("addressText"));
+            if (addressText != null) {
+                flag.set("addressText", addressText);
+            }
+            if (reasonCode != null) {
+                flag.set("reasonCode", reasonCode);
+            }
+            String evidenceNote = toText(context.get("evidenceNote"));
+            if (evidenceNote != null) {
+                flag.set("evidenceNote", evidenceNote);
+            }
+            String note = toText(context.get("note"));
+            if (note != null) {
+                flag.set("note", note);
+            }
+            flag.set("riskLevel", riskLevel);
+            flag.set("statusId", statusId);
+            flag.set("releasedDate", FLAG_RELEASED.equals(statusId)
+                    ? java.sql.Date.valueOf(LocalDate.now()) : null);
+            if (create) {
+                delegator.create(flag);
+            } else {
+                delegator.store(flag);
+            }
+
+            Map<String, Object> result = ServiceUtil.returnSuccess();
+            result.put("buyerKey", buyerKey);
+            result.put("riskLevel", riskLevel);
+            result.put("statusId", statusId);
+            return result;
+        } catch (GenericEntityException e) {
+            return ServiceUtil.returnError("Could not save the buyer flag: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Lists the risk list, newest first, with the mobile number masked.
+     *
+     * @param dctx the dispatch context
+     * @param context service context, see {@code servicedef/services.xml#mfgBuyerFlagList}
+     * @return the service result containing {@code flags}, {@code flagCount} and {@code blockCount}
+     */
+    public static Map<String, Object> buyerFlagList(DispatchContext dctx, Map<String, ? extends Object> context) {
+        Delegator delegator = dctx.getDelegator();
+        String keyword = toText(context.get("keyword"));
+        String riskLevel = toText(context.get("riskLevel"));
+        String statusId = toText(context.get("statusId"));
+        try {
+            List<GenericValue> flags = EntityQuery.use(delegator).from("MfgBuyerFlag")
+                    .orderBy("-createdStamp").queryList();
+            List<Map<String, Object>> list = new ArrayList<>(flags.size());
+            long blockCount = 0;
+            for (GenericValue flag : flags) {
+                if (riskLevel != null && !riskLevel.equals(flag.getString("riskLevel"))) {
+                    continue;
+                }
+                if (statusId != null && !statusId.equals(flag.getString("statusId"))) {
+                    continue;
+                }
+                Map<String, Object> map = toBuyerFlagMap(flag);
+                if (keyword != null) {
+                    String haystack = String.valueOf(map.get("buyerKey")) + " "
+                            + String.valueOf(map.get("buyerNick")) + " "
+                            + String.valueOf(map.get("receiverMobile"));
+                    if (!haystack.toLowerCase(Locale.ROOT).contains(keyword.toLowerCase(Locale.ROOT))) {
+                        continue;
+                    }
+                }
+                list.add(map);
+                if (RISK_BLOCK.equals(flag.getString("riskLevel"))
+                        && isFlagActive(flag.getString("statusId"))) {
+                    blockCount++;
+                }
+            }
+            Map<String, Object> result = ServiceUtil.returnSuccess();
+            result.put("flags", list);
+            result.put("flagCount", Integer.valueOf(list.size()));
+            result.put("blockCount", Long.valueOf(blockCount));
+            result.put("keyword", keyword);
+            return result;
+        } catch (GenericEntityException e) {
+            return ServiceUtil.returnError("Could not read the buyer flags: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Looks a buyer up on the risk list by mobile number or nickname.
+     *
+     * @param dctx the dispatch context
+     * @param context service context, see {@code servicedef/services.xml#mfgBuyerFlagCheck}
+     * @return the service result containing {@code hit}, {@code riskLevel} and {@code flag}
+     */
+    public static Map<String, Object> buyerFlagCheck(DispatchContext dctx, Map<String, ? extends Object> context) {
+        Delegator delegator = dctx.getDelegator();
+        String mobile = normalizeMobile(toText(context.get("receiverMobile")));
+        String buyerNick = toText(context.get("buyerNick"));
+        Map<String, Object> result = ServiceUtil.returnSuccess();
+        result.put("hit", "N");
+        result.put("flags", new ArrayList<Map<String, Object>>());
+        if (mobile == null && buyerNick == null) {
+            return result;
+        }
+        try {
+            List<Map<String, Object>> hits = new ArrayList<>();
+            String bestLevel = null;
+            List<GenericValue> flags = EntityQuery.use(delegator).from("MfgBuyerFlag").queryList();
+            for (GenericValue flag : flags) {
+                if (!isFlagActive(flag.getString("statusId"))) {
+                    continue;
+                }
+                boolean byMobile = mobile != null && mobile.equals(flag.getString("receiverMobile"));
+                boolean byNick = buyerNick != null && buyerNick.equals(flag.getString("buyerNick"));
+                if (!byMobile && !byNick) {
+                    continue;
+                }
+                hits.add(toBuyerFlagMap(flag));
+                String level = flag.getString("riskLevel");
+                if (RISK_BLOCK.equals(level)) {
+                    bestLevel = RISK_BLOCK;
+                } else if (bestLevel == null) {
+                    bestLevel = level;
+                }
+            }
+            result.put("hit", hits.isEmpty() ? "N" : "Y");
+            result.put("flags", hits);
+            if (bestLevel != null) {
+                result.put("riskLevel", bestLevel);
+            }
+            result.put("buyerNick", buyerNick);
+            result.put("receiverMobile", mobile);
+            return result;
+        } catch (GenericEntityException e) {
+            return ServiceUtil.returnError("Could not check the buyer: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Aggregates the after sales history per buyer so the operator can spot a pattern before it
+     * becomes a problem. Nothing is flagged automatically.
+     *
+     * @param dctx the dispatch context
+     * @param context service context, see {@code servicedef/services.xml#mfgBuyerRiskList}
+     * @return the service result containing {@code buyers} and {@code buyerCount}
+     */
+    public static Map<String, Object> buyerRiskList(DispatchContext dctx, Map<String, ? extends Object> context) {
+        Delegator delegator = dctx.getDelegator();
+        try {
+            List<GenericValue> claims = EntityQuery.use(delegator).from("MfgWarrantyClaim")
+                    .orderBy("createdStamp").queryList();
+            Map<String, Map<String, Object>> byNick = new LinkedHashMap<>();
+            for (GenericValue claim : claims) {
+                String nick = claim.getString("buyerNick");
+                if (nick == null) {
+                    continue;
+                }
+                Map<String, Object> row = byNick.get(nick);
+                if (row == null) {
+                    row = new LinkedHashMap<>();
+                    row.put("buyerNick", nick);
+                    row.put("claimCount", Integer.valueOf(0));
+                    row.put("refundTotal", Double.valueOf(0.0));
+                    row.put("blockCount", Integer.valueOf(0));
+                    byNick.put(nick, row);
+                }
+                row.put("claimCount", Integer.valueOf(((Integer) row.get("claimCount")).intValue() + 1));
+                double refund = claim.getDouble("refundAmount") == null ? 0.0
+                        : claim.getDouble("refundAmount").doubleValue();
+                row.put("refundTotal", Double.valueOf(((Double) row.get("refundTotal")).doubleValue() + refund));
+                if (RISK_BLOCK.equals(claim.getString("buyerRiskLevel"))) {
+                    row.put("blockCount", Integer.valueOf(((Integer) row.get("blockCount")).intValue() + 1));
+                }
+                row.put("lastClaimDate", claim.getDate("receivedDate"));
+            }
+            List<Map<String, Object>> buyers = new ArrayList<>(byNick.values());
+            for (Map<String, Object> row : buyers) {
+                int count = ((Integer) row.get("claimCount")).intValue();
+                double refund = ((Double) row.get("refundTotal")).doubleValue();
+                row.put("suggestedRiskLevel", suggestRiskLevel(count, refund));
+                row.put("flagged", hasActiveFlag(delegator, (String) row.get("buyerNick")) ? "Y" : "N");
+            }
+            buyers.sort(new Comparator<Map<String, Object>>() {
+                @Override
+                public int compare(Map<String, Object> left, Map<String, Object> right) {
+                    return ((Integer) right.get("claimCount")).compareTo((Integer) left.get("claimCount"));
+                }
+            });
+            Map<String, Object> result = ServiceUtil.returnSuccess();
+            result.put("buyers", buyers);
+            result.put("buyerCount", Integer.valueOf(buyers.size()));
+            return result;
+        } catch (GenericEntityException e) {
+            return ServiceUtil.returnError("Could not read the buyer history: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Normalizes a mobile number to its digits, so formatting differences do not break matching.
+     *
+     * @param mobile the raw number
+     * @return the digits, or {@code null} when fewer than seven are left
+     */
+    static String normalizeMobile(String mobile) {
+        if (mobile == null) {
+            return null;
+        }
+        StringBuilder digits = new StringBuilder();
+        for (int i = 0; i < mobile.length(); i++) {
+            char c = mobile.charAt(i);
+            if (c >= '0' && c <= '9') {
+                digits.append(c);
+            }
+        }
+        return digits.length() >= 7 ? digits.toString() : null;
+    }
+
+    /**
+     * Builds the matching key of a buyer: the mobile number when known, the nickname otherwise.
+     *
+     * @param channelId the marketplace, {@code TAOBAO} today
+     * @param mobile the receiver mobile, may be {@code null}
+     * @param buyerNick the marketplace nickname, may be {@code null}
+     * @return the key, or {@code null} when neither is usable
+     */
+    static String buyerKey(String channelId, String mobile, String buyerNick) {
+        String prefix = CHANNEL_TAOBAO.equals(channelId) || channelId == null ? "TB" : channelId;
+        String digits = normalizeMobile(mobile);
+        if (digits != null) {
+            return prefix + ":" + digits;
+        }
+        if (buyerNick != null && !buyerNick.trim().isEmpty()) {
+            return prefix + ":N:" + buyerNick.trim().toLowerCase(Locale.ROOT);
+        }
+        return null;
+    }
+
+    /**
+     * Masks a mobile number so it can be shown on screen without exposing it.
+     *
+     * @param mobile the number
+     * @return {@code 138****2222}, or the input when it is too short
+     */
+    static String maskMobile(String mobile) {
+        String digits = normalizeMobile(mobile);
+        if (digits == null) {
+            return mobile == null ? "" : mobile;
+        }
+        if (digits.length() < 11) {
+            return digits.substring(0, 1) + "****" + digits.substring(digits.length() - 1);
+        }
+        return digits.substring(0, 3) + "****" + digits.substring(digits.length() - 4);
+    }
+
+    /**
+     * Tells whether a risk list entry still applies.
+     *
+     * @param statusId the entry status
+     * @return {@code true} only when the entry is active
+     */
+    static boolean isFlagActive(String statusId) {
+        return FLAG_ACTIVE.equals(statusId);
+    }
+
+    /**
+     * Suggests a risk level from the after sales history; the operator still decides.
+     *
+     * @param claimCount number of claims of the buyer
+     * @param refundTotal amount refunded to the buyer
+     * @return {@link #RISK_BLOCK}, {@link #RISK_WATCH} or {@code null} when nothing stands out
+     */
+    static String suggestRiskLevel(int claimCount, double refundTotal) {
+        if (claimCount >= RISK_BLOCK_CLAIMS || refundTotal >= RISK_BLOCK_REFUND) {
+            return RISK_BLOCK;
+        }
+        if (claimCount >= RISK_WATCH_CLAIMS || refundTotal >= RISK_WATCH_REFUND) {
+            return RISK_WATCH;
+        }
+        return null;
+    }
+
+    private static boolean isKnownReason(String reasonCode) {
+        return "FREQ_RETURN".equals(reasonCode) || "EMPTY_BOX".equals(reasonCode)
+                || "SWAP".equals(reasonCode) || "ABUSE_7DAY".equals(reasonCode)
+                || "FAKE_CLAIM".equals(reasonCode) || "THREAT".equals(reasonCode);
+    }
+
+    private static boolean hasActiveFlag(Delegator delegator, String buyerNick) throws GenericEntityException {
+        if (buyerNick == null) {
+            return false;
+        }
+        List<GenericValue> flags = EntityQuery.use(delegator).from("MfgBuyerFlag").queryList();
+        for (GenericValue flag : flags) {
+            if (buyerNick.equals(flag.getString("buyerNick")) && isFlagActive(flag.getString("statusId"))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static String activeRiskLevel(Delegator delegator, String buyerNick)
+            throws GenericEntityException {
+        if (buyerNick == null) {
+            return null;
+        }
+        String level = null;
+        List<GenericValue> flags = EntityQuery.use(delegator).from("MfgBuyerFlag").queryList();
+        for (GenericValue flag : flags) {
+            if (!buyerNick.equals(flag.getString("buyerNick")) || !isFlagActive(flag.getString("statusId"))) {
+                continue;
+            }
+            if (RISK_BLOCK.equals(flag.getString("riskLevel"))) {
+                return RISK_BLOCK;
+            }
+            level = flag.getString("riskLevel");
+        }
+        return level;
+    }
+
+    private static Map<String, Object> toBuyerFlagMap(GenericValue flag) {
+        Map<String, Object> map = new LinkedHashMap<>();
+        map.put("buyerKey", flag.getString("buyerKey"));
+        map.put("channelId", flag.getString("channelId"));
+        map.put("buyerNick", flag.getString("buyerNick"));
+        map.put("receiverName", flag.getString("receiverName"));
+        map.put("receiverMobile", flag.getString("receiverMobile"));
+        map.put("maskedMobile", maskMobile(flag.getString("receiverMobile")));
+        map.put("addressText", flag.getString("addressText"));
+        map.put("riskLevel", flag.getString("riskLevel"));
+        map.put("reasonCode", flag.getString("reasonCode"));
+        map.put("evidenceNote", flag.getString("evidenceNote"));
+        map.put("statusId", flag.getString("statusId"));
+        map.put("releasedDate", flag.getDate("releasedDate"));
+        map.put("note", flag.getString("note"));
+        map.put("createdStamp", flag.getTimestamp("createdStamp"));
+        return map;
     }
 
     // ------------------------------------------------------------------ helpers

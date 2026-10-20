@@ -57,6 +57,7 @@
     <a href="/mfg/control/delivery">出货单</a>
     <a href="/mfg/control/vendors">外协厂家</a>
     <a href="/mfg/control/claims"><b>售后单</b></a>
+    <a href="/mfg/control/buyers">买家名单</a>
     <a href="/mfg/control/shortage">齐套预警</a>
     <a href="/mfg/control/dashboard">看板</a>
     <a href="/mfg/control/sn">SN 查询</a>
@@ -181,6 +182,14 @@
 
 <#if (claim.claimId)??>
     <h2>售后单详情 ${claim.claimId}</h2>
+    <#if (claim.buyerRiskLevel)??>
+        <#if (claim.buyerRiskLevel!'') == 'BLOCK'>
+            <p class="error">⚠ 该买家在风险名单中（人工复核）：发货 / 换货前请复核收货信息并保留开箱视频等证据。
+                质量问题与 7 天无理由仍须照常处理。<a href="/mfg/control/buyers">查看买家名单</a></p>
+        <#else>
+            <p class="warn">⚠ 该买家在风险名单中（观察）：注意留证。<a href="/mfg/control/buyers">查看买家名单</a></p>
+        </#if>
+    </#if>
     <table>
         <tr><th>SN</th>
             <td><a href="/mfg/control/sn?sn=${claim.sn}">${claim.sn!}</a>

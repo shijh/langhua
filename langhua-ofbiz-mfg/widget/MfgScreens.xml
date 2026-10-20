@@ -231,4 +231,29 @@
             </widgets>
         </section>
     </screen>
+    <!-- Buyer risk list -->
+    <screen name="buyers">
+        <section>
+            <actions>
+                <set field="title" value="Buyer Risk List"/>
+                <service service-name="mfgBuyerFlagList" result-map="flagList" auto-field-map="false">
+                    <field-map field-name="keyword" from-field="parameters.keyword"/>
+                    <field-map field-name="riskLevel" from-field="parameters.riskLevel"/>
+                    <field-map field-name="statusId" from-field="parameters.statusId"/>
+                </service>
+                <service service-name="mfgBuyerRiskList" result-map="riskList" auto-field-map="false"/>
+                <service service-name="mfgBuyerFlagCheck" result-map="checkResult" auto-field-map="false">
+                    <field-map field-name="receiverMobile" from-field="parameters.checkMobile"/>
+                    <field-map field-name="buyerNick" from-field="parameters.checkNick"/>
+                </service>
+            </actions>
+            <widgets>
+                <platform-specific>
+                    <html>
+                        <html-template location="component://mfg/webapp/mfg/buyers.ftl"/>
+                    </html>
+                </platform-specific>
+            </widgets>
+        </section>
+    </screen>
 </screens>

@@ -236,6 +236,18 @@
         <response name="error" type="view" value="claims"/>
     </request-map>
 
+    <request-map uri="buyers">
+        <security https="true" auth="true"/>
+        <response name="success" type="view" value="buyers"/>
+    </request-map>
+
+    <request-map uri="buyerFlagSave">
+        <security https="true" auth="true"/>
+        <event type="service" invoke="mfgBuyerFlagSave"/>
+        <response name="success" type="request-redirect" value="buyers"/>
+        <response name="error" type="view" value="buyers"/>
+    </request-map>
+
     <view-map name="main" type="screen" page="component://mfg/widget/MfgScreens.xml#main"/>
     <view-map name="products" type="screen" page="component://mfg/widget/MfgScreens.xml#products"/>
     <view-map name="workOrder" type="screen" page="component://mfg/widget/MfgScreens.xml#workOrder"/>
@@ -246,4 +258,5 @@
     <view-map name="delivery" type="screen" page="component://mfg/widget/MfgScreens.xml#delivery"/>
     <view-map name="vendors" type="screen" page="component://mfg/widget/MfgScreens.xml#vendors"/>
     <view-map name="claims" type="screen" page="component://mfg/widget/MfgScreens.xml#claims"/>
+    <view-map name="buyers" type="screen" page="component://mfg/widget/MfgScreens.xml#buyers"/>
 </site-conf>

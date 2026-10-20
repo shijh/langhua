@@ -413,6 +413,7 @@
         <field name="receivedBackDate" type="date"><description>Date the returned unit arrived back at our warehouse</description></field>
         <field name="inspectResult" type="short-varchar"><description>QUALITY, NO_FAULT, HUMAN or UNKNOWN after inspection</description></field>
         <field name="vendorClaimStatus" type="short-varchar"><description>Claim raised against the SMT house or the component supplier: NONE, SENT or RECOVERED</description></field>
+        <field name="buyerRiskLevel" type="short-varchar"><description>Risk level the buyer had on the flag list when the claim was opened: WATCH or BLOCK</description></field>
         <field name="repairWorkOrderId" type="id"><description>Repair work order created for this claim</description></field>
         <field name="exchangeDeliveryId" type="id"><description>Delivery order of the replacement unit</description></field>
         <field name="responsibility" type="short-varchar"><description>HOUSE, SMT, SUPPLIER or DESIGN</description></field>
@@ -431,6 +432,35 @@
             <index-field name="sn"/>
         </index>
         <index name="MFG_CLAIM_STATUS_IDX" unique="false">
+            <index-field name="statusId"/>
+        </index>
+    </entity>
+
+    <entity entity-name="MfgBuyerFlag"
+            package-name="org.langhua.ofbiz.mfg"
+            title="Buyer risk flag">
+        <description>Internal risk list of buyers: only adds a warning before shipping, it never refuses a legal after sales request</description>
+        <field name="buyerKey" type="id"><description>Key of the buyer, TB:mobile when the mobile is known, TB:N:nick otherwise</description></field>
+        <field name="channelId" type="short-varchar"><description>Marketplace, TAOBAO today</description></field>
+        <field name="buyerNick" type="name"><description>Marketplace nickname</description></field>
+        <field name="receiverName" type="name"><description>Name on the parcel</description></field>
+        <field name="receiverMobile" type="short-varchar"><description>Mobile number on the parcel, used as the main matching key</description></field>
+        <field name="addressText" type="very-long"><description>Delivery address, optional</description></field>
+        <field name="riskLevel" type="short-varchar"><description>WATCH to warn only, BLOCK to require a manual review before shipping</description></field>
+        <field name="reasonCode" type="short-varchar"><description>FREQ_RETURN, EMPTY_BOX, SWAP, ABUSE_7DAY, FAKE_CLAIM or THREAT</description></field>
+        <field name="evidenceNote" type="very-long"><description>Evidence kept for a possible appeal: screenshots, video files, ticket numbers</description></field>
+        <field name="statusId" type="id"><description>MFG_FLAG_ACTIVE or MFG_FLAG_RELEASED</description></field>
+        <field name="releasedDate" type="date"><description>Date the flag was lifted, so a buyer is never blocked forever</description></field>
+        <field name="note" type="description"/>
+        <field name="createdStamp" type="date-time"/>
+        <field name="createdTxStamp" type="date-time"/>
+        <field name="lastUpdatedStamp" type="date-time"/>
+        <field name="lastUpdatedTxStamp" type="date-time"/>
+        <prim-key field="buyerKey"/>
+        <index name="MFG_FLAG_MOBILE_IDX" unique="false">
+            <index-field name="receiverMobile"/>
+        </index>
+        <index name="MFG_FLAG_STATUS_IDX" unique="false">
             <index-field name="statusId"/>
         </index>
     </entity>
