@@ -111,6 +111,8 @@ public final class MfgServices {
 
     /** Hours of the no-reason return window, counted from midnight after the signed date. */
     public static final long SEVEN_DAY_HOURS = 168L;
+    /** Rows per page on the list screens. */
+    public static final long PAGE_SIZE = 20L;
     /** Days of the marketplace after sales window, counted from the signed date. */
     public static final long AFTER_SALE_DAYS = 15L;
     /** Hours left before a deadline is flagged as expiring soon. */
@@ -315,7 +317,10 @@ public final class MfgServices {
                 list.add(map);
             }
             Map<String, Object> result = ServiceUtil.returnSuccess();
-            result.put("workOrders", list);
+            putPage(result, "workOrders",
+                    filterByKeyword(list, toText(context.get("search")), "workOrderId", "productCode",
+                            "customerName", "smtVendor", "statusId"),
+                    pageOf(context), pageSizeOf(context), toText(context.get("search")));
             return result;
         } catch (GenericEntityException e) {
             return ServiceUtil.returnError("Could not read the work orders: " + e.getMessage());
@@ -784,7 +789,10 @@ public final class MfgServices {
                 list.add(toLotMap(lot, issued.get(lot.getString("lotId"))));
             }
             Map<String, Object> result = ServiceUtil.returnSuccess();
-            result.put("lots", list);
+            putPage(result, "lots",
+                    filterByKeyword(list, toText(context.get("search")), "lotId", "componentCode",
+                            "componentName", "supplierName", "supplierLot"),
+                    pageOf(context), pageSizeOf(context), toText(context.get("search")));
             result.put("componentCode", componentCode);
             return result;
         } catch (GenericEntityException e) {
@@ -1341,7 +1349,10 @@ public final class MfgServices {
                 rows.add(row);
             }
             Map<String, Object> result = ServiceUtil.returnSuccess();
-            result.put("orders", rows);
+            putPage(result, "orders",
+                    filterByKeyword(rows, toText(context.get("search")), "workOrderId", "productCode",
+                            "customerName"),
+                    pageOf(context), pageSizeOf(context), toText(context.get("search")));
             result.put("orderCount", Integer.valueOf(rows.size()));
             result.put("shortageOrderCount", Long.valueOf(shortageOrders));
             return result;
@@ -1655,7 +1666,10 @@ public final class MfgServices {
                 list.add(map);
             }
             Map<String, Object> result = ServiceUtil.returnSuccess();
-            result.put("deliveries", list);
+            putPage(result, "deliveries",
+                    filterByKeyword(list, toText(context.get("search")), "deliveryId", "customerName",
+                            "customerPo", "carrier", "trackingNo"),
+                    pageOf(context), pageSizeOf(context), toText(context.get("search")));
             result.put("customerName", customerName);
             return result;
         } catch (GenericEntityException e) {
@@ -1945,7 +1959,10 @@ public final class MfgServices {
         Delegator delegator = dctx.getDelegator();
         try {
             Map<String, Object> result = ServiceUtil.returnSuccess();
-            result.put("vendors", vendorMaps(delegator));
+            putPage(result, "vendors",
+                    filterByKeyword(vendorMaps(delegator), toText(context.get("search")), "vendorName",
+                            "vendorType", "contactName", "contactMobile", "customerCode", "vendorId"),
+                    pageOf(context), pageSizeOf(context), toText(context.get("search")));
             return result;
         } catch (GenericEntityException e) {
             return ServiceUtil.returnError("Could not read the vendors: " + e.getMessage());
@@ -2330,7 +2347,10 @@ public final class MfgServices {
                 }
             }
             Map<String, Object> result = ServiceUtil.returnSuccess();
-            result.put("claims", list);
+            putPage(result, "claims",
+                    filterByKeyword(list, toText(context.get("search")), "claimId", "sn", "tradeNo",
+                            "buyerNick", "customerName", "issueDesc", "responsibility"),
+                    pageOf(context), pageSizeOf(context), toText(context.get("search")));
             result.put("claimCount", Integer.valueOf(list.size()));
             result.put("openCount", Long.valueOf(openCount));
             result.put("expiringCount", Long.valueOf(expiringCount));
@@ -2914,7 +2934,7 @@ public final class MfgServices {
                 }
             }
             Map<String, Object> result = ServiceUtil.returnSuccess();
-            result.put("flags", list);
+            putPage(result, "flags", list, pageOf(context), pageSizeOf(context), keyword);
             result.put("flagCount", Integer.valueOf(list.size()));
             result.put("blockCount", Long.valueOf(blockCount));
             result.put("keyword", keyword);
@@ -3818,6 +3838,127 @@ always
     // ------------------------------------------------------------------ helpers
 
     /**
+     * Keeps the rows that contain the keyword in any of the given fields, case insensitively.
+     *
+     * @param rows the rows to filter
+     * @param keyword the keyword, may be {@code null} or blank for no filtering
+     * @param keys the fields to look at
+     * @return the matching rows, or all rows when there is no keyword
+     */
+    static List<Map<String, Object>> filterByKeyword(List<Map<String, Object>> rows, String keyword,
+            String... keys) {
+        if (keyword == null || keyword.trim().isEmpty()) {
+            return rows;
+        }
+        String needle = keyword.trim().toLowerCase(Locale.ROOT);
+        List<Map<String, Object>> hits = new ArrayList<>();
+        for (Map<String, Object> row : rows) {
+            for (String key : keys) {
+                Object value = row.get(key);
+                if (value != null && String.valueOf(value).toLowerCase(Locale.ROOT).contains(needle)) {
+                    hits.add(row);
+                    break;
+                }
+            }
+        }
+        return hits;
+    }
+
+    /**
+     * Number of pages needed for the given number of rows, at least one.
+     *
+     * @param total the number of rows
+     * @param pageSize the rows per page
+     * @return the page count
+     */
+    static long pageCount(int total, long pageSize) {
+        if (pageSize <= 0) {
+            return 1;
+        }
+        return Math.max(1, (total + pageSize - 1) / pageSize);
+    }
+
+    /**
+     * Clamps a requested page number into the available range.
+     *
+     * @param page the requested page, 1 based
+     * @param total the number of rows
+     * @param pageSize the rows per page
+     * @return the page that will be shown
+     */
+    static long pageNumber(long page, int total, long pageSize) {
+        long pages = pageCount(total, pageSize);
+        if (page <= 0) {
+            return 1;
+        }
+        return Math.min(page, pages);
+    }
+
+    /**
+     * Returns one page of rows, clamped so an out of range page still shows something sensible.
+     *
+     * @param all all rows
+     * @param page the requested page, 1 based
+     * @param pageSize the rows per page
+     * @param <T> the row type
+     * @return the rows of that page
+     */
+    static <T> List<T> pageSlice(List<T> all, long page, long pageSize) {
+        if (all.isEmpty()) {
+            return new ArrayList<>();
+        }
+        long current = pageNumber(page, all.size(), pageSize);
+        int from = (int) ((current - 1) * pageSize);
+        int to = (int) Math.min((long) all.size(), from + pageSize);
+        if (from >= all.size()) {
+            return new ArrayList<>();
+        }
+        return new ArrayList<>(all.subList(from, to));
+    }
+
+    /**
+     * Puts one page of rows into the service result together with the paging metadata the screens
+     * need, so every list page shows the same footer.
+     *
+     * @param result the service result
+     * @param key the key the rows are stored under
+     * @param rows all rows, already filtered
+     * @param page the requested page, 1 based
+     * @param pageSize the rows per page
+     * @param keyword the keyword that was used, echoed back to the form
+     */
+    static void putPage(Map<String, Object> result, String key, List<Map<String, Object>> rows,
+            long page, long pageSize, String keyword) {
+        result.put(key, pageSlice(rows, page, pageSize));
+        result.put("totalCount", Integer.valueOf(rows.size()));
+        result.put("page", Long.valueOf(pageNumber(page, rows.size(), pageSize)));
+        result.put("pageCount", Long.valueOf(pageCount(rows.size(), pageSize)));
+        result.put("pageSize", Long.valueOf(pageSize));
+        result.put("search", keyword);
+    }
+
+    /**
+     * Reads the requested page from the service context.
+     *
+     * @param context the service context
+     * @return the page number, 1 when unset
+     */
+    static long pageOf(Map<String, ? extends Object> context) {
+        return toLong(context.get("page"), 1);
+    }
+
+    /**
+     * Reads the requested page size from the service context, capped at 200 rows.
+     *
+     * @param context the service context
+     * @return the page size, {@link #PAGE_SIZE} when unset or out of range
+     */
+    static long pageSizeOf(Map<String, ? extends Object> context) {
+        long size = toLong(context.get("pageSize"), PAGE_SIZE);
+        return size <= 0 || size > 200 ? PAGE_SIZE : size;
+    }
+
+    /**
      * Parses BOM CSV text into rows of {@code componentCode, componentName, qty, designators, isKeyPart}.
      * Empty lines and lines starting with {@code #} are ignored; quotes are stripped.
      *
@@ -4171,7 +4312,10 @@ always
                 list.add(map);
             }
             Map<String, Object> result = ServiceUtil.returnSuccess();
-            result.put("products", list);
+            putPage(result, "products",
+                    filterByKeyword(list, toText(context.get("search")), "productCode", "productName",
+                            "snPrefix", "statusId"),
+                    pageOf(context), pageSizeOf(context), toText(context.get("search")));
             return result;
         } catch (GenericEntityException e) {
             return ServiceUtil.returnError("Could not read the product models: " + e.getMessage());

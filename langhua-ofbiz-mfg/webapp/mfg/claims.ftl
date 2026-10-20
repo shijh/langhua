@@ -118,7 +118,8 @@
 
 <h2>售后单列表</h2>
 <form method="get" action="/mfg/control/claims">
-     SN：<input type="text" name="sn" size="18" value="${(parameters.sn)!''}"/>
+     搜索 <input type="text" name="search" size="20" value="${(cl.search)!''}" placeholder="单号 / SN / 订单号 / 买家"/>
+     SN：<input type="text" name="sn" size="16" value="${(parameters.sn)!''}"/>
      类型：
     <select name="claimType">
         <option value="">（全部）</option>
@@ -136,6 +137,7 @@
         <option value="MFG_RMA_CLOSED"<#if (parameters.statusId!'') == 'MFG_RMA_CLOSED'> selected="selected"</#if>>已结案</option>
     </select>
     <input type="submit" value="筛选"/>
+    <span class="hint">共 ${(cl.totalCount)!0} 单</span>
 </form>
 
 <#if claims?has_content>
@@ -179,6 +181,19 @@
     </table>
 <#else>
     <p class="hint">没有售后单。</p>
+</#if>
+<#if (cl.pageCount?default(1)) gt 1>
+    <p class="pager">
+        第 ${(cl.page)!1} / ${(cl.pageCount)!1} 页（共 ${(cl.totalCount)!0} 单）
+        <#if (cl.page?default(1)) gt 1>
+            <a href="/mfg/control/claims?search=${(cl.search)!''?url}&sn=${(parameters.sn)!''?url}&claimType=${(parameters.claimType)!''?url}&statusId=${(parameters.statusId)!''?url}&page=1">首页</a>
+            <a href="/mfg/control/claims?search=${(cl.search)!''?url}&sn=${(parameters.sn)!''?url}&claimType=${(parameters.claimType)!''?url}&statusId=${(parameters.statusId)!''?url}&page=${(cl.page)-1}">上一页</a>
+        </#if>
+        <#if (cl.page?default(1)) lt (cl.pageCount?default(1))>
+            <a href="/mfg/control/claims?search=${(cl.search)!''?url}&sn=${(parameters.sn)!''?url}&claimType=${(parameters.claimType)!''?url}&statusId=${(parameters.statusId)!''?url}&page=${(cl.page)+1}">下一页</a>
+            <a href="/mfg/control/claims?search=${(cl.search)!''?url}&sn=${(parameters.sn)!''?url}&claimType=${(parameters.claimType)!''?url}&statusId=${(parameters.statusId)!''?url}&page=${(cl.pageCount)!1}">末页</a>
+        </#if>
+    </p>
 </#if>
 
 <#if (claim.claimId)??>

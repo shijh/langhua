@@ -423,4 +423,50 @@ public class MfgServicesTest {
         assertEquals(2L, MfgServices.percentOfMax(1, 1000));
         assertEquals(100L, MfgServices.percentOfMax(3, 0));
     }
+
+    @Test
+    public void filtersRowsByKeyword() {
+        java.util.List<java.util.Map<String, Object>> rows = new java.util.ArrayList<>();
+        rows.add(row("workOrderId", "WO-261021-001", "customerName", "ACME"));
+        rows.add(row("workOrderId", "WO-261021-002", "customerName", "Beta"));
+        rows.add(row("workOrderId", "WO-261021-003", "customerName", "acme labs"));
+
+        assertEquals(2, MfgServices.filterByKeyword(rows, "acme", "customerName").size());
+        assertEquals(1, MfgServices.filterByKeyword(rows, "002", "workOrderId").size());
+        // no keyword means no filtering
+        assertEquals(3, MfgServices.filterByKeyword(rows, "  ", "customerName").size());
+        assertEquals(3, MfgServices.filterByKeyword(rows, null, "customerName").size());
+        assertEquals(0, MfgServices.filterByKeyword(rows, "zzz", "customerName").size());
+    }
+
+    @Test
+    public void splitsRowsIntoTewntyRowPages() {
+        assertEquals(1L, MfgServices.pageCount(0, 20));
+        assertEquals(1L, MfgServices.pageCount(20, 20));
+        assertEquals(2L, MfgServices.pageCount(21, 20));
+        assertEquals(3L, MfgServices.pageCount(60, 20));
+
+        // an out of range page falls back to the closest available one
+        assertEquals(3L, MfgServices.pageNumber(99, 60, 20));
+        assertEquals(1L, MfgServices.pageNumber(0, 60, 20));
+        assertEquals(2L, MfgServices.pageNumber(2, 60, 20));
+
+        java.util.List<String> rows = new java.util.ArrayList<>();
+        for (int i = 0; i < 45; i++) {
+            rows.add("row" + i);
+        }
+        assertEquals(20, MfgServices.pageSlice(rows, 1, 20).size());
+        assertEquals("row20", MfgServices.pageSlice(rows, 2, 20).get(0));
+        assertEquals(5, MfgServices.pageSlice(rows, 3, 20).size());
+        assertEquals("row40", MfgServices.pageSlice(rows, 9, 20).get(0));
+        assertEquals(0, MfgServices.pageSlice(new java.util.ArrayList<String>(), 1, 20).size());
+    }
+
+    private static java.util.Map<String, Object> row(String keyOne, String valueOne, String keyTwo,
+            String valueTwo) {
+        java.util.Map<String, Object> row = new java.util.LinkedHashMap<>();
+        row.put(keyOne, valueOne);
+        row.put(keyTwo, valueTwo);
+        return row;
+    }
 }

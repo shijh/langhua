@@ -78,8 +78,10 @@ C0402-100N,100nF 0402 电容,立创商城,DC2409B,500,2026-10-19</textarea>
 
 <h2>批次台账</h2>
 <form method="get" action="/mfg/control/materials">
-    元件料号：<input type="text" name="componentCode" size="18" value="${(parameters.componentCode)!''}"/>
+    搜索：<input type="text" name="search" size="20" value="${(lr.search)!''}" placeholder="批次 / 料号 / 供应商 / 批号"/>
+    元件料号：<input type="text" name="componentCode" size="16" value="${(parameters.componentCode)!''}"/>
     <input type="submit" value="筛选"/>
+    <span class="hint">共 ${(lr.totalCount)!0} 条</span>
 </form>
 
 <#if lots?has_content>
@@ -103,6 +105,19 @@ C0402-100N,100nF 0402 电容,立创商城,DC2409B,500,2026-10-19</textarea>
     </table>
 <#else>
     <p class="hint">还没有批次记录。</p>
+</#if>
+<#if (lr.pageCount?default(1)) gt 1>
+    <p class="pager">
+        第 ${(lr.page)!1} / ${(lr.pageCount)!1} 页（共 ${(lr.totalCount)!0} 条）
+        <#if (lr.page?default(1)) gt 1>
+            <a href="/mfg/control/materials?search=${(lr.search)!''?url}&componentCode=${(parameters.componentCode)!''?url}&page=1">首页</a>
+            <a href="/mfg/control/materials?search=${(lr.search)!''?url}&componentCode=${(parameters.componentCode)!''?url}&page=${(lr.page)-1}">上一页</a>
+        </#if>
+        <#if (lr.page?default(1)) lt (lr.pageCount?default(1))>
+            <a href="/mfg/control/materials?search=${(lr.search)!''?url}&componentCode=${(parameters.componentCode)!''?url}&page=${(lr.page)+1}">下一页</a>
+            <a href="/mfg/control/materials?search=${(lr.search)!''?url}&componentCode=${(parameters.componentCode)!''?url}&page=${(lr.pageCount)!1}">末页</a>
+        </#if>
+    </p>
 </#if>
 
 <h2>批次追溯（反向：批次 → 工单 → SN）</h2>

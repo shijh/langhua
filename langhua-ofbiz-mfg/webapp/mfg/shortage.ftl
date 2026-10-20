@@ -49,6 +49,12 @@
     <span class="hint">需求 = BOM 用量 × 计划数量；欠料 = 需求 − 已发料。</span>
 </p>
 
+<form method="get" action="/mfg/control/shortage">
+    搜索 <input type="text" name="search" size="24" value="${(sh.search)!''}" placeholder="工单号 / 型号 / 客户"/>
+    <input type="submit" value="查询"/>
+    <span class="hint">共 ${(sh.totalCount)!0} 张</span>
+</form>
+
 <#if orders?has_content>
     <table>
         <tr>
@@ -87,6 +93,19 @@
     </table>
 <#else>
     <p class="hint">没有在制工单。</p>
+</#if>
+<#if (sh.pageCount?default(1)) gt 1>
+    <p class="pager">
+        第 ${(sh.page)!1} / ${(sh.pageCount)!1} 页（共 ${(sh.totalCount)!0} 张）
+        <#if (sh.page?default(1)) gt 1>
+            <a href="/mfg/control/shortage?search=${(sh.search)!''?url}&page=1">首页</a>
+            <a href="/mfg/control/shortage?search=${(sh.search)!''?url}&page=${(sh.page)-1}">上一页</a>
+        </#if>
+        <#if (sh.page?default(1)) lt (sh.pageCount?default(1))>
+            <a href="/mfg/control/shortage?search=${(sh.search)!''?url}&page=${(sh.page)+1}">下一页</a>
+            <a href="/mfg/control/shortage?search=${(sh.search)!''?url}&page=${(sh.pageCount)!1}">末页</a>
+        </#if>
+    </p>
 </#if>
 </body>
 </html>

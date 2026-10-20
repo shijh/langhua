@@ -11,6 +11,8 @@
                 <service service-name="mfgProductList" result-map="productList" auto-field-map="false"/>
                 <service service-name="mfgWorkOrderList" result-map="listResult" auto-field-map="false">
                     <field-map field-name="statusId" from-field="parameters.statusId"/>
+                    <field-map field-name="search" from-field="parameters.search"/>
+                    <field-map field-name="page" from-field="parameters.page"/>
                 </service>
             </actions>
             <widgets>
@@ -28,7 +30,10 @@
         <section>
             <actions>
                 <set field="title" value="Product Models"/>
-                <service service-name="mfgProductList" result-map="listResult" auto-field-map="false"/>
+                <service service-name="mfgProductList" result-map="listResult" auto-field-map="false">
+                    <field-map field-name="search" from-field="parameters.search"/>
+                    <field-map field-name="page" from-field="parameters.page"/>
+                </service>
                 <service service-name="mfgProductDetail" result-map="detail" auto-field-map="false">
                     <field-map field-name="productCode" from-field="parameters.productCode"/>
                 </service>
@@ -57,6 +62,8 @@
                         <service service-name="mfgProductList" result-map="productList" auto-field-map="false"/>
                         <service service-name="mfgWorkOrderList" result-map="listResult" auto-field-map="false">
                             <field-map field-name="statusId" from-field="parameters.statusId"/>
+                            <field-map field-name="search" from-field="parameters.search"/>
+                            <field-map field-name="page" from-field="parameters.page"/>
                         </service>
                     </actions>
                     <widgets>
@@ -141,6 +148,8 @@
                 <set field="title" value="Material Lots"/>
                 <service service-name="mfgLotList" result-map="lotResult" auto-field-map="false">
                     <field-map field-name="componentCode" from-field="parameters.componentCode"/>
+                    <field-map field-name="search" from-field="parameters.search"/>
+                    <field-map field-name="page" from-field="parameters.page"/>
                 </service>
                 <service service-name="mfgTraceByLot" result-map="trace" auto-field-map="false">
                     <field-map field-name="lotId" from-field="parameters.lotId"/>
@@ -162,7 +171,10 @@
         <section>
             <actions>
                 <set field="title" value="Material Shortage"/>
-                <service service-name="mfgShortageList" result-map="shortage" auto-field-map="false"/>
+                <service service-name="mfgShortageList" result-map="shortage" auto-field-map="false">
+                    <field-map field-name="search" from-field="parameters.search"/>
+                    <field-map field-name="page" from-field="parameters.page"/>
+                </service>
             </actions>
             <widgets>
                 <platform-specific>
@@ -180,6 +192,8 @@
                 <set field="title" value="Deliveries"/>
                 <service service-name="mfgDeliveryList" result-map="deliveryList" auto-field-map="false">
                     <field-map field-name="customerName" from-field="parameters.customerName"/>
+                    <field-map field-name="search" from-field="parameters.search"/>
+                    <field-map field-name="page" from-field="parameters.page"/>
                 </service>
                 <service service-name="mfgDeliveryDetail" result-map="deliveryDetail" auto-field-map="false">
                     <field-map field-name="deliveryId" from-field="parameters.deliveryId"/>
@@ -200,7 +214,10 @@
         <section>
             <actions>
                 <set field="title" value="Vendors"/>
-                <service service-name="mfgVendorList" result-map="vendorList" auto-field-map="false"/>
+                <service service-name="mfgVendorList" result-map="vendorList" auto-field-map="false">
+                    <field-map field-name="search" from-field="parameters.search"/>
+                    <field-map field-name="page" from-field="parameters.page"/>
+                </service>
             </actions>
             <widgets>
                 <platform-specific>
@@ -220,6 +237,8 @@
                     <field-map field-name="sn" from-field="parameters.sn"/>
                     <field-map field-name="statusId" from-field="parameters.statusId"/>
                     <field-map field-name="claimType" from-field="parameters.claimType"/>
+                    <field-map field-name="search" from-field="parameters.search"/>
+                    <field-map field-name="page" from-field="parameters.page"/>
                 </service>
                 <service service-name="mfgClaimDetail" result-map="claimDetail" auto-field-map="false">
                     <field-map field-name="claimId" from-field="parameters.claimId"/>
@@ -243,6 +262,7 @@
                     <field-map field-name="keyword" from-field="parameters.keyword"/>
                     <field-map field-name="riskLevel" from-field="parameters.riskLevel"/>
                     <field-map field-name="statusId" from-field="parameters.statusId"/>
+                    <field-map field-name="page" from-field="parameters.page"/>
                 </service>
                 <service service-name="mfgBuyerRiskList" result-map="riskList" auto-field-map="false"/>
                 <service service-name="mfgBuyerFlagCheck" result-map="checkResult" auto-field-map="false">

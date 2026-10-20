@@ -71,6 +71,19 @@
 </fieldset>
 
 <h2>工单列表</h2>
+<form method="get" action="/mfg/control/main">
+    搜索 <input type="text" name="search" size="24" value="${(lr.search)!''}" placeholder="工单号 / 型号 / 客户 / 外协"/>
+    状态
+    <select name="statusId">
+        <option value="">（全部）</option>
+        <option value="MFG_CREATED"<#if (parameters.statusId!'') == 'MFG_CREATED'> selected="selected"</#if>>已创建</option>
+        <option value="MFG_IN_PROGRESS"<#if (parameters.statusId!'') == 'MFG_IN_PROGRESS'> selected="selected"</#if>>生产中</option>
+        <option value="MFG_COMPLETED"<#if (parameters.statusId!'') == 'MFG_COMPLETED'> selected="selected"</#if>>已完工</option>
+        <option value="MFG_CLOSED"<#if (parameters.statusId!'') == 'MFG_CLOSED'> selected="selected"</#if>>已关闭</option>
+    </select>
+    <input type="submit" value="查询"/>
+    <span class="hint">共 ${(lr.totalCount)!0} 条</span>
+</form>
 <#if orders?has_content>
     <table>
         <tr>
@@ -100,6 +113,19 @@
     </table>
 <#else>
     <p class="hint">还没有工单。</p>
+</#if>
+<#if (lr.pageCount?default(1)) gt 1>
+    <p class="pager">
+        第 ${(lr.page)!1} / ${(lr.pageCount)!1} 页（共 ${(lr.totalCount)!0} 条）
+        <#if (lr.page?default(1)) gt 1>
+            <a href="/mfg/control/main?search=${(lr.search)!''?url}&statusId=${(parameters.statusId)!''?url}&page=1">首页</a>
+            <a href="/mfg/control/main?search=${(lr.search)!''?url}&statusId=${(parameters.statusId)!''?url}&page=${(lr.page)-1}">上一页</a>
+        </#if>
+        <#if (lr.page?default(1)) lt (lr.pageCount?default(1))>
+            <a href="/mfg/control/main?search=${(lr.search)!''?url}&statusId=${(parameters.statusId)!''?url}&page=${(lr.page)+1}">下一页</a>
+            <a href="/mfg/control/main?search=${(lr.search)!''?url}&statusId=${(parameters.statusId)!''?url}&page=${(lr.pageCount)!1}">末页</a>
+        </#if>
+    </p>
 </#if>
 </body>
 </html>

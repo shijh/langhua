@@ -119,6 +119,7 @@ public final class MfgServiceIT {
             it.readsWorkOrderDetail();
             it.readsDashboard();
             it.readsDashboardTrends();
+            it.readsPagedWorkOrders();
             it.createsMaterialLot();
             it.issuesMaterialLot();
             it.rejectsIssueOfForeignLot();
@@ -302,6 +303,32 @@ public final class MfgServiceIT {
                 response.body.contains("responsibilities"), "no responsibility split in response");
         check("dashboard trends: refresh stamp returned", response.body.contains("refreshedAt"),
                 "no refresh stamp in response");
+    }
+
+    private void readsPagedWorkOrders() throws IOException {
+        Map<String, String> form = new LinkedHashMap<>();
+        form.put("page", "1");
+        form.put("pageSize", "5");
+
+        Response response = invoke("mfgWorkOrderList", form);
+        check("paging: service call returns HTTP 200", response.status == 200, "HTTP " + response.status);
+        check("paging: total count returned", response.body.contains("totalCount"),
+                "no totalCount in response");
+        check("paging: page count returned", response.body.contains("pageCount"),
+                "no pageCount in response");
+
+        Map<String, String> search = new LinkedHashMap<>();
+        search.put("search", workOrderId == null ? "WO-" : workOrderId);
+        response = invoke("mfgWorkOrderList", search);
+        check("search: service call returns HTTP 200", response.status == 200, "HTTP " + response.status);
+        check("search: the work order is found", workOrderId != null && response.body.contains(workOrderId),
+                "work order missing from the search result");
+
+        Map<String, String> miss = new LinkedHashMap<>();
+        miss.put("search", "NO-SUCH-KEYWORD-XYZ");
+        response = invoke("mfgWorkOrderList", miss);
+        check("search: no match returns nothing", response.status == 200 && !response.body.contains(workOrderId),
+                "unexpected rows for an unknown keyword");
     }
 
     private void registersSerialNumbers() throws IOException {
@@ -513,7 +540,10 @@ public final class MfgServiceIT {
     }
 
     private void readsShortageList() throws IOException {
-        Response response = invoke("mfgShortageList", new LinkedHashMap<String, String>());
+        // the list is paged and sorted by due date, so ask for a single wide page here
+        Map<String, String> form = new LinkedHashMap<>();
+        form.put("pageSize", "200");
+        Response response = invoke("mfgShortageList", form);
         check("shortage: service call returns HTTP 200", response.status == 200,
                 "HTTP " + response.status);
         check("shortage: open orders are counted", response.body.contains("shortageOrderCount"),

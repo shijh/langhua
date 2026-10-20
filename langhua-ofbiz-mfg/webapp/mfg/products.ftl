@@ -70,6 +70,11 @@
 </fieldset>
 
 <h2>型号列表</h2>
+<form method="get" action="/mfg/control/products">
+    搜索 <input type="text" name="search" size="24" value="${(lr.search)!''}" placeholder="型号 / 名称 / SN 前缀"/>
+    <input type="submit" value="查询"/>
+    <span class="hint">共 ${(lr.totalCount)!0} 条</span>
+</form>
 <#if products?has_content>
     <table>
         <tr>
@@ -95,6 +100,19 @@
     </table>
 <#else>
     <p class="hint">还没有产品型号，先在上面的表单里创建一个（例如 <code>BT5</code>）。</p>
+</#if>
+<#if (lr.pageCount?default(1)) gt 1>
+    <p class="pager">
+        第 ${(lr.page)!1} / ${(lr.pageCount)!1} 页（共 ${(lr.totalCount)!0} 条）
+        <#if (lr.page?default(1)) gt 1>
+            <a href="/mfg/control/products?search=${(lr.search)!''?url}&page=1">首页</a>
+            <a href="/mfg/control/products?search=${(lr.search)!''?url}&page=${(lr.page)-1}">上一页</a>
+        </#if>
+        <#if (lr.page?default(1)) lt (lr.pageCount?default(1))>
+            <a href="/mfg/control/products?search=${(lr.search)!''?url}&page=${(lr.page)+1}">下一页</a>
+            <a href="/mfg/control/products?search=${(lr.search)!''?url}&page=${(lr.pageCount)!1}">末页</a>
+        </#if>
+    </p>
 </#if>
 
 <#if product.productCode??>

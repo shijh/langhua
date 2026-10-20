@@ -23,7 +23,15 @@
             location="org.langhua.ofbiz.mfg.MfgServices" invoke="productList"
             auth="false" use-transaction="false">
         <description>List product models with BOM and routing counts</description>
+        <attribute name="search" type="String" mode="IN" optional="true"/>
+        <attribute name="page" type="Long" mode="IN" optional="true"/>
+        <attribute name="pageSize" type="Long" mode="IN" optional="true"/>
         <attribute name="products" type="java.util.List" mode="OUT" optional="true"/>
+        <attribute name="totalCount" type="Integer" mode="OUT" optional="true"/>
+        <attribute name="page" type="Long" mode="OUT" optional="true"/>
+        <attribute name="pageCount" type="Long" mode="OUT" optional="true"/>
+        <attribute name="pageSize" type="Long" mode="OUT" optional="true"/>
+        <attribute name="search" type="String" mode="OUT" optional="true"/>
     </service>
 
     <service name="mfgProductDetail" engine="java"
@@ -81,7 +89,15 @@
             auth="false" use-transaction="false">
         <description>List work orders, newest first</description>
         <attribute name="statusId" type="String" mode="IN" optional="true"/>
+        <attribute name="search" type="String" mode="IN" optional="true"/>
+        <attribute name="page" type="Long" mode="IN" optional="true"/>
+        <attribute name="pageSize" type="Long" mode="IN" optional="true"/>
         <attribute name="workOrders" type="java.util.List" mode="OUT" optional="true"/>
+        <attribute name="totalCount" type="Integer" mode="OUT" optional="true"/>
+        <attribute name="page" type="Long" mode="OUT" optional="true"/>
+        <attribute name="pageCount" type="Long" mode="OUT" optional="true"/>
+        <attribute name="pageSize" type="Long" mode="OUT" optional="true"/>
+        <attribute name="search" type="String" mode="OUT" optional="true"/>
     </service>
 
     <service name="mfgWorkOrderDetail" engine="java"
@@ -197,8 +213,16 @@
             auth="false" use-transaction="false">
         <description>List material lots with received, issued and remaining quantities</description>
         <attribute name="componentCode" type="String" mode="IN" optional="true"/>
+        <attribute name="search" type="String" mode="IN" optional="true"/>
+        <attribute name="page" type="Long" mode="IN" optional="true"/>
+        <attribute name="pageSize" type="Long" mode="IN" optional="true"/>
         <attribute name="componentCode" type="String" mode="OUT" optional="true"/>
         <attribute name="lots" type="java.util.List" mode="OUT" optional="true"/>
+        <attribute name="totalCount" type="Integer" mode="OUT" optional="true"/>
+        <attribute name="page" type="Long" mode="OUT" optional="true"/>
+        <attribute name="pageCount" type="Long" mode="OUT" optional="true"/>
+        <attribute name="pageSize" type="Long" mode="OUT" optional="true"/>
+        <attribute name="search" type="String" mode="OUT" optional="true"/>
     </service>
 
     <service name="mfgIssueSave" engine="java"
@@ -273,7 +297,15 @@
             location="org.langhua.ofbiz.mfg.MfgServices" invoke="shortageList"
             auth="false" use-transaction="false">
         <description>Open work orders ordered by due date with their material shortages</description>
+        <attribute name="search" type="String" mode="IN" optional="true"/>
+        <attribute name="page" type="Long" mode="IN" optional="true"/>
+        <attribute name="pageSize" type="Long" mode="IN" optional="true"/>
         <attribute name="orders" type="java.util.List" mode="OUT" optional="true"/>
+        <attribute name="totalCount" type="Integer" mode="OUT" optional="true"/>
+        <attribute name="page" type="Long" mode="OUT" optional="true"/>
+        <attribute name="pageCount" type="Long" mode="OUT" optional="true"/>
+        <attribute name="pageSize" type="Long" mode="OUT" optional="true"/>
+        <attribute name="search" type="String" mode="OUT" optional="true"/>
         <attribute name="orderCount" type="Integer" mode="OUT" optional="true"/>
         <attribute name="shortageOrderCount" type="Long" mode="OUT" optional="true"/>
     </service>
@@ -319,8 +351,16 @@
             auth="false" use-transaction="false">
         <description>List delivery orders with the number of shipped units</description>
         <attribute name="customerName" type="String" mode="IN" optional="true"/>
+        <attribute name="search" type="String" mode="IN" optional="true"/>
+        <attribute name="page" type="Long" mode="IN" optional="true"/>
+        <attribute name="pageSize" type="Long" mode="IN" optional="true"/>
         <attribute name="customerName" type="String" mode="OUT" optional="true"/>
         <attribute name="deliveries" type="java.util.List" mode="OUT" optional="true"/>
+        <attribute name="totalCount" type="Integer" mode="OUT" optional="true"/>
+        <attribute name="page" type="Long" mode="OUT" optional="true"/>
+        <attribute name="pageCount" type="Long" mode="OUT" optional="true"/>
+        <attribute name="pageSize" type="Long" mode="OUT" optional="true"/>
+        <attribute name="search" type="String" mode="OUT" optional="true"/>
     </service>
 
     <service name="mfgDeliveryDetail" engine="java"
@@ -374,7 +414,15 @@
             location="org.langhua.ofbiz.mfg.MfgServices" invoke="vendorList"
             auth="false" use-transaction="false">
         <description>List the outsourcing vendors with their shipping label</description>
+        <attribute name="search" type="String" mode="IN" optional="true"/>
+        <attribute name="page" type="Long" mode="IN" optional="true"/>
+        <attribute name="pageSize" type="Long" mode="IN" optional="true"/>
         <attribute name="vendors" type="java.util.List" mode="OUT" optional="true"/>
+        <attribute name="totalCount" type="Integer" mode="OUT" optional="true"/>
+        <attribute name="page" type="Long" mode="OUT" optional="true"/>
+        <attribute name="pageCount" type="Long" mode="OUT" optional="true"/>
+        <attribute name="pageSize" type="Long" mode="OUT" optional="true"/>
+        <attribute name="search" type="String" mode="OUT" optional="true"/>
     </service>
 
     <service name="mfgWorkOrderVendor" engine="java"
@@ -447,7 +495,15 @@
         <attribute name="sn" type="String" mode="IN" optional="true"/>
         <attribute name="statusId" type="String" mode="IN" optional="true"/>
         <attribute name="claimType" type="String" mode="IN" optional="true"/>
+        <attribute name="search" type="String" mode="IN" optional="true"/>
+        <attribute name="page" type="Long" mode="IN" optional="true"/>
+        <attribute name="pageSize" type="Long" mode="IN" optional="true"/>
         <attribute name="claims" type="java.util.List" mode="OUT" optional="true"/>
+        <attribute name="totalCount" type="Integer" mode="OUT" optional="true"/>
+        <attribute name="page" type="Long" mode="OUT" optional="true"/>
+        <attribute name="pageCount" type="Long" mode="OUT" optional="true"/>
+        <attribute name="pageSize" type="Long" mode="OUT" optional="true"/>
+        <attribute name="search" type="String" mode="OUT" optional="true"/>
         <attribute name="claimCount" type="Integer" mode="OUT" optional="true"/>
         <attribute name="openCount" type="Long" mode="OUT" optional="true"/>
         <attribute name="expiringCount" type="Long" mode="OUT" optional="true"/>
@@ -522,7 +578,13 @@
         <attribute name="keyword" type="String" mode="IN" optional="true"/>
         <attribute name="riskLevel" type="String" mode="IN" optional="true"/>
         <attribute name="statusId" type="String" mode="IN" optional="true"/>
+        <attribute name="page" type="Long" mode="IN" optional="true"/>
+        <attribute name="pageSize" type="Long" mode="IN" optional="true"/>
         <attribute name="flags" type="java.util.List" mode="OUT" optional="true"/>
+        <attribute name="totalCount" type="Integer" mode="OUT" optional="true"/>
+        <attribute name="page" type="Long" mode="OUT" optional="true"/>
+        <attribute name="pageCount" type="Long" mode="OUT" optional="true"/>
+        <attribute name="pageSize" type="Long" mode="OUT" optional="true"/>
         <attribute name="flagCount" type="Integer" mode="OUT" optional="true"/>
         <attribute name="blockCount" type="Long" mode="OUT" optional="true"/>
         <attribute name="keyword" type="String" mode="OUT" optional="true"/>

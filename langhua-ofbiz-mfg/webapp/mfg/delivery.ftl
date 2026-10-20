@@ -74,8 +74,10 @@
 
 <h2>出货记录</h2>
 <form method="get" action="/mfg/control/delivery">
-    客户：<input type="text" name="customerName" size="18" value="${(parameters.customerName)!''}"/>
+    搜索：<input type="text" name="search" size="20" value="${(dl.search)!''}" placeholder="单号 / 客户 / 快递 / PO"/>
+    客户：<input type="text" name="customerName" size="16" value="${(parameters.customerName)!''}"/>
     <input type="submit" value="筛选"/>
+    <span class="hint">共 ${(dl.totalCount)!0} 条</span>
 </form>
 
 <#if deliveries?has_content>
@@ -97,6 +99,19 @@
     </table>
 <#else>
     <p class="hint">还没有出货记录。</p>
+</#if>
+<#if (dl.pageCount?default(1)) gt 1>
+    <p class="pager">
+        第 ${(dl.page)!1} / ${(dl.pageCount)!1} 页（共 ${(dl.totalCount)!0} 条）
+        <#if (dl.page?default(1)) gt 1>
+            <a href="/mfg/control/delivery?search=${(dl.search)!''?url}&customerName=${(parameters.customerName)!''?url}&page=1">首页</a>
+            <a href="/mfg/control/delivery?search=${(dl.search)!''?url}&customerName=${(parameters.customerName)!''?url}&page=${(dl.page)-1}">上一页</a>
+        </#if>
+        <#if (dl.page?default(1)) lt (dl.pageCount?default(1))>
+            <a href="/mfg/control/delivery?search=${(dl.search)!''?url}&customerName=${(parameters.customerName)!''?url}&page=${(dl.page)+1}">下一页</a>
+            <a href="/mfg/control/delivery?search=${(dl.search)!''?url}&customerName=${(parameters.customerName)!''?url}&page=${(dl.pageCount)!1}">末页</a>
+        </#if>
+    </p>
 </#if>
 
 <#if (delivery.deliveryId)??>

@@ -161,6 +161,7 @@
         <option value="MFG_FLAG_RELEASED"<#if (parameters.statusId!'') == 'MFG_FLAG_RELEASED'> selected="selected"</#if>>已解除</option>
     </select>
     <input type="submit" value="筛选"/>
+    <span class="hint">共 ${(fl.totalCount)!0} 条</span>
 </form>
 
 <#if flags?has_content>
@@ -205,6 +206,19 @@
     </table>
 <#else>
     <p class="hint">名单为空。</p>
+</#if>
+<#if (fl.pageCount?default(1)) gt 1>
+    <p class="pager">
+        第 ${(fl.page)!1} / ${(fl.pageCount)!1} 页（共 ${(fl.totalCount)!0} 条）
+        <#if (fl.page?default(1)) gt 1>
+            <a href="/mfg/control/buyers?keyword=${(fl.keyword)!''?url}&riskLevel=${(parameters.riskLevel)!''?url}&statusId=${(parameters.statusId)!''?url}&page=1">首页</a>
+            <a href="/mfg/control/buyers?keyword=${(fl.keyword)!''?url}&riskLevel=${(parameters.riskLevel)!''?url}&statusId=${(parameters.statusId)!''?url}&page=${(fl.page)-1}">上一页</a>
+        </#if>
+        <#if (fl.page?default(1)) lt (fl.pageCount?default(1))>
+            <a href="/mfg/control/buyers?keyword=${(fl.keyword)!''?url}&riskLevel=${(parameters.riskLevel)!''?url}&statusId=${(parameters.statusId)!''?url}&page=${(fl.page)+1}">下一页</a>
+            <a href="/mfg/control/buyers?keyword=${(fl.keyword)!''?url}&riskLevel=${(parameters.riskLevel)!''?url}&statusId=${(parameters.statusId)!''?url}&page=${(fl.pageCount)!1}">末页</a>
+        </#if>
+    </p>
 </#if>
 
 <h2>售后历史汇总（建议名单用）</h2>
