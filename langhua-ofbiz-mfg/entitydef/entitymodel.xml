@@ -76,7 +76,8 @@
         <field name="statusId" type="id"><description>MFG_CREATED, MFG_IN_PROGRESS, MFG_COMPLETED, MFG_CLOSED</description></field>
         <field name="dueDate" type="date"><description>Requested finish date</description></field>
         <field name="customerName" type="name"><description>Customer or internal project</description></field>
-        <field name="smtVendor" type="name"><description>Outsourced SMT supplier</description></field>
+        <field name="smtVendor" type="name"><description>Outsourced SMT supplier name</description></field>
+        <field name="smtVendorId" type="id"><description>Vendor master record used for shipping material</description></field>
         <field name="note" type="description"/>
         <field name="createdStamp" type="date-time"/>
         <field name="createdTxStamp" type="date-time"/>
@@ -357,6 +358,29 @@
         </index>
         <index name="MFG_TEST_WO_IDX" unique="false">
             <index-field name="workOrderId"/>
+        </index>
+    </entity>
+
+    <entity entity-name="MfgVendor"
+            package-name="org.langhua.ofbiz.mfg"
+            title="Outsourcing vendor">
+        <description>SMT / PCB vendor with the shipping address and the customer code it assigned to us</description>
+        <field name="vendorId" type="id"><description>Vendor code, V-yyMMdd-NN when generated</description></field>
+        <field name="vendorName" type="name"><description>Vendor name, matched with the work order SMT vendor</description></field>
+        <field name="vendorType" type="short-varchar"><description>SMT, PCB or BOTH</description></field>
+        <field name="contactName" type="name"><description>Recipient of our material parcels</description></field>
+        <field name="contactMobile" type="short-varchar"><description>Mobile number of the recipient</description></field>
+        <field name="addressText" type="very-long"><description>Shipping address, may span several lines</description></field>
+        <field name="customerCode" type="short-varchar"><description>Customer code the vendor assigned to us, printed on parcels</description></field>
+        <field name="statusId" type="id"><description>MFG_ACTIVE or MFG_INACTIVE</description></field>
+        <field name="note" type="description"/>
+        <field name="createdStamp" type="date-time"/>
+        <field name="createdTxStamp" type="date-time"/>
+        <field name="lastUpdatedStamp" type="date-time"/>
+        <field name="lastUpdatedTxStamp" type="date-time"/>
+        <prim-key field="vendorId"/>
+        <index name="MFG_VENDOR_NAME" unique="false">
+            <index-field name="vendorName"/>
         </index>
     </entity>
 </entitymodel>

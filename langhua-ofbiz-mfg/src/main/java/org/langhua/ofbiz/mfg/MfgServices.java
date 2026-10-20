@@ -326,6 +326,22 @@ public final class MfgServices {
             double testYield = testedSns.isEmpty() ? 0.0
                     : (testedSns.size() - failedSns.size()) * 100.0 / testedSns.size();
             result.put("testYield", Double.valueOf(testYield));
+
+            GenericValue vendor = null;
+            String smtVendorId = order.getString("smtVendorId");
+            if (smtVendorId != null) {
+                vendor = EntityQuery.use(delegator).from("MfgVendor")
+                        .where("vendorId", smtVendorId).queryOne();
+            }
+            if (vendor == null) {
+                String smtVendor = order.getString("smtVendor");
+                if (smtVendor != null) {
+                    vendor = EntityQuery.use(delegator).from("MfgVendor")
+                            .where("vendorName", smtVendor).queryOne();
+                }
+            }
+            result.put("vendor", vendor == null ? null : toVendorMap(vendor));
+            result.put("vendors", vendorMaps(delegator));
             return result;
         } catch (GenericEntityException e) {
             return ServiceUtil.returnError("Could not read the work order: " + e.getMessage());
@@ -1813,6 +1829,180 @@ public final class MfgServices {
         return formatDeliveryId(today, max + 1);
     }
 
+    // ---------------------------------------------------------------- vendors
+
+    /**
+     * Creates or updates an outsourcing vendor, keeping the address and the customer code that has
+     * to be printed on parcels of material.
+     *
+     * @param dctx the dispatch context
+     * @param context service context, see {@code servicedef/services.xml#mfgVendorSave}
+     * @return the service result containing {@code vendorId}
+     */
+    public static Map<String, Object> vendorSave(DispatchContext dctx, Map<String, ? extends Object> context) {
+        Delegator delegator = dctx.getDelegator();
+        String vendorName = toText(context.get("vendorName"));
+        if (vendorName == null) {
+            return ServiceUtil.returnError("vendorName is required");
+        }
+        try {
+            String vendorId = toText(context.get("vendorId"));
+            if (vendorId == null) {
+                vendorId = nextVendorId(delegator, LocalDate.now());
+            }
+            GenericValue vendor = delegator.makeValue("MfgVendor");
+            vendor.set("vendorId", vendorId);
+            vendor.set("vendorName", vendorName);
+            vendor.set("vendorType", toText(context.get("vendorType")));
+            vendor.set("contactName", toText(context.get("contactName")));
+            vendor.set("contactMobile", toText(context.get("contactMobile")));
+            vendor.set("addressText", toText(context.get("addressText")));
+            vendor.set("customerCode", toText(context.get("customerCode")));
+            String statusId = toText(context.get("statusId"));
+            vendor.set("statusId", statusId == null ? STATUS_ACTIVE : statusId);
+            vendor.set("note", toText(context.get("note")));
+            delegator.createOrStore(vendor);
+
+            Map<String, Object> result = ServiceUtil.returnSuccess();
+            result.put("vendorId", vendorId);
+            return result;
+        } catch (GenericEntityException e) {
+            return ServiceUtil.returnError("Could not save the vendor: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Lists the outsourcing vendors.
+     *
+     * @param dctx the dispatch context
+     * @param context service context, see {@code servicedef/services.xml#mfgVendorList}
+     * @return the service result containing {@code vendors}
+     */
+    public static Map<String, Object> vendorList(DispatchContext dctx, Map<String, ? extends Object> context) {
+        Delegator delegator = dctx.getDelegator();
+        try {
+            Map<String, Object> result = ServiceUtil.returnSuccess();
+            result.put("vendors", vendorMaps(delegator));
+            return result;
+        } catch (GenericEntityException e) {
+            return ServiceUtil.returnError("Could not read the vendors: " + e.getMessage());
+        }
+    }
+
+    private static List<Map<String, Object>> vendorMaps(Delegator delegator) throws GenericEntityException {
+        List<GenericValue> vendors = EntityQuery.use(delegator).from("MfgVendor")
+                .orderBy("vendorName").queryList();
+        List<Map<String, Object>> list = new ArrayList<>(vendors.size());
+        for (GenericValue vendor : vendors) {
+            list.add(toVendorMap(vendor));
+        }
+        return list;
+    }
+
+    /**
+     * Sets the outsourcing vendor of a work order, so the shipping details are at hand when the
+     * material is sent out.
+     *
+     * @param dctx the dispatch context
+     * @param context service context, see {@code servicedef/services.xml#mfgWorkOrderVendor}
+     * @return the service result containing {@code workOrderId} and {@code vendorId}
+     */
+    public static Map<String, Object> workOrderVendor(DispatchContext dctx, Map<String, ? extends Object> context) {
+        Delegator delegator = dctx.getDelegator();
+        String workOrderId = toText(context.get("workOrderId"));
+        String vendorId = toText(context.get("vendorId"));
+        if (workOrderId == null) {
+            return ServiceUtil.returnError("workOrderId is required");
+        }
+        try {
+            GenericValue order = EntityQuery.use(delegator).from("MfgWorkOrder")
+                    .where("workOrderId", workOrderId).queryOne();
+            if (order == null) {
+                return ServiceUtil.returnError("Unknown work order [" + workOrderId + "]");
+            }
+            if (vendorId == null) {
+                order.set("smtVendorId", null);
+                order.set("smtVendor", null);
+            } else {
+                GenericValue vendor = EntityQuery.use(delegator).from("MfgVendor")
+                        .where("vendorId", vendorId).queryOne();
+                if (vendor == null) {
+                    return ServiceUtil.returnError("Unknown vendor [" + vendorId + "]");
+                }
+                order.set("smtVendorId", vendorId);
+                order.set("smtVendor", vendor.getString("vendorName"));
+            }
+            delegator.store(order);
+
+            Map<String, Object> result = ServiceUtil.returnSuccess();
+            result.put("workOrderId", workOrderId);
+            result.put("vendorId", vendorId);
+            return result;
+        } catch (GenericEntityException e) {
+            return ServiceUtil.returnError("Could not set the vendor: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Builds the shipping label used when the material is couriered to the vendor.
+     *
+     * @param vendorName the vendor name
+     * @param contactName the recipient
+     * @param contactMobile the mobile number of the recipient
+     * @param addressText the address
+     * @param customerCode the customer code the vendor assigned to us
+     * @return the label text, never {@code null}
+     */
+    static String formatShippingLabel(String vendorName, String contactName, String contactMobile,
+            String addressText, String customerCode) {
+        StringBuilder label = new StringBuilder();
+        label.append("收件人：").append(contactName == null ? "" : contactName);
+        if (vendorName != null) {
+            label.append("（").append(vendorName).append("）");
+        }
+        label.append('\n');
+        label.append("手机号：").append(contactMobile == null ? "" : contactMobile).append('\n');
+        label.append("地址：").append(addressText == null ? "" : addressText);
+        if (customerCode != null) {
+            label.append('\n').append("客户编号：").append(customerCode).append("（请标注在快递单/箱外）");
+        }
+        return label.toString();
+    }
+
+    private static Map<String, Object> toVendorMap(GenericValue vendor) {
+        Map<String, Object> map = new LinkedHashMap<>();
+        map.put("vendorId", vendor.getString("vendorId"));
+        map.put("vendorName", vendor.getString("vendorName"));
+        map.put("vendorType", vendor.getString("vendorType"));
+        map.put("contactName", vendor.getString("contactName"));
+        map.put("contactMobile", vendor.getString("contactMobile"));
+        map.put("addressText", vendor.getString("addressText"));
+        map.put("customerCode", vendor.getString("customerCode"));
+        map.put("statusId", vendor.getString("statusId"));
+        map.put("note", vendor.getString("note"));
+        map.put("shippingLabel", formatShippingLabel(vendor.getString("vendorName"),
+                vendor.getString("contactName"), vendor.getString("contactMobile"),
+                vendor.getString("addressText"), vendor.getString("customerCode")));
+        return map;
+    }
+
+    private static String formatVendorId(LocalDate date, int sequence) {
+        return "V-" + date.format(DAY) + "-" + String.format(Locale.ROOT, "%02d", sequence);
+    }
+
+    private static String nextVendorId(Delegator delegator, LocalDate today) throws GenericEntityException {
+        String prefix = "V-" + today.format(DAY) + "-";
+        List<GenericValue> existing = EntityQuery.use(delegator).from("MfgVendor").queryList();
+        int max = 0;
+        for (GenericValue vendor : existing) {
+            String id = vendor.getString("vendorId");
+            if (id != null && id.startsWith(prefix)) {
+                max = Math.max(max, parseTrailingNumber(id.substring(prefix.length())));
+            }
+        }
+        return formatVendorId(today, max + 1);
+    }
+
     // ------------------------------------------------------------------ helpers
 
     /**
@@ -2016,6 +2206,7 @@ public final class MfgServices {
 
     private static Map<String, Object> toWorkOrderMap(GenericValue order) {
         Map<String, Object> map = new LinkedHashMap<>();
+        map.put("smtVendorId", order.getString("smtVendorId"));
         map.put("workOrderId", order.getString("workOrderId"));
         map.put("productCode", order.getString("productCode"));
         map.put("plannedQty", order.getLong("plannedQty"));

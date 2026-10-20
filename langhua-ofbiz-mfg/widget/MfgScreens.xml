@@ -141,8 +141,7 @@
         </section>
     </screen>
 
-    <!-- Delivery orders -->
-    <screen name="delivery">
+    <!-- Delivery orders -->    <screen name="delivery">
         <section>
             <actions>
                 <set field="title" value="Deliveries"/>
@@ -157,6 +156,23 @@
                 <platform-specific>
                     <html>
                         <html-template location="component://mfg/webapp/mfg/delivery.ftl"/>
+                    </html>
+                </platform-specific>
+            </widgets>
+        </section>
+    </screen>
+
+    <!-- Outsourcing vendors -->
+    <screen name="vendors">
+        <section>
+            <actions>
+                <set field="title" value="Vendors"/>
+                <service service-name="mfgVendorList" result-map="vendorList" auto-field-map="false"/>
+            </actions>
+            <widgets>
+                <platform-specific>
+                    <html>
+                        <html-template location="component://mfg/webapp/mfg/vendors.ftl"/>
                     </html>
                 </platform-specific>
             </widgets>

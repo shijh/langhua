@@ -12,6 +12,8 @@
 <#assign sns = (d.sns)![]>
 <#assign defects = (d.defects)![]>
 <#assign mat = (material)!{}>
+<#assign vendorInfo = (d.vendor)!{}>
+<#assign vendors = (d.vendors)![]>
 <#assign lines = (mat.lines)![]>
 <#assign issues = (mat.issues)![]>
 <#assign shipments = (mat.shipments)![]>
@@ -44,6 +46,7 @@
     <a href="/mfg/control/materials">物料批次</a>
     <a href="/mfg/control/shortage">齐套预警</a>
     <a href="/mfg/control/delivery">出货单</a>
+    <a href="/mfg/control/vendors">外协厂家</a>
     <a href="/mfg/control/dashboard">看板</a>
     <a href="/mfg/control/sn">SN 查询</a>
 </p>
@@ -186,6 +189,34 @@
             </p>
         </form>
     </fieldset>
+
+    <h2>外协收货信息（邮寄物料用）</h2>
+    <#if (vendorInfo.vendorId)??>
+        <table>
+            <tr><th>厂家</th><td>${vendorInfo.vendorName!}（${vendorInfo.vendorId!}）</td></tr>
+            <tr><th>收件人</th><td>${vendorInfo.contactName!}</td></tr>
+            <tr><th>手机号</th><td>${vendorInfo.contactMobile!}</td></tr>
+            <tr><th>地址</th><td>${vendorInfo.addressText!}</td></tr>
+            <tr><th>客户编号</th><td>${vendorInfo.customerCode!}</td></tr>
+            <tr><th>邮寄标签</th>
+                <td><textarea rows="5" cols="60" readonly="readonly">${vendorInfo.shippingLabel!}</textarea></td></tr>
+        </table>
+    <#else>
+        <p class="hint">还没有关联外协厂家。在下面选择，或先到「外协厂家」页新增。</p>
+    </#if>
+    <form method="post" action="/mfg/control/workOrderVendor">
+        <input type="hidden" name="workOrderId" value="${wo.workOrderId}"/>
+        <p>
+            设置外协厂家
+            <select name="vendorId">
+                <option value="">（清除）</option>
+                <#list vendors as ven>
+                    <option value="${ven.vendorId}"<#if (wo.smtVendorId!'') == ven.vendorId> selected="selected"</#if>>${ven.vendorName!} ${ven.contactName!}</option>
+                </#list>
+            </select>
+            <input type="submit" value="保存"/>
+        </p>
+    </form>
 
     <h2>物料齐套（BOM 需求 vs 已发料）</h2>
     <p>

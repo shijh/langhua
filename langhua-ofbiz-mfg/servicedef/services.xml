@@ -97,6 +97,8 @@
         <attribute name="testedSnCount" type="Integer" mode="OUT" optional="true"/>
         <attribute name="failedSnCount" type="Integer" mode="OUT" optional="true"/>
         <attribute name="testYield" type="Double" mode="OUT" optional="true"/>
+        <attribute name="vendor" type="java.util.Map" mode="OUT" optional="true"/>
+        <attribute name="vendors" type="java.util.List" mode="OUT" optional="true"/>
     </service>
 
     <!-- ==================== shop floor ==================== -->
@@ -345,5 +347,40 @@
         <attribute name="sn" type="String" mode="IN" optional="true"/>
         <attribute name="sn" type="String" mode="OUT" optional="true"/>
         <attribute name="results" type="java.util.List" mode="OUT" optional="true"/>
+    </service>
+
+    <!-- ==================== outsourcing vendors ==================== -->
+
+    <service name="mfgVendorSave" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgServices" invoke="vendorSave"
+            auth="false" use-transaction="false">
+        <description>Create or update an SMT vendor with recipient, mobile, address and our customer code</description>
+        <attribute name="vendorId" type="String" mode="IN" optional="true"/>
+        <attribute name="vendorName" type="String" mode="IN" optional="false"/>
+        <attribute name="vendorType" type="String" mode="IN" optional="true"/>
+        <attribute name="contactName" type="String" mode="IN" optional="true"/>
+        <attribute name="contactMobile" type="String" mode="IN" optional="true"/>
+        <attribute name="addressText" type="String" mode="IN" optional="true"/>
+        <attribute name="customerCode" type="String" mode="IN" optional="true"/>
+        <attribute name="statusId" type="String" mode="IN" optional="true"/>
+        <attribute name="note" type="String" mode="IN" optional="true"/>
+        <attribute name="vendorId" type="String" mode="OUT" optional="true"/>
+    </service>
+
+    <service name="mfgVendorList" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgServices" invoke="vendorList"
+            auth="false" use-transaction="false">
+        <description>List the outsourcing vendors with their shipping label</description>
+        <attribute name="vendors" type="java.util.List" mode="OUT" optional="true"/>
+    </service>
+
+    <service name="mfgWorkOrderVendor" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgServices" invoke="workOrderVendor"
+            auth="false" use-transaction="false">
+        <description>Set the outsourcing vendor of a work order</description>
+        <attribute name="workOrderId" type="String" mode="IN" optional="false"/>
+        <attribute name="vendorId" type="String" mode="IN" optional="true"/>
+        <attribute name="workOrderId" type="String" mode="OUT" optional="true"/>
+        <attribute name="vendorId" type="String" mode="OUT" optional="true"/>
     </service>
 </services>

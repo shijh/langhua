@@ -69,6 +69,7 @@ public final class MfgServiceIT {
     private static final Pattern SERIAL_NUMBER = Pattern.compile(SN_PREFIX + "-\\d{6}-\\d{4}");
     private static final Pattern LOT_ID = Pattern.compile("LOT-\\d{6}-\\d{2}");
     private static final Pattern DELIVERY_ID = Pattern.compile("DO-\\d{6}-\\d{2}");
+    private static final Pattern VENDOR_ID = Pattern.compile("V-\\d{6}-\\d{2}");
     private static final String KEY_COMPONENT = "U1-BT5-SOC";
     private static final String SUPPLIER_LOT = "DC-IT-2410";
 
@@ -81,6 +82,7 @@ public final class MfgServiceIT {
     private String serialNumber;
     private String lotId;
     private String deliveryId;
+    private String vendorId;
     private final java.util.List<String> importedLotIds = new java.util.ArrayList<>();
 
     private MfgServiceIT(String baseUrl, String user, String password) {
@@ -123,6 +125,8 @@ public final class MfgServiceIT {
             it.importsTestResults();
             it.createsDelivery();
             it.rejectsDuplicateDelivery();
+            it.savesVendor();
+            it.attachesVendorToWorkOrder();
             it.rejectsZeroHoursReport();
         } finally {
             it.tearDown();
@@ -635,6 +639,52 @@ public final class MfgServiceIT {
         System.out.println("[invalid delivery] error reported as expected");
     }
 
+    private void savesVendor() throws IOException {
+        Map<String, String> form = new LinkedHashMap<>();
+        form.put("vendorName", "IT SMT Vendor");
+        form.put("vendorType", "BOTH");
+        form.put("contactName", "IT Receiver");
+        form.put("contactMobile", "13800002222");
+        form.put("addressText", "Building 3, Baoan District, Shenzhen");
+        form.put("customerCode", "LH-IT-01");
+
+        Response response = invoke("mfgVendorSave", form);
+        check("vendor: service call returns HTTP 200", response.status == 200, "HTTP " + response.status);
+        vendorId = firstMatch(VENDOR_ID, response.body);
+        check("vendor: identifier generated", vendorId != null, "no V- identifier in response");
+        System.out.println("[vendor] " + vendorId);
+
+        response = invoke("mfgVendorList", new LinkedHashMap<String, String>());
+        check("vendor: listed with its customer code", response.body.contains("LH-IT-01"),
+                "customer code missing from the vendor list");
+        check("vendor: listed with its shipping label", response.body.contains("shippingLabel"),
+                "no 'shippingLabel' in the vendor list");
+    }
+
+    private void attachesVendorToWorkOrder() throws IOException {
+        if (workOrderId == null || vendorId == null) {
+            return;
+        }
+        Map<String, String> form = new LinkedHashMap<>();
+        form.put("workOrderId", workOrderId);
+        form.put("vendorId", vendorId);
+
+        Response response = invoke("mfgWorkOrderVendor", form);
+        check("work order vendor: service call returns HTTP 200", response.status == 200,
+                "HTTP " + response.status);
+        check("work order vendor: no service error", !response.body.contains("Unknown vendor"),
+                "unexpected service error");
+
+        Map<String, String> detail = new LinkedHashMap<>();
+        detail.put("workOrderId", workOrderId);
+        response = invoke("mfgWorkOrderDetail", detail);
+        check("work order vendor: the work order carries the vendor", response.body.contains("IT SMT Vendor"),
+                "vendor name missing on the work order");
+        check("work order vendor: the shipping label is available",
+                response.body.contains("shippingLabel") && response.body.contains("LH-IT-01"),
+                "shipping label missing on the work order");
+    }
+
     private void rejectsZeroHoursReport() throws IOException {
         if (workOrderId == null) {
             return;
@@ -643,8 +693,7 @@ public final class MfgServiceIT {
         form.put("workOrderId", workOrderId);
         form.put("opSeq", "10");
         form.put("workHours", "0");
-        form.put("qtyOk", "1");
-        Response response = invoke("mfgReportCreate", form);
+        form.put("qtyOk", "1");        Response response = invoke("mfgReportCreate", form);
         check("invalid report: service reports an error",
                 response.body.contains("workHours must be greater than zero"),
                 "no validation error in response");

@@ -28,6 +28,7 @@
 | **返修换件** | 单板级精确记录：SN + 位号/料号 + 原批次 → 新批次 + 原因 + 工时 |
 | **出货单** | 出货到客户（可手填 SN 或按工单+数量自动取），出货日即保修起算 |
 | **测试数据** | 测试台 CSV 导入（SN,工位,测试项,测量值,单位,判定），工单自动算一次通过率 |
+| **外协厂家** | 厂家档案：收件人、手机号、收货地址、**厂家给我们的客户编号**，一键生成可直接复制的邮寄标签 |
 
 ## 目录结构
 
@@ -69,7 +70,8 @@ https://localhost:8443/mfg/control/main
 ```
 
 首次启动会根据 `entitydef/entitymodel.xml` 自动建表（Derby 下为 `MFG_PRODUCT`、`MFG_BOM_ITEM`、`MFG_ROUTING`、
-`MFG_WORK_ORDER`、`MFG_SN`、`MFG_REPORT`、`MFG_DEFECT`、`MFG_MATERIAL_LOT`、`MFG_MATERIAL_ISSUE`、`MFG_SHIPMENT`、`MFG_REPLACEMENT`、`MFG_DELIVERY`、`MFG_DELIVERY_SN`、`MFG_TEST_RESULT`）。
+`MFG_WORK_ORDER`、`MFG_SN`、`MFG_REPORT`、`MFG_DEFECT`、`MFG_MATERIAL_LOT`、`MFG_MATERIAL_ISSUE`、`MFG_SHIPMENT`、`MFG_REPLACEMENT`、`MFG_DELIVERY`、`MFG_DELIVERY_SN`、`MFG_TEST_RESULT`、`MFG_VENDOR`）。
+工单表会自动新增 `SMT_VENDOR_ID` 列（指向 `MfgVendor`）。
 
 ## 数据模型
 
@@ -88,6 +90,7 @@ https://localhost:8443/mfg/control/main
 | `MfgDelivery` | 出货单：`deliveryId`（DO-yyMMdd-NN）、`customerName`、`customerPo`、`deliveryDate`、`carrier`、`trackingNo`、`workOrderId` |
 | `MfgDeliverySn` | 出货明细：`deliveryId` + `sn`（联合主键），一个 SN 只能出一次货 |
 | `MfgTestResult` | 测试结果：`resultId`、`sn`、`workOrderId`、`station`、`testItem`、`measureValue`、`unitOfMeasure`、`passFail`、`testDate` |
+| `MfgVendor` | 外协厂家：`vendorId`（V-yyMMdd-NN）、`vendorName`、`vendorType`、`contactName`（收件人）、`contactMobile`、`addressText`、`customerCode`（厂家给我们的编号） |
 
 ## 服务
 
@@ -111,6 +114,8 @@ https://localhost:8443/mfg/control/main
 | `mfgReplacementSave` | 登记单板级换件（原批次 → 新批次） |
 | `mfgDeliverySave` / `mfgDeliveryList` / `mfgDeliveryDetail` | 出货单（SN 绑定、防重复出货、保修起算） |
 | `mfgTestImportCsv` / `mfgTestResultList` | 测试结果 CSV 导入与查询 |
+| `mfgVendorSave` / `mfgVendorList` | 外协厂家档案（含邮寄标签） |
+| `mfgWorkOrderVendor` | 给工单指定外协厂家（收货信息随之显示在工单页） |
 
 示例（Web Tools → Run Service → `mfgBomImport`）：
 
@@ -134,6 +139,7 @@ csv         = R0402-10K,10K 0402 resistor,4,R1-R4,N
 | `/mfg/control/materials` | 物料批次台账、收货登记、CSV 批量导入、按批次反向追溯 |
 | `/mfg/control/shortage` | 齐套预警：按交期列出欠料工单与明细 |
 | `/mfg/control/delivery` | 出货单：新建、列表、明细；出货后 SN 变为 `MFG_SHIPPED` |
+| `/mfg/control/vendors` | 外协厂家：档案维护 + 可复制的邮寄标签（收件人/手机/地址/客户编号） |
 
 访问控制由 `ofbiz-component.xml` 的 `base-permission="OFBTOOLS"` 决定；
 `data/MfgSecurityPermissionSeedData.xml` 定义 `MFG_VIEW` / `MFG_ADMIN` 并授予 `SUPER`、`FULLADMIN`。
@@ -160,10 +166,11 @@ productSave → bomImport → routingSave → productDetail
            → lotSave → issueSave → shipmentSave → workOrderMaterials → traceByLot
            → shortageList → lotImportCsv → FIFO 推定 → replacementSave
            → testImportCsv → deliverySave → 重复出货拒绝
+           → vendorSave → workOrderVendor
            → 非法报工（workHours = 0）/ 错料发料（批次不属于该料号）
 ```
 
-共 75 项断言，全部通过时退出码为 0。测试是**可重复执行**的：每次创建/更新产品型号 `ITMFG`、替换其 BOM、
+共 82 项断言，全部通过时退出码为 0。测试是**可重复执行**的：每次创建/更新产品型号 `ITMFG`、替换其 BOM、
 新建一张工单、物料批次与出货单，以及相应的报工、不良、发料、收发、换件与测试数据。
 
 前置条件：OFBiz 已启动、已执行 `loadAll`、mfg 组件已部署。
@@ -184,8 +191,8 @@ java -cp "build/test-classes:ofbiz.jar:junit-4.13.2.jar:hamcrest-core-1.3.jar" \
       org.junit.runner.JUnitCore org.langhua.ofbiz.mfg.MfgServicesTest
 ```
 
-覆盖 BOM / 批次 / 测试结果 CSV 解析（引号、缺列、CRLF、注释行、大小写归一）、SN 列表拆分、FIFO 推定切片，
-以及 SN / 工单编号格式（共 15 个用例）。
+覆盖 BOM / 批次 / 测试结果 CSV 解析（引号、缺列、CRLF、注释行、大小写归一）、SN 列表拆分、FIFO 推定切片、
+邮寄标签格式，以及 SN / 工单编号格式（共 17 个用例）。
 
 ## 追溯精度说明（重要）
 

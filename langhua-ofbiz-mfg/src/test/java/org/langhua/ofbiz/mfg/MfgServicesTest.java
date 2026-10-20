@@ -199,4 +199,23 @@ public class MfgServicesTest {
         assertEquals("N", rows.get(1)[5]);
         assertTrue(MfgServices.parseTestCsv(null).isEmpty());
     }
+
+    @Test
+    public void formatsTheShippingLabel() {
+        String label = MfgServices.formatShippingLabel("深圳某电子", "张工", "13800001111",
+                "广东省深圳市宝安区某路 1 号", "LH-2026-01");
+
+        assertTrue(label.contains("收件人：张工（深圳某电子）"));
+        assertTrue(label.contains("手机号：13800001111"));
+        assertTrue(label.contains("地址：广东省深圳市宝安区某路 1 号"));
+        assertTrue(label.contains("客户编号：LH-2026-01"));
+    }
+
+    @Test
+    public void omitsTheCustomerCodeWhenMissing() {
+        String label = MfgServices.formatShippingLabel("某厂", null, null, null, null);
+
+        assertTrue(label.contains("收件人：（某厂）"));
+        assertTrue(!label.contains("客户编号"));
+    }
 }
