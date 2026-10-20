@@ -88,6 +88,17 @@
 			],
 			"problemMatcher": [],
 			"group": "build"
+		},
+		{
+			"label": "java-upgrade-step5-final-validation",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\final.bat"
+			],
+			"problemMatcher": [],
+			"group": "build"
 		}
 	]
 }
