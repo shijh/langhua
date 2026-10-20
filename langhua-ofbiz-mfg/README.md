@@ -29,6 +29,7 @@
 | **出货单** | 出货到客户（可手填 SN 或按工单+数量自动取），出货日即保修起算 |
 | **测试数据** | 测试台 CSV 导入（SN,工位,测试项,测量值,单位,判定），工单自动算一次通过率 |
 | **外协厂家** | 厂家档案：收件人、手机号、收货地址、**厂家给我们的客户编号**，一键生成可直接复制的邮寄标签 |
+| **售后单** | 客户退回登记：SN → 出货日自动算保修到期与保内/保外，责任归属、返修工时、处理状态，SN 页同步显示售后历史 |
 ## 目录结构
 
 ```
@@ -40,14 +41,14 @@ langhua-ofbiz-mfg/
 ├── data/
 │   └── MfgSecurityPermissionSeedData.xml # 权限与权限组种子数据
 ├── entitydef/
-│   ├── entitymodel.xml                  # 7 个业务实体
+│   ├── entitymodel.xml                  # 16 个业务实体
 │   └── entitygroup.xml
 ├── servicedef/
-│   └── services.xml                     # 12 个服务
+│   └── services.xml                     # 34 个服务
 ├── widget/
 │   ├── MfgCommonScreens.xml             # 登录/错误页 decorator
-│   └── MfgScreens.xml                   # 5 个页面
-├── webapp/mfg/                          # controller.xml + web.xml + 5 个 FTL
+│   └── MfgScreens.xml                   # 10 个页面
+├── webapp/mfg/                          # controller.xml + web.xml + 10 个 FTL + js/
 ├── src/main/java/org/langhua/ofbiz/mfg/
 └── src/test/java/org/langhua/ofbiz/mfg/
 ```
@@ -69,14 +70,14 @@ https://localhost:8443/mfg/control/main
 ```
 
 首次启动会根据 `entitydef/entitymodel.xml` 自动建表（Derby 下为 `MFG_PRODUCT`、`MFG_BOM_ITEM`、`MFG_ROUTING`、
-`MFG_WORK_ORDER`、`MFG_SN`、`MFG_REPORT`、`MFG_DEFECT`、`MFG_MATERIAL_LOT`、`MFG_MATERIAL_ISSUE`、`MFG_SHIPMENT`、`MFG_REPLACEMENT`、`MFG_DELIVERY`、`MFG_DELIVERY_SN`、`MFG_TEST_RESULT`、`MFG_VENDOR`）。
-工单表会自动新增 `SMT_VENDOR_ID` 列（指向 `MfgVendor`）。
+`MFG_WORK_ORDER`、`MFG_SN`、`MFG_REPORT`、`MFG_DEFECT`、`MFG_MATERIAL_LOT`、`MFG_MATERIAL_ISSUE`、`MFG_SHIPMENT`、`MFG_REPLACEMENT`、`MFG_DELIVERY`、`MFG_DELIVERY_SN`、`MFG_TEST_RESULT`、`MFG_VENDOR`、`MFG_WARRANTY_CLAIM`）。
+工单表会自动新增 `SMT_VENDOR_ID` 列（指向 `MfgVendor`），产品表会自动新增 `WARRANTY_MONTHS`（保修月数，空则按 12）。
 
 ## 数据模型
 
 | 实体 | 说明 |
 | --- | --- |
-| `MfgProduct` | 产品型号：`productCode`（主键）、`snPrefix`、`standardHours`、状态 |
+| `MfgProduct` | 产品型号：`productCode`（主键）、`snPrefix`、`standardHours`、`warrantyMonths`（保修月数，默认 12）、状态 |
 | `MfgBomItem` | BOM 行：`productCode` + `lineSeq`（联合主键）、`componentCode`、`qty`、`designators`（位号）、`isKeyPart` |
 | `MfgRouting` | 工序模板：`productCode` + `opSeq`（联合主键）、`opName`、`workCenter`、`stdHours` |
 | `MfgWorkOrder` | 工单：`workOrderId`、`productCode`、`plannedQty`、`statusId`、`dueDate`、`customerName`、`smtVendor` |
@@ -90,6 +91,7 @@ https://localhost:8443/mfg/control/main
 | `MfgDeliverySn` | 出货明细：`deliveryId` + `sn`（联合主键），一个 SN 只能出一次货 |
 | `MfgTestResult` | 测试结果：`resultId`、`sn`、`workOrderId`、`station`、`testItem`、`measureValue`、`unitOfMeasure`、`passFail`、`testDate` |
 | `MfgVendor` | 外协厂家：`vendorId`（V-yyMMdd-NN）、`vendorName`、`vendorType`、`contactName`（收件人）、`contactMobile`、`addressText`、`customerCode`（厂家给我们的编号） |
+| `MfgWarrantyClaim` | 售后单：`claimId`（RMA-yyMMdd-NN）、`sn`、`workOrderId`、`customerName`、`deliveryId` / `deliveryDate`（保修起算）、`warrantyEndDate`、`inWarranty`、`receivedDate`、`issueDesc`、`statusId`、`responsibility`、`repairHours`、`closedDate` |
 
 ## 服务
 
@@ -115,6 +117,9 @@ https://localhost:8443/mfg/control/main
 | `mfgTestImportCsv` / `mfgTestResultList` | 测试结果 CSV 导入与查询 |
 | `mfgVendorSave` / `mfgVendorList` | 外协厂家档案（含邮寄标签） |
 | `mfgWorkOrderVendor` | 给工单指定外协厂家（收货信息随之显示在工单页） |
+| `mfgClaimCreate` | 登记售后单：按 SN 找出货单与产品保修月数，自动算 `warrantyEndDate` 与保内/保外 |
+| `mfgClaimUpdate` | 处理售后单：状态（`MFG_RMA_OPEN` / `REPAIRED` / `REPLACED` / `CLOSED`）、责任、返修工时、备注 |
+| `mfgClaimList` / `mfgClaimDetail` | 售后单列表（可按 SN / 状态过滤）与详情（含 SN 履历、出货单、换件与不良数） |
 
 示例（Web Tools → Run Service → `mfgBomImport`）：
 
@@ -139,6 +144,7 @@ csv         = R0402-10K,10K 0402 resistor,4,R1-R4,N
 | `/mfg/control/shortage` | 齐套预警：按交期列出欠料工单与明细 |
 | `/mfg/control/delivery` | 出货单：新建、列表、明细；出货后 SN 变为 `MFG_SHIPPED` |
 | `/mfg/control/vendors` | 外协厂家：档案维护 + 可复制的邮寄标签（收件人/手机/地址/客户编号） |
+| `/mfg/control/claims` | 售后单：登记、按 SN/状态过滤、处理（状态/责任/工时/备注）；`sn` 页同步显示售后历史 |
 
 邮寄标签旁边有 **「复制标签」按钮**：脚本在静态文件 `webapp/mfg/js/copyLabel.js`，
 页面只引 `<script src="/mfg/js/copyLabel.js"></script>`（`web.xml` 的 `allowedPaths` 里加了 `:/js`）。
@@ -173,10 +179,11 @@ productSave → bomImport → routingSave → productDetail
            → shortageList → lotImportCsv → FIFO 推定 → replacementSave
            → testImportCsv → deliverySave → 重复出货拒绝
            → vendorSave → workOrderVendor
-           → 非法报工（workHours = 0）/ 错料发料（批次不属于该料号）
+           → claimCreate → claimDetail → claimList → snDetail（含售后）→ claimUpdate（关闭）
+           → 非法报工（workHours = 0）/ 错料发料（批次不属于该料号）/ 非法售后状态
 ```
 
-共 82 项断言，全部通过时退出码为 0。测试是**可重复执行**的：每次创建/更新产品型号 `ITMFG`、替换其 BOM、
+共 96 项断言，全部通过时退出码为 0。测试是**可重复执行**的：每次创建/更新产品型号 `ITMFG`、替换其 BOM、
 新建一张工单、物料批次与出货单，以及相应的报工、不良、发料、收发、换件与测试数据。
 
 前置条件：OFBiz 已启动、已执行 `loadAll`、mfg 组件已部署。
@@ -198,7 +205,7 @@ java -cp "build/test-classes:ofbiz.jar:junit-4.13.2.jar:hamcrest-core-1.3.jar" \
 ```
 
 覆盖 BOM / 批次 / 测试结果 CSV 解析（引号、缺列、CRLF、注释行、大小写归一）、SN 列表拆分、FIFO 推定切片、
-邮寄标签格式，以及 SN / 工单编号格式（共 17 个用例）。
+邮寄标签格式、SN / 工单编号格式，以及保修到期日与保内判定（共 19 个用例）。
 
 ## 追溯精度说明（重要）
 
@@ -210,6 +217,7 @@ SMT 为外协，且对方**不提供上料 / 换料记录**，因此追溯精度
 | FIFO 推定 SN 区间 | **估算** | 同工单多批次时，按发料先后与数量比例拆分 SN 序列 |
 | 单板换件 | **准确** | 组装 / 返修环节由我方操作，登记 `MfgReplacement` |
 | 出厂 → 客户 | **准确** | 出货单把 SN 绑定到客户与出货日（保修起算），一个 SN 只能出一次 |
+| 保修判定 | **准确** | 售后单按出货日 + 型号保修月数算到期日；未出货的 SN 一律判为保外 |
 
 所以“召回排查”的推荐做法：先用批次反向追溯圈定工单与推定 SN 区间，再到 SN 页看是否有换件记录确认。
 
@@ -227,10 +235,13 @@ SMT 为外协，且对方**不提供上料 / 换料记录**，因此追溯精度
   运行期报 `ClassNotFoundException`。
 - **`<classpath type="dir" location="config"/>`**：需要在组件里真的存在 `config/` 目录，
   因此放入 `MfgUiLabels.xml`。
+- **屏幕目录结构**：`<screen>` 下**只能有一个** `<section>`；需要按条件分支时，在 `widgets` 里嵌套多个
+  `<section>`，条件写成 `<condition><if-empty field="..."/></condition>`（“非空”用 `<not><if-empty/></not>`，
+  `if-not-empty` 不是合法元素）。
 
 ## 后续想法
 
 - 来料检验（IQC）：到货批次标记合格/不合格，并影响可发料性。
-- 保修/售后单：按出货日自动算保修期，与返修换件、不良记录关联。
+- 售后成本统计：按型号/责任方汇总返修工时与换件数量。
 - 看板自动刷新与钉钉/邮件告警（欠料、测试通过率异常）。
 - 报表导出：良率趋势、工时趋势（可回接学习曲线组件）。

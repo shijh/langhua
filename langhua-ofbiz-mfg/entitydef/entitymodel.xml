@@ -13,6 +13,7 @@
         <field name="productName" type="name"><description>Display name</description></field>
         <field name="snPrefix" type="very-short"><description>Prefix used when serial numbers are generated</description></field>
         <field name="standardHours" type="floating-point"><description>Standard assembly hours per unit</description></field>
+        <field name="warrantyMonths" type="numeric"><description>Warranty in months from the delivery date, 12 when empty</description></field>
         <field name="statusId" type="id"><description>MFG_ACTIVE or MFG_INACTIVE</description></field>
         <field name="note" type="description"/>
         <field name="createdStamp" type="date-time"/>
@@ -381,6 +382,41 @@
         <prim-key field="vendorId"/>
         <index name="MFG_VENDOR_NAME" unique="false">
             <index-field name="vendorName"/>
+        </index>
+    </entity>
+
+    <entity entity-name="MfgWarrantyClaim"
+            package-name="org.langhua.ofbiz.mfg"
+            title="Warranty claim">
+        <description>After sales claim of one unit: warranty status is derived from the delivery date</description>
+        <field name="claimId" type="id"><description>Claim number, RMA-yyMMdd-NN</description></field>
+        <field name="sn" type="id"><description>Unit returned by the customer</description></field>
+        <field name="workOrderId" type="id"><description>Work order of the unit</description></field>
+        <field name="customerName" type="name"><description>Customer, taken from the delivery order</description></field>
+        <field name="deliveryId" type="id"><description>Delivery order of the unit</description></field>
+        <field name="deliveryDate" type="date"><description>Date shipped, start of the warranty</description></field>
+        <field name="warrantyEndDate" type="date"><description>Delivery date plus the product warranty months</description></field>
+        <field name="inWarranty" type="indicator"><description>Y when the claim arrived inside the warranty</description></field>
+        <field name="receivedDate" type="date"><description>Date the unit came back</description></field>
+        <field name="issueDesc" type="very-long"><description>Reported problem</description></field>
+        <field name="statusId" type="id"><description>MFG_RMA_OPEN, MFG_RMA_REPAIRED, MFG_RMA_REPLACED or MFG_RMA_CLOSED</description></field>
+        <field name="responsibility" type="short-varchar"><description>HOUSE, SMT, SUPPLIER or DESIGN</description></field>
+        <field name="repairHours" type="floating-point"><description>Hours spent on the repair</description></field>
+        <field name="closedDate" type="date"><description>Date the claim was closed</description></field>
+        <field name="note" type="description"/>
+        <field name="createdStamp" type="date-time"/>
+        <field name="createdTxStamp" type="date-time"/>
+        <field name="lastUpdatedStamp" type="date-time"/>
+        <field name="lastUpdatedTxStamp" type="date-time"/>
+        <prim-key field="claimId"/>
+        <relation type="one" fk-name="MFG_CLAIM_SN" rel-entity-name="MfgSn">
+            <key-map field-name="sn"/>
+        </relation>
+        <index name="MFG_CLAIM_SN_IDX" unique="false">
+            <index-field name="sn"/>
+        </index>
+        <index name="MFG_CLAIM_STATUS_IDX" unique="false">
+            <index-field name="statusId"/>
         </index>
     </entity>
 </entitymodel>

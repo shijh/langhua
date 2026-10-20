@@ -70,6 +70,7 @@ public final class MfgServiceIT {
     private static final Pattern LOT_ID = Pattern.compile("LOT-\\d{6}-\\d{2}");
     private static final Pattern DELIVERY_ID = Pattern.compile("DO-\\d{6}-\\d{2}");
     private static final Pattern VENDOR_ID = Pattern.compile("V-\\d{6}-\\d{2}");
+    private static final Pattern CLAIM_ID = Pattern.compile("RMA-\\d{6}-\\d{2}");
     private static final String KEY_COMPONENT = "U1-BT5-SOC";
     private static final String SUPPLIER_LOT = "DC-IT-2410";
 
@@ -83,6 +84,7 @@ public final class MfgServiceIT {
     private String lotId;
     private String deliveryId;
     private String vendorId;
+    private String claimId;
     private final java.util.List<String> importedLotIds = new java.util.ArrayList<>();
 
     private MfgServiceIT(String baseUrl, String user, String password) {
@@ -127,6 +129,10 @@ public final class MfgServiceIT {
             it.rejectsDuplicateDelivery();
             it.savesVendor();
             it.attachesVendorToWorkOrder();
+            it.registersWarrantyClaim();
+            it.readsWarrantyClaim();
+            it.closesWarrantyClaim();
+            it.rejectsBadClaimStatus();
             it.rejectsZeroHoursReport();
         } finally {
             it.tearDown();
@@ -683,6 +689,87 @@ public final class MfgServiceIT {
         check("work order vendor: the shipping label is available",
                 response.body.contains("shippingLabel") && response.body.contains("LH-IT-01"),
                 "shipping label missing on the work order");
+    }
+
+    private void registersWarrantyClaim() throws IOException {
+        if (serialNumber == null) {
+            return;
+        }
+        Map<String, String> form = new LinkedHashMap<>();
+        form.put("sn", serialNumber);
+        form.put("receivedDate", "2026-10-21");
+        form.put("responsibility", "SMT-VENDOR");
+        form.put("issueDesc", "Charging port loose after three months");
+
+        Response response = invoke("mfgClaimCreate", form);
+        check("warranty: service call returns HTTP 200", response.status == 200, "HTTP " + response.status);
+        claimId = firstMatch(CLAIM_ID, response.body);
+        check("warranty: identifier generated", claimId != null, "no RMA- identifier in response");
+        System.out.println("[claim] " + claimId);
+        check("warranty: the flag is returned", response.body.contains("inWarranty"),
+                "no inWarranty attribute in response");
+
+        Map<String, String> detail = new LinkedHashMap<>();
+        detail.put("claimId", claimId == null ? "" : claimId);
+        response = invoke("mfgClaimDetail", detail);
+        check("warranty: the claim is readable", response.body.contains(claimId == null ? "" : claimId)
+                        && response.body.contains(serialNumber),
+                "claim or serial number missing from the detail");
+        check("warranty: start date comes from the delivery", response.body.contains("2027-10-21"),
+                "expected a warranty end date of 2027-10-21");
+        check("warranty: the delivery is linked", deliveryId == null || response.body.contains(deliveryId),
+                "delivery missing from the claim");
+    }
+
+    private void readsWarrantyClaim() throws IOException {
+        if (claimId == null || serialNumber == null) {
+            return;
+        }
+        Map<String, String> form = new LinkedHashMap<>();
+        form.put("sn", serialNumber);
+        Response response = invoke("mfgClaimList", form);
+        check("warranty: listed for its serial number", response.body.contains(claimId), "claim missing from the list");
+
+        Map<String, String> snDetail = new LinkedHashMap<>();
+        snDetail.put("sn", serialNumber);
+        response = invoke("mfgSnDetail", snDetail);
+        check("warranty: visible on the serial number history", response.body.contains(claimId),
+                "claim missing from the unit history");
+    }
+
+    private void closesWarrantyClaim() throws IOException {
+        if (claimId == null) {
+            return;
+        }
+        Map<String, String> form = new LinkedHashMap<>();
+        form.put("claimId", claimId);
+        form.put("statusId", "MFG_RMA_CLOSED");
+        form.put("repairHours", "1.25");
+        form.put("note", "Resoldered the port, retested OK");
+
+        Response response = invoke("mfgClaimUpdate", form);
+        check("warranty: closing returns HTTP 200", response.status == 200, "HTTP " + response.status);
+        check("warranty: status updated", response.body.contains("MFG_RMA_CLOSED"), "closed status missing");
+
+        Map<String, String> detail = new LinkedHashMap<>();
+        detail.put("claimId", claimId);
+        response = invoke("mfgClaimDetail", detail);
+        check("warranty: close date stamped", response.body.contains("closedDate"), "no closedDate attribute");
+        check("warranty: repair hours stored", response.body.contains("1.25"), "repair hours missing");
+    }
+
+    private void rejectsBadClaimStatus() throws IOException {
+        if (claimId == null) {
+            return;
+        }
+        Map<String, String> form = new LinkedHashMap<>();
+        form.put("claimId", claimId);
+        form.put("statusId", "NOT_A_STATUS");
+
+        Response response = invoke("mfgClaimUpdate", form);
+        check("warranty: invalid status rejected", response.body.contains("statusId must be"),
+                "no validation error in response");
+        System.out.println("[invalid claim status] error reported as expected");
     }
 
     private void rejectsZeroHoursReport() throws IOException {

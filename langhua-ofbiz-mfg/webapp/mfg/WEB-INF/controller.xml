@@ -195,6 +195,29 @@
         <response name="error" type="view" value="workOrder"/>
     </request-map>
 
+    <request-map uri="claims">
+        <security https="true" auth="true"/>
+        <response name="success" type="view" value="claims"/>
+    </request-map>
+
+    <request-map uri="claimCreate">
+        <security https="true" auth="true"/>
+        <event type="service" invoke="mfgClaimCreate"/>
+        <response name="success" type="request-redirect" value="claims">
+            <redirect-parameter name="claimId"/>
+        </response>
+        <response name="error" type="view" value="claims"/>
+    </request-map>
+
+    <request-map uri="claimUpdate">
+        <security https="true" auth="true"/>
+        <event type="service" invoke="mfgClaimUpdate"/>
+        <response name="success" type="request-redirect" value="claims">
+            <redirect-parameter name="claimId"/>
+        </response>
+        <response name="error" type="view" value="claims"/>
+    </request-map>
+
     <view-map name="main" type="screen" page="component://mfg/widget/MfgScreens.xml#main"/>
     <view-map name="products" type="screen" page="component://mfg/widget/MfgScreens.xml#products"/>
     <view-map name="workOrder" type="screen" page="component://mfg/widget/MfgScreens.xml#workOrder"/>
@@ -204,4 +227,5 @@
     <view-map name="shortage" type="screen" page="component://mfg/widget/MfgScreens.xml#shortage"/>
     <view-map name="delivery" type="screen" page="component://mfg/widget/MfgScreens.xml#delivery"/>
     <view-map name="vendors" type="screen" page="component://mfg/widget/MfgScreens.xml#vendors"/>
+    <view-map name="claims" type="screen" page="component://mfg/widget/MfgScreens.xml#claims"/>
 </site-conf>

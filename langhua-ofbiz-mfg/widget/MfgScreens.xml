@@ -46,21 +46,51 @@
     <!-- One work order: progress, reporting, units, defects -->
     <screen name="workOrder">
         <section>
-            <actions>
-                <set field="title" value="Work Order"/>
-                <service service-name="mfgWorkOrderDetail" result-map="detail" auto-field-map="false">
-                    <field-map field-name="workOrderId" from-field="parameters.workOrderId"/>
-                </service>
-                <service service-name="mfgWorkOrderMaterials" result-map="material" auto-field-map="false">
-                    <field-map field-name="workOrderId" from-field="parameters.workOrderId"/>
-                </service>
-            </actions>
             <widgets>
-                <platform-specific>
-                    <html>
-                        <html-template location="component://mfg/webapp/mfg/workOrderDetail.ftl"/>
-                    </html>
-                </platform-specific>
+                <!-- list mode: no id given, show the work order list -->
+                <section>
+                    <condition>
+                        <if-empty field="parameters.workOrderId"/>
+                    </condition>
+                    <actions>
+                        <set field="title" value="Work Orders"/>
+                        <service service-name="mfgProductList" result-map="productList" auto-field-map="false"/>
+                        <service service-name="mfgWorkOrderList" result-map="listResult" auto-field-map="false">
+                            <field-map field-name="statusId" from-field="parameters.statusId"/>
+                        </service>
+                    </actions>
+                    <widgets>
+                        <platform-specific>
+                            <html>
+                                <html-template location="component://mfg/webapp/mfg/workOrders.ftl"/>
+                            </html>
+                        </platform-specific>
+                    </widgets>
+                </section>
+                <!-- detail mode -->
+                <section>
+                    <condition>
+                        <not>
+                            <if-empty field="parameters.workOrderId"/>
+                        </not>
+                    </condition>
+                    <actions>
+                        <set field="title" value="Work Order"/>
+                        <service service-name="mfgWorkOrderDetail" result-map="detail" auto-field-map="false">
+                            <field-map field-name="workOrderId" from-field="parameters.workOrderId"/>
+                        </service>
+                        <service service-name="mfgWorkOrderMaterials" result-map="material" auto-field-map="false">
+                            <field-map field-name="workOrderId" from-field="parameters.workOrderId"/>
+                        </service>
+                    </actions>
+                    <widgets>
+                        <platform-specific>
+                            <html>
+                                <html-template location="component://mfg/webapp/mfg/workOrderDetail.ftl"/>
+                            </html>
+                        </platform-specific>
+                    </widgets>
+                </section>
             </widgets>
         </section>
     </screen>
@@ -173,6 +203,28 @@
                 <platform-specific>
                     <html>
                         <html-template location="component://mfg/webapp/mfg/vendors.ftl"/>
+                    </html>
+                </platform-specific>
+            </widgets>
+        </section>
+    </screen>
+    <!-- Warranty claims -->
+    <screen name="claims">
+        <section>
+            <actions>
+                <set field="title" value="Warranty Claims"/>
+                <service service-name="mfgClaimList" result-map="claimList" auto-field-map="false">
+                    <field-map field-name="sn" from-field="parameters.sn"/>
+                    <field-map field-name="statusId" from-field="parameters.statusId"/>
+                </service>
+                <service service-name="mfgClaimDetail" result-map="claimDetail" auto-field-map="false">
+                    <field-map field-name="claimId" from-field="parameters.claimId"/>
+                </service>
+            </actions>
+            <widgets>
+                <platform-specific>
+                    <html>
+                        <html-template location="component://mfg/webapp/mfg/claims.ftl"/>
                     </html>
                 </platform-specific>
             </widgets>

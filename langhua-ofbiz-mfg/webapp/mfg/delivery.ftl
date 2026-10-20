@@ -35,6 +35,7 @@
     <a href="/mfg/control/materials">物料批次</a>
     <a href="/mfg/control/delivery"><b>出货单</b></a>
     <a href="/mfg/control/vendors">外协厂家</a>
+    <a href="/mfg/control/claims">售后单</a>
     <a href="/mfg/control/shortage">齐套预警</a>
     <a href="/mfg/control/dashboard">看板</a>
     <a href="/mfg/control/sn">SN 查询</a>

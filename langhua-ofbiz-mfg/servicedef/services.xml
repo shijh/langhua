@@ -12,6 +12,7 @@
         <attribute name="productName" type="String" mode="IN" optional="true"/>
         <attribute name="snPrefix" type="String" mode="IN" optional="true"/>
         <attribute name="standardHours" type="Double" mode="IN" optional="true"/>
+        <attribute name="warrantyMonths" type="Long" mode="IN" optional="true"/>
         <attribute name="statusId" type="String" mode="IN" optional="true"/>
         <attribute name="note" type="String" mode="IN" optional="true"/>
         <attribute name="productCode" type="String" mode="OUT" optional="true"/>
@@ -142,6 +143,7 @@
         <attribute name="replacements" type="java.util.List" mode="OUT" optional="true"/>
         <attribute name="delivery" type="java.util.Map" mode="OUT" optional="true"/>
         <attribute name="tests" type="java.util.List" mode="OUT" optional="true"/>
+        <attribute name="claims" type="java.util.List" mode="OUT" optional="true"/>
     </service>
 
     <service name="mfgDefectCreate" engine="java"
@@ -382,5 +384,58 @@
         <attribute name="vendorId" type="String" mode="IN" optional="true"/>
         <attribute name="workOrderId" type="String" mode="OUT" optional="true"/>
         <attribute name="vendorId" type="String" mode="OUT" optional="true"/>
+    </service>
+
+    <!-- ==================== warranty claims ==================== -->
+
+    <service name="mfgClaimCreate" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgServices" invoke="claimCreate"
+            auth="false" use-transaction="false">
+        <description>Open a warranty claim; customer and warranty dates come from the delivery order</description>
+        <attribute name="sn" type="String" mode="IN" optional="false"/>
+        <attribute name="issueDesc" type="String" mode="IN" optional="false"/>
+        <attribute name="receivedDate" type="String" mode="IN" optional="true"/>
+        <attribute name="responsibility" type="String" mode="IN" optional="true"/>
+        <attribute name="repairHours" type="Double" mode="IN" optional="true"/>
+        <attribute name="customerName" type="String" mode="IN" optional="true"/>
+        <attribute name="note" type="String" mode="IN" optional="true"/>
+        <attribute name="claimId" type="String" mode="OUT" optional="true"/>
+        <attribute name="inWarranty" type="String" mode="OUT" optional="true"/>
+    </service>
+
+    <service name="mfgClaimUpdate" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgServices" invoke="claimUpdate"
+            auth="false" use-transaction="false">
+        <description>Update the handling of a claim: status, responsibility, repair hours, note</description>
+        <attribute name="claimId" type="String" mode="IN" optional="false"/>
+        <attribute name="statusId" type="String" mode="IN" optional="true"/>
+        <attribute name="responsibility" type="String" mode="IN" optional="true"/>
+        <attribute name="repairHours" type="Double" mode="IN" optional="true"/>
+        <attribute name="note" type="String" mode="IN" optional="true"/>
+        <attribute name="claimId" type="String" mode="OUT" optional="true"/>
+        <attribute name="statusId" type="String" mode="OUT" optional="true"/>
+    </service>
+
+    <service name="mfgClaimList" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgServices" invoke="claimList"
+            auth="false" use-transaction="false">
+        <description>List warranty claims, newest first</description>
+        <attribute name="sn" type="String" mode="IN" optional="true"/>
+        <attribute name="statusId" type="String" mode="IN" optional="true"/>
+        <attribute name="claims" type="java.util.List" mode="OUT" optional="true"/>
+        <attribute name="claimCount" type="Integer" mode="OUT" optional="true"/>
+        <attribute name="openCount" type="Long" mode="OUT" optional="true"/>
+    </service>
+
+    <service name="mfgClaimDetail" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgServices" invoke="claimDetail"
+            auth="false" use-transaction="false">
+        <description>One claim with the unit, its delivery and the parts replaced on it</description>
+        <attribute name="claimId" type="String" mode="IN" optional="true"/>
+        <attribute name="claim" type="java.util.Map" mode="OUT" optional="true"/>
+        <attribute name="snRecord" type="java.util.Map" mode="OUT" optional="true"/>
+        <attribute name="delivery" type="java.util.Map" mode="OUT" optional="true"/>
+        <attribute name="replacements" type="java.util.List" mode="OUT" optional="true"/>
+        <attribute name="defectCount" type="Integer" mode="OUT" optional="true"/>
     </service>
 </services>

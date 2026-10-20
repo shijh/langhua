@@ -12,6 +12,7 @@
 <#assign replacements = (info.replacements)![]>
 <#assign deliveryInfo = (info.delivery)!{}>
 <#assign tests = (info.tests)![]>
+<#assign claims = (info.claims)![]>
 <#assign errList = (errorMessageList)![]>
 <html>
 <head>
@@ -38,6 +39,7 @@
     <a href="/mfg/control/shortage">齐套预警</a>
     <a href="/mfg/control/delivery">出货单</a>
     <a href="/mfg/control/vendors">外协厂家</a>
+    <a href="/mfg/control/claims">售后单</a>
     <a href="/mfg/control/dashboard">看板</a>
     <a href="/mfg/control/sn"><b>SN 查询</b></a>
 </p>
@@ -157,6 +159,27 @@
         </table>
     <#else>
         <p class="hint">尚未出货（在「出货单」页登记后，这里会显示客户与保修起算日）。</p>
+    </#if>
+
+    <h2>售后记录</h2>
+    <p class="hint"><a href="/mfg/control/claims?sn=${unit.sn!}">→ 到售后单页登记新售后</a></p>
+    <#if claims?has_content>
+        <table>
+            <tr><th>单号</th><th>收件日</th><th>问题</th><th>保内</th><th>状态</th><th>责任</th><th class="num">工时</th></tr>
+            <#list claims as c>
+                <tr>
+                    <td><a href="/mfg/control/claims?claimId=${c.claimId}">${c.claimId!}</a></td>
+                    <td><#if c.receivedDate??>${c.receivedDate?string("yyyy-MM-dd")}</#if></td>
+                    <td>${c.issueDesc!}</td>
+                    <td><#if (c.inWarranty!'N') == 'Y'><span class="ok">保内</span><#else><span class="error">保外</span></#if></td>
+                    <td>${c.statusId!}</td>
+                    <td>${c.responsibility!}</td>
+                    <td class="num"><#if c.repairHours??>${c.repairHours?string("0.##")}</#if></td>
+                </tr>
+            </#list>
+        </table>
+    <#else>
+        <p class="hint">没有售后记录。</p>
     </#if>
 
     <h2>返修换件（精确记录）</h2>

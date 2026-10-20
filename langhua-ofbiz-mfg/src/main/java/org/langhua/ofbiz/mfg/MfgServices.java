@@ -60,6 +60,11 @@ public final class MfgServices {
 
     public static final String SN_SHIPPED = "MFG_SHIPPED";
 
+    public static final String RMA_OPEN = "MFG_RMA_OPEN";
+    public static final String RMA_REPAIRED = "MFG_RMA_REPAIRED";
+    public static final String RMA_REPLACED = "MFG_RMA_REPLACED";
+    public static final String RMA_CLOSED = "MFG_RMA_CLOSED";
+
     private static final DateTimeFormatter DAY = DateTimeFormatter.ofPattern("yyMMdd");
 
     private MfgServices() {
@@ -85,6 +90,8 @@ public final class MfgServices {
             String snPrefix = toText(context.get("snPrefix"));
             product.set("snPrefix", snPrefix == null ? productCode : snPrefix);
             product.set("standardHours", Double.valueOf(toDouble(context.get("standardHours"), 0.0)));
+            long warrantyMonths = toLong(context.get("warrantyMonths"), 12);
+            product.set("warrantyMonths", Long.valueOf(warrantyMonths <= 0 ? 12 : warrantyMonths));
             String statusId = toText(context.get("statusId"));
             product.set("statusId", statusId == null ? STATUS_ACTIVE : statusId);
             product.set("note", toText(context.get("note")));
@@ -536,6 +543,8 @@ public final class MfgServices {
             }
             List<GenericValue> tests = EntityQuery.use(delegator).from("MfgTestResult")
                     .where("sn", sn).orderBy("-testDate").queryList();
+            List<GenericValue> claims = EntityQuery.use(delegator).from("MfgWarrantyClaim")
+                    .where("sn", sn).orderBy("-createdStamp").queryList();
 
             Map<String, Object> result = ServiceUtil.returnSuccess();
             result.put("snRecord", toSnMap(unit));
@@ -546,6 +555,7 @@ public final class MfgServices {
             result.put("replacements", toReplacementMaps(replacements));
             result.put("delivery", deliveryMap);
             result.put("tests", toTestResultMaps(tests));
+            result.put("claims", toClaimMaps(claims));
             return result;
         } catch (GenericEntityException e) {
             return ServiceUtil.returnError("Could not read the serial number: " + e.getMessage());
@@ -2003,6 +2013,287 @@ public final class MfgServices {
         return formatVendorId(today, max + 1);
     }
 
+    // --------------------------------------------------------------- warranty claims
+
+    /**
+     * Creates a warranty claim for one unit. The customer, the delivery date and the warranty end
+     * date are derived from the delivery order and the product warranty months.
+     *
+     * @param dctx the dispatch context
+     * @param context service context, see {@code servicedef/services.xml#mfgClaimCreate}
+     * @return the service result containing {@code claimId} and {@code inWarranty}
+     */
+    public static Map<String, Object> claimCreate(DispatchContext dctx, Map<String, ? extends Object> context) {
+        Delegator delegator = dctx.getDelegator();
+        String sn = toText(context.get("sn"));
+        String issueDesc = toText(context.get("issueDesc"));
+        if (sn == null) {
+            return ServiceUtil.returnError("sn is required");
+        }
+        if (issueDesc == null) {
+            return ServiceUtil.returnError("issueDesc is required");
+        }
+        try {
+            GenericValue unit = EntityQuery.use(delegator).from("MfgSn").where("sn", sn).queryOne();
+            if (unit == null) {
+                return ServiceUtil.returnError("Unknown serial number [" + sn + "]");
+            }
+            GenericValue delivery = null;
+            GenericValue deliveryItem = EntityQuery.use(delegator).from("MfgDeliverySn")
+                    .where("sn", sn).queryOne();
+            if (deliveryItem != null) {
+                delivery = EntityQuery.use(delegator).from("MfgDelivery")
+                        .where("deliveryId", deliveryItem.getString("deliveryId")).queryOne();
+            }
+            GenericValue product = EntityQuery.use(delegator).from("MfgProduct")
+                    .where("productCode", unit.getString("productCode")).queryOne();
+            long warrantyMonths = product == null ? 12 : toLong(product.get("warrantyMonths"), 12);
+            java.sql.Date deliveryDate = delivery == null ? null : delivery.getDate("deliveryDate");
+            java.sql.Date endDate = warrantyEndDate(deliveryDate, warrantyMonths);
+            java.sql.Date receivedDate = (java.sql.Date) parseDate(context.get("receivedDate"));
+            if (receivedDate == null) {
+                receivedDate = java.sql.Date.valueOf(LocalDate.now());
+            }
+
+            String claimId = nextClaimId(delegator, LocalDate.now());
+            GenericValue claim = delegator.makeValue("MfgWarrantyClaim");
+            claim.set("claimId", claimId);
+            claim.set("sn", sn);
+            claim.set("workOrderId", unit.getString("workOrderId"));
+            claim.set("customerName", delivery == null ? toText(context.get("customerName"))
+                    : delivery.getString("customerName"));
+            claim.set("deliveryId", delivery == null ? null : delivery.getString("deliveryId"));
+            claim.set("deliveryDate", deliveryDate);
+            claim.set("warrantyEndDate", endDate);
+            claim.set("inWarranty", isInWarranty(endDate, receivedDate) ? "Y" : "N");
+            claim.set("receivedDate", receivedDate);
+            claim.set("issueDesc", issueDesc);
+            claim.set("statusId", RMA_OPEN);
+            claim.set("responsibility", toText(context.get("responsibility")));
+            claim.set("repairHours", Double.valueOf(toDouble(context.get("repairHours"), 0.0)));
+            claim.set("note", toText(context.get("note")));
+            delegator.create(claim);
+
+            Map<String, Object> result = ServiceUtil.returnSuccess();
+            result.put("claimId", claimId);
+            result.put("inWarranty", claim.getString("inWarranty"));
+            return result;
+        } catch (GenericEntityException e) {
+            return ServiceUtil.returnError("Could not create the claim: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Updates the handling of a claim: status, responsibility, repair hours and note.
+     *
+     * @param dctx the dispatch context
+     * @param context service context, see {@code servicedef/services.xml#mfgClaimUpdate}
+     * @return the service result containing {@code claimId} and {@code statusId}
+     */
+    public static Map<String, Object> claimUpdate(DispatchContext dctx, Map<String, ? extends Object> context) {
+        Delegator delegator = dctx.getDelegator();
+        String claimId = toText(context.get("claimId"));
+        if (claimId == null) {
+            return ServiceUtil.returnError("claimId is required");
+        }
+        try {
+            GenericValue claim = EntityQuery.use(delegator).from("MfgWarrantyClaim")
+                    .where("claimId", claimId).queryOne();
+            if (claim == null) {
+                return ServiceUtil.returnError("Unknown claim [" + claimId + "]");
+            }
+            String statusId = toText(context.get("statusId"));
+            if (statusId != null) {
+                if (!RMA_OPEN.equals(statusId) && !RMA_REPAIRED.equals(statusId)
+                        && !RMA_REPLACED.equals(statusId) && !RMA_CLOSED.equals(statusId)) {
+                    return ServiceUtil.returnError("statusId must be " + RMA_OPEN + ", " + RMA_REPAIRED
+                            + ", " + RMA_REPLACED + " or " + RMA_CLOSED);
+                }
+                claim.set("statusId", statusId);
+                claim.set("closedDate", RMA_CLOSED.equals(statusId)
+                        ? java.sql.Date.valueOf(LocalDate.now()) : null);
+            }
+            String responsibility = toText(context.get("responsibility"));
+            if (responsibility != null) {
+                claim.set("responsibility", responsibility);
+            }
+            if (context.get("repairHours") != null) {
+                claim.set("repairHours", Double.valueOf(toDouble(context.get("repairHours"), 0.0)));
+            }
+            String note = toText(context.get("note"));
+            if (note != null) {
+                claim.set("note", note);
+            }
+            delegator.store(claim);
+
+            Map<String, Object> result = ServiceUtil.returnSuccess();
+            result.put("claimId", claimId);
+            result.put("statusId", claim.getString("statusId"));
+            return result;
+        } catch (GenericEntityException e) {
+            return ServiceUtil.returnError("Could not update the claim: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Lists warranty claims, newest first.
+     *
+     * @param dctx the dispatch context
+     * @param context service context, see {@code servicedef/services.xml#mfgClaimList}
+     * @return the service result containing {@code claims}
+     */
+    public static Map<String, Object> claimList(DispatchContext dctx, Map<String, ? extends Object> context) {
+        Delegator delegator = dctx.getDelegator();
+        String sn = toText(context.get("sn"));
+        String statusId = toText(context.get("statusId"));
+        try {
+            EntityQuery query = EntityQuery.use(delegator).from("MfgWarrantyClaim");
+            if (sn != null) {
+                query = query.where("sn", sn);
+            }
+            if (statusId != null) {
+                query = query.where("statusId", statusId);
+            }
+            List<GenericValue> claims = query.orderBy("-createdStamp").queryList();
+            List<Map<String, Object>> list = new ArrayList<>(claims.size());
+            long openCount = 0;
+            for (GenericValue claim : claims) {
+                list.add(toClaimMap(claim));
+                if (RMA_OPEN.equals(claim.getString("statusId"))) {
+                    openCount++;
+                }
+            }
+            Map<String, Object> result = ServiceUtil.returnSuccess();
+            result.put("claims", list);
+            result.put("claimCount", Integer.valueOf(list.size()));
+            result.put("openCount", Long.valueOf(openCount));
+            return result;
+        } catch (GenericEntityException e) {
+            return ServiceUtil.returnError("Could not read the claims: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Returns one claim with the context needed to judge it: the unit, its delivery and the parts
+     * that were replaced on it.
+     *
+     * @param dctx the dispatch context
+     * @param context service context, see {@code servicedef/services.xml#mfgClaimDetail}
+     * @return the service result containing {@code claim}, {@code snRecord}, {@code delivery} and {@code replacements}
+     */
+    public static Map<String, Object> claimDetail(DispatchContext dctx, Map<String, ? extends Object> context) {
+        Delegator delegator = dctx.getDelegator();
+        String claimId = toText(context.get("claimId"));
+        Map<String, Object> empty = ServiceUtil.returnSuccess();
+        empty.put("replacements", new ArrayList<Map<String, Object>>());
+        if (claimId == null) {
+            return empty;
+        }
+        try {
+            GenericValue claim = EntityQuery.use(delegator).from("MfgWarrantyClaim")
+                    .where("claimId", claimId).queryOne();
+            if (claim == null) {
+                return empty;
+            }
+            String sn = claim.getString("sn");
+            GenericValue unit = EntityQuery.use(delegator).from("MfgSn").where("sn", sn).queryOne();
+            GenericValue delivery = null;
+            String deliveryId = claim.getString("deliveryId");
+            if (deliveryId != null) {
+                delivery = EntityQuery.use(delegator).from("MfgDelivery")
+                        .where("deliveryId", deliveryId).queryOne();
+            }
+            List<GenericValue> replacements = EntityQuery.use(delegator).from("MfgReplacement")
+                    .where("sn", sn).orderBy("createdStamp").queryList();
+            List<GenericValue> defects = EntityQuery.use(delegator).from("MfgDefect")
+                    .where("workOrderId", claim.getString("workOrderId")).queryList();
+
+            Map<String, Object> result = ServiceUtil.returnSuccess();
+            result.put("claim", toClaimMap(claim));
+            result.put("snRecord", unit == null ? null : toSnMap(unit));
+            result.put("delivery", delivery == null ? null : toDeliveryMap(delivery));
+            result.put("replacements", toReplacementMaps(replacements));
+            result.put("defectCount", Integer.valueOf(defects.size()));
+            return result;
+        } catch (GenericEntityException e) {
+            return ServiceUtil.returnError("Could not read the claim: " + e.getMessage());
+        }
+    }
+
+    /**
+     * End of the warranty: delivery date plus the product warranty months (12 when unset).
+     *
+     * @param deliveryDate the date the unit was shipped
+     * @param warrantyMonths warranty length in months
+     * @return the end date, or {@code null} when the unit was never delivered
+     */
+    static java.sql.Date warrantyEndDate(java.sql.Date deliveryDate, long warrantyMonths) {
+        if (deliveryDate == null) {
+            return null;
+        }
+        long months = warrantyMonths <= 0 ? 12 : warrantyMonths;
+        return java.sql.Date.valueOf(deliveryDate.toLocalDate().plusMonths(months));
+    }
+
+    /**
+     * Tells whether a claim that arrived on {@code checkDate} is still inside the warranty.
+     *
+     * @param endDate the warranty end date
+     * @param checkDate the date to test
+     * @return {@code true} when the claim is covered
+     */
+    static boolean isInWarranty(java.sql.Date endDate, java.sql.Date checkDate) {
+        if (endDate == null || checkDate == null) {
+            return false;
+        }
+        return !checkDate.after(endDate);
+    }
+
+    private static List<Map<String, Object>> toClaimMaps(List<GenericValue> claims) {
+        List<Map<String, Object>> list = new ArrayList<>(claims.size());
+        for (GenericValue claim : claims) {
+            list.add(toClaimMap(claim));
+        }
+        return list;
+    }
+
+    private static Map<String, Object> toClaimMap(GenericValue claim) {
+        Map<String, Object> map = new LinkedHashMap<>();
+        map.put("claimId", claim.getString("claimId"));
+        map.put("sn", claim.getString("sn"));
+        map.put("workOrderId", claim.getString("workOrderId"));
+        map.put("customerName", claim.getString("customerName"));
+        map.put("deliveryId", claim.getString("deliveryId"));
+        map.put("deliveryDate", claim.getDate("deliveryDate"));
+        map.put("warrantyEndDate", claim.getDate("warrantyEndDate"));
+        map.put("inWarranty", claim.getString("inWarranty"));
+        map.put("receivedDate", claim.getDate("receivedDate"));
+        map.put("issueDesc", claim.getString("issueDesc"));
+        map.put("statusId", claim.getString("statusId"));
+        map.put("responsibility", claim.getString("responsibility"));
+        map.put("repairHours", claim.getDouble("repairHours"));
+        map.put("closedDate", claim.getDate("closedDate"));
+        map.put("note", claim.getString("note"));
+        return map;
+    }
+
+    private static String formatClaimId(LocalDate date, int sequence) {
+        return "RMA-" + date.format(DAY) + "-" + String.format(Locale.ROOT, "%02d", sequence);
+    }
+
+    private static String nextClaimId(Delegator delegator, LocalDate today) throws GenericEntityException {
+        String prefix = "RMA-" + today.format(DAY) + "-";
+        List<GenericValue> existing = EntityQuery.use(delegator).from("MfgWarrantyClaim").queryList();
+        int max = 0;
+        for (GenericValue claim : existing) {
+            String id = claim.getString("claimId");
+            if (id != null && id.startsWith(prefix)) {
+                max = Math.max(max, parseTrailingNumber(id.substring(prefix.length())));
+            }
+        }
+        return formatClaimId(today, max + 1);
+    }
+
     // ------------------------------------------------------------------ helpers
 
     /**
@@ -2351,6 +2642,7 @@ public final class MfgServices {
                 map.put("productName", product.getString("productName"));
                 map.put("snPrefix", product.getString("snPrefix"));
                 map.put("standardHours", product.getDouble("standardHours"));
+                map.put("warrantyMonths", product.getLong("warrantyMonths"));
                 map.put("statusId", product.getString("statusId"));
                 map.put("bomCount", Integer.valueOf(count(delegator, "MfgBomItem", productCode)));
                 map.put("routingCount", Integer.valueOf(count(delegator, "MfgRouting", productCode)));
@@ -2434,6 +2726,7 @@ public final class MfgServices {
         map.put("productName", product.getString("productName"));
         map.put("snPrefix", product.getString("snPrefix"));
         map.put("standardHours", product.getDouble("standardHours"));
+        map.put("warrantyMonths", product.getLong("warrantyMonths"));
         map.put("statusId", product.getString("statusId"));
         map.put("note", product.getString("note"));
         return map;

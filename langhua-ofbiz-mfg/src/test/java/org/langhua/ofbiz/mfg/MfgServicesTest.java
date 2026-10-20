@@ -218,4 +218,26 @@ public class MfgServicesTest {
         assertTrue(label.contains("收件人：（某厂）"));
         assertTrue(!label.contains("客户编号"));
     }
+
+    @Test
+    public void computesTheWarrantyEndDate() {
+        java.sql.Date shipped = java.sql.Date.valueOf("2026-10-01");
+
+        assertEquals("2027-10-01", MfgServices.warrantyEndDate(shipped, 12).toString());
+        assertEquals("2028-04-01", MfgServices.warrantyEndDate(shipped, 18).toString());
+        // an unset or invalid period falls back to 12 months
+        assertEquals("2027-10-01", MfgServices.warrantyEndDate(shipped, 0).toString());
+        assertNull(MfgServices.warrantyEndDate(null, 12));
+    }
+
+    @Test
+    public void tellsWhetherTheClaimIsInWarranty() {
+        java.sql.Date end = java.sql.Date.valueOf("2027-10-01");
+
+        assertTrue(MfgServices.isInWarranty(end, java.sql.Date.valueOf("2026-10-01")));
+        assertTrue(MfgServices.isInWarranty(end, java.sql.Date.valueOf("2027-10-01")));
+        assertTrue(!MfgServices.isInWarranty(end, java.sql.Date.valueOf("2027-10-02")));
+        assertTrue(!MfgServices.isInWarranty(null, java.sql.Date.valueOf("2026-10-01")));
+        assertTrue(!MfgServices.isInWarranty(end, null));
+    }
 }

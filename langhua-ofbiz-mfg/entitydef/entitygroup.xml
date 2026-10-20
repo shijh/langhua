@@ -17,4 +17,5 @@
     <entity-group group="org.apache.ofbiz" entity="MfgDeliverySn"/>
     <entity-group group="org.apache.ofbiz" entity="MfgTestResult"/>
     <entity-group group="org.apache.ofbiz" entity="MfgVendor"/>
+    <entity-group group="org.apache.ofbiz" entity="MfgWarrantyClaim"/>
 </entitygroup>
