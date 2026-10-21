@@ -289,13 +289,46 @@ csv         = R0402-10K,10K 0402 resistor,4,R1-R4,N,0.05
 
 ## 与学习曲线组件的关系
 
-组装报工产生**真实工时**，正是学习曲线需要的输入：
+组装报工产生**真实工时**，正是学习曲线需要的输入。两个组件跑在同一个 OFBiz 实例、同一个库上，
+学习曲线**直接读** MES 的表（不复制数据），代码上只有**一个**联动点：服务 `learningCurveMesBatches`。
 
-```
-工单(WorkOrder) → 工序报工(MfgReport: workHours/qtyOk) → 学习曲线拟合 → 报价/标准工时修正
+```mermaid
+flowchart LR
+    subgraph MES["langhua-ofbiz-mfg · /mfg"]
+        direction TB
+        WO["MfgWorkOrder<br/>一个工单 = 一个批次"]
+        RPT["MfgReport<br/>workHours / qtyOk"]
+        STD["MfgProduct<br/>standardHours · laborRate"]
+        WO --> RPT
+    end
+
+    subgraph LC["langhua-ofbiz-learningcurve · /learningcurve"]
+        direction TB
+        SVC["learningCurveMesBatches<br/>读 MES 实体并按工单汇总"]
+        SERIES["批次串<br/>数量:工时;数量:工时"]
+        MANUAL["手工录入 historyData"]
+        FIT["学习曲线拟合<br/>Wright / Crawford"]
+        KPI["斜率 · 截距 · R²<br/>待投产批次估算"]
+        CSV["CSV 导出"]
+        SVC --> SERIES --> FIT
+        MANUAL --> FIT
+        FIT --> KPI --> CSV
+    end
+
+    RPT -- "按 dueDate → createdStamp 排序<br/>没合格数或没报工工时的工单跳过" --> SVC
+    KPI -. "斜率 / 标准工时人工回填（未自动写回）" .-> STD
 ```
 
-因此 `langhua-ofbiz-learningcurve` 的手工录入 `historyData` 可以逐步被"按批次导出的实际工时"替代。
+| 事项 | 说明 |
+| --- | --- |
+| 依赖方向 | 只有 **mfg → 学习曲线**（学习曲线读 MES 的 `MfgWorkOrder` / `MfgReport`）；MES 不依赖学习曲线 |
+| 部署要求 | 同一个 OFBiz、同一个数据库；MES 没部署时该服务返回空结果 + 提示，**不抛异常**，学习曲线照旧能用手工数据 |
+| 数据口径 | 数量 = 该工单报工合格数之和，数值 = 报工工时之和；一个工单折成一个批次 |
+| 会话 | `/mfg` 与 `/learningcurve` 的登录**互不共享**，脚本要分别登录 |
+| 回填 | 拟合结果目前靠人看、手工填回 `MfgProduct.standardHours` / 报价，没有自动写回 |
+
+因此 `langhua-ofbiz-learningcurve` 的手工录入 `historyData` 可以逐步被「按批次取的实际工时」替代。
+
 
 ## 集成测试
 

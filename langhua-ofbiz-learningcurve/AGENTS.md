@@ -35,6 +35,8 @@ OFBiz **学习曲线**插件：按历史批次（数量 + 总额/工时）拟合
   `MfgWorkOrder` / `MfgReport` 实体，把「一个工单 = 一个批次」汇总成 `数量:工时` 串；估算页 `?mesProduct=<型号>` 会预填表单并自动切口径到 HOURS。
   规则：按 `dueDate` → `createdStamp` 排序；没合格数或没报工工时的工单跳过；数字用 `Locale.ROOT` 的 `0.###`（小数点必须是 `.`）；
   MES 没部署时返回空结果 + 提示，**不要抛异常**
+- 两组件的关系图（mermaid）在 `langhua-ofbiz-mfg/README.md` 的「与学习曲线组件的关系」，
+  本组件 README 的「与 MES 联动」里是孪生份；改联动口径时两处一起改
 - **`numeric` 字段是 Long，`floating-point` 才是 Double**：`getDouble()` 对 `numeric` 字段会 `ClassCastException`，一律走 `Number`
 - **服务返回的中文会被渲染成数字实体**（`&#x8fd9;`），页面断言要改用结构特征（如「没有哪个表头」）或实体形式
 - **趋势图是手写 SVG**：`<text>` 默认黑色，深色主题下必须靠 `svg text { fill: var(--fg-muted) }` 才能看见；

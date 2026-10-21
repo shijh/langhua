@@ -113,6 +113,37 @@ https://localhost:8443/learningcurve/control/main
 估算页上方多了一个「从 MES 取历史批次」的小框：填型号 → 点「取数」→ 页面把结果按工单顺序摆成一张表，
 并把 `数量:工时` 串**直接填进下面的历史批次数据**，口径自动切成「工时」。
 
+```mermaid
+flowchart LR
+    subgraph MES["langhua-ofbiz-mfg · /mfg"]
+        direction TB
+        WO["MfgWorkOrder<br/>一个工单 = 一个批次"]
+        RPT["MfgReport<br/>workHours / qtyOk"]
+        STD["MfgProduct<br/>standardHours · laborRate"]
+        WO --> RPT
+    end
+
+    subgraph LC["langhua-ofbiz-learningcurve · /learningcurve"]
+        direction TB
+        SVC["learningCurveMesBatches<br/>读 MES 实体并按工单汇总"]
+        SERIES["批次串<br/>数量:工时;数量:工时"]
+        MANUAL["手工录入 historyData"]
+        FIT["学习曲线拟合<br/>Wright / Crawford"]
+        KPI["斜率 · 截距 · R²<br/>待投产批次估算"]
+        CSV["CSV 导出"]
+        SVC --> SERIES --> FIT
+        MANUAL --> FIT
+        FIT --> KPI --> CSV
+    end
+
+    RPT -- "按 dueDate → createdStamp 排序<br/>没合格数或没报工工时的工单跳过" --> SVC
+    KPI -. "斜率 / 标准工时人工回填（未自动写回）" .-> STD
+```
+
+- 只有 **MES → 本组件** 这一个方向：本组件读 MES 的表，MES 不知道本组件的存在；
+- 两个组件跑在同一个 OFBiz、同一个库上，**不复制数据**；MES 没部署时返回空结果 + 提示，不抛异常；
+- `/mfg` 与 `/learningcurve` 的登录会话互不共享，脚本里要分别登录。
+
 规则（`learningCurveMesBatches` 服务里实现）：
 
 - **一个工单 = 一个批次**：数量取该工单所有报工的合格数之和，数值取报工工时之和；

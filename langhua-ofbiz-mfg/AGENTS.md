@@ -132,6 +132,8 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
 - **它与本组件有数据联动**：`learningCurveMesBatches` 读本组件的 `MfgWorkOrder` + `MfgReport`，
   把每个工单折成一个批次（数量 = 报工合格数之和，数值 = 报工工时之和）喂给学习曲线；
   因此改 `MfgReport` 的字段或语义时要同步检查那边
+- 两个组件的关系图画在 `langhua-ofbiz-mfg/README.md` 的「与学习曲线组件的关系」（mermaid，
+  两组件结构一致时的单一出处；孪生份在学习曲线 README 的「与 MES 联动」）
 - 屏幕 `main` / `records` / `recordDetail`，模板 `estimation.ftl` / `records.ftl` / `recordDetail.ftl`
 - 同一套装饰器做法：`lc-decorator` + `webapp/learningcurve/decorator.ftl` + `css/lc.css`，
   `pageTitle`（学习曲线估算 / 估算记录 / 估算详情）、`activeMenu`（estimate / records）
