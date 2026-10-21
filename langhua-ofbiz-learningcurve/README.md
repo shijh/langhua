@@ -66,6 +66,7 @@ Windows 下用 `gradlew.bat`，`JAVA_HOME` 指向 JDK 17。
 | `learningCurveSaveEstimate` | 计算并**保存**一条估算记录（含历史批次），返回 `estimateId` |
 | `learningCurveListEstimates` | 按产品型号（可选）列出已保存记录，按创建时间倒序 |
 | `learningCurveChartData` | 返回详情页所需数据：记录头、批次列表、趋势图坐标点、坐标轴最大值 |
+| `learningCurveMesBatches` | **从 MES 取历史批次**：按型号把工单汇总成 `数量:工时` 串（可选，没型号就返回空） |
 
 参数说明：
 
@@ -100,11 +101,29 @@ https://localhost:8443/learningcurve/control/main
 
 | 路径 | 说明 |
 | --- | --- |
-| `/learningcurve/control/main` | 估算表单：产品型号、口径（成本/工时）、历史批次、待估算单位数、期望 R²、方法 |
+| `/learningcurve/control/main` | 估算表单：产品型号、口径（成本/工时）、历史批次、待估算单位数、期望 R²、方法；上方可选「从 MES 取历史批次」 |
 | `POST /learningcurve/control/estimate` | 调用 `learningCurveSaveEstimate` 保存记录，跳转到详情页 |
 | `/learningcurve/control/records` | 记录列表，可按产品型号筛选 |
 | `/learningcurve/control/recordDetail?estimateId=...` | 详情：估算结果、历史批次、趋势图（SVG）、CSV 下载 |
 | `/learningcurve/control/exportCsv?estimateId=...` | 导出该记录为 CSV（`text/csv`） |
+
+## 与 MES 联动：直接从工单取历史批次
+
+手工敲 `2:200;3:285;5:450` 容易抄错，而 MES 组件（`langhua-ofbiz-mfg`）里本来就有真实的批次数据。
+估算页上方多了一个「从 MES 取历史批次」的小框：填型号 → 点「取数」→ 页面把结果按工单顺序摆成一张表，
+并把 `数量:工时` 串**直接填进下面的历史批次数据**，口径自动切成「工时」。
+
+规则（`learningCurveMesBatches` 服务里实现）：
+
+- **一个工单 = 一个批次**：数量取该工单所有报工的合格数之和，数值取报工工时之和；
+- 按工单的 `dueDate` → `createdStamp` 排序，累计数量才算得对；
+- **没有合格数或没有报工工时的工单跳过**（否则单台工时会除零），页面上会写跳过了几个；
+- 数字一律用 `Locale.ROOT` 的 `0.###` 格式，小数点固定为 `.`，因为 `parseHistoryData` 用 `Double.parseDouble` 解析；
+- 读的是 MES 的实体（`MfgWorkOrder` / `MfgReport`，同一个数据库），**MES 没部署时不会报错**：
+  服务返回空结果 + 一句提示，页面照旧能用样例数据估算。
+
+> 注意：`numeric` 字段在 OFBiz 里是 `Long`，`floating-point` 才是 `Double`，
+> 直接 `getDouble("qtyOk")` 会 `ClassCastException`，统一走 `Number` 取 `doubleValue()`。
 
 ### 页面布局：单一装饰器
 
@@ -212,6 +231,10 @@ java -cp "build/test-classes:src/main/java:ofbiz.jar:jama-1.0.3.jar:junit-4.13.2
       org.langhua.ofbiz.learningcurve.OFBizLearningCurveHandlerTest \
       org.langhua.ofbiz.learningcurve.LearningCurveServicesTest
 ```
+
+目前共 **30 个用例**：其中 4 个专门覆盖 MES 取数的规则（工单 → 批次换算、跳过没有合格数/工时的工单、
+小数点固定为 `.`、空列表不报错）。页面巡检 `verify-lc.ps1` 也加了 15 项，覆盖「从 MES 取数」的完整链路
+（面板存在、取到 29 个工单、历史串预填、口径自动切到工时、未知型号不给空表）。
 
 ## 从 OFBiz 09.04 迁移
 

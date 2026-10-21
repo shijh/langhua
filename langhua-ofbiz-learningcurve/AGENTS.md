@@ -14,9 +14,9 @@ OFBiz **学习曲线**插件：按历史批次（数量 + 总额/工时）拟合
 | 脚本 | 作用 |
 | --- | --- |
 | `deploy-lc.bat` | 停 OFBiz → robocopy 到 `plugins/learningcurve` → `gradle jar` → 启动（日志 `F:\build-ofbiz\lc-deploy.txt`） |
-| `run-tests.bat` | 单元测试 26 个（需要 jama：`C:\Users\shi.jinghai-honor\.m2\repository\gov\nist\math\jama\1.0.3\jama-1.0.3.jar`） |
+| `run-tests.bat` | 单元测试 30 个（需要 jama：`C:\Users\shi.jinghai-honor\.m2\repository\gov\nist\math\jama\1.0.3\jama-1.0.3.jar`） |
 | `lc-it.bat` | 集成测试 18 项（日志 `lc-it.txt`） |
-| `verify-lc.ps1` | 页面巡检 41 项（日志 `lc-verify.txt`） |
+| `verify-lc.ps1` | 页面巡检 56 项（日志 `lc-verify.txt`） |
 
 只改 `webapp/` 下的静态文件时，直接 `Copy-Item` 到 `plugins/learningcurve/...` 就生效，不必整包重发。
 
@@ -31,6 +31,12 @@ OFBiz **学习曲线**插件：按历史批次（数量 + 总额/工时）拟合
 
 ## 注意
 
+- **与 MES 的联动**：`learningCurveMesBatches`（`LearningCurveServices.mesBatches`）直接读 MES 的
+  `MfgWorkOrder` / `MfgReport` 实体，把「一个工单 = 一个批次」汇总成 `数量:工时` 串；估算页 `?mesProduct=<型号>` 会预填表单并自动切口径到 HOURS。
+  规则：按 `dueDate` → `createdStamp` 排序；没合格数或没报工工时的工单跳过；数字用 `Locale.ROOT` 的 `0.###`（小数点必须是 `.`）；
+  MES 没部署时返回空结果 + 提示，**不要抛异常**
+- **`numeric` 字段是 Long，`floating-point` 才是 Double**：`getDouble()` 对 `numeric` 字段会 `ClassCastException`，一律走 `Number`
+- **服务返回的中文会被渲染成数字实体**（`&#x8fd9;`），页面断言要改用结构特征（如「没有哪个表头」）或实体形式
 - **趋势图是手写 SVG**：`<text>` 默认黑色，深色主题下必须靠 `svg text { fill: var(--fg-muted) }` 才能看见；
   拟合线 `#4daafc`、实测点 `#f14c4c`、坐标轴 `#4b4b4b`
 - 配色与图标和 MES 组件一致（VS Code Dark Modern；`logo-{32,64,180}.png` 由

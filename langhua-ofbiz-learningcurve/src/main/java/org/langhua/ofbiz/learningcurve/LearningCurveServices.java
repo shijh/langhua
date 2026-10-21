@@ -318,8 +318,133 @@ public final class LearningCurveServices {
         }
     }
 
-    private static Map<String, Object> newHandlerContext(Map<String, ? extends Object> context) {
-        Map<String, Object> handlerContext = new HashMap<>();
+    /**
+     * Builds the history batches of one product straight from the MES component: every work order
+     * becomes a batch, its quantity the good units reported and its value the reported hours.
+     *
+     * <p>The MES entities are read directly (they live in the same database), so this component
+     * keeps working when the MES component is not deployed - the query then fails and the caller
+     * gets an empty result with a message instead of an error page.
+     *
+     * @param dctx the dispatch context
+     * @param context service context, see {@code servicedef/services.xml#learningCurveMesBatches}
+     * @return the service result map containing {@code batches} and {@code historyData}
+     */
+    public static Map<String, Object> mesBatches(DispatchContext dctx, Map<String, ? extends Object> context) {
+        String productCode = toText(context.get("productCode"));
+        if (productCode == null) {
+            return emptyMesResult(null);
+        }
+        List<Map<String, Object>> rows = new ArrayList<>();
+        try {
+            Delegator delegator = dctx.getDelegator();
+            List<GenericValue> orders = EntityQuery.use(delegator).from("MfgWorkOrder")
+                    .where("productCode", productCode).orderBy("dueDate", "createdStamp").queryList();
+            for (GenericValue order : orders) {
+                String workOrderId = order.getString("workOrderId");
+                List<GenericValue> reports = EntityQuery.use(delegator).from("MfgReport")
+                        .where("workOrderId", workOrderId).queryList();
+                double hours = 0.0;
+                double qtyOk = 0.0;
+                for (GenericValue report : reports) {
+                    // numeric fields come back as Long, floating point ones as Double: go through Number
+                    hours += numberOf(report, "workHours");
+                    qtyOk += numberOf(report, "qtyOk");
+                }
+                Map<String, Object> row = new HashMap<>();
+                row.put("workOrderId", workOrderId);
+                row.put("qtyOk", Double.valueOf(qtyOk));
+                row.put("hours", Double.valueOf(hours));
+                Object dueDate = order.get("dueDate");
+                row.put("date", dueDate == null ? "" : dueDate.toString().substring(0, Math.min(10, dueDate.toString().length())));
+                row.put("statusId", order.getString("statusId"));
+                rows.add(row);
+            }
+        } catch (GeneralException e) {
+            return emptyMesResult("读不到 MES 的工单数据（MES 组件可能没部署）：" + e.getMessage());
+        } catch (RuntimeException e) {
+            return emptyMesResult("读不到 MES 的工单数据（MES 组件可能没部署）：" + e.getMessage());
+        }
+        Map<String, Object> result = buildMesBatches(rows);
+        result.put("productCode", productCode);
+        result.put("message", rows.isEmpty()
+                ? "这个型号还没有工单，先在 MES 建工单并报工。"
+                : null);
+        return result;
+    }
+
+    /**
+     * Turns the per work order rows into the history list and the compact history string.
+     *
+     * <p>Work orders without good units or without reported hours are skipped: they would make the
+     * unit value infinite. The order of the rows is kept, because the cumulative quantity of the
+     * batches matters for the curve.
+     *
+     * @param rows rows with {@code workOrderId}, {@code qtyOk}, {@code hours}, {@code date} and
+     *        {@code statusId}; the list may be empty
+     * @return the service result map with {@code batches}, {@code batchCount}, {@code totalQty},
+     *         {@code totalHours} and {@code historyData}
+     */
+    public static Map<String, Object> buildMesBatches(List<Map<String, Object>> rows) {
+        List<Map<String, Object>> batches = new ArrayList<>();
+        StringBuilder history = new StringBuilder();
+        double totalQty = 0.0;
+        double totalHours = 0.0;
+        java.text.DecimalFormat format = new java.text.DecimalFormat("0.###",
+                java.text.DecimalFormatSymbols.getInstance(Locale.ROOT));
+        int skipped = 0;
+        for (Map<String, Object> row : rows) {
+            double qtyOk = row.get("qtyOk") instanceof Number ? ((Number) row.get("qtyOk")).doubleValue() : 0.0;
+            double hours = row.get("hours") instanceof Number ? ((Number) row.get("hours")).doubleValue() : 0.0;
+            if (qtyOk <= 0.0 || hours <= 0.0) {
+                skipped++;
+                continue;
+            }
+            Map<String, Object> batch = new HashMap<>(row);
+            batch.put("unitHours", Double.valueOf(hours / qtyOk));
+            batches.add(batch);
+            totalQty += qtyOk;
+            totalHours += hours;
+            if (history.length() > 0) {
+                history.append(';');
+            }
+            history.append(format.format(qtyOk)).append(':').append(format.format(hours));
+        }
+        Map<String, Object> result = ServiceUtil.returnSuccess();
+        result.put("batches", batches);
+        result.put("batchCount", Integer.valueOf(batches.size()));
+        result.put("skippedCount", Integer.valueOf(skipped));
+        result.put("totalQty", Double.valueOf(totalQty));
+        result.put("totalHours", Double.valueOf(totalHours));
+        result.put("historyData", history.toString());
+        return result;
+    }
+
+    /**
+     * Reads one field as a number whatever numeric type the entity uses ({@code numeric} fields are
+     * Long, {@code floating-point} ones are Double).
+     *
+     * @param value the entity value
+     * @param field the field name
+     * @return the value as a double, {@code 0} when empty
+     */
+    private static double numberOf(GenericValue value, String field) {
+        Object object = value.get(field);
+        return object instanceof Number ? ((Number) object).doubleValue() : 0.0;
+    }
+
+    private static Map<String, Object> emptyMesResult(String message) {        Map<String, Object> result = ServiceUtil.returnSuccess();
+        result.put("batches", new ArrayList<Map<String, Object>>());
+        result.put("batchCount", Integer.valueOf(0));
+        result.put("skippedCount", Integer.valueOf(0));
+        result.put("totalQty", Double.valueOf(0.0));
+        result.put("totalHours", Double.valueOf(0.0));
+        result.put("historyData", "");
+        result.put("message", message);
+        return result;
+    }
+
+    private static Map<String, Object> newHandlerContext(Map<String, ? extends Object> context) {        Map<String, Object> handlerContext = new HashMap<>();
         Object locale = context.get("locale");
         handlerContext.put("locale", locale instanceof Locale ? locale : Locale.getDefault());
         return handlerContext;

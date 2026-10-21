@@ -105,4 +105,28 @@
         <attribute name="productCode" type="String" mode="OUT"/>
         <attribute name="measureType" type="String" mode="OUT"/>
     </service>
+
+    <!--
+        History batches taken from the MES component: one batch per work order of the model,
+        quantity = reported good units, value = reported hours.
+
+        The MES entities are read directly; when that component is not deployed the service
+        returns an empty result with a message instead of failing.
+    -->
+    <service name="learningCurveMesBatches" engine="java"
+            location="org.langhua.ofbiz.learningcurve.LearningCurveServices" invoke="mesBatches"
+            auth="false" export="false" validate="true">
+        <description>Build the history batches of one model from the MES work orders</description>
+        <attribute name="productCode" type="String" mode="IN" optional="true">
+            <description>Model code; empty returns an empty result</description>
+        </attribute>
+        <attribute name="productCode" type="String" mode="OUT" optional="true"/>
+        <attribute name="batches" type="java.util.List" mode="OUT" optional="true"/>
+        <attribute name="batchCount" type="Integer" mode="OUT" optional="true"/>
+        <attribute name="skippedCount" type="Integer" mode="OUT" optional="true"/>
+        <attribute name="totalQty" type="Double" mode="OUT" optional="true"/>
+        <attribute name="totalHours" type="Double" mode="OUT" optional="true"/>
+        <attribute name="historyData" type="String" mode="OUT" optional="true"/>
+        <attribute name="message" type="String" mode="OUT" optional="true"/>
+    </service>
 </services>

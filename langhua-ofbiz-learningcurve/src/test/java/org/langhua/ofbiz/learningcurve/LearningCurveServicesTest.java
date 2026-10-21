@@ -130,8 +130,7 @@ public class LearningCurveServicesTest {
     }
 
     @Test
-    public void parseHistoryDataAcceptsSemicolonAndComma() throws GeneralException {
-        Matrix semicolon = LearningCurveServices.parseHistoryData("2:200;3:285;5:450");
+    public void parseHistoryDataAcceptsSemicolonAndComma() throws GeneralException {        Matrix semicolon = LearningCurveServices.parseHistoryData("2:200;3:285;5:450");
         Matrix comma = LearningCurveServices.parseHistoryData("2:200,3:285,5:450");
 
         assertEquals(3, semicolon.getRowDimension());
@@ -160,5 +159,70 @@ public class LearningCurveServicesTest {
         } catch (GeneralException e) {
             assertTrue(e.getMessage(), e.getMessage().contains("Invalid historyData entry"));
         }
+    }
+
+    private Map<String, Object> workOrderRow(String workOrderId, double qtyOk, double hours) {
+        Map<String, Object> row = new HashMap<>();
+        row.put("workOrderId", workOrderId);
+        row.put("qtyOk", Double.valueOf(qtyOk));
+        row.put("hours", Double.valueOf(hours));
+        row.put("date", "2026-10-01");
+        row.put("statusId", "MFG_COMPLETED");
+        return row;
+    }
+
+    @Test
+    public void mesBatchesTurnWorkOrdersIntoHistoryPairs() {
+        java.util.List<Map<String, Object>> rows = new java.util.ArrayList<>();
+        rows.add(workOrderRow("WO-1", 10, 20));
+        rows.add(workOrderRow("WO-2", 20, 30));
+
+        Map<String, Object> result = LearningCurveServices.buildMesBatches(rows);
+
+        assertFalse(ServiceUtil.isError(result));
+        assertEquals("10:20;20:30", result.get("historyData"));
+        assertEquals(Integer.valueOf(2), result.get("batchCount"));
+        assertEquals(30.0, ((Double) result.get("totalQty")).doubleValue(), 1e-9);
+        assertEquals(50.0, ((Double) result.get("totalHours")).doubleValue(), 1e-9);
+        @SuppressWarnings("unchecked")
+        java.util.List<Map<String, Object>> batches = (java.util.List<Map<String, Object>>) result.get("batches");
+        assertEquals(2, batches.size());
+        assertEquals(2.0, ((Double) batches.get(0).get("unitHours")).doubleValue(), 1e-9);
+        assertEquals("WO-2", batches.get(1).get("workOrderId"));
+    }
+
+    @Test
+    public void mesBatchesSkipOrdersWithoutGoodUnitsOrHours() {
+        java.util.List<Map<String, Object>> rows = new java.util.ArrayList<>();
+        rows.add(workOrderRow("WO-1", 0, 5));
+        rows.add(workOrderRow("WO-2", 5, 0));
+        rows.add(workOrderRow("WO-3", 4, 10));
+
+        Map<String, Object> result = LearningCurveServices.buildMesBatches(rows);
+
+        // only the third order is usable: the other two would divide by zero
+        assertEquals(Integer.valueOf(1), result.get("batchCount"));
+        assertEquals(Integer.valueOf(2), result.get("skippedCount"));
+        assertEquals("4:10", result.get("historyData"));
+    }
+
+    @Test
+    public void mesBatchesKeepDotDecimalSeparator() {
+        java.util.List<Map<String, Object>> rows = new java.util.ArrayList<>();
+        rows.add(workOrderRow("WO-1", 2.5, 7.25));
+
+        Map<String, Object> result = LearningCurveServices.buildMesBatches(rows);
+
+        // the history string is parsed back with Double.parseDouble, so it must not follow the locale
+        assertEquals("2.5:7.25", result.get("historyData"));
+    }
+
+    @Test
+    public void mesBatchesOfNoRowsAreEmpty() {
+        Map<String, Object> result = LearningCurveServices.buildMesBatches(new java.util.ArrayList<Map<String, Object>>());
+
+        assertFalse(ServiceUtil.isError(result));
+        assertEquals("", result.get("historyData"));
+        assertEquals(Integer.valueOf(0), result.get("batchCount"));
     }
 }

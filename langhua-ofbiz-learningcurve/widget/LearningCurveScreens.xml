@@ -10,6 +10,10 @@
                 <set field="title" value="Learning Curve Estimation"/>
                 <set field="pageTitle" value="学习曲线估算"/>
                 <set field="activeMenu" value="estimate"/>
+                <!-- optional: same numbers taken from the MES work orders of one model -->
+                <service service-name="learningCurveMesBatches" result-map="mesBatches" auto-field-map="false">
+                    <field-map field-name="productCode" from-field="parameters.mesProduct"/>
+                </service>
             </actions>
             <widgets>
                 <decorator-screen name="lc-decorator" location="component://learningcurve/widget/LearningCurveCommonScreens.xml">
