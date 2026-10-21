@@ -52,6 +52,7 @@
             名称 <input type="text" name="productName" size="22" value="${product.productName!''}"/>
             SN 前缀 <input type="text" name="snPrefix" size="8" value="${product.snPrefix!''}"/>
             标准工时/台 <input type="text" name="standardHours" size="6" value="<#if product.standardHours??>${product.standardHours?string("0.##")}</#if>"/>
+            工时费率 <input type="text" name="laborRate" size="6" value="<#if product.laborRate??>${product.laborRate?string("0.##")}</#if>" title="元/小时，用于成本核算"/>
             保修月数 <input type="text" name="warrantyMonths" size="4" value="${product.warrantyMonths!12}"/>
             售价 <input type="text" name="salePrice" size="7" value="${product.salePrice!0}"/>
             开发阶段
@@ -165,14 +166,14 @@
 
     <h2>BOM 导入（${product.productCode}）</h2>
     <fieldset>
-        <legend>粘贴 CSV：元件料号,名称,用量,位号,是否关键料(Y/N)<#if currentVersionId != ''>，导入到 <b>${currentVersionId}</b></#if></legend>
+        <legend>粘贴 CSV：元件料号,名称,用量,位号,是否关键料(Y/N),单价(可空)<#if currentVersionId != ''>，导入到 <b>${currentVersionId}</b></#if></legend>
         <form method="post" action="/mfg/control/bomImport">
             <input type="hidden" name="productCode" value="${product.productCode}"/>
             <#if currentVersionId != ''><input type="hidden" name="bomVersionId" value="${currentVersionId}"/></#if>
-            <p><textarea name="csv">R0402-10K,10K 0402 电阻,4,R1-R4,N
-C0402-100N,100nF 0402 电容,6,C1-C6,N
-U1-BT5-SOC,主控 SoC,1,U1,Y
-BAT-18650,18650 电池,1,BT1,Y</textarea></p>
+            <p><textarea name="csv">R0402-10K,10K 0402 电阻,4,R1-R4,N,0.01
+C0402-100N,100nF 0402 电容,6,C1-C6,N,0.02
+U1-BT5-SOC,主控 SoC,1,U1,Y,18.5
+BAT-18650,18650 电池,1,BT1,Y,12</textarea></p>
             <p>
                 <label><input type="checkbox" name="replace" value="N"/> 追加（不勾选则先清空该版本的行）</label>
                 <input type="submit" value="导入 BOM"/>
@@ -182,8 +183,9 @@ BAT-18650,18650 电池,1,BT1,Y</textarea></p>
 
     <h2>当前 BOM（${currentVersionId!'未建'}，${bomItems?size} 行）</h2>
     <#if bomItems?has_content>
-        <table>
-            <tr><th class="num">行号</th><th>料号</th><th>名称</th><th class="num">用量</th><th>位号</th><th>关键料</th></tr>
+        <table id="bomLines">
+            <tr><th class="num">行号</th><th>料号</th><th>名称</th><th class="num">用量</th><th>位号</th><th>关键料</th>
+                <th class="num">单价</th><th class="num">金额</th></tr>
             <#list bomItems as item>
                 <tr>
                     <td class="num">${(item.lineSeq)?string("0")}</td>
@@ -192,11 +194,42 @@ BAT-18650,18650 电池,1,BT1,Y</textarea></p>
                     <td class="num">${(item.qty)?string("0.##")}</td>
                     <td>${item.designators!}</td>
                     <td>${item.isKeyPart!}</td>
+                    <td class="num"><#if item.unitPrice??>${item.unitPrice?string("0.000")}<#else><span class="hint">—</span></#if></td>
+                    <td class="num"><#if item.unitPrice??>${(((item.qty)!0) * item.unitPrice)?string("0.00")}<#else><span class="hint">—</span></#if></td>
                 </tr>
             </#list>
         </table>
     <#else>
         <p class="hint">该型号还没有 BOM。</p>
+    </#if>
+
+    <h2>成本（单台 / 批量）</h2>
+    <#assign c = (costResult)!{}>
+    <form method="get" action="/mfg/control/products" class="inline">
+        <input type="hidden" name="productCode" value="${product.productCode}"/>
+        批量 <input type="text" name="costQty" size="6" value="${(parameters.costQty)!1}"/>
+        <input type="submit" value="重算"/>
+    </form>
+    <table id="productCost">
+        <tr><th>项目</th><th class="num">单台</th><th class="num">合计（${((c.qty)!1)?string("0.##")} 台）</th></tr>
+        <tr><td>材料（BOM 单价 × 用量）</td>
+            <td class="num">${((c.materialPerUnit)!0)?string("0.00")}</td>
+            <td class="num">${((c.materialCost)!0)?string("0.00")}</td></tr>
+        <tr><td>工时（标准工时 ${((c.standardHours)!0)?string("0.##")} h × 费率 ${((c.laborRate)!0)?string("0.00")} 元/h）</td>
+            <td class="num">${((c.laborPerUnit)!0)?string("0.00")}</td>
+            <td class="num">${((c.laborCost)!0)?string("0.00")}</td></tr>
+        <tr><td><b>合计成本</b></td>
+            <td class="num"><b>${((c.unitCost)!0)?string("0.00")}</b></td>
+            <td class="num"><b>${((c.totalCost)!0)?string("0.00")}</b></td></tr>
+        <tr><td>目标成本（开发项目）</td>
+            <td class="num"><#if c.targetCost??>${c.targetCost?string("0.00")}<#else><span class="hint">未设</span></#if></td>
+            <td class="num"><#if c.targetDifference??><#if (c.targetDifference) gt 0><span class="error">超 ${c.targetDifference?string("0.00")}</span><#else><span class="ok">低于 ${((c.targetDifference)?abs)?string("0.00")}</span></#if><#else><span class="hint">—</span></#if></td></tr>
+        <tr><td>目标售价 / 毛利</td>
+            <td class="num"><#if c.targetPrice??>${c.targetPrice?string("0.00")}<#else><span class="hint">未设</span></#if></td>
+            <td class="num"><#if c.unitMargin??><#if (c.unitMargin) gte 0><span class="ok">毛利 ${c.unitMargin?string("0.00")}（${(c.marginRate!'0')?string("0.0")}%）</span><#else><span class="error">亏 ${((c.unitMargin)?abs)?string("0.00")}</span></#if><#else><span class="hint">—</span></#if></td></tr>
+    </table>
+    <#if ((c.missingPriceCount)!0) gt 0>
+        <p class="warn">有 ${c.missingPriceCount} 行 BOM 没填单价，材料成本被低估；在 BOM 导入里补第 6 列单价。</p>
     </#if>
 
     <h2>工序模板（${routings?size} 个）</h2>

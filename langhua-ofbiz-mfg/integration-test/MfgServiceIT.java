@@ -66,6 +66,15 @@ public final class MfgServiceIT {
             + "U1-BT5-SOC,Main SoC,1,U1,Y\n"
             + "BAT-18650,18650 cell,1,BT1,Y";
 
+    /** A model kept only for the cost test, so the priced BOM does not disturb the other checks. */
+    private static final String COST_PRODUCT_CODE = "COSTM";
+    private static final String COST_COMPONENT = "R0402-10K";
+    /** 4 x 0.05 + 6 x 0.02 + 1 x 3.00 = 3.32 per unit, 0.5 h x 40 = 20.00 labour. */
+    private static final String COST_BOM_CSV =
+            "R0402-10K,10K 0402 resistor,4,R1-R4,N,0.05\n"
+            + "C0402-100N,100nF 0402 capacitor,6,C1-C6,N,0.02\n"
+            + "U1-BT5-SOC,Main SoC,1,U1,Y,3.00";
+
     private static final Pattern WORK_ORDER_ID = Pattern.compile("WO-\\d{6}-\\d{3}");
     private static final Pattern SERIAL_NUMBER = Pattern.compile(SN_PREFIX + "-\\d{6}-\\d{4}");
     private static final Pattern LOT_ID = Pattern.compile("LOT-\\d{6}-\\d+");
@@ -177,6 +186,7 @@ public final class MfgServiceIT {
             it.appliesChangeOrderToBomVersion();
             it.runsTheThreeDevelopmentTracks();
             it.storesProductPhotos();
+            it.costsTheModel();
         } finally {
             it.tearDown();
         }
@@ -1504,6 +1514,112 @@ public final class MfgServiceIT {
                 && project.body.contains(ecoId), "change order missing on the project");
     }
 
+    /**
+     * Costs a model from the BOM prices and the labour rate, compares it with the target cost of
+     * the development project, then costs a work order against what was really issued.
+     *
+     * @throws IOException when a service call fails
+     */
+    private void costsTheModel() throws IOException {
+        Map<String, String> productForm = new LinkedHashMap<>();
+        productForm.put("productCode", COST_PRODUCT_CODE);
+        productForm.put("productName", "Cost test model");
+        productForm.put("snPrefix", COST_PRODUCT_CODE);
+        productForm.put("standardHours", "0.5");
+        productForm.put("laborRate", "40");
+        productForm.put("warrantyMonths", "12");
+        productForm.put("salePrice", "30");
+        Response product = invoke("mfgProductSave", productForm);
+        check("cost: product saved with a labour rate", product.status == 200
+                && !product.body.contains("responseMessage=error"), "HTTP " + product.status);
+
+        Map<String, String> bomForm = new LinkedHashMap<>();
+        bomForm.put("productCode", COST_PRODUCT_CODE);
+        bomForm.put("csv", COST_BOM_CSV);
+        bomForm.put("replace", "Y");
+        Response bom = invoke("mfgBomImport", bomForm);
+        check("cost: BOM with prices imported", bom.status == 200 && bom.body.contains("importedCount"),
+                "HTTP " + bom.status);
+
+        Map<String, String> projectForm = new LinkedHashMap<>();
+        projectForm.put("projectCode", "");
+        projectForm.put("projectName", "Cost test project");
+        projectForm.put("productCode", COST_PRODUCT_CODE);
+        projectForm.put("targetCost", "20");
+        projectForm.put("targetPrice", "30");
+        Response project = invoke("mfgDevProjectSave", projectForm);
+        check("cost: development project carries a target cost", project.status == 200
+                && !project.body.contains("responseMessage=error"), "HTTP " + project.status);
+
+        Map<String, String> costForm = new LinkedHashMap<>();
+        costForm.put("productCode", COST_PRODUCT_CODE);
+        costForm.put("qty", "10");
+        Response cost = invoke("mfgProductCost", costForm);
+        check("cost: product cost returns HTTP 200", cost.status == 200, "HTTP " + cost.status);
+        check("cost: material comes from the BOM prices",
+                near(fieldValue(cost.body, "materialPerUnit"), 3.32), "materialPerUnit is not 3.32");
+        check("cost: labour is standard hours times the rate",
+                near(fieldValue(cost.body, "laborPerUnit"), 20.0), "laborPerUnit is not 20.00");
+        check("cost: unit cost is material plus labour",
+                near(fieldValue(cost.body, "unitCost"), 23.32), "unitCost is not 23.32");
+        check("cost: ten units are totalled",
+                near(fieldValue(cost.body, "totalCost"), 233.2), "totalCost is not 233.20");
+        check("cost: every BOM line carries a price",
+                near(fieldValue(cost.body, "missingPriceCount"), 0.0), "a BOM line has no price");
+        check("cost: the target cost is compared with the unit cost",
+                near(fieldValue(cost.body, "targetDifference"), 3.32), "target difference is not 3.32");
+        check("cost: the margin follows the target price",
+                near(fieldValue(cost.body, "unitMargin"), 6.68), "unit margin is not 6.68");
+
+        Map<String, String> orderForm = new LinkedHashMap<>();
+        orderForm.put("productCode", COST_PRODUCT_CODE);
+        orderForm.put("plannedQty", "5");
+        orderForm.put("dueDate", "2026-12-31");
+        orderForm.put("customerName", "Cost test");
+        Response order = invoke("mfgWorkOrderCreate", orderForm);
+        String costWorkOrderId = firstMatch(WORK_ORDER_ID, order.body);
+        check("cost: work order created for the model", costWorkOrderId != null,
+                "no work order id in response");
+
+        Map<String, String> lotForm = new LinkedHashMap<>();
+        lotForm.put("componentCode", COST_COMPONENT);
+        lotForm.put("componentName", "10K 0402 resistor");
+        lotForm.put("supplierName", "Cost supplier");
+        lotForm.put("receivedQty", "100");
+        lotForm.put("receivedDate", "2026-10-21");
+        lotForm.put("unitPrice", "0.06");
+        Response lot = invoke("mfgLotSave", lotForm);
+        String costLotId = firstMatch(LOT_ID, lot.body);
+        check("cost: priced material lot created", costLotId != null, "no lot id in response");
+
+        Map<String, String> issueForm = new LinkedHashMap<>();
+        issueForm.put("workOrderId", costWorkOrderId == null ? "" : costWorkOrderId);
+        issueForm.put("componentCode", COST_COMPONENT);
+        issueForm.put("lotId", costLotId == null ? "" : costLotId);
+        issueForm.put("qty", "4");
+        Response issue = invoke("mfgIssueSave", issueForm);
+        check("cost: material issued to the work order", issue.status == 200
+                && !issue.body.contains("responseMessage=error"), "HTTP " + issue.status);
+
+        Map<String, String> orderCostForm = new LinkedHashMap<>();
+        orderCostForm.put("workOrderId", costWorkOrderId == null ? "" : costWorkOrderId);
+        Response orderCost = invoke("mfgWorkOrderCost", orderCostForm);
+        check("cost: work order cost returns HTTP 200", orderCost.status == 200,
+                "HTTP " + orderCost.status);
+        check("cost: work order standard unit cost",
+                near(fieldValue(orderCost.body, "standardUnitCost"), 23.32),
+                "standardUnitCost is not 23.32");
+        check("cost: work order standard total for five units",
+                near(fieldValue(orderCost.body, "standardTotal"), 116.6),
+                "standardTotal is not 116.60");
+        check("cost: actual material follows the lot price",
+                near(fieldValue(orderCost.body, "issuedMaterialCost"), 0.24),
+                "issuedMaterialCost is not 0.24");
+        check("cost: every issued lot carries a price",
+                near(fieldValue(orderCost.body, "issuesWithoutPrice"), 0.0),
+                "an issued lot has no price");
+    }
+
     private Response get(String path) throws IOException {
         HttpURLConnection connection = (HttpURLConnection) new URL(baseUrl + path).openConnection();
         connection.setRequestMethod("GET");
@@ -1586,6 +1702,23 @@ public final class MfgServiceIT {
             }
         }
         return text.toString();
+    }
+
+    /**
+     * Reads one value out of the parameter table the Web Tools service runner renders.
+     *
+     * @param body the response body
+     * @param name the parameter name
+     * @return the value as a number, {@code null} when the parameter is missing
+     */
+    private static Double fieldValue(String body, String name) {
+        Pattern pattern = Pattern.compile("<td>" + Pattern.quote(name) + "</td>\\s*<td>([-0-9.]+)</td>");
+        Matcher matcher = pattern.matcher(body);
+        return matcher.find() ? Double.valueOf(matcher.group(1)) : null;
+    }
+
+    private static boolean near(Double value, double expected) {
+        return value != null && Math.abs(value.doubleValue() - expected) < 0.005;
     }
 
     private static String firstGroup(Pattern pattern, String text) {

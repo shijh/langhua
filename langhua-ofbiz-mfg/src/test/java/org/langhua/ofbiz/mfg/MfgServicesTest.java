@@ -675,8 +675,7 @@ public class MfgServicesTest {
     }
 
     @Test
-    public void normalizesTheInspectionStatus() {
-        // an empty value means "not inspected yet", not an error
+    public void normalizesTheInspectionStatus() {        // an empty value means "not inspected yet", not an error
         assertEquals(MfgServices.IQC_PENDING, MfgServices.normalizeInspectStatus(null));
         assertEquals(MfgServices.IQC_PENDING, MfgServices.normalizeInspectStatus("   "));
         assertEquals(MfgServices.IQC_PASS, MfgServices.normalizeInspectStatus("MFG_IQC_PASS"));
@@ -685,5 +684,30 @@ public class MfgServicesTest {
         assertEquals(MfgServices.IQC_FAIL, MfgServices.normalizeInspectStatus("MFG_IQC_FAIL"));
         assertNull(MfgServices.normalizeInspectStatus("MFG_IQC_BOGUS"));
         assertEquals(4, MfgServices.INSPECT_STATUSES.length);
+    }
+
+    @Test
+    public void costsOneUnitWithTheBomAndTheLaborRate() {
+        java.util.Map<String, Object> cost = MfgServices.costSummary(18.5, 0.45, 1.0, 19.0, 39.0);
+
+        assertEquals(18.5, ((Double) cost.get("materialPerUnit")).doubleValue(), 1e-9);
+        assertEquals(0.45, ((Double) cost.get("laborPerUnit")).doubleValue(), 1e-9);
+        assertEquals(18.95, ((Double) cost.get("unitCost")).doubleValue(), 1e-9);
+        // negative means "cheaper than the target", positive means "over the target"
+        assertEquals(-0.05, ((Double) cost.get("targetDifference")).doubleValue(), 1e-9);
+        assertEquals(20.05, ((Double) cost.get("unitMargin")).doubleValue(), 1e-9);
+        assertEquals(51.41, ((Double) cost.get("marginRate")).doubleValue(), 1e-9);
+    }
+
+    @Test
+    public void costsABatchAndRoundsToCents() {
+        java.util.Map<String, Object> cost = MfgServices.costSummary(10.0 / 3.0, 0.0, 3.0, null, null);
+
+        assertEquals(10.0, ((Double) cost.get("totalCost")).doubleValue(), 1e-9);
+        assertEquals(3.33, ((Double) cost.get("unitCost")).doubleValue(), 1e-9);
+        // no target price means no margin, not a division by zero
+        assertNull(cost.get("unitMargin"));
+        assertNull(cost.get("marginRate"));
+        assertNull(cost.get("targetDifference"));
     }
 }

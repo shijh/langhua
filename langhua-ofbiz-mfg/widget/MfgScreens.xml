@@ -52,6 +52,10 @@
                     <field-map field-name="ownerTypeId" value="MFG_ATT_PRODUCT"/>
                     <field-map field-name="ownerId" from-field="parameters.productCode"/>
                 </service>
+                <service service-name="mfgProductCost" result-map="costResult" auto-field-map="false">
+                    <field-map field-name="productCode" from-field="parameters.productCode"/>
+                    <field-map field-name="qty" from-field="parameters.costQty"/>
+                </service>
             </actions>
             <widgets>
                 <decorator-screen name="mfg-decorator" location="component://mfg/widget/MfgCommonScreens.xml">
@@ -187,6 +191,9 @@
                         <service service-name="mfgAttachmentList" result-map="attachmentResult" auto-field-map="false">
                             <field-map field-name="ownerTypeId" value="MFG_ATT_WORK_ORDER"/>
                             <field-map field-name="ownerId" from-field="parameters.workOrderId"/>
+                        </service>
+                        <service service-name="mfgWorkOrderCost" result-map="costResult" auto-field-map="false">
+                            <field-map field-name="workOrderId" from-field="parameters.workOrderId"/>
                         </service>
                     </actions>
                     <widgets>

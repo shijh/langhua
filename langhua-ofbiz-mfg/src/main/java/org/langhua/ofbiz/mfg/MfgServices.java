@@ -203,6 +203,7 @@ public final class MfgServices {
             String snPrefix = toText(context.get("snPrefix"));
             product.set("snPrefix", snPrefix == null ? productCode : snPrefix);
             product.set("standardHours", Double.valueOf(toDouble(context.get("standardHours"), 0.0)));
+            product.set("laborRate", optionalAmount(context.get("laborRate")));
             long warrantyMonths = toLong(context.get("warrantyMonths"), 12);
             product.set("warrantyMonths", Long.valueOf(warrantyMonths <= 0 ? 12 : warrantyMonths));
             product.set("salePrice", Double.valueOf(toDouble(context.get("salePrice"), 0.0)));
@@ -263,6 +264,18 @@ public final class MfgServices {
                 bomVersionId = currentBomVersionId(delegator, productCode);
                 if (bomVersionId == null) {
                     bomVersionId = createBomVersion(delegator, productCode, null, "Y", "Imported BOM");
+                    // the first BOM of a model is the one in use, otherwise the import looks lost
+                    GenericValue version = EntityQuery.use(delegator).from("MfgBomVersion")
+                            .where("bomVersionId", bomVersionId).queryOne();
+                    GenericValue product = EntityQuery.use(delegator).from("MfgProduct")
+                            .where("productCode", productCode).queryOne();
+                    if (version != null && product != null) {
+                        version.set("statusId", BOM_RELEASED);
+                        version.set("effectiveDate", java.sql.Date.valueOf(LocalDate.now()));
+                        version.store();
+                        product.set("currentBomVersionId", bomVersionId);
+                        product.store();
+                    }
                 }
             }
             if (!"N".equals(toText(context.get("replace")))) {
@@ -279,6 +292,7 @@ public final class MfgServices {
                 item.set("qty", Double.valueOf(toDouble(row[2], 1.0)));
                 item.set("designators", row[3]);
                 item.set("isKeyPart", "Y".equalsIgnoreCase(row[4]) ? "Y" : "N");
+                item.set("unitPrice", optionalAmount(row[5]));
                 delegator.create(item);
                 lineSeq += 10;
                 imported++;
@@ -804,8 +818,267 @@ public final class MfgServices {
         }
     }
 
-    // ------------------------------------------------------------ material and outsourcing
+    // ------------------------------------------------------------ cost
 
+    /**
+     * Costs one model: BOM lines times their unit price plus the standard hours times the labour
+     * rate, then compares the result with the target cost and the target price of the development
+     * project of that model.
+     *
+     * @param dctx the dispatch context
+     * @param context service context, see {@code servicedef/services.xml#mfgProductCost}
+     * @return the service result containing the costs, the lines and the margin
+     */
+    public static Map<String, Object> productCost(DispatchContext dctx, Map<String, ? extends Object> context) {
+        Delegator delegator = dctx.getDelegator();
+        String productCode = toText(context.get("productCode"));
+        Map<String, Object> empty = costSummary(0.0, 0.0, 1.0, null, null);
+        empty.put("lines", new ArrayList<Map<String, Object>>());
+        empty.put("productCode", productCode);
+        if (productCode == null) {
+            return empty;
+        }
+        try {
+            GenericValue product = EntityQuery.use(delegator).from("MfgProduct")
+                    .where("productCode", productCode).queryOne();
+            if (product == null) {
+                empty.put("message", "Unknown product model [" + productCode + "]");
+                return empty;
+            }
+            double qty = toDouble(context.get("qty"), 1.0);
+            if (qty <= 0.0) {
+                qty = 1.0;
+            }
+            String versionId = toText(context.get("bomVersionId"));
+            if (versionId == null) {
+                versionId = currentBomVersionId(delegator, productCode);
+            }
+            List<GenericValue> bomItems = versionId == null ? new ArrayList<GenericValue>()
+                    : bomItemsOfVersion(delegator, versionId);
+
+            List<Map<String, Object>> lines = new ArrayList<>(bomItems.size());
+            double materialPerUnit = 0.0;
+            int missing = 0;
+            for (GenericValue item : bomItems) {
+                double lineQty = item.getDouble("qty") == null ? 0.0 : item.getDouble("qty").doubleValue();
+                Object price = item.get("unitPrice");
+                boolean hasPrice = price instanceof Number;
+                if (!hasPrice) {
+                    missing++;
+                }
+                double unitPrice = hasPrice ? ((Number) price).doubleValue() : 0.0;
+                double amount = lineQty * unitPrice;
+                materialPerUnit += amount;
+                Map<String, Object> line = new LinkedHashMap<>();
+                line.put("componentCode", item.getString("componentCode"));
+                line.put("componentName", item.getString("componentName"));
+                line.put("qty", Double.valueOf(lineQty));
+                line.put("unitPrice", hasPrice ? Double.valueOf(unitPrice) : null);
+                line.put("amount", Double.valueOf(amount));
+                line.put("hasPrice", Boolean.valueOf(hasPrice));
+                lines.add(line);
+            }
+
+            Object rateInput = context.get("laborRate");
+            double laborRate = rateInput == null
+                    ? (product.get("laborRate") instanceof Number
+                            ? ((Number) product.get("laborRate")).doubleValue() : 0.0)
+                    : toDouble(rateInput, 0.0);
+            double standardHours = product.getDouble("standardHours") == null
+                    ? 0.0 : product.getDouble("standardHours").doubleValue();
+            double laborPerUnit = standardHours * laborRate;
+
+            // one model may have several development projects: take the newest target
+            GenericValue project = EntityQuery.use(delegator).from("MfgDevProject")
+                    .where("productCode", productCode).orderBy("-createdStamp").queryFirst();
+            Double targetCost = project == null || !(project.get("targetCost") instanceof Number)
+                    ? null : Double.valueOf(((Number) project.get("targetCost")).doubleValue());
+            Double targetPrice = project == null || !(project.get("targetPrice") instanceof Number)
+                    ? null : Double.valueOf(((Number) project.get("targetPrice")).doubleValue());
+
+            Map<String, Object> result = costSummary(materialPerUnit, laborPerUnit, qty, targetCost, targetPrice);
+            result.put("productCode", productCode);
+            result.put("bomVersionId", versionId);
+            result.put("standardHours", Double.valueOf(standardHours));
+            result.put("laborRate", Double.valueOf(laborRate));
+            result.put("lineCount", Integer.valueOf(lines.size()));
+            result.put("missingPriceCount", Integer.valueOf(missing));
+            result.put("lines", lines);
+            result.put("salePrice", product.get("salePrice"));
+            return result;
+        } catch (GenericEntityException e) {
+            return ServiceUtil.returnError("Could not cost the product model: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Costs one work order: the standard cost of the model against what really happened, meaning the
+     * lots issued times their purchase price plus the reported hours times the labour rate.
+     *
+     * @param dctx the dispatch context
+     * @param context service context, see {@code servicedef/services.xml#mfgWorkOrderCost}
+     * @return the service result with the standard and actual costs and their difference
+     */
+    public static Map<String, Object> workOrderCost(DispatchContext dctx, Map<String, ? extends Object> context) {
+        Delegator delegator = dctx.getDelegator();
+        String workOrderId = toText(context.get("workOrderId"));
+        Map<String, Object> result = ServiceUtil.returnSuccess();
+        result.put("workOrderId", workOrderId);
+        if (workOrderId == null) {
+            return result;
+        }
+        try {
+            GenericValue order = EntityQuery.use(delegator).from("MfgWorkOrder")
+                    .where("workOrderId", workOrderId).queryOne();
+            if (order == null) {
+                result.put("message", "Unknown work order [" + workOrderId + "]");
+                return result;
+            }
+            String productCode = order.getString("productCode");
+            GenericValue product = EntityQuery.use(delegator).from("MfgProduct")
+                    .where("productCode", productCode).queryOne();
+            double laborRate = product == null || !(product.get("laborRate") instanceof Number)
+                    ? 0.0 : ((Number) product.get("laborRate")).doubleValue();
+            double standardHours = product == null || product.getDouble("standardHours") == null
+                    ? 0.0 : product.getDouble("standardHours").doubleValue();
+
+            // standard: the BOM of the version the order was frozen with
+            String versionId = order.getString("bomVersionId");
+            if (versionId == null) {
+                versionId = currentBomVersionId(delegator, productCode);
+            }
+            List<GenericValue> bomItems = versionId == null ? new ArrayList<GenericValue>()
+                    : bomItemsOfVersion(delegator, versionId);
+            double materialPerUnit = 0.0;
+            int missing = 0;
+            for (GenericValue item : bomItems) {
+                double lineQty = item.getDouble("qty") == null ? 0.0 : item.getDouble("qty").doubleValue();
+                if (!(item.get("unitPrice") instanceof Number)) {
+                    missing++;
+                } else {
+                    materialPerUnit += lineQty * ((Number) item.get("unitPrice")).doubleValue();
+                }
+            }
+
+            // actual material: what was issued, at the price of the lot it came from
+            List<GenericValue> issues = EntityQuery.use(delegator).from("MfgMaterialIssue")
+                    .where("workOrderId", workOrderId).queryList();
+            double issuedMaterial = 0.0;
+            int issuesWithoutPrice = 0;
+            for (GenericValue issue : issues) {
+                double qty = issue.getDouble("qty") == null ? 0.0 : issue.getDouble("qty").doubleValue();
+                GenericValue lot = EntityQuery.use(delegator).from("MfgMaterialLot")
+                        .where("lotId", issue.getString("lotId")).queryOne();
+                if (lot == null || !(lot.get("unitPrice") instanceof Number)) {
+                    issuesWithoutPrice++;
+                } else {
+                    issuedMaterial += qty * ((Number) lot.get("unitPrice")).doubleValue();
+                }
+            }
+
+            List<GenericValue> reports = EntityQuery.use(delegator).from("MfgReport")
+                    .where("workOrderId", workOrderId).queryList();
+            double reportedHours = 0.0;
+            double qtyOk = 0.0;
+            for (GenericValue report : reports) {
+                reportedHours += numberOrZero(report.get("workHours"));
+                qtyOk += numberOrZero(report.get("qtyOk"));
+            }
+            double plannedQty = toLong(order.get("plannedQty"), 0);
+            double actualLabor = reportedHours * laborRate;
+
+            result.put("productCode", productCode);
+            result.put("plannedQty", Double.valueOf(plannedQty));
+            result.put("qtyOk", Double.valueOf(qtyOk));
+            result.put("laborRate", Double.valueOf(laborRate));
+            result.put("standardHours", Double.valueOf(standardHours));
+            result.put("materialPerUnit", Double.valueOf(materialPerUnit));
+            result.put("laborPerUnit", Double.valueOf(standardHours * laborRate));
+            result.put("standardUnitCost", Double.valueOf(materialPerUnit + standardHours * laborRate));
+            result.put("standardTotal", Double.valueOf((materialPerUnit + standardHours * laborRate) * plannedQty));
+            result.put("issuedMaterialCost", Double.valueOf(issuedMaterial));
+            result.put("reportedHours", Double.valueOf(reportedHours));
+            result.put("actualLaborCost", Double.valueOf(actualLabor));
+            result.put("actualTotal", Double.valueOf(issuedMaterial + actualLabor));
+            double actualUnit = qtyOk > 0.0 ? (issuedMaterial + actualLabor) / qtyOk : 0.0;
+            result.put("actualUnitCost", Double.valueOf(actualUnit));
+            double diff = (issuedMaterial + actualLabor) - (materialPerUnit + standardHours * laborRate) * qtyOk;
+            result.put("differenceVsStandard", Double.valueOf(diff));
+            result.put("missingPriceCount", Integer.valueOf(missing));
+            result.put("issuesWithoutPrice", Integer.valueOf(issuesWithoutPrice));
+            return result;
+        } catch (GenericEntityException e) {
+            return ServiceUtil.returnError("Could not cost the work order: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Totals the material and labour of one quantity and compares them with the target cost and the
+     * target price.
+     *
+     * <p>Pure so the rounding and the division by zero can be tested without a database.
+     *
+     * @param materialPerUnit material cost of one unit
+     * @param laborPerUnit labour cost of one unit
+     * @param qty how many units to cost, at least zero
+     * @param targetCost the target cost of one unit, may be {@code null}
+     * @param targetPrice the target selling price of one unit, may be {@code null}
+     * @return the totals, the unit cost and the margin (all rounded to two decimals)
+     */
+    static Map<String, Object> costSummary(double materialPerUnit, double laborPerUnit, double qty,
+            Double targetCost, Double targetPrice) {
+        double unit = materialPerUnit + laborPerUnit;
+        Map<String, Object> map = ServiceUtil.returnSuccess();
+        map.put("qty", Double.valueOf(qty));
+        map.put("materialPerUnit", Double.valueOf(round2(materialPerUnit)));
+        map.put("laborPerUnit", Double.valueOf(round2(laborPerUnit)));
+        map.put("unitCost", Double.valueOf(round2(unit)));
+        map.put("materialCost", Double.valueOf(round2(materialPerUnit * qty)));
+        map.put("laborCost", Double.valueOf(round2(laborPerUnit * qty)));
+        map.put("totalCost", Double.valueOf(round2(unit * qty)));
+        map.put("targetCost", targetCost);
+        map.put("targetPrice", targetPrice);
+        map.put("targetDifference", targetCost == null
+                ? null : Double.valueOf(round2(unit - targetCost.doubleValue())));
+        if (targetPrice == null || targetPrice.doubleValue() <= 0.0) {
+            map.put("unitMargin", null);
+            map.put("marginRate", null);
+        } else {
+            double margin = targetPrice.doubleValue() - unit;
+            map.put("unitMargin", Double.valueOf(round2(margin)));
+            map.put("marginRate", Double.valueOf(round2(margin / targetPrice.doubleValue() * 100.0)));
+        }
+        return map;
+    }
+
+    private static double round2(double value) {
+        return Math.round(value * 100.0) / 100.0;
+    }
+
+    private static double numberOrZero(Object value) {
+        return value instanceof Number ? ((Number) value).doubleValue() : 0.0;
+    }
+
+    /**
+     * Reads an optional amount: an empty or unparsable value stays {@code null} instead of zero, so
+     * the cost report can tell "no price yet" from "free".
+     *
+     * @param value the raw input
+     * @return the amount, or {@code null} when there is none
+     */
+    private static Double optionalAmount(Object value) {
+        String text = toText(value);
+        if (text == null) {
+            return null;
+        }
+        double amount = toDouble(text, Double.NaN);
+        if (Double.isNaN(amount) || amount < 0.0) {
+            return null;
+        }
+        return Double.valueOf(amount);
+    }
+
+    // ------------------------------------------------------------ material and outsourcing
     /**
      * Creates or updates one material lot. When {@code lotId} is empty a new identifier
      * {@code LOT-yyMMdd-NN} is generated.
@@ -839,6 +1112,7 @@ public final class MfgServices {
             Object receivedDate = parseDate(context.get("receivedDate"));
             lot.set("receivedDate", receivedDate == null
                     ? java.sql.Date.valueOf(LocalDate.now()) : receivedDate);
+            lot.set("unitPrice", optionalAmount(context.get("unitPrice")));
             String inspectStatus = normalizeInspectStatus(context.get("inspectStatusId"));
             if (inspectStatus == null) {
                 return ServiceUtil.returnError("Unknown inspection status [" + context.get("inspectStatusId")
@@ -1356,6 +1630,7 @@ public final class MfgServices {
         map.put("componentName", lot.getString("componentName"));
         map.put("supplierName", lot.getString("supplierName"));
         map.put("supplierLot", lot.getString("supplierLot"));
+        map.put("unitPrice", lot.get("unitPrice"));
         map.put("receivedQty", lot.getDouble("receivedQty"));
         map.put("receivedDate", lot.getDate("receivedDate"));
         map.put("issuedQty", issuedQty == null ? Double.valueOf(0.0) : issuedQty);
@@ -4147,7 +4422,8 @@ always
     }
 
     /**
-     * Parses BOM CSV text into rows of {@code componentCode, componentName, qty, designators, isKeyPart}.
+     * Parses BOM CSV text into rows of
+     * {@code componentCode, componentName, qty, designators, isKeyPart, unitPrice}.
      * Empty lines and lines starting with {@code #} are ignored; quotes are stripped.
      *
      * @param csv the CSV text
@@ -4168,12 +4444,13 @@ always
             if (code.isEmpty()) {
                 continue;
             }
-            String[] row = new String[5];
+            String[] row = new String[6];
             row[0] = code;
             row[1] = cells.length > 1 ? unquote(cells[1]) : null;
             row[2] = cells.length > 2 ? unquote(cells[2]) : "1";
             row[3] = cells.length > 3 ? unquote(cells[3]) : null;
             row[4] = cells.length > 4 ? unquote(cells[4]) : "N";
+            row[5] = cells.length > 5 ? unquote(cells[5]) : null;
             rows.add(row);
         }
         return rows;
@@ -4928,6 +5205,7 @@ always
                 map.put("qty", item.getDouble("qty"));
                 map.put("designators", item.getString("designators"));
                 map.put("isKeyPart", item.getString("isKeyPart"));
+                map.put("unitPrice", item.get("unitPrice"));
                 bomMaps.add(map);
             }
             List<Map<String, Object>> routingMaps = new ArrayList<>(routings.size());
@@ -4958,6 +5236,7 @@ always
         map.put("productName", product.getString("productName"));
         map.put("snPrefix", product.getString("snPrefix"));
         map.put("standardHours", product.getDouble("standardHours"));
+        map.put("laborRate", product.get("laborRate"));
         map.put("warrantyMonths", product.getLong("warrantyMonths"));
         map.put("salePrice", product.getDouble("salePrice"));
         map.put("statusId", product.getString("statusId"));

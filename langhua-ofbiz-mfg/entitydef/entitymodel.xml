@@ -13,6 +13,7 @@
         <field name="productName" type="name"><description>Display name</description></field>
         <field name="snPrefix" type="very-short"><description>Prefix used when serial numbers are generated</description></field>
         <field name="standardHours" type="floating-point"><description>Standard assembly hours per unit</description></field>
+        <field name="laborRate" type="currency-amount"><description>Labour cost per hour used to cost the model, empty means 0</description></field>
         <field name="warrantyMonths" type="numeric"><description>Warranty in months from the delivery date, 12 when empty</description></field>
         <field name="salePrice" type="currency-amount"><description>Typical selling price, used to turn the after sales cost into a percentage</description></field>
         <field name="statusId" type="id"><description>MFG_ACTIVE or MFG_INACTIVE</description></field>
@@ -85,6 +86,7 @@
         <field name="qty" type="floating-point"><description>Quantity per unit</description></field>
         <field name="designators" type="very-long"><description>Reference designators, e.g. R1-R12,C3</description></field>
         <field name="isKeyPart" type="indicator"><description>Y when the part has to be traced</description></field>
+        <field name="unitPrice" type="currency-amount"><description>Component price per unit, used to cost the BOM</description></field>
         <field name="note" type="description"/>
         <field name="createdStamp" type="date-time"/>
         <field name="createdTxStamp" type="date-time"/>
@@ -280,6 +282,7 @@
         <field name="supplierLot" type="short-varchar"><description>Supplier lot / reel / date code printed on the label</description></field>
         <field name="receivedQty" type="floating-point"><description>Quantity received</description></field>
         <field name="receivedDate" type="date"><description>Date received from the supplier</description></field>
+        <field name="unitPrice" type="currency-amount"><description>Purchase price per unit, used for the actual material cost</description></field>
         <field name="inspectStatusId" type="id"><description>Incoming inspection: MFG_IQC_PENDING, MFG_IQC_PASS, MFG_IQC_CONCESSION (use as is) or MFG_IQC_FAIL (cannot be issued)</description></field>
         <field name="rejectedQty" type="floating-point"><description>Quantity rejected by the incoming inspection</description></field>
         <field name="inspectDate" type="date"><description>When the incoming inspection was finished</description></field>

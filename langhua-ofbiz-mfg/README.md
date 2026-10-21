@@ -11,7 +11,7 @@
 | --- | --- |
 | 产品型号 | 型号、SN 前缀、单台标准工时、**开发阶段**（概念/设计/打样/试产/量产） |
 | **附件（通用）** | 任意业务单据挂文件：产品照片、开发项目资料、工单照片、出货签收单、售后凭证；JPG/PNG/GIF（≤ 4 MB）与 PDF（≤ 8 MB），存数据库不丢；图片显示 200px 缩略图，点开看原图，可删除 |
-| BOM | CSV 批量导入元件行：`料号,名称,用量,位号,是否关键件` |
+| BOM | CSV 批量导入元件行：`料号,名称,用量,位号,是否关键件,单价`（单价可空） |
 | **BOM 版本** | 型号可保留多个 BOM 版本（`型号-V1`、`-V2`…），每个版本独立存行；型号指向“当前使用”的版本，启用新版本时旧版本自动废止；工单创建时冻结所用版本 |
 | **产品开发** | 开发项目立项（可选线路：**PCB / 固件 / 外壳**，带料号；目标成本/售价/计划上市日），五道阶段关卡（概念→设计→打样→试产→量产），评审通过自动进入下一阶段 |
 | **三条开发线** | 每个项目按线路带自己的步骤清单，逐步打勾，每步可记负责人、供应商、金额、数量、单号与备注；外壳线「外壳入库」完成时自动生成物料批次 |
@@ -26,6 +26,7 @@
 | **物料批次** | 采购到货台账：内部批次 `LOT-yyMMdd-NN`、供应商批号/DateCode、到货数量；支持 CSV 批量导入 |
 | **来料检验（IQC）** | 批次可标待检 / 合格 / 让步接收 / 不合格并记录不良数与检验人；**不合格批次不能发料**，待检与让步接收仍可用 |
 | **发料** | 按工单发料（料号 + 批次 + 数量 + 位号），形成“SN → 工单 → 批次”链路 |
+| **成本核算** | 型号层：BOM 单价 × 用量 + 标准工时 × 工时费率 = 单台成本，可乘批量算总额，并与开发项目的目标成本 / 目标售价对比（超了、亏了分色标出）；工单层：标准成本 vs 实际成本（已发料按批次采购单价 + 报工工时 × 费率），给出差异 |
 | **齐套** | BOM 需求（用量 × 计划数）vs 已发料，自动算出欠料行 |
 | **齐套预警** | 按交期列出所有在制工单的欠料明细（欠料行数 / 欠料总量） |
 | **外协收发** | 发往 SMT 的套数、回厂板数与不良数、快递单号 |
@@ -88,17 +89,17 @@ https://localhost:8443/mfg/control/main
 
 | 实体 | 说明 |
 | --- | --- |
-| `MfgProduct` | 产品型号：`productCode`（主键）、`snPrefix`、`standardHours`、`warrantyMonths`（保修月数，默认 12）、`devStageId`（开发阶段）、`currentBomVersionId`（当前 BOM 版本）、状态 |
+| `MfgProduct` | 产品型号：`productCode`（主键）、`snPrefix`、`standardHours`、`laborRate`（工时费率，成本核算用）、`warrantyMonths`（保修月数，默认 12）、`devStageId`（开发阶段）、`currentBomVersionId`（当前 BOM 版本）、状态 |
 | `MfgBomItem` | 旧版单表 BOM 行（`productCode` + `lineSeq`）。**已停用**，首次读取时自动冻结为 `型号-V1` 版本，新代码只用版���表 |
 | `MfgBomVersion` | BOM 版本：`bomVersionId`（主键，`型号-Vn`）、`versionNo`、`statusId`（DRAFT/RELEASED/OBSOLETE）、`effectiveDate`、`basisVersionId`（从哪版复制）、`ecoId`（哪张变更单引入） |
-| `MfgBomVersionItem` | 版本内 BOM 行：`bomVersionId` + `lineSeq`（联合主键）、`componentCode`、`qty`、`designators`、`isKeyPart` |
+| `MfgBomVersionItem` | 版本内 BOM 行：`bomVersionId` + `lineSeq`（联合主键）、`componentCode`、`qty`、`designators`、`isKeyPart`、`unitPrice`（单价，成本核算用，可空） |
 | `MfgAttachment` | 通用附件：`ownerTypeId` + `ownerId` + `seq`（联合主键）、`fileName`、`contentType`、`fileSize`、`fileData`（`byte-array` → BLOB）、`note`；`ownerTypeId` 取值 `MFG_ATT_PRODUCT` / `MFG_ATT_DEV_PROJECT` / `MFG_ATT_WORK_ORDER` / `MFG_ATT_DELIVERY` / `MFG_ATT_CLAIM`，序号从 1 递增 |
 | `MfgProductImage` | 旧版产品照片（`productCode` + `seq`）。**已停用**，首次读取产品时自动复制进 `MfgAttachment` |
 | `MfgRouting` | 工序模板：`productCode` + `opSeq`（联合主键）、`opName`、`workCenter`、`stdHours` |
 | `MfgWorkOrder` | 工单：`workOrderId`、`productCode`、`plannedQty`、`statusId`、`dueDate`、`customerName`、`smtVendor`、`bomVersionId`（建单时冻结的 BOM 版本） |
 | `MfgSn` | 单板：`sn`（主键）、`workOrderId`、`productCode`、状态 |
 | `MfgReport` | 报工：`reportId`、`workOrderId`、`opSeq`、`sn`（可选）、`operatorName`、`workHours`、`qtyOk`、`qtyNg` || `MfgDefect` | 不良：`defectId`、`workOrderId`、`sn`、`opSeq`、`defectCode`、`qty`、`responsibility`、`repairHours` |
-| `MfgMaterialLot` | 物料批次：`lotId`（主键，LOT-yyMMdd-NN）、`componentCode`、`supplierName`、`supplierLot`（DateCode）、`receivedQty`、`receivedDate`；来料检验：`inspectStatusId`（MFG_IQC_PENDING/PASS/CONCESSION/FAIL）、`rejectedQty`、`inspectDate`、`inspector`、`inspectNote` |
+| `MfgMaterialLot` | 物料批次：`lotId`（主键，LOT-yyMMdd-NN）、`componentCode`、`supplierName`、`supplierLot`（DateCode）、`receivedQty`、`receivedDate`、`unitPrice`（采购单价，算实际成本用）；来料检验：`inspectStatusId`（MFG_IQC_PENDING/PASS/CONCESSION/FAIL）、`rejectedQty`、`inspectDate`、`inspector`、`inspectNote` |
 | `MfgMaterialIssue` | 发料：`issueId`、`workOrderId`、`componentCode`、`lotId`、`qty`、`issuedDate`、可选 `designators` / `snFrom` / `snTo` |
 | `MfgShipment` | 外协收发：`shipmentId`、`workOrderId`、`directionId`（`MFG_SHIP_OUT` / `MFG_SHIP_IN`）、`qty`、`defectQty`、`carrier`、`trackingNo` |
 | `MfgReplacement` | 返修换件：`replacementId`、`sn`、`componentCode`、`oldLotId` → `newLotId`、`qty`、`reason`、`hours` |
@@ -118,7 +119,7 @@ https://localhost:8443/mfg/control/main
 | 服务名 | 说明 |
 | --- | --- |
 | `mfgProductSave` / `mfgProductList` / `mfgProductDetail` | 型号维护与查询（含当前 BOM 版本的行、工艺路线、版本数） |
-| `mfgBomImport` | 从 CSV 导入 BOM 到指定版本（缺省为当前版本），`replace=N` 时追加而不清空 |
+| `mfgBomImport` | 从 CSV 导入 BOM 到指定版本（缺省为当前版本），`replace=N` 时追加而不清空；第 6 列单价可空；**型号还没有版本时，导入的这个版本直接成为当前版本** |
 | `mfgBomVersionCreate` / `mfgBomVersionActivate` / `mfgBomVersionList` | 新建下一版（可复制当前行）、启用某版（旧版转废止、型号指向新版）、列出各版本 |
 | `mfgBomMigrateLegacy` | 把旧单表 BOM 冻结为版本（幂等，可重复调用） |
 | `mfgAttachmentSave` / `mfgAttachmentList` / `mfgAttachmentDelete` | 任意单据的附件：存（base64，供脚本与测试用）、列表（不返回字节）、删除；页面上传走下面的 multipart 事件 |
@@ -157,15 +158,17 @@ https://localhost:8443/mfg/control/main
 | `mfgDevStepStatus` | 只改步骤状态（页面上的开始/完成按钮），首次完成时自动填完成日 |
 | `mfgDevEcoSave` / `mfgDevEcoList` / `mfgDevEcoDetail` | 变更单登记与查询（详情带来源/目标 BOM 版本与可选版本列表） |
 | `mfgDevEcoApprove` / `mfgDevEcoApply` / `mfgDevEcoCancel` | 批准、生效（可切换 BOM 版本）、取消；重复生效与已生效后取消都会被拒绝 |
+| `mfgProductCost` | 型号成本：`qty` 台的材料 / 工时 / 合计，加上目标成本差、目标售价与毛利；带逐行金额与缺单价行数 |
+| `mfgWorkOrderCost` | 工单成本：标准（BOM 单价 + 标准工时 × 费率）vs 实际（已发料按批次单价 + 报工工时 × 费率），给出差异与被排除的无单价笔数 |
 
 示例（Web Tools → Run Service → `mfgBomImport`）：
 
 ```
 productCode = B5X
-csv         = R0402-10K,10K 0402 resistor,4,R1-R4,N
-              C0402-100N,100nF 0402 capacitor,6,C1-C6,N
-              U1-BT5-SOC,Main SoC,1,U1,Y
-              BAT-18650,18650 cell,1,BT1,Y
+csv         = R0402-10K,10K 0402 resistor,4,R1-R4,N,0.05
+              C0402-100N,100nF 0402 capacitor,6,C1-C6,N,0.02
+              U1-BT5-SOC,Main SoC,1,U1,Y,18.5
+              BAT-18650,18650 cell,1,BT1,Y,12
 ```
 
 ## 页面
@@ -177,13 +180,13 @@ csv         = R0402-10K,10K 0402 resistor,4,R1-R4,N
 | 路径 | 说明 |
 | --- | --- |
 | `/mfg/control/main` | 工单列表 + 新建工单（含产品型号下拉） |
-| `/mfg/control/products?productCode=...` | 产品型号、**照片上传与删改**、**BOM 版本（查看/新建下一版/启用）**、BOM 导入与工艺路线维护 |
+| `/mfg/control/products?productCode=...` | 产品型号、**照片上传与删改**、**BOM 版本（查看/新建下一版/启用）**、BOM 导入（带单价）与工艺路线维护、**成本（单台 / 批量）**——材料/工时/合计、目标成本对比与毛利，缺单价会提示 |
 | `/mfg/control/attachmentUpload` | POST multipart，字段 `file` + `ownerTypeId` + `ownerId` + `back`（回跳页面）+ 可选 `note` |
 | `/mfg/control/attachment?ownerTypeId=...&ownerId=...&seq=...` | 输出文件字节；`seq` 缺省取最新一件，`thumb=1` 对图片输出最长边 200px 的 JPEG 缩略图；PDF 直出 |
 | `/mfg/control/attachmentDelete` | POST `ownerTypeId` + `ownerId` + `seq` + `back`，删除后回跳 |
 | `/mfg/control/dev?projectCode=...` | 产品开发：立项与改动、线路与步骤进度、步骤台账与快速推进、五道关卡评审、项目下的变更单、**项目资料附件** |
 | `/mfg/control/eco?ecoId=...` | 设计变更：新建变更单、按状态筛选、指定目标 BOM 版本、批准 / 生效 / 取消 |
-| `/mfg/control/workOrder?workOrderId=...` | 工单详情：工序进度、报工、SN 生成、不良登记、**工单附件（首件/不良照片/外协快递单）** |
+| `/mfg/control/workOrder?workOrderId=...` | 工单详情：工序进度、报工、SN 生成、不良登记、**工单附件（首件/不良照片/外协快递单）**、**成本（标准 vs 实际，含差异）** |
 | `/mfg/control/sn?sn=...` | 单板履历：报工、不良、所用物料批次 |
 | `/mfg/control/dashboard` | 车间看板：生产卡片 + 售后 KPI + 每日柱图 + 责任方成本 + 最近报工，60 秒自动刷新 |
 | `/mfg/control/materials` | 物料批次台账、收货登记、CSV 批量导入、按批次反向追溯 |
@@ -322,9 +325,11 @@ productSave → bomImport → routingSave → productDetail
            → 售后单挂 PDF（同一个服务、另一个 owner）
            → 删除后列表为空
            → 非法报工（workHours = 0）/ 错料发料（批次不属于该料号）/ 非法售后状态
+           → 成本：带单价的 BOM + 工时费率 → productCost（材料 3.32 / 工时 20.00 / 合计 23.32，10 台 233.20）
+           → 目标成本差 3.32、毛利 6.68 → 工单标准 23.32 / 总额 116.60 → 发 2 个 0.5 元的批次 → 实际材料 1.00
 ```
 
-共 203 项断言，全部通过时退出码为 0。文件的字节输出（含缩略图）用页面脚本验证（见下方“页面巡检”），
+共 232 项断言，全部通过时退出码为 0。文件的字节输出（含缩略图）用页面脚本验证（见下方“页面巡检”），
 因为它需要一个真正的浏览器会话。测试是**可重复执行**的：每次创建/更新产品型号 `ITMFG`、替换其 BOM、
 新建一张工单、物料批次与出货单，以及相应的报工、不良、发料、收发、换件与测试数据；
 BOM 版本与变更单会每次新增一版，所以编号会一直往上走，不影响断言。
@@ -350,7 +355,7 @@ java -cp "build/test-classes:ofbiz.jar:junit-4.13.2.jar:hamcrest-core-1.3.jar" \
 覆盖 BOM / 批次 / 测试结果 CSV 解析（引号、缺列、CRLF、注释行、大小写归一）、SN 列表拆分、FIFO 推定切片、
 邮寄标签格式、SN / 工单编号格式，保修到期日、7 天 / 15 天窗口、剩余小时与运费承担，
 以及买家匹配键、手机号归一化与打码、风险等级建议、名单到期判定，还有百分比、日期差与失效分档、售后成本计算、红线判定、看板坐标轴与柱高缩放、关键词过滤与分页切片，
-以及 BOM 版本号生成与下一版号推导、开发阶段阶梯与关卡推进规则、变更单状态与类型校验、三条线路的步骤目录与首个未完成步骤推导、附件类型白名单（含 PDF）与 owner 类型白名单、文件名清洗（共 54 个用例）。
+以及 BOM 版本号生成与下一版号推导、开发阶段阶梯与关卡推进规则、变更单状态与类型校验、三条线路的步骤目录与首个未完成步骤推导、附件类型白名单（含 PDF）与 owner 类型白名单、文件名清洗、成本合计与目标差 / 毛利换算（含两位小数取整、目标售价为空时的处理）（共 58 个用例）。
 
 ## 页面巡检（PowerShell）
 
@@ -363,6 +368,9 @@ java -cp "build/test-classes:ofbiz.jar:junit-4.13.2.jar:hamcrest-core-1.3.jar" \
 | `verify-m12.ps1` | 12 个页面的布局：一个 `<html>`、一条导航、一个高亮项、样式表、无内联 `<style>`、无 FTL 报错 | 102 |
 | `verify-m13.ps1` | 产品开发的线路与步骤、变更单流程、BOM 版本块 | 49 |
 | `verify-m28.ps1` | 通用附件：页面上的宏、multipart 上传 → 列表 → 原图（`image/png`）→ 缩略图（`image/jpeg`）→ 下载文件名 → `err=type` / `err=nofile` / `err=owner` → 删除 → 404 → PDF 直出 → 开发项目 / 工单 / 售后单 / 出货单四处挂附件 | 59 |
+| `verify-m29.ps1` | 网站图标与导航标志：favicon、brand 图、四个尺寸、全站渲染 | 42 |
+| `verify-m31.ps1` | 来料检验：四个状态、建批次 → 判不合格 → 发料被拒 → 让步接收 → 放行 | 21 |
+| `verify-m32.ps1` | 成本核算：产品页成本块（材料/工时/合计/目标成本/毛利）、批量重算、BOM 单价与金额列、无单价时告警、工单成本块（标准 vs 实际、发料后实际材料跟着批次单价走） | 38 |
 
 > 这些脚本在断言页面内容，不只是看 HTTP 200：OFBiz 的模板错误也是 200 + 一页堆栈，
 > 所以每个页面都要扫 `FTL stack trace` / `FreeMarker template error`。
@@ -494,6 +502,32 @@ SMT 为外协，且对方**不提供上料 / 换料记录**，因此追溯精度
   变更单与版本双向可查：版本上有 `ecoId`，变更单上有 `fromBomVersionId → toBomVersionId`；
 - 没指定目标版本的变更（比如工艺、外观）只记录说明与生效日，不动 BOM。
 
+## 成本核算：标准成本与实际成本
+
+小厂最想知道的就两句话：**这一台该花多少钱**、**这批实际花了多少，差在哪**。所以成本只算两项，
+数据全部来自已经在用的表，不另建成本台账：
+
+| 层 | 公式 | 数据来源 |
+| --- | --- | --- |
+| 材料（单台） | Σ BOM 行 `用量 × 单价` | `MfgBomVersionItem.unitPrice`（BOM 导入第 6 列或手工填） |
+| 工时（单台） | `standardHours × laborRate` | `MfgProduct.standardHours` 与 `MfgProduct.laborRate` |
+| 标准合计 | 材料 + 工时，乘批量得总额 | — |
+| 目标对比 | `单台成本 − 开发项目.targetCost`；毛利 = `targetPrice − 单台成本` | 最新一个 `MfgDevProject`（同型号可能有好几个项目，取 `createdStamp` 最新的） |
+| 实际材料 | Σ 发料 `数量 × 批次单价` | `MfgMaterialIssue` + `MfgMaterialLot.unitPrice` |
+| 实际工时 | Σ 报工 `workHours × laborRate` | `MfgReport` |
+| 差异 | `实际合计 − 标准单台成本 × 良品数` | — |
+
+规则：
+
+- **没填单价就说没填，不当成 0**：`unitPrice` 可空，缺价的 BOM 行 / 批次不计入金额，另给出
+  `missingPriceCount` 与 `issuesWithoutPrice`，页面上黄条提示，避免“成本偏低却看不出来”；
+- 数值统一两位小数（`round2`），乘法先算后舍入，避免逐行舍入误差累积；
+- `targetPrice` 为空或 ≤ 0 时不算毛利（返回 `null`，页面显示「—」），不出现除零；
+- 成本表在**产品页**（单台 / 批量，可改数量重算）与**工单详情页**（标准 vs 实际），
+  两张表分别带 `id="productCost"` / `id="workOrderCost"`，页面巡检按 id 切片断言，不依赖中文；
+- 服务 `mfgProductCost` / `mfgWorkOrderCost` 都是只读的（`use-transaction="false"`），
+  也可以在 Web Tools → Run Service 里直接查。
+
 ## 前端选型：为什么看板不上框架
 
 看板一律用**服务端渲染 + 原生 CSS/JS**，不引入 React/Vue，也不引图表库：
@@ -552,9 +586,8 @@ PDA/手机扫码作业、车间大屏、对外客户门户。
 
 ## 后续想法
 
-- 来料检验（IQC）：到货批次标记合格/不合格，并影响可发料性。
 - 每个步骤挂问题清单（现在只在步骤上有备注）：打样/试产发现的问题单独立项、指派与关闭。
-- 成本核算：按 BOM 行单价 + 工时算出目标成本之外的“实际成本”，与目标成本对比。
+- 成本再细化：按工序分摊工时（现在用型号上的标准工时合计）、外协加工费单列。
 - 淘宝订单号自动对单（开放平台/导出表导入），省掉手录订单号。
 - 看板自动刷新与钉钉/邮件告警（欠料、测试通过率异常、售后即将超时）。
 - 报表导出：良率趋势、工时趋势（可回接学习曲线组件）。

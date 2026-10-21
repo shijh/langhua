@@ -12,6 +12,7 @@
         <attribute name="productName" type="String" mode="IN" optional="true"/>
         <attribute name="snPrefix" type="String" mode="IN" optional="true"/>
         <attribute name="standardHours" type="Double" mode="IN" optional="true"/>
+        <attribute name="laborRate" type="Double" mode="IN" optional="true"/>
         <attribute name="warrantyMonths" type="Long" mode="IN" optional="true"/>
         <attribute name="salePrice" type="Double" mode="IN" optional="true"/>
         <attribute name="statusId" type="String" mode="IN" optional="true"/>
@@ -48,7 +49,7 @@
     <service name="mfgBomImport" engine="java"
             location="org.langhua.ofbiz.mfg.MfgServices" invoke="bomImport"
             auth="false" use-transaction="false">
-        <description>Import BOM lines from CSV: componentCode,componentName,qty,designators,isKeyPart</description>
+        <description>Import BOM lines from CSV: componentCode,componentName,qty,designators,isKeyPart,unitPrice</description>
         <attribute name="productCode" type="String" mode="IN" optional="false"/>
         <attribute name="csv" type="String" mode="IN" optional="false"/>
         <attribute name="replace" type="String" mode="IN" optional="true"/>
@@ -119,6 +120,65 @@
         <attribute name="bomVersionId" type="String" mode="OUT" optional="true"/>
         <attribute name="productCode" type="String" mode="OUT" optional="true"/>
         <attribute name="replacedVersionId" type="String" mode="OUT" optional="true"/>
+    </service>
+
+    <!-- ==================== cost ==================== -->
+
+    <service name="mfgProductCost" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgServices" invoke="productCost"
+            auth="false" use-transaction="false">
+        <description>Cost a model: BOM unit prices plus standard hours times the labour rate, against the project targets</description>
+        <attribute name="productCode" type="String" mode="IN" optional="true"/>
+        <attribute name="qty" type="Double" mode="IN" optional="true"/>
+        <attribute name="bomVersionId" type="String" mode="IN" optional="true"/>
+        <attribute name="laborRate" type="Double" mode="IN" optional="true"/>
+        <attribute name="productCode" type="String" mode="OUT" optional="true"/>
+        <attribute name="bomVersionId" type="String" mode="OUT" optional="true"/>
+        <attribute name="standardHours" type="Double" mode="OUT" optional="true"/>
+        <attribute name="laborRate" type="Double" mode="OUT" optional="true"/>
+        <attribute name="qty" type="Double" mode="OUT" optional="true"/>
+        <attribute name="materialPerUnit" type="Double" mode="OUT" optional="true"/>
+        <attribute name="laborPerUnit" type="Double" mode="OUT" optional="true"/>
+        <attribute name="unitCost" type="Double" mode="OUT" optional="true"/>
+        <attribute name="materialCost" type="Double" mode="OUT" optional="true"/>
+        <attribute name="laborCost" type="Double" mode="OUT" optional="true"/>
+        <attribute name="totalCost" type="Double" mode="OUT" optional="true"/>
+        <attribute name="targetCost" type="Double" mode="OUT" optional="true"/>
+        <attribute name="targetPrice" type="Double" mode="OUT" optional="true"/>
+        <attribute name="targetDifference" type="Double" mode="OUT" optional="true"/>
+        <attribute name="unitMargin" type="Double" mode="OUT" optional="true"/>
+        <attribute name="marginRate" type="Double" mode="OUT" optional="true"/>
+        <attribute name="salePrice" type="Double" mode="OUT" optional="true"/>
+        <attribute name="lineCount" type="Integer" mode="OUT" optional="true"/>
+        <attribute name="missingPriceCount" type="Integer" mode="OUT" optional="true"/>
+        <attribute name="lines" type="java.util.List" mode="OUT" optional="true"/>
+        <attribute name="message" type="String" mode="OUT" optional="true"/>
+    </service>
+
+    <service name="mfgWorkOrderCost" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgServices" invoke="workOrderCost"
+            auth="false" use-transaction="false">
+        <description>Cost a work order: standard cost of the model against issued material and reported hours</description>
+        <attribute name="workOrderId" type="String" mode="IN" optional="true"/>
+        <attribute name="workOrderId" type="String" mode="OUT" optional="true"/>
+        <attribute name="productCode" type="String" mode="OUT" optional="true"/>
+        <attribute name="plannedQty" type="Double" mode="OUT" optional="true"/>
+        <attribute name="qtyOk" type="Double" mode="OUT" optional="true"/>
+        <attribute name="laborRate" type="Double" mode="OUT" optional="true"/>
+        <attribute name="standardHours" type="Double" mode="OUT" optional="true"/>
+        <attribute name="materialPerUnit" type="Double" mode="OUT" optional="true"/>
+        <attribute name="laborPerUnit" type="Double" mode="OUT" optional="true"/>
+        <attribute name="standardUnitCost" type="Double" mode="OUT" optional="true"/>
+        <attribute name="standardTotal" type="Double" mode="OUT" optional="true"/>
+        <attribute name="issuedMaterialCost" type="Double" mode="OUT" optional="true"/>
+        <attribute name="reportedHours" type="Double" mode="OUT" optional="true"/>
+        <attribute name="actualLaborCost" type="Double" mode="OUT" optional="true"/>
+        <attribute name="actualTotal" type="Double" mode="OUT" optional="true"/>
+        <attribute name="actualUnitCost" type="Double" mode="OUT" optional="true"/>
+        <attribute name="differenceVsStandard" type="Double" mode="OUT" optional="true"/>
+        <attribute name="missingPriceCount" type="Integer" mode="OUT" optional="true"/>
+        <attribute name="issuesWithoutPrice" type="Integer" mode="OUT" optional="true"/>
+        <attribute name="message" type="String" mode="OUT" optional="true"/>
     </service>
 
     <service name="mfgBomVersionList" engine="java"
@@ -295,6 +355,7 @@
         <attribute name="supplierLot" type="String" mode="IN" optional="true"/>
         <attribute name="receivedQty" type="Double" mode="IN" optional="false"/>
         <attribute name="receivedDate" type="String" mode="IN" optional="true"/>
+        <attribute name="unitPrice" type="Double" mode="IN" optional="true"/>
         <attribute name="inspectStatusId" type="String" mode="IN" optional="true"/>
         <attribute name="note" type="String" mode="IN" optional="true"/>
         <attribute name="lotId" type="String" mode="OUT" optional="true"/>

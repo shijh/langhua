@@ -18,6 +18,7 @@
 <#assign issues = (mat.issues)![]>
 <#assign shipments = (mat.shipments)![]>
 <#assign atts = ((attachmentResult).attachments)![]>
+<#assign cost = (costResult)!{}>
 <#assign errList = (errorMessageList)![]>
 
 <#if !wo.workOrderId??>
@@ -46,8 +47,37 @@
         <p class="error"><#list errList as msg>${msg}<#if msg_has_next><br/></#if></#list></p>
     </#if>
 
-    <h2>工序进度</h2>
-    <#if operations?has_content>
+    <h2>成本</h2>
+    <table id="workOrderCost">
+        <tr><th>项目</th><th class="num">单台</th><th class="num">合计</th></tr>
+        <tr><td>标准：材料（BOM 单价）</td>
+            <td class="num">${((cost.materialPerUnit)!0)?string("0.00")}</td>
+            <td class="num">${(((cost.materialPerUnit)!0) * ((cost.plannedQty)!0))?string("0.00")}</td></tr>
+        <tr><td>标准：工时（${((cost.standardHours)!0)?string("0.##")} h × ${((cost.laborRate)!0)?string("0.00")} 元/h）</td>
+            <td class="num">${((cost.laborPerUnit)!0)?string("0.00")}</td>
+            <td class="num">${(((cost.laborPerUnit)!0) * ((cost.plannedQty)!0))?string("0.00")}</td></tr>
+        <tr><td><b>标准：合计</b></td>
+            <td class="num"><b>${((cost.standardUnitCost)!0)?string("0.00")}</b></td>
+            <td class="num"><b>${((cost.standardTotal)!0)?string("0.00")}</b></td></tr>
+        <tr><td><b>实际：已发料（批次单价）</b></td>
+            <td class="num"><span class="hint">—</span></td>
+            <td class="num"><b>${((cost.issuedMaterialCost)!0)?string("0.00")}</b></td></tr>
+        <tr><td><b>实际：报工（${((cost.reportedHours)!0)?string("0.##")} h）</b></td>
+            <td class="num">${((cost.actualUnitCost)!0)?string("0.00")}<span class="hint"> 单台总成本</span></td>
+            <td class="num"><b>${((cost.actualTotal)!0)?string("0.00")}</b></td></tr>
+        <tr><td>实际 − 标准（按良品 ${((cost.qtyOk)!0)?string("0")} 台）</td>
+            <td class="num"></td>
+            <td class="num"><#if ((cost.differenceVsStandard)!0) gt 0><span class="error">超 ${cost.differenceVsStandard?string("0.00")}</span><#else><span class="ok">省 ${(((cost.differenceVsStandard)!0)?abs)?string("0.00")}</span></#if></td></tr>
+    </table>
+    <#if ((cost.issuesWithoutPrice)!0) gt 0 || ((cost.missingPriceCount)!0) gt 0>
+        <p class="warn">
+            <#if ((cost.missingPriceCount)!0) gt 0>有 ${cost.missingPriceCount} 行 BOM 缺单价。</#if>
+            <#if ((cost.issuesWithoutPrice)!0) gt 0>有 ${cost.issuesWithoutPrice} 笔发料的批次没填采购单价。</#if>
+            成本会偏低，去产品 BOM 与物料批次里补。
+        </p>
+    </#if>
+
+    <h2>工序进度</h2>    <#if operations?has_content>
         <table>
             <tr><th class="num">工序号</th><th>工序</th><th>工位</th><th class="num">标准工时</th>
                 <th class="num">已报工时</th><th class="num">良品</th><th class="num">不良</th></tr>
