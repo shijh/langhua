@@ -36,6 +36,25 @@
         <response name="success" type="view" value="software"/>
     </request-map>
 
+    <request-map uri="reports">
+        <security https="true" auth="true"/>
+        <response name="success" type="view" value="reports"/>
+    </request-map>
+
+    <request-map uri="yieldCsv">
+        <security https="true" auth="true"/>
+        <event type="java" path="org.langhua.ofbiz.mfg.MfgExportEvents" invoke="yieldCsv"/>
+        <response name="success" type="none"/>
+        <response name="error" type="none"/>
+    </request-map>
+
+    <request-map uri="hoursCsv">
+        <security https="true" auth="true"/>
+        <event type="java" path="org.langhua.ofbiz.mfg.MfgExportEvents" invoke="hoursCsv"/>
+        <response name="success" type="none"/>
+        <response name="error" type="none"/>
+    </request-map>
+
     <request-map uri="softwareProjectSave">
         <security https="true" auth="true"/>
         <event type="service" invoke="mfgSoftwareProjectSave"/>
@@ -401,6 +420,33 @@
         <response name="error" type="view" value="dev"/>
     </request-map>
 
+    <request-map uri="devIssueSave">
+        <security https="true" auth="true"/>
+        <event type="service" invoke="mfgDevStepIssueSave"/>
+        <response name="success" type="request-redirect" value="dev">
+            <redirect-parameter name="projectCode"/>
+        </response>
+        <response name="error" type="view" value="dev"/>
+    </request-map>
+
+    <request-map uri="devIssueStatus">
+        <security https="true" auth="true"/>
+        <event type="service" invoke="mfgDevStepIssueStatus"/>
+        <response name="success" type="request-redirect" value="dev">
+            <redirect-parameter name="projectCode"/>
+        </response>
+        <response name="error" type="view" value="dev"/>
+    </request-map>
+
+    <request-map uri="workOrderOutsource">
+        <security https="true" auth="true"/>
+        <event type="service" invoke="mfgWorkOrderOutsourceSave"/>
+        <response name="success" type="request-redirect" value="workOrder">
+            <redirect-parameter name="workOrderId"/>
+        </response>
+        <response name="error" type="view" value="workOrder"/>
+    </request-map>
+
     <request-map uri="eco">
         <security https="true" auth="true"/>
         <response name="success" type="view" value="eco"/>
@@ -457,4 +503,5 @@
     <view-map name="dev" type="screen" page="component://mfg/widget/MfgScreens.xml#dev"/>
     <view-map name="eco" type="screen" page="component://mfg/widget/MfgScreens.xml#eco"/>
     <view-map name="software" type="screen" page="component://mfg/widget/MfgScreens.xml#software"/>
+    <view-map name="reports" type="screen" page="component://mfg/widget/MfgScreens.xml#reports"/>
 </site-conf>

@@ -195,6 +195,95 @@ public final class MfgExportEvents {
         lines.add(MfgServices.csvLine(Arrays.asList(section, name, text(value))));
     }
 
+    /**
+     * Downloads the yield trend: one row per period with the good and rejected quantities.
+     *
+     * @param request the request, may carry {@code fromDate}, {@code toDate} and {@code groupBy}
+     * @param response the response, receives the file
+     * @return {@code success} when the file was written, {@code error} otherwise
+     */
+    public static String yieldCsv(HttpServletRequest request, HttpServletResponse response) {
+        Map<String, Object> report = trendOf(request);
+        if (report == null) {
+            return "error";
+        }
+        List<Map<String, Object>> rows = UtilGenerics.cast(report.get("rows"));
+        List<String> lines = new ArrayList<>();
+        lines.add(MfgServices.csvLine(Arrays.asList("期间", "汇总方式", "良品", "不良", "良率%", "工单数")));
+        if (rows != null) {
+            for (Map<String, Object> row : rows) {
+                lines.add(MfgServices.csvLine(Arrays.asList(
+                        text(row.get("period")),
+                        text(report.get("groupBy")),
+                        text(row.get("qtyOk")),
+                        text(row.get("qtyNg")),
+                        text(row.get("yieldRate")),
+                        text(row.get("orderCount")))));
+            }
+        }
+        lines.add(MfgServices.csvLine(Arrays.asList("合计", text(report.get("groupBy")),
+                text(report.get("qtyOkTotal")), text(report.get("qtyNgTotal")),
+                text(report.get("yieldRate")), "")));
+        writeCsv(response, "mfg-yield-trend", lines);
+        return "success";
+    }
+
+    /**
+     * Downloads the labour hour trend: one row per period with the reported hours.
+     *
+     * @param request the request, may carry {@code fromDate}, {@code toDate} and {@code groupBy}
+     * @param response the response, receives the file
+     * @return {@code success} when the file was written, {@code error} otherwise
+     */
+    public static String hoursCsv(HttpServletRequest request, HttpServletResponse response) {
+        Map<String, Object> report = trendOf(request);
+        if (report == null) {
+            return "error";
+        }
+        List<Map<String, Object>> rows = UtilGenerics.cast(report.get("rows"));
+        List<String> lines = new ArrayList<>();
+        lines.add(MfgServices.csvLine(Arrays.asList("期间", "汇总方式", "工时", "良品", "单台工时", "工单数")));
+        if (rows != null) {
+            for (Map<String, Object> row : rows) {
+                lines.add(MfgServices.csvLine(Arrays.asList(
+                        text(row.get("period")),
+                        text(report.get("groupBy")),
+                        text(row.get("hours")),
+                        text(row.get("qtyOk")),
+                        text(row.get("hoursPerUnit")),
+                        text(row.get("orderCount")))));
+            }
+        }
+        lines.add(MfgServices.csvLine(Arrays.asList("合计", text(report.get("groupBy")),
+                text(report.get("hoursTotal")), text(report.get("qtyOkTotal")),
+                text(report.get("hoursPerUnit")), "")));
+        writeCsv(response, "mfg-hours-trend", lines);
+        return "success";
+    }
+
+    /**
+     * Runs the trend service with the filters of the request.
+     *
+     * @param request the request
+     * @return the service result, {@code null} when it did not run
+     */
+    private static Map<String, Object> trendOf(HttpServletRequest request) {
+        LocalDispatcher dispatcher = (LocalDispatcher) request.getAttribute("dispatcher");
+        if (dispatcher == null) {
+            return null;
+        }
+        Map<String, Object> context = new java.util.HashMap<>();
+        context.put("fromDate", request.getParameter("fromDate"));
+        context.put("toDate", request.getParameter("toDate"));
+        context.put("groupBy", request.getParameter("groupBy"));
+        try {
+            return dispatcher.runSync("mfgTrendReport", context);
+        } catch (GenericServiceException e) {
+            Debug.logError(e, "Could not read the trend report for the CSV export", MODULE);
+            return null;
+        }
+    }
+
     private static String typeLabel(String typeId) {
         if (MfgServices.ALERT_SHORTAGE.equals(typeId)) {
             return "欠料";

@@ -187,6 +187,9 @@ public final class MfgServiceIT {
             it.runsTheThreeDevelopmentTracks();
             it.storesProductPhotos();
             it.costsTheModel();
+            it.addsCostDetailToTheWorkOrder();
+            it.raisesDevelopmentIssues();
+            it.readsTrendReport();
             it.listsTheDashboardAlerts();
             it.quotesAndTracksSoftware();
         } finally {
@@ -1517,6 +1520,168 @@ public final class MfgServiceIT {
     }
 
     /**
+     * Pays attention to the cost detail: the labour hours come from the routing when the model has
+     * one, and the outsourced processing fee is kept apart from material and labour.
+     *
+     * @throws IOException when a service call fails
+     */
+    private void addsCostDetailToTheWorkOrder() throws IOException {
+        Map<String, String> productCostForm = new LinkedHashMap<>();
+        productCostForm.put("productCode", PRODUCT_CODE);
+        Response productCost = invoke("mfgProductCost", productCostForm);
+        check("cost detail: labour hours come from the routing",
+                "ROUTING".equals(attribute(productCost.body, "hoursSource")),
+                "hours are not from the routing");
+        // the routing of the model adds up to 0.25 + 0.10 + 0.08 + 0.02
+        check("cost detail: routing hours are summed",
+                near(fieldValue(productCost.body, "standardHours"), 0.45),
+                "standardHours is not 0.45");
+
+        Map<String, String> orderForm = new LinkedHashMap<>();
+        orderForm.put("productCode", PRODUCT_CODE);
+        orderForm.put("plannedQty", "2");
+        orderForm.put("dueDate", "2026-12-31");
+        orderForm.put("customerName", "Outsource test");
+        Response order = invoke("mfgWorkOrderCreate", orderForm);
+        String outsourceOrderId = firstMatch(WORK_ORDER_ID, order.body);
+        check("cost detail: work order created for the outsourced fee", outsourceOrderId != null,
+                "no work order id in response");
+
+        Map<String, String> feeForm = new LinkedHashMap<>();
+        feeForm.put("workOrderId", outsourceOrderId == null ? "" : outsourceOrderId);
+        feeForm.put("outsourceAmount", "120.50");
+        Response fee = invoke("mfgWorkOrderOutsourceSave", feeForm);
+        check("cost detail: outsourced fee saved", fee.status == 200
+                && near(fieldValue(fee.body, "outsourceAmount"), 120.5), "HTTP " + fee.status);
+
+        Map<String, String> negativeForm = new LinkedHashMap<>();
+        negativeForm.put("workOrderId", outsourceOrderId == null ? "" : outsourceOrderId);
+        negativeForm.put("outsourceAmount", "-5");
+        Response negative = invoke("mfgWorkOrderOutsourceSave", negativeForm);
+        check("cost detail: a negative outsourced fee is refused",
+                negative.body.contains("cannot be negative"), "negative fee was accepted");
+
+        Map<String, String> orderCostForm = new LinkedHashMap<>();
+        orderCostForm.put("workOrderId", outsourceOrderId == null ? "" : outsourceOrderId);
+        Response orderCost = invoke("mfgWorkOrderCost", orderCostForm);
+        check("cost detail: the order cost carries the outsourced fee",
+                near(fieldValue(orderCost.body, "outsourceAmount"), 120.5),
+                "outsourceAmount is not 120.50");
+        double issued = value(fieldValue(orderCost.body, "issuedMaterialCost"));
+        double labour = value(fieldValue(orderCost.body, "actualLaborCost"));
+        check("cost detail: the actual total includes material, labour and the fee",
+                near(fieldValue(orderCost.body, "actualTotal"), issued + labour + 120.5),
+                "actualTotal does not add up");
+        check("cost detail: the variance without the fee is given as well",
+                near(fieldValue(orderCost.body, "differenceExOutsource"),
+                        value(fieldValue(orderCost.body, "differenceVsStandard")) - 120.5),
+                "differenceExOutsource does not add up");
+        check("cost detail: every operation is costed",
+                orderCost.body.contains("opName:Testing") && orderCost.body.contains("opName:Packing"),
+                "no operation rows in the cost result");
+    }
+
+    /**
+     * Raises a problem at a development step, lists it, closes it and checks that a step of another
+     * track is refused.
+     *
+     * @throws IOException when a service call fails
+     */
+    private void raisesDevelopmentIssues() throws IOException {
+        check("issues: the development project of the earlier test exists", devProjectCode != null,
+                "no development project to attach the issue to");
+
+        Map<String, String> issueForm = new LinkedHashMap<>();
+        issueForm.put("projectCode", devProjectCode == null ? "" : devProjectCode);
+        issueForm.put("stepId", "");
+        issueForm.put("title", "Trial run scratches the enclosure");
+        issueForm.put("detail", "Visible on the second batch, gate " + devProjectCode);
+        issueForm.put("severityId", "MFG_ISSUE_HIGH");
+        issueForm.put("ownerName", "IT tester");
+        issueForm.put("dueDate", "2026-12-01");
+        Response issue = invoke("mfgDevStepIssueSave", issueForm);
+        String issueId = firstMatch(java.util.regex.Pattern.compile("ISSUE-[0-9]{6}-[0-9]{2}"),
+                issue.body);
+        check("issues: issue raised with a generated number", issue.status == 200 && issueId != null,
+                "no issue id in response");
+        check("issues: a new issue starts open", issue.body.contains("MFG_ISSUE_OPEN"),
+                "status is not MFG_ISSUE_OPEN");
+
+        Map<String, String> listForm = new LinkedHashMap<>();
+        listForm.put("projectCode", devProjectCode == null ? "" : devProjectCode);
+        Response list = invoke("mfgDevStepIssueList", listForm);
+        check("issues: the list counts the open issue",
+                near(fieldValue(list.body, "openCount"), 1.0), "openCount is not 1");
+        check("issues: the list returns the title",
+                list.body.contains("Trial run scratches the enclosure"), "title missing from the list");
+        check("issues: the high severity is counted",
+                near(fieldValue(list.body, "highOpenCount"), 1.0), "highOpenCount is not 1");
+
+        Map<String, String> closeForm = new LinkedHashMap<>();
+        closeForm.put("issueId", issueId == null ? "" : issueId);
+        closeForm.put("statusId", "MFG_ISSUE_CLOSED");
+        closeForm.put("resolution", "Changed the mould release agent");
+        Response closed = invoke("mfgDevStepIssueStatus", closeForm);
+        check("issues: the issue can be closed", closed.status == 200
+                && closed.body.contains("MFG_ISSUE_CLOSED"), "HTTP " + closed.status);
+
+        Response reopenedList = invoke("mfgDevStepIssueList", listForm);
+        check("issues: a closed issue is no longer open",
+                near(fieldValue(reopenedList.body, "openCount"), 0.0),
+                "openCount is not 0 after closing");
+
+        Map<String, String> badStepForm = new LinkedHashMap<>();
+        badStepForm.put("projectCode", devProjectCode == null ? "" : devProjectCode);
+        badStepForm.put("stepId", "MFG_PCB_BREADBOARD");
+        badStepForm.put("title", "Step of another track");
+        Response badStep = invoke("mfgDevStepIssueSave", badStepForm);
+        check("issues: a step of another track is refused",
+                badStep.body.contains("does not belong to project"), "the wrong step was accepted");
+
+        Map<String, String> badStatusForm = new LinkedHashMap<>();
+        badStatusForm.put("issueId", issueId == null ? "" : issueId);
+        badStatusForm.put("statusId", "MFG_ISSUE_BOGUS");
+        Response badStatus = invoke("mfgDevStepIssueStatus", badStatusForm);
+        check("issues: an unknown status is refused",
+                badStatus.body.contains("Unknown issue status"), "the wrong status was accepted");
+    }
+
+    /**
+     * Reads the yield and labour hour trend by month and by day.
+     *
+     * @throws IOException when a service call fails
+     */
+    private void readsTrendReport() throws IOException {
+        Map<String, String> monthForm = new LinkedHashMap<>();
+        monthForm.put("groupBy", "MONTH");
+        Response month = invoke("mfgTrendReport", monthForm);
+        check("trend: monthly report returns rows", month.status == 200
+                && month.body.contains("rows"), "HTTP " + month.status);
+        check("trend: the grouping is echoed", "MONTH".equals(attribute(month.body, "groupBy")),
+                "groupBy is not MONTH");
+        check("trend: the yield of the reported work is counted",
+                month.body.contains("yieldRate"), "no yieldRate in the result");
+        check("trend: reported hours are totalled",
+                value(fieldValue(month.body, "hoursTotal")) > 0.0, "hoursTotal is not positive");
+
+        Map<String, String> dayForm = new LinkedHashMap<>();
+        dayForm.put("groupBy", "day");
+        dayForm.put("fromDate", "2000-01-01");
+        dayForm.put("toDate", "2099-12-31");
+        Response day = invoke("mfgTrendReport", dayForm);
+        check("trend: the grouping is case insensitive",
+                "DAY".equals(attribute(day.body, "groupBy")), "groupBy is not DAY");
+        check("trend: daily buckets carry the good quantity",
+                value(fieldValue(day.body, "qtyOkTotal")) > 0.0, "qtyOkTotal is not positive");
+
+        Map<String, String> badForm = new LinkedHashMap<>();
+        badForm.put("groupBy", "QUARTER");
+        Response bad = invoke("mfgTrendReport", badForm);
+        check("trend: an unknown grouping falls back to the month",
+                "MONTH".equals(attribute(bad.body, "groupBy")), "unknown grouping was not replaced");
+    }
+
+    /**
      * Costs a model from the BOM prices and the labour rate, compares it with the target cost of
      * the development project, then costs a work order against what was really issued.
      *
@@ -1847,6 +2012,29 @@ public final class MfgServiceIT {
 
     private static boolean near(Double value, double expected) {
         return value != null && Math.abs(value.doubleValue() - expected) < 0.005;
+    }
+
+    /**
+     * Reads a number of the response, {@code 0} when it is missing, so the checks can do arithmetic.
+     *
+     * @param value the value read by {@link #fieldValue(String, String)}
+     * @return the number or zero
+     */
+    private static double value(Double value) {
+        return value == null ? 0.0 : value.doubleValue();
+    }
+
+    /**
+     * Reads a text output attribute of the response, as the service result table renders it.
+     *
+     * @param body the response body
+     * @param name the attribute name
+     * @return the value, {@code null} when it is missing
+     */
+    private static String attribute(String body, String name) {
+        Pattern pattern = Pattern.compile("<td>" + Pattern.quote(name) + "</td>\\s*<td>([^<]*)</td>");
+        Matcher matcher = pattern.matcher(body);
+        return matcher.find() ? matcher.group(1) : null;
     }
 
     private static String firstGroup(Pattern pattern, String text) {

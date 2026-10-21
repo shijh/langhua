@@ -178,6 +178,7 @@
         <field name="customerName" type="name"><description>Customer or internal project</description></field>
         <field name="smtVendor" type="name"><description>Outsourced SMT supplier name</description></field>
         <field name="smtVendorId" type="id"><description>Vendor master record used for shipping material</description></field>
+        <field name="outsourceAmount" type="currency-amount"><description>Outsourced processing fee of the whole order (SMT, tooling), kept apart from material and labour</description></field>
         <field name="bomVersionId" type="id"><description>BOM version the order is built with, empty to follow the product current version</description></field>
         <field name="note" type="description"/>
         <field name="createdStamp" type="date-time"/>
@@ -649,6 +650,36 @@
         <relation type="one" fk-name="MFG_DEVSTEP_PROJECT" rel-entity-name="MfgDevProject">
             <key-map field-name="projectCode"/>
         </relation>
+    </entity>
+
+    <entity entity-name="MfgDevStepIssue"
+            package-name="org.langhua.ofbiz.mfg"
+            title="Development step issue">
+        <description>Problem found while doing a development step: what went wrong, who fixes it and when it was closed</description>
+        <field name="issueId" type="id"><description>Issue number, ISSUE-yyMMdd-NN</description></field>
+        <field name="projectCode" type="id"><description>Parent development project</description></field>
+        <field name="stepId" type="id"><description>Step the problem was found at, empty for a project level issue</description></field>
+        <field name="title" type="name"><description>Short description of the problem</description></field>
+        <field name="detail" type="description"><description>What happened, what was tried</description></field>
+        <field name="severityId" type="id"><description>MFG_ISSUE_LOW, MFG_ISSUE_MEDIUM or MFG_ISSUE_HIGH</description></field>
+        <field name="statusId" type="id"><description>MFG_ISSUE_OPEN, MFG_ISSUE_DOING or MFG_ISSUE_CLOSED</description></field>
+        <field name="ownerName" type="name"><description>Who owns the fix</description></field>
+        <field name="foundDate" type="date"><description>When the problem was found</description></field>
+        <field name="dueDate" type="date"><description>When the fix is due, empty when it is not urgent</description></field>
+        <field name="closedDate" type="date"><description>When the issue was closed</description></field>
+        <field name="resolution" type="description"><description>What was done to close it</description></field>
+        <field name="createdStamp" type="date-time"/>
+        <field name="createdTxStamp" type="date-time"/>
+        <field name="lastUpdatedStamp" type="date-time"/>
+        <field name="lastUpdatedTxStamp" type="date-time"/>
+        <prim-key field="issueId"/>
+        <relation type="one" fk-name="MFG_ISSUE_PROJECT" rel-entity-name="MfgDevProject">
+            <key-map field-name="projectCode"/>
+        </relation>
+        <index name="MFG_ISSUE_PROJECT_IDX" unique="false">
+            <index-field name="projectCode"/>
+            <index-field name="statusId"/>
+        </index>
     </entity>
 
     <entity entity-name="MfgDevEco"

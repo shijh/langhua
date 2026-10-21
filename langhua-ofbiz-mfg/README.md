@@ -98,6 +98,7 @@ flowchart LR
 | **BOM 版本** | 型号可保留多个 BOM 版本（`型号-V1`、`-V2`…），每个版本独立存行；型号指向“当前使用”的版本，启用新版本时旧版本自动废止；工单创建时冻结所用版本 |
 | **产品开发** | 开发项目立项（可选线路：**PCB / 固件 / 外壳**，带料号；目标成本/售价/计划上市日），五道阶段关卡（概念→设计→打样→试产→量产），评审通过自动进入下一阶段 |
 | **三条开发线** | 每个项目按线路带自己的步骤清单，逐步打勾，每步可记负责人、供应商、金额、数量、单号与备注；外壳线「外壳入库」完成时自动生成物料批次 |
+| **步骤问题清单** | 每一步（或整个项目）可以登记问题：标题、说明、严重度（轻微/一般/严重）、负责人、发现日、截止日；未处理 / 处理中 / 已关闭三态，一键关闭时记处理结果与关闭日；项目列表与步骤表直接显示未结数量 |
 | **设计变更 ECO** | 变更单（BOM/工艺/设计/物料替代）走 草稿 → 批准 → 生效；生效时自动切换到指定 BOM 版本 |
 | 工艺路线 | 工序模板（组装 / 老化 / 测试 / 包装…），含工位与标准工时 |
 | 工单 | 型号 + 计划数量 + 交期 + 客户 + 外协 SMT 厂，编号 `WO-yyMMdd-NNN` |
@@ -109,7 +110,7 @@ flowchart LR
 | **物料批次** | 采购到货台账：内部批次 `LOT-yyMMdd-NN`、供应商批号/DateCode、到货数量；支持 CSV 批量导入 |
 | **来料检验（IQC）** | 批次可标待检 / 合格 / 让步接收 / 不合格并记录不良数与检验人；**不合格批次不能发料**，待检与让步接收仍可用 |
 | **发料** | 按工单发料（料号 + 批次 + 数量 + 位号），形成“SN → 工单 → 批次”链路 |
-| **成本核算** | 型号层：BOM 单价 × 用量 + 标准工时 × 工时费率 = 单台成本，可乘批量算总额，并与开发项目的目标成本 / 目标售价对比（超了、亏了分色标出）；工单层：标准成本 vs 实际成本（已发料按批次采购单价 + 报工工时 × 费率），给出差异 |
+| **成本核算** | 型号层：BOM 单价 × 用量 + **工时（按工序模板分摊，没有模板时取型号标准工时）** × 工时费率 = 单台成本，可乘批量算总额，并与开发项目的目标成本 / 目标售价对比（超了、亏了分色标出）；工单层：标准成本 vs 实际成本（已发料按批次采购单价 + 报工工时 × 费率 + **外协加工费**），逐工序列出标准/实际/差异，差异同时给含外协与不含外协两个口径 |
 | **软件项目** | 固件 / 外壳设计 / 上位机 / 平台的开发台账：按功能点口径估规模与工作量（内部/外部接口文件数、功能点耗时率、两个调整因子），算工期、人天、含税报价；同时记实际工时与成本，算出偏差与实测耗时率，为下一个项目做依据 |
 | **齐套** | BOM 需求（用量 × 计划数）vs 已发料，自动算出欠料行 |
 | **齐套预警** | 按交期列出所有在制工单的欠料明细（欠料行数 / 欠料总量） |
@@ -123,6 +124,7 @@ flowchart LR
 | **售后单** | 客户退回登记：SN → 出货日自动算保修到期与保内/保外，责任归属、返修工时、处理状态，SN 页同步显示售后历史 |
 | **淘宝售后合规** | 售后类型（退货退款/换货/维修/仅退款）、淘宝订单号、买家签收日；**7 天无理由（168 小时）与 15 天售后窗口自动计算**，列表标出即将到期；换货自动出出货单，维修自动开返修工单 |
 | **买家名单（风控）** | 内部风险名单：手机号为主键、昵称次之，观察 / 人工复核两级，带原因与证据；售后单登记时自动继承风险等级并在页面警示；名单只提示、**不拒绝任何法定售后** |
+| **报表（良率 / 工时趋势）** | 按报工汇总，日 / 周 / 月三种口径：良品、不良、良率、工时、单台工时、工单数；给出区间总计与“最差期间”，并可导出两份 CSV（良率趋势 / 工时趋势），单台工时可直接拿去与学习曲线组件的实测点对照 |
 ## 目录结构
 
 ```
@@ -180,7 +182,7 @@ https://localhost:8443/mfg/control/main
 | `MfgAttachment` | 通用附件：`ownerTypeId` + `ownerId` + `seq`（联合主键）、`fileName`、`contentType`、`fileSize`、`fileData`（`byte-array` → BLOB）、`note`；`ownerTypeId` 取值 `MFG_ATT_PRODUCT` / `MFG_ATT_DEV_PROJECT` / `MFG_ATT_WORK_ORDER` / `MFG_ATT_DELIVERY` / `MFG_ATT_CLAIM`，序号从 1 递增 |
 | `MfgProductImage` | 旧版产品照片（`productCode` + `seq`）。**已停用**，首次读取产品时自动复制进 `MfgAttachment` |
 | `MfgRouting` | 工序模板：`productCode` + `opSeq`（联合主键）、`opName`、`workCenter`、`stdHours` |
-| `MfgWorkOrder` | 工单：`workOrderId`、`productCode`、`plannedQty`、`statusId`、`dueDate`、`customerName`、`smtVendor`、`bomVersionId`（建单时冻结的 BOM 版本） |
+| `MfgWorkOrder` | 工单：`workOrderId`、`productCode`、`plannedQty`、`statusId`、`dueDate`、`customerName`、`smtVendor`、`bomVersionId`（建单时冻结的 BOM 版本）、`outsourceAmount`（外协加工费，整单，计入实际成本） |
 | `MfgSn` | 单板：`sn`（主键）、`workOrderId`、`productCode`、状态 |
 | `MfgReport` | 报工：`reportId`、`workOrderId`、`opSeq`、`sn`（可选）、`operatorName`、`workHours`、`qtyOk`、`qtyNg` || `MfgDefect` | 不良：`defectId`、`workOrderId`、`sn`、`opSeq`、`defectCode`、`qty`、`responsibility`、`repairHours` |
 | `MfgMaterialLot` | 物料批次：`lotId`（主键，LOT-yyMMdd-NN）、`componentCode`、`supplierName`、`supplierLot`（DateCode）、`receivedQty`、`receivedDate`、`unitPrice`（采购单价，算实际成本用）；来料检验：`inspectStatusId`（MFG_IQC_PENDING/PASS/CONCESSION/FAIL）、`rejectedQty`、`inspectDate`、`inspector`、`inspectNote` |
@@ -197,6 +199,7 @@ https://localhost:8443/mfg/control/main
 | `MfgDevTrackStep` | 线路步骤状态：`projectCode` + `stepId`（联合主键）、`statusId`（TODO/DOING/DONE/SKIPPED）、`plannedDate`、`doneDate`、`ownerName`、`vendorName`、`amount`、`qty`、`referenceNo`（合同号/付款凭证/快递单）、`lotId`（外壳入库生成的批次） |
 | `MfgDevStageReview` | 阶段关卡评审：`projectCode` + `stageId`（联合主键）、`plannedDate`、`doneDate`、`resultId`（PASS/CONDITIONAL/FAIL）、`reviewer`、`note` |
 | `MfgDevEco` | 设计变更单：`ecoId`（ECO-yyMMdd-NN）、`productCode`、`projectCode`、`ecoTypeId`（BOM/工艺/设计/物料）、`reason`、`changeSummary`、`statusId`（DRAFT/APPROVED/APPLIED/CANCELLED）、`fromBomVersionId` → `toBomVersionId`、`requestedBy`、`approvedBy`、`effectiveDate` |
+| `MfgDevStepIssue` | 步骤问题：`issueId`（ISSUE-yyMMdd-NN）、`projectCode`、`stepId`（可为空 = 项目级）、`title`、`detail`、`severityId`（LOW/MEDIUM/HIGH）、`statusId`（OPEN/DOING/CLOSED）、`ownerName`、`foundDate`、`dueDate`、`closedDate`、`resolution` |
 | `MfgSoftwareProject` | 软件项目台账：`projectCode`（SW-yyMMdd-NN）、`categoryId`（固件/外壳设计/上位机/平台）、`productCode`、`devProjectCode`、`statusId`、`deliverySeq`（同类第几次）、规模 `ilfCount`/`eifCount`/`ufp`、估算参数 `swfBase`/`swfReuse`/`swfPreInvest`/`swfQuality`/`rdf`/`pdrHoursPerFp`/`dayRate`/`taxRate`/`dncRate`、`plannedDays`（估算冻结）、`plannedStartDate`/`plannedEndDate`、实际 `actualHours`/`actualCost`、`quotedAmount` |
 
 ## 服务
@@ -238,14 +241,17 @@ https://localhost:8443/mfg/control/main
 | `mfgQualityReport` | 售后质量报表：退货/换货/返修/成本率 + 金额 + 按型号、责任方、批次、失效天数、检测结论分解 + 红线判定 |
 | `mfgDashboardTrends` | 看板数据：近 N 天每日出货/售后序列（已按最大值缩放到百分比）+ 售后 KPI + 责任方成本 |
 | `mfgAlerts` | 看板告警：欠料工单（欠料行数、欠料总量、前三个料号）与售后窗口告警（7 天 / 15 天，已过期或 24 小时内到期），按“紧急 → 剩余时间”排序 |
+| `mfgTrendReport` | 良率与工时趋势：按日 / 周 / 月汇总报工（良品、不良、良率、工时、单台工时、工单数），给出区间总计与最差期间；未知汇总口径自动换成按月 |
+| `mfgWorkOrderOutsourceSave` | 登记工单的外协加工费（整单金额，负数被拒绝） |
 | `mfgDevProjectSave` / `mfgDevProjectList` / `mfgDevProjectDetail` | 开发项目立项与查询（列表带阶段、关卡进度、未结变更数） |
 | `mfgDevStageSave` | 登记关卡评审；通过/有条件通过时项目自动进入下一阶段，进到量产时填实际上市日并转为已量产 |
 | `mfgDevStepSave` | 写入一个线路步骤的详情（状态、计划/完成日、负责人、供应商、金额、数量、单号、备注），空值即清空 |
 | `mfgDevStepStatus` | 只改步骤状态（页面上的开始/完成按钮），首次完成时自动填完成日 |
+| `mfgDevStepIssueSave` / `mfgDevStepIssueStatus` / `mfgDevStepIssueList` | 步骤问题：登记/修改（编号 `ISSUE-yyMMdd-NN` 自动生成，步骤必须属于当前线路）、只改状态（关闭时写关闭日，重开清空）、按项目列出（未结优先、严重度优先） |
 | `mfgDevEcoSave` / `mfgDevEcoList` / `mfgDevEcoDetail` | 变更单登记与查询（详情带来源/目标 BOM 版本与可选版本列表） |
 | `mfgDevEcoApprove` / `mfgDevEcoApply` / `mfgDevEcoCancel` | 批准、生效（可切换 BOM 版本）、取消；重复生效与已生效后取消都会被拒绝 |
 | `mfgProductCost` | 型号成本：`qty` 台的材料 / 工时 / 合计，加上目标成本差、目标售价与毛利；带逐行金额与缺单价行数 |
-| `mfgWorkOrderCost` | 工单成本：标准（BOM 单价 + 标准工时 × 费率）vs 实际（已发料按批次单价 + 报工工时 × 费率），给出差异与被排除的无单价笔数 |
+| `mfgWorkOrderCost` | 工单成本：标准（BOM 单价 + 工序标准工时 × 费率）vs 实际（已发料按批次单价 + 报工工时 × 费率 + 外协加工费），逐工序列出标准/实际/差异，差异给含外协与不含外协两个口径，并给出被排除的无单价笔数 |
 | `mfgSoftwareEstimate` | 软件报价四步：未调整功能点 = 35×内部逻辑文件 + 15×外部接口文件、工作量 = 耗时率×功能点×两个调整因子、工期 = 1.277×(工作量/176)^0.404、金额 = 人天×日费率 + 增值税 + 直接非人力成本；参数都可传，缺省取 2019 案例值 |
 | `mfgSoftwareProjectSave` / `mfgSoftwareProjectList` | 软件项目台账维护与查询（规模、估算快照、实际工时、偏差、实测耗时率、已完成项目的耗时率中位数） |
 
@@ -272,13 +278,18 @@ csv         = R0402-10K,10K 0402 resistor,4,R1-R4,N,0.05
 | `/mfg/control/attachmentUpload` | POST multipart，字段 `file` + `ownerTypeId` + `ownerId` + `back`（回跳页面）+ 可选 `note` |
 | `/mfg/control/attachment?ownerTypeId=...&ownerId=...&seq=...` | 输出文件字节；`seq` 缺省取最新一件，`thumb=1` 对图片输出最长边 200px 的 JPEG 缩略图；PDF 直出 |
 | `/mfg/control/attachmentDelete` | POST `ownerTypeId` + `ownerId` + `seq` + `back`，删除后回跳 |
-| `/mfg/control/dev?projectCode=...` | 产品开发：立项与改动、线路与步骤进度、步骤台账与快速推进、五道关卡评审、项目下的变更单、**项目资料附件** |
+| `/mfg/control/dev?projectCode=...` | 产品开发：立项与改动、线路与步骤进度（每步带未结问题数）、步骤台账与快速推进、**步骤问题清单（登记 / 关闭 / 重开）**、五道关卡评审、项目下的变更单、**项目资料附件** |
 | `/mfg/control/eco?ecoId=...` | 设计变更：新建变更单、按状态筛选、指定目标 BOM 版本、批准 / 生效 / 取消 |
-| `/mfg/control/workOrder?workOrderId=...` | 工单详情：工序进度、报工、SN 生成、不良登记、**工单附件（首件/不良照片/外协快递单）**、**成本（标准 vs 实际，含差异）** |
+| `/mfg/control/workOrder?workOrderId=...` | 工单详情：工序进度、报工、SN 生成、不良登记、**工单附件（首件/不良照片/外协快递单）**、**成本（标准 vs 实际，含外协加工费与逐工序差异）**、外协费登记 |
 | `/mfg/control/sn?sn=...` | 单板履历：报工、不良、所用物料批次 |
 | `/mfg/control/dashboard` | 车间看板：生产卡片 + **告警（欠料 / 售后窗口 / 软件项目）** + 售后 KPI + 每日柱图 + 责任方成本 + 最近报工，60 秒自动刷新 |
 | `/mfg/control/software` | 软件项目：功能点估算试算（内部/外部接口文件数或直接填功能点 + 两个调整因子 + 耗时率 + 费率/税率）、估算结果表、项目台账（计划 vs 实际人天、偏差、实测耗时率、超期标记） |
 | `/mfg/control/softwareProjectSave` | POST 保存/更新软件项目（编号留空自动生成） |
+| `/mfg/control/reports` | 报表：良率与工时趋势（按日 / 周 / 月，可定区间），六个汇总卡片 + 最差期间 + 趋势表 |
+| `/mfg/control/yieldCsv` | 良率趋势 CSV：`期间,汇总方式,良品,不良,良率%,工单数` + 合计行 |
+| `/mfg/control/hoursCsv` | 工时趋势 CSV：`期间,汇总方式,工时,良品,单台工时,工单数` + 合计行 |
+| `/mfg/control/devIssueSave` / `/mfg/control/devIssueStatus` | POST 登记问题 / 只改问题状态（关闭时写关闭日） |
+| `/mfg/control/workOrderOutsource` | POST 登记工单外协加工费（`workOrderId` + `outsourceAmount`） |
 | `/mfg/control/dashboardCsv` | 看板导出：`区段,名称,数值` 三段合一（生产卡片、每日趋势、责任方成本、告警） |
 | `/mfg/control/alertsCsv` | 告警导出：`级别,类型,编号,对象,截止,剩余小时,说明` |
 | `/mfg/control/shortageCsv` | 欠料导出：一行一个缺料元件（`工单,型号,交期,客户,料号,名称,需求,已发,欠料`），直接给采购用 |
@@ -456,9 +467,13 @@ productSave → bomImport → routingSave → productDetail
            → 告警：7 天窗口已过的售后单 + 欠料工单都进 mfgAlerts（含 ERROR 级别与计数）
            → 软件：10 个功能点 → 400 人时 / 50 人天 / 1.78 人月 / 税前 44000 / 含税 46640 / 合计 48972
            → 台账：项目编号自动生成、计划人天冻结 → 记 480 人时 → 实测耗时率 48 → 超期项目进看板告警
+           → 成本细化：ITMFG 有工序模板 → 标准工时按工序合计 0.45 → 外协费 120.50（负数被拒）
+           → 工单实际合计 = 材料 + 工时 + 外协，逐工序给出标准/实际/差异
+           → 问题清单：编号自动生成 → 未结 1 / 严重 1 → 关闭后未结 0 → 重开 → 拿别的线路的步骤登记被拒
+           → 趋势：按日 / 周 / 月汇总报工，未知口径回落按月，工时为 0 时不报错
 ```
 
-共 256 项断言，全部通过时退出码为 0。文件的字节输出（含缩略图、CSV 下载）用页面脚本验证（见下方“页面巡检”），
+共 282 项断言，全部通过时退出码为 0。文件的字节输出（含缩略图、CSV 下载）用页面脚本验证（见下方“页面巡检”），
 因为它需要一个真正的浏览器会话。测试是**可重复执行**的：每次创建/更新产品型号 `ITMFG`、替换其 BOM、
 新建一张工单、物料批次与出货单，以及相应的报工、不良、发料、收发、换件与测试数据；
 BOM 版本与变更单会每次新增一版，所以编号会一直往上走，不影响断言。
@@ -484,7 +499,7 @@ java -cp "build/test-classes:ofbiz.jar:junit-4.13.2.jar:hamcrest-core-1.3.jar" \
 覆盖 BOM / 批次 / 测试结果 CSV 解析（引号、缺列、CRLF、注释行、大小写归一）、SN 列表拆分、FIFO 推定切片、
 邮寄标签格式、SN / 工单编号格式，保修到期日、7 天 / 15 天窗口、剩余小时与运费承担，
 以及买家匹配键、手机号归一化与打码、风险等级建议、名单到期判定，还有百分比、日期差与失效分档、售后成本计算、红线判定、看板坐标轴与柱高缩放、关键词过滤与分页切片，
-以及 BOM 版本号生成与下一版号推导、开发阶段阶梯与关卡推进规则、变更单状态与类型校验、三条线路的步骤目录与首个未完成步骤推导、附件类型白名单（含 PDF）与 owner 类型白名单、文件名清洗、成本合计与目标差 / 毛利换算（含两位小数取整、目标售价为空时的处理）、CSV 单元格转义与数量格式化、软件报价四步公式与耗时率中位数（共 63 个用例）。
+以及 BOM 版本号生成与下一版号推导、开发阶段阶梯与关卡推进规则、变更单状态与类型校验、三条线路的步骤目录与首个未完成步骤推导、附件类型白名单（含 PDF）与 owner 类型白名单、文件名清洗、成本合计与目标差 / 毛利换算（含两位小数取整、目标售价为空时的处理）、CSV 单元格转义与数量格式化、软件报价四步公式与耗时率中位数、趋势期间的日/周/月标签与良率/单台工时（共 67 个用例）。
 
 ## 页面巡检（PowerShell）
 
@@ -502,6 +517,7 @@ java -cp "build/test-classes:ofbiz.jar:junit-4.13.2.jar:hamcrest-core-1.3.jar" \
 | `verify-m32.ps1` | 成本核算：产品页成本块（材料/工时/合计/目标成本/毛利）、批量重算、BOM 单价与金额列、无单价时告警、工单成本块（标准 vs 实际、发料后实际材料跟着批次单价走） | 38 |
 | `verify-m33.ps1` | 看板告警与 CSV 导出：告警区结构、三个导出链接、`text/csv` 与下载头、表头列数、行内容（工单号、缺料元件、看板三段） | 30 |
 | `verify-m34.ps1` | 软件项目：导航项、估算试算（10 功能点 → 400 人时 / 50 人天 / 1.78 人月 / 44000 / 46640 / 48972）、保存与编号、台账的计划 vs 实际与实测耗时率、超期项目进看板告警 | 30 |
+| `verify-m35.ps1` | 报表与成本细化：报表页（导航、六个卡片、趋势表、日/周/月切换、未知口径回落）、两份 CSV（BOM + 表头列数 + 合计行 + 周标签）、产品页按工序分摊工时、工单页工序成本表与外协费表单与登记、开发页问题清单（登记 → 列表 → 关闭 → 重开） | 54 |
 
 > 这些脚本在断言页面内容，不只是看 HTTP 200：OFBiz 的模板错误也是 200 + 一页堆栈，
 > 所以每个页面都要扫 `FTL stack trace` / `FreeMarker template error`。
@@ -641,15 +657,21 @@ SMT 为外协，且对方**不提供上料 / 换料记录**，因此追溯精度
 | 层 | 公式 | 数据来源 |
 | --- | --- | --- |
 | 材料（单台） | Σ BOM 行 `用量 × 单价` | `MfgBomVersionItem.unitPrice`（BOM 导入第 6 列或手工填） |
-| 工时（单台） | `standardHours × laborRate` | `MfgProduct.standardHours` 与 `MfgProduct.laborRate` |
+| 工时（单台） | **工序模板的 `stdHours` 合计** × `laborRate`；没有工序模板时用 `standardHours × laborRate` | `MfgRouting.stdHours`，否则 `MfgProduct.standardHours` |
 | 标准合计 | 材料 + 工时，乘批量得总额 | — |
 | 目标对比 | `单台成本 − 开发项目.targetCost`；毛利 = `targetPrice − 单台成本` | 最新一个 `MfgDevProject`（同型号可能有好几个项目，取 `createdStamp` 最新的） |
 | 实际材料 | Σ 发料 `数量 × 批次单价` | `MfgMaterialIssue` + `MfgMaterialLot.unitPrice` |
 | 实际工时 | Σ 报工 `workHours × laborRate` | `MfgReport` |
-| 差异 | `实际合计 − 标准单台成本 × 良品数` | — |
+| 实际外协 | 工单上的 `outsourceAmount`（SMT 加工费、模具费、外发组装费） | `MfgWorkOrder.outsourceAmount` |
+| 差异 | `实际合计（材料 + 工时 + 外协） − 标准单台成本 × 良品数`；页面另给一个**不含外协**的口径 | — |
+| 逐工序 | 每道工序：标准 = `stdHours × 费率 × 良品数`，实际 = 该工序报工工时 × 费率，差异 = 实际 − 标准；报工里出现模板没有的工序号时单列「工艺外工序」，工时不会丢 | `MfgRouting` + `MfgReport.opSeq` |
 
 规则：
 
+- **标准工时优先看工序模板**：有工序就按工序工时合计（页面注明“按工序分摊”），没有才退回型号上的 `standardHours`；
+  两者不一致时页面上会提醒，避免“改了工序但成本没变”；
+- **外协加工费单列**：SMT 加工费、模具费、外发组装费记在工单上（`outsourceAmount`），计入实际成本；
+  标准成本里没有这一项，所以差异给两个口径：不含外协（和以前可比）与含外协（真实的“这批到底花了多少”）；
 - **没填单价就说没填，不当成 0**：`unitPrice` 可空，缺价的 BOM 行 / 批次不计入金额，另给出
   `missingPriceCount` 与 `issuesWithoutPrice`，页面上黄条提示，避免“成本偏低却看不出来”；
 - 数值统一两位小数（`round2`），乘法先算后舍入，避免逐行舍入误差累积；
@@ -801,14 +823,17 @@ $$
 
 | 项 | 公式 |
 | --- | --- |
+| 工时（单台） | 有工序模板时 $\sum \text{工序标准工时}$，否则型号 ``standardHours``；再 $\times$ 工时费率 |
 | 材料（单台） | $\sum \text{BOM 行用量} \times \text{单价}$（缺单价的行走 `missingPriceCount`，不当 0） |
-| 工时（单台） | $\text{标准工时} \times \text{工时费率}$ |
 | 单台成本 | 材料 + 工时；批量 = 单台 × 数量 |
 | 目标差 | 单台成本 − 目标成本（`targetCost`） |
 | 毛利 | 目标售价（`targetPrice`）− 单台成本；售价空或 ≤ 0 时返回空，页面显示「—」 |
 | 实际材料 | $\sum \text{发料数量} \times \text{批次单价}$ |
 | 实际工时 | $\sum \text{报工工时} \times \text{工时费率}$ |
-| 差异 | 实际合计 − 标准单台成本 × 良品数 |
+| 实际外协 | 工单 ``outsourceAmount``（整单，一次性） |
+| 差异（含外协） | 实际材料 + 实际工时 + 外协 − 标准单台成本 × 良品数 |
+| 差异（不含外协） | 上式 − 外协（和往期可比） |
+| 逐工序 | 标准 = `stdHours` × 费率 × 良品数；实际 = 该工序报工工时 × 费率；差异 = 实际 − 标准 |
 | 取整 | 一律 `round2`（乘法先算后舍入，避免逐行误差累积） |
 
 ### 8. 软件项目与报价（`softwareCost`，见上文「软件项目」）
@@ -843,6 +868,23 @@ $R^2$ 低于期望值（默认 0.95）时逐点剔除误差最大的批次重拟
 | Crawford | $X = $ 累计数量，$Y = $ 累计金额 ÷ 累计数量 | $T_1(x_0+n)^{b+1} - T_1 x_0^{b+1}$，$T_1 = e^{\text{截距}}$，$b$ = 斜率 |
 
 > 换算：学习率 $= 2^{b}$（$b = -0.322$ 即 80% 曲线），只在解释斜率时用，页面不显示。
+
+### 10. 报表：良率与工时趋势（`trendReport`）
+
+按 `MfgReport.reportDate` 落入的期间分桶（日 `yyyy-MM-dd` / 周 `yyyy-Www`（ISO 周）/ 月 `yyyy-MM`，
+未知口径换成按月），区间默认最近 180 天：
+
+| 项 | 公式 |
+| --- | --- |
+| 良率 | $\text{良品} \div (\text{良品} + \text{不良}) \times 100\%$，两者都为 0 时记 0（页面显示「—」） |
+| 单台工时 | $\text{报工工时} \div \text{良品}$，良品为 0 时记 0 |
+| 每个期间 | 良品、不良、工时分别累加；工单数 = 该期间有报工的不同工单个数 |
+| 区间总计 | 与上面同公式，但用累加后的总数（不是各期百分比的平圛） |
+| 最差期间 | 有报工的各期里良率最低的一个（并列取先出现的） |
+
+两份 CSV 与页面同一份数字：良率 CSV 列 `期间,汇总方式,良品,不良,良率%,工单数`，
+工时 CSV 列 `期间,汇总方式,工时,良品,单台工时,工单数`，末尾都带合计行；单台工时可以直接拿去与
+学习曲线组件的实测点对照（那边的 X 是批次序号）。
 
 ## 前端选型：为什么看板不上框架
 
@@ -902,8 +944,14 @@ PDA/手机扫码作业、车间大屏、对外客户门户。
 
 ## 后续想法
 
-- 每个步骤挂问题清单（现在只在步骤上有备注）：打样/试产发现的问题单独立项、指派与关闭。
-- 成本再细化：按工序分摊工时（现在用型号上的标准工时合计）、外协加工费单列。
-- 淘宝订单号自动对单（开放平台/导出表导入），省掉手录订单号。
-- 告警往外推：现在只在看板/CSV 里，可以再加钉钉或邮件（欠料、测试通过率异常、售后即将超时）。
-- 报表导出：良率趋势、工时趋势（可回接学习曲线组件）。
+- **库存还没补齐，这是当前最大的一块空白**：现在只有“批次台账（`MfgMaterialLot`）+ 发料（`MfgMaterialIssue`）”，
+  也就是**入库 = 建批次、出库 = 给工单发料**，齐套算的是“需求 − 已发”；缺的是：
+  - **结存视图**：按料号汇总「到货 − 已发」，一处看清现有多少、在哪几个批次里；
+  - **退料 / 报废 / 盘盈亏**：现在只有正向发料，退料只能手工反填；
+  - **安全库存与补货提醒**：低于阈值时进看板告警、进导出；
+  - **出入库流水页**：一张单据一张单据地看，谁在什么时候动了多少。
+  做法不需要新账本：给 `MfgMaterialIssue` 加一个 `directionId`（发料/退料/报废/盘盈亏）就能把结存算全。
+- 外协费按单/按批分摊（现在是整单一个数），SMT 按板计价时更准。
+- 学习曲线回接：把报表里的单台工时直接喂进曲线（现在要在学习曲线页手填 `数量:工时`）。
+- 淘宝订单号自动对单：需要走开放平台或导出表导入（千牛对接暂时不做）。
+- 告警往外推（钉钉/邮件）：目前只在看板与 CSV 里，一个人的团队够用，人多了再说。

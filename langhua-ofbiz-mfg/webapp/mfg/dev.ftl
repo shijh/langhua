@@ -1,9 +1,11 @@
 <#ftl encoding="UTF-8">
 <#setting url_escaping_charset="UTF-8">
 <#--
-  Product development: project list, the track steps, the stage ladder and the gate reviews.
+  Product development: project list, the track steps, the issue list, the stage ladder and the
+  gate reviews.
   Data: listResult.projects / stages / stageId / statusId, productList.products,
-        detail.project / detail.reviews / detail.ecos / detail.steps / detail.trackId
+        detail.project / detail.reviews / detail.ecos / detail.steps / detail.trackId,
+        issueResult.issues / issueResult.openCount / issueResult.highOpenCount
 -->
 <#assign lr = (listResult)!{}>
 <#assign projects = (lr.projects)![]>
@@ -17,6 +19,9 @@
 <#assign steps = (d.steps)![]>
 <#assign trackId = (d.trackId)!''>
 <#assign atts = ((attachmentResult).attachments)![]>
+<#assign issues = ((issueResult).issues)![]>
+<#assign issueOpen = ((issueResult).openCount)!0>
+<#assign issueHigh = ((issueResult).highOpenCount)!0>
 <#assign errList = (errorMessageList)![]>
 
 <#function stageLabel stageId>
@@ -74,6 +79,19 @@
     <#elseif (statusId!'') == 'MFG_STEP_DOING'><#return '进行中'>
     <#elseif (statusId!'') == 'MFG_STEP_SKIPPED'><#return '跳过'>
     <#else><#return '未开始'>
+    </#if>
+</#function>
+<#function issueSeverityLabel severityId>
+    <#if (severityId!'') == 'MFG_ISSUE_HIGH'><#return '严重'>
+    <#elseif (severityId!'') == 'MFG_ISSUE_MEDIUM'><#return '一般'>
+    <#elseif (severityId!'') == 'MFG_ISSUE_LOW'><#return '轻微'>
+    <#else><#return '一般'>
+    </#if>
+</#function>
+<#function issueStatusLabel statusId>
+    <#if (statusId!'') == 'MFG_ISSUE_CLOSED'><#return '已关闭'>
+    <#elseif (statusId!'') == 'MFG_ISSUE_DOING'><#return '处理中'>
+    <#else><#return '未处理'>
     </#if>
 </#function>
 
@@ -151,7 +169,7 @@
         <tr>
             <th>项目号</th><th>线路</th><th>名称</th><th>料号</th><th>型号</th>
             <th>步骤</th><th>当前步骤</th><th>阶段</th>
-            <th class="num">关卡</th><th class="num">未结变更</th><th>状态</th>
+            <th class="num">关卡</th><th class="num">未结变更</th><th class="num">未结问题</th><th>状态</th>
         </tr>
         <#list projects as p>
             <tr>
@@ -165,6 +183,7 @@
                 <td>${stageLabel(p.stageId!'')}</td>
                 <td class="num">${p.passedCount} / ${p.reviewCount}</td>
                 <td class="num"><#if (p.openEcoCount!0) gt 0><span class="warn">${p.openEcoCount}</span><#else>0</#if></td>
+                <td class="num"><#if (p.openIssueCount!0) gt 0><a class="warn" href="/mfg/control/dev?projectCode=${p.projectCode}#issues">${p.openIssueCount}</a><#else>0</#if></td>
                 <td>${statusLabel(p.statusId!'')}</td>
             </tr>
         </#list>
@@ -205,7 +224,7 @@
             <tr>
                 <th class="num">#</th><th>步骤</th><th>状态</th><th>计划</th><th>完成</th>
                 <th>负责人</th><th>供应商</th><th class="num">金额</th><th class="num">数量</th>
-                <th>单号</th><th>备注</th><th>操作</th>
+                <th class="num">问题</th><th>单号</th><th>备注</th><th>操作</th>
             </tr>
             <#list steps as s>
                 <tr>
@@ -218,6 +237,7 @@
                     <td>${s.vendorName!}</td>
                     <td class="num"><#if (s.amount!0) gt 0>${(s.amount)?string("0.00")}</#if></td>
                     <td class="num"><#if (s.qty!0) gt 0>${(s.qty)?string("0.##")}</#if></td>
+                    <td class="num"><#if (s.openIssueCount!0) gt 0><a class="warn" href="#issues">${s.openIssueCount}</a></#if></td>
                     <td>${s.referenceNo!}<#if s.lotId??><br/><span class="hint">批次 ${s.lotId}</span></#if></td>
                     <td>${s.note!}</td>
                     <td>
@@ -276,6 +296,79 @@
         </fieldset>
         <p class="hint">外壳开发线把「外壳入库」置为已完成时，会按项目的料号和本步骤填的数量自动生成一个物料批次；组装时按正常流程开工单。</p>
     </#if>
+
+    <h3 id="issues">问题清单（未结 ${issueOpen} 个<#if issueHigh gt 0>，其中严重 ${issueHigh} 个</#if> / 共 ${issues?size} 条）</h3>
+    <#if issues?has_content>
+        <table id="issueTable">
+            <tr>
+                <th>编号</th><th>步骤</th><th>问题</th><th>严重度</th><th>状态</th>
+                <th>负责人</th><th>发现</th><th>截止</th><th>关闭</th><th>说明 / 处理结果</th><th>操作</th>
+            </tr>
+            <#list issues as issue>
+                <tr>
+                    <td>${issue.issueId}</td>
+                    <td><#if issue.stepId??>${stepLabel(issue.stepId)}<#else><span class="hint">项目级</span></#if></td>
+                    <td>${issue.title!}</td>
+                    <td><#if (issue.severityId!'') == 'MFG_ISSUE_HIGH'><span class="error">${issueSeverityLabel(issue.severityId)}</span><#else>${issueSeverityLabel(issue.severityId)}</#if></td>
+                    <td><#if (issue.statusId!'') == 'MFG_ISSUE_CLOSED'><span class="ok">${issueStatusLabel(issue.statusId)}</span><#else>${issueStatusLabel(issue.statusId)}</#if></td>
+                    <td>${issue.ownerName!}</td>
+                    <td><#if issue.foundDate??>${issue.foundDate?string("MM-dd")}</#if></td>
+                    <td><#if issue.dueDate??><#if (issue.statusId!'') != 'MFG_ISSUE_CLOSED' && issue.dueDate?date?long lt .now?long><span class="error">${issue.dueDate?string("MM-dd")}</span><#else>${issue.dueDate?string("MM-dd")}</#if></#if></td>
+                    <td><#if issue.closedDate??>${issue.closedDate?string("MM-dd")}</#if></td>
+                    <td>${(issue.detail)!}<#if (issue.resolution!'') != ''><br/><span class="hint">处理：${issue.resolution}</span></#if></td>
+                    <td>
+                        <#if (issue.statusId!'') != 'MFG_ISSUE_CLOSED'>
+                            <form method="post" action="/mfg/control/devIssueStatus" class="inline">
+                                <input type="hidden" name="issueId" value="${issue.issueId}"/>
+                                <input type="hidden" name="statusId" value="MFG_ISSUE_CLOSED"/>
+                                <input type="hidden" name="projectCode" value="${project.projectCode}"/>
+                                <input type="submit" value="关闭"/>
+                            </form>
+                        <#else>
+                            <form method="post" action="/mfg/control/devIssueStatus" class="inline">
+                                <input type="hidden" name="issueId" value="${issue.issueId}"/>
+                                <input type="hidden" name="statusId" value="MFG_ISSUE_OPEN"/>
+                                <input type="hidden" name="projectCode" value="${project.projectCode}"/>
+                                <input type="submit" value="重开"/>
+                            </form>
+                        </#if>
+                    </td>
+                </tr>
+            </#list>
+        </table>
+    <#else>
+        <p class="hint">还没有问题记录。打样、试产、烧录时发现的坑记在这里：谁改、什么时候必须改完，一眼能看到。</p>
+    </#if>
+
+    <fieldset>
+        <legend>登记问题（发现即记，别攒到评审）</legend>
+        <form method="post" action="/mfg/control/devIssueSave">
+            <input type="hidden" name="projectCode" value="${project.projectCode}"/>
+            <p>
+                步骤
+                <select name="stepId">
+                    <option value="">项目级（不限步骤）</option>
+                    <#list steps as s>
+                        <option value="${s.stepId}">${stepLabel(s.stepId)}</option>
+                    </#list>
+                </select>
+                问题 <input type="text" name="title" size="30" placeholder="一句话说清现象"/>
+                严重度
+                <select name="severityId">
+                    <option value="MFG_ISSUE_MEDIUM">一般</option>
+                    <option value="MFG_ISSUE_HIGH">严重</option>
+                    <option value="MFG_ISSUE_LOW">轻微</option>
+                </select>
+                负责人 <input type="text" name="ownerName" size="9"/>
+                发现日 <input type="text" name="foundDate" size="10" placeholder="yyyy-mm-dd（留空=今天）"/>
+                截止 <input type="text" name="dueDate" size="10" placeholder="yyyy-mm-dd"/>
+            </p>
+            <p>
+                说明 <input type="text" name="detail" size="60" placeholder="复现条件、板号、批次、截图文件名"/>
+                <input type="submit" value="保存问题"/>
+            </p>
+        </form>
+    </fieldset>
 
     <h3>阶段关卡</h3>
     <table>

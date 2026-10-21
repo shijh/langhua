@@ -12,6 +12,7 @@
 package org.langhua.ofbiz.mfg;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
@@ -773,5 +774,56 @@ public class MfgServicesTest {
                 Double.valueOf(45.0), Double.valueOf(40.0), Double.valueOf(50.0))), 1e-9);
         assertEquals(45.0, MfgServices.median(java.util.Arrays.asList(
                 Double.valueOf(40.0), Double.valueOf(50.0))), 1e-9);
+    }
+
+    @Test
+    public void labelsThePeriodOfATrendBucket() {
+        java.sql.Date date = java.sql.Date.valueOf(java.time.LocalDate.of(2026, 10, 21));
+
+        assertEquals("2026-10-21", MfgServices.periodKey(date, "DAY"));
+        // 21 October 2026 is in ISO week 43
+        assertEquals("2026-W43", MfgServices.periodKey(date, "WEEK"));
+        assertEquals("2026-10", MfgServices.periodKey(date, "MONTH"));
+        // an unknown grouping falls back to the month, a missing date has no period
+        assertEquals("2026-10", MfgServices.periodKey(date, "YEAR"));
+        assertEquals("-", MfgServices.periodKey(null, "MONTH"));
+    }
+
+    @Test
+    public void countsYieldFromGoodAndRejectedUnits() {
+        assertEquals(95.0, MfgServices.yieldRate(95.0, 5.0), 1e-9);
+        assertEquals(100.0, MfgServices.yieldRate(10.0, 0.0), 1e-9);
+        assertEquals(0.0, MfgServices.yieldRate(0.0, 4.0), 1e-9);
+        // nothing reported is not a division by zero
+        assertEquals(0.0, MfgServices.yieldRate(0.0, 0.0), 1e-9);
+    }
+
+    @Test
+    public void countsHoursPerGoodUnit() {
+        assertEquals(0.5, MfgServices.hoursPerUnit(5.0, 10.0), 1e-9);
+        assertEquals(0.0, MfgServices.hoursPerUnit(5.0, 0.0), 1e-9);
+        assertEquals(0.0, MfgServices.hoursPerUnit(0.0, 10.0), 1e-9);
+    }
+
+    @Test
+    public void ranksIssuesSoTheOpenHighOnesComeFirst() {
+        assertTrue(MfgServices.isOpenIssue(MfgServices.ISSUE_OPEN));
+        assertTrue(MfgServices.isOpenIssue(MfgServices.ISSUE_DOING));
+        assertFalse(MfgServices.isOpenIssue(MfgServices.ISSUE_CLOSED));
+        assertFalse(MfgServices.isOpenIssue(null));
+
+        assertTrue(MfgServices.statusRank(MfgServices.ISSUE_OPEN)
+                < MfgServices.statusRank(MfgServices.ISSUE_DOING));
+        assertTrue(MfgServices.statusRank(MfgServices.ISSUE_DOING)
+                < MfgServices.statusRank(MfgServices.ISSUE_CLOSED));
+        assertTrue(MfgServices.severityRank(MfgServices.ISSUE_HIGH)
+                > MfgServices.severityRank(MfgServices.ISSUE_MEDIUM));
+        assertTrue(MfgServices.severityRank(MfgServices.ISSUE_MEDIUM)
+                > MfgServices.severityRank(MfgServices.ISSUE_LOW));
+
+        assertTrue(MfgServices.isKnownIssueStatus(MfgServices.ISSUE_DOING));
+        assertFalse(MfgServices.isKnownIssueStatus("MFG_ISSUE_WHATEVER"));
+        assertTrue(MfgServices.isKnownIssueSeverity(MfgServices.ISSUE_HIGH));
+        assertFalse(MfgServices.isKnownIssueSeverity("MFG_ISSUE_URGENT"));
     }
 }

@@ -25,6 +25,7 @@
     <entity-group group="org.apache.ofbiz" entity="MfgBuyerFlag"/>
     <entity-group group="org.apache.ofbiz" entity="MfgDevProject"/>
     <entity-group group="org.apache.ofbiz" entity="MfgDevTrackStep"/>
+    <entity-group group="org.apache.ofbiz" entity="MfgDevStepIssue"/>
     <entity-group group="org.apache.ofbiz" entity="MfgDevStageReview"/>
     <entity-group group="org.apache.ofbiz" entity="MfgDevEco"/>
     <entity-group group="org.apache.ofbiz" entity="MfgSoftwareProject"/>

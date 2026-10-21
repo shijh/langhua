@@ -210,6 +210,20 @@ public final class MfgServices {
     public static final String STEP_DONE = "MFG_STEP_DONE";
     public static final String STEP_SKIPPED = "MFG_STEP_SKIPPED";
 
+    public static final String ISSUE_OPEN = "MFG_ISSUE_OPEN";
+    public static final String ISSUE_DOING = "MFG_ISSUE_DOING";
+    public static final String ISSUE_CLOSED = "MFG_ISSUE_CLOSED";
+
+    public static final String ISSUE_LOW = "MFG_ISSUE_LOW";
+    public static final String ISSUE_MEDIUM = "MFG_ISSUE_MEDIUM";
+    public static final String ISSUE_HIGH = "MFG_ISSUE_HIGH";
+
+    /** Issue statuses, in the order the page lists them. */
+    public static final String[] ISSUE_STATUSES = {ISSUE_OPEN, ISSUE_DOING, ISSUE_CLOSED};
+
+    /** Issue severities, from a nit to something that blocks the launch. */
+    public static final String[] ISSUE_SEVERITIES = {ISSUE_LOW, ISSUE_MEDIUM, ISSUE_HIGH};
+
     private static final DateTimeFormatter DAY = DateTimeFormatter.ofPattern("yyMMdd");
     private static final DateTimeFormatter MONTH_DAY = DateTimeFormatter.ofPattern("MM-dd");
 
@@ -917,8 +931,27 @@ public final class MfgServices {
                     ? (product.get("laborRate") instanceof Number
                             ? ((Number) product.get("laborRate")).doubleValue() : 0.0)
                     : toDouble(rateInput, 0.0);
-            double standardHours = product.getDouble("standardHours") == null
+            double productHours = product.getDouble("standardHours") == null
                     ? 0.0 : product.getDouble("standardHours").doubleValue();
+
+            // labour hours: the routing of the model when it has one, else the hours on the product
+            List<GenericValue> routing = routingOf(delegator, productCode);
+            double routingHours = 0.0;
+            List<Map<String, Object>> routingLines = new ArrayList<>(routing.size());
+            for (GenericValue operation : routing) {
+                Double operationHours = operation.getDouble("stdHours");
+                double hours = operationHours == null ? 0.0 : operationHours.doubleValue();
+                routingHours += hours;
+                Map<String, Object> line = new LinkedHashMap<>();
+                line.put("opSeq", operation.getLong("opSeq"));
+                line.put("opName", operation.getString("opName"));
+                line.put("workCenter", operation.getString("workCenter"));
+                line.put("stdHours", Double.valueOf(hours));
+                line.put("amount", Double.valueOf(round2(hours * laborRate)));
+                routingLines.add(line);
+            }
+            String hoursSource = routing.isEmpty() ? "PRODUCT" : "ROUTING";
+            double standardHours = routing.isEmpty() ? productHours : routingHours;
             double laborPerUnit = standardHours * laborRate;
 
             // one model may have several development projects: take the newest target
@@ -933,6 +966,10 @@ public final class MfgServices {
             result.put("productCode", productCode);
             result.put("bomVersionId", versionId);
             result.put("standardHours", Double.valueOf(standardHours));
+            result.put("productStandardHours", Double.valueOf(productHours));
+            result.put("routingHours", Double.valueOf(routingHours));
+            result.put("hoursSource", hoursSource);
+            result.put("routingLines", routingLines);
             result.put("laborRate", Double.valueOf(laborRate));
             result.put("lineCount", Integer.valueOf(lines.size()));
             result.put("missingPriceCount", Integer.valueOf(missing));
@@ -972,8 +1009,18 @@ public final class MfgServices {
                     .where("productCode", productCode).queryOne();
             double laborRate = product == null || !(product.get("laborRate") instanceof Number)
                     ? 0.0 : ((Number) product.get("laborRate")).doubleValue();
-            double standardHours = product == null || product.getDouble("standardHours") == null
+            double productHours = product == null || product.getDouble("standardHours") == null
                     ? 0.0 : product.getDouble("standardHours").doubleValue();
+
+            // the standard hours of one unit come from the routing when the model has one
+            List<GenericValue> routing = routingOf(delegator, productCode);
+            double routingHours = 0.0;
+            for (GenericValue operation : routing) {
+                Double operationHours = operation.getDouble("stdHours");
+                routingHours += operationHours == null ? 0.0 : operationHours.doubleValue();
+            }
+            String hoursSource = routing.isEmpty() ? "PRODUCT" : "ROUTING";
+            double standardHours = routing.isEmpty() ? productHours : routingHours;
 
             // standard: the BOM of the version the order was frozen with
             String versionId = order.getString("bomVersionId");
@@ -1019,12 +1066,17 @@ public final class MfgServices {
             }
             double plannedQty = toLong(order.get("plannedQty"), 0);
             double actualLabor = reportedHours * laborRate;
+            double outsourceAmount = numberOrZero(order.get("outsourceAmount"));
+            double standardLaborTotal = standardHours * laborRate * qtyOk;
 
             result.put("productCode", productCode);
             result.put("plannedQty", Double.valueOf(plannedQty));
             result.put("qtyOk", Double.valueOf(qtyOk));
             result.put("laborRate", Double.valueOf(laborRate));
             result.put("standardHours", Double.valueOf(standardHours));
+            result.put("productStandardHours", Double.valueOf(productHours));
+            result.put("routingHoursPerUnit", Double.valueOf(routingHours));
+            result.put("hoursSource", hoursSource);
             result.put("materialPerUnit", Double.valueOf(materialPerUnit));
             result.put("laborPerUnit", Double.valueOf(standardHours * laborRate));
             result.put("standardUnitCost", Double.valueOf(materialPerUnit + standardHours * laborRate));
@@ -1032,10 +1084,14 @@ public final class MfgServices {
             result.put("issuedMaterialCost", Double.valueOf(issuedMaterial));
             result.put("reportedHours", Double.valueOf(reportedHours));
             result.put("actualLaborCost", Double.valueOf(actualLabor));
-            result.put("actualTotal", Double.valueOf(issuedMaterial + actualLabor));
-            double actualUnit = qtyOk > 0.0 ? (issuedMaterial + actualLabor) / qtyOk : 0.0;
+            result.put("outsourceAmount", Double.valueOf(outsourceAmount));
+            result.put("actualTotal", Double.valueOf(issuedMaterial + actualLabor + outsourceAmount));
+            result.put("operations", operationCosts(routing, reports, laborRate, qtyOk));
+            double actualUnit = qtyOk > 0.0 ? (issuedMaterial + actualLabor + outsourceAmount) / qtyOk : 0.0;
             result.put("actualUnitCost", Double.valueOf(actualUnit));
-            double diff = (issuedMaterial + actualLabor) - (materialPerUnit + standardHours * laborRate) * qtyOk;
+            double diff = (issuedMaterial + actualLabor + outsourceAmount)
+                    - (materialPerUnit + standardHours * laborRate) * qtyOk;
+            result.put("differenceExOutsource", Double.valueOf(diff - outsourceAmount));
             result.put("differenceVsStandard", Double.valueOf(diff));
             result.put("missingPriceCount", Integer.valueOf(missing));
             result.put("issuesWithoutPrice", Integer.valueOf(issuesWithoutPrice));
@@ -1082,6 +1138,236 @@ public final class MfgServices {
             map.put("marginRate", Double.valueOf(round2(margin / targetPrice.doubleValue() * 100.0)));
         }
         return map;
+    }
+
+    /**
+     * Builds the yield and labour hour trend from the work reports, one row per period. The same
+     * numbers feed the page and the two CSV files.
+     *
+     * @param dctx the dispatch context
+     * @param context service context, see {@code servicedef/services.xml#mfgTrendReport}
+     * @return the service result with the periods, their totals and the worst period
+     */
+    public static Map<String, Object> trendReport(DispatchContext dctx, Map<String, ? extends Object> context) {
+        Delegator delegator = dctx.getDelegator();
+        java.sql.Date toDate = (java.sql.Date) parseDate(context.get("toDate"));
+        if (toDate == null) {
+            toDate = java.sql.Date.valueOf(LocalDate.now());
+        }
+        java.sql.Date fromDate = (java.sql.Date) parseDate(context.get("fromDate"));
+        if (fromDate == null) {
+            fromDate = java.sql.Date.valueOf(toDate.toLocalDate().minusDays(179));
+        }
+        String groupBy = toText(context.get("groupBy"));
+        groupBy = groupBy == null ? "MONTH" : groupBy.toUpperCase(Locale.ROOT);
+        if (!"DAY".equals(groupBy) && !"WEEK".equals(groupBy) && !"MONTH".equals(groupBy)) {
+            groupBy = "MONTH";
+        }
+        Map<String, Object> result = ServiceUtil.returnSuccess();
+        result.put("fromDate", fromDate);
+        result.put("toDate", toDate);
+        result.put("groupBy", groupBy);
+        result.put("rows", new ArrayList<Map<String, Object>>());
+        result.put("qtyOkTotal", Long.valueOf(0L));
+        result.put("qtyNgTotal", Long.valueOf(0L));
+        result.put("hoursTotal", Double.valueOf(0.0));
+        result.put("yieldRate", Double.valueOf(0.0));
+        result.put("hoursPerUnit", Double.valueOf(0.0));
+        result.put("rowCount", Integer.valueOf(0));
+        try {
+            List<GenericValue> reports = EntityQuery.use(delegator).from("MfgReport")
+                    .orderBy("reportDate").queryList();
+            Map<String, double[]> buckets = new LinkedHashMap<>();
+            Map<String, Set<String>> ordersOfBucket = new LinkedHashMap<>();
+            double qtyOkTotal = 0.0;
+            double qtyNgTotal = 0.0;
+            double hoursTotal = 0.0;
+            for (GenericValue report : reports) {
+                Timestamp reportedAt = report.getTimestamp("reportDate");
+                if (reportedAt == null) {
+                    continue;
+                }
+                java.sql.Date reportedDate = new java.sql.Date(reportedAt.getTime());
+                if (reportedDate.before(fromDate) || reportedDate.after(toDate)) {
+                    continue;
+                }
+                String key = periodKey(reportedDate, groupBy);
+                double[] bucket = buckets.get(key);
+                if (bucket == null) {
+                    bucket = new double[3];
+                    buckets.put(key, bucket);
+                    ordersOfBucket.put(key, new LinkedHashSet<String>());
+                }
+                bucket[0] += numberOrZero(report.get("qtyOk"));
+                bucket[1] += numberOrZero(report.get("qtyNg"));
+                bucket[2] += numberOrZero(report.get("workHours"));
+                String workOrderId = report.getString("workOrderId");
+                if (workOrderId != null) {
+                    ordersOfBucket.get(key).add(workOrderId);
+                }
+                qtyOkTotal += numberOrZero(report.get("qtyOk"));
+                qtyNgTotal += numberOrZero(report.get("qtyNg"));
+                hoursTotal += numberOrZero(report.get("workHours"));
+            }
+            List<Map<String, Object>> rows = new ArrayList<>(buckets.size());
+            Map<String, Object> worst = null;
+            for (Map.Entry<String, double[]> entry : buckets.entrySet()) {
+                double[] bucket = entry.getValue();
+                Map<String, Object> row = new LinkedHashMap<>();
+                row.put("period", entry.getKey());
+                row.put("qtyOk", Double.valueOf(round2(bucket[0])));
+                row.put("qtyNg", Double.valueOf(round2(bucket[1])));
+                row.put("yieldRate", Double.valueOf(yieldRate(bucket[0], bucket[1])));
+                row.put("hours", Double.valueOf(round2(bucket[2])));
+                row.put("hoursPerUnit", Double.valueOf(hoursPerUnit(bucket[2], bucket[0])));
+                row.put("orderCount", Integer.valueOf(ordersOfBucket.get(entry.getKey()).size()));
+                rows.add(row);
+                if (bucket[0] + bucket[1] > 0.0
+                        && (worst == null || ((Double) row.get("yieldRate")).doubleValue()
+                                < ((Double) worst.get("yieldRate")).doubleValue())) {
+                    worst = row;
+                }
+            }
+            result.put("rows", rows);
+            result.put("qtyOkTotal", Long.valueOf(Math.round(qtyOkTotal)));
+            result.put("qtyNgTotal", Long.valueOf(Math.round(qtyNgTotal)));
+            result.put("hoursTotal", Double.valueOf(round2(hoursTotal)));
+            result.put("yieldRate", Double.valueOf(yieldRate(qtyOkTotal, qtyNgTotal)));
+            result.put("hoursPerUnit", Double.valueOf(hoursPerUnit(hoursTotal, qtyOkTotal)));
+            result.put("rowCount", Integer.valueOf(rows.size()));
+            if (worst != null) {
+                result.put("worstRow", worst);
+            }
+            return result;
+        } catch (GenericEntityException e) {
+            return ServiceUtil.returnError("Could not build the trend report: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Reads the operations of a model in sequence order.
+     *
+     * @param delegator the delegator
+     * @param productCode the model, may be {@code null}
+     * @return the operations, empty when the model has no routing
+     * @throws GenericEntityException when the routing cannot be read
+     */
+    private static List<GenericValue> routingOf(Delegator delegator, String productCode)
+            throws GenericEntityException {
+        if (productCode == null) {
+            return new ArrayList<GenericValue>();
+        }
+        return EntityQuery.use(delegator).from("MfgRouting")
+                .where("productCode", productCode).orderBy("opSeq").queryList();
+    }
+
+    /**
+     * Costs every operation of the routing: the standard hours of one unit against the hours that
+     * were really reported, both at the labour rate. Operations that were reported without being in
+     * the routing are appended with an empty name, so their hours are never lost.
+     *
+     * @param routing the operations of the model
+     * @param reports the work reports of the order
+     * @param laborRate money per hour
+     * @param qtyOk good quantity the standard of the order is measured against
+     * @return one row per operation
+     */
+    static List<Map<String, Object>> operationCosts(List<GenericValue> routing, List<GenericValue> reports,
+            double laborRate, double qtyOk) {
+        List<Map<String, Object>> rows = new ArrayList<>();
+        Map<Long, Double> hoursByOp = new LinkedHashMap<>();
+        for (GenericValue report : reports) {
+            Long opSeq = report.getLong("opSeq");
+            if (opSeq == null) {
+                continue;
+            }
+            Double current = hoursByOp.get(opSeq);
+            hoursByOp.put(opSeq, Double.valueOf((current == null ? 0.0 : current.doubleValue())
+                    + numberOrZero(report.get("workHours"))));
+        }
+        for (GenericValue operation : routing) {
+            Long opSeq = operation.getLong("opSeq");
+            Double stdHours = operation.getDouble("stdHours");
+            double hours = stdHours == null ? 0.0 : stdHours.doubleValue();
+            double actualHours = opSeq != null && hoursByOp.containsKey(opSeq)
+                    ? hoursByOp.get(opSeq).doubleValue() : 0.0;
+            rows.add(operationCostRow(opSeq, operation.getString("opName"),
+                    operation.getString("workCenter"), hours, actualHours, laborRate, qtyOk, true));
+            if (opSeq != null) {
+                hoursByOp.remove(opSeq);
+            }
+        }
+        for (Map.Entry<Long, Double> entry : hoursByOp.entrySet()) {
+            rows.add(operationCostRow(entry.getKey(), null, null, 0.0,
+                    entry.getValue().doubleValue(), laborRate, qtyOk, false));
+        }
+        return rows;
+    }
+
+    private static Map<String, Object> operationCostRow(Long opSeq, String opName, String workCenter,
+            double stdHours, double actualHours, double laborRate, double qtyOk, boolean inRouting) {
+        double standardCost = round2(stdHours * laborRate * qtyOk);
+        double actualCost = round2(actualHours * laborRate);
+        Map<String, Object> row = new LinkedHashMap<>();
+        row.put("opSeq", opSeq);
+        row.put("opName", opName);
+        row.put("workCenter", workCenter);
+        row.put("stdHours", Double.valueOf(stdHours));
+        row.put("stdHoursTotal", Double.valueOf(round2(stdHours * qtyOk)));
+        row.put("actualHours", Double.valueOf(round2(actualHours)));
+        row.put("standardCost", Double.valueOf(standardCost));
+        row.put("actualCost", Double.valueOf(actualCost));
+        row.put("variance", Double.valueOf(round2(actualCost - standardCost)));
+        row.put("inRouting", Boolean.valueOf(inRouting));
+        return row;
+    }
+
+    /**
+     * Turns a date into the label of the bucket it belongs to.
+     *
+     * @param date the date, may be {@code null}
+     * @param groupBy {@code DAY}, {@code WEEK} or {@code MONTH}
+     * @return the label, e.g. {@code 2026-10-21}, {@code 2026-W43} or {@code 2026-10}
+     */
+    static String periodKey(java.sql.Date date, String groupBy) {
+        if (date == null) {
+            return "-";
+        }
+        LocalDate day = date.toLocalDate();
+        if ("DAY".equals(groupBy)) {
+            return day.toString();
+        }
+        if ("WEEK".equals(groupBy)) {
+            int year = day.get(java.time.temporal.IsoFields.WEEK_BASED_YEAR);
+            int week = day.get(java.time.temporal.IsoFields.WEEK_OF_WEEK_BASED_YEAR);
+            return String.format(Locale.ROOT, "%04d-W%02d",
+                    Integer.valueOf(year), Integer.valueOf(week));
+        }
+        return String.format(Locale.ROOT, "%04d-%02d",
+                Integer.valueOf(day.getYear()), Integer.valueOf(day.getMonthValue()));
+    }
+
+    /**
+     * Yield as a percentage of everything that was reported.
+     *
+     * @param qtyOk good quantity
+     * @param qtyNg rejected quantity
+     * @return the yield in percent, {@code 0} when nothing was reported
+     */
+    static double yieldRate(double qtyOk, double qtyNg) {
+        double total = qtyOk + qtyNg;
+        return total <= 0.0 ? 0.0 : round2(qtyOk * 100.0 / total);
+    }
+
+    /**
+     * Hours spent per good unit.
+     *
+     * @param hours reported hours
+     * @param qtyOk good quantity
+     * @return the hours per unit, {@code 0} when there is no good unit
+     */
+    static double hoursPerUnit(double hours, double qtyOk) {
+        return qtyOk <= 0.0 ? 0.0 : round2(hours / qtyOk);
     }
 
     private static double round2(double value) {
@@ -6442,6 +6728,108 @@ always
         return formatEcoId(today, max + 1);
     }
 
+    private static String nextIssueId(Delegator delegator, LocalDate today) throws GenericEntityException {
+        String prefix = "ISSUE-" + today.format(DAY) + "-";
+        int max = 0;
+        for (GenericValue issue : EntityQuery.use(delegator).from("MfgDevStepIssue").queryList()) {
+            String id = issue.getString("issueId");
+            if (id != null && id.startsWith(prefix)) {
+                max = Math.max(max, parseTrailingNumber(id.substring(prefix.length())));
+            }
+        }
+        return prefix + String.format(Locale.ROOT, "%02d", Integer.valueOf(max + 1));
+    }
+
+    /**
+     * Tells whether a status is one of the issue statuses.
+     *
+     * @param statusId the status to test
+     * @return {@code true} when it is known
+     */
+    static boolean isKnownIssueStatus(String statusId) {
+        for (String known : ISSUE_STATUSES) {
+            if (known.equals(statusId)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Tells whether a severity is one of the issue severities.
+     *
+     * @param severityId the severity to test
+     * @return {@code true} when it is known
+     */
+    static boolean isKnownIssueSeverity(String severityId) {
+        for (String known : ISSUE_SEVERITIES) {
+            if (known.equals(severityId)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Orders issue statuses so the open ones come first.
+     *
+     * @param statusId the status, may be {@code null}
+     * @return a small number for open issues, a big one for closed ones
+     */
+    static int statusRank(String statusId) {
+        if (ISSUE_CLOSED.equals(statusId)) {
+            return 2;
+        }
+        if (ISSUE_DOING.equals(statusId)) {
+            return 1;
+        }
+        return 0;
+    }
+
+    /**
+     * Orders issue severities from high to low.
+     *
+     * @param severityId the severity, may be {@code null}
+     * @return 3 for high, 2 for medium and 1 for low or unknown
+     */
+    static int severityRank(String severityId) {
+        if (ISSUE_HIGH.equals(severityId)) {
+            return 3;
+        }
+        if (ISSUE_MEDIUM.equals(severityId)) {
+            return 2;
+        }
+        return 1;
+    }
+
+    /**
+     * Tells whether an issue still has to be dealt with.
+     *
+     * @param statusId the status, may be {@code null}
+     * @return {@code true} when it is neither closed nor empty
+     */
+    static boolean isOpenIssue(String statusId) {
+        return statusId != null && !ISSUE_CLOSED.equals(statusId);
+    }
+
+    private static Map<String, Object> toIssueMap(GenericValue issue) {
+        Map<String, Object> map = new LinkedHashMap<>();
+        map.put("issueId", issue.getString("issueId"));
+        map.put("projectCode", issue.getString("projectCode"));
+        map.put("stepId", issue.getString("stepId"));
+        map.put("title", issue.getString("title"));
+        map.put("detail", issue.getString("detail"));
+        map.put("severityId", issue.getString("severityId"));
+        map.put("statusId", issue.getString("statusId"));
+        map.put("ownerName", issue.getString("ownerName"));
+        map.put("foundDate", issue.get("foundDate"));
+        map.put("dueDate", issue.get("dueDate"));
+        map.put("closedDate", issue.get("closedDate"));
+        map.put("resolution", issue.getString("resolution"));
+        map.put("createdStamp", issue.get("createdStamp"));
+        return map;
+    }
+
     private static Map<String, Object> toDevProjectMap(Delegator delegator, GenericValue project)
             throws GenericEntityException {
         String projectCode = project.getString("projectCode");
@@ -6478,6 +6866,15 @@ always
             }
         }
         map.put("openEcoCount", Integer.valueOf(openEcos));
+
+        int openIssues = 0;
+        for (GenericValue issue : EntityQuery.use(delegator).from("MfgDevStepIssue")
+                .where("projectCode", projectCode).queryList()) {
+            if (isOpenIssue(issue.getString("statusId"))) {
+                openIssues++;
+            }
+        }
+        map.put("openIssueCount", Integer.valueOf(openIssues));
 
         String trackId = project.getString("trackId");
         map.put("trackId", trackId);
@@ -6753,6 +7150,23 @@ always
                 steps.add(map);
             }
 
+            // open issues per step, so the step list can show where the problems are
+            Map<String, Integer> openIssuesByStep = new LinkedHashMap<>();
+            for (GenericValue issue : EntityQuery.use(delegator).from("MfgDevStepIssue")
+                    .where("projectCode", projectCode).queryList()) {
+                if (!isOpenIssue(issue.getString("statusId"))) {
+                    continue;
+                }
+                String issueStep = issue.getString("stepId");
+                String key = issueStep == null ? "" : issueStep;
+                Integer current = openIssuesByStep.get(key);
+                openIssuesByStep.put(key, Integer.valueOf(current == null ? 1 : current.intValue() + 1));
+            }
+            for (Map<String, Object> stepRow : steps) {
+                Integer count = openIssuesByStep.get(String.valueOf(stepRow.get("stepId")));
+                stepRow.put("openIssueCount", Integer.valueOf(count == null ? 0 : count.intValue()));
+            }
+
             Map<String, Object> result = ServiceUtil.returnSuccess();
             result.put("project", projectMap);
             result.put("reviews", reviews);
@@ -6760,8 +7174,7 @@ always
             result.put("steps", steps);
             result.put("trackId", trackId);
             result.put("stageIndex", Integer.valueOf(devStageIndex(stageId)));
-            return result;
-        } catch (GenericEntityException e) {
+            return result;        } catch (GenericEntityException e) {
             return ServiceUtil.returnError("Could not read the development project: " + e.getMessage());
         }
     }
@@ -6999,6 +7412,275 @@ always
             return result;
         } catch (GenericEntityException e) {
             return ServiceUtil.returnError("Could not change the step status: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Raises or updates an issue found at one development step. The step may be left empty for a
+     * project level problem, but a project must always be given.
+     *
+     * @param dctx the dispatch context
+     * @param context service context, see {@code servicedef/services.xml#mfgDevStepIssueSave}
+     * @return the service result containing {@code issueId} and {@code statusId}
+     */
+    public static Map<String, Object> devStepIssueSave(DispatchContext dctx, Map<String, ? extends Object> context) {
+        Delegator delegator = dctx.getDelegator();
+        String issueId = toText(context.get("issueId"));
+        String projectCode = toText(context.get("projectCode"));
+        String stepId = toText(context.get("stepId"));
+        String severityId = toText(context.get("severityId"));
+        String statusId = toText(context.get("statusId"));
+        if (severityId != null && !isKnownIssueSeverity(severityId)) {
+            return ServiceUtil.returnError("Unknown issue severity [" + severityId + "]");
+        }
+        if (statusId != null && !isKnownIssueStatus(statusId)) {
+            return ServiceUtil.returnError("Unknown issue status [" + statusId + "]");
+        }
+        try {
+            GenericValue issue;
+            if (issueId == null) {
+                if (projectCode == null) {
+                    return ServiceUtil.returnError("projectCode is required for a new issue");
+                }
+                issueId = nextIssueId(delegator, LocalDate.now());
+                String storedProject = projectCode;
+                if (stepId != null && projectOfStep(delegator, projectCode, stepId) == null) {
+                    return ServiceUtil.returnError("Step [" + stepId + "] does not belong to project ["
+                            + projectCode + "], check the track of the project");
+                }
+                issue = delegator.makeValue("MfgDevStepIssue");
+                issue.set("issueId", issueId);
+                issue.set("projectCode", storedProject);
+                issue.set("statusId", statusId == null ? ISSUE_OPEN : statusId);
+                issue.set("foundDate", parseDate(context.get("foundDate")));
+                if (issue.get("foundDate") == null) {
+                    issue.set("foundDate", java.sql.Date.valueOf(LocalDate.now()));
+                }
+            } else {
+                issue = EntityQuery.use(delegator).from("MfgDevStepIssue")
+                        .where("issueId", issueId).queryOne();
+                if (issue == null) {
+                    issue = delegator.makeValue("MfgDevStepIssue");
+                    issue.set("issueId", issueId);
+                    if (projectCode == null) {
+                        return ServiceUtil.returnError("projectCode is required for a new issue");
+                    }
+                    issue.set("projectCode", projectCode);
+                    issue.set("statusId", statusId == null ? ISSUE_OPEN : statusId);
+                    issue.set("foundDate", parseDate(context.get("foundDate")));
+                    if (issue.get("foundDate") == null) {
+                        issue.set("foundDate", java.sql.Date.valueOf(LocalDate.now()));
+                    }
+                } else {
+                    String storedProject = issue.getString("projectCode");
+                    String wantedStep = stepId;
+                    if (wantedStep != null && !wantedStep.isEmpty()
+                            && projectOfStep(delegator, storedProject, wantedStep) == null) {
+                        return ServiceUtil.returnError("Step [" + wantedStep + "] does not belong to project ["
+                                + storedProject + "], check the track of the project");
+                    }
+                    if (statusId != null) {
+                        issue.set("statusId", statusId);
+                    }
+                }
+            }
+            if (stepId != null) {
+                issue.set("stepId", stepId.isEmpty() ? null : stepId);
+            }
+            if (context.containsKey("title")) {
+                issue.set("title", toText(context.get("title")));
+            }
+            if (context.containsKey("detail")) {
+                issue.set("detail", toText(context.get("detail")));
+            }
+            if (severityId != null) {
+                issue.set("severityId", severityId);
+            }
+            if (context.containsKey("ownerName")) {
+                issue.set("ownerName", toText(context.get("ownerName")));
+            }
+            if (context.containsKey("dueDate")) {
+                issue.set("dueDate", parseDate(context.get("dueDate")));
+            }
+            if (context.containsKey("resolution")) {
+                issue.set("resolution", toText(context.get("resolution")));
+            }
+            if (ISSUE_CLOSED.equals(issue.getString("statusId")) && issue.get("closedDate") == null) {
+                issue.set("closedDate", java.sql.Date.valueOf(LocalDate.now()));
+            }
+            if (!ISSUE_CLOSED.equals(issue.getString("statusId"))) {
+                issue.set("closedDate", null);
+            }
+            if (issue.getString("severityId") == null) {
+                issue.set("severityId", ISSUE_MEDIUM);
+            }
+            delegator.createOrStore(issue);
+
+            Map<String, Object> result = ServiceUtil.returnSuccess();
+            result.put("issueId", issueId);
+            result.put("projectCode", issue.getString("projectCode"));
+            result.put("statusId", issue.getString("statusId"));
+            return result;
+        } catch (GenericEntityException e) {
+            return ServiceUtil.returnError("Could not save the issue: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Changes only the status of one issue, used by the quick buttons: closing stamps the date,
+     * reopening clears it.
+     *
+     * @param dctx the dispatch context
+     * @param context service context, see {@code servicedef/services.xml#mfgDevStepIssueStatus}
+     * @return the service result containing {@code issueId} and the new {@code statusId}
+     */
+    public static Map<String, Object> devStepIssueStatus(DispatchContext dctx, Map<String, ? extends Object> context) {
+        Delegator delegator = dctx.getDelegator();
+        String issueId = toText(context.get("issueId"));
+        String statusId = toText(context.get("statusId"));
+        if (issueId == null || statusId == null) {
+            return ServiceUtil.returnError("issueId and statusId are required");
+        }
+        if (!isKnownIssueStatus(statusId)) {
+            return ServiceUtil.returnError("Unknown issue status [" + statusId + "]");
+        }
+        try {
+            GenericValue issue = EntityQuery.use(delegator).from("MfgDevStepIssue")
+                    .where("issueId", issueId).queryOne();
+            if (issue == null) {
+                return ServiceUtil.returnError("Unknown issue [" + issueId + "]");
+            }
+            issue.set("statusId", statusId);
+            if (ISSUE_CLOSED.equals(statusId)) {
+                if (issue.get("closedDate") == null) {
+                    issue.set("closedDate", java.sql.Date.valueOf(LocalDate.now()));
+                }
+                String resolution = toText(context.get("resolution"));
+                if (resolution != null) {
+                    issue.set("resolution", resolution);
+                }
+            } else {
+                issue.set("closedDate", null);
+            }
+            delegator.store(issue);
+
+            Map<String, Object> result = ServiceUtil.returnSuccess();
+            result.put("issueId", issueId);
+            result.put("statusId", statusId);
+            result.put("closedDate", issue.get("closedDate"));
+            return result;
+        } catch (GenericEntityException e) {
+            return ServiceUtil.returnError("Could not change the issue status: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Lists the issues of one development project, open ones first and then the newest.
+     *
+     * @param dctx the dispatch context
+     * @param context service context, see {@code servicedef/services.xml#mfgDevStepIssueList}
+     * @return the service result with the issues and the open counts
+     */
+    public static Map<String, Object> devStepIssueList(DispatchContext dctx, Map<String, ? extends Object> context) {
+        Delegator delegator = dctx.getDelegator();
+        String projectCode = toText(context.get("projectCode"));
+        String statusId = toText(context.get("statusId"));
+        boolean openOnly = "Y".equalsIgnoreCase(toText(context.get("openOnly")));
+        Map<String, Object> result = ServiceUtil.returnSuccess();
+        List<Map<String, Object>> rows = new ArrayList<>();
+        result.put("issues", rows);
+        result.put("openCount", Integer.valueOf(0));
+        result.put("totalCount", Integer.valueOf(0));
+        result.put("highOpenCount", Integer.valueOf(0));
+        if (projectCode == null) {
+            return result;
+        }
+        try {
+            EntityQuery query = EntityQuery.use(delegator).from("MfgDevStepIssue")
+                    .where("projectCode", projectCode);
+            if (statusId != null) {
+                query = query.where("statusId", statusId);
+            }
+            List<GenericValue> stored = query.orderBy("-createdStamp").queryList();
+            int open = 0;
+            int high = 0;
+            for (GenericValue issue : stored) {
+                Map<String, Object> map = toIssueMap(issue);
+                boolean closed = ISSUE_CLOSED.equals(issue.getString("statusId"));
+                if (!closed) {
+                    open++;
+                    if (ISSUE_HIGH.equals(issue.getString("severityId"))) {
+                        high++;
+                    }
+                }
+                if (openOnly && closed) {
+                    continue;
+                }
+                rows.add(map);
+            }
+            // open first, then high severity, then the newest
+            rows.sort(new Comparator<Map<String, Object>>() {
+                @Override
+                public int compare(Map<String, Object> left, Map<String, Object> right) {
+                    int byStatus = Integer.valueOf(statusRank((String) left.get("statusId")))
+                            .compareTo(Integer.valueOf(statusRank((String) right.get("statusId"))));
+                    if (byStatus != 0) {
+                        return byStatus;
+                    }
+                    int bySeverity = Integer.valueOf(severityRank((String) right.get("severityId")))
+                            .compareTo(Integer.valueOf(severityRank((String) left.get("severityId"))));
+                    if (bySeverity != 0) {
+                        return bySeverity;
+                    }
+                    Object leftCreated = left.get("createdStamp");
+                    Object rightCreated = right.get("createdStamp");
+                    String leftText = leftCreated == null ? "" : leftCreated.toString();
+                    String rightText = rightCreated == null ? "" : rightCreated.toString();
+                    return rightText.compareTo(leftText);
+                }
+            });
+            result.put("issues", rows);
+            result.put("openCount", Integer.valueOf(open));
+            result.put("totalCount", Integer.valueOf(stored.size()));
+            result.put("highOpenCount", Integer.valueOf(high));
+            return result;
+        } catch (GenericEntityException e) {
+            return ServiceUtil.returnError("Could not read the issues: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Records the outsourced processing fee of one work order.
+     *
+     * @param dctx the dispatch context
+     * @param context service context, see {@code servicedef/services.xml#mfgWorkOrderOutsourceSave}
+     * @return the service result containing {@code workOrderId} and the stored amount
+     */
+    public static Map<String, Object> workOrderOutsourceSave(DispatchContext dctx, Map<String, ? extends Object> context) {
+        Delegator delegator = dctx.getDelegator();
+        String workOrderId = toText(context.get("workOrderId"));
+        if (workOrderId == null) {
+            return ServiceUtil.returnError("workOrderId is required");
+        }
+        try {
+            GenericValue order = EntityQuery.use(delegator).from("MfgWorkOrder")
+                    .where("workOrderId", workOrderId).queryOne();
+            if (order == null) {
+                return ServiceUtil.returnError("Unknown work order [" + workOrderId + "]");
+            }
+            double amount = round2(toDouble(context.get("outsourceAmount"), 0.0));
+            if (amount < 0.0) {
+                return ServiceUtil.returnError("The outsourced processing fee cannot be negative");
+            }
+            order.set("outsourceAmount", Double.valueOf(amount));
+            delegator.store(order);
+
+            Map<String, Object> result = ServiceUtil.returnSuccess();
+            result.put("workOrderId", workOrderId);
+            result.put("outsourceAmount", Double.valueOf(amount));
+            return result;
+        } catch (GenericEntityException e) {
+            return ServiceUtil.returnError("Could not store the outsourced fee: " + e.getMessage());
         }
     }
 

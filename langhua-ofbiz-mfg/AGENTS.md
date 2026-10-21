@@ -74,8 +74,8 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
 
 | 脚本 | 覆盖 | 断言数 |
 | --- | --- | --- |
-| `MfgServicesTest` | 解析/规则/格式化（CSV、SN、FIFO、窗口、编号、附件类型、来料检验规则、成本取整与毛利、CSV 单元格转义、软件报价公式与耗时率中位数…） | 63 |
-| `MfgServiceIT` | 全链路服务调用（含 BOM 版本、三条开发线、ECO、附件、来料检验、成本、告警、软件报价与台账） | 256 |
+| `MfgServicesTest` | 解析/规则/格式化（CSV、SN、FIFO、窗口、编号、附件类型、来料检验规则、成本取整与毛利、CSV 单元格转义、软件报价公式与耗时率中位数、趋势期间标签与良率/单台工时、问题清单排序与校验…） | 67 |
+| `MfgServiceIT` | 全链路服务调用（含 BOM 版本、三条开发线、ECO、附件、来料检验、成本、告警、软件报价与台账、成本细化与外协费、步骤问题清单、良率/工时趋势） | 282 |
 | `verify-m11.ps1` | 列表页搜索/过滤/翻页/编码 | 55 |
 | `verify-m12.ps1` | 装饰器布局（1 个 html、1 条导航、1 个高亮、样式表、无内联 style、无 FTL 报错） | 102 |
 | `verify-m13.ps1` | 产品开发 + BOM 版本 + 三条线路 | 49 |
@@ -85,6 +85,7 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
 | `verify-m32.ps1` | 成本核算：产品页成本块（材料/工时/合计/目标成本/毛利）、批量重算、BOM 单价与金额列、无单价告警、工单成本块（标准 vs 实际，发料后实际材料跟批次单价走） | 38 |
 | `verify-m33.ps1` | 看板告警与 CSV 导出（告警区、三个导出链接、`text/csv` + 下载头、表头列数、行内容） | 30 |
 | `verify-m34.ps1` | 软件项目：估算试算、保存与编号、台账计划 vs 实际、实测耗时率、超期进告警 | 30 |
+| `verify-m35.ps1` | 报表与成本细化：报表页（卡片/趋势表/日周月切换/未知口径回落）、两份趋势 CSV（BOM + 列数 + 合计行）、产品页按工序分摊、工单页工序成本与外协费、开发页问题清单登记→关闭→重开 | 54 |
 
 ## 设计决策
 
@@ -92,8 +93,16 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   `MfgProduct.currentBomVersionId` 指向在用版本；启用新版本会把上一个 RELEASED 转 OBSOLETE；
   工单创建时把版本冻结到 `MfgWorkOrder.bomVersionId`，齐套/发料按工单的版本算。
   旧单表 `MfgBomItem` 行在首次读取时冻结为 `-V1`（幂等），表保留但不再使用
-- **开发阶段阶梯**：`MFG_STAGE_CONCEPT → DESIGN → PROTOTYPE → TRIAL → MASS`；`MfgProduct.devStageId` 与
+- **软件开发阶段阶梯**：`MFG_STAGE_CONCEPT → DESIGN → PROTOTYPE → TRIAL → MASS`；`MfgProduct.devStageId` 与
   `MfgDevProject.stageId` 相互独立（项目可以先不关联型号）；关卡 PASS/CONDITIONAL 才推进阶段，到 MASS 时写 `actualLaunchDate` 并置 `MFG_DEV_DONE`
+- **步骤问题清单**：`MfgDevStepIssue`（`issueId` = `ISSUE-yyMMdd-NN`，`projectCode` + 可选 `stepId`），
+  三态 `MFG_ISSUE_OPEN/DOING/CLOSED`、三档严重度 `LOW/MEDIUM/HIGH`；服务 `mfgDevStepIssueSave/List/Status`，
+  页面在开发项目页（`id="issueTable"`，锚点 `#issues`），项目列表与步骤表各显示一个未结数（`openIssueCount`）；
+  步骤必须属于项目的线路（`projectOfStep`），关闭时写 `closedDate`、重开清空；列表按「未结 → 严重 → 最新」排序
+- **良率/工时趋势报表**：`mfgTrendReport` 按 `MfgReport.reportDate` 分桶（`periodKey`：日/ISO 周/月），
+  纯函数 `yieldRate` / `hoursPerUnit`（分母 0 记 0，页面显示「—」）；页面 `/mfg/control/reports`
+  带 `id="trendTable"`，两份 CSV 走 `MfgExportEvents.yieldCsv/hoursCsv`（同一服务、同一份数字）；
+  单台工时可以拿去与学习曲线的实测点对照
 - **三条开发线**：项目有 `trackId`（TRACK_PCB / FIRMWARE / ENCLOSURE）+ `partCode`；步骤目录写在代码里
   （`PCB_STEPS` 5、`FIRMWARE_STEPS` 3、`ENCLOSURE_STEPS` 7，最后两步是 外壳入库 → 产品组装），
   状态存 `MfgDevTrackStep`（status/planned/done/owner/vendor/amount/qty/referenceNo/lotId）；
@@ -113,11 +122,15 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   新建批次默认 PENDING；状态是英文常量，页面断言用 `value="MFG_IQC_*" selected`，别用中文
 - **成本核算**：只算材料 + 工时两项，数据全在现有表里——`MfgBomVersionItem.unitPrice`（BOM 导入第 6 列）、
   `MfgProduct.laborRate` + `standardHours`、`MfgMaterialLot.unitPrice`（采购价）+ `MfgIssue`、`MfgReport.workHours`；
-  服务 `mfgProductCost`（qty 台的总价 + 目标成本差与毛利）/ `mfgWorkOrderCost`（标准 vs 实际 + 差异），
+  **标准工时优先按工序模板汇总**（`MfgRouting.stdHours`，页面注“按工序分摊”），没模板才用型号 `standardHours`；
+  工单另记 `MfgWorkOrder.outsourceAmount`（整单外协加工费），实际合计 = 材料 + 工时 + 外协，
+  差异给“含外协 / 不含外协”两个口径；逐工序表（`operationCosts`）列出标准/实际/差异，
+  报工里出现模板外的 `opSeq` 单列 `inRouting=false`，工时不能丢；
+  服务 `mfgProductCost`（qty 台的总价 + 目标成本差与毛利）/ `mfgWorkOrderCost`（标准 vs 实际 + 差异 + operations），
   公用纯函数 `costSummary()`（两位数取整、`targetPrice<=0` 时毛利返回 null）；
   **无单价不当 0**：`missingPriceCount` / `issuesWithoutPrice` 单独计数、页面黄条提示；
   目标成本/售价取该型号**最新一个** `MfgDevProject`（`orderBy("-createdStamp").queryFirst()`，同型号可能有多个项目）；
-  两张表分别带 `id="productCost"` / `id="workOrderCost"`，巡检按 id 切片断言，不碰中文
+  两张表分别带 `id="productCost"` / `id="workOrderCost"`，工序成本表 `id="operationCost"`，巡检按 id 切片断言，不碰中文
 - **BOM 导入的第一个版本就是当前版本**：`bomImport` 在型号还没有 `currentBomVersionId` 时，把新建的版本直接置 RELEASED 并指给型号，
   否则导完 BOM 页面上还是「未建 BOM」（成本、齐套都读不到）
 - **看板告警 + CSV 导出**：服务 `mfgAlerts` 收集「欠料工单」（`shortageRows()`，一行一个缺料元件）与「售后窗口」  （未结售后单的 `sevenDayDeadline` / `afterSaleDeadline`，已过期=ERROR、≤24h=WARN；`hoursLeft` 为 0 表示没设截止，

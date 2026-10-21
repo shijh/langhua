@@ -4,7 +4,8 @@
   kitting, material issues and shipments to / from the SMT house.
   Data: detail.workOrder, detail.operations, detail.sns, detail.defects,
         detail.reportedHours, detail.totalQtyOk, detail.totalQtyNg,
-        material.lines, material.issues, material.shipments, material.kitComplete
+        material.lines, material.issues, material.shipments, material.kitComplete,
+        costResult.* (standard vs actual, per operation cost, outsourced fee)
 -->
 <#assign d = (detail)!{}>
 <#assign wo = (d.workOrder)!{}>
@@ -19,6 +20,7 @@
 <#assign shipments = (mat.shipments)![]>
 <#assign atts = ((attachmentResult).attachments)![]>
 <#assign cost = (costResult)!{}>
+<#assign costOps = ((costResult).operations)![]>
 <#assign errList = (errorMessageList)![]>
 
 <#if !wo.workOrderId??>
@@ -53,7 +55,7 @@
         <tr><td>标准：材料（BOM 单价）</td>
             <td class="num">${((cost.materialPerUnit)!0)?string("0.00")}</td>
             <td class="num">${(((cost.materialPerUnit)!0) * ((cost.plannedQty)!0))?string("0.00")}</td></tr>
-        <tr><td>标准：工时（${((cost.standardHours)!0)?string("0.##")} h × ${((cost.laborRate)!0)?string("0.00")} 元/h）</td>
+        <tr><td>标准：工时（${((cost.standardHours)!0)?string("0.##")} h × ${((cost.laborRate)!0)?string("0.00")} 元/h<#if (cost.hoursSource!'') == 'ROUTING'>，按工序分摊<#else>，取型号标准工时</#if>）</td>
             <td class="num">${((cost.laborPerUnit)!0)?string("0.00")}</td>
             <td class="num">${(((cost.laborPerUnit)!0) * ((cost.plannedQty)!0))?string("0.00")}</td></tr>
         <tr><td><b>标准：合计</b></td>
@@ -63,9 +65,18 @@
             <td class="num"><span class="hint">—</span></td>
             <td class="num"><b>${((cost.issuedMaterialCost)!0)?string("0.00")}</b></td></tr>
         <tr><td><b>实际：报工（${((cost.reportedHours)!0)?string("0.##")} h）</b></td>
-            <td class="num">${((cost.actualUnitCost)!0)?string("0.00")}<span class="hint"> 单台总成本</span></td>
+            <td class="num"><span class="hint">—</span></td>
+            <td class="num"><b>${((cost.actualLaborCost)!0)?string("0.00")}</b></td></tr>
+        <tr><td><b>实际：外协加工费</b><#if ((cost.outsourceAmount)!0) lte 0> <span class="hint">未登记</span></#if></td>
+            <td class="num"><span class="hint">—</span></td>
+            <td class="num"><b>${((cost.outsourceAmount)!0)?string("0.00")}</b></td></tr>
+        <tr><td><b>实际：合计（材料 + 工时 + 外协）</b></td>
+            <td class="num"><b>${((cost.actualUnitCost)!0)?string("0.00")}</b><span class="hint"> 单台</span></td>
             <td class="num"><b>${((cost.actualTotal)!0)?string("0.00")}</b></td></tr>
-        <tr><td>实际 − 标准（按良品 ${((cost.qtyOk)!0)?string("0")} 台）</td>
+        <tr><td>实际 − 标准（按良品 ${((cost.qtyOk)!0)?string("0")} 台，不含外协）</td>
+            <td class="num"></td>
+            <td class="num"><#if ((cost.differenceExOutsource)!0) gt 0><span class="error">超 ${cost.differenceExOutsource?string("0.00")}</span><#else><span class="ok">省 ${(((cost.differenceExOutsource)!0)?abs)?string("0.00")}</span></#if></td></tr>
+        <tr><td>实际 − 标准（含外协）</td>
             <td class="num"></td>
             <td class="num"><#if ((cost.differenceVsStandard)!0) gt 0><span class="error">超 ${cost.differenceVsStandard?string("0.00")}</span><#else><span class="ok">省 ${(((cost.differenceVsStandard)!0)?abs)?string("0.00")}</span></#if></td></tr>
     </table>
@@ -75,6 +86,26 @@
             <#if ((cost.issuesWithoutPrice)!0) gt 0>有 ${cost.issuesWithoutPrice} 笔发料的批次没填采购单价。</#if>
             成本会偏低，去产品 BOM 与物料批次里补。
         </p>
+    </#if>
+
+    <#if costOps?has_content>
+        <table id="operationCost">
+            <tr><th class="num">工序号</th><th>工序</th><th class="num">单台标准</th><th class="num">标准工时合计</th>
+                <th class="num">实际工时</th><th class="num">标准成本</th><th class="num">实际成本</th><th class="num">差异</th></tr>
+            <#list costOps as op>
+                <tr>
+                    <td class="num">${(op.opSeq)?string("0")}</td>
+                    <td><#if (op.opName!'') == ''><span class="warn">工艺外工序</span><#else>${op.opName}</#if></td>
+                    <td class="num">${(op.stdHours)?string("0.###")}</td>
+                    <td class="num">${(op.stdHoursTotal)?string("0.##")}</td>
+                    <td class="num">${(op.actualHours)?string("0.##")}</td>
+                    <td class="num">${(op.standardCost)?string("0.00")}</td>
+                    <td class="num">${(op.actualCost)?string("0.00")}</td>
+                    <td class="num"><#if (op.variance?default(0)) gt 0><span class="error">+${op.variance?string("0.00")}</span><#else><span class="ok">${op.variance?string("0.00")}</span></#if></td>
+                </tr>
+            </#list>
+        </table>
+        <p class="hint">标准工时来自该型号的工序模板（按良品数折算），实际工时来自报工；标了「工艺外工序」的是报工时填了模板里没有的工序号。</p>
     </#if>
 
     <h2>工序进度</h2>    <#if operations?has_content>
@@ -217,6 +248,15 @@
                 </#list>
             </select>
             <input type="submit" value="保存"/>
+        </p>
+    </form>
+    <form method="post" action="/mfg/control/workOrderOutsource">
+        <input type="hidden" name="workOrderId" value="${wo.workOrderId}"/>
+        <p>
+            外协加工费（整单，元）
+            <input type="text" name="outsourceAmount" size="10" value="${((cost.outsourceAmount)!0)?string("0.00")}"/>
+            <input type="submit" value="保存外协费"/>
+            <span class="hint">SMT 加工费、模具费、外发组装费记这里；它不计入单台标准成本，但计入工单实际成本与差异。</span>
         </p>
     </form>
 

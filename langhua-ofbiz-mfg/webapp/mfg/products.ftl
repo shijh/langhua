@@ -215,7 +215,7 @@ BAT-18650,18650 电池,1,BT1,Y,12</textarea></p>
         <tr><td>材料（BOM 单价 × 用量）</td>
             <td class="num">${((c.materialPerUnit)!0)?string("0.00")}</td>
             <td class="num">${((c.materialCost)!0)?string("0.00")}</td></tr>
-        <tr><td>工时（标准工时 ${((c.standardHours)!0)?string("0.##")} h × 费率 ${((c.laborRate)!0)?string("0.00")} 元/h）</td>
+        <tr><td>工时（<#if (c.hoursSource!'') == 'ROUTING'>按工序分摊 <#else>型号标准工时 </#if>${((c.standardHours)!0)?string("0.##")} h × 费率 ${((c.laborRate)!0)?string("0.00")} 元/h）</td>
             <td class="num">${((c.laborPerUnit)!0)?string("0.00")}</td>
             <td class="num">${((c.laborCost)!0)?string("0.00")}</td></tr>
         <tr><td><b>合计成本</b></td>
@@ -228,6 +228,11 @@ BAT-18650,18650 电池,1,BT1,Y,12</textarea></p>
             <td class="num"><#if c.targetPrice??>${c.targetPrice?string("0.00")}<#else><span class="hint">未设</span></#if></td>
             <td class="num"><#if c.unitMargin??><#if (c.unitMargin) gte 0><span class="ok">毛利 ${c.unitMargin?string("0.00")}（${(c.marginRate!'0')?string("0.0")}%）</span><#else><span class="error">亏 ${((c.unitMargin)?abs)?string("0.00")}</span></#if><#else><span class="hint">—</span></#if></td></tr>
     </table>
+    <#if (c.hoursSource!'') == 'ROUTING'>
+        <p class="hint">工时按工序模板分摊：${((c.routingHours)!0)?string("0.##")} h/台；型号上的标准工时 ${((c.productStandardHours)!0)?string("0.##")} h 只在没有工序模板时使用。</p>
+    <#elseif ((c.productStandardHours)!0) gt 0>
+        <p class="hint">该型号还没有工序模板，工时就取型号上的标准工时 ${((c.productStandardHours)!0)?string("0.##")} h；想按工序核算，在下面把工序加全。</p>
+    </#if>
     <#if ((c.missingPriceCount)!0) gt 0>
         <p class="warn">有 ${c.missingPriceCount} 行 BOM 没填单价，材料成本被低估；在 BOM 导入里补第 6 列单价。</p>
     </#if>

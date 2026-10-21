@@ -92,6 +92,9 @@
                     <field-map field-name="ownerTypeId" value="MFG_ATT_DEV_PROJECT"/>
                     <field-map field-name="ownerId" from-field="parameters.projectCode"/>
                 </service>
+                <service service-name="mfgDevStepIssueList" result-map="issueResult" auto-field-map="false">
+                    <field-map field-name="projectCode" from-field="parameters.projectCode"/>
+                </service>
             </actions>
             <widgets>
                 <decorator-screen name="mfg-decorator" location="component://mfg/widget/MfgCommonScreens.xml">
@@ -99,6 +102,33 @@
                         <platform-specific>
                             <html>
                                 <html-template location="component://mfg/webapp/mfg/dev.ftl"/>
+                            </html>
+                        </platform-specific>
+                    </decorator-section>
+                </decorator-screen>
+            </widgets>
+        </section>
+    </screen>
+
+    <!-- Yield and labour hour trend, with the two CSV exports -->
+    <screen name="reports">
+        <section>
+            <actions>
+                <set field="title" value="Reports"/>
+                <set field="pageTitle" value="报表"/>
+                <set field="activeMenu" value="reports"/>
+                <service service-name="mfgTrendReport" result-map="trend" auto-field-map="false">
+                    <field-map field-name="fromDate" from-field="parameters.fromDate"/>
+                    <field-map field-name="toDate" from-field="parameters.toDate"/>
+                    <field-map field-name="groupBy" from-field="parameters.groupBy"/>
+                </service>
+            </actions>
+            <widgets>
+                <decorator-screen name="mfg-decorator" location="component://mfg/widget/MfgCommonScreens.xml">
+                    <decorator-section name="body">
+                        <platform-specific>
+                            <html>
+                                <html-template location="component://mfg/webapp/mfg/reports.ftl"/>
                             </html>
                         </platform-specific>
                     </decorator-section>

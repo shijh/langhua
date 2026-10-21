@@ -36,6 +36,7 @@
     <@navItem 'buyers' '/mfg/control/buyers' '买家名单'/>
     <@navItem 'quality' '/mfg/control/quality' '质量指标'/>
     <@navItem 'dashboard' '/mfg/control/dashboard' '看板'/>
+    <@navItem 'reports' '/mfg/control/reports' '报表'/>
     <@navItem 'sn' '/mfg/control/sn' 'SN 查询'/>
 </p>
 

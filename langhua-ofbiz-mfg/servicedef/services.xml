@@ -152,6 +152,10 @@
         <attribute name="lineCount" type="Integer" mode="OUT" optional="true"/>
         <attribute name="missingPriceCount" type="Integer" mode="OUT" optional="true"/>
         <attribute name="lines" type="java.util.List" mode="OUT" optional="true"/>
+        <attribute name="hoursSource" type="String" mode="OUT" optional="true"/>
+        <attribute name="routingHours" type="Double" mode="OUT" optional="true"/>
+        <attribute name="routingLines" type="java.util.List" mode="OUT" optional="true"/>
+        <attribute name="productStandardHours" type="Double" mode="OUT" optional="true"/>
         <attribute name="message" type="String" mode="OUT" optional="true"/>
     </service>
 
@@ -178,6 +182,12 @@
         <attribute name="differenceVsStandard" type="Double" mode="OUT" optional="true"/>
         <attribute name="missingPriceCount" type="Integer" mode="OUT" optional="true"/>
         <attribute name="issuesWithoutPrice" type="Integer" mode="OUT" optional="true"/>
+        <attribute name="hoursSource" type="String" mode="OUT" optional="true"/>
+        <attribute name="routingHoursPerUnit" type="Double" mode="OUT" optional="true"/>
+        <attribute name="productStandardHours" type="Double" mode="OUT" optional="true"/>
+        <attribute name="outsourceAmount" type="Double" mode="OUT" optional="true"/>
+        <attribute name="differenceExOutsource" type="Double" mode="OUT" optional="true"/>
+        <attribute name="operations" type="java.util.List" mode="OUT" optional="true"/>
         <attribute name="message" type="String" mode="OUT" optional="true"/>
     </service>
 
@@ -603,6 +613,16 @@
         <attribute name="vendorId" type="String" mode="OUT" optional="true"/>
     </service>
 
+    <service name="mfgWorkOrderOutsourceSave" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgServices" invoke="workOrderOutsourceSave"
+            auth="false" use-transaction="false">
+        <description>Record the outsourced processing fee of a work order, kept apart from material and labour</description>
+        <attribute name="workOrderId" type="String" mode="IN" optional="false"/>
+        <attribute name="outsourceAmount" type="Double" mode="IN" optional="true"/>
+        <attribute name="workOrderId" type="String" mode="OUT" optional="true"/>
+        <attribute name="outsourceAmount" type="Double" mode="OUT" optional="true"/>
+    </service>
+
     <!-- ==================== warranty claims ==================== -->
 
     <service name="mfgClaimCreate" engine="java"
@@ -784,6 +804,26 @@
         <attribute name="fromDate" type="java.sql.Date" mode="OUT" optional="true"/>
         <attribute name="toDate" type="java.sql.Date" mode="OUT" optional="true"/>
         <attribute name="refreshedAt" type="String" mode="OUT" optional="true"/>
+    </service>
+
+    <service name="mfgTrendReport" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgServices" invoke="trendReport"
+            auth="false" use-transaction="false">
+        <description>Yield and labour hour trend per period (day, week or month) built from the work reports</description>
+        <attribute name="fromDate" type="String" mode="IN" optional="true"/>
+        <attribute name="toDate" type="String" mode="IN" optional="true"/>
+        <attribute name="groupBy" type="String" mode="IN" optional="true"/>
+        <attribute name="rows" type="java.util.List" mode="OUT" optional="true"/>
+        <attribute name="fromDate" type="java.sql.Date" mode="OUT" optional="true"/>
+        <attribute name="toDate" type="java.sql.Date" mode="OUT" optional="true"/>
+        <attribute name="groupBy" type="String" mode="OUT" optional="true"/>
+        <attribute name="qtyOkTotal" type="Long" mode="OUT" optional="true"/>
+        <attribute name="qtyNgTotal" type="Long" mode="OUT" optional="true"/>
+        <attribute name="hoursTotal" type="Double" mode="OUT" optional="true"/>
+        <attribute name="yieldRate" type="Double" mode="OUT" optional="true"/>
+        <attribute name="hoursPerUnit" type="Double" mode="OUT" optional="true"/>
+        <attribute name="worstRow" type="java.util.Map" mode="OUT" optional="true"/>
+        <attribute name="rowCount" type="Integer" mode="OUT" optional="true"/>
     </service>
 
     <service name="mfgAlerts" engine="java"
@@ -1052,6 +1092,51 @@
         <attribute name="stepId" type="String" mode="OUT" optional="true"/>
         <attribute name="statusId" type="String" mode="OUT" optional="true"/>
         <attribute name="lotId" type="String" mode="OUT" optional="true"/>
+    </service>
+
+    <service name="mfgDevStepIssueSave" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgServices" invoke="devStepIssueSave"
+            auth="false" use-transaction="false">
+        <description>Raise or update a problem found at one development step; the number is generated when it is empty</description>
+        <attribute name="issueId" type="String" mode="IN" optional="true"/>
+        <attribute name="projectCode" type="String" mode="IN" optional="true"/>
+        <attribute name="stepId" type="String" mode="IN" optional="true"/>
+        <attribute name="title" type="String" mode="IN" optional="true"/>
+        <attribute name="detail" type="String" mode="IN" optional="true"/>
+        <attribute name="severityId" type="String" mode="IN" optional="true"/>
+        <attribute name="statusId" type="String" mode="IN" optional="true"/>
+        <attribute name="ownerName" type="String" mode="IN" optional="true"/>
+        <attribute name="foundDate" type="String" mode="IN" optional="true"/>
+        <attribute name="dueDate" type="String" mode="IN" optional="true"/>
+        <attribute name="resolution" type="String" mode="IN" optional="true"/>
+        <attribute name="issueId" type="String" mode="OUT" optional="true"/>
+        <attribute name="projectCode" type="String" mode="OUT" optional="true"/>
+        <attribute name="statusId" type="String" mode="OUT" optional="true"/>
+    </service>
+
+    <service name="mfgDevStepIssueStatus" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgServices" invoke="devStepIssueStatus"
+            auth="false" use-transaction="false">
+        <description>Change only the status of one issue, used by the quick buttons of the project page</description>
+        <attribute name="issueId" type="String" mode="IN" optional="false"/>
+        <attribute name="statusId" type="String" mode="IN" optional="false"/>
+        <attribute name="resolution" type="String" mode="IN" optional="true"/>
+        <attribute name="issueId" type="String" mode="OUT" optional="true"/>
+        <attribute name="statusId" type="String" mode="OUT" optional="true"/>
+        <attribute name="closedDate" type="java.sql.Date" mode="OUT" optional="true"/>
+    </service>
+
+    <service name="mfgDevStepIssueList" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgServices" invoke="devStepIssueList"
+            auth="false" use-transaction="false">
+        <description>Issues of one development project with the open counts, newest first</description>
+        <attribute name="projectCode" type="String" mode="IN" optional="true"/>
+        <attribute name="statusId" type="String" mode="IN" optional="true"/>
+        <attribute name="openOnly" type="String" mode="IN" optional="true"/>
+        <attribute name="issues" type="java.util.List" mode="OUT" optional="true"/>
+        <attribute name="openCount" type="Integer" mode="OUT" optional="true"/>
+        <attribute name="totalCount" type="Integer" mode="OUT" optional="true"/>
+        <attribute name="highOpenCount" type="Integer" mode="OUT" optional="true"/>
     </service>
 
     <service name="mfgDevEcoSave" engine="java"
