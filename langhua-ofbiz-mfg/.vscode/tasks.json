@@ -35,6 +35,12 @@
 			"type": "shell",
 			"command": "powershell -NoProfile -ExecutionPolicy Bypass -File F:\\build-ofbiz\\git-commit.ps1",
 			"group": "build"
+		},
+		{
+			"label": "mfg-commit",
+			"type": "shell",
+			"command": "powershell -NoProfile -ExecutionPolicy Bypass -File F:\\build-ofbiz\\mfg-commit.ps1",
+			"group": "build"
 		}
 	]
 }

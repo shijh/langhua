@@ -118,6 +118,31 @@ public final class MfgServices {
     /** Hours left before a deadline is flagged as expiring soon. */
     public static final long DEADLINE_WARNING_HOURS = 24L;
 
+    public static final String BOM_DRAFT = "MFG_BOM_DRAFT";
+    public static final String BOM_RELEASED = "MFG_BOM_RELEASED";
+    public static final String BOM_OBSOLETE = "MFG_BOM_OBSOLETE";
+
+    public static final String DEV_ACTIVE = "MFG_DEV_ACTIVE";
+    public static final String DEV_ONHOLD = "MFG_DEV_ONHOLD";
+    public static final String DEV_DONE = "MFG_DEV_DONE";
+    public static final String DEV_CANCELLED = "MFG_DEV_CANCELLED";
+
+    public static final String REVIEW_PASS = "MFG_REVIEW_PASS";
+    public static final String REVIEW_CONDITIONAL = "MFG_REVIEW_CONDITIONAL";
+    public static final String REVIEW_FAIL = "MFG_REVIEW_FAIL";
+
+    public static final String ECO_DRAFT = "MFG_ECO_DRAFT";
+    public static final String ECO_APPROVED = "MFG_ECO_APPROVED";
+    public static final String ECO_APPLIED = "MFG_ECO_APPLIED";
+    public static final String ECO_CANCELLED = "MFG_ECO_CANCELLED";
+
+    /** Stages a new model walks through, in order; the last one is mass production. */
+    public static final String[] DEV_STAGES = {
+        "MFG_STAGE_CONCEPT", "MFG_STAGE_DESIGN", "MFG_STAGE_PROTOTYPE", "MFG_STAGE_TRIAL", "MFG_STAGE_MASS"};
+
+    /** Suffix between the model code and the version number of a BOM version identifier. */
+    public static final String BOM_VERSION_SEPARATOR = "-V";
+
     private static final DateTimeFormatter DAY = DateTimeFormatter.ofPattern("yyMMdd");
     private static final DateTimeFormatter MONTH_DAY = DateTimeFormatter.ofPattern("MM-dd");
 
@@ -149,6 +174,10 @@ public final class MfgServices {
             product.set("salePrice", Double.valueOf(toDouble(context.get("salePrice"), 0.0)));
             String statusId = toText(context.get("statusId"));
             product.set("statusId", statusId == null ? STATUS_ACTIVE : statusId);
+            String devStageId = toText(context.get("devStageId"));
+            if (devStageId != null) {
+                product.set("devStageId", devStageId);
+            }
             product.set("note", toText(context.get("note")));
             delegator.createOrStore(product);
 
@@ -161,13 +190,16 @@ public final class MfgServices {
     }
 
     /**
-     * Imports BOM lines from CSV text. Each line is
+     * Imports BOM lines from CSV text into one BOM version. Each line is
      * {@code componentCode,componentName,qty,designators,isKeyPart}. When {@code replace} is
-     * {@code Y} the existing BOM of the model is removed first.
+     * {@code Y} the existing lines of that version are removed first.
+     *
+     * <p>The version is the one given in {@code bomVersionId}, otherwise the version the model
+     * currently uses, otherwise a fresh version 1 that is created on the fly.
      *
      * @param dctx the dispatch context
      * @param context service context, see {@code servicedef/services.xml#mfgBomImport}
-     * @return the service result containing {@code importedCount}
+     * @return the service result containing {@code bomVersionId} and {@code importedCount}
      */
     public static Map<String, Object> bomImport(DispatchContext dctx, Map<String, ? extends Object> context) {
         Delegator delegator = dctx.getDelegator();
@@ -184,14 +216,29 @@ public final class MfgServices {
             return ServiceUtil.returnError("No BOM line could be parsed, expected componentCode,componentName,qty,designators,isKeyPart");
         }
         try {
-            if (!"N".equals(toText(context.get("replace")))) {
-                delegator.removeByAnd("MfgBomItem", "productCode", productCode);
+            if (EntityQuery.use(delegator).from("MfgProduct").where("productCode", productCode).queryOne() == null) {
+                return ServiceUtil.returnError("Unknown product model [" + productCode + "], create it first");
             }
-            long lineSeq = 10;
+            String bomVersionId = toText(context.get("bomVersionId"));
+            if (bomVersionId != null) {
+                if (EntityQuery.use(delegator).from("MfgBomVersion")
+                        .where("bomVersionId", bomVersionId).queryOne() == null) {
+                    return ServiceUtil.returnError("Unknown BOM version [" + bomVersionId + "]");
+                }
+            } else {
+                bomVersionId = currentBomVersionId(delegator, productCode);
+                if (bomVersionId == null) {
+                    bomVersionId = createBomVersion(delegator, productCode, null, "Y", "Imported BOM");
+                }
+            }
+            if (!"N".equals(toText(context.get("replace")))) {
+                delegator.removeByAnd("MfgBomVersionItem", "bomVersionId", bomVersionId);
+            }
+            long lineSeq = nextBomLineSeq(delegator, bomVersionId);
             int imported = 0;
             for (String[] row : rows) {
-                GenericValue item = delegator.makeValue("MfgBomItem");
-                item.set("productCode", productCode);
+                GenericValue item = delegator.makeValue("MfgBomVersionItem");
+                item.set("bomVersionId", bomVersionId);
                 item.set("lineSeq", Long.valueOf(lineSeq));
                 item.set("componentCode", row[0]);
                 item.set("componentName", row[1] == null ? row[0] : row[1]);
@@ -204,6 +251,7 @@ public final class MfgServices {
             }
             Map<String, Object> result = ServiceUtil.returnSuccess();
             result.put("productCode", productCode);
+            result.put("bomVersionId", bomVersionId);
             // String, so that the value can be carried by the redirect to the product page
             result.put("importedCount", String.valueOf(imported));
             return result;
@@ -283,6 +331,7 @@ public final class MfgServices {
             order.set("dueDate", parseDate(context.get("dueDate")));
             order.set("customerName", toText(context.get("customerName")));
             order.set("smtVendor", toText(context.get("smtVendor")));
+            order.set("bomVersionId", currentBomVersionId(delegator, productCode));
             order.set("note", toText(context.get("note")));
             delegator.create(order);
 
@@ -1430,10 +1479,8 @@ public final class MfgServices {
      */
     private static List<Map<String, Object>> kittingLines(Delegator delegator, GenericValue order)
             throws GenericEntityException {
-        String productCode = order.getString("productCode");
         long plannedQty = toLong(order.get("plannedQty"), 0);
-        List<GenericValue> bomItems = EntityQuery.use(delegator).from("MfgBomItem")
-                .where("productCode", productCode).orderBy("lineSeq").queryList();
+        List<GenericValue> bomItems = bomItemsForOrder(delegator, order);
         List<GenericValue> issues = EntityQuery.use(delegator).from("MfgMaterialIssue")
                 .where("workOrderId", order.getString("workOrderId")).queryList();
 
@@ -4307,7 +4354,11 @@ always
                 map.put("warrantyMonths", product.getLong("warrantyMonths"));
                 map.put("salePrice", product.getDouble("salePrice"));
                 map.put("statusId", product.getString("statusId"));
-                map.put("bomCount", Integer.valueOf(count(delegator, "MfgBomItem", productCode)));
+                map.put("devStageId", product.getString("devStageId"));
+                String currentVersion = currentBomVersionId(delegator, productCode);
+                map.put("currentBomVersionId", currentVersion);
+                map.put("bomCount", Integer.valueOf(currentVersion == null ? 0 : bomItemsOfVersion(delegator, currentVersion).size()));
+                map.put("versionCount", Integer.valueOf(bomVersionCount(delegator, productCode)));
                 map.put("routingCount", Integer.valueOf(count(delegator, "MfgRouting", productCode)));
                 list.add(map);
             }
@@ -4349,8 +4400,9 @@ always
             }
             GenericValue product = EntityQuery.use(delegator).from("MfgProduct")
                     .where("productCode", productCode).queryOne();
-            List<GenericValue> bomItems = EntityQuery.use(delegator).from("MfgBomItem")
-                    .where("productCode", productCode).orderBy("lineSeq").queryList();
+            String currentVersion = currentBomVersionId(delegator, productCode);
+            List<GenericValue> bomItems = currentVersion == null ? new ArrayList<GenericValue>()
+                    : bomItemsOfVersion(delegator, currentVersion);
             List<GenericValue> routings = EntityQuery.use(delegator).from("MfgRouting")
                     .where("productCode", productCode).orderBy("opSeq").queryList();
 
@@ -4378,6 +4430,7 @@ always
             if (product != null) {
                 result.put("product", newMapWithProduct(product));
             }
+            result.put("bomVersionId", currentVersion);
             result.put("bomItems", bomMaps);
             result.put("routings", routingMaps);
             return result;
@@ -4395,7 +4448,1113 @@ always
         map.put("warrantyMonths", product.getLong("warrantyMonths"));
         map.put("salePrice", product.getDouble("salePrice"));
         map.put("statusId", product.getString("statusId"));
+        map.put("devStageId", product.getString("devStageId"));
+        map.put("currentBomVersionId", product.getString("currentBomVersionId"));
         map.put("note", product.getString("note"));
         return map;
+    }
+
+    // ==================================================================
+    // BOM versions
+    // ==================================================================
+
+    /**
+     * Builds the identifier of one BOM version, {@code model-Vnumber}.
+     *
+     * @param productCode the model code
+     * @param versionNo the version number, starting at 1
+     * @return the version identifier, e.g. {@code BT5-V2}
+     */
+    static String formatBomVersionId(String productCode, long versionNo) {
+        return productCode + BOM_VERSION_SEPARATOR + versionNo;
+    }
+
+    /**
+     * Returns the next version number of a model.
+     *
+     * @param versionIds the identifiers of the versions that already exist
+     * @param productCode the model code
+     * @return one more than the highest version number found, 1 when there is none
+     */
+    static long nextBomVersionNo(List<String> versionIds, String productCode) {
+        String prefix = productCode + BOM_VERSION_SEPARATOR;
+        int max = 0;
+        for (String versionId : versionIds) {
+            if (versionId != null && versionId.startsWith(prefix)) {
+                max = Math.max(max, parseTrailingNumber(versionId.substring(prefix.length())));
+            }
+        }
+        return max + 1L;
+    }
+
+    private static List<String> versionIds(Delegator delegator, String productCode) throws GenericEntityException {
+        List<String> ids = new ArrayList<>();
+        for (GenericValue version : bomVersionsOf(delegator, productCode)) {
+            ids.add(version.getString("bomVersionId"));
+        }
+        return ids;
+    }
+
+    private static List<GenericValue> bomVersionsOf(Delegator delegator, String productCode)
+            throws GenericEntityException {
+        return EntityQuery.use(delegator).from("MfgBomVersion")
+                .where("productCode", productCode).orderBy("-versionNo").queryList();
+    }
+
+    private static int bomVersionCount(Delegator delegator, String productCode) {
+        try {
+            return bomVersionsOf(delegator, productCode).size();
+        } catch (GenericEntityException e) {
+            return 0;
+        }
+    }
+
+    private static List<GenericValue> bomItemsOfVersion(Delegator delegator, String bomVersionId)
+            throws GenericEntityException {
+        return EntityQuery.use(delegator).from("MfgBomVersionItem")
+                .where("bomVersionId", bomVersionId).orderBy("lineSeq").queryList();
+    }
+
+    /**
+     * Returns the line number a new BOM line of this version gets: ten more than the highest one in
+     * use, so that appending never collides with an existing line.
+     *
+     * @param delegator the delegator
+     * @param bomVersionId the version
+     * @return the next free line number, 10 for an empty version
+     * @throws GenericEntityException when the version cannot be read
+     */
+    static long nextBomLineSeq(Delegator delegator, String bomVersionId) throws GenericEntityException {
+        long max = 0;
+        for (GenericValue item : bomItemsOfVersion(delegator, bomVersionId)) {
+            Long lineSeq = item.getLong("lineSeq");
+            if (lineSeq != null) {
+                max = Math.max(max, lineSeq.longValue());
+            }
+        }
+        return max + 10L;
+    }
+
+    /**
+     * Returns the BOM version the model currently uses, freezing the old single BOM table into a
+     * released version the first time a model that only has the old rows is read.
+     *
+     * @param delegator the delegator
+     * @param productCode the model code
+     * @return the version identifier, {@code null} when the model has no BOM at all
+     */
+    static String currentBomVersionId(Delegator delegator, String productCode) {
+        try {
+            if (productCode == null) {
+                return null;
+            }
+            GenericValue product = EntityQuery.use(delegator).from("MfgProduct")
+                    .where("productCode", productCode).queryOne();
+            if (product == null) {
+                return null;
+            }
+            String current = toText(product.getString("currentBomVersionId"));
+            if (current != null && EntityQuery.use(delegator).from("MfgBomVersion")
+                    .where("bomVersionId", current).queryOne() != null) {
+                return current;
+            }
+            List<GenericValue> legacy = EntityQuery.use(delegator).from("MfgBomItem")
+                    .where("productCode", productCode).orderBy("lineSeq").queryList();
+            if (legacy.isEmpty()) {
+                return null;
+            }
+            long versionNo = nextBomVersionNo(versionIds(delegator, productCode), productCode);
+            String versionId = formatBomVersionId(productCode, versionNo);
+            GenericValue version = delegator.makeValue("MfgBomVersion");
+            version.set("bomVersionId", versionId);
+            version.set("productCode", productCode);
+            version.set("versionNo", Long.valueOf(versionNo));
+            version.set("statusId", BOM_RELEASED);
+            version.set("effectiveDate", java.sql.Date.valueOf(LocalDate.now()));
+            version.set("note", "Frozen from the single BOM table");
+            delegator.create(version);
+            long lineSeq = 10;
+            for (GenericValue item : legacy) {
+                GenericValue copy = delegator.makeValue("MfgBomVersionItem");
+                copy.set("bomVersionId", versionId);
+                copy.set("lineSeq", Long.valueOf(lineSeq));
+                copy.set("componentCode", item.getString("componentCode"));
+                copy.set("componentName", item.getString("componentName"));
+                copy.set("qty", item.getDouble("qty"));
+                copy.set("designators", item.getString("designators"));
+                copy.set("isKeyPart", item.getString("isKeyPart"));
+                delegator.create(copy);
+                lineSeq += 10;
+            }
+            product.set("currentBomVersionId", versionId);
+            product.store();
+            return versionId;
+        } catch (GenericEntityException e) {
+            return null;
+        }
+    }
+
+    /**
+     * BOM lines a work order is built with: the version frozen on the order, otherwise the one the
+     * model uses now.
+     *
+     * @param delegator the delegator
+     * @param order the work order
+     * @return the BOM lines, empty when the model has no BOM
+     * @throws GenericEntityException when the BOM cannot be read
+     */
+    private static List<GenericValue> bomItemsForOrder(Delegator delegator, GenericValue order)
+            throws GenericEntityException {
+        String versionId = toText(order.getString("bomVersionId"));
+        if (versionId == null) {
+            versionId = currentBomVersionId(delegator, order.getString("productCode"));
+        }
+        return versionId == null ? new ArrayList<GenericValue>() : bomItemsOfVersion(delegator, versionId);
+    }
+
+    private static String createBomVersion(Delegator delegator, String productCode, String ecoId,
+            String copyCurrent, String note) throws GenericEntityException {
+        long versionNo = nextBomVersionNo(versionIds(delegator, productCode), productCode);
+        String versionId = formatBomVersionId(productCode, versionNo);
+        String basis = currentBomVersionId(delegator, productCode);
+        GenericValue version = delegator.makeValue("MfgBomVersion");
+        version.set("bomVersionId", versionId);
+        version.set("productCode", productCode);
+        version.set("versionNo", Long.valueOf(versionNo));
+        version.set("statusId", BOM_DRAFT);
+        version.set("basisVersionId", basis);
+        version.set("ecoId", ecoId);
+        version.set("note", note);
+        delegator.create(version);
+        if (!"N".equals(copyCurrent) && basis != null) {
+            long lineSeq = 10;
+            for (GenericValue item : bomItemsOfVersion(delegator, basis)) {
+                GenericValue copy = delegator.makeValue("MfgBomVersionItem");
+                copy.set("bomVersionId", versionId);
+                copy.set("lineSeq", Long.valueOf(lineSeq));
+                copy.set("componentCode", item.getString("componentCode"));
+                copy.set("componentName", item.getString("componentName"));
+                copy.set("qty", item.getDouble("qty"));
+                copy.set("designators", item.getString("designators"));
+                copy.set("isKeyPart", item.getString("isKeyPart"));
+                delegator.create(copy);
+                lineSeq += 10;
+            }
+        }
+        return versionId;
+    }
+
+    private static Map<String, Object> toBomVersionMap(Delegator delegator, GenericValue version)
+            throws GenericEntityException {
+        Map<String, Object> map = new LinkedHashMap<>();
+        map.put("bomVersionId", version.getString("bomVersionId"));
+        map.put("productCode", version.getString("productCode"));
+        map.put("versionNo", version.getLong("versionNo"));
+        map.put("statusId", version.getString("statusId"));
+        map.put("effectiveDate", version.get("effectiveDate"));
+        map.put("basisVersionId", version.getString("basisVersionId"));
+        map.put("ecoId", version.getString("ecoId"));
+        map.put("note", version.getString("note"));
+        map.put("itemCount", Integer.valueOf(bomItemsOfVersion(delegator, version.getString("bomVersionId")).size()));
+        return map;
+    }
+
+    /**
+     * Creates the next BOM version of a model as a draft, copying the current lines by default.
+     *
+     * @param dctx the dispatch context
+     * @param context service context, see {@code servicedef/services.xml#mfgBomVersionCreate}
+     * @return the service result containing {@code bomVersionId}
+     */
+    public static Map<String, Object> bomVersionCreate(DispatchContext dctx, Map<String, ? extends Object> context) {
+        Delegator delegator = dctx.getDelegator();
+        String productCode = toText(context.get("productCode"));
+        if (productCode == null) {
+            return ServiceUtil.returnError("productCode is required");
+        }
+        try {
+            if (EntityQuery.use(delegator).from("MfgProduct").where("productCode", productCode).queryOne() == null) {
+                return ServiceUtil.returnError("Unknown product model [" + productCode + "], create it first");
+            }
+            String copyCurrent = toText(context.get("copyCurrent"));
+            String versionId = createBomVersion(delegator, productCode, toText(context.get("ecoId")),
+                    copyCurrent == null ? "Y" : copyCurrent, toText(context.get("note")));
+            GenericValue version = EntityQuery.use(delegator).from("MfgBomVersion")
+                    .where("bomVersionId", versionId).queryOne();
+            Map<String, Object> result = ServiceUtil.returnSuccess();
+            result.put("bomVersionId", versionId);
+            result.put("versionNo", version.getLong("versionNo"));
+            result.put("copiedCount", Long.valueOf(bomItemsOfVersion(delegator, versionId).size()));
+            return result;
+        } catch (GenericEntityException e) {
+            return ServiceUtil.returnError("Could not create the BOM version: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Makes a BOM version the one in use. The version becomes released and the other released
+     * versions of the same model become obsolete.
+     *
+     * @param dctx the dispatch context
+     * @param context service context, see {@code servicedef/services.xml#mfgBomVersionActivate}
+     * @return the service result containing {@code bomVersionId} and {@code replacedVersionId}
+     */
+    public static Map<String, Object> bomVersionActivate(DispatchContext dctx, Map<String, ? extends Object> context) {
+        Delegator delegator = dctx.getDelegator();
+        String bomVersionId = toText(context.get("bomVersionId"));
+        if (bomVersionId == null) {
+            return ServiceUtil.returnError("bomVersionId is required");
+        }
+        try {
+            GenericValue version = EntityQuery.use(delegator).from("MfgBomVersion")
+                    .where("bomVersionId", bomVersionId).queryOne();
+            if (version == null) {
+                return ServiceUtil.returnError("Unknown BOM version [" + bomVersionId + "]");
+            }
+            String productCode = version.getString("productCode");
+            GenericValue product = EntityQuery.use(delegator).from("MfgProduct")
+                    .where("productCode", productCode).queryOne();
+            String replaced = product == null ? null : toText(product.getString("currentBomVersionId"));
+            for (GenericValue other : bomVersionsOf(delegator, productCode)) {
+                if (!bomVersionId.equals(other.getString("bomVersionId"))
+                        && BOM_RELEASED.equals(other.getString("statusId"))) {
+                    other.set("statusId", BOM_OBSOLETE);
+                    other.store();
+                }
+            }
+            version.set("statusId", BOM_RELEASED);
+            version.set("effectiveDate", java.sql.Date.valueOf(LocalDate.now()));
+            version.store();
+            if (product != null) {
+                product.set("currentBomVersionId", bomVersionId);
+                product.store();
+            }
+            Map<String, Object> result = ServiceUtil.returnSuccess();
+            result.put("bomVersionId", bomVersionId);
+            result.put("productCode", productCode);
+            result.put("replacedVersionId", replaced);
+            return result;
+        } catch (GenericEntityException e) {
+            return ServiceUtil.returnError("Could not activate the BOM version: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Lists the BOM versions of one model, newest first.
+     *
+     * @param dctx the dispatch context
+     * @param context service context, see {@code servicedef/services.xml#mfgBomVersionList}
+     * @return the service result containing {@code bomVersions}
+     */
+    public static Map<String, Object> bomVersionList(DispatchContext dctx, Map<String, ? extends Object> context) {
+        Delegator delegator = dctx.getDelegator();
+        String productCode = toText(context.get("productCode"));
+        try {
+            List<GenericValue> versions = productCode == null
+                    ? EntityQuery.use(delegator).from("MfgBomVersion").orderBy("-createdStamp").queryList()
+                    : bomVersionsOf(delegator, productCode);
+            List<Map<String, Object>> list = new ArrayList<>(versions.size());
+            for (GenericValue version : versions) {
+                list.add(toBomVersionMap(delegator, version));
+            }
+            Map<String, Object> result = ServiceUtil.returnSuccess();
+            putPage(result, "bomVersions",
+                    filterByKeyword(list, toText(context.get("search")), "bomVersionId", "productCode",
+                            "statusId", "note"),
+                    pageOf(context), pageSizeOf(context), toText(context.get("search")));
+            return result;
+        } catch (GenericEntityException e) {
+            return ServiceUtil.returnError("Could not read the BOM versions: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Freezes the rows of the old single BOM table into a released version for the models that
+     * still only have those rows. Idempotent, so it can be called on every deployment.
+     *
+     * @param dctx the dispatch context
+     * @param context service context, see {@code servicedef/services.xml#mfgBomMigrateLegacy}
+     * @return the service result containing the migrated model codes
+     */
+    public static Map<String, Object> bomMigrateLegacy(DispatchContext dctx, Map<String, ? extends Object> context) {
+        Delegator delegator = dctx.getDelegator();
+        String productCode = toText(context.get("productCode"));
+        List<String> migrated = new ArrayList<>();
+        try {
+            List<GenericValue> products = productCode == null
+                    ? EntityQuery.use(delegator).from("MfgProduct").orderBy("productCode").queryList()
+                    : EntityQuery.use(delegator).from("MfgProduct").where("productCode", productCode).queryList();
+            for (GenericValue product : products) {
+                String code = product.getString("productCode");
+                String before = toText(product.getString("currentBomVersionId"));
+                String after = currentBomVersionId(delegator, code);
+                if (before == null && after != null) {
+                    migrated.add(code);
+                }
+            }
+            Map<String, Object> result = ServiceUtil.returnSuccess();
+            result.put("migratedProducts", migrated);
+            result.put("migratedCount", Long.valueOf(migrated.size()));
+            return result;
+        } catch (GenericEntityException e) {
+            return ServiceUtil.returnError("Could not migrate the legacy BOM: " + e.getMessage());
+        }
+    }
+
+    // ==================================================================
+    // Product development
+    // ==================================================================
+
+    /**
+     * Returns the stage that follows the given one.
+     *
+     * @param stageId the current stage
+     * @return the next stage, {@code null} when the stage is unknown or is already the last one
+     */
+    static String nextDevStage(String stageId) {
+        for (int i = 0; i < DEV_STAGES.length - 1; i++) {
+            if (DEV_STAGES[i].equals(stageId)) {
+                return DEV_STAGES[i + 1];
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Returns the zero based position of a stage in the ladder.
+     *
+     * @param stageId the stage
+     * @return the position, -1 when the stage is unknown
+     */
+    static int devStageIndex(String stageId) {
+        for (int i = 0; i < DEV_STAGES.length; i++) {
+            if (DEV_STAGES[i].equals(stageId)) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    /**
+     * Tells whether a gate review result lets the project move on.
+     *
+     * @param resultId the review result
+     * @return {@code true} for a pass and for a conditional pass
+     */
+    static boolean stageAdvancesOn(String resultId) {
+        return REVIEW_PASS.equals(resultId) || REVIEW_CONDITIONAL.equals(resultId);
+    }
+
+    static boolean isKnownDevStage(String stageId) {
+        return devStageIndex(stageId) >= 0;
+    }
+
+    static boolean isKnownReviewResult(String resultId) {
+        return REVIEW_PASS.equals(resultId) || REVIEW_CONDITIONAL.equals(resultId) || REVIEW_FAIL.equals(resultId);
+    }
+
+    static boolean isKnownDevStatus(String statusId) {
+        return DEV_ACTIVE.equals(statusId) || DEV_ONHOLD.equals(statusId) || DEV_DONE.equals(statusId)
+                || DEV_CANCELLED.equals(statusId);
+    }
+
+    static boolean isKnownEcoStatus(String statusId) {
+        return ECO_DRAFT.equals(statusId) || ECO_APPROVED.equals(statusId) || ECO_APPLIED.equals(statusId)
+                || ECO_CANCELLED.equals(statusId);
+    }
+
+    static boolean isKnownEcoType(String ecoTypeId) {
+        return "MFG_ECO_BOM".equals(ecoTypeId) || "MFG_ECO_PROCESS".equals(ecoTypeId)
+                || "MFG_ECO_DESIGN".equals(ecoTypeId) || "MFG_ECO_MATERIAL".equals(ecoTypeId);
+    }
+
+    /**
+     * Tells whether a change order may be applied: only an approved one, and only once.
+     *
+     * @param statusId the change order status
+     * @return {@code true} when applying it is allowed
+     */
+    static boolean ecoAppliable(String statusId) {
+        return ECO_APPROVED.equals(statusId);
+    }
+
+    /**
+     * Formats a development project number as {@code DEV-yyMMdd-NN}.
+     *
+     * @param date the creation day
+     * @param sequence the running number, starting at 1
+     * @return the formatted project number
+     */
+    static String formatDevProjectId(LocalDate date, int sequence) {
+        return "DEV-" + date.format(DAY) + "-" + String.format(Locale.ROOT, "%02d", sequence);
+    }
+
+    /**
+     * Formats a change order number as {@code ECO-yyMMdd-NN}.
+     *
+     * @param date the creation day
+     * @param sequence the running number, starting at 1
+     * @return the formatted change order number
+     */
+    static String formatEcoId(LocalDate date, int sequence) {
+        return "ECO-" + date.format(DAY) + "-" + String.format(Locale.ROOT, "%02d", sequence);
+    }
+
+    private static String nextDevProjectId(Delegator delegator, LocalDate today) throws GenericEntityException {
+        String prefix = "DEV-" + today.format(DAY) + "-";
+        int max = 0;
+        for (GenericValue project : EntityQuery.use(delegator).from("MfgDevProject").queryList()) {
+            String id = project.getString("projectCode");
+            if (id != null && id.startsWith(prefix)) {
+                max = Math.max(max, parseTrailingNumber(id.substring(prefix.length())));
+            }
+        }
+        return formatDevProjectId(today, max + 1);
+    }
+
+    private static String nextEcoId(Delegator delegator, LocalDate today) throws GenericEntityException {
+        String prefix = "ECO-" + today.format(DAY) + "-";
+        int max = 0;
+        for (GenericValue eco : EntityQuery.use(delegator).from("MfgDevEco").queryList()) {
+            String id = eco.getString("ecoId");
+            if (id != null && id.startsWith(prefix)) {
+                max = Math.max(max, parseTrailingNumber(id.substring(prefix.length())));
+            }
+        }
+        return formatEcoId(today, max + 1);
+    }
+
+    private static Map<String, Object> toDevProjectMap(Delegator delegator, GenericValue project)
+            throws GenericEntityException {
+        String projectCode = project.getString("projectCode");
+        String stageId = project.getString("stageId");
+        Map<String, Object> map = new LinkedHashMap<>();
+        map.put("projectCode", projectCode);
+        map.put("projectName", project.getString("projectName"));
+        map.put("productCode", project.getString("productCode"));
+        map.put("stageId", stageId);
+        map.put("stageIndex", Integer.valueOf(devStageIndex(stageId)));
+        map.put("statusId", project.getString("statusId"));
+        map.put("ownerName", project.getString("ownerName"));
+        map.put("targetCost", project.getDouble("targetCost"));
+        map.put("targetPrice", project.getDouble("targetPrice"));
+        map.put("plannedLaunchDate", project.get("plannedLaunchDate"));
+        map.put("actualLaunchDate", project.get("actualLaunchDate"));
+        map.put("note", project.getString("note"));
+        List<GenericValue> reviews = EntityQuery.use(delegator).from("MfgDevStageReview")
+                .where("projectCode", projectCode).queryList();
+        int passed = 0;
+        for (GenericValue review : reviews) {
+            if (stageAdvancesOn(review.getString("resultId"))) {
+                passed++;
+            }
+        }
+        map.put("reviewCount", Integer.valueOf(reviews.size()));
+        map.put("passedCount", Integer.valueOf(passed));
+        int openEcos = 0;
+        for (GenericValue eco : EntityQuery.use(delegator).from("MfgDevEco")
+                .where("projectCode", projectCode).queryList()) {
+            String status = eco.getString("statusId");
+            if (ECO_DRAFT.equals(status) || ECO_APPROVED.equals(status)) {
+                openEcos++;
+            }
+        }
+        map.put("openEcoCount", Integer.valueOf(openEcos));
+        return map;
+    }
+
+    private static Map<String, Object> toEcoMap(GenericValue eco) {
+        Map<String, Object> map = new LinkedHashMap<>();
+        map.put("ecoId", eco.getString("ecoId"));
+        map.put("productCode", eco.getString("productCode"));
+        map.put("projectCode", eco.getString("projectCode"));
+        map.put("ecoTypeId", eco.getString("ecoTypeId"));
+        map.put("reason", eco.getString("reason"));
+        map.put("changeSummary", eco.getString("changeSummary"));
+        map.put("statusId", eco.getString("statusId"));
+        map.put("fromBomVersionId", eco.getString("fromBomVersionId"));
+        map.put("toBomVersionId", eco.getString("toBomVersionId"));
+        map.put("requestedBy", eco.getString("requestedBy"));
+        map.put("approvedBy", eco.getString("approvedBy"));
+        map.put("requestedDate", eco.get("requestedDate"));
+        map.put("effectiveDate", eco.get("effectiveDate"));
+        map.put("note", eco.getString("note"));
+        return map;
+    }
+
+    /**
+     * Creates or updates a development project.
+     *
+     * @param dctx the dispatch context
+     * @param context service context, see {@code servicedef/services.xml#mfgDevProjectSave}
+     * @return the service result containing {@code projectCode}
+     */
+    public static Map<String, Object> devProjectSave(DispatchContext dctx, Map<String, ? extends Object> context) {
+        Delegator delegator = dctx.getDelegator();
+        String projectCode = toText(context.get("projectCode"));
+        String projectName = toText(context.get("projectName"));
+        String stageId = toText(context.get("stageId"));
+        String statusId = toText(context.get("statusId"));
+        if (stageId != null && !isKnownDevStage(stageId)) {
+            return ServiceUtil.returnError("Unknown development stage [" + stageId + "]");
+        }
+        if (statusId != null && !isKnownDevStatus(statusId)) {
+            return ServiceUtil.returnError("Unknown project status [" + statusId + "]");
+        }
+        try {
+            GenericValue project;
+            String isNew = "N";
+            if (projectCode == null) {
+                if (projectName == null) {
+                    return ServiceUtil.returnError("projectName is required for a new project");
+                }
+                projectCode = nextDevProjectId(delegator, LocalDate.now());
+                project = delegator.makeValue("MfgDevProject");
+                project.set("projectCode", projectCode);
+                project.set("stageId", stageId == null ? DEV_STAGES[0] : stageId);
+                project.set("statusId", statusId == null ? DEV_ACTIVE : statusId);
+                isNew = "Y";
+            } else {
+                project = EntityQuery.use(delegator).from("MfgDevProject")
+                        .where("projectCode", projectCode).queryOne();
+                if (project == null) {
+                    project = delegator.makeValue("MfgDevProject");
+                    project.set("projectCode", projectCode);
+                    project.set("stageId", stageId == null ? DEV_STAGES[0] : stageId);
+                    project.set("statusId", statusId == null ? DEV_ACTIVE : statusId);
+                    isNew = "Y";
+                } else {
+                    if (stageId != null) {
+                        project.set("stageId", stageId);
+                    }
+                    if (statusId != null) {
+                        project.set("statusId", statusId);
+                    }
+                }
+            }
+            if (projectName != null) {
+                project.set("projectName", projectName);
+            }
+            if (context.containsKey("productCode")) {
+                project.set("productCode", toText(context.get("productCode")));
+            }
+            if (context.containsKey("ownerName")) {
+                project.set("ownerName", toText(context.get("ownerName")));
+            }
+            if (context.containsKey("targetCost")) {
+                project.set("targetCost", Double.valueOf(toDouble(context.get("targetCost"), 0.0)));
+            }
+            if (context.containsKey("targetPrice")) {
+                project.set("targetPrice", Double.valueOf(toDouble(context.get("targetPrice"), 0.0)));
+            }
+            if (context.containsKey("plannedLaunchDate")) {
+                project.set("plannedLaunchDate", parseDate(context.get("plannedLaunchDate")));
+            }
+            if (context.containsKey("actualLaunchDate")) {
+                project.set("actualLaunchDate", parseDate(context.get("actualLaunchDate")));
+            }
+            if (context.containsKey("note")) {
+                project.set("note", toText(context.get("note")));
+            }
+            delegator.createOrStore(project);
+
+            Map<String, Object> result = ServiceUtil.returnSuccess();
+            result.put("projectCode", projectCode);
+            result.put("isNew", isNew);
+            return result;
+        } catch (GenericEntityException e) {
+            return ServiceUtil.returnError("Could not save the development project: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Lists development projects, newest first.
+     *
+     * @param dctx the dispatch context
+     * @param context service context, see {@code servicedef/services.xml#mfgDevProjectList}
+     * @return the service result containing {@code projects}
+     */
+    public static Map<String, Object> devProjectList(DispatchContext dctx, Map<String, ? extends Object> context) {
+        Delegator delegator = dctx.getDelegator();
+        String stageId = toText(context.get("stageId"));
+        String statusId = toText(context.get("statusId"));
+        try {
+            List<GenericValue> projects = EntityQuery.use(delegator).from("MfgDevProject")
+                    .orderBy("-createdStamp").queryList();
+            List<Map<String, Object>> list = new ArrayList<>(projects.size());
+            for (GenericValue project : projects) {
+                if (stageId != null && !stageId.equals(project.getString("stageId"))) {
+                    continue;
+                }
+                if (statusId != null && !statusId.equals(project.getString("statusId"))) {
+                    continue;
+                }
+                list.add(toDevProjectMap(delegator, project));
+            }
+            List<Map<String, Object>> stages = new ArrayList<>(DEV_STAGES.length);
+            for (String stage : DEV_STAGES) {
+                Map<String, Object> map = new LinkedHashMap<>();
+                map.put("stageId", stage);
+                map.put("stageIndex", Integer.valueOf(devStageIndex(stage)));
+                stages.add(map);
+            }
+            Map<String, Object> result = ServiceUtil.returnSuccess();
+            result.put("stages", stages);
+            result.put("stageId", stageId);
+            result.put("statusId", statusId);
+            putPage(result, "projects",
+                    filterByKeyword(list, toText(context.get("search")), "projectCode", "projectName",
+                            "productCode", "ownerName", "stageId", "statusId"),
+                    pageOf(context), pageSizeOf(context), toText(context.get("search")));
+            return result;
+        } catch (GenericEntityException e) {
+            return ServiceUtil.returnError("Could not read the development projects: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Returns one development project with its gate reviews and change orders.
+     *
+     * @param dctx the dispatch context
+     * @param context service context, see {@code servicedef/services.xml#mfgDevProjectDetail}
+     * @return the service result containing {@code project}, {@code reviews} and {@code ecos}
+     */
+    public static Map<String, Object> devProjectDetail(DispatchContext dctx, Map<String, ? extends Object> context) {
+        Delegator delegator = dctx.getDelegator();
+        String projectCode = toText(context.get("projectCode"));
+        if (projectCode == null) {
+            Map<String, Object> empty = ServiceUtil.returnSuccess();
+            empty.put("reviews", new ArrayList<Map<String, Object>>());
+            empty.put("ecos", new ArrayList<Map<String, Object>>());
+            return empty;
+        }
+        try {
+            GenericValue project = EntityQuery.use(delegator).from("MfgDevProject")
+                    .where("projectCode", projectCode).queryOne();
+            if (project == null) {
+                return ServiceUtil.returnError("Unknown development project [" + projectCode + "]");
+            }
+            List<GenericValue> stored = EntityQuery.use(delegator).from("MfgDevStageReview")
+                    .where("projectCode", projectCode).queryList();
+            Map<String, GenericValue> byStage = new LinkedHashMap<>();
+            for (GenericValue review : stored) {
+                byStage.put(review.getString("stageId"), review);
+            }
+            List<Map<String, Object>> reviews = new ArrayList<>(DEV_STAGES.length);
+            for (String stage : DEV_STAGES) {
+                GenericValue review = byStage.get(stage);
+                Map<String, Object> map = new LinkedHashMap<>();
+                map.put("stageId", stage);
+                map.put("stageIndex", Integer.valueOf(devStageIndex(stage)));
+                map.put("plannedDate", review == null ? null : review.get("plannedDate"));
+                map.put("doneDate", review == null ? null : review.get("doneDate"));
+                map.put("resultId", review == null ? null : review.getString("resultId"));
+                map.put("reviewer", review == null ? null : review.getString("reviewer"));
+                map.put("note", review == null ? null : review.getString("note"));
+                reviews.add(map);
+            }
+            List<Map<String, Object>> ecos = new ArrayList<>();
+            for (GenericValue eco : EntityQuery.use(delegator).from("MfgDevEco")
+                    .where("projectCode", projectCode).orderBy("-createdStamp").queryList()) {
+                ecos.add(toEcoMap(eco));
+            }
+            String stageId = project.getString("stageId");
+            Map<String, Object> projectMap = toDevProjectMap(delegator, project);
+            projectMap.put("nextStageId", nextDevStage(stageId));
+            Map<String, Object> result = ServiceUtil.returnSuccess();
+            result.put("project", projectMap);
+            result.put("reviews", reviews);
+            result.put("ecos", ecos);
+            result.put("stageIndex", Integer.valueOf(devStageIndex(stageId)));
+            return result;
+        } catch (GenericEntityException e) {
+            return ServiceUtil.returnError("Could not read the development project: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Records the gate review of one stage. A pass or a conditional pass moves the project to the
+     * next stage of the ladder.
+     *
+     * @param dctx the dispatch context
+     * @param context service context, see {@code servicedef/services.xml#mfgDevStageSave}
+     * @return the service result containing {@code stageId} and the new {@code projectStageId}
+     */
+    public static Map<String, Object> devStageSave(DispatchContext dctx, Map<String, ? extends Object> context) {
+        Delegator delegator = dctx.getDelegator();
+        String projectCode = toText(context.get("projectCode"));
+        String stageId = toText(context.get("stageId"));
+        String resultId = toText(context.get("resultId"));
+        if (projectCode == null) {
+            return ServiceUtil.returnError("projectCode is required");
+        }
+        if (stageId == null || !isKnownDevStage(stageId)) {
+            return ServiceUtil.returnError("Unknown development stage [" + stageId + "]");
+        }
+        if (resultId != null && !isKnownReviewResult(resultId)) {
+            return ServiceUtil.returnError("Unknown review result [" + resultId + "]");
+        }
+        try {
+            GenericValue project = EntityQuery.use(delegator).from("MfgDevProject")
+                    .where("projectCode", projectCode).queryOne();
+            if (project == null) {
+                return ServiceUtil.returnError("Unknown development project [" + projectCode + "]");
+            }
+            GenericValue review = delegator.makeValue("MfgDevStageReview");
+            review.set("projectCode", projectCode);
+            review.set("stageId", stageId);
+            review.set("plannedDate", parseDate(context.get("plannedDate")));
+            review.set("doneDate", parseDate(context.get("doneDate")));
+            review.set("resultId", resultId);
+            review.set("reviewer", toText(context.get("reviewer")));
+            review.set("note", toText(context.get("note")));
+            delegator.createOrStore(review);
+
+            String projectStageId = project.getString("stageId");
+            String next = nextDevStage(stageId);
+            if (stageAdvancesOn(resultId) && next != null
+                    && devStageIndex(next) > devStageIndex(projectStageId)) {
+                projectStageId = next;
+                project.set("stageId", next);
+                if (DEV_STAGES[DEV_STAGES.length - 1].equals(next)) {
+                    if (project.get("actualLaunchDate") == null) {
+                        project.set("actualLaunchDate", java.sql.Date.valueOf(LocalDate.now()));
+                    }
+                    project.set("statusId", DEV_DONE);
+                }
+                project.store();
+            }
+            Map<String, Object> result = ServiceUtil.returnSuccess();
+            result.put("projectCode", projectCode);
+            result.put("stageId", stageId);
+            result.put("projectStageId", projectStageId);
+            return result;
+        } catch (GenericEntityException e) {
+            return ServiceUtil.returnError("Could not save the stage review: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Raises or updates an engineering change order.
+     *
+     * @param dctx the dispatch context
+     * @param context service context, see {@code servicedef/services.xml#mfgDevEcoSave}
+     * @return the service result containing {@code ecoId}
+     */
+    public static Map<String, Object> devEcoSave(DispatchContext dctx, Map<String, ? extends Object> context) {
+        Delegator delegator = dctx.getDelegator();
+        String ecoId = toText(context.get("ecoId"));
+        String productCode = toText(context.get("productCode"));
+        String ecoTypeId = toText(context.get("ecoTypeId"));
+        if (productCode == null) {
+            return ServiceUtil.returnError("productCode is required");
+        }
+        if (ecoTypeId != null && !isKnownEcoType(ecoTypeId)) {
+            return ServiceUtil.returnError("Unknown change type [" + ecoTypeId + "]");
+        }
+        try {
+            if (EntityQuery.use(delegator).from("MfgProduct").where("productCode", productCode).queryOne() == null) {
+                return ServiceUtil.returnError("Unknown product model [" + productCode + "], create it first");
+            }
+            String toVersionId = toText(context.get("toBomVersionId"));
+            if (toVersionId != null) {
+                GenericValue toVersion = EntityQuery.use(delegator).from("MfgBomVersion")
+                        .where("bomVersionId", toVersionId).queryOne();
+                if (toVersion == null) {
+                    return ServiceUtil.returnError("Unknown BOM version [" + toVersionId + "]");
+                }
+                if (!productCode.equals(toVersion.getString("productCode"))) {
+                    return ServiceUtil.returnError("BOM version [" + toVersionId + "] belongs to another model");
+                }
+            }
+            GenericValue eco;
+            String isNew = "N";
+            if (ecoId == null) {
+                ecoId = nextEcoId(delegator, LocalDate.now());
+                eco = delegator.makeValue("MfgDevEco");
+                eco.set("ecoId", ecoId);
+                eco.set("productCode", productCode);
+                eco.set("statusId", ECO_DRAFT);
+                eco.set("requestedDate", java.sql.Date.valueOf(LocalDate.now()));
+                isNew = "Y";
+            } else {
+                eco = EntityQuery.use(delegator).from("MfgDevEco").where("ecoId", ecoId).queryOne();
+                if (eco == null) {
+                    eco = delegator.makeValue("MfgDevEco");
+                    eco.set("ecoId", ecoId);
+                    eco.set("productCode", productCode);
+                    eco.set("statusId", ECO_DRAFT);
+                    eco.set("requestedDate", java.sql.Date.valueOf(LocalDate.now()));
+                    isNew = "Y";
+                } else if (ECO_APPLIED.equals(eco.getString("statusId"))) {
+                    return ServiceUtil.returnError("Change order [" + ecoId + "] is already applied");
+                } else {
+                    eco.set("productCode", productCode);
+                }
+            }
+            if (ecoTypeId != null) {
+                eco.set("ecoTypeId", ecoTypeId);
+            }
+            if (context.containsKey("projectCode")) {
+                eco.set("projectCode", toText(context.get("projectCode")));
+            }
+            if (context.containsKey("reason")) {
+                eco.set("reason", toText(context.get("reason")));
+            }
+            if (context.containsKey("changeSummary")) {
+                eco.set("changeSummary", toText(context.get("changeSummary")));
+            }
+            if (context.containsKey("requestedBy")) {
+                eco.set("requestedBy", toText(context.get("requestedBy")));
+            }
+            if (context.containsKey("approvedBy")) {
+                eco.set("approvedBy", toText(context.get("approvedBy")));
+            }
+            if (context.containsKey("effectiveDate")) {
+                eco.set("effectiveDate", parseDate(context.get("effectiveDate")));
+            }
+            if (context.containsKey("note")) {
+                eco.set("note", toText(context.get("note")));
+            }
+            if (toVersionId != null) {
+                eco.set("toBomVersionId", toVersionId);
+            }
+            String fromVersionId = toText(context.get("fromBomVersionId"));
+            if (fromVersionId == null) {
+                fromVersionId = toText(eco.getString("fromBomVersionId"));
+            }
+            if (fromVersionId == null) {
+                fromVersionId = currentBomVersionId(delegator, productCode);
+            }
+            eco.set("fromBomVersionId", fromVersionId);
+            delegator.createOrStore(eco);
+
+            Map<String, Object> result = ServiceUtil.returnSuccess();
+            result.put("ecoId", ecoId);
+            result.put("isNew", isNew);
+            return result;
+        } catch (GenericEntityException e) {
+            return ServiceUtil.returnError("Could not save the change order: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Lists change orders, newest first.
+     *
+     * @param dctx the dispatch context
+     * @param context service context, see {@code servicedef/services.xml#mfgDevEcoList}
+     * @return the service result containing {@code ecos}
+     */
+    public static Map<String, Object> devEcoList(DispatchContext dctx, Map<String, ? extends Object> context) {
+        Delegator delegator = dctx.getDelegator();
+        String statusId = toText(context.get("statusId"));
+        String productCode = toText(context.get("productCode"));
+        try {
+            List<GenericValue> ecos = EntityQuery.use(delegator).from("MfgDevEco")
+                    .orderBy("-createdStamp").queryList();
+            List<Map<String, Object>> list = new ArrayList<>(ecos.size());
+            long open = 0;
+            for (GenericValue eco : ecos) {
+                String status = eco.getString("statusId");
+                if (ECO_DRAFT.equals(status) || ECO_APPROVED.equals(status)) {
+                    open++;
+                }
+                if (statusId != null && !statusId.equals(status)) {
+                    continue;
+                }
+                if (productCode != null && !productCode.equals(eco.getString("productCode"))) {
+                    continue;
+                }
+                list.add(toEcoMap(eco));
+            }
+            Map<String, Object> result = ServiceUtil.returnSuccess();
+            result.put("statusId", statusId);
+            result.put("openCount", Long.valueOf(open));
+            putPage(result, "ecos",
+                    filterByKeyword(list, toText(context.get("search")), "ecoId", "productCode", "projectCode",
+                            "ecoTypeId", "reason", "statusId", "requestedBy"),
+                    pageOf(context), pageSizeOf(context), toText(context.get("search")));
+            return result;
+        } catch (GenericEntityException e) {
+            return ServiceUtil.returnError("Could not read the change orders: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Returns one change order with the BOM versions it switches between.
+     *
+     * @param dctx the dispatch context
+     * @param context service context, see {@code servicedef/services.xml#mfgDevEcoDetail}
+     * @return the service result containing {@code eco}, {@code fromVersion}, {@code toVersion}
+     */
+    public static Map<String, Object> devEcoDetail(DispatchContext dctx, Map<String, ? extends Object> context) {
+        Delegator delegator = dctx.getDelegator();
+        String ecoId = toText(context.get("ecoId"));
+        if (ecoId == null) {
+            Map<String, Object> empty = ServiceUtil.returnSuccess();
+            empty.put("versions", new ArrayList<Map<String, Object>>());
+            return empty;
+        }
+        try {
+            GenericValue eco = EntityQuery.use(delegator).from("MfgDevEco").where("ecoId", ecoId).queryOne();
+            if (eco == null) {
+                return ServiceUtil.returnError("Unknown change order [" + ecoId + "]");
+            }
+            String productCode = eco.getString("productCode");
+            Map<String, Object> result = ServiceUtil.returnSuccess();
+            result.put("eco", toEcoMap(eco));
+            String fromId = toText(eco.getString("fromBomVersionId"));
+            String toId = toText(eco.getString("toBomVersionId"));
+            if (fromId != null) {
+                GenericValue from = EntityQuery.use(delegator).from("MfgBomVersion")
+                        .where("bomVersionId", fromId).queryOne();
+                if (from != null) {
+                    result.put("fromVersion", toBomVersionMap(delegator, from));
+                }
+            }
+            if (toId != null) {
+                GenericValue to = EntityQuery.use(delegator).from("MfgBomVersion")
+                        .where("bomVersionId", toId).queryOne();
+                if (to != null) {
+                    result.put("toVersion", toBomVersionMap(delegator, to));
+                }
+            }
+            List<Map<String, Object>> versions = new ArrayList<>();
+            for (GenericValue version : bomVersionsOf(delegator, productCode)) {
+                versions.add(toBomVersionMap(delegator, version));
+            }
+            result.put("versions", versions);
+            return result;
+        } catch (GenericEntityException e) {
+            return ServiceUtil.returnError("Could not read the change order: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Approves a draft change order.
+     *
+     * @param dctx the dispatch context
+     * @param context service context, see {@code servicedef/services.xml#mfgDevEcoApprove}
+     * @return the service result containing the new {@code statusId}
+     */
+    public static Map<String, Object> devEcoApprove(DispatchContext dctx, Map<String, ? extends Object> context) {
+        Delegator delegator = dctx.getDelegator();
+        String ecoId = toText(context.get("ecoId"));
+        if (ecoId == null) {
+            return ServiceUtil.returnError("ecoId is required");
+        }
+        try {
+            GenericValue eco = EntityQuery.use(delegator).from("MfgDevEco").where("ecoId", ecoId).queryOne();
+            if (eco == null) {
+                return ServiceUtil.returnError("Unknown change order [" + ecoId + "]");
+            }
+            if (!ECO_DRAFT.equals(eco.getString("statusId"))) {
+                return ServiceUtil.returnError("Only a draft change order can be approved, [" + ecoId
+                        + "] is " + eco.getString("statusId"));
+            }
+            eco.set("statusId", ECO_APPROVED);
+            eco.set("approvedBy", toText(context.get("approvedBy")));
+            eco.store();
+            Map<String, Object> result = ServiceUtil.returnSuccess();
+            result.put("ecoId", ecoId);
+            result.put("statusId", ECO_APPROVED);
+            return result;
+        } catch (GenericEntityException e) {
+            return ServiceUtil.returnError("Could not approve the change order: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Applies an approved change order: the model switches to the target BOM version when one is
+     * given.
+     *
+     * @param dctx the dispatch context
+     * @param context service context, see {@code servicedef/services.xml#mfgDevEcoApply}
+     * @return the service result containing the new {@code statusId}
+     */
+    public static Map<String, Object> devEcoApply(DispatchContext dctx, Map<String, ? extends Object> context) {
+        Delegator delegator = dctx.getDelegator();
+        String ecoId = toText(context.get("ecoId"));
+        if (ecoId == null) {
+            return ServiceUtil.returnError("ecoId is required");
+        }
+        try {
+            GenericValue eco = EntityQuery.use(delegator).from("MfgDevEco").where("ecoId", ecoId).queryOne();
+            if (eco == null) {
+                return ServiceUtil.returnError("Unknown change order [" + ecoId + "]");
+            }
+            String statusId = eco.getString("statusId");
+            if (!ecoAppliable(statusId)) {
+                return ServiceUtil.returnError("Only an approved change order can be applied, [" + ecoId
+                        + "] is " + statusId);
+            }
+            String toVersionId = toText(eco.getString("toBomVersionId"));
+            if (toVersionId != null) {
+                GenericValue version = EntityQuery.use(delegator).from("MfgBomVersion")
+                        .where("bomVersionId", toVersionId).queryOne();
+                if (version == null) {
+                    return ServiceUtil.returnError("Unknown BOM version [" + toVersionId + "]");
+                }
+                String productCode = eco.getString("productCode");
+                GenericValue product = EntityQuery.use(delegator).from("MfgProduct")
+                        .where("productCode", productCode).queryOne();
+                for (GenericValue other : bomVersionsOf(delegator, productCode)) {
+                    if (!toVersionId.equals(other.getString("bomVersionId"))
+                            && BOM_RELEASED.equals(other.getString("statusId"))) {
+                        other.set("statusId", BOM_OBSOLETE);
+                        other.store();
+                    }
+                }
+                version.set("statusId", BOM_RELEASED);
+                version.set("effectiveDate", java.sql.Date.valueOf(LocalDate.now()));
+                version.store();
+                if (product != null) {
+                    product.set("currentBomVersionId", toVersionId);
+                    product.store();
+                }
+            }
+            eco.set("statusId", ECO_APPLIED);
+            eco.set("effectiveDate", java.sql.Date.valueOf(LocalDate.now()));
+            eco.store();
+            Map<String, Object> result = ServiceUtil.returnSuccess();
+            result.put("ecoId", ecoId);
+            result.put("statusId", ECO_APPLIED);
+            result.put("bomVersionId", toVersionId);
+            return result;
+        } catch (GenericEntityException e) {
+            return ServiceUtil.returnError("Could not apply the change order: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Cancels a change order that has not been applied.
+     *
+     * @param dctx the dispatch context
+     * @param context service context, see {@code servicedef/services.xml#mfgDevEcoCancel}
+     * @return the service result containing the new {@code statusId}
+     */
+    public static Map<String, Object> devEcoCancel(DispatchContext dctx, Map<String, ? extends Object> context) {
+        Delegator delegator = dctx.getDelegator();
+        String ecoId = toText(context.get("ecoId"));
+        if (ecoId == null) {
+            return ServiceUtil.returnError("ecoId is required");
+        }
+        try {
+            GenericValue eco = EntityQuery.use(delegator).from("MfgDevEco").where("ecoId", ecoId).queryOne();
+            if (eco == null) {
+                return ServiceUtil.returnError("Unknown change order [" + ecoId + "]");
+            }
+            if (ECO_APPLIED.equals(eco.getString("statusId"))) {
+                return ServiceUtil.returnError("Change order [" + ecoId + "] is already applied, it cannot be cancelled");
+            }
+            eco.set("statusId", ECO_CANCELLED);
+            eco.store();
+            Map<String, Object> result = ServiceUtil.returnSuccess();
+            result.put("ecoId", ecoId);
+            result.put("statusId", ECO_CANCELLED);
+            return result;
+        } catch (GenericEntityException e) {
+            return ServiceUtil.returnError("Could not cancel the change order: " + e.getMessage());
+        }
     }
 }

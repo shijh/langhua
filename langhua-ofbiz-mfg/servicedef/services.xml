@@ -15,6 +15,7 @@
         <attribute name="warrantyMonths" type="Long" mode="IN" optional="true"/>
         <attribute name="salePrice" type="Double" mode="IN" optional="true"/>
         <attribute name="statusId" type="String" mode="IN" optional="true"/>
+        <attribute name="devStageId" type="String" mode="IN" optional="true"/>
         <attribute name="note" type="String" mode="IN" optional="true"/>
         <attribute name="productCode" type="String" mode="OUT" optional="true"/>
     </service>
@@ -51,8 +52,60 @@
         <attribute name="productCode" type="String" mode="IN" optional="false"/>
         <attribute name="csv" type="String" mode="IN" optional="false"/>
         <attribute name="replace" type="String" mode="IN" optional="true"/>
+        <attribute name="bomVersionId" type="String" mode="IN" optional="true"/>
         <attribute name="productCode" type="String" mode="OUT" optional="true"/>
+        <attribute name="bomVersionId" type="String" mode="OUT" optional="true"/>
         <attribute name="importedCount" type="String" mode="OUT" optional="true"/>
+    </service>
+
+    <!-- BOM versions: one product can keep several BOMs, the model points to the one in use -->
+
+    <service name="mfgBomVersionCreate" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgServices" invoke="bomVersionCreate"
+            auth="false" use-transaction="false">
+        <description>Create the next BOM version of a model as a draft, copying the current lines by default</description>
+        <attribute name="productCode" type="String" mode="IN" optional="false"/>
+        <attribute name="copyCurrent" type="String" mode="IN" optional="true"/>
+        <attribute name="ecoId" type="String" mode="IN" optional="true"/>
+        <attribute name="note" type="String" mode="IN" optional="true"/>
+        <attribute name="bomVersionId" type="String" mode="OUT" optional="true"/>
+        <attribute name="versionNo" type="Long" mode="OUT" optional="true"/>
+        <attribute name="copiedCount" type="Long" mode="OUT" optional="true"/>
+    </service>
+
+    <service name="mfgBomVersionActivate" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgServices" invoke="bomVersionActivate"
+            auth="false" use-transaction="false">
+        <description>Make a BOM version the one in use, the previous released version becomes obsolete</description>
+        <attribute name="bomVersionId" type="String" mode="IN" optional="false"/>
+        <attribute name="bomVersionId" type="String" mode="OUT" optional="true"/>
+        <attribute name="productCode" type="String" mode="OUT" optional="true"/>
+        <attribute name="replacedVersionId" type="String" mode="OUT" optional="true"/>
+    </service>
+
+    <service name="mfgBomVersionList" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgServices" invoke="bomVersionList"
+            auth="false" use-transaction="false">
+        <description>List the BOM versions of a model or of all models</description>
+        <attribute name="productCode" type="String" mode="IN" optional="true"/>
+        <attribute name="search" type="String" mode="IN" optional="true"/>
+        <attribute name="page" type="Long" mode="IN" optional="true"/>
+        <attribute name="pageSize" type="Long" mode="IN" optional="true"/>
+        <attribute name="bomVersions" type="java.util.List" mode="OUT" optional="true"/>
+        <attribute name="totalCount" type="Integer" mode="OUT" optional="true"/>
+        <attribute name="page" type="Long" mode="OUT" optional="true"/>
+        <attribute name="pageCount" type="Long" mode="OUT" optional="true"/>
+        <attribute name="pageSize" type="Long" mode="OUT" optional="true"/>
+        <attribute name="search" type="String" mode="OUT" optional="true"/>
+    </service>
+
+    <service name="mfgBomMigrateLegacy" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgServices" invoke="bomMigrateLegacy"
+            auth="false" use-transaction="false">
+        <description>Freeze the old single BOM table into version 1 for the models that still only have it</description>
+        <attribute name="productCode" type="String" mode="IN" optional="true"/>
+        <attribute name="migratedProducts" type="java.util.List" mode="OUT" optional="true"/>
+        <attribute name="migratedCount" type="Long" mode="OUT" optional="true"/>
     </service>
 
     <service name="mfgRoutingSave" engine="java"
@@ -667,5 +720,152 @@
         <description>Aggregate the after sales history per buyer and suggest a risk level</description>
         <attribute name="buyers" type="java.util.List" mode="OUT" optional="true"/>
         <attribute name="buyerCount" type="Integer" mode="OUT" optional="true"/>
+    </service>
+
+    <!-- ==================== product development ==================== -->
+
+    <service name="mfgDevProjectSave" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgServices" invoke="devProjectSave"
+            auth="false" use-transaction="false">
+        <description>Create or update a development project; the project number is generated when it is empty</description>
+        <attribute name="projectCode" type="String" mode="IN" optional="true"/>
+        <attribute name="projectName" type="String" mode="IN" optional="true"/>
+        <attribute name="productCode" type="String" mode="IN" optional="true"/>
+        <attribute name="stageId" type="String" mode="IN" optional="true"/>
+        <attribute name="statusId" type="String" mode="IN" optional="true"/>
+        <attribute name="ownerName" type="String" mode="IN" optional="true"/>
+        <attribute name="targetCost" type="Double" mode="IN" optional="true"/>
+        <attribute name="targetPrice" type="Double" mode="IN" optional="true"/>
+        <attribute name="plannedLaunchDate" type="String" mode="IN" optional="true"/>
+        <attribute name="actualLaunchDate" type="String" mode="IN" optional="true"/>
+        <attribute name="note" type="String" mode="IN" optional="true"/>
+        <attribute name="projectCode" type="String" mode="OUT" optional="true"/>
+        <attribute name="isNew" type="String" mode="OUT" optional="true"/>
+    </service>
+
+    <service name="mfgDevProjectList" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgServices" invoke="devProjectList"
+            auth="false" use-transaction="false">
+        <description>List development projects with their stage, gate progress and open change orders</description>
+        <attribute name="search" type="String" mode="IN" optional="true"/>
+        <attribute name="stageId" type="String" mode="IN" optional="true"/>
+        <attribute name="statusId" type="String" mode="IN" optional="true"/>
+        <attribute name="page" type="Long" mode="IN" optional="true"/>
+        <attribute name="pageSize" type="Long" mode="IN" optional="true"/>
+        <attribute name="projects" type="java.util.List" mode="OUT" optional="true"/>
+        <attribute name="stages" type="java.util.List" mode="OUT" optional="true"/>
+        <attribute name="stageId" type="String" mode="OUT" optional="true"/>
+        <attribute name="statusId" type="String" mode="OUT" optional="true"/>
+        <attribute name="totalCount" type="Integer" mode="OUT" optional="true"/>
+        <attribute name="page" type="Long" mode="OUT" optional="true"/>
+        <attribute name="pageCount" type="Long" mode="OUT" optional="true"/>
+        <attribute name="pageSize" type="Long" mode="OUT" optional="true"/>
+        <attribute name="search" type="String" mode="OUT" optional="true"/>
+    </service>
+
+    <service name="mfgDevProjectDetail" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgServices" invoke="devProjectDetail"
+            auth="false" use-transaction="false">
+        <description>One development project with its gate reviews and change orders</description>
+        <attribute name="projectCode" type="String" mode="IN" optional="true"/>
+        <attribute name="project" type="java.util.Map" mode="OUT" optional="true"/>
+        <attribute name="reviews" type="java.util.List" mode="OUT" optional="true"/>
+        <attribute name="ecos" type="java.util.List" mode="OUT" optional="true"/>
+        <attribute name="stageIndex" type="Long" mode="OUT" optional="true"/>
+    </service>
+
+    <service name="mfgDevStageSave" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgServices" invoke="devStageSave"
+            auth="false" use-transaction="false">
+        <description>Record a gate review; passing it moves the project to the next stage</description>
+        <attribute name="projectCode" type="String" mode="IN" optional="false"/>
+        <attribute name="stageId" type="String" mode="IN" optional="false"/>
+        <attribute name="plannedDate" type="String" mode="IN" optional="true"/>
+        <attribute name="doneDate" type="String" mode="IN" optional="true"/>
+        <attribute name="resultId" type="String" mode="IN" optional="true"/>
+        <attribute name="reviewer" type="String" mode="IN" optional="true"/>
+        <attribute name="note" type="String" mode="IN" optional="true"/>
+        <attribute name="projectCode" type="String" mode="OUT" optional="true"/>
+        <attribute name="stageId" type="String" mode="OUT" optional="true"/>
+        <attribute name="projectStageId" type="String" mode="OUT" optional="true"/>
+    </service>
+
+    <service name="mfgDevEcoSave" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgServices" invoke="devEcoSave"
+            auth="false" use-transaction="false">
+        <description>Raise or update an engineering change order; the number is generated when it is empty</description>
+        <attribute name="ecoId" type="String" mode="IN" optional="true"/>
+        <attribute name="productCode" type="String" mode="IN" optional="false"/>
+        <attribute name="projectCode" type="String" mode="IN" optional="true"/>
+        <attribute name="ecoTypeId" type="String" mode="IN" optional="true"/>
+        <attribute name="reason" type="String" mode="IN" optional="true"/>
+        <attribute name="changeSummary" type="String" mode="IN" optional="true"/>
+        <attribute name="requestedBy" type="String" mode="IN" optional="true"/>
+        <attribute name="approvedBy" type="String" mode="IN" optional="true"/>
+        <attribute name="effectiveDate" type="String" mode="IN" optional="true"/>
+        <attribute name="fromBomVersionId" type="String" mode="IN" optional="true"/>
+        <attribute name="toBomVersionId" type="String" mode="IN" optional="true"/>
+        <attribute name="note" type="String" mode="IN" optional="true"/>
+        <attribute name="ecoId" type="String" mode="OUT" optional="true"/>
+        <attribute name="isNew" type="String" mode="OUT" optional="true"/>
+    </service>
+
+    <service name="mfgDevEcoList" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgServices" invoke="devEcoList"
+            auth="false" use-transaction="false">
+        <description>List change orders, newest first</description>
+        <attribute name="search" type="String" mode="IN" optional="true"/>
+        <attribute name="statusId" type="String" mode="IN" optional="true"/>
+        <attribute name="productCode" type="String" mode="IN" optional="true"/>
+        <attribute name="page" type="Long" mode="IN" optional="true"/>
+        <attribute name="pageSize" type="Long" mode="IN" optional="true"/>
+        <attribute name="ecos" type="java.util.List" mode="OUT" optional="true"/>
+        <attribute name="statusId" type="String" mode="OUT" optional="true"/>
+        <attribute name="openCount" type="Long" mode="OUT" optional="true"/>
+        <attribute name="totalCount" type="Integer" mode="OUT" optional="true"/>
+        <attribute name="page" type="Long" mode="OUT" optional="true"/>
+        <attribute name="pageCount" type="Long" mode="OUT" optional="true"/>
+        <attribute name="pageSize" type="Long" mode="OUT" optional="true"/>
+        <attribute name="search" type="String" mode="OUT" optional="true"/>
+    </service>
+
+    <service name="mfgDevEcoDetail" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgServices" invoke="devEcoDetail"
+            auth="false" use-transaction="false">
+        <description>One change order with the BOM versions it switches between</description>
+        <attribute name="ecoId" type="String" mode="IN" optional="true"/>
+        <attribute name="eco" type="java.util.Map" mode="OUT" optional="true"/>
+        <attribute name="fromVersion" type="java.util.Map" mode="OUT" optional="true"/>
+        <attribute name="toVersion" type="java.util.Map" mode="OUT" optional="true"/>
+        <attribute name="versions" type="java.util.List" mode="OUT" optional="true"/>
+    </service>
+
+    <service name="mfgDevEcoApprove" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgServices" invoke="devEcoApprove"
+            auth="false" use-transaction="false">
+        <description>Approve a draft change order so that it can be applied</description>
+        <attribute name="ecoId" type="String" mode="IN" optional="false"/>
+        <attribute name="approvedBy" type="String" mode="IN" optional="true"/>
+        <attribute name="ecoId" type="String" mode="OUT" optional="true"/>
+        <attribute name="statusId" type="String" mode="OUT" optional="true"/>
+    </service>
+
+    <service name="mfgDevEcoApply" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgServices" invoke="devEcoApply"
+            auth="false" use-transaction="false">
+        <description>Apply an approved change order and switch the model to its target BOM version</description>
+        <attribute name="ecoId" type="String" mode="IN" optional="false"/>
+        <attribute name="ecoId" type="String" mode="OUT" optional="true"/>
+        <attribute name="statusId" type="String" mode="OUT" optional="true"/>
+        <attribute name="bomVersionId" type="String" mode="OUT" optional="true"/>
+    </service>
+
+    <service name="mfgDevEcoCancel" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgServices" invoke="devEcoCancel"
+            auth="false" use-transaction="false">
+        <description>Cancel a change order that is not applied yet</description>
+        <attribute name="ecoId" type="String" mode="IN" optional="false"/>
+        <attribute name="ecoId" type="String" mode="OUT" optional="true"/>
+        <attribute name="statusId" type="String" mode="OUT" optional="true"/>
     </service>
 </services>

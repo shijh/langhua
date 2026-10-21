@@ -4,6 +4,8 @@
 
     <entity-group group="org.apache.ofbiz" entity="MfgProduct"/>
     <entity-group group="org.apache.ofbiz" entity="MfgBomItem"/>
+    <entity-group group="org.apache.ofbiz" entity="MfgBomVersion"/>
+    <entity-group group="org.apache.ofbiz" entity="MfgBomVersionItem"/>
     <entity-group group="org.apache.ofbiz" entity="MfgRouting"/>
     <entity-group group="org.apache.ofbiz" entity="MfgWorkOrder"/>
     <entity-group group="org.apache.ofbiz" entity="MfgSn"/>
@@ -19,4 +21,7 @@
     <entity-group group="org.apache.ofbiz" entity="MfgVendor"/>
     <entity-group group="org.apache.ofbiz" entity="MfgWarrantyClaim"/>
     <entity-group group="org.apache.ofbiz" entity="MfgBuyerFlag"/>
+    <entity-group group="org.apache.ofbiz" entity="MfgDevProject"/>
+    <entity-group group="org.apache.ofbiz" entity="MfgDevStageReview"/>
+    <entity-group group="org.apache.ofbiz" entity="MfgDevEco"/>
 </entitygroup>

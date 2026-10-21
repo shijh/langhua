@@ -16,6 +16,8 @@
         <field name="warrantyMonths" type="numeric"><description>Warranty in months from the delivery date, 12 when empty</description></field>
         <field name="salePrice" type="currency-amount"><description>Typical selling price, used to turn the after sales cost into a percentage</description></field>
         <field name="statusId" type="id"><description>MFG_ACTIVE or MFG_INACTIVE</description></field>
+        <field name="devStageId" type="id"><description>MFG_STAGE_CONCEPT, DESIGN, PROTOTYPE, TRIAL or MASS, kept independent from the development projects</description></field>
+        <field name="currentBomVersionId" type="id"><description>BOM version in use, set when a version is activated</description></field>
         <field name="note" type="description"/>
         <field name="createdStamp" type="date-time"/>
         <field name="createdTxStamp" type="date-time"/>
@@ -44,6 +46,54 @@
         <prim-key field="lineSeq"/>
         <relation type="one" fk-name="MFG_BOM_PRODUCT" rel-entity-name="MfgProduct">
             <key-map field-name="productCode"/>
+        </relation>
+    </entity>
+
+    <entity entity-name="MfgBomVersion"
+            package-name="org.langhua.ofbiz.mfg"
+            title="BOM version">
+        <description>One BOM version of a product model; the product points to the version in use and change orders point to the versions they introduce</description>
+        <field name="bomVersionId" type="id"><description>Model code plus version number, e.g. BT5-V2</description></field>
+        <field name="productCode" type="id"><description>Parent model</description></field>
+        <field name="versionNo" type="numeric"><description>Version number, 1 for the first BOM of the model</description></field>
+        <field name="statusId" type="id"><description>MFG_BOM_DRAFT, MFG_BOM_RELEASED or MFG_BOM_OBSOLETE</description></field>
+        <field name="effectiveDate" type="date"><description>Date the version was released, empty while it is a draft</description></field>
+        <field name="basisVersionId" type="id"><description>Version this one was copied from, so the difference can be traced</description></field>
+        <field name="ecoId" type="id"><description>Change order that introduced the version, empty when it was created by hand</description></field>
+        <field name="note" type="description"/>
+        <field name="createdStamp" type="date-time"/>
+        <field name="createdTxStamp" type="date-time"/>
+        <field name="lastUpdatedStamp" type="date-time"/>
+        <field name="lastUpdatedTxStamp" type="date-time"/>
+        <prim-key field="bomVersionId"/>
+        <relation type="one" fk-name="MFG_BOMVER_PRODUCT" rel-entity-name="MfgProduct">
+            <key-map field-name="productCode"/>
+        </relation>
+        <index name="MFG_BOMVER_PROD" unique="false">
+            <index-field name="productCode"/>
+        </index>
+    </entity>
+
+    <entity entity-name="MfgBomVersionItem"
+            package-name="org.langhua.ofbiz.mfg"
+            title="BOM version line">
+        <description>One component of one BOM version, including its reference designators</description>
+        <field name="bomVersionId" type="id"><description>Parent BOM version</description></field>
+        <field name="lineSeq" type="numeric"><description>Line number inside the version</description></field>
+        <field name="componentCode" type="id"><description>Component part number</description></field>
+        <field name="componentName" type="name"><description>Component description</description></field>
+        <field name="qty" type="floating-point"><description>Quantity per unit</description></field>
+        <field name="designators" type="very-long"><description>Reference designators, e.g. R1-R12,C3</description></field>
+        <field name="isKeyPart" type="indicator"><description>Y when the part has to be traced</description></field>
+        <field name="note" type="description"/>
+        <field name="createdStamp" type="date-time"/>
+        <field name="createdTxStamp" type="date-time"/>
+        <field name="lastUpdatedStamp" type="date-time"/>
+        <field name="lastUpdatedTxStamp" type="date-time"/>
+        <prim-key field="bomVersionId"/>
+        <prim-key field="lineSeq"/>
+        <relation type="one" fk-name="MFG_BOMVERITEM_VER" rel-entity-name="MfgBomVersion">
+            <key-map field-name="bomVersionId"/>
         </relation>
     </entity>
 
@@ -80,6 +130,7 @@
         <field name="customerName" type="name"><description>Customer or internal project</description></field>
         <field name="smtVendor" type="name"><description>Outsourced SMT supplier name</description></field>
         <field name="smtVendorId" type="id"><description>Vendor master record used for shipping material</description></field>
+        <field name="bomVersionId" type="id"><description>BOM version the order is built with, empty to follow the product current version</description></field>
         <field name="note" type="description"/>
         <field name="createdStamp" type="date-time"/>
         <field name="createdTxStamp" type="date-time"/>
@@ -464,6 +515,87 @@
         </index>
         <index name="MFG_FLAG_STATUS_IDX" unique="false">
             <index-field name="statusId"/>
+        </index>
+    </entity>
+
+    <entity entity-name="MfgDevProject"
+            package-name="org.langhua.ofbiz.mfg"
+            title="Product development project">
+        <description>One new product under development, followed from the concept stage to mass production</description>
+        <field name="projectCode" type="id"><description>Project number, e.g. DEV-261021-01</description></field>
+        <field name="projectName" type="name"><description>What is being developed</description></field>
+        <field name="productCode" type="id"><description>Model this project belongs to, empty while the project is only an idea</description></field>
+        <field name="stageId" type="id"><description>MFG_STAGE_CONCEPT, DESIGN, PROTOTYPE, TRIAL or MASS</description></field>
+        <field name="statusId" type="id"><description>MFG_DEV_ACTIVE, MFG_DEV_ONHOLD, MFG_DEV_DONE or MFG_DEV_CANCELLED</description></field>
+        <field name="ownerName" type="name"><description>Who drives the project</description></field>
+        <field name="targetCost" type="currency-amount"><description>Target material plus labour cost per unit</description></field>
+        <field name="targetPrice" type="currency-amount"><description>Target selling price, used to check the margin at each gate</description></field>
+        <field name="plannedLaunchDate" type="date"><description>Planned date the model goes on sale</description></field>
+        <field name="actualLaunchDate" type="date"><description>Date the model really went on sale, empty until it does</description></field>
+        <field name="note" type="description"/>
+        <field name="createdStamp" type="date-time"/>
+        <field name="createdTxStamp" type="date-time"/>
+        <field name="lastUpdatedStamp" type="date-time"/>
+        <field name="lastUpdatedTxStamp" type="date-time"/>
+        <prim-key field="projectCode"/>
+        <index name="MFG_DEVPJ_STAGE" unique="false">
+            <index-field name="stageId"/>
+        </index>
+        <index name="MFG_DEVPJ_PROD" unique="false">
+            <index-field name="productCode"/>
+        </index>
+    </entity>
+
+    <entity entity-name="MfgDevStageReview"
+            package-name="org.langhua.ofbiz.mfg"
+            title="Development stage review">
+        <description>Gate review of one stage of a development project; passing a gate moves the project to the next stage</description>
+        <field name="projectCode" type="id"><description>Parent project</description></field>
+        <field name="stageId" type="id"><description>Stage being reviewed</description></field>
+        <field name="plannedDate" type="date"><description>Date the review should happen</description></field>
+        <field name="doneDate" type="date"><description>Date the review really happened, empty while the gate is still open</description></field>
+        <field name="resultId" type="id"><description>MFG_REVIEW_PASS, MFG_REVIEW_CONDITIONAL or MFG_REVIEW_FAIL</description></field>
+        <field name="reviewer" type="name"><description>Who signed the gate off</description></field>
+        <field name="note" type="description"/>
+        <field name="createdStamp" type="date-time"/>
+        <field name="createdTxStamp" type="date-time"/>
+        <field name="lastUpdatedStamp" type="date-time"/>
+        <field name="lastUpdatedTxStamp" type="date-time"/>
+        <prim-key field="projectCode"/>
+        <prim-key field="stageId"/>
+        <relation type="one" fk-name="MFG_DEVSTG_PROJECT" rel-entity-name="MfgDevProject">
+            <key-map field-name="projectCode"/>
+        </relation>
+    </entity>
+
+    <entity entity-name="MfgDevEco"
+            package-name="org.langhua.ofbiz.mfg"
+            title="Engineering change order">
+        <description>Engineering change of a model under development or in production; applying it can switch the model to a new BOM version</description>
+        <field name="ecoId" type="id"><description>Change order number, e.g. ECO-261021-01</description></field>
+        <field name="productCode" type="id"><description>Affected model</description></field>
+        <field name="projectCode" type="id"><description>Development project the change belongs to, empty for a change in production</description></field>
+        <field name="ecoTypeId" type="id"><description>MFG_ECO_BOM, MFG_ECO_PROCESS, MFG_ECO_DESIGN or MFG_ECO_MATERIAL</description></field>
+        <field name="reason" type="description"><description>Why the change is needed</description></field>
+        <field name="changeSummary" type="very-long"><description>What changes, line by line: which part, which quantity, which operation</description></field>
+        <field name="statusId" type="id"><description>MFG_ECO_DRAFT, MFG_ECO_APPROVED, MFG_ECO_APPLIED or MFG_ECO_CANCELLED</description></field>
+        <field name="fromBomVersionId" type="id"><description>BOM version in use when the change was raised</description></field>
+        <field name="toBomVersionId" type="id"><description>BOM version to switch to when the change is applied</description></field>
+        <field name="requestedBy" type="name"><description>Who raised the change</description></field>
+        <field name="approvedBy" type="name"><description>Who approved the change</description></field>
+        <field name="requestedDate" type="date"><description>Date the change was raised</description></field>
+        <field name="effectiveDate" type="date"><description>Date the change took effect</description></field>
+        <field name="note" type="description"/>
+        <field name="createdStamp" type="date-time"/>
+        <field name="createdTxStamp" type="date-time"/>
+        <field name="lastUpdatedStamp" type="date-time"/>
+        <field name="lastUpdatedTxStamp" type="date-time"/>
+        <prim-key field="ecoId"/>
+        <index name="MFG_ECO_STATUS" unique="false">
+            <index-field name="statusId"/>
+        </index>
+        <index name="MFG_ECO_PROD" unique="false">
+            <index-field name="productCode"/>
         </index>
     </entity>
 </entitymodel>

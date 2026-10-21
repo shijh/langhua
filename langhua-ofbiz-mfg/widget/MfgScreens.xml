@@ -45,6 +45,9 @@
                 <service service-name="mfgProductDetail" result-map="detail" auto-field-map="false">
                     <field-map field-name="productCode" from-field="parameters.productCode"/>
                 </service>
+                <service service-name="mfgBomVersionList" result-map="versionResult" auto-field-map="false">
+                    <field-map field-name="productCode" from-field="parameters.productCode"/>
+                </service>
             </actions>
             <widgets>
                 <decorator-screen name="mfg-decorator" location="component://mfg/widget/MfgCommonScreens.xml">
@@ -52,6 +55,70 @@
                         <platform-specific>
                             <html>
                                 <html-template location="component://mfg/webapp/mfg/products.ftl"/>
+                            </html>
+                        </platform-specific>
+                    </decorator-section>
+                </decorator-screen>
+            </widgets>
+        </section>
+    </screen>
+
+    <!-- Product development: projects and their gate reviews -->
+    <screen name="dev">
+        <section>
+            <actions>
+                <set field="title" value="Product Development"/>
+                <set field="pageTitle" value="产品开发"/>
+                <set field="activeMenu" value="dev"/>
+                <service service-name="mfgDevProjectList" result-map="listResult" auto-field-map="false">
+                    <field-map field-name="search" from-field="parameters.search"/>
+                    <field-map field-name="stageId" from-field="parameters.stageId"/>
+                    <field-map field-name="statusId" from-field="parameters.statusId"/>
+                    <field-map field-name="page" from-field="parameters.page"/>
+                </service>
+                <service service-name="mfgProductList" result-map="productList" auto-field-map="false"/>
+                <service service-name="mfgDevProjectDetail" result-map="detail" auto-field-map="false">
+                    <field-map field-name="projectCode" from-field="parameters.projectCode"/>
+                </service>
+            </actions>
+            <widgets>
+                <decorator-screen name="mfg-decorator" location="component://mfg/widget/MfgCommonScreens.xml">
+                    <decorator-section name="body">
+                        <platform-specific>
+                            <html>
+                                <html-template location="component://mfg/webapp/mfg/dev.ftl"/>
+                            </html>
+                        </platform-specific>
+                    </decorator-section>
+                </decorator-screen>
+            </widgets>
+        </section>
+    </screen>
+
+    <!-- Engineering change orders and the BOM version they switch to -->
+    <screen name="eco">
+        <section>
+            <actions>
+                <set field="title" value="Engineering Change Orders"/>
+                <set field="pageTitle" value="设计变更"/>
+                <set field="activeMenu" value="eco"/>
+                <service service-name="mfgDevEcoList" result-map="listResult" auto-field-map="false">
+                    <field-map field-name="search" from-field="parameters.search"/>
+                    <field-map field-name="statusId" from-field="parameters.statusId"/>
+                    <field-map field-name="page" from-field="parameters.page"/>
+                </service>
+                <service service-name="mfgProductList" result-map="productList" auto-field-map="false"/>
+                <service service-name="mfgDevEcoDetail" result-map="detail" auto-field-map="false">
+                    <field-map field-name="ecoId" from-field="parameters.ecoId"/>
+                </service>
+                <service service-name="mfgDevProjectList" result-map="projectList" auto-field-map="false"/>
+            </actions>
+            <widgets>
+                <decorator-screen name="mfg-decorator" location="component://mfg/widget/MfgCommonScreens.xml">
+                    <decorator-section name="body">
+                        <platform-specific>
+                            <html>
+                                <html-template location="component://mfg/webapp/mfg/eco.ftl"/>
                             </html>
                         </platform-specific>
                     </decorator-section>

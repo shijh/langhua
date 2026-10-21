@@ -1,16 +1,37 @@
 <#ftl encoding="UTF-8">
 <#setting url_escaping_charset="UTF-8">
 <#--
-  Product models: BOM import and routing maintenance.
-  Data: listResult.products, detail.product, detail.bomItems, detail.routings
+  Product models: BOM versions and routing maintenance.
+  Data: listResult.products, detail.product, detail.bomItems, detail.bomVersionId, detail.routings,
+        versionResult.bomVersions
 -->
 <#assign lr = (listResult)!{}>
 <#assign products = (lr.products)![]>
 <#assign d = (detail)!{}>
 <#assign product = (d.product)!{}>
 <#assign bomItems = (d.bomItems)![]>
+<#assign currentVersionId = (d.bomVersionId)!''>
 <#assign routings = (d.routings)![]>
+<#assign vr = (versionResult)!{}>
+<#assign versions = (vr.bomVersions)![]>
 <#assign errList = (errorMessageList)![]>
+
+<#function stageLabel stageId>
+    <#if (stageId!'') == 'MFG_STAGE_CONCEPT'><#return '概念'>
+    <#elseif (stageId!'') == 'MFG_STAGE_DESIGN'><#return '设计'>
+    <#elseif (stageId!'') == 'MFG_STAGE_PROTOTYPE'><#return '打样'>
+    <#elseif (stageId!'') == 'MFG_STAGE_TRIAL'><#return '试产'>
+    <#elseif (stageId!'') == 'MFG_STAGE_MASS'><#return '量产'>
+    <#else><#return '未设置'>
+    </#if>
+</#function>
+<#function versionLabel statusId>
+    <#if (statusId!'') == 'MFG_BOM_RELEASED'><#return '使用中'>
+    <#elseif (statusId!'') == 'MFG_BOM_DRAFT'><#return '草稿'>
+    <#elseif (statusId!'') == 'MFG_BOM_OBSOLETE'><#return '已废止'>
+    <#else><#return '${statusId!}'>
+    </#if>
+</#function>
 
 <h1>产品与 BOM</h1>
 
@@ -31,6 +52,12 @@
             标准工时/台 <input type="text" name="standardHours" size="6" value="<#if product.standardHours??>${product.standardHours?string("0.##")}</#if>"/>
             保修月数 <input type="text" name="warrantyMonths" size="4" value="${product.warrantyMonths!12}"/>
             售价 <input type="text" name="salePrice" size="7" value="${product.salePrice!0}"/>
+            开发阶段
+            <select name="devStageId">
+                <#list ['MFG_STAGE_CONCEPT','MFG_STAGE_DESIGN','MFG_STAGE_PROTOTYPE','MFG_STAGE_TRIAL','MFG_STAGE_MASS'] as stage>
+                    <option value="${stage}"<#if (product.devStageId!'') == stage> selected="selected"</#if>>${stageLabel(stage)}</option>
+                </#list>
+            </select>
             <input type="submit" value="保存"/>
         </p>
     </form>
@@ -48,8 +75,10 @@
             <th>型号</th>
             <th>名称</th>
             <th>SN 前缀</th>
-            <th class="num">标准工时</th>
+            <th>阶段</th>
+            <th>当前 BOM</th>
             <th class="num">BOM 行</th>
+            <th class="num">版本数</th>
             <th class="num">工序数</th>
             <th>状态</th>
         </tr>
@@ -58,8 +87,10 @@
                 <td><a href="/mfg/control/products?productCode=${p.productCode}">${p.productCode}</a></td>
                 <td>${p.productName!}</td>
                 <td>${p.snPrefix!}</td>
-                <td class="num"><#if p.standardHours??>${p.standardHours?string("0.##")}</#if></td>
+                <td>${stageLabel(p.devStageId!'')}</td>
+                <td><#if (p.currentBomVersionId!'') != ''>${p.currentBomVersionId}<#else><span class="hint">未建 BOM</span></#if></td>
                 <td class="num">${p.bomCount}</td>
+                <td class="num">${p.versionCount}</td>
                 <td class="num">${p.routingCount}</td>
                 <td>${p.statusId!}</td>
             </tr>
@@ -83,23 +114,61 @@
 </#if>
 
 <#if product.productCode??>
+    <h2>BOM 版本（${versions?size} 个）</h2>
+    <#if versions?has_content>
+        <table>
+            <tr><th>版本</th><th>状态</th><th>行数</th><th>生效日</th><th>来源</th><th>变更单</th><th>操作</th></tr>
+            <#list versions as v>
+                <tr>
+                    <td><#if v.bomVersionId == currentVersionId><b>${v.bomVersionId}</b><#else>${v.bomVersionId}</#if></td>
+                    <td><#if v.statusId == 'MFG_BOM_RELEASED'><span class="ok">${versionLabel(v.statusId)}</span><#else>${versionLabel(v.statusId)}</#if></td>
+                    <td class="num">${v.itemCount}</td>
+                    <td><#if v.effectiveDate??>${v.effectiveDate?string("yyyy-MM-dd")}</#if></td>
+                    <td>${v.basisVersionId!}</td>
+                    <td>${v.ecoId!}</td>
+                    <td>
+                        <#if v.bomVersionId != currentVersionId>
+                            <form method="post" action="/mfg/control/bomVersionActivate" class="inline">
+                                <input type="hidden" name="bomVersionId" value="${v.bomVersionId}"/>
+                                <input type="submit" value="启用此版本"/>
+                            </form>
+                        <#else>
+                            <span class="hint">当前使用</span>
+                        </#if>
+                    </td>
+                </tr>
+            </#list>
+        </table>
+    <#else>
+        <p class="hint">还没有 BOM 版本，导入 BOM 时会自动创建 V1。</p>
+    </#if>
+    <form method="post" action="/mfg/control/bomVersionCreate">
+        <input type="hidden" name="productCode" value="${product.productCode}"/>
+        <p>
+            新版本说明 <input type="text" name="note" size="30" value=""/>
+            <label><input type="checkbox" name="copyCurrent" value="Y" checked="checked"/> 复制当前 BOM 行</label>
+            <input type="submit" value="新建下一版"/>
+        </p>
+    </form>
+
     <h2>BOM 导入（${product.productCode}）</h2>
     <fieldset>
-        <legend>粘贴 CSV：元件料号,名称,用量,位号,是否关键料(Y/N)</legend>
+        <legend>粘贴 CSV：元件料号,名称,用量,位号,是否关键料(Y/N)<#if currentVersionId != ''>，导入到 <b>${currentVersionId}</b></#if></legend>
         <form method="post" action="/mfg/control/bomImport">
             <input type="hidden" name="productCode" value="${product.productCode}"/>
+            <#if currentVersionId != ''><input type="hidden" name="bomVersionId" value="${currentVersionId}"/></#if>
             <p><textarea name="csv">R0402-10K,10K 0402 电阻,4,R1-R4,N
 C0402-100N,100nF 0402 电容,6,C1-C6,N
 U1-BT5-SOC,主控 SoC,1,U1,Y
 BAT-18650,18650 电池,1,BT1,Y</textarea></p>
             <p>
-                <label><input type="checkbox" name="replace" value="N"/> 追加（不勾选则先清空原 BOM）</label>
+                <label><input type="checkbox" name="replace" value="N"/> 追加（不勾选则先清空该版本的行）</label>
                 <input type="submit" value="导入 BOM"/>
             </p>
         </form>
     </fieldset>
 
-    <h2>当前 BOM（${bomItems?size} 行）</h2>
+    <h2>当前 BOM（${currentVersionId!'未建'}，${bomItems?size} 行）</h2>
     <#if bomItems?has_content>
         <table>
             <tr><th class="num">行号</th><th>料号</th><th>名称</th><th class="num">用量</th><th>位号</th><th>关键料</th></tr>

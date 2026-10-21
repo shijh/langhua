@@ -469,4 +469,87 @@ public class MfgServicesTest {
         row.put(keyTwo, valueTwo);
         return row;
     }
+
+    @Test
+    public void formatsBomVersionId() {
+        assertEquals("BT5-V1", MfgServices.formatBomVersionId("BT5", 1));
+        assertEquals("BT5-V12", MfgServices.formatBomVersionId("BT5", 12));
+    }
+
+    @Test
+    public void numbersTheNextBomVersion() {
+        List<String> none = new java.util.ArrayList<>();
+        assertEquals(1L, MfgServices.nextBomVersionNo(none, "BT5"));
+
+        List<String> one = java.util.Arrays.asList("BT5-V1");
+        assertEquals(2L, MfgServices.nextBomVersionNo(one, "BT5"));
+
+        // gaps do not matter, the highest number wins
+        List<String> gap = java.util.Arrays.asList("BT5-V1", "BT5-V3", "BT5-V2");
+        assertEquals(4L, MfgServices.nextBomVersionNo(gap, "BT5"));
+
+        // versions of another model are ignored, and a suffix that is not a number is skipped
+        List<String> mixed = java.util.Arrays.asList("BT6-V9", "BT5-VX");
+        assertEquals(1L, MfgServices.nextBomVersionNo(mixed, "BT5"));
+    }
+
+    @Test
+    public void walksTheDevelopmentStageLadder() {
+        assertEquals("MFG_STAGE_DESIGN", MfgServices.nextDevStage("MFG_STAGE_CONCEPT"));
+        assertEquals("MFG_STAGE_PROTOTYPE", MfgServices.nextDevStage("MFG_STAGE_DESIGN"));
+        assertEquals("MFG_STAGE_TRIAL", MfgServices.nextDevStage("MFG_STAGE_PROTOTYPE"));
+        assertEquals("MFG_STAGE_MASS", MfgServices.nextDevStage("MFG_STAGE_TRIAL"));
+        // mass production is the last stage
+        assertNull(MfgServices.nextDevStage("MFG_STAGE_MASS"));
+        assertNull(MfgServices.nextDevStage("NOT_A_STAGE"));
+        assertNull(MfgServices.nextDevStage(null));
+
+        assertEquals(0, MfgServices.devStageIndex("MFG_STAGE_CONCEPT"));
+        assertEquals(4, MfgServices.devStageIndex("MFG_STAGE_MASS"));
+        assertEquals(-1, MfgServices.devStageIndex("NOT_A_STAGE"));
+    }
+
+    @Test
+    public void onlyAPassMovesTheProjectOn() {
+        assertTrue(MfgServices.stageAdvancesOn("MFG_REVIEW_PASS"));
+        assertTrue(MfgServices.stageAdvancesOn("MFG_REVIEW_CONDITIONAL"));
+        assertTrue(!MfgServices.stageAdvancesOn("MFG_REVIEW_FAIL"));
+        assertTrue(!MfgServices.stageAdvancesOn(null));
+    }
+
+    @Test
+    public void knowsTheDevelopmentAndChangeOrderCodes() {
+        assertTrue(MfgServices.isKnownDevStage("MFG_STAGE_TRIAL"));
+        assertTrue(!MfgServices.isKnownDevStage("MFG_STAGE_SOMETHING"));
+
+        assertTrue(MfgServices.isKnownReviewResult("MFG_REVIEW_CONDITIONAL"));
+        assertTrue(!MfgServices.isKnownReviewResult("PASS"));
+
+        assertTrue(MfgServices.isKnownDevStatus("MFG_DEV_ONHOLD"));
+        assertTrue(!MfgServices.isKnownDevStatus("MFG_DEV_BOGUS"));
+
+        assertTrue(MfgServices.isKnownEcoStatus("MFG_ECO_APPLIED"));
+        assertTrue(!MfgServices.isKnownEcoStatus("DRAFT"));
+
+        assertTrue(MfgServices.isKnownEcoType("MFG_ECO_MATERIAL"));
+        assertTrue(!MfgServices.isKnownEcoType("MFG_ECO_PRICE"));
+    }
+
+    @Test
+    public void appliesOnlyAnApprovedChangeOrder() {
+        assertTrue(MfgServices.ecoAppliable("MFG_ECO_APPROVED"));
+        assertTrue(!MfgServices.ecoAppliable("MFG_ECO_DRAFT"));
+        assertTrue(!MfgServices.ecoAppliable("MFG_ECO_APPLIED"));
+        assertTrue(!MfgServices.ecoAppliable("MFG_ECO_CANCELLED"));
+        assertTrue(!MfgServices.ecoAppliable(null));
+    }
+
+    @Test
+    public void formatsDevelopmentProjectAndChangeOrderIds() {
+        LocalDate day = LocalDate.of(2026, 10, 21);
+        assertEquals("DEV-261021-01", MfgServices.formatDevProjectId(day, 1));
+        assertEquals("DEV-261021-12", MfgServices.formatDevProjectId(day, 12));
+        assertEquals("ECO-261021-01", MfgServices.formatEcoId(day, 1));
+        assertEquals("ECO-261021-07", MfgServices.formatEcoId(day, 7));
+    }
 }

@@ -9,8 +9,11 @@
 
 | 模块 | 内容 |
 | --- | --- |
-| 产品型号 | 型号、SN 前缀、单台标准工时 |
+| 产品型号 | 型号、SN 前缀、单台标准工时、**开发阶段**（概念/设计/打样/试产/量产） |
 | BOM | CSV 批量导入元件行：`料号,名称,用量,位号,是否关键件` |
+| **BOM 版本** | 型号可保留多个 BOM 版本（`型号-V1`、`-V2`…），每个版本独立存行；型号指向“当前使用”的版本，启用新版本时旧版本自动废止；工单创建时冻结所用版本 |
+| **产品开发** | 开发项目立项（目标成本/售价/计划上市日），五道阶段关卡（概念→设计→打样→试产→量产），评审通过自动进入下一阶段 |
+| **设计变更 ECO** | 变更单（BOM/工艺/设计/物料替代）走 草稿 → 批准 → 生效；生效时自动切换到指定 BOM 版本 |
 | 工艺路线 | 工序模板（组装 / 老化 / 测试 / 包装…），含工位与标准工时 |
 | 工单 | 型号 + 计划数量 + 交期 + 客户 + 外协 SMT 厂，编号 `WO-yyMMdd-NNN` |
 | SN 管理 | 按工单批量生成 `前缀-yyMMdd-NNNN`，单板全生命周期状态 |
@@ -43,14 +46,14 @@ langhua-ofbiz-mfg/
 ├── data/
 │   └── MfgSecurityPermissionSeedData.xml # 权限与权限组种子数据
 ├── entitydef/
-│   ├── entitymodel.xml                  # 17 个业务实体
+│   ├── entitymodel.xml                  # 22 个业务实体
 │   └── entitygroup.xml
 ├── servicedef/
-│   └── services.xml                     # 42 个服务
+│   └── services.xml                     # 56 个服务
 ├── widget/
 │   ├── MfgCommonScreens.xml             # 登录/错误页 decorator + 页面布局装饰器 mfg-decorator
-│   └── MfgScreens.xml                   # 12 个页面（内容包在 mfg-decorator 里）
-├── webapp/mfg/                          # controller.xml + web.xml + 12 个 FTL + decorator.ftl + css/ + js/
+│   └── MfgScreens.xml                   # 14 个页面（内容包在 mfg-decorator 里）
+├── webapp/mfg/                          # controller.xml + web.xml + 14 个 FTL + decorator.ftl + css/ + js/
 ├── src/main/java/org/langhua/ofbiz/mfg/
 └── src/test/java/org/langhua/ofbiz/mfg/
 ```
@@ -82,10 +85,12 @@ https://localhost:8443/mfg/control/main
 
 | 实体 | 说明 |
 | --- | --- |
-| `MfgProduct` | 产品型号：`productCode`（主键）、`snPrefix`、`standardHours`、`warrantyMonths`（保修月数，默认 12）、状态 |
-| `MfgBomItem` | BOM 行：`productCode` + `lineSeq`（联合主键）、`componentCode`、`qty`、`designators`（位号）、`isKeyPart` |
+| `MfgProduct` | 产品型号：`productCode`（主键）、`snPrefix`、`standardHours`、`warrantyMonths`（保修月数，默认 12）、`devStageId`（开发阶段）、`currentBomVersionId`（当前 BOM 版本）、状态 |
+| `MfgBomItem` | 旧版单表 BOM 行（`productCode` + `lineSeq`）。**已停用**，首次读取时自动冻结为 `型号-V1` 版本，新代码只用版���表 |
+| `MfgBomVersion` | BOM 版本：`bomVersionId`（主键，`型号-Vn`）、`versionNo`、`statusId`（DRAFT/RELEASED/OBSOLETE）、`effectiveDate`、`basisVersionId`（从哪版复制）、`ecoId`（哪张变更单引入） |
+| `MfgBomVersionItem` | 版本内 BOM 行：`bomVersionId` + `lineSeq`（联合主键）、`componentCode`、`qty`、`designators`、`isKeyPart` |
 | `MfgRouting` | 工序模板：`productCode` + `opSeq`（联合主键）、`opName`、`workCenter`、`stdHours` |
-| `MfgWorkOrder` | 工单：`workOrderId`、`productCode`、`plannedQty`、`statusId`、`dueDate`、`customerName`、`smtVendor` |
+| `MfgWorkOrder` | 工单：`workOrderId`、`productCode`、`plannedQty`、`statusId`、`dueDate`、`customerName`、`smtVendor`、`bomVersionId`（建单时冻结的 BOM 版本） |
 | `MfgSn` | 单板：`sn`（主键）、`workOrderId`、`productCode`、状态 |
 | `MfgReport` | 报工：`reportId`、`workOrderId`、`opSeq`、`sn`（可选）、`operatorName`、`workHours`、`qtyOk`、`qtyNg` || `MfgDefect` | 不良：`defectId`、`workOrderId`、`sn`、`opSeq`、`defectCode`、`qty`、`responsibility`、`repairHours` |
 | `MfgMaterialLot` | 物料批次：`lotId`（主键，LOT-yyMMdd-NN）、`componentCode`、`supplierName`、`supplierLot`（DateCode）、`receivedQty`、`receivedDate` |
@@ -98,13 +103,18 @@ https://localhost:8443/mfg/control/main
 | `MfgVendor` | 外协厂家：`vendorId`（V-yyMMdd-NN）、`vendorName`、`vendorType`、`contactName`（收件人）、`contactMobile`、`addressText`、`customerCode`（厂家给我们的编号） |
 | `MfgWarrantyClaim` | 售后单：`claimId`（RMA-yyMMdd-NN）、`sn`、`workOrderId`、`customerName`、`deliveryId` / `deliveryDate`（保修起算）、`warrantyEndDate`、`inWarranty`、`receivedDate`、`issueDesc`、`statusId`、`responsibility`、`repairHours`、`closedDate`；淘宝侧：`claimType`（RTN/EXCH/REPAIR/REFUND_ONLY）、`tradeNo`、`buyerNick`、`signedDate`、`sevenDayDeadline`、`afterSaleDeadline`、`refundAmount`、`deductAmount`、`freightPayer`、`returnTrackingNo`、`receivedBackDate`、`inspectResult`、`vendorClaimStatus`、`repairWorkOrderId`、`exchangeDeliveryId` |
 | `MfgBuyerFlag` | 买家风险名单：`buyerKey`（`TB:手机号` 或 `TB:N:昵称`）、`channelId`、`buyerNick`、`receiverName`、`receiverMobile`、`addressText`、`riskLevel`（WATCH/BLOCK）、`reasonCode`、`evidenceNote`、`statusId`（ACTIVE/RELEASED）、`releasedDate` |
+| `MfgDevProject` | 开发项目：`projectCode`（DEV-yyMMdd-NN）、`projectName`、`productCode`（可空，与型号解耦）、`stageId`（概念/设计/打样/试产/量产）、`statusId`、`ownerName`、`targetCost`、`targetPrice`、`plannedLaunchDate`、`actualLaunchDate` |
+| `MfgDevStageReview` | 阶段关卡评审：`projectCode` + `stageId`（联合主键）、`plannedDate`、`doneDate`、`resultId`（PASS/CONDITIONAL/FAIL）、`reviewer`、`note` |
+| `MfgDevEco` | 设计变更单：`ecoId`（ECO-yyMMdd-NN）、`productCode`、`projectCode`、`ecoTypeId`（BOM/工艺/设计/物料）、`reason`、`changeSummary`、`statusId`（DRAFT/APPROVED/APPLIED/CANCELLED）、`fromBomVersionId` → `toBomVersionId`、`requestedBy`、`approvedBy`、`effectiveDate` |
 
 ## 服务
 
 | 服务名 | 说明 |
 | --- | --- |
-| `mfgProductSave` / `mfgProductList` / `mfgProductDetail` | 型号维护与查询（含 BOM、工艺路线） |
-| `mfgBomImport` | 从 CSV 导入 BOM，`replace=N` 时追加而不清空 |
+| `mfgProductSave` / `mfgProductList` / `mfgProductDetail` | 型号维护与查询（含当前 BOM 版本的行、工艺路线、版本数） |
+| `mfgBomImport` | 从 CSV 导入 BOM 到指定版本（缺省为当前版本），`replace=N` 时追加而不清空 |
+| `mfgBomVersionCreate` / `mfgBomVersionActivate` / `mfgBomVersionList` | 新建下一版（可复制当前行）、启用某版（旧版转废止、型号指向新版）、列出各版本 |
+| `mfgBomMigrateLegacy` | 把旧单表 BOM 冻结为版本（幂等，可重复调用） |
 | `mfgRoutingSave` | 新增/更新一道工序 |
 | `mfgWorkOrderCreate` / `mfgWorkOrderList` / `mfgWorkOrderDetail` | 工单维护；详情含工序进度、SN、不良、累计工时 |
 | `mfgSnRegister` / `mfgSnDetail` | 批量生成 SN；按 SN 查完整履历 |
@@ -133,6 +143,10 @@ https://localhost:8443/mfg/control/main
 | `mfgBuyerRiskList` | 按买家昵称聚合售后历史（单数、退款合计、最后收件日）并给出建议等级，仅建议不自动拉黑 |
 | `mfgQualityReport` | 售后质量报表：退货/换货/返修/成本率 + 金额 + 按型号、责任方、批次、失效天数、检测结论分解 + 红线判定 |
 | `mfgDashboardTrends` | 看板数据：近 N 天每日出货/售后序列（已按最大值缩放到百分比）+ 售后 KPI + 责任方成本 |
+| `mfgDevProjectSave` / `mfgDevProjectList` / `mfgDevProjectDetail` | 开发项目立项与查询（列表带阶段、关卡进度、未结变更数） |
+| `mfgDevStageSave` | 登记关卡评审；通过/有条件通过时项目自动进入下一阶段，进到量产时填实际上市日并转为已量产 |
+| `mfgDevEcoSave` / `mfgDevEcoList` / `mfgDevEcoDetail` | 变更单登记与查询（详情带来源/目标 BOM 版本与可选版本列表） |
+| `mfgDevEcoApprove` / `mfgDevEcoApply` / `mfgDevEcoCancel` | 批准、生效（可切换 BOM 版本）、取消；重复生效与已生效后取消都会被拒绝 |
 
 示例（Web Tools → Run Service → `mfgBomImport`）：
 
@@ -146,14 +160,16 @@ csv         = R0402-10K,10K 0402 resistor,4,R1-R4,N
 
 ## 页面
 
-所有列表页（工单/产品/物料批次/齐套/出货/厂家/售后单/买家名单）都带 **关键词搜索 + 过滤 + 分页**：
+所有列表页（工单/产品/产品开发/设计变更/物料批次/齐套/出货/厂家/售后单/买家名单）都带 **关键词搜索 + 过滤 + 分页**：
 默认每页 20 条，页脚显示“第 X / Y 页（共 N 条）”与首页/上一页/下一页/末页，翻页链接**保留当前搜索与过滤条件**。
 分页与搜索都是内存内完成（数据量小），服务结果统一带 `totalCount` / `page` / `pageCount` / `pageSize` / `search`。
 
 | 路径 | 说明 |
 | --- | --- |
 | `/mfg/control/main` | 工单列表 + 新建工单（含产品型号下拉） |
-| `/mfg/control/products?productCode=...` | 产品型号、BOM 导入与工艺路线维护 |
+| `/mfg/control/products?productCode=...` | 产品型号、**BOM 版本（查看/新建下一版/启用）**、BOM 导入与工艺路线维护 |
+| `/mfg/control/dev?projectCode=...` | 产品开发：立项与改动、阶段筛选、五道关卡评审（通过即进入下一阶段）、项目下的变更单 |
+| `/mfg/control/eco?ecoId=...` | 设计变更：新建变更单、按状态筛选、指定目标 BOM 版本、批准 / 生效 / 取消 |
 | `/mfg/control/workOrder?workOrderId=...` | 工单详情：工序进度、报工、SN 生成、不良登记 |
 | `/mfg/control/sn?sn=...` | 单板履历：报工、不良、所用物料批次 |
 | `/mfg/control/dashboard` | 车间看板：生产卡片 + 售后 KPI + 每日柱图 + 责任方成本 + 最近报工，60 秒自动刷新 |
@@ -177,7 +193,7 @@ csv         = R0402-10K,10K 0402 resistor,4,R1-R4,N
 
 ## 页面布局：单一装饰器
 
-页面外壳（`<html>`/`<head>`/样式表/顶部导航）只在一个地方定义，避免 12 个模板各写一遍：
+页面外壳（`<html>`/`<head>`/样式表/顶部导航）只在一个地方定义，避免 14 个模板各写一遍：
 
 - `widget/MfgCommonScreens.xml` 的 `mfg-decorator` 渲染 `webapp/mfg/decorator.ftl`；
 - `widget/MfgScreens.xml` 的每个屏幕把自己的内容放进 `decorator-screen` 的 `body` 段：
@@ -228,11 +244,18 @@ productSave → bomImport → routingSave → productDetail
            → 脱敏手机号被拒绝 → qualityReport（四率 + 成本 + 红线）
            → dashboardTrends（序列 + KPI）
            → 列表分页（totalCount / pageCount）+ 关键词搜索
+           → bomVersionCreate（复制当前行）→ bomImport 到指定版本（追加）
+           → bomVersionActivate → productDetail 用的是新版行 → bomMigrateLegacy 幂等
+           → devProjectSave → devProjectList → devProjectDetail（五道关卡）
+           → devStageSave（概念过关 → 自动进设计）→ 非法阶段被拒
+           → devEcoSave（指定目标版本）→ 草稿不能直接生效
+           → devEcoApprove → devEcoApply（切到目标 BOM）→ 重复生效被拒
            → 非法报工（workHours = 0）/ 错料发料（批次不属于该料号）/ 非法售后状态
 ```
 
-共 139 项断言，全部通过时退出码为 0。测试是**可重复执行**的：每次创建/更新产品型号 `ITMFG`、替换其 BOM、
-新建一张工单、物料批次与出货单，以及相应的报工、不良、发料、收发、换件与测试数据。
+共 174 项断言，全部通过时退出码为 0。测试是**可重复执行**的：每次创建/更新产品型号 `ITMFG`、替换其 BOM、
+新建一张工单、物料批次与出货单，以及相应的报工、不良、发料、收发、换件与测试数据；
+BOM 版本与变更单会每次新增一版，所以编号会一直往上走，不影响断言。
 
 前置条件：OFBiz 已启动、已执行 `loadAll`、mfg 组件已部署。
 
@@ -254,7 +277,8 @@ java -cp "build/test-classes:ofbiz.jar:junit-4.13.2.jar:hamcrest-core-1.3.jar" \
 
 覆盖 BOM / 批次 / 测试结果 CSV 解析（引号、缺列、CRLF、注释行、大小写归一）、SN 列表拆分、FIFO 推定切片、
 邮寄标签格式、SN / 工单编号格式，保修到期日、7 天 / 15 天窗口、剩余小时与运费承担，
-以及买家匹配键、手机号归一化与打码、风险等级建议、名单到期判定，还有百分比、日期差与失效分档、售后成本计算、红线判定、看板坐标轴与柱高缩放、关键词过滤与分页切片（共 39 个用例）。
+以及买家匹配键、手机号归一化与打码、风险等级建议、名单到期判定，还有百分比、日期差与失效分档、售后成本计算、红线判定、看板坐标轴与柱高缩放、关键词过滤与分页切片，
+以及 BOM 版本号生成与下一版号推导、开发阶段阶梯与关卡推进规则、变更单状态与类型校验（共 46 个用例）。
 
 ## 追溯精度说明（重要）
 
@@ -312,6 +336,34 @@ SMT 为外协，且对方**不提供上料 / 换料记录**，因此追溯精度
 > **合规红线**：质量问题三包与 7 天无理由是法定义务，名单只能改变“怎么发/怎么留证”，不能改变“是否服务”。
 > 若买家投诉歧视，有 `evidenceNote` 与解除机制才说得清。
 
+## 产品开发与 BOM 版本：规则说明
+
+**BOM 版本**
+
+- 版本号从 1 开始，版本主键是 `型号-Vn`（如 `BT5-V2`），一个型号可以有多个版本；
+- 新建版本默认**复制当前版本的行**，再在页面上改（改完可以一直保持草稿，不影响生产）；
+- 「启用此版本」会把该版本设为 `MFG_BOM_RELEASED` 并把型号的 `currentBomVersionId` 指过去，
+  同一型号之前处于 `RELEASED` 的版本自动转 `MFG_BOM_OBSOLETE`（历史版本仍可查、可再启用）；
+- 工单创建时把当时的 `currentBomVersionId` 冻结到 `MfgWorkOrder.bomVersionId`，
+  **齐套与发料按工单的版本算**；老工单不受新版本影响；
+- 旧的单表 `MfgBomItem` 已停用：第一次读某个型号的 BOM 时，把旧行原样冻结成 `型号-V1` 并启用，
+  之后代码只读版本表（`mfgBomMigrateLegacy` 可手动触发，幂等）。
+
+**开发项目与阶段**
+
+- 阶段阶梯固定五级：`概念 → 设计 → 打样 → 试产 → 量产`；
+- 项目与型号**解耦**：立项时可以先不选型号（还只是个想法），量产前再关联；
+- 型号自身也有 `devStageId`，用于列表上快速看出“这型号处在哪个阶段”，与项目的阶段互不覆盖；
+- 关卡评审结论为 通过 / 有条件通过 时，项目自动进入下一阶段；进到 量产 时自动填实际上市日并置为已量产；
+  评审结论为 不通过 时项目停在原阶段。
+
+**设计变更（ECO）**
+
+- 状态流转只有一条路：`草稿 → 批准 → 生效`，`草稿`/`批准` 可以取消，`生效` 之后不能改也不能取消；
+- 生效时如果指定了目标 BOM 版本，会做一次“启用该版本”的动作（旧版本转废止），
+  变更单与版本双向可查：版本上有 `ecoId`，变更单上有 `fromBomVersionId → toBomVersionId`；
+- 没指定目标版本的变更（比如工艺、外观）只记录说明与生效日，不动 BOM。
+
 ## 前端选型：为什么看板不上框架
 
 看板一律用**服务端渲染 + 原生 CSS/JS**，不引入 React/Vue，也不引图表库：
@@ -353,11 +405,15 @@ PDA/手机扫码作业、车间大屏、对外客户门户。
 - **FreeMarker 的 `#if` 优先级**：`(x)?default(1) gt 1` 会被解析成 `(x)?default(1 gt 1)`，必须写成
   `((x)!0) gt 0` 或 `#if (x?default(1)) gt 1`；包含 `?url` 的模板要有
   `<#setting url_escaping_charset="UTF-8">`，否则分页链接直接报错。
+- **可选入参**：屏幕里会**无条件**调用的服务（如“选中某个项目才显示详情”），IN 参数必须
+  `optional="true"`——否则不带 `?projectCode=` 访问列表页时，服务参数校验抛
+  `ServiceValidationException`，整页变 500。服务实现里对空值直接返回空结果即可。
 
 ## 后续想法
 
 - 来料检验（IQC）：到货批次标记合格/不合格，并影响可发料性。
-- 售后成本统计：按型号/责任方汇总退款、返修工时与换件数量，出品质退款率。
+- 开发阶段细化：打样/试产批次（EVT/DVT/PVT 数量与样机去向）、项目问题清单跟踪。
+- 成本核算：按 BOM 行单价 + 工时算出目标成本之外的“实际成本”，与目标成本对比。
 - 淘宝订单号自动对单（开放平台/导出表导入），省掉手录订单号。
 - 看板自动刷新与钉钉/邮件告警（欠料、测试通过率异常、售后即将超时）。
 - 报表导出：良率趋势、工时趋势（可回接学习曲线组件）。

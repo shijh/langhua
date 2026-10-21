@@ -253,6 +253,88 @@
         <response name="success" type="view" value="quality"/>
     </request-map>
 
+    <request-map uri="bomVersionCreate">
+        <security https="true" auth="true"/>
+        <event type="service" invoke="mfgBomVersionCreate"/>
+        <response name="success" type="request-redirect" value="products">
+            <redirect-parameter name="productCode"/>
+        </response>
+        <response name="error" type="view" value="products"/>
+    </request-map>
+
+    <request-map uri="bomVersionActivate">
+        <security https="true" auth="true"/>
+        <event type="service" invoke="mfgBomVersionActivate"/>
+        <response name="success" type="request-redirect" value="products">
+            <redirect-parameter name="productCode"/>
+        </response>
+        <response name="error" type="view" value="products"/>
+    </request-map>
+
+    <request-map uri="dev">
+        <security https="true" auth="true"/>
+        <response name="success" type="view" value="dev"/>
+    </request-map>
+
+    <request-map uri="devProjectSave">
+        <security https="true" auth="true"/>
+        <event type="service" invoke="mfgDevProjectSave"/>
+        <response name="success" type="request-redirect" value="dev">
+            <redirect-parameter name="projectCode"/>
+        </response>
+        <response name="error" type="view" value="dev"/>
+    </request-map>
+
+    <request-map uri="devStageSave">
+        <security https="true" auth="true"/>
+        <event type="service" invoke="mfgDevStageSave"/>
+        <response name="success" type="request-redirect" value="dev">
+            <redirect-parameter name="projectCode"/>
+        </response>
+        <response name="error" type="view" value="dev"/>
+    </request-map>
+
+    <request-map uri="eco">
+        <security https="true" auth="true"/>
+        <response name="success" type="view" value="eco"/>
+    </request-map>
+
+    <request-map uri="ecoSave">
+        <security https="true" auth="true"/>
+        <event type="service" invoke="mfgDevEcoSave"/>
+        <response name="success" type="request-redirect" value="eco">
+            <redirect-parameter name="ecoId"/>
+        </response>
+        <response name="error" type="view" value="eco"/>
+    </request-map>
+
+    <request-map uri="ecoApprove">
+        <security https="true" auth="true"/>
+        <event type="service" invoke="mfgDevEcoApprove"/>
+        <response name="success" type="request-redirect" value="eco">
+            <redirect-parameter name="ecoId"/>
+        </response>
+        <response name="error" type="view" value="eco"/>
+    </request-map>
+
+    <request-map uri="ecoApply">
+        <security https="true" auth="true"/>
+        <event type="service" invoke="mfgDevEcoApply"/>
+        <response name="success" type="request-redirect" value="eco">
+            <redirect-parameter name="ecoId"/>
+        </response>
+        <response name="error" type="view" value="eco"/>
+    </request-map>
+
+    <request-map uri="ecoCancel">
+        <security https="true" auth="true"/>
+        <event type="service" invoke="mfgDevEcoCancel"/>
+        <response name="success" type="request-redirect" value="eco">
+            <redirect-parameter name="ecoId"/>
+        </response>
+        <response name="error" type="view" value="eco"/>
+    </request-map>
+
     <view-map name="main" type="screen" page="component://mfg/widget/MfgScreens.xml#main"/>
     <view-map name="products" type="screen" page="component://mfg/widget/MfgScreens.xml#products"/>
     <view-map name="workOrder" type="screen" page="component://mfg/widget/MfgScreens.xml#workOrder"/>
@@ -265,4 +347,6 @@
     <view-map name="claims" type="screen" page="component://mfg/widget/MfgScreens.xml#claims"/>
     <view-map name="buyers" type="screen" page="component://mfg/widget/MfgScreens.xml#buyers"/>
     <view-map name="quality" type="screen" page="component://mfg/widget/MfgScreens.xml#quality"/>
+    <view-map name="dev" type="screen" page="component://mfg/widget/MfgScreens.xml#dev"/>
+    <view-map name="eco" type="screen" page="component://mfg/widget/MfgScreens.xml#eco"/>
 </site-conf>

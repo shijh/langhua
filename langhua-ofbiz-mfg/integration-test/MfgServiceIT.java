@@ -71,6 +71,9 @@ public final class MfgServiceIT {
     private static final Pattern DELIVERY_ID = Pattern.compile("DO-\\d{6}-\\d{2}");
     private static final Pattern VENDOR_ID = Pattern.compile("V-\\d{6}-\\d{2}");
     private static final Pattern CLAIM_ID = Pattern.compile("RMA-\\d{6}-\\d{2}");
+    private static final Pattern DEV_PROJECT_ID = Pattern.compile("DEV-\\d{6}-\\d{2}");
+    private static final Pattern ECO_ID = Pattern.compile("ECO-\\d{6}-\\d{2}");
+    private static final Pattern BOM_VERSION_ID = Pattern.compile(PRODUCT_CODE + "-V\\d+");
     private static final String KEY_COMPONENT = "U1-BT5-SOC";
     private static final String SUPPLIER_LOT = "DC-IT-2410";
 
@@ -89,6 +92,13 @@ public final class MfgServiceIT {
     private String repairWorkOrderId;
     private static final String BUYER_MOBILE = "13900001111";
     private static final String BUYER_NICK = "it_buyer";
+
+    /** BOM version created by the version test, reused by the change order test. */
+    private String createdVersionId;
+    /** Development project created by the development test. */
+    private String devProjectCode;
+    /** Change order created by the change order test. */
+    private String ecoId;
     private final java.util.List<String> importedLotIds = new java.util.ArrayList<>();
 
     private MfgServiceIT(String baseUrl, String user, String password) {
@@ -146,6 +156,9 @@ public final class MfgServiceIT {
             it.releasesBuyerFlag();
             it.readsQualityReport();
             it.rejectsZeroHoursReport();
+            it.managesBomVersions();
+            it.runsProductDevelopment();
+            it.appliesChangeOrderToBomVersion();
         } finally {
             it.tearDown();
         }
@@ -1009,6 +1022,195 @@ public final class MfgServiceIT {
         form.put("_RUN_SYNC_", "Y");
         form.putAll(parameters);
         return post("/webtools/control/scheduleServiceSync", form);
+    }
+
+    /**
+     * Creates the next BOM version, fills it with a different line set and switches the model to
+     * it. The version created here is reused by the change order test.
+     *
+     * @throws IOException when the service call fails
+     */
+    private void managesBomVersions() throws IOException {
+        Map<String, String> form = new LinkedHashMap<>();
+        form.put("productCode", PRODUCT_CODE);
+        form.put("copyCurrent", "Y");
+        form.put("note", "IT second version");
+        Response response = invoke("mfgBomVersionCreate", form);
+        check("bom version: create returns HTTP 200", response.status == 200, "HTTP " + response.status);
+        createdVersionId = firstMatch(BOM_VERSION_ID, response.body);
+        check("bom version: identifier returned", createdVersionId != null, "no version id in response");
+        check("bom version: current lines were copied", response.body.contains(">4<"),
+                "expected copiedCount = 4");
+
+        Map<String, String> listForm = new LinkedHashMap<>();
+        listForm.put("productCode", PRODUCT_CODE);
+        Response list = invoke("mfgBomVersionList", listForm);
+        check("bom version: list returns HTTP 200", list.status == 200, "HTTP " + list.status);
+        check("bom version: new version is listed", createdVersionId != null
+                && list.body.contains(createdVersionId), "version missing from the list");
+
+        // add one line to the new version only
+        Map<String, String> importForm = new LinkedHashMap<>();
+        importForm.put("productCode", PRODUCT_CODE);
+        importForm.put("bomVersionId", createdVersionId == null ? "" : createdVersionId);
+        importForm.put("csv", "U9-BT5-EXTRA,新增外挂芯片,1,U9,Y");
+        importForm.put("replace", "N");
+        Response imported = invoke("mfgBomImport", importForm);
+        check("bom version: import into the draft works", imported.status == 200
+                && !imported.body.contains("responseMessage=error"), "HTTP " + imported.status);
+
+        Map<String, String> activateForm = new LinkedHashMap<>();
+        activateForm.put("bomVersionId", createdVersionId == null ? "" : createdVersionId);
+        Response activated = invoke("mfgBomVersionActivate", activateForm);
+        check("bom version: activate returns HTTP 200", activated.status == 200, "HTTP " + activated.status);
+        check("bom version: activate reports the model", activated.body.contains(PRODUCT_CODE),
+                "no product code in response");
+
+        Map<String, String> detailForm = new LinkedHashMap<>();
+        detailForm.put("productCode", PRODUCT_CODE);
+        Response detail = invoke("mfgProductDetail", detailForm);
+        check("bom version: product detail uses the activated lines", detail.body.contains("U9-BT5-EXTRA"),
+                "the new line is not in the current BOM");
+        check("bom version: product detail reports the version", createdVersionId != null
+                && detail.body.contains(createdVersionId), "version missing from the detail");
+
+        Map<String, String> migrateForm = new LinkedHashMap<>();
+        migrateForm.put("productCode", PRODUCT_CODE);
+        Response migrated = invoke("mfgBomMigrateLegacy", migrateForm);
+        check("bom version: legacy migration is idempotent", migrated.status == 200
+                && !migrated.body.contains("responseMessage=error"), "HTTP " + migrated.status);
+    }
+
+    /**
+     * Creates a development project and walks it through the first gate.
+     *
+     * @throws IOException when the service call fails
+     */
+    private void runsProductDevelopment() throws IOException {
+        Map<String, String> form = new LinkedHashMap<>();
+        form.put("projectName", "IT 开发项目");
+        form.put("productCode", PRODUCT_CODE);
+        form.put("ownerName", "it_owner");
+        form.put("targetCost", "180");
+        form.put("targetPrice", "299");
+        form.put("plannedLaunchDate", "2026-12-01");
+        Response response = invoke("mfgDevProjectSave", form);
+        check("dev project: create returns HTTP 200", response.status == 200, "HTTP " + response.status);
+        devProjectCode = firstMatch(DEV_PROJECT_ID, response.body);
+        check("dev project: identifier generated", devProjectCode != null, "no project code in response");
+        check("dev project: starts as a new project", response.body.contains("isNew</td>")
+                && response.body.contains(">Y<"), "expected isNew = Y");
+
+        Map<String, String> listForm = new LinkedHashMap<>();
+        listForm.put("search", devProjectCode == null ? "" : devProjectCode);
+        Response list = invoke("mfgDevProjectList", listForm);
+        check("dev project: list returns HTTP 200", list.status == 200, "HTTP " + list.status);
+        check("dev project: found by its number", devProjectCode != null && list.body.contains(devProjectCode),
+                "project missing from the list");
+
+        Map<String, String> detailForm = new LinkedHashMap<>();
+        detailForm.put("projectCode", devProjectCode == null ? "" : devProjectCode);
+        Response detail = invoke("mfgDevProjectDetail", detailForm);
+        check("dev project: detail returns HTTP 200", detail.status == 200, "HTTP " + detail.status);
+        check("dev project: five gates are listed", detail.body.contains("MFG_STAGE_TRIAL")
+                && detail.body.contains("MFG_STAGE_MASS"), "gate list incomplete");
+        check("dev project: starts at the concept stage", detail.body.contains("MFG_STAGE_CONCEPT"),
+                "no concept stage");
+
+        Map<String, String> reviewForm = new LinkedHashMap<>();
+        reviewForm.put("projectCode", devProjectCode == null ? "" : devProjectCode);
+        reviewForm.put("stageId", "MFG_STAGE_CONCEPT");
+        reviewForm.put("resultId", "MFG_REVIEW_PASS");
+        reviewForm.put("doneDate", "2026-10-21");
+        reviewForm.put("reviewer", "it_reviewer");
+        Response reviewed = invoke("mfgDevStageSave", reviewForm);
+        check("dev project: gate review saved", reviewed.status == 200
+                && !reviewed.body.contains("responseMessage=error"), "HTTP " + reviewed.status);
+        check("dev project: passing the gate moves to design", reviewed.body.contains("MFG_STAGE_DESIGN"),
+                "project stage did not advance");
+
+        Map<String, String> badStage = new LinkedHashMap<>();
+        badStage.put("projectCode", devProjectCode == null ? "" : devProjectCode);
+        badStage.put("stageId", "MFG_STAGE_BOGUS");
+        Response rejected = invoke("mfgDevStageSave", badStage);
+        check("dev project: unknown stage is rejected",
+                rejected.body.contains("Unknown development stage"),
+                "unknown stage was accepted");
+    }
+
+    /**
+     * Raises a change order that switches the model to the BOM version created before, approves
+     * it and applies it.
+     *
+     * @throws IOException when the service call fails
+     */
+    private void appliesChangeOrderToBomVersion() throws IOException {
+        if (createdVersionId == null) {
+            check("change order: skipped, no BOM version available", false, "no version id");
+            return;
+        }
+        Map<String, String> form = new LinkedHashMap<>();
+        form.put("productCode", PRODUCT_CODE);
+        form.put("projectCode", devProjectCode == null ? "" : devProjectCode);
+        form.put("ecoTypeId", "MFG_ECO_BOM");
+        form.put("reason", "IT 变更测试");
+        form.put("changeSummary", "U9 新增");
+        form.put("requestedBy", "it_requester");
+        form.put("toBomVersionId", createdVersionId);
+        Response response = invoke("mfgDevEcoSave", form);
+        check("change order: create returns HTTP 200", response.status == 200, "HTTP " + response.status);
+        ecoId = firstMatch(ECO_ID, response.body);
+        check("change order: identifier generated", ecoId != null, "no change order id in response");
+
+        Map<String, String> listForm = new LinkedHashMap<>();
+        listForm.put("search", ecoId == null ? "" : ecoId);
+        Response list = invoke("mfgDevEcoList", listForm);
+        check("change order: list returns HTTP 200", list.status == 200, "HTTP " + list.status);
+        check("change order: found by its number", ecoId != null && list.body.contains(ecoId),
+                "change order missing from the list");
+        check("change order: target version is kept", list.body.contains(createdVersionId),
+                "target version missing");
+
+        Map<String, String> applyTooEarly = new LinkedHashMap<>();
+        applyTooEarly.put("ecoId", ecoId == null ? "" : ecoId);
+        Response early = invoke("mfgDevEcoApply", applyTooEarly);
+        check("change order: a draft cannot be applied",
+                early.body.contains("Only an approved change order can be applied"),
+                "a draft was applied");
+
+        Map<String, String> approveForm = new LinkedHashMap<>();
+        approveForm.put("ecoId", ecoId == null ? "" : ecoId);
+        approveForm.put("approvedBy", "it_approver");
+        Response approved = invoke("mfgDevEcoApprove", approveForm);
+        check("change order: approve returns HTTP 200", approved.status == 200
+                && approved.body.contains("MFG_ECO_APPROVED"), "HTTP " + approved.status);
+
+        Map<String, String> applyForm = new LinkedHashMap<>();
+        applyForm.put("ecoId", ecoId == null ? "" : ecoId);
+        Response applied = invoke("mfgDevEcoApply", applyForm);
+        check("change order: apply returns HTTP 200", applied.status == 200, "HTTP " + applied.status);
+        check("change order: status becomes applied", applied.body.contains("MFG_ECO_APPLIED"),
+                "status did not change");
+
+        Map<String, String> detailForm = new LinkedHashMap<>();
+        detailForm.put("ecoId", ecoId == null ? "" : ecoId);
+        Response detail = invoke("mfgDevEcoDetail", detailForm);
+        check("change order: detail returns HTTP 200", detail.status == 200, "HTTP " + detail.status);
+        check("change order: detail shows the target version", detail.body.contains(createdVersionId),
+                "target version missing from the detail");
+
+        Map<String, String> again = new LinkedHashMap<>();
+        again.put("ecoId", ecoId == null ? "" : ecoId);
+        Response second = invoke("mfgDevEcoApply", again);
+        check("change order: applying twice is rejected",
+                second.body.contains("Only an approved change order can be applied"),
+                "the change order was applied twice");
+
+        Map<String, String> projectForm = new LinkedHashMap<>();
+        projectForm.put("projectCode", devProjectCode == null ? "" : devProjectCode);
+        Response project = invoke("mfgDevProjectDetail", projectForm);
+        check("change order: linked project shows the change order", ecoId != null
+                && project.body.contains(ecoId), "change order missing on the project");
     }
 
     private Response post(String path, Map<String, String> form) throws IOException {
