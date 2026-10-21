@@ -57,7 +57,8 @@ C0402-100N,100nF 0402 电容,立创商城,DC2409B,500,2026-10-19</textarea>
 <#if lots?has_content>
     <table>
         <tr><th>批次</th><th>元件料号</th><th>名称</th><th>供应商</th><th>供应商批号</th>
-            <th class="num">到货</th><th class="num">已发</th><th class="num">剩余</th><th>到货日期</th><th>追溯</th></tr>
+            <th class="num">到货</th><th class="num">已发</th><th class="num">剩余</th><th>到货日期</th>
+            <th>来料检验</th><th>追溯</th></tr>
         <#list lots as lot>
             <tr>
                 <td>${lot.lotId!}</td>
@@ -69,10 +70,30 @@ C0402-100N,100nF 0402 电容,立创商城,DC2409B,500,2026-10-19</textarea>
                 <td class="num">${((lot.issuedQty)!0)?string("0.##")}</td>
                 <td class="num">${((lot.remainingQty)!0)?string("0.##")}</td>
                 <td><#if lot.receivedDate??>${lot.receivedDate?string("yyyy-MM-dd")}</#if></td>
+                <td>
+                    <#if (lot.inspectStatusId!'') == 'MFG_IQC_PASS'><span class="ok">合格</span>
+                    <#elseif (lot.inspectStatusId!'') == 'MFG_IQC_CONCESSION'><span class="warn">让步接收</span>
+                    <#elseif (lot.inspectStatusId!'') == 'MFG_IQC_FAIL'><span class="error">不合格（不能发料）</span>
+                    <#else><span class="hint">待检</span></#if>
+                    <#if lot.inspectDate??><span class="hint"> ${lot.inspectDate?string("yyyy-MM-dd")}</span></#if>
+                    <#if ((lot.rejectedQty)!0) gt 0><span class="error"> / 不良 ${((lot.rejectedQty)!0)?string("0.##")}</span></#if>
+                    <form method="post" action="/mfg/control/lotInspect" class="inline">
+                        <input type="hidden" name="lotId" value="${lot.lotId}"/>
+                        <select name="inspectStatusId">
+                            <option value="MFG_IQC_PENDING"<#if (lot.inspectStatusId!'MFG_IQC_PENDING') == 'MFG_IQC_PENDING'> selected="selected"</#if>>待检</option>
+                            <option value="MFG_IQC_PASS"<#if (lot.inspectStatusId!'') == 'MFG_IQC_PASS'> selected="selected"</#if>>合格</option>
+                            <option value="MFG_IQC_CONCESSION"<#if (lot.inspectStatusId!'') == 'MFG_IQC_CONCESSION'> selected="selected"</#if>>让步接收</option>
+                            <option value="MFG_IQC_FAIL"<#if (lot.inspectStatusId!'') == 'MFG_IQC_FAIL'> selected="selected"</#if>>不合格</option>
+                        </select>
+                        <input type="text" name="rejectedQty" size="3" value="${((lot.rejectedQty)!0)?string("0.##")}" title="不良数"/>
+                        <input type="submit" value="保存"/>
+                    </form>
+                </td>
                 <td><a href="/mfg/control/materials?lotId=${lot.lotId}">查影响范围</a></td>
             </tr>
         </#list>
     </table>
+    <p class="hint">来料检验只拦「不合格」批次：待检和让步接收的批次仍可发料；不合格批次要改判或让步接收后才能发。</p>
 <#else>
     <p class="hint">还没有批次记录。</p>
 </#if>

@@ -155,8 +155,7 @@
 
     <request-map uri="issueSave">
         <security https="true" auth="true"/>
-        <event type="service" invoke="mfgIssueSave"/>
-        <response name="success" type="request-redirect" value="workOrder">
+        <event type="service" invoke="mfgIssueSave"/>        <response name="success" type="request-redirect" value="workOrder">
             <redirect-parameter name="workOrderId"/>
         </response>
         <response name="error" type="view" value="workOrder"/>
@@ -181,6 +180,15 @@
         <event type="service" invoke="mfgLotImportCsv"/>
         <response name="success" type="request-redirect" value="materials">
             <redirect-parameter name="importedCount"/>
+        </response>
+        <response name="error" type="view" value="materials"/>
+    </request-map>
+
+    <request-map uri="lotInspect">
+        <security https="true" auth="true"/>
+        <event type="service" invoke="mfgLotInspect"/>
+        <response name="success" type="request-redirect" value="materials">
+            <redirect-parameter name="lotId"/>
         </response>
         <response name="error" type="view" value="materials"/>
     </request-map>

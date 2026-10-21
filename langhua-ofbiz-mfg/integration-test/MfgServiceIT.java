@@ -68,14 +68,14 @@ public final class MfgServiceIT {
 
     private static final Pattern WORK_ORDER_ID = Pattern.compile("WO-\\d{6}-\\d{3}");
     private static final Pattern SERIAL_NUMBER = Pattern.compile(SN_PREFIX + "-\\d{6}-\\d{4}");
-    private static final Pattern LOT_ID = Pattern.compile("LOT-\\d{6}-\\d{2}");
+    private static final Pattern LOT_ID = Pattern.compile("LOT-\\d{6}-\\d+");
     private static final Pattern DELIVERY_ID = Pattern.compile("DO-\\d{6}-\\d{2}");
     private static final Pattern VENDOR_ID = Pattern.compile("V-\\d{6}-\\d{2}");
     private static final Pattern CLAIM_ID = Pattern.compile("RMA-\\d{6}-\\d{2}");
     private static final Pattern DEV_PROJECT_ID = Pattern.compile("DEV-\\d{6}-\\d{2}");
     private static final Pattern ECO_ID = Pattern.compile("ECO-\\d{6}-\\d{2}");
     private static final Pattern BOM_VERSION_ID = Pattern.compile(PRODUCT_CODE + "-V\\d+");
-    private static final Pattern LOT_NUMBER = Pattern.compile("LOT-\\d{6}-\\d{2}");
+    private static final Pattern LOT_NUMBER = Pattern.compile("LOT-\\d{6}-\\d+");
     private static final String ENCLOSURE_PART = "ENC-IT-SHELL";
 
     private static final Pattern PHOTO_SEQ = Pattern.compile("<td>seq</td>\\s*<td>(\\d+)</td>");
@@ -148,6 +148,7 @@ public final class MfgServiceIT {
             it.createsMaterialLot();
             it.issuesMaterialLot();
             it.rejectsIssueOfForeignLot();
+            it.inspectsMaterialLot();
             it.recordsShipments();
             it.readsWorkOrderMaterials();
             it.tracesLotBackwards();
@@ -505,6 +506,77 @@ public final class MfgServiceIT {
         check("issue: a lot of another component is rejected",
                 response.body.contains("belongs to component"), "no validation error in response");
         System.out.println("[invalid issue] error reported as expected");
+    }
+
+    /** Incoming inspection: a failed lot must not be issued, a concession may. */
+    private void inspectsMaterialLot() throws IOException {
+        Map<String, String> lot = new LinkedHashMap<>();
+        lot.put("componentCode", "IQC-IT-PART");
+        lot.put("componentName", "Incoming inspection part");
+        lot.put("supplierName", "IT supplier");
+        lot.put("supplierLot", "DC-IQC");
+        lot.put("receivedQty", "10");
+        Response saved = invoke("mfgLotSave", lot);
+        check("iqc: a new lot returns HTTP 200", saved.status == 200, "HTTP " + saved.status);
+        String iqcLotId = firstMatch(LOT_ID, saved.body);
+        check("iqc: pending lot identifier returned", iqcLotId != null, "no lot id in response");
+        if (iqcLotId == null || workOrderId == null) {
+            return;
+        }
+        check("iqc: a new lot starts as pending", saved.body.contains("MFG_IQC_PENDING"),
+                "the lot did not start as pending");
+
+        Map<String, String> badStatus = new LinkedHashMap<>();
+        badStatus.put("lotId", iqcLotId);
+        badStatus.put("inspectStatusId", "MFG_IQC_BOGUS");
+        Response rejected = invoke("mfgLotInspect", badStatus);
+        check("iqc: an unknown status is rejected",
+                rejected.body.contains("Unknown inspection status"), "the bogus status was stored");
+
+        Map<String, String> tooMuch = new LinkedHashMap<>();
+        tooMuch.put("lotId", iqcLotId);
+        tooMuch.put("inspectStatusId", "MFG_IQC_PASS");
+        tooMuch.put("rejectedQty", "99");
+        Response over = invoke("mfgLotInspect", tooMuch);
+        check("iqc: a rejected quantity larger than received is refused",
+                over.body.contains("larger than the received quantity"), "the quantity was accepted");
+
+        Map<String, String> fail = new LinkedHashMap<>();
+        fail.put("lotId", iqcLotId);
+        fail.put("inspectStatusId", "MFG_IQC_FAIL");
+        fail.put("rejectedQty", "3");
+        fail.put("inspector", "IT inspector");
+        fail.put("inspectNote", "Pads do not solder");
+        Response failed = invoke("mfgLotInspect", fail);
+        check("iqc: a failure is stored", failed.status == 200 && failed.body.contains("MFG_IQC_FAIL"),
+                "HTTP " + failed.status);
+
+        Map<String, String> issueForm = new LinkedHashMap<>();
+        issueForm.put("workOrderId", workOrderId);
+        issueForm.put("componentCode", "IQC-IT-PART");
+        issueForm.put("lotId", iqcLotId);
+        issueForm.put("qty", "1");
+        Response blocked = invoke("mfgIssueSave", issueForm);
+        check("iqc: a failed lot cannot be issued",
+                blocked.body.contains("failed incoming inspection"), "the failed lot was issued");
+
+        Map<String, String> concession = new LinkedHashMap<>();
+        concession.put("lotId", iqcLotId);
+        concession.put("inspectStatusId", "MFG_IQC_CONCESSION");
+        concession.put("rejectedQty", "3");
+        Response conceded = invoke("mfgLotInspect", concession);
+        check("iqc: a concession is stored", conceded.body.contains("MFG_IQC_CONCESSION"),
+                "the concession was not stored");
+
+        Response issueAfter = invoke("mfgIssueSave", issueForm);
+        check("iqc: a concession lot can be issued", issueAfter.body.contains("issueId"),
+                "the concession lot was still blocked");
+
+        Map<String, String> list = new LinkedHashMap<>();
+        list.put("search", iqcLotId);
+        Response listing = invoke("mfgLotList", list);
+        check("iqc: the lot shows its inspection state in the list",
+                listing.body.contains("MFG_IQC_CONCESSION"), "inspection state missing from the list");
     }
 
     private void recordsShipments() throws IOException {

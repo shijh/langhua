@@ -58,6 +58,15 @@ public final class MfgServices {
     public static final String SHIP_OUT = "MFG_SHIP_OUT";
     public static final String SHIP_IN = "MFG_SHIP_IN";
 
+    /** Incoming inspection (IQC) of a material lot: only a failed lot is blocked from issuing. */
+    public static final String IQC_PENDING = "MFG_IQC_PENDING";
+    public static final String IQC_PASS = "MFG_IQC_PASS";
+    public static final String IQC_CONCESSION = "MFG_IQC_CONCESSION";
+    public static final String IQC_FAIL = "MFG_IQC_FAIL";
+
+    /** All incoming inspection statuses, the order is the one shown in the lists. */
+    public static final String[] INSPECT_STATUSES = {IQC_PENDING, IQC_PASS, IQC_CONCESSION, IQC_FAIL};
+
     public static final String SN_SHIPPED = "MFG_SHIPPED";
 
     public static final String RMA_OPEN = "MFG_RMA_OPEN";
@@ -830,14 +839,75 @@ public final class MfgServices {
             Object receivedDate = parseDate(context.get("receivedDate"));
             lot.set("receivedDate", receivedDate == null
                     ? java.sql.Date.valueOf(LocalDate.now()) : receivedDate);
+            String inspectStatus = normalizeInspectStatus(context.get("inspectStatusId"));
+            if (inspectStatus == null) {
+                return ServiceUtil.returnError("Unknown inspection status [" + context.get("inspectStatusId")
+                        + "], expected " + String.join(" / ", INSPECT_STATUSES));
+            }
+            lot.set("inspectStatusId", inspectStatus);
             lot.set("note", toText(context.get("note")));
             delegator.createOrStore(lot);
 
             Map<String, Object> result = ServiceUtil.returnSuccess();
             result.put("lotId", lotId);
+            result.put("inspectStatusId", inspectStatus);
             return result;
         } catch (GenericEntityException e) {
             return ServiceUtil.returnError("Could not save the material lot: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Records the incoming inspection of one lot.
+     *
+     * <p>A failed lot stays in the ledger (it has to be traced back to the supplier) but it cannot be
+     * issued until somebody passes it or marks it as a concession. A lot that was never inspected is
+     * still pending and can be issued, which keeps the flow usable for the parts that are not
+     * inspected at all.
+     *
+     * @param dctx the dispatch context
+     * @param context service context, see {@code servicedef/services.xml#mfgLotInspect}
+     * @return the service result containing {@code lotId} and the stored status
+     */
+    public static Map<String, Object> lotInspect(DispatchContext dctx, Map<String, ? extends Object> context) {
+        Delegator delegator = dctx.getDelegator();
+        String lotId = toText(context.get("lotId"));
+        if (lotId == null) {
+            return ServiceUtil.returnError("lotId is required");
+        }
+        String status = normalizeInspectStatus(context.get("inspectStatusId"));
+        if (status == null) {
+            return ServiceUtil.returnError("Unknown inspection status [" + context.get("inspectStatusId")
+                    + "], expected " + String.join(" / ", INSPECT_STATUSES));
+        }
+        double rejectedQty = toDouble(context.get("rejectedQty"), 0.0);
+        if (rejectedQty < 0.0) {
+            return ServiceUtil.returnError("rejectedQty cannot be negative");
+        }
+        try {
+            GenericValue lot = EntityQuery.use(delegator).from("MfgMaterialLot").where("lotId", lotId).queryOne();
+            if (lot == null) {
+                return ServiceUtil.returnError("Unknown material lot [" + lotId + "]");
+            }
+            double received = toDouble(lot.get("receivedQty"), 0.0);
+            if (rejectedQty > received) {
+                return ServiceUtil.returnError("rejectedQty [" + rejectedQty
+                        + "] is larger than the received quantity [" + received + "]");
+            }
+            lot.set("inspectStatusId", status);
+            lot.set("rejectedQty", Double.valueOf(rejectedQty));
+            lot.set("inspector", toText(context.get("inspector")));
+            lot.set("inspectNote", toText(context.get("inspectNote")));
+            lot.set("inspectDate", IQC_PENDING.equals(status) ? null : java.sql.Date.valueOf(LocalDate.now()));
+            delegator.store(lot);
+
+            Map<String, Object> result = ServiceUtil.returnSuccess();
+            result.put("lotId", lotId);
+            result.put("inspectStatusId", status);
+            result.put("rejectedQty", Double.valueOf(rejectedQty));
+            return result;
+        } catch (GenericEntityException e) {
+            return ServiceUtil.returnError("Could not store the inspection: " + e.getMessage());
         }
     }
 
@@ -912,6 +982,10 @@ public final class MfgServices {
             if (lotComponent != null && !lotComponent.equals(componentCode)) {
                 return ServiceUtil.returnError("Lot [" + lotId + "] belongs to component [" + lotComponent
                         + "], not [" + componentCode + "]");
+            }
+            if (!isLotUsable(lot.getString("inspectStatusId"))) {
+                return ServiceUtil.returnError("Lot [" + lotId
+                        + "] failed incoming inspection, mark it passed or concession in the material lots first");
             }
             String issueId = delegator.getNextSeqId("MfgMaterialIssue");
             GenericValue issue = delegator.makeValue("MfgMaterialIssue");
@@ -1241,6 +1315,40 @@ public final class MfgServices {
         return estimates;
     }
 
+    /**
+     * Tells whether a lot may be issued.
+     *
+     * <p>Only a failed lot is blocked: a lot that was never inspected ({@code PENDING}) or one that
+     * was accepted with reservations ({@code CONCESSION}) is still usable, because a small workshop
+     * does not inspect every passive component.
+     *
+     * @param inspectStatusId the incoming inspection status, may be {@code null}
+     * @return {@code true} unless the lot failed the inspection
+     */
+    static boolean isLotUsable(String inspectStatusId) {
+        return !IQC_FAIL.equals(inspectStatusId);
+    }
+
+    /**
+     * Maps the incoming inspection status, defaulting an empty value to {@code PENDING}.
+     *
+     * @param value the raw input
+     * @return one of {@link #INSPECT_STATUSES}, or {@code null} when the value is not a known status
+     */
+    static String normalizeInspectStatus(Object value) {
+        String text = toText(value);
+        if (text == null) {
+            return IQC_PENDING;
+        }
+        String upper = text.toUpperCase(Locale.ROOT);
+        for (String status : INSPECT_STATUSES) {
+            if (status.equals(upper)) {
+                return status;
+            }
+        }
+        return null;
+    }
+
     private static Map<String, Object> toLotMap(GenericValue lot, Double issuedQty) {
         Map<String, Object> map = new LinkedHashMap<>();
         map.put("lotId", lot.getString("lotId"));
@@ -1254,6 +1362,14 @@ public final class MfgServices {
         double received = lot.getDouble("receivedQty") == null ? 0.0 : lot.getDouble("receivedQty").doubleValue();
         double issued = issuedQty == null ? 0.0 : issuedQty.doubleValue();
         map.put("remainingQty", Double.valueOf(received - issued));
+        String inspectStatus = lot.getString("inspectStatusId");
+        map.put("inspectStatusId", inspectStatus == null ? IQC_PENDING : inspectStatus);
+        map.put("inspectDate", lot.get("inspectDate"));
+        map.put("inspector", lot.getString("inspector"));
+        map.put("inspectNote", lot.getString("inspectNote"));
+        map.put("rejectedQty", lot.getDouble("rejectedQty") == null
+                ? Double.valueOf(0.0) : lot.getDouble("rejectedQty"));
+        map.put("usable", Boolean.valueOf(isLotUsable(inspectStatus)));
         map.put("note", lot.getString("note"));
         return map;
     }

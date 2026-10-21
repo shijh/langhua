@@ -662,4 +662,28 @@ public class MfgServicesTest {
         assertEquals("file", MfgServices.cleanFileName(null));
         assertTrue(MfgServices.cleanFileName("a".repeat(200) + ".png").length() <= 60);
     }
+
+    @Test
+    public void onlyAFailedLotBlocksIssuing() {
+        assertTrue(MfgServices.isLotUsable(null));
+        assertTrue(MfgServices.isLotUsable(MfgServices.IQC_PENDING));
+        assertTrue(MfgServices.isLotUsable(MfgServices.IQC_PASS));
+        assertTrue(MfgServices.isLotUsable(MfgServices.IQC_CONCESSION));
+        assertTrue(!MfgServices.isLotUsable(MfgServices.IQC_FAIL));
+        // the rule is "only a failure blocks", so an unknown status must not lock the shop floor out
+        assertTrue(MfgServices.isLotUsable("MFG_IQC_BOGUS"));
+    }
+
+    @Test
+    public void normalizesTheInspectionStatus() {
+        // an empty value means "not inspected yet", not an error
+        assertEquals(MfgServices.IQC_PENDING, MfgServices.normalizeInspectStatus(null));
+        assertEquals(MfgServices.IQC_PENDING, MfgServices.normalizeInspectStatus("   "));
+        assertEquals(MfgServices.IQC_PASS, MfgServices.normalizeInspectStatus("MFG_IQC_PASS"));
+        assertEquals(MfgServices.IQC_PASS, MfgServices.normalizeInspectStatus("mfg_iqc_pass"));
+        assertEquals(MfgServices.IQC_CONCESSION, MfgServices.normalizeInspectStatus("MFG_IQC_CONCESSION"));
+        assertEquals(MfgServices.IQC_FAIL, MfgServices.normalizeInspectStatus("MFG_IQC_FAIL"));
+        assertNull(MfgServices.normalizeInspectStatus("MFG_IQC_BOGUS"));
+        assertEquals(4, MfgServices.INSPECT_STATUSES.length);
+    }
 }

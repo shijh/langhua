@@ -295,8 +295,24 @@
         <attribute name="supplierLot" type="String" mode="IN" optional="true"/>
         <attribute name="receivedQty" type="Double" mode="IN" optional="false"/>
         <attribute name="receivedDate" type="String" mode="IN" optional="true"/>
+        <attribute name="inspectStatusId" type="String" mode="IN" optional="true"/>
         <attribute name="note" type="String" mode="IN" optional="true"/>
         <attribute name="lotId" type="String" mode="OUT" optional="true"/>
+        <attribute name="inspectStatusId" type="String" mode="OUT" optional="true"/>
+    </service>
+
+    <service name="mfgLotInspect" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgServices" invoke="lotInspect"
+            auth="false" use-transaction="false">
+        <description>Record the incoming inspection of a material lot; a failed lot cannot be issued</description>
+        <attribute name="lotId" type="String" mode="IN" optional="false"/>
+        <attribute name="inspectStatusId" type="String" mode="IN" optional="false"/>
+        <attribute name="rejectedQty" type="Double" mode="IN" optional="true"/>
+        <attribute name="inspector" type="String" mode="IN" optional="true"/>
+        <attribute name="inspectNote" type="String" mode="IN" optional="true"/>
+        <attribute name="lotId" type="String" mode="OUT" optional="true"/>
+        <attribute name="inspectStatusId" type="String" mode="OUT" optional="true"/>
+        <attribute name="rejectedQty" type="Double" mode="OUT" optional="true"/>
     </service>
 
     <service name="mfgLotList" engine="java"
