@@ -10,6 +10,7 @@
 | 模块 | 内容 |
 | --- | --- |
 | 产品型号 | 型号、SN 前缀、单台标准工时、**开发阶段**（概念/设计/打样/试产/量产） |
+| **产品照片** | 型号页上传多张照片（JPG/PNG/GIF，单张 ≤ 4 MB），存数据库不丢；列表显示缩略图，点开看原图；可删除 |
 | BOM | CSV 批量导入元件行：`料号,名称,用量,位号,是否关键件` |
 | **BOM 版本** | 型号可保留多个 BOM 版本（`型号-V1`、`-V2`…），每个版本独立存行；型号指向“当前使用”的版本，启用新版本时旧版本自动废止；工单创建时冻结所用版本 |
 | **产品开发** | 开发项目立项（可选线路：**PCB / 固件 / 外壳**，带料号；目标成本/售价/计划上市日），五道阶段关卡（概念→设计→打样→试产→量产），评审通过自动进入下一阶段 |
@@ -47,7 +48,7 @@ langhua-ofbiz-mfg/
 ├── data/
 │   └── MfgSecurityPermissionSeedData.xml # 权限与权限组种子数据
 ├── entitydef/
-│   ├── entitymodel.xml                  # 22 个业务实体
+│   ├── entitymodel.xml                  # 23 个业务实体
 │   └── entitygroup.xml
 ├── servicedef/
 │   └── services.xml                     # 56 个服务
@@ -90,6 +91,7 @@ https://localhost:8443/mfg/control/main
 | `MfgBomItem` | 旧版单表 BOM 行（`productCode` + `lineSeq`）。**已停用**，首次读取时自动冻结为 `型号-V1` 版本，新代码只用版���表 |
 | `MfgBomVersion` | BOM 版本：`bomVersionId`（主键，`型号-Vn`）、`versionNo`、`statusId`（DRAFT/RELEASED/OBSOLETE）、`effectiveDate`、`basisVersionId`（从哪版复制）、`ecoId`（哪张变更单引入） |
 | `MfgBomVersionItem` | 版本内 BOM 行：`bomVersionId` + `lineSeq`（联合主键）、`componentCode`、`qty`、`designators`、`isKeyPart` |
+| `MfgProductImage` | 产品照片：`productCode` + `seq`（联合主键）、`fileName`、`contentType`、`imageSize`、`imageData`（`byte-array` → BLOB）、`note`；序号从 1 递增，序号最大的就是最新一张 |
 | `MfgRouting` | 工序模板：`productCode` + `opSeq`（联合主键）、`opName`、`workCenter`、`stdHours` |
 | `MfgWorkOrder` | 工单：`workOrderId`、`productCode`、`plannedQty`、`statusId`、`dueDate`、`customerName`、`smtVendor`、`bomVersionId`（建单时冻结的 BOM 版本） |
 | `MfgSn` | 单板：`sn`（主键）、`workOrderId`、`productCode`、状态 |
@@ -117,6 +119,7 @@ https://localhost:8443/mfg/control/main
 | `mfgBomImport` | 从 CSV 导入 BOM 到指定版本（缺省为当前版本），`replace=N` 时追加而不清空 |
 | `mfgBomVersionCreate` / `mfgBomVersionActivate` / `mfgBomVersionList` | 新建下一版（可复制当前行）、启用某版（旧版转废止、型号指向新版）、列出各版本 |
 | `mfgBomMigrateLegacy` | 把旧单表 BOM 冻结为版本（幂等，可重复调用） |
+| `mfgProductImageSave` / `mfgProductImageList` / `mfgProductImageDelete` | 照片存（base64，供脚本与测试用）、列表（不返回字节）、删除；页面上传走下面的 multipart 事件 |
 | `mfgRoutingSave` | 新增/更新一道工序 |
 | `mfgWorkOrderCreate` / `mfgWorkOrderList` / `mfgWorkOrderDetail` | 工单维护；详情含工序进度、SN、不良、累计工时 |
 | `mfgSnRegister` / `mfgSnDetail` | 批量生成 SN；按 SN 查完整履历 |
@@ -171,7 +174,9 @@ csv         = R0402-10K,10K 0402 resistor,4,R1-R4,N
 | 路径 | 说明 |
 | --- | --- |
 | `/mfg/control/main` | 工单列表 + 新建工单（含产品型号下拉） |
-| `/mfg/control/products?productCode=...` | 产品型号、**BOM 版本（查看/新建下一版/启用）**、BOM 导入与工艺路线维护 |
+| `/mfg/control/products?productCode=...` | 产品型号、**照片上传与删改**、**BOM 版本（查看/新建下一版/启用）**、BOM 导入与工艺路线维护 |
+| `/mfg/control/productImageUpload` | POST multipart，字段 `imageFile` + `productCode` + 可选 `note` |
+| `/mfg/control/productImage?productCode=...&seq=...` | 输出照片字节；`seq` 缺省取最新一张，`thumb=1` 输出最长边 200px 的 JPEG 缩略图 |
 | `/mfg/control/dev?projectCode=...` | 产品开发：立项与改动、线路与步骤进度、步骤台账与快速推进、五道关卡评审、项目下的变更单 |
 | `/mfg/control/eco?ecoId=...` | 设计变更：新建变更单、按状态筛选、指定目标 BOM 版本、批准 / 生效 / 取消 |
 | `/mfg/control/workOrder?workOrderId=...` | 工单详情：工序进度、报工、SN 生成、不良登记 |
@@ -257,10 +262,12 @@ productSave → bomImport → routingSave → productDetail
            → PCB 项目：五步清单不含固件步骤 → 快速完成 → 步骤详情（负责人/供应商/单号）
            → 拿固件步骤去改 PCB 项目被拒
            → 外壳项目：入库不填数量被拒 → 填数量完成 → 自动生成物料批次（重复完成不重建）
+           → 产品照片：base64 存入 → 列表带 contentType → 文件名去路径 → 拒绝 PDF → 删除
            → 非法报工（workHours = 0）/ 错料发料（批次不属于该料号）/ 非法售后状态
 ```
 
-共 192 项断言，全部通过时退出码为 0。测试是**可重复执行**的：每次创建/更新产品型号 `ITMFG`、替换其 BOM、
+共 201 项断言，全部通过时退出码为 0。图片的字节输出（含缩略图）用页面脚本验证（见下方“页面巡检”），
+因为它需要一个真正的浏览器会话。测试是**可重复执行**的：每次创建/更新产品型号 `ITMFG`、替换其 BOM、
 新建一张工单、物料批次与出货单，以及相应的报工、不良、发料、收发、换件与测试数据；
 BOM 版本与变更单会每次新增一版，所以编号会一直往上走，不影响断言。
 
@@ -285,7 +292,22 @@ java -cp "build/test-classes:ofbiz.jar:junit-4.13.2.jar:hamcrest-core-1.3.jar" \
 覆盖 BOM / 批次 / 测试结果 CSV 解析（引号、缺列、CRLF、注释行、大小写归一）、SN 列表拆分、FIFO 推定切片、
 邮寄标签格式、SN / 工单编号格式，保修到期日、7 天 / 15 天窗口、剩余小时与运费承担，
 以及买家匹配键、手机号归一化与打码、风险等级建议、名单到期判定，还有百分比、日期差与失效分档、售后成本计算、红线判定、看板坐标轴与柱高缩放、关键词过滤与分页切片，
-以及 BOM 版本号生成与下一版号推导、开发阶段阶梯与关卡推进规则、变更单状态与类型校验、三条线路的步骤目录与首个未完成步骤推导（共 49 个用例）。
+以及 BOM 版本号生成与下一版号推导、开发阶段阶梯与关卡推进规则、变更单状态与类型校验、三条线路的步骤目录与首个未完成步骤推导、照片类型与文件名清洗（共 52 个用例）。
+
+## 页面巡检（PowerShell）
+
+服务层的断言由集成测试覆盖，**页面渲染与二进制输出**用一组 PowerShell 脚本配真实登录会话来查
+（`verify-m*.ps1`，日志写在 `F:\build-ofbiz\mfg-m*.txt`）：
+
+| 脚本 | 覆盖 | 断言数 |
+| --- | --- | --- |
+| `verify-m11.ps1` | 8 个列表页的关键词搜索、过滤、翻页、编码、全站无模板报错 | 55 |
+| `verify-m12.ps1` | 12 个页面的布局：一个 `<html>`、一条导航、一个高亮项、样式表、无内联 `<style>`、无 FTL 报错 | 102 |
+| `verify-m13.ps1` | 产品开发的线路与步骤、变更单流程、BOM 版本块 | 49 |
+| `verify-m14.ps1` | 照片：multipart 上传 → 列表 → 取原图（`image/png`）→ 取缩略图（`image/jpeg`）→ 拒绝文本文件 → 删除 → 404 | 20 |
+
+> 这些脚本在断言页面内容，不只是看 HTTP 200：OFBiz 的模板错误也是 200 + 一页堆栈，
+> 所以每个页面都要扫 `FTL stack trace` / `FreeMarker template error`。
 
 ## 追溯精度说明（重要）
 
@@ -344,6 +366,20 @@ SMT 为外协，且对方**不提供上料 / 换料记录**，因此追溯精度
 > 若买家投诉歧视，有 `evidenceNote` 与解除机制才说得清。
 
 ## 产品开发与 BOM 版本：规则说明
+
+**产品照片**
+
+- 照片存在数据库（`MfgProductImage.imageData` 是 `byte-array` → BLOB），**不写到 webapp 目录**，
+  所以重新部署组件、清 `build` 都不会丢；备份跟数据库一起走；
+- 页面上传表单是 `enctype="multipart/form-data"`，由 `MfgProductImageEvents.upload` 处理：
+  OFBiz 的 `UtilHttp.getParameterMap` 已经把 multipart 解析好（文件字段是 `ByteBuffer`，
+  另有 `_imageFile_fileName` / `_imageFile_contentType` / `_imageFile_size` 三个伴生参数）；
+- 校验：只收 JPG / PNG / GIF（浏览器给了 `application/octet-stream` 时按扩展名猜），单张 ≤ 4 MB，
+  文件名只保留最后一段并把怪字符换成 `_`；
+- 序号只增不减：删掉中间某张不会重排，最新一张 = 序号最大的一张，型号列表用它做缩略图；
+- 查看走 `/mfg/control/productImage`，**经过 controller 的 `auth="true"`**，不是公开目录；
+  `thumb=1` 用 `ImageIO` 现场缩放成 JPEG（最长边 200px），并带 `Cache-Control: private, max-age=86400` 与 ETag，
+  列表里 20 行缩略图不会反复传原图。
 
 **BOM 版本**
 
@@ -435,6 +471,10 @@ PDA/手机扫码作业、车间大屏、对外客户门户。
 - **可选入参**：屏幕里会**无条件**调用的服务（如“选中某个项目才显示详情”），IN 参数必须
   `optional="true"`——否则不带 `?projectCode=` 访问列表页时，服务参数校验抛
   `ServiceValidationException`，整页变 500。服务实现里对空值直接返回空结果即可。
+- **文件上传**：`enctype="multipart/form-data"` 的表单，Java 事件里 `request.getParameter` 取不到值，
+  要先 `UtilHttp.getParameterMap(request)`（或读 `request.getAttribute("multiPartMap")`）；
+  文件字段是 `ByteBuffer`，名字/类型/大小在 `_字段名_fileName` / `_contentType` / `_size`。
+  输出二进制用 `<response name="success" type="none"/>`，否则控制器会再渲一页盖在后面。
 
 ## 后续想法
 

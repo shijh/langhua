@@ -97,6 +97,28 @@
         </relation>
     </entity>
 
+    <entity entity-name="MfgProductImage"
+            package-name="org.langhua.ofbiz.mfg"
+            title="Product photo">
+        <description>One photo of a product model, stored in the database so a redeploy of the component never loses it</description>
+        <field name="productCode" type="id"><description>Parent model</description></field>
+        <field name="seq" type="numeric"><description>Running number inside the model, 1 is the oldest photo</description></field>
+        <field name="fileName" type="short-varchar"><description>Original file name, cleaned of any path</description></field>
+        <field name="contentType" type="short-varchar"><description>image/jpeg, image/png or image/gif</description></field>
+        <field name="imageSize" type="numeric"><description>Size of the photo in bytes</description></field>
+        <field name="imageData" type="byte-array"><description>The photo itself</description></field>
+        <field name="note" type="description"/>
+        <field name="createdStamp" type="date-time"/>
+        <field name="createdTxStamp" type="date-time"/>
+        <field name="lastUpdatedStamp" type="date-time"/>
+        <field name="lastUpdatedTxStamp" type="date-time"/>
+        <prim-key field="productCode"/>
+        <prim-key field="seq"/>
+        <relation type="one" fk-name="MFG_PHOTO_PRODUCT" rel-entity-name="MfgProduct">
+            <key-map field-name="productCode"/>
+        </relation>
+    </entity>
+
     <entity entity-name="MfgRouting"
             package-name="org.langhua.ofbiz.mfg"
             title="Routing operation template">

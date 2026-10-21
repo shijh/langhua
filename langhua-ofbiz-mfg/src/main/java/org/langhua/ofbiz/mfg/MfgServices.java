@@ -4384,6 +4384,9 @@ always
                 map.put("currentBomVersionId", currentVersion);
                 map.put("bomCount", Integer.valueOf(currentVersion == null ? 0 : bomItemsOfVersion(delegator, currentVersion).size()));
                 map.put("versionCount", Integer.valueOf(bomVersionCount(delegator, productCode)));
+                List<GenericValue> images = imageRows(delegator, productCode);
+                map.put("imageCount", Integer.valueOf(images.size()));
+                map.put("latestImageSeq", images.isEmpty() ? null : images.get(0).getLong("seq"));
                 map.put("routingCount", Integer.valueOf(count(delegator, "MfgRouting", productCode)));
                 list.add(map);
             }
@@ -4403,6 +4406,243 @@ always
             return EntityQuery.use(delegator).from(entityName).where("productCode", productCode).queryList().size();
         } catch (GenericEntityException e) {
             return 0;
+        }
+    }
+
+    // ==================================================================
+    // Product photos
+    // ==================================================================
+
+    /** Biggest photo accepted on upload, in bytes. */
+    public static final long IMAGE_MAX_BYTES = 4L * 1024L * 1024L;
+
+    /** Content types accepted for a product photo. */
+    public static final String[] IMAGE_TYPES = {"image/jpeg", "image/png", "image/gif"};
+
+    /**
+     * Tells whether a content type is an accepted photo type.
+     *
+     * @param contentType the content type sent by the browser, may be null
+     * @return {@code true} for JPG, PNG and GIF
+     */
+    static boolean isAllowedImageType(String contentType) {
+        if (contentType == null) {
+            return false;
+        }
+        String type = contentType.trim().toLowerCase(Locale.ROOT);
+        for (String allowed : IMAGE_TYPES) {
+            if (allowed.equals(type)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Guesses the content type from a file name, used when the browser sends something useless such
+     * as {@code application/octet-stream}.
+     *
+     * @param fileName the original file name, may be null
+     * @return the content type, {@code null} when the extension is not a supported photo
+     */
+    static String imageTypeOfFileName(String fileName) {
+        if (fileName == null) {
+            return null;
+        }
+        String name = fileName.trim().toLowerCase(Locale.ROOT);
+        if (name.endsWith(".jpg") || name.endsWith(".jpeg")) {
+            return "image/jpeg";
+        }
+        if (name.endsWith(".png")) {
+            return "image/png";
+        }
+        if (name.endsWith(".gif")) {
+            return "image/gif";
+        }
+        return null;
+    }
+
+    /**
+     * Keeps only the last part of a file name and replaces the characters that do not belong in a
+     * name, so a Windows path or a strange upload cannot leak into the database.
+     *
+     * @param fileName the original file name, may be null
+     * @return a short and safe file name
+     */
+    static String cleanFileName(String fileName) {
+        if (fileName == null) {
+            return "photo";
+        }
+        String name = fileName.trim().replace('\\', '/');
+        int slash = name.lastIndexOf('/');
+        if (slash >= 0) {
+            name = name.substring(slash + 1);
+        }
+        name = name.replaceAll("[^A-Za-z0-9._-]", "_");
+        if (name.length() > 60) {
+            name = name.substring(name.length() - 60);
+        }
+        return name.isEmpty() ? "photo" : name;
+    }
+
+    private static List<GenericValue> imageRows(Delegator delegator, String productCode)
+            throws GenericEntityException {
+        return EntityQuery.use(delegator).from("MfgProductImage")
+                .where("productCode", productCode).orderBy("-seq").queryList();
+    }
+
+    private static long nextImageSeq(Delegator delegator, String productCode) throws GenericEntityException {
+        long max = 0;
+        for (GenericValue image : imageRows(delegator, productCode)) {
+            Long seq = image.getLong("seq");
+            if (seq != null) {
+                max = Math.max(max, seq.longValue());
+            }
+        }
+        return max + 1L;
+    }
+
+    private static Map<String, Object> toImageMap(GenericValue image) {
+        Map<String, Object> map = new LinkedHashMap<>();
+        map.put("seq", image.getLong("seq"));
+        map.put("fileName", image.getString("fileName"));
+        map.put("contentType", image.getString("contentType"));
+        map.put("imageSize", image.getLong("imageSize"));
+        map.put("note", image.getString("note"));
+        map.put("createdStamp", image.get("createdStamp"));
+        return map;
+    }
+
+    /**
+     * Validates and stores one photo. Shared by the upload event and the service so both behave the
+     * same way.
+     *
+     * @param delegator the delegator
+     * @param productCode the model the photo belongs to
+     * @param fileName the original file name
+     * @param contentType the content type, the extension is used when it is not a known type
+     * @param data the photo bytes
+     * @param note an optional note
+     * @return the service result with {@code seq} and {@code imageSize}, or an error message
+     */
+    static Map<String, Object> storeProductImage(Delegator delegator, String productCode, String fileName,
+            String contentType, byte[] data, String note) {
+        if (productCode == null) {
+            return ServiceUtil.returnError("productCode is required");
+        }
+        if (data == null || data.length == 0) {
+            return ServiceUtil.returnError("Choose a photo first");
+        }
+        if (data.length > IMAGE_MAX_BYTES) {
+            return ServiceUtil.returnError("The photo is larger than 4 MB, please shrink it first");
+        }
+        String type = isAllowedImageType(contentType) ? contentType.trim().toLowerCase(Locale.ROOT)
+                : imageTypeOfFileName(fileName);
+        if (type == null) {
+            return ServiceUtil.returnError("Only JPG, PNG and GIF photos are supported");
+        }
+        try {
+            if (EntityQuery.use(delegator).from("MfgProduct").where("productCode", productCode).queryOne() == null) {
+                return ServiceUtil.returnError("Unknown product model [" + productCode + "], create it first");
+            }
+            long seq = nextImageSeq(delegator, productCode);
+            GenericValue image = delegator.makeValue("MfgProductImage");
+            image.set("productCode", productCode);
+            image.set("seq", Long.valueOf(seq));
+            image.set("fileName", cleanFileName(fileName));
+            image.set("contentType", type);
+            image.set("imageSize", Long.valueOf(data.length));
+            image.set("imageData", data);
+            image.set("note", note);
+            delegator.create(image);
+
+            Map<String, Object> result = ServiceUtil.returnSuccess();
+            result.put("productCode", productCode);
+            result.put("seq", Long.valueOf(seq));
+            result.put("imageSize", Long.valueOf(data.length));
+            result.put("contentType", type);
+            return result;
+        } catch (GenericEntityException e) {
+            return ServiceUtil.returnError("Could not store the photo: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Stores a photo given as a base64 string, handy for scripts and for the integration test.
+     *
+     * @param dctx the dispatch context
+     * @param context service context, see {@code servicedef/services.xml#mfgProductImageSave}
+     * @return the service result containing {@code seq}
+     */
+    public static Map<String, Object> productImageSave(DispatchContext dctx, Map<String, ? extends Object> context) {
+        String base64 = toText(context.get("base64Data"));
+        if (base64 == null) {
+            return ServiceUtil.returnError("base64Data is required");
+        }
+        byte[] data;
+        try {
+            data = java.util.Base64.getMimeDecoder().decode(base64);
+        } catch (IllegalArgumentException e) {
+            return ServiceUtil.returnError("The photo data is not valid base64");
+        }
+        return storeProductImage(dctx.getDelegator(), toText(context.get("productCode")),
+                toText(context.get("fileName")), toText(context.get("contentType")), data,
+                toText(context.get("note")));
+    }
+
+    /**
+     * Lists the photos of a model, newest first, without the image bytes.
+     *
+     * @param dctx the dispatch context
+     * @param context service context, see {@code servicedef/services.xml#mfgProductImageList}
+     * @return the service result containing {@code images}
+     */
+    public static Map<String, Object> productImageList(DispatchContext dctx, Map<String, ? extends Object> context) {
+        Delegator delegator = dctx.getDelegator();
+        String productCode = toText(context.get("productCode"));
+        List<Map<String, Object>> list = new ArrayList<>();
+        if (productCode != null) {
+            try {
+                for (GenericValue image : imageRows(delegator, productCode)) {
+                    list.add(toImageMap(image));
+                }
+            } catch (GenericEntityException e) {
+                return ServiceUtil.returnError("Could not read the photos: " + e.getMessage());
+            }
+        }
+        Map<String, Object> result = ServiceUtil.returnSuccess();
+        result.put("images", list);
+        result.put("imageCount", Integer.valueOf(list.size()));
+        return result;
+    }
+
+    /**
+     * Removes one photo of a model.
+     *
+     * @param dctx the dispatch context
+     * @param context service context, see {@code servicedef/services.xml#mfgProductImageDelete}
+     * @return the service result containing {@code productCode} and {@code seq}
+     */
+    public static Map<String, Object> productImageDelete(DispatchContext dctx, Map<String, ? extends Object> context) {
+        Delegator delegator = dctx.getDelegator();
+        String productCode = toText(context.get("productCode"));
+        long seq = toLong(context.get("seq"), 0);
+        if (productCode == null || seq <= 0) {
+            return ServiceUtil.returnError("productCode and seq are required");
+        }
+        try {
+            GenericValue image = EntityQuery.use(delegator).from("MfgProductImage")
+                    .where("productCode", productCode, "seq", Long.valueOf(seq)).queryOne();
+            if (image == null) {
+                return ServiceUtil.returnError("Photo " + seq + " of [" + productCode + "] does not exist");
+            }
+            image.remove();
+            Map<String, Object> result = ServiceUtil.returnSuccess();
+            result.put("productCode", productCode);
+            result.put("seq", Long.valueOf(seq));
+            return result;
+        } catch (GenericEntityException e) {
+            return ServiceUtil.returnError("Could not delete the photo: " + e.getMessage());
         }
     }
 

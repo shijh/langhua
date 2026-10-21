@@ -48,6 +48,9 @@
                 <service service-name="mfgBomVersionList" result-map="versionResult" auto-field-map="false">
                     <field-map field-name="productCode" from-field="parameters.productCode"/>
                 </service>
+                <service service-name="mfgProductImageList" result-map="imageResult" auto-field-map="false">
+                    <field-map field-name="productCode" from-field="parameters.productCode"/>
+                </service>
             </actions>
             <widgets>
                 <decorator-screen name="mfg-decorator" location="component://mfg/widget/MfgCommonScreens.xml">

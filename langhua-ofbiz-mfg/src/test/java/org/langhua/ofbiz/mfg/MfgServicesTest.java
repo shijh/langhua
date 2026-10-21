@@ -603,4 +603,39 @@ public class MfgServicesTest {
         assertTrue(MfgServices.isKnownStepStatus("MFG_STEP_DOING"));
         assertTrue(!MfgServices.isKnownStepStatus("DONE"));
     }
+
+    @Test
+    public void knowsTheAllowedPhotoTypes() {
+        assertTrue(MfgServices.isAllowedImageType("image/jpeg"));
+        assertTrue(MfgServices.isAllowedImageType("image/png"));
+        assertTrue(MfgServices.isAllowedImageType("IMAGE/GIF"));
+        assertTrue(MfgServices.isAllowedImageType("  image/png  "));
+        assertTrue(!MfgServices.isAllowedImageType("image/webp"));
+        assertTrue(!MfgServices.isAllowedImageType("application/pdf"));
+        assertTrue(!MfgServices.isAllowedImageType(""));
+        assertTrue(!MfgServices.isAllowedImageType(null));
+    }
+
+    @Test
+    public void guessesThePhotoTypeFromTheFileName() {
+        assertEquals("image/jpeg", MfgServices.imageTypeOfFileName("front.JPG"));
+        assertEquals("image/jpeg", MfgServices.imageTypeOfFileName("C:\\photos\\back.jpeg"));
+        assertEquals("image/png", MfgServices.imageTypeOfFileName("board.png"));
+        assertEquals("image/gif", MfgServices.imageTypeOfFileName("anim.Gif"));
+        assertNull(MfgServices.imageTypeOfFileName("manual.pdf"));
+        assertNull(MfgServices.imageTypeOfFileName("noextension"));
+        assertNull(MfgServices.imageTypeOfFileName(null));
+    }
+
+    @Test
+    public void cleansUploadedFileNames() {
+        assertEquals("photo.png", MfgServices.cleanFileName("C:\\Users\\me\\Pictures\\photo.png"));
+        assertEquals("photo.png", MfgServices.cleanFileName("/tmp/photo.png"));
+        // characters outside letters, digits and dot dash underscore become underscores
+        String cleaned = MfgServices.cleanFileName("外壳 正面.jpg");
+        assertTrue("expected only underscores and the extension, got " + cleaned, cleaned.matches("_+\\.jpg"));
+        assertEquals("photo", MfgServices.cleanFileName(""));
+        assertEquals("photo", MfgServices.cleanFileName(null));
+        assertTrue(MfgServices.cleanFileName("a".repeat(200) + ".png").length() <= 60);
+    }
 }

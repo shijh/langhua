@@ -60,8 +60,42 @@
 
     <!-- BOM versions: one product can keep several BOMs, the model points to the one in use -->
 
-    <service name="mfgBomVersionCreate" engine="java"
-            location="org.langhua.ofbiz.mfg.MfgServices" invoke="bomVersionCreate"
+    <!-- product photos: uploaded through the multipart event, kept in the database -->
+
+    <service name="mfgProductImageSave" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgServices" invoke="productImageSave"
+            auth="false" use-transaction="false">
+        <description>Store one photo of a model from a base64 string; JPG, PNG or GIF up to 4 MB</description>
+        <attribute name="productCode" type="String" mode="IN" optional="false"/>
+        <attribute name="fileName" type="String" mode="IN" optional="true"/>
+        <attribute name="contentType" type="String" mode="IN" optional="true"/>
+        <attribute name="base64Data" type="String" mode="IN" optional="false"/>
+        <attribute name="note" type="String" mode="IN" optional="true"/>
+        <attribute name="seq" type="Long" mode="OUT" optional="true"/>
+        <attribute name="imageSize" type="Long" mode="OUT" optional="true"/>
+        <attribute name="contentType" type="String" mode="OUT" optional="true"/>
+    </service>
+
+    <service name="mfgProductImageList" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgServices" invoke="productImageList"
+            auth="false" use-transaction="false">
+        <description>List the photos of a model, newest first, without the image bytes</description>
+        <attribute name="productCode" type="String" mode="IN" optional="true"/>
+        <attribute name="images" type="java.util.List" mode="OUT" optional="true"/>
+        <attribute name="imageCount" type="Integer" mode="OUT" optional="true"/>
+    </service>
+
+    <service name="mfgProductImageDelete" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgServices" invoke="productImageDelete"
+            auth="false" use-transaction="false">
+        <description>Remove one photo of a model</description>
+        <attribute name="productCode" type="String" mode="IN" optional="false"/>
+        <attribute name="seq" type="Long" mode="IN" optional="false"/>
+        <attribute name="productCode" type="String" mode="OUT" optional="true"/>
+        <attribute name="seq" type="Long" mode="OUT" optional="true"/>
+    </service>
+
+    <service name="mfgBomVersionCreate" engine="java"            location="org.langhua.ofbiz.mfg.MfgServices" invoke="bomVersionCreate"
             auth="false" use-transaction="false">
         <description>Create the next BOM version of a model as a draft, copying the current lines by default</description>
         <attribute name="productCode" type="String" mode="IN" optional="false"/>

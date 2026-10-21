@@ -17,6 +17,7 @@ import java.io.OutputStream;
 import java.net.CookieHandler;
 import java.net.CookieManager;
 import java.net.CookiePolicy;
+import java.net.HttpCookie;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.net.URLEncoder;
@@ -76,6 +77,11 @@ public final class MfgServiceIT {
     private static final Pattern BOM_VERSION_ID = Pattern.compile(PRODUCT_CODE + "-V\\d+");
     private static final Pattern LOT_NUMBER = Pattern.compile("LOT-\\d{6}-\\d{2}");
     private static final String ENCLOSURE_PART = "ENC-IT-SHELL";
+
+    private static final Pattern PHOTO_SEQ = Pattern.compile("<td>seq</td>\\s*<td>(\\d+)</td>");
+    private static final String TINY_PNG_BASE64 =
+        "iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAAFklEQVQI12P4//8/AzYEYgADMAciAAB6"
+        + "wwMBAAAAAElFTkSuQmCC";
     private static final String KEY_COMPONENT = "U1-BT5-SOC";
     private static final String SUPPLIER_LOT = "DC-IT-2410";
 
@@ -83,6 +89,7 @@ public final class MfgServiceIT {
     private final String user;
     private final String password;
     private int failures;
+    private CookieManager cookieManager;
 
     private String workOrderId;
     private String serialNumber;
@@ -162,6 +169,7 @@ public final class MfgServiceIT {
             it.runsProductDevelopment();
             it.appliesChangeOrderToBomVersion();
             it.runsTheThreeDevelopmentTracks();
+            it.storesProductPhotos();
         } finally {
             it.tearDown();
         }
@@ -198,8 +206,9 @@ public final class MfgServiceIT {
         HttpsURLConnection.setDefaultSSLSocketFactory(sslContext.getSocketFactory());
         HttpsURLConnection.setDefaultHostnameVerifier((hostname, session) -> true);
 
-        CookieManager cookieManager = new CookieManager(null, CookiePolicy.ACCEPT_ALL);
-        CookieHandler.setDefault(cookieManager);
+        CookieManager cookies = new CookieManager(null, CookiePolicy.ACCEPT_ALL);
+        cookieManager = cookies;
+        CookieHandler.setDefault(cookies);
     }
 
     private void tearDown() {
@@ -1133,6 +1142,63 @@ public final class MfgServiceIT {
                 && encDetail.body.contains(lotId), "lot not shown on the step");
     }
 
+    /**
+     * Stores a photo through the service, lists it, fetches the bytes and the thumbnail and finally
+     * deletes it.
+     *
+     * @throws IOException when the call fails
+     */
+    private void storesProductPhotos() throws IOException {
+        Map<String, String> form = new LinkedHashMap<>();
+        form.put("productCode", PRODUCT_CODE);
+        form.put("fileName", "C:\\Users\\it\\Pictures\\正面 照片.png");
+        form.put("contentType", "image/png");
+        form.put("base64Data", TINY_PNG_BASE64);
+        form.put("note", "IT 照片");
+        Response saved = invoke("mfgProductImageSave", form);
+        check("photo: save returns HTTP 200", saved.status == 200, "HTTP " + saved.status);
+        String seq = firstGroup(PHOTO_SEQ, saved.body);
+        check("photo: a sequence number is returned", seq != null, "no seq in response");
+        check("photo: the file name is cleaned", saved.body.contains("png") && !saved.body.contains("Users"),
+                "file name still carries a path");
+
+        Map<String, String> listForm = new LinkedHashMap<>();
+        listForm.put("productCode", PRODUCT_CODE);
+        Response list = invoke("mfgProductImageList", listForm);
+        check("photo: list returns HTTP 200", list.status == 200, "HTTP " + list.status);
+        check("photo: the photo is listed", list.body.contains("image/png"), "content type missing from the list");
+
+        Map<String, String> detailForm = new LinkedHashMap<>();
+        detailForm.put("productCode", PRODUCT_CODE);
+        Response detail = invoke("mfgProductImageList", detailForm);
+        check("photo: the model reports one photo", detail.body.contains("imageCount"),
+                "no imageCount in the response");
+
+        // the photo is served through the controller; the page script checks the bytes with a real
+        // browser session, here only the service side is covered
+        Map<String, String> rejectForm = new LinkedHashMap<>();
+        rejectForm.put("productCode", PRODUCT_CODE);
+        rejectForm.put("fileName", "manual.pdf");
+        rejectForm.put("contentType", "application/pdf");
+        rejectForm.put("base64Data", TINY_PNG_BASE64);
+        Response rejected = invoke("mfgProductImageSave", rejectForm);
+        check("photo: a pdf is rejected", rejected.body.contains("Only JPG, PNG and GIF photos are supported"),
+                "a pdf was stored");
+
+        Map<String, String> deleteForm = new LinkedHashMap<>();
+        deleteForm.put("productCode", PRODUCT_CODE);
+        deleteForm.put("seq", seq == null ? "1" : seq);
+        Response deleted = invoke("mfgProductImageDelete", deleteForm);
+        check("photo: delete returns HTTP 200", deleted.status == 200
+                && !deleted.body.contains("does not exist"), "HTTP " + deleted.status);
+
+        Map<String, String> emptyListForm = new LinkedHashMap<>();
+        emptyListForm.put("productCode", PRODUCT_CODE);
+        Response emptyList = invoke("mfgProductImageList", emptyListForm);
+        check("photo: the list is empty after the delete", emptyList.body.contains("imageCount</td>")
+                && emptyList.body.contains(">0<"), "the photo is still listed");
+    }
+
     private Response invoke(String serviceName, Map<String, String> parameters) throws IOException {
         Map<String, String> form = new LinkedHashMap<>();
         form.put("SERVICE_NAME", serviceName);
@@ -1330,6 +1396,46 @@ public final class MfgServiceIT {
                 && project.body.contains(ecoId), "change order missing on the project");
     }
 
+    private Response get(String path) throws IOException {
+        HttpURLConnection connection = (HttpURLConnection) new URL(baseUrl + path).openConnection();
+        connection.setRequestMethod("GET");
+        connection.setInstanceFollowRedirects(true);
+        connection.setConnectTimeout(15000);
+        connection.setReadTimeout(60000);
+        connection.setRequestProperty("Accept", "text/html,image/*,*/*");
+        connection.setRequestProperty("User-Agent", "MfgServiceIT");
+        String cookie = cookieHeader();
+        if (cookie != null) {
+            connection.setRequestProperty("Cookie", cookie);
+        }
+        int status = connection.getResponseCode();
+        String type = connection.getContentType();
+        InputStream stream = status >= 400 ? connection.getErrorStream() : connection.getInputStream();
+        String responseBody = stream == null ? "" : readAll(stream);
+        connection.disconnect();
+        return new Response(status, responseBody, type);
+    }
+
+    /**
+     * Builds the cookie header of the session, so a plain GET is authenticated the same way as the
+     * service calls are.
+     *
+     * @return the cookie header, {@code null} when the session has no cookie yet
+     */
+    private String cookieHeader() {
+        if (cookieManager == null) {
+            return null;
+        }
+        StringBuilder text = new StringBuilder();
+        for (HttpCookie cookie : cookieManager.getCookieStore().getCookies()) {
+            if (text.length() > 0) {
+                text.append("; ");
+            }
+            text.append(cookie.getName()).append('=').append(cookie.getValue());
+        }
+        return text.length() == 0 ? null : text.toString();
+    }
+
     private Response post(String path, Map<String, String> form) throws IOException {
         StringBuilder body = new StringBuilder();
         for (Map.Entry<String, String> entry : form.entrySet()) {
@@ -1374,6 +1480,11 @@ public final class MfgServiceIT {
         return text.toString();
     }
 
+    private static String firstGroup(Pattern pattern, String text) {
+        Matcher matcher = pattern.matcher(text);
+        return matcher.find() ? matcher.group(1) : null;
+    }
+
     private static String firstMatch(Pattern pattern, String text) {
         Matcher matcher = pattern.matcher(text);
         return matcher.find() ? matcher.group() : null;
@@ -1401,10 +1512,16 @@ public final class MfgServiceIT {
     private static final class Response {
         private final int status;
         private final String body;
+        private final String contentType;
 
         private Response(int status, String body) {
+            this(status, body, null);
+        }
+
+        private Response(int status, String body, String contentType) {
             this.status = status;
             this.body = body;
+            this.contentType = contentType;
         }
     }
 }

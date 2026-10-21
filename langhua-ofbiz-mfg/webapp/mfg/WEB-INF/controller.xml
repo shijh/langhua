@@ -50,6 +50,31 @@
         <response name="error" type="view" value="products"/>
     </request-map>
 
+    <request-map uri="productImageUpload">
+        <security https="true" auth="true"/>
+        <event type="java" path="org.langhua.ofbiz.mfg.MfgProductImageEvents" invoke="upload"/>
+        <response name="success" type="request-redirect" value="products">
+            <redirect-parameter name="productCode"/>
+        </response>
+        <response name="error" type="view" value="products"/>
+    </request-map>
+
+    <request-map uri="productImage">
+        <security https="true" auth="true"/>
+        <event type="java" path="org.langhua.ofbiz.mfg.MfgProductImageEvents" invoke="serve"/>
+        <response name="success" type="none"/>
+        <response name="error" type="none"/>
+    </request-map>
+
+    <request-map uri="productImageDelete">
+        <security https="true" auth="true"/>
+        <event type="service" invoke="mfgProductImageDelete"/>
+        <response name="success" type="request-redirect" value="products">
+            <redirect-parameter name="productCode"/>
+        </response>
+        <response name="error" type="view" value="products"/>
+    </request-map>
+
     <request-map uri="routingSave">
         <security https="true" auth="true"/>
         <event type="service" invoke="mfgRoutingSave"/>

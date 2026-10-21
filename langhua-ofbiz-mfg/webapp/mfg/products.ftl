@@ -1,9 +1,9 @@
 <#ftl encoding="UTF-8">
 <#setting url_escaping_charset="UTF-8">
 <#--
-  Product models: BOM versions and routing maintenance.
+  Product models: photos, BOM versions and routing maintenance.
   Data: listResult.products, detail.product, detail.bomItems, detail.bomVersionId, detail.routings,
-        versionResult.bomVersions
+        versionResult.bomVersions, imageResult.images
 -->
 <#assign lr = (listResult)!{}>
 <#assign products = (lr.products)![]>
@@ -14,6 +14,8 @@
 <#assign routings = (d.routings)![]>
 <#assign vr = (versionResult)!{}>
 <#assign versions = (vr.bomVersions)![]>
+<#assign ir = (imageResult)!{}>
+<#assign images = (ir.images)![]>
 <#assign errList = (errorMessageList)![]>
 
 <#function stageLabel stageId>
@@ -72,6 +74,7 @@
 <#if products?has_content>
     <table>
         <tr>
+            <th></th>
             <th>型号</th>
             <th>名称</th>
             <th>SN 前缀</th>
@@ -79,11 +82,13 @@
             <th>当前 BOM</th>
             <th class="num">BOM 行</th>
             <th class="num">版本数</th>
+            <th class="num">照片</th>
             <th class="num">工序数</th>
             <th>状态</th>
         </tr>
         <#list products as p>
             <tr>
+                <td><#if p.latestImageSeq??><img src="/mfg/control/productImage?productCode=${p.productCode}&seq=${p.latestImageSeq}&thumb=1" alt="${p.productCode}" width="44" height="44" style="object-fit: cover; border: 1px solid #ddd;"/><#else><span class="hint">-</span></#if></td>
                 <td><a href="/mfg/control/products?productCode=${p.productCode}">${p.productCode}</a></td>
                 <td>${p.productName!}</td>
                 <td>${p.snPrefix!}</td>
@@ -91,6 +96,7 @@
                 <td><#if (p.currentBomVersionId!'') != ''>${p.currentBomVersionId}<#else><span class="hint">未建 BOM</span></#if></td>
                 <td class="num">${p.bomCount}</td>
                 <td class="num">${p.versionCount}</td>
+                <td class="num">${p.imageCount}</td>
                 <td class="num">${p.routingCount}</td>
                 <td>${p.statusId!}</td>
             </tr>
@@ -114,6 +120,47 @@
 </#if>
 
 <#if product.productCode??>
+    <h2>产品照片（${images?size} 张）</h2>
+    <fieldset>
+        <legend>上传照片：JPG / PNG / GIF，单张不超过 4 MB</legend>
+        <form method="post" action="/mfg/control/productImageUpload" enctype="multipart/form-data">
+            <input type="hidden" name="productCode" value="${product.productCode}"/>
+            <p>
+                <input type="file" name="imageFile" accept="image/jpeg,image/png,image/gif"/>
+                备注 <input type="text" name="note" size="30" placeholder="例如：正面 / 背面 / 包装"/>
+                <input type="submit" value="上传"/>
+            </p>
+        </form>
+    </fieldset>
+    <#if images?has_content>
+        <table>
+            <tr><th>照片</th><th class="num">序号</th><th>文件</th><th class="num">大小</th><th>备注</th><th>上传时间</th><th>操作</th></tr>
+            <#list images as img>
+                <tr>
+                    <td>
+                        <a href="/mfg/control/productImage?productCode=${product.productCode}&seq=${img.seq}" target="_blank">
+                            <img src="/mfg/control/productImage?productCode=${product.productCode}&seq=${img.seq}&thumb=1" alt="${img.fileName!}" height="90" style="border: 1px solid #ddd;"/>
+                        </a>
+                    </td>
+                    <td class="num">${img.seq}</td>
+                    <td>${img.fileName!}</td>
+                    <td class="num">${((img.imageSize!0) / 1024)?string("0")} KB</td>
+                    <td>${img.note!}</td>
+                    <td><#if img.createdStamp??>${img.createdStamp?string("yyyy-MM-dd HH:mm")}</#if></td>
+                    <td>
+                        <form method="post" action="/mfg/control/productImageDelete" class="inline">
+                            <input type="hidden" name="productCode" value="${product.productCode}"/>
+                            <input type="hidden" name="seq" value="${img.seq}"/>
+                            <input type="submit" value="删除"/>
+                        </form>
+                    </td>
+                </tr>
+            </#list>
+        </table>
+    <#else>
+        <p class="hint">还没有照片。上传后型号列表会显示缩略图，点缩略图可以看原图。</p>
+    </#if>
+
     <h2>BOM 版本（${versions?size} 个）</h2>
     <#if versions?has_content>
         <table>
