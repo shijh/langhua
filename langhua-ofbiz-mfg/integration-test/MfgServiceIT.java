@@ -78,11 +78,11 @@ public final class MfgServiceIT {
     private static final Pattern WORK_ORDER_ID = Pattern.compile("WO-\\d{6}-\\d{3}");
     private static final Pattern SERIAL_NUMBER = Pattern.compile(SN_PREFIX + "-\\d{6}-\\d{4}");
     private static final Pattern LOT_ID = Pattern.compile("LOT-\\d{6}-\\d+");
-    private static final Pattern DELIVERY_ID = Pattern.compile("DO-\\d{6}-\\d{2}");
-    private static final Pattern VENDOR_ID = Pattern.compile("V-\\d{6}-\\d{2}");
-    private static final Pattern CLAIM_ID = Pattern.compile("RMA-\\d{6}-\\d{2}");
-    private static final Pattern DEV_PROJECT_ID = Pattern.compile("DEV-\\d{6}-\\d{2}");
-    private static final Pattern ECO_ID = Pattern.compile("ECO-\\d{6}-\\d{2}");
+    private static final Pattern DELIVERY_ID = Pattern.compile("DO-\\d{6}-\\d+");
+    private static final Pattern VENDOR_ID = Pattern.compile("V-\\d{6}-\\d+");
+    private static final Pattern CLAIM_ID = Pattern.compile("RMA-\\d{6}-\\d+");
+    private static final Pattern DEV_PROJECT_ID = Pattern.compile("DEV-\\d{6}-\\d+");
+    private static final Pattern ECO_ID = Pattern.compile("ECO-\\d{6}-\\d+");
     private static final Pattern BOM_VERSION_ID = Pattern.compile(PRODUCT_CODE + "-V\\d+");
     private static final Pattern LOT_NUMBER = Pattern.compile("LOT-\\d{6}-\\d+");
     private static final String ENCLOSURE_PART = "ENC-IT-SHELL";
@@ -189,6 +189,7 @@ public final class MfgServiceIT {
             it.costsTheModel();
             it.addsCostDetailToTheWorkOrder();
             it.tracksInventory();
+            it.reservesMaterialForAWorkOrder();
             it.raisesDevelopmentIssues();
             it.readsTrendReport();
             it.listsTheDashboardAlerts();
@@ -1521,13 +1522,115 @@ public final class MfgServiceIT {
     }
 
     /**
+     * Reserves the material of a work order from a lot, issues part of it and releases the rest: the
+     * reserved quantity must lower the available stock, and an issue must not be blocked by the
+     * reservation of its own order.
+     *
+     * @throws IOException when a service call fails
+     */
+    private void reservesMaterialForAWorkOrder() throws IOException {
+        String suffix = String.valueOf(System.currentTimeMillis() % 1000000L);
+        String component = "RSV" + suffix;
+        String model = "RSVM" + suffix;
+        Map<String, String> productForm = new LinkedHashMap<>();
+        productForm.put("productCode", model);
+        productForm.put("productName", "Reservation test model");
+        productForm.put("snPrefix", model);
+        productForm.put("standardHours", "0.1");
+        productForm.put("laborRate", "40");
+        Response product = invoke("mfgProductSave", productForm);
+        check("reserve: the model is ready", product.status == 200
+                && !product.body.contains("responseMessage=error"), "HTTP " + product.status);
+
+        Map<String, String> bomForm = new LinkedHashMap<>();
+        bomForm.put("productCode", model);
+        bomForm.put("csv", component + ",Reserve test part,2,U1,Y");
+        bomForm.put("replace", "Y");
+        Response bom = invoke("mfgBomImport", bomForm);
+        check("reserve: the BOM needs two parts per unit",
+                bom.status == 200 && bom.body.contains("importedCount"), "HTTP " + bom.status);
+
+        Map<String, String> lotForm = new LinkedHashMap<>();
+        lotForm.put("componentCode", component);
+        lotForm.put("componentName", "Reserve test part");
+        lotForm.put("supplierName", "IT parts");
+        lotForm.put("supplierLot", "DC-RSV");
+        lotForm.put("receivedQty", "10");
+        lotForm.put("unitPrice", "1");
+        Response lot = invoke("mfgLotSave", lotForm);
+        check("reserve: ten parts are in stock", lot.status == 200, "HTTP " + lot.status);
+
+        Map<String, String> orderForm = new LinkedHashMap<>();
+        orderForm.put("productCode", model);
+        orderForm.put("plannedQty", "3");
+        orderForm.put("dueDate", "2026-12-31");
+        orderForm.put("customerName", "Reserve test");
+        Response order = invoke("mfgWorkOrderCreate", orderForm);
+        String reserveOrderId = firstMatch(WORK_ORDER_ID, order.body);
+        check("reserve: the work order is created", reserveOrderId != null, "no work order id");
+        // three units need six parts, and the lot has ten of them
+        check("reserve: the material is reserved when the order is created",
+                near(fieldValue(order.body, "reservedQty"), 6.0), "reservedQty is not 6");
+        check("reserve: nothing is missing", near(fieldValue(order.body, "shortQty"), 0.0),
+                "shortQty is not 0");
+
+        Map<String, String> summaryForm = new LinkedHashMap<>();
+        summaryForm.put("search", component);
+        Response summary = invoke("mfgStockSummary", summaryForm);
+        check("reserve: the stock keeps the reservation apart",
+                summary.body.contains("reservedQty:6"), "reservedQty is not 6 in the summary");
+        check("reserve: only four parts are left available",
+                summary.body.contains("availableQty:4"), "availableQty is not 4");
+
+        Map<String, String> materialsForm = new LinkedHashMap<>();
+        materialsForm.put("workOrderId", reserveOrderId == null ? "" : reserveOrderId);
+        Response materials = invoke("mfgWorkOrderMaterials", materialsForm);
+        check("reserve: the kitting line shows the reservation",
+                materials.body.contains("reservedQty:6"), "no reserved quantity on the kitting line");
+
+        Map<String, String> listForm = new LinkedHashMap<>();
+        listForm.put("search", component);
+        Response lots = invoke("mfgLotList", listForm);
+        String reserveLotId = firstMatch(LOT_ID, lots.body);
+        check("reserve: the lot of the component is found", reserveLotId != null, "no lot id");
+
+        Map<String, String> issueForm = new LinkedHashMap<>();
+        issueForm.put("workOrderId", reserveOrderId == null ? "" : reserveOrderId);
+        issueForm.put("componentCode", component);
+        issueForm.put("lotId", reserveLotId == null ? "" : reserveLotId);
+        issueForm.put("qty", "2");
+        Response issued = invoke("mfgIssueSave", issueForm);
+        check("reserve: the order may issue its own reserved material",
+                issued.body.contains("issueId"), "the issue was blocked by the reservation");
+
+        Response afterIssue = invoke("mfgStockSummary", summaryForm);
+        check("reserve: issuing releases that much of the reservation",
+                afterIssue.body.contains("reservedQty:4"), "reservedQty is not 4 after the issue");
+        check("reserve: eight parts are still on hand",
+                afterIssue.body.contains("onHandQty:8"), "onHandQty is not 8 after the issue");
+
+        Map<String, String> releaseForm = new LinkedHashMap<>();
+        releaseForm.put("workOrderId", reserveOrderId == null ? "" : reserveOrderId);
+        Response released = invoke("mfgWorkOrderRelease", releaseForm);
+        check("reserve: releasing gives the reservation back",
+                near(fieldValue(released.body, "releasedQty"), 4.0), "releasedQty is not 4");
+
+        Response afterRelease = invoke("mfgStockSummary", summaryForm);
+        check("reserve: nothing is reserved any more",
+                afterRelease.body.contains("reservedQty:0"), "reservedQty is not 0 after the release");
+        check("reserve: the whole stock is available again",
+                afterRelease.body.contains("availableQty:8"), "availableQty is not 8");
+    }
+
+    /**
      * Receives a lot, issues, scraps, returns it, sets a safety stock, then counts it: the on hand
      * quantity must always be the sum of the movements.
      *
      * @throws IOException when a service call fails
      */
     private void tracksInventory() throws IOException {
-        String component = "INV-IT-01";
+        // a fresh component per run, so the totals do not depend on what earlier runs left behind
+        String component = "INV" + (System.currentTimeMillis() % 1000000L);
 
         Map<String, String> lotForm = new LinkedHashMap<>();
         lotForm.put("componentCode", component);
@@ -1726,7 +1829,7 @@ public final class MfgServiceIT {
         issueForm.put("ownerName", "IT tester");
         issueForm.put("dueDate", "2026-12-01");
         Response issue = invoke("mfgDevStepIssueSave", issueForm);
-        String issueId = firstMatch(java.util.regex.Pattern.compile("ISSUE-[0-9]{6}-[0-9]{2}"),
+        String issueId = firstMatch(java.util.regex.Pattern.compile("ISSUE-[0-9]{6}-[0-9]+"),
                 issue.body);
         check("issues: issue raised with a generated number", issue.status == 200 && issueId != null,
                 "no issue id in response");

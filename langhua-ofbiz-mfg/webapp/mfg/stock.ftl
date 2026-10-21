@@ -35,7 +35,7 @@
 <#if rows?has_content>
     <table id="stockTable">
         <tr>
-            <th>料号</th><th>名称</th><th class="num">在库</th><th class="num">可发</th>
+            <th>料号</th><th>名称</th><th class="num">在库</th><th class="num">已预留</th><th class="num">可发</th>
             <th class="num">待检</th><th class="num">不合格</th><th class="num">批次</th>
             <th class="num">安全库存</th><th class="num">建议采购</th><th class="num">金额</th>
             <th>供应商</th><th>操作</th>
@@ -45,6 +45,7 @@
                 <td>${row.componentCode}</td>
                 <td>${row.componentName!}</td>
                 <td class="num"><#if (row.onHandQty!0) lt 0><span class="error">${row.onHandQty?string("0.##")}</span><#else>${row.onHandQty?string("0.##")}</#if></td>
+                <td class="num"><#if (row.reservedQty!0) gt 0><span class="warn">${row.reservedQty?string("0.##")}</span><#else><span class="hint">—</span></#if></td>
                 <td class="num">${row.availableQty?string("0.##")}</td>
                 <td class="num"><#if (row.pendingQty!0) gt 0>${row.pendingQty?string("0.##")}<#else><span class="hint">—</span></#if></td>
                 <td class="num"><#if (row.failedQty!0) gt 0><span class="error">${row.failedQty?string("0.##")}</span><#else><span class="hint">—</span></#if></td>
@@ -87,6 +88,7 @@
             供应商 <input type="text" name="supplierName" size="14"/>
             <input type="submit" value="保存"/>
         </p>
-        <p class="hint">低于安全库存时，看板告警里会出现这一行；建议采购量 = 补货量，没填就是「安全库存 − 在库」。</p>
+        <p class="hint">低于安全库存时，看板告警里会出现这一行；建议采购量 = 补货量，没填就是「安全库存 − 在库」。<br/>
+            可发 = 在库 − 已预留（不合格批次为 0）；预留由工单开工时自动做，也可在工单页手动预留/释放。</p>
     </form>
 </fieldset>

@@ -837,6 +837,9 @@ public class MfgServicesTest {
         // a count and an adjustment carry their own sign
         assertEquals(-2.0, MfgServices.movementDiff(MfgServices.MOVE_COUNT, -2.0), 1e-9);
         assertEquals(-2.0, MfgServices.movementDiff(MfgServices.MOVE_ADJUST, -2.0), 1e-9);
+        // a reservation changes no quantity on hand
+        assertEquals(0.0, MfgServices.movementDiff(MfgServices.MOVE_RESERVE, 5.0), 1e-9);
+        assertEquals(0.0, MfgServices.movementDiff(MfgServices.MOVE_RELEASE, 5.0), 1e-9);
         assertEquals(0.0, MfgServices.movementDiff(null, 5.0), 1e-9);
 
         assertTrue(MfgServices.isKnownMovement(MfgServices.MOVE_COUNT));
@@ -853,5 +856,14 @@ public class MfgServicesTest {
         assertEquals(0.0, MfgServices.availableOf(10.0, MfgServices.IQC_FAIL), 1e-9);
         // an overdrawn lot never offers a negative quantity
         assertEquals(0.0, MfgServices.availableOf(-3.0, MfgServices.IQC_PASS), 1e-9);
+    }
+
+    @Test
+    public void takesTheReservationOutOfTheAvailableQuantity() {
+        assertEquals(6.0, MfgServices.availableOf(10.0, 4.0, MfgServices.IQC_PASS), 1e-9);
+        // over reserved stock offers nothing, not a negative number
+        assertEquals(0.0, MfgServices.availableOf(10.0, 12.0, MfgServices.IQC_PASS), 1e-9);
+        // a failed lot is not available at all
+        assertEquals(0.0, MfgServices.availableOf(10.0, 4.0, MfgServices.IQC_FAIL), 1e-9);
     }
 }

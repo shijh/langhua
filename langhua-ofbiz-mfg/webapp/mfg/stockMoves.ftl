@@ -18,6 +18,8 @@
     <#elseif (id!'') == 'MFG_MOVE_SCRAP'><#return '报废'>
     <#elseif (id!'') == 'MFG_MOVE_COUNT'><#return '盘盈亏'>
     <#elseif (id!'') == 'MFG_MOVE_ADJUST'><#return '调整'>
+    <#elseif (id!'') == 'MFG_MOVE_RESERVE'><#return '预留'>
+    <#elseif (id!'') == 'MFG_MOVE_RELEASE'><#return '释放预留'>
     <#else><#return '${id!}'>
     </#if>
 </#function>
@@ -40,6 +42,8 @@
         <option value="MFG_MOVE_SCRAP"<#if typeId == 'MFG_MOVE_SCRAP'> selected="selected"</#if>>报废</option>
         <option value="MFG_MOVE_COUNT"<#if typeId == 'MFG_MOVE_COUNT'> selected="selected"</#if>>盘盈亏</option>
         <option value="MFG_MOVE_ADJUST"<#if typeId == 'MFG_MOVE_ADJUST'> selected="selected"</#if>>调整</option>
+        <option value="MFG_MOVE_RESERVE"<#if typeId == 'MFG_MOVE_RESERVE'> selected="selected"</#if>>预留</option>
+        <option value="MFG_MOVE_RELEASE"<#if typeId == 'MFG_MOVE_RELEASE'> selected="selected"</#if>>释放预留</option>
     </select>
     起 <input type="text" name="fromDate" size="10" value="<#if lr.fromDate??>${lr.fromDate?string("yyyy-MM-dd")}</#if>" placeholder="yyyy-mm-dd"/>
     止 <input type="text" name="toDate" size="10" value="<#if lr.toDate??>${lr.toDate?string("yyyy-MM-dd")}</#if>" placeholder="yyyy-mm-dd"/>
@@ -61,7 +65,7 @@
                 <td><a href="/mfg/control/stockMoves?lotId=${row.lotId?url}">${row.lotId}</a></td>
                 <td class="num">${row.seqId?string("0")}</td>
                 <td><#if (row.movementTypeId!'') == 'MFG_MOVE_ISSUE' || (row.movementTypeId!'') == 'MFG_MOVE_SCRAP'><span class="error">${moveLabel(row.movementTypeId)}</span><#elseif (row.movementTypeId!'') == 'MFG_MOVE_RECEIPT'><span class="ok">${moveLabel(row.movementTypeId)}</span><#else>${moveLabel(row.movementTypeId)}</#if></td>
-                <td class="num"><#if (row.quantityDiff!0) lt 0><span class="error">${row.quantityDiff?string("0.##")}</span><#else><span class="ok">+${row.quantityDiff?string("0.##")}</span></#if></td>
+                <td class="num"><#if ((row.displayQty)!0) lt 0><span class="error">${row.displayQty?string("0.##")}</span><#else><span class="ok">+${row.displayQty?string("0.##")}</span></#if></td>
                 <td class="num">${row.balanceQty?string("0.##")}</td>
                 <td class="num"><#if row.unitCost??>${row.unitCost?string("0.0000")}<#else><span class="hint">—</span></#if></td>
                 <td><#if row.workOrderId??><a href="/mfg/control/workOrder?workOrderId=${row.workOrderId?url}">${row.workOrderId}</a></#if><#if row.physicalInventoryId??>${row.physicalInventoryId}</#if><#if row.referenceNo??> ${row.referenceNo}</#if></td>

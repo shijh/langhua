@@ -269,10 +269,21 @@
         </#if>
         <span class="hint">发往 SMT 的套数合计 ${((mat.outQty)!0)?string("0.##")}，回厂板数 ${((mat.inQty)!0)?string("0.##")}，回厂不良 ${((mat.inDefectQty)!0)?string("0.##")}</span>
     </p>
+    <p>
+        <form method="post" action="/mfg/control/workOrderReserve" class="inline">
+            <input type="hidden" name="workOrderId" value="${wo.workOrderId}"/>
+            <input type="submit" value="预留齐套料"/>
+        </form>
+        <form method="post" action="/mfg/control/workOrderRelease" class="inline">
+            <input type="hidden" name="workOrderId" value="${wo.workOrderId}"/>
+            <input type="submit" value="释放预留"/>
+        </form>
+        <span class="hint">预留把可用库存占住（可用 = 在库 − 预留），开工单时自动预留一次；发料时自动释放对应部分。</span>
+    </p>
     <#if lines?has_content>
-        <table>
+        <table id="kittingTable">
             <tr><th>元件料号</th><th>名称</th><th>关键件</th>
-                <th class="num">需求</th><th class="num">已发</th><th class="num">欠料</th></tr>
+                <th class="num">需求</th><th class="num">已发</th><th class="num">已预留</th><th class="num">欠料</th></tr>
             <#list lines as line>
                 <tr>
                     <td>${line.componentCode!}</td>
@@ -280,6 +291,7 @@
                     <td><#if (line.isKeyPart!'N') == 'Y'>是<#else>-</#if></td>
                     <td class="num">${((line.requiredQty)!0)?string("0.##")}</td>
                     <td class="num">${((line.issuedQty)!0)?string("0.##")}</td>
+                    <td class="num">${((line.reservedQty)!0)?string("0.##")}</td>
                     <td class="num"><#if ((line.shortage)!0) gt 0><span class="error">${line.shortage?string("0.##")}</span><#else>-</#if></td>
                 </tr>
             </#list>

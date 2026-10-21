@@ -148,6 +148,10 @@ public final class MfgServices {
     public static final String MOVE_SCRAP = "MFG_MOVE_SCRAP";
     public static final String MOVE_COUNT = "MFG_MOVE_COUNT";
     public static final String MOVE_ADJUST = "MFG_MOVE_ADJUST";
+    /** Reservation of stock for a work order; it changes the reserved quantity, not the quantity on hand. */
+    public static final String MOVE_RESERVE = "MFG_MOVE_RESERVE";
+    /** Release of a reservation, booked when the material is issued or the order is dropped. */
+    public static final String MOVE_RELEASE = "MFG_MOVE_RELEASE";
 
     /** Movement types that put material into stock, and the ones that take it out. */
     public static final String[] MOVE_IN_TYPES = {MOVE_RECEIPT, MOVE_RETURN};
@@ -155,7 +159,7 @@ public final class MfgServices {
 
     /** Every movement type, in the order the ledger filter lists them. */
     public static final String[] MOVE_TYPES = {MOVE_RECEIPT, MOVE_ISSUE, MOVE_RETURN, MOVE_SCRAP,
-        MOVE_COUNT, MOVE_ADJUST};
+        MOVE_COUNT, MOVE_ADJUST, MOVE_RESERVE, MOVE_RELEASE};
 
     public static final String SW_PLANNED = "MFG_SW_PLANNED";
     public static final String SW_DOING = "MFG_SW_DOING";
@@ -448,8 +452,18 @@ public final class MfgServices {
             order.set("note", toText(context.get("note")));
             delegator.create(order);
 
+            // reserve what the warehouse can cover, the rest stays a shortage on the kitting page
+            Map<String, Object> reserveContext = new HashMap<>();
+            reserveContext.put("workOrderId", workOrderId);
+            reserveContext.put("operatorName", toText(context.get("customerName")));
+            Map<String, Object> reservation = reserveMaterial(dctx, reserveContext);
+
             Map<String, Object> result = ServiceUtil.returnSuccess();
             result.put("workOrderId", workOrderId);
+            if (!ServiceUtil.isError(reservation)) {
+                result.put("reservedQty", reservation.get("reservedQty"));
+                result.put("shortQty", reservation.get("shortQty"));
+            }
             return result;
         } catch (GenericEntityException e) {
             return ServiceUtil.returnError("Could not create the work order: " + e.getMessage());
@@ -1615,7 +1629,9 @@ public final class MfgServices {
                         + "] failed incoming inspection, mark it passed or concession in the material lots first");
             }
             ensureLotLedger(delegator, lot);
-            double available = numberOrZero(lot.get("availableQty"));
+            // material reserved by this very work order may of course be issued to it
+            double ownReservation = reservationOf(delegator, lotId, workOrderId);
+            double available = numberOrZero(lot.get("availableQty")) + ownReservation;
             if (available + 0.0001 < qty) {
                 return ServiceUtil.returnError("Only " + formatQty(available) + " left in lot [" + lotId
                         + "], cannot issue " + formatQty(qty));
@@ -1640,6 +1656,7 @@ public final class MfgServices {
                     null, null,
                     Timestamp.valueOf(issue.getDate("issuedDate").toLocalDate().atStartOfDay()),
                     "发料给工单 " + workOrderId);
+            releaseReservation(delegator, lot, workOrderId, qty, null);
             recalcLotStock(delegator, lot);
 
             Map<String, Object> result = ServiceUtil.returnSuccess();
@@ -2001,6 +2018,8 @@ public final class MfgServices {
         map.put("receivedQty", lot.getDouble("receivedQty"));
         map.put("onHandQty", lot.getDouble("onHandQty") == null
                 ? Double.valueOf(0.0) : lot.getDouble("onHandQty"));
+        map.put("reservedQty", lot.getDouble("reservedQty") == null
+                ? Double.valueOf(0.0) : lot.getDouble("reservedQty"));
         map.put("availableQty", lot.getDouble("availableQty") == null
                 ? Double.valueOf(0.0) : lot.getDouble("availableQty"));
         map.put("receivedDate", lot.getDate("receivedDate"));
@@ -2284,6 +2303,7 @@ public final class MfgServices {
             issuedByComponent.put(componentCode, Double.valueOf((current == null ? 0.0 : current.doubleValue())
                     + (qty == null ? 0.0 : qty.doubleValue())));
         }
+        Map<String, Double> reservedMap = reservedByComponent(delegator, order.getString("workOrderId"));
 
         List<Map<String, Object>> lines = new ArrayList<>(bomItems.size());
         for (GenericValue item : bomItems) {
@@ -2292,13 +2312,16 @@ public final class MfgServices {
             double required = (bomQty == null ? 0.0 : bomQty.doubleValue()) * plannedQty;
             Double issued = issuedByComponent.get(componentCode);
             double issuedQty = issued == null ? 0.0 : issued.doubleValue();
+            Double reserved = reservedMap.get(componentCode);
+            double reservedQty = reserved == null ? 0.0 : reserved.doubleValue();
             Map<String, Object> line = new LinkedHashMap<>();
             line.put("componentCode", componentCode);
             line.put("componentName", item.getString("componentName"));
             line.put("isKeyPart", item.getString("isKeyPart"));
             line.put("requiredQty", Double.valueOf(required));
             line.put("issuedQty", Double.valueOf(issuedQty));
-            line.put("shortage", Double.valueOf(Math.max(0.0, required - issuedQty)));
+            line.put("reservedQty", Double.valueOf(round2(reservedQty)));
+            line.put("shortage", Double.valueOf(Math.max(0.0, required - issuedQty - reservedQty)));
             lines.add(line);
         }
         return lines;
@@ -4536,6 +4559,9 @@ always
         if (movementTypeId == null) {
             return 0.0;
         }
+        if (MOVE_RESERVE.equals(movementTypeId) || MOVE_RELEASE.equals(movementTypeId)) {
+            return 0.0;
+        }
         for (String in : MOVE_IN_TYPES) {
             if (in.equals(movementTypeId)) {
                 return Math.abs(qty);
@@ -4550,18 +4576,31 @@ always
     }
 
     /**
-     * What may still be issued out of a lot: everything on hand, except for a lot that failed the
-     * incoming inspection.
+     * What may still be issued out of a lot: everything on hand, minus what is reserved for other work
+     * orders, except for a lot that failed the incoming inspection.
+     *
+     * @param onHand the quantity in stock
+     * @param reserved the quantity earmarked for work orders
+     * @param inspectStatusId the inspection status of the lot
+     * @return the quantity that may be issued, never negative
+     */
+    static double availableOf(double onHand, double reserved, String inspectStatusId) {
+        if (IQC_FAIL.equals(inspectStatusId)) {
+            return 0.0;
+        }
+        double free = onHand - reserved;
+        return free <= 0.0 ? 0.0 : round2(free);
+    }
+
+    /**
+     * What may still be issued out of a lot that nothing is reserved on.
      *
      * @param onHand the quantity in stock
      * @param inspectStatusId the inspection status of the lot
      * @return the quantity that may be issued, never negative
      */
     static double availableOf(double onHand, String inspectStatusId) {
-        if (IQC_FAIL.equals(inspectStatusId)) {
-            return 0.0;
-        }
-        return onHand <= 0.0 ? 0.0 : round2(onHand);
+        return availableOf(onHand, 0.0, inspectStatusId);
     }
 
     /**
@@ -4589,12 +4628,7 @@ always
             double diff, Object unitCost, String workOrderId, String physicalInventoryId,
             String referenceNo, String operatorName, java.sql.Timestamp effectiveDate, String note)
             throws GenericEntityException {
-        long seq = 1L;
-        List<GenericValue> existing = movementsOf(delegator, lot.getString("lotId"));
-        if (!existing.isEmpty()) {
-            Long last = existing.get(existing.size() - 1).getLong("seqId");
-            seq = last == null ? existing.size() + 1L : last.longValue() + 1L;
-        }
+        long seq = nextMovementSeq(delegator, lot.getString("lotId"));
         GenericValue movement = delegator.makeValue("MfgInventoryDetail");
         movement.set("lotId", lot.getString("lotId"));
         movement.set("seqId", Long.valueOf(seq));
@@ -4624,11 +4658,15 @@ always
      */
     static void recalcLotStock(Delegator delegator, GenericValue lot) throws GenericEntityException {
         double onHand = 0.0;
+        double reserved = 0.0;
         for (GenericValue movement : movementsOf(delegator, lot.getString("lotId"))) {
             onHand += numberOrZero(movement.get("quantityDiff"));
+            reserved += numberOrZero(movement.get("reservedDiff"));
         }
         lot.set("onHandQty", Double.valueOf(round2(onHand)));
-        lot.set("availableQty", Double.valueOf(availableOf(onHand, lot.getString("inspectStatusId"))));
+        lot.set("reservedQty", Double.valueOf(reserved <= 0.0 ? 0.0 : round2(reserved)));
+        lot.set("availableQty", Double.valueOf(availableOf(onHand, reserved,
+                lot.getString("inspectStatusId"))));
         delegator.store(lot);
     }
 
@@ -4668,6 +4706,239 @@ always
         recalcLotStock(delegator, lot);
     }
 
+    private static long nextMovementSeq(Delegator delegator, String lotId) throws GenericEntityException {
+        List<GenericValue> existing = movementsOf(delegator, lotId);
+        if (existing.isEmpty()) {
+            return 1L;
+        }
+        Long last = existing.get(existing.size() - 1).getLong("seqId");
+        return last == null ? existing.size() + 1L : last.longValue() + 1L;
+    }
+
+    /**
+     * What one lot has reserved for one work order right now: the sum of the reservation movements.
+     *
+     * @param delegator the delegator
+     * @param lotId the lot
+     * @param workOrderId the work order
+     * @return the reserved quantity, {@code 0} when nothing is reserved
+     * @throws GenericEntityException when the movements cannot be read
+     */
+    static double reservationOf(Delegator delegator, String lotId, String workOrderId)
+            throws GenericEntityException {
+        double reserved = 0.0;
+        for (GenericValue movement : movementsOf(delegator, lotId)) {
+            if (!workOrderId.equals(movement.getString("workOrderId"))) {
+                continue;
+            }
+            reserved += numberOrZero(movement.get("reservedDiff"));
+        }
+        return reserved <= 0.0 ? 0.0 : reserved;
+    }
+
+    /**
+     * Appends a reservation movement. It does not change the quantity on hand, only what is
+     * earmarked for a work order, which is exactly how OFBiz keeps its available to promise.
+     *
+     * @param delegator the delegator
+     * @param lot the lot
+     * @param movementTypeId {@link #MOVE_RESERVE} or {@link #MOVE_RELEASE}
+     * @param diff the signed change of the reserved quantity
+     * @param workOrderId the work order that reserves or gives the material back
+     * @param operatorName who did it
+     * @param note a remark
+     * @throws GenericEntityException when it cannot be stored
+     */
+    static void recordReservation(Delegator delegator, GenericValue lot, String movementTypeId,
+            double diff, String workOrderId, String operatorName, String note)
+            throws GenericEntityException {
+        GenericValue movement = delegator.makeValue("MfgInventoryDetail");
+        movement.set("lotId", lot.getString("lotId"));
+        movement.set("seqId", Long.valueOf(nextMovementSeq(delegator, lot.getString("lotId"))));
+        movement.set("movementTypeId", movementTypeId);
+        movement.set("quantityDiff", Double.valueOf(0.0));
+        movement.set("reservedDiff", Double.valueOf(round2(diff)));
+        movement.set("workOrderId", workOrderId);
+        movement.set("operatorName", operatorName);
+        movement.set("effectiveDate", new Timestamp(System.currentTimeMillis()));
+        movement.set("note", note);
+        delegator.create(movement);
+    }
+
+    /**
+     * Gives back what one lot still has reserved for one work order, at most {@code qty}. Called when
+     * the material is issued, so the reservation never blocks its own work order.
+     *
+     * @param delegator the delegator
+     * @param lot the lot
+     * @param workOrderId the work order
+     * @param qty how much is being issued
+     * @param operatorName who did it
+     * @throws GenericEntityException when the reservation cannot be written
+     */
+    static void releaseReservation(Delegator delegator, GenericValue lot, String workOrderId,
+            double qty, String operatorName) throws GenericEntityException {
+        if (workOrderId == null) {
+            return;
+        }
+        double reserved = reservationOf(delegator, lot.getString("lotId"), workOrderId);
+        double release = Math.min(qty, reserved);
+        if (release <= 0.0001) {
+            return;
+        }
+        recordReservation(delegator, lot, MOVE_RELEASE, -release, workOrderId, operatorName,
+                "发料时释放预留");
+    }
+
+    /**
+     * Reserved quantity per component of one work order.
+     *
+     * @param delegator the delegator
+     * @param workOrderId the work order
+     * @return the reserved quantity by component code
+     * @throws GenericEntityException when the ledger cannot be read
+     */
+    private static Map<String, Double> reservedByComponent(Delegator delegator, String workOrderId)
+            throws GenericEntityException {
+        Map<String, Double> byComponent = new LinkedHashMap<>();
+        if (workOrderId == null) {
+            return byComponent;
+        }
+        Map<String, GenericValue> lots = new LinkedHashMap<>();
+        for (GenericValue lot : EntityQuery.use(delegator).from("MfgMaterialLot").queryList()) {
+            lots.put(lot.getString("lotId"), lot);
+        }
+        for (GenericValue movement : EntityQuery.use(delegator).from("MfgInventoryDetail")
+                .where("workOrderId", workOrderId).queryList()) {
+            double reserved = numberOrZero(movement.get("reservedDiff"));
+            if (reserved == 0.0) {
+                continue;
+            }
+            GenericValue lot = lots.get(movement.getString("lotId"));
+            if (lot == null) {
+                continue;
+            }
+            String componentCode = lot.getString("componentCode");
+            byComponent.put(componentCode, Double.valueOf(numberOrZero(byComponent.get(componentCode))
+                    + reserved));
+        }
+        return byComponent;
+    }
+
+    /**
+     * Reserves the material a work order still needs: for every BOM line it takes the missing
+     * quantity out of the lots that can be issued, oldest lot first. What cannot be covered stays a
+     * shortage, so the kitting page tells the truth either way.
+     *
+     * @param dctx the dispatch context
+     * @param context service context, see {@code servicedef/services.xml#mfgWorkOrderReserve}
+     * @return the service result with what was reserved and what is still missing
+     */
+    public static Map<String, Object> reserveMaterial(DispatchContext dctx, Map<String, ? extends Object> context) {
+        Delegator delegator = dctx.getDelegator();
+        String workOrderId = toText(context.get("workOrderId"));
+        Map<String, Object> result = ServiceUtil.returnSuccess();
+        result.put("workOrderId", workOrderId);
+        result.put("reservedQty", Double.valueOf(0.0));
+        result.put("shortQty", Double.valueOf(0.0));
+        result.put("reservationCount", Integer.valueOf(0));
+        if (workOrderId == null) {
+            return ServiceUtil.returnError("workOrderId is required");
+        }
+        try {
+            GenericValue order = EntityQuery.use(delegator).from("MfgWorkOrder")
+                    .where("workOrderId", workOrderId).queryOne();
+            if (order == null) {
+                return ServiceUtil.returnError("Unknown work order [" + workOrderId + "]");
+            }
+            double reservedTotal = 0.0;
+            double shortTotal = 0.0;
+            int reservations = 0;
+            String operator = toText(context.get("operatorName"));
+            for (Map<String, Object> line : kittingLines(delegator, order)) {
+                double missing = numberOrZero(line.get("shortage"));
+                if (missing <= 0.0001) {
+                    continue;
+                }
+                String componentCode = (String) line.get("componentCode");
+                List<GenericValue> lots = EntityQuery.use(delegator).from("MfgMaterialLot")
+                        .where("componentCode", componentCode)
+                        .orderBy("receivedDate", "lotId").queryList();
+                for (GenericValue lot : lots) {
+                    if (missing <= 0.0001) {
+                        break;
+                    }
+                    ensureLotLedger(delegator, lot);
+                    double free = numberOrZero(lot.get("availableQty"));
+                    if (free <= 0.0001) {
+                        continue;
+                    }
+                    double take = Math.min(missing, free);
+                    recordReservation(delegator, lot, MOVE_RESERVE, take, workOrderId, operator,
+                            "工单 " + workOrderId + " 预留");
+                    recalcLotStock(delegator, lot);
+                    missing = round2(missing - take);
+                    reservedTotal += take;
+                    reservations++;
+                }
+                shortTotal += missing;
+            }
+            result.put("reservedQty", Double.valueOf(round2(reservedTotal)));
+            result.put("shortQty", Double.valueOf(round2(shortTotal)));
+            result.put("reservationCount", Integer.valueOf(reservations));
+            return result;
+        } catch (GenericEntityException e) {
+            return ServiceUtil.returnError("Could not reserve the material: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Gives back every reservation of one work order, e.g. when it is cancelled.
+     *
+     * @param dctx the dispatch context
+     * @param context service context, see {@code servicedef/services.xml#mfgWorkOrderRelease}
+     * @return the service result with the released quantity
+     */
+    public static Map<String, Object> releaseMaterialReservation(DispatchContext dctx,
+            Map<String, ? extends Object> context) {
+        Delegator delegator = dctx.getDelegator();
+        String workOrderId = toText(context.get("workOrderId"));
+        Map<String, Object> result = ServiceUtil.returnSuccess();
+        result.put("workOrderId", workOrderId);
+        result.put("releasedQty", Double.valueOf(0.0));
+        if (workOrderId == null) {
+            return ServiceUtil.returnError("workOrderId is required");
+        }
+        try {
+            double released = 0.0;
+            String operator = toText(context.get("operatorName"));
+            Map<String, GenericValue> lots = new LinkedHashMap<>();
+            for (GenericValue lot : EntityQuery.use(delegator).from("MfgMaterialLot").queryList()) {
+                lots.put(lot.getString("lotId"), lot);
+            }
+            for (GenericValue movement : EntityQuery.use(delegator).from("MfgInventoryDetail")
+                    .where("workOrderId", workOrderId).queryList()) {
+                String lotId = movement.getString("lotId");
+                GenericValue lot = lots.get(lotId);
+                if (lot == null) {
+                    continue;
+                }
+                double reserved = reservationOf(delegator, lotId, workOrderId);
+                if (reserved <= 0.0001) {
+                    continue;
+                }
+                recordReservation(delegator, lot, MOVE_RELEASE, -reserved, workOrderId, operator,
+                        "释放工单 " + workOrderId + " 的预留");
+                recalcLotStock(delegator, lot);
+                released += reserved;
+            }
+            result.put("releasedQty", Double.valueOf(round2(released)));
+            return result;
+        } catch (GenericEntityException e) {
+            return ServiceUtil.returnError("Could not release the reservation: " + e.getMessage());
+        }
+    }
+
     /**
      * Records one movement of one lot: receipt, issue, return, scrap or adjustment. An issue and a
      * return that name a work order also write the work order issue record, so kitting and the
@@ -4705,7 +4976,9 @@ always
             ensureLotLedger(delegator, lot);
             double diff = movementDiff(movementTypeId, qty);
             if (diff < 0.0) {
-                double available = numberOrZero(lot.get("availableQty"));
+                double ownReservation = workOrderId == null ? 0.0
+                        : reservationOf(delegator, lotId, workOrderId);
+                double available = numberOrZero(lot.get("availableQty")) + ownReservation;
                 if (available + 0.0001 < -diff) {
                     return ServiceUtil.returnError("Only " + formatQty(available) + " left in lot [" + lotId
                             + "], cannot take " + formatQty(-diff));
@@ -4734,6 +5007,9 @@ always
                 issue.set("issuedDate", java.sql.Date.valueOf(LocalDate.now()));
                 issue.set("note", toText(context.get("note")));
                 delegator.create(issue);
+            }
+            if (MOVE_ISSUE.equals(movementTypeId) && workOrderId != null) {
+                releaseReservation(delegator, lot, workOrderId, -diff, toText(context.get("operatorName")));
             }
             recalcLotStock(delegator, lot);
 
@@ -4785,6 +5061,7 @@ always
                     row.put("componentCode", componentCode);
                     row.put("componentName", lot.getString("componentName"));
                     row.put("onHandQty", Double.valueOf(0.0));
+                    row.put("reservedQty", Double.valueOf(0.0));
                     row.put("availableQty", Double.valueOf(0.0));
                     row.put("pendingQty", Double.valueOf(0.0));
                     row.put("failedQty", Double.valueOf(0.0));
@@ -4794,6 +5071,8 @@ always
                 }
                 double onHand = numberOrZero(lot.get("onHandQty"));
                 row.put("onHandQty", Double.valueOf(numberOrZero(row.get("onHandQty")) + onHand));
+                row.put("reservedQty", Double.valueOf(numberOrZero(row.get("reservedQty"))
+                        + numberOrZero(lot.get("reservedQty"))));
                 row.put("availableQty", Double.valueOf(numberOrZero(row.get("availableQty"))
                         + numberOrZero(lot.get("availableQty"))));
                 row.put("lotCount", Integer.valueOf(((Integer) row.get("lotCount")).intValue() + 1));
@@ -4827,6 +5106,7 @@ always
                 row.put("unitOfMeasure", setting == null ? null : setting.getString("unitOfMeasure"));
                 row.put("supplierName", setting == null ? null : setting.getString("supplierName"));
                 row.put("onHandQty", Double.valueOf(round2(numberOrZero(row.get("onHandQty")))));
+                row.put("reservedQty", Double.valueOf(round2(numberOrZero(row.get("reservedQty")))));
                 row.put("availableQty", Double.valueOf(round2(numberOrZero(row.get("availableQty")))));
                 row.put("value", Double.valueOf(round2(numberOrZero(row.get("value")))));
                 boolean isBelow = minimum > 0.0 && numberOrZero(row.get("onHandQty")) < minimum;
@@ -4935,6 +5215,11 @@ always
                 row.put("componentName", lot == null ? null : lot.getString("componentName"));
                 row.put("movementTypeId", movement.getString("movementTypeId"));
                 row.put("quantityDiff", Double.valueOf(round2(diff)));
+                row.put("reservedDiff", Double.valueOf(round2(numberOrZero(movement.get("reservedDiff")))));
+                row.put("displayQty", Double.valueOf(round2(
+                        MOVE_RESERVE.equals(movement.getString("movementTypeId"))
+                                || MOVE_RELEASE.equals(movement.getString("movementTypeId"))
+                                ? numberOrZero(movement.get("reservedDiff")) : diff)));
                 row.put("balanceQty", Double.valueOf(round2(balance)));
                 row.put("unitCost", movement.get("unitCost"));
                 row.put("workOrderId", movement.getString("workOrderId"));

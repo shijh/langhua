@@ -243,6 +243,8 @@
         <attribute name="smtVendor" type="String" mode="IN" optional="true"/>
         <attribute name="note" type="String" mode="IN" optional="true"/>
         <attribute name="workOrderId" type="String" mode="OUT" optional="true"/>
+        <attribute name="reservedQty" type="Double" mode="OUT" optional="true"/>
+        <attribute name="shortQty" type="Double" mode="OUT" optional="true"/>
     </service>
 
     <service name="mfgWorkOrderList" engine="java"
@@ -615,6 +617,28 @@
         <attribute name="vendorId" type="String" mode="IN" optional="true"/>
         <attribute name="workOrderId" type="String" mode="OUT" optional="true"/>
         <attribute name="vendorId" type="String" mode="OUT" optional="true"/>
+    </service>
+
+    <service name="mfgWorkOrderReserve" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgServices" invoke="reserveMaterial"
+            auth="false" use-transaction="false">
+        <description>Reserve the material a work order still needs, oldest lot first; what cannot be covered stays a shortage</description>
+        <attribute name="workOrderId" type="String" mode="IN" optional="false"/>
+        <attribute name="operatorName" type="String" mode="IN" optional="true"/>
+        <attribute name="workOrderId" type="String" mode="OUT" optional="true"/>
+        <attribute name="reservedQty" type="Double" mode="OUT" optional="true"/>
+        <attribute name="shortQty" type="Double" mode="OUT" optional="true"/>
+        <attribute name="reservationCount" type="Integer" mode="OUT" optional="true"/>
+    </service>
+
+    <service name="mfgWorkOrderRelease" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgServices" invoke="releaseMaterialReservation"
+            auth="false" use-transaction="false">
+        <description>Give back every reservation of one work order, e.g. when it is cancelled</description>
+        <attribute name="workOrderId" type="String" mode="IN" optional="false"/>
+        <attribute name="operatorName" type="String" mode="IN" optional="true"/>
+        <attribute name="workOrderId" type="String" mode="OUT" optional="true"/>
+        <attribute name="releasedQty" type="Double" mode="OUT" optional="true"/>
     </service>
 
     <service name="mfgWorkOrderOutsourceSave" engine="java"

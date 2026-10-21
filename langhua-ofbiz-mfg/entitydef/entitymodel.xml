@@ -283,7 +283,8 @@
         <field name="supplierLot" type="short-varchar"><description>Supplier lot / reel / date code printed on the label</description></field>
         <field name="receivedQty" type="floating-point"><description>Quantity received</description></field>
         <field name="onHandQty" type="floating-point"><description>Quantity still in stock: the sum of the movements of this lot</description></field>
-        <field name="availableQty" type="floating-point"><description>Quantity that may be issued: on hand, but zero while the lot failed the incoming inspection</description></field>
+        <field name="reservedQty" type="floating-point"><description>Quantity earmarked for open work orders: sum of the reservations of this lot</description></field>
+        <field name="availableQty" type="floating-point"><description>Quantity that may be issued: on hand minus what is reserved, and zero while the lot failed the incoming inspection</description></field>
         <field name="receivedDate" type="date"><description>Date received from the supplier</description></field>
         <field name="unitPrice" type="currency-amount"><description>Purchase price per unit, used for the actual material cost</description></field>
         <field name="inspectStatusId" type="id"><description>Incoming inspection: MFG_IQC_PENDING, MFG_IQC_PASS, MFG_IQC_CONCESSION (use as is) or MFG_IQC_FAIL (cannot be issued)</description></field>
@@ -766,8 +767,9 @@
         <description>One movement of one material lot: receipt, issue, return, scrap, stock count or adjustment. Append only, the lot totals are summed from these rows</description>
         <field name="lotId" type="id"><description>Lot the movement belongs to</description></field>
         <field name="seqId" type="numeric"><description>Sequence inside the lot, oldest first</description></field>
-        <field name="movementTypeId" type="id"><description>MFG_MOVE_RECEIPT, ISSUE, RETURN, SCRAP, COUNT or ADJUST</description></field>
+        <field name="movementTypeId" type="id"><description>MFG_MOVE_RECEIPT, ISSUE, RETURN, SCRAP, COUNT, ADJUST, RESERVE or RELEASE</description></field>
         <field name="quantityDiff" type="floating-point"><description>Change of the quantity on hand, negative when material leaves</description></field>
+        <field name="reservedDiff" type="floating-point"><description>Change of the quantity reserved for work orders; only reserve and release movements use it</description></field>
         <field name="unitCost" type="currency-amount"><description>Unit cost of this movement</description></field>
         <field name="workOrderId" type="id"><description>Work order the material was issued to or returned from</description></field>
         <field name="physicalInventoryId" type="id"><description>Stock count that produced the movement</description></field>
