@@ -145,6 +145,16 @@ https://localhost:8443/learningcurve/control/main
 
 > OFBiz 自带的登录页/错误页用的是框架主题（helveticus），仍为浅色——那属于 OFBiz 主题，不在本组件范围内。
 
+### 网站图标与导航标志
+
+和组装 MES 组件共用一张 logo：`webapp/learningcurve/images/logo-{32,64,180}.png` + `logo.png`（512）。
+图标由 `langhua-ofbiz-mfg/tools/make-icons.ps1` 从同一张源图生成，白色背景转成透明（深色界面下才好看），
+`decorator.ftl` 里用 `rel="icon"` / `apple-touch-icon` 引用，导航条最左边是
+`<img class="brand" src="/learningcurve/images/logo-64.png" alt="" width="26" height="26"/>`。
+`/images` 本来就在 `web.xml` 的 `allowedPaths` 里，没有改配置。
+
+换 logo 时只跑一次脚本即可，它会同时写两个组件的 `images/` 目录。
+
 ## 数据模型
 
 | 实体 | 说明 |

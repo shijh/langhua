@@ -15,10 +15,14 @@
 <head>
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
     <title>${(pageTitle)!'Hardware Assembly'} - Hardware Assembly</title>
+    <link rel="icon" type="image/png" sizes="32x32" href="/mfg/images/logo-32.png"/>
+    <link rel="icon" type="image/png" sizes="64x64" href="/mfg/images/logo-64.png"/>
+    <link rel="apple-touch-icon" href="/mfg/images/logo-180.png"/>
     <link rel="stylesheet" type="text/css" href="/mfg/css/mfg.css"/>
 </head>
 <body>
 <p class="nav">
+    <img class="brand" src="/mfg/images/logo-64.png" alt="" width="26" height="26"/>
     <@navItem 'main' '/mfg/control/main' '工单'/>
     <@navItem 'products' '/mfg/control/products' '产品与 BOM'/>
     <@navItem 'dev' '/mfg/control/dev' '产品开发'/>

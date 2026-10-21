@@ -258,6 +258,26 @@ csv         = R0402-10K,10K 0402 resistor,4,R1-R4,N
 
 > OFBiz 自带的登录页/错误页用的是框架主题（helveticus），仍为浅色——那属于 OFBiz 主题，不在本组件范围内。
 
+### 网站图标与导航标志
+
+- 源图 `F:\build-ofbiz\langhua-logo.png`（400×400，白底）。深色界面下白底很扎眼，所以生成时**把白色转成透明**
+  （白色→透明的渐变，保留抗锯齿边缘），再按去白后的实际外框居中缩放；
+- 四份尺寸，两个组件各存一套（`webapp/mfg/images/`、`webapp/learningcurve/images/`；
+  `/images` 本来就在 `web.xml` 的 `allowedPaths` 里，不用改配置）：
+
+| 文件 | 尺寸 | 用在哪 |
+| --- | --- | --- |
+| `logo-32.png` | 32 | 浏览器标签页图标（`<link rel="icon" sizes="32x32">`） |
+| `logo-64.png` | 64 | 标签页高分屏 + 导航条左侧标志（`<img class="brand">`） |
+| `logo-180.png` | 180 | `rel="apple-touch-icon"`（添加到桌面 / 书签） |
+| `logo.png` | 512 | 备用大图，给以后做邮件抬头、导出 PDF 用 |
+
+- `decorator.ftl` 的 `<head>` 里三行 `link`，`<body>` 里导航第一条 `<p class="nav">` 后紧跟
+  `<img class="brand" src="/mfg/images/logo-64.png" alt="" width="26" height="26"/>`；
+  CSS 用 `height: 1.7em` 跟着字号缩放（约 27px）、`vertical-align: -.42em` 视觉居中，`alt=""` 因为旁边就是菜单文字；
+- 换 logo 只需跑一次：`powershell -ExecutionPolicy Bypass -File tools\make-icons.ps1 -Source <新图>`，
+  脚本会同时写两个组件的 `images/` 目录。
+
 ## 与学习曲线组件的关系
 
 组装报工产生**真实工时**，正是学习曲线需要的输入：

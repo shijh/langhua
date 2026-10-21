@@ -86,7 +86,12 @@ a:hover { text-decoration: underline; }
     color: var(--fg);
     text-decoration: none;
 }
-.nav a:hover { background: var(--bg-hover); text-decoration: none; }
+.nav a:hover { background: var(--bg-hover); text-decoration: none; }.nav .brand {
+    height: 1.7em;
+    width: auto;
+    vertical-align: -.42em;
+    margin-right: .5em;
+}
 .nav a.active {
     background: var(--bg-widget);
     color: #ffffff;
