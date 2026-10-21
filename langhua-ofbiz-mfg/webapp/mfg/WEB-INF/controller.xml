@@ -50,29 +50,48 @@
         <response name="error" type="view" value="products"/>
     </request-map>
 
+    <request-map uri="attachmentUpload">
+        <security https="true" auth="true"/>
+        <event type="java" path="org.langhua.ofbiz.mfg.MfgAttachmentEvents" invoke="upload"/>
+        <response name="success" type="none"/>
+        <response name="error" type="none"/>
+    </request-map>
+
+    <request-map uri="attachment">
+        <security https="true" auth="true"/>
+        <event type="java" path="org.langhua.ofbiz.mfg.MfgAttachmentEvents" invoke="serve"/>
+        <response name="success" type="none"/>
+        <response name="error" type="none"/>
+    </request-map>
+
+    <request-map uri="attachmentDelete">
+        <security https="true" auth="true"/>
+        <event type="java" path="org.langhua.ofbiz.mfg.MfgAttachmentEvents" invoke="delete"/>
+        <response name="success" type="none"/>
+        <response name="error" type="none"/>
+    </request-map>
+
+    <!-- the product photo urls of the previous release keep working on the same events -->
+
     <request-map uri="productImageUpload">
         <security https="true" auth="true"/>
-        <event type="java" path="org.langhua.ofbiz.mfg.MfgProductImageEvents" invoke="upload"/>
-        <response name="success" type="request-redirect" value="products">
-            <redirect-parameter name="productCode"/>
-        </response>
-        <response name="error" type="view" value="products"/>
+        <event type="java" path="org.langhua.ofbiz.mfg.MfgAttachmentEvents" invoke="upload"/>
+        <response name="success" type="none"/>
+        <response name="error" type="none"/>
     </request-map>
 
     <request-map uri="productImage">
         <security https="true" auth="true"/>
-        <event type="java" path="org.langhua.ofbiz.mfg.MfgProductImageEvents" invoke="serve"/>
+        <event type="java" path="org.langhua.ofbiz.mfg.MfgAttachmentEvents" invoke="serve"/>
         <response name="success" type="none"/>
         <response name="error" type="none"/>
     </request-map>
 
     <request-map uri="productImageDelete">
         <security https="true" auth="true"/>
-        <event type="service" invoke="mfgProductImageDelete"/>
-        <response name="success" type="request-redirect" value="products">
-            <redirect-parameter name="productCode"/>
-        </response>
-        <response name="error" type="view" value="products"/>
+        <event type="java" path="org.langhua.ofbiz.mfg.MfgAttachmentEvents" invoke="delete"/>
+        <response name="success" type="none"/>
+        <response name="error" type="none"/>
     </request-map>
 
     <request-map uri="routingSave">

@@ -15,6 +15,7 @@
 <#assign exchangeUnits = (det.exchangeUnits)![]>
 <#assign repairOrder = (det.repairOrder)!{}>
 <#assign replacements = (det.replacements)![]>
+<#assign atts = ((attachmentResult).attachments)![]>
 <#assign errList = (errorMessageList)![]>
 <#macro typeLabel t>
     <#if (t!'') == 'EXCH'>换货
@@ -228,6 +229,12 @@
         <tr><th>问题</th><td>${claim.issueDesc!}</td></tr>
         <tr><th>该工单不良记录数</th><td>${(det.defectCount)!0}</td></tr>
     </table>
+
+    <h3 style="font-size:1em;margin-top:1.2em;">照片与凭证</h3>
+    <#include "attachmentBlock.ftl">
+    <#assign attOwner = claim.claimId>
+    <#assign attBack = '/mfg/control/claims?claimId=' + attOwner>
+    <@attachmentBlock 'MFG_ATT_CLAIM' attOwner attBack '上传照片 / 检测报告（JPG、PNG、PDF）' atts/>
 
     <h3 style="font-size:1em;margin-top:1.2em;">该板换件记录</h3>
     <#if replacements?has_content>

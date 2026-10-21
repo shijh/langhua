@@ -4384,9 +4384,10 @@ always
                 map.put("currentBomVersionId", currentVersion);
                 map.put("bomCount", Integer.valueOf(currentVersion == null ? 0 : bomItemsOfVersion(delegator, currentVersion).size()));
                 map.put("versionCount", Integer.valueOf(bomVersionCount(delegator, productCode)));
-                List<GenericValue> images = imageRows(delegator, productCode);
-                map.put("imageCount", Integer.valueOf(images.size()));
-                map.put("latestImageSeq", images.isEmpty() ? null : images.get(0).getLong("seq"));
+                migrateProductPhotos(delegator, productCode);
+                List<GenericValue> attachments = attachmentRows(delegator, ATT_PRODUCT, productCode);
+                map.put("imageCount", Integer.valueOf(attachments.size()));
+                map.put("latestImageSeq", attachments.isEmpty() ? null : attachments.get(0).getLong("seq"));
                 map.put("routingCount", Integer.valueOf(count(delegator, "MfgRouting", productCode)));
                 list.add(map);
             }
@@ -4410,17 +4411,32 @@ always
     }
 
     // ==================================================================
-    // Product photos
+    // Attachments: photos and pdf kept with any business record
     // ==================================================================
 
-    /** Biggest photo accepted on upload, in bytes. */
+    /** Biggest image accepted, in bytes. */
     public static final long IMAGE_MAX_BYTES = 4L * 1024L * 1024L;
 
-    /** Content types accepted for a product photo. */
+    /** Biggest pdf accepted, in bytes. */
+    public static final long PDF_MAX_BYTES = 8L * 1024L * 1024L;
+
+    /** Content types accepted for an image attachment. */
     public static final String[] IMAGE_TYPES = {"image/jpeg", "image/png", "image/gif"};
 
+    public static final String PDF_TYPE = "application/pdf";
+
+    public static final String ATT_PRODUCT = "MFG_ATT_PRODUCT";
+    public static final String ATT_DEV_PROJECT = "MFG_ATT_DEV_PROJECT";
+    public static final String ATT_WORK_ORDER = "MFG_ATT_WORK_ORDER";
+    public static final String ATT_DELIVERY = "MFG_ATT_DELIVERY";
+    public static final String ATT_CLAIM = "MFG_ATT_CLAIM";
+
+    /** Owner types an attachment can hang on. */
+    public static final String[] ATTACHMENT_OWNER_TYPES = {
+        ATT_PRODUCT, ATT_DEV_PROJECT, ATT_WORK_ORDER, ATT_DELIVERY, ATT_CLAIM};
+
     /**
-     * Tells whether a content type is an accepted photo type.
+     * Tells whether a content type is an accepted image type.
      *
      * @param contentType the content type sent by the browser, may be null
      * @return {@code true} for JPG, PNG and GIF
@@ -4439,11 +4455,40 @@ always
     }
 
     /**
+     * Tells whether a content type may be attached: an image or a pdf.
+     *
+     * @param contentType the content type, may be null
+     * @return {@code true} for an accepted type
+     */
+    static boolean isAllowedAttachmentType(String contentType) {
+        return isAllowedImageType(contentType)
+                || (contentType != null && PDF_TYPE.equals(contentType.trim().toLowerCase(Locale.ROOT)));
+    }
+
+    /**
+     * Tells whether an owner type is known.
+     *
+     * @param ownerTypeId the owner type
+     * @return {@code true} for a type of {@link #ATTACHMENT_OWNER_TYPES}
+     */
+    static boolean isKnownAttachmentOwnerType(String ownerTypeId) {
+        if (ownerTypeId == null) {
+            return false;
+        }
+        for (String type : ATTACHMENT_OWNER_TYPES) {
+            if (type.equals(ownerTypeId)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
      * Guesses the content type from a file name, used when the browser sends something useless such
      * as {@code application/octet-stream}.
      *
      * @param fileName the original file name, may be null
-     * @return the content type, {@code null} when the extension is not a supported photo
+     * @return the content type, {@code null} when the extension is not supported
      */
     static String imageTypeOfFileName(String fileName) {
         if (fileName == null) {
@@ -4459,6 +4504,9 @@ always
         if (name.endsWith(".gif")) {
             return "image/gif";
         }
+        if (name.endsWith(".pdf")) {
+            return PDF_TYPE;
+        }
         return null;
     }
 
@@ -4471,7 +4519,7 @@ always
      */
     static String cleanFileName(String fileName) {
         if (fileName == null) {
-            return "photo";
+            return "file";
         }
         String name = fileName.trim().replace('\\', '/');
         int slash = name.lastIndexOf('/');
@@ -4482,19 +4530,60 @@ always
         if (name.length() > 60) {
             name = name.substring(name.length() - 60);
         }
-        return name.isEmpty() ? "photo" : name;
+        return name.isEmpty() ? "file" : name;
     }
 
-    private static List<GenericValue> imageRows(Delegator delegator, String productCode)
+    private static List<GenericValue> attachmentRows(Delegator delegator, String ownerTypeId, String ownerId)
             throws GenericEntityException {
-        return EntityQuery.use(delegator).from("MfgProductImage")
-                .where("productCode", productCode).orderBy("-seq").queryList();
+        return EntityQuery.use(delegator).from("MfgAttachment")
+                .where("ownerTypeId", ownerTypeId, "ownerId", ownerId).orderBy("-seq").queryList();
     }
 
-    private static long nextImageSeq(Delegator delegator, String productCode) throws GenericEntityException {
-        long max = 0;
-        for (GenericValue image : imageRows(delegator, productCode)) {
+    /**
+     * Copies the rows of the old product photo table into the generic attachment table the first
+     * time a model is read, so old and new photos live in one place.
+     *
+     * @param delegator the delegator
+     * @param productCode the model
+     * @return the number of copied rows
+     * @throws GenericEntityException when the rows cannot be read or written
+     */
+    static int migrateProductPhotos(Delegator delegator, String productCode) throws GenericEntityException {
+        List<GenericValue> legacy = EntityQuery.use(delegator).from("MfgProductImage")
+                .where("productCode", productCode).orderBy("seq").queryList();
+        if (legacy.isEmpty()) {
+            return 0;
+        }
+        Set<Long> existing = new LinkedHashSet<>();
+        for (GenericValue attachment : attachmentRows(delegator, ATT_PRODUCT, productCode)) {
+            existing.add(attachment.getLong("seq"));
+        }
+        int copied = 0;
+        for (GenericValue image : legacy) {
             Long seq = image.getLong("seq");
+            if (seq == null || existing.contains(seq)) {
+                continue;
+            }
+            GenericValue attachment = delegator.makeValue("MfgAttachment");
+            attachment.set("ownerTypeId", ATT_PRODUCT);
+            attachment.set("ownerId", productCode);
+            attachment.set("seq", seq);
+            attachment.set("fileName", image.getString("fileName"));
+            attachment.set("contentType", image.getString("contentType"));
+            attachment.set("fileSize", image.getLong("imageSize"));
+            attachment.set("fileData", image.getBytes("imageData"));
+            attachment.set("note", image.getString("note"));
+            delegator.create(attachment);
+            copied++;
+        }
+        return copied;
+    }
+
+    private static long nextAttachmentSeq(Delegator delegator, String ownerTypeId, String ownerId)
+            throws GenericEntityException {
+        long max = 0;
+        for (GenericValue attachment : attachmentRows(delegator, ownerTypeId, ownerId)) {
+            Long seq = attachment.getLong("seq");
             if (seq != null) {
                 max = Math.max(max, seq.longValue());
             }
@@ -4502,79 +4591,89 @@ always
         return max + 1L;
     }
 
-    private static Map<String, Object> toImageMap(GenericValue image) {
+    private static Map<String, Object> toAttachmentMap(GenericValue attachment) {
         Map<String, Object> map = new LinkedHashMap<>();
-        map.put("seq", image.getLong("seq"));
-        map.put("fileName", image.getString("fileName"));
-        map.put("contentType", image.getString("contentType"));
-        map.put("imageSize", image.getLong("imageSize"));
-        map.put("note", image.getString("note"));
-        map.put("createdStamp", image.get("createdStamp"));
+        map.put("ownerTypeId", attachment.getString("ownerTypeId"));
+        map.put("ownerId", attachment.getString("ownerId"));
+        map.put("seq", attachment.getLong("seq"));
+        map.put("fileName", attachment.getString("fileName"));
+        map.put("contentType", attachment.getString("contentType"));
+        map.put("fileSize", attachment.getLong("fileSize"));
+        map.put("isImage", Boolean.valueOf(isAllowedImageType(attachment.getString("contentType"))));
+        map.put("note", attachment.getString("note"));
+        map.put("createdStamp", attachment.get("createdStamp"));
         return map;
     }
 
     /**
-     * Validates and stores one photo. Shared by the upload event and the service so both behave the
-     * same way.
+     * Validates and stores one attachment. Shared by the upload event and the service so both
+     * behave the same way.
      *
      * @param delegator the delegator
-     * @param productCode the model the photo belongs to
+     * @param ownerTypeId the kind of record the file belongs to
+     * @param ownerId the key of that record
      * @param fileName the original file name
      * @param contentType the content type, the extension is used when it is not a known type
-     * @param data the photo bytes
+     * @param data the file bytes
      * @param note an optional note
-     * @return the service result with {@code seq} and {@code imageSize}, or an error message
+     * @return the service result with {@code seq} and {@code fileSize}, or an error message
      */
-    static Map<String, Object> storeProductImage(Delegator delegator, String productCode, String fileName,
-            String contentType, byte[] data, String note) {
-        if (productCode == null) {
-            return ServiceUtil.returnError("productCode is required");
+    static Map<String, Object> storeAttachment(Delegator delegator, String ownerTypeId, String ownerId,
+            String fileName, String contentType, byte[] data, String note) {
+        if (!isKnownAttachmentOwnerType(ownerTypeId)) {
+            return attachmentError("owner", "Unknown attachment owner type [" + ownerTypeId + "]");
+        }
+        if (ownerId == null) {
+            return attachmentError("owner", "ownerId is required");
         }
         if (data == null || data.length == 0) {
-            return ServiceUtil.returnError("Choose a photo first");
+            return attachmentError("nofile", "Choose a file first");
         }
-        if (data.length > IMAGE_MAX_BYTES) {
-            return ServiceUtil.returnError("The photo is larger than 4 MB, please shrink it first");
-        }
-        String type = isAllowedImageType(contentType) ? contentType.trim().toLowerCase(Locale.ROOT)
-                : imageTypeOfFileName(fileName);
+        String type = isAllowedAttachmentType(contentType)
+                ? contentType.trim().toLowerCase(Locale.ROOT) : imageTypeOfFileName(fileName);
         if (type == null) {
-            return ServiceUtil.returnError("Only JPG, PNG and GIF photos are supported");
+            return attachmentError("type", "Only JPG, PNG, GIF and PDF files are supported");
+        }
+        boolean pdf = PDF_TYPE.equals(type);
+        long limit = pdf ? PDF_MAX_BYTES : IMAGE_MAX_BYTES;
+        if (data.length > limit) {
+            return attachmentError("size",
+                    (pdf ? "The PDF is larger than 8 MB" : "The image is larger than 4 MB")
+                    + ", please shrink it first");
         }
         try {
-            if (EntityQuery.use(delegator).from("MfgProduct").where("productCode", productCode).queryOne() == null) {
-                return ServiceUtil.returnError("Unknown product model [" + productCode + "], create it first");
-            }
-            long seq = nextImageSeq(delegator, productCode);
-            GenericValue image = delegator.makeValue("MfgProductImage");
-            image.set("productCode", productCode);
-            image.set("seq", Long.valueOf(seq));
-            image.set("fileName", cleanFileName(fileName));
-            image.set("contentType", type);
-            image.set("imageSize", Long.valueOf(data.length));
-            image.set("imageData", data);
-            image.set("note", note);
-            delegator.create(image);
+            long seq = nextAttachmentSeq(delegator, ownerTypeId, ownerId);
+            GenericValue attachment = delegator.makeValue("MfgAttachment");
+            attachment.set("ownerTypeId", ownerTypeId);
+            attachment.set("ownerId", ownerId);
+            attachment.set("seq", Long.valueOf(seq));
+            attachment.set("fileName", cleanFileName(fileName));
+            attachment.set("contentType", type);
+            attachment.set("fileSize", Long.valueOf(data.length));
+            attachment.set("fileData", data);
+            attachment.set("note", note);
+            delegator.create(attachment);
 
             Map<String, Object> result = ServiceUtil.returnSuccess();
-            result.put("productCode", productCode);
+            result.put("ownerTypeId", ownerTypeId);
+            result.put("ownerId", ownerId);
             result.put("seq", Long.valueOf(seq));
-            result.put("imageSize", Long.valueOf(data.length));
+            result.put("fileSize", Long.valueOf(data.length));
             result.put("contentType", type);
             return result;
         } catch (GenericEntityException e) {
-            return ServiceUtil.returnError("Could not store the photo: " + e.getMessage());
+            return ServiceUtil.returnError("Could not store the attachment: " + e.getMessage());
         }
     }
 
     /**
-     * Stores a photo given as a base64 string, handy for scripts and for the integration test.
+     * Stores an attachment given as a base64 string, handy for scripts and for the integration test.
      *
      * @param dctx the dispatch context
-     * @param context service context, see {@code servicedef/services.xml#mfgProductImageSave}
+     * @param context service context, see {@code servicedef/services.xml#mfgAttachmentSave}
      * @return the service result containing {@code seq}
      */
-    public static Map<String, Object> productImageSave(DispatchContext dctx, Map<String, ? extends Object> context) {
+    public static Map<String, Object> attachmentSave(DispatchContext dctx, Map<String, ? extends Object> context) {
         String base64 = toText(context.get("base64Data"));
         if (base64 == null) {
             return ServiceUtil.returnError("base64Data is required");
@@ -4583,67 +4682,100 @@ always
         try {
             data = java.util.Base64.getMimeDecoder().decode(base64);
         } catch (IllegalArgumentException e) {
-            return ServiceUtil.returnError("The photo data is not valid base64");
+            return ServiceUtil.returnError("The attachment data is not valid base64");
         }
-        return storeProductImage(dctx.getDelegator(), toText(context.get("productCode")),
-                toText(context.get("fileName")), toText(context.get("contentType")), data,
-                toText(context.get("note")));
+        return storeAttachment(dctx.getDelegator(), toText(context.get("ownerTypeId")),
+                toText(context.get("ownerId")), toText(context.get("fileName")),
+                toText(context.get("contentType")), data, toText(context.get("note")));
     }
 
     /**
-     * Lists the photos of a model, newest first, without the image bytes.
+     * Lists the attachments of one record, newest first, without the file bytes.
      *
      * @param dctx the dispatch context
-     * @param context service context, see {@code servicedef/services.xml#mfgProductImageList}
-     * @return the service result containing {@code images}
+     * @param context service context, see {@code servicedef/services.xml#mfgAttachmentList}
+     * @return the service result containing {@code attachments}
      */
-    public static Map<String, Object> productImageList(DispatchContext dctx, Map<String, ? extends Object> context) {
+    public static Map<String, Object> attachmentList(DispatchContext dctx, Map<String, ? extends Object> context) {
         Delegator delegator = dctx.getDelegator();
-        String productCode = toText(context.get("productCode"));
+        String ownerTypeId = toText(context.get("ownerTypeId"));
+        String ownerId = toText(context.get("ownerId"));
         List<Map<String, Object>> list = new ArrayList<>();
-        if (productCode != null) {
+        if (ownerTypeId != null && ownerId != null) {
             try {
-                for (GenericValue image : imageRows(delegator, productCode)) {
-                    list.add(toImageMap(image));
+                if (ATT_PRODUCT.equals(ownerTypeId)) {
+                    // photos of the old single table are moved over the first time they are read
+                    migrateProductPhotos(delegator, ownerId);
+                }
+                for (GenericValue attachment : attachmentRows(delegator, ownerTypeId, ownerId)) {
+                    list.add(toAttachmentMap(attachment));
                 }
             } catch (GenericEntityException e) {
-                return ServiceUtil.returnError("Could not read the photos: " + e.getMessage());
+                return ServiceUtil.returnError("Could not read the attachments: " + e.getMessage());
             }
         }
         Map<String, Object> result = ServiceUtil.returnSuccess();
-        result.put("images", list);
-        result.put("imageCount", Integer.valueOf(list.size()));
+        result.put("attachments", list);
+        result.put("attachmentCount", Integer.valueOf(list.size()));
         return result;
     }
 
     /**
-     * Removes one photo of a model.
+     * Builds a service error that also carries a short code the page can translate.
      *
-     * @param dctx the dispatch context
-     * @param context service context, see {@code servicedef/services.xml#mfgProductImageDelete}
-     * @return the service result containing {@code productCode} and {@code seq}
+     * @param code the code, for example {@code size} or {@code type}
+     * @param message the message for the log and for services callers
+     * @return the error result
      */
-    public static Map<String, Object> productImageDelete(DispatchContext dctx, Map<String, ? extends Object> context) {
-        Delegator delegator = dctx.getDelegator();
-        String productCode = toText(context.get("productCode"));
-        long seq = toLong(context.get("seq"), 0);
-        if (productCode == null || seq <= 0) {
-            return ServiceUtil.returnError("productCode and seq are required");
-        }
+    private static Map<String, Object> attachmentError(String code, String message) {
+        Map<String, Object> result = ServiceUtil.returnError(message);
+        result.put("errorCode", code);
+        return result;
+    }
+
+    /**
+     * Removes one attachment of a record.
+     *
+     * @param delegator the delegator
+     * @param ownerTypeId the kind of record
+     * @param ownerId the key of the record
+     * @param seq the sequence number of the file
+     * @return the service result or an error
+     */
+    static Map<String, Object> deleteAttachment(Delegator delegator, String ownerTypeId, String ownerId,
+            long seq) {
         try {
-            GenericValue image = EntityQuery.use(delegator).from("MfgProductImage")
-                    .where("productCode", productCode, "seq", Long.valueOf(seq)).queryOne();
-            if (image == null) {
-                return ServiceUtil.returnError("Photo " + seq + " of [" + productCode + "] does not exist");
+            GenericValue attachment = EntityQuery.use(delegator).from("MfgAttachment")
+                    .where("ownerTypeId", ownerTypeId, "ownerId", ownerId, "seq", Long.valueOf(seq)).queryOne();
+            if (attachment == null) {
+                return ServiceUtil.returnError("Attachment " + seq + " of [" + ownerId + "] does not exist");
             }
-            image.remove();
+            attachment.remove();
             Map<String, Object> result = ServiceUtil.returnSuccess();
-            result.put("productCode", productCode);
+            result.put("ownerTypeId", ownerTypeId);
+            result.put("ownerId", ownerId);
             result.put("seq", Long.valueOf(seq));
             return result;
         } catch (GenericEntityException e) {
-            return ServiceUtil.returnError("Could not delete the photo: " + e.getMessage());
+            return ServiceUtil.returnError("Could not delete the attachment: " + e.getMessage());
         }
+    }
+
+    /**
+     * Removes one attachment of a record.
+     *
+     * @param dctx the dispatch context
+     * @param context service context, see {@code servicedef/services.xml#mfgAttachmentDelete}
+     * @return the service result containing the owner keys and {@code seq}
+     */
+    public static Map<String, Object> attachmentDelete(DispatchContext dctx, Map<String, ? extends Object> context) {
+        String ownerTypeId = toText(context.get("ownerTypeId"));
+        String ownerId = toText(context.get("ownerId"));
+        long seq = toLong(context.get("seq"), 0);
+        if (ownerTypeId == null || ownerId == null || seq <= 0) {
+            return ServiceUtil.returnError("ownerTypeId, ownerId and seq are required");
+        }
+        return deleteAttachment(dctx.getDelegator(), ownerTypeId, ownerId, seq);
     }
 
     /**

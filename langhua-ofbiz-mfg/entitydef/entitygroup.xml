@@ -4,6 +4,7 @@
 
     <entity-group group="org.apache.ofbiz" entity="MfgProduct"/>
     <entity-group group="org.apache.ofbiz" entity="MfgProductImage"/>
+    <entity-group group="org.apache.ofbiz" entity="MfgAttachment"/>
     <entity-group group="org.apache.ofbiz" entity="MfgBomItem"/>
     <entity-group group="org.apache.ofbiz" entity="MfgBomVersion"/>
     <entity-group group="org.apache.ofbiz" entity="MfgBomVersionItem"/>

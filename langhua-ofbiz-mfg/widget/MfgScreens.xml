@@ -48,8 +48,9 @@
                 <service service-name="mfgBomVersionList" result-map="versionResult" auto-field-map="false">
                     <field-map field-name="productCode" from-field="parameters.productCode"/>
                 </service>
-                <service service-name="mfgProductImageList" result-map="imageResult" auto-field-map="false">
-                    <field-map field-name="productCode" from-field="parameters.productCode"/>
+                <service service-name="mfgAttachmentList" result-map="imageResult" auto-field-map="false">
+                    <field-map field-name="ownerTypeId" value="MFG_ATT_PRODUCT"/>
+                    <field-map field-name="ownerId" from-field="parameters.productCode"/>
                 </service>
             </actions>
             <widgets>
@@ -82,6 +83,10 @@
                 <service service-name="mfgProductList" result-map="productList" auto-field-map="false"/>
                 <service service-name="mfgDevProjectDetail" result-map="detail" auto-field-map="false">
                     <field-map field-name="projectCode" from-field="parameters.projectCode"/>
+                </service>
+                <service service-name="mfgAttachmentList" result-map="attachmentResult" auto-field-map="false">
+                    <field-map field-name="ownerTypeId" value="MFG_ATT_DEV_PROJECT"/>
+                    <field-map field-name="ownerId" from-field="parameters.projectCode"/>
                 </service>
             </actions>
             <widgets>
@@ -318,6 +323,10 @@
                 <service service-name="mfgDeliveryDetail" result-map="deliveryDetail" auto-field-map="false">
                     <field-map field-name="deliveryId" from-field="parameters.deliveryId"/>
                 </service>
+                <service service-name="mfgAttachmentList" result-map="attachmentResult" auto-field-map="false">
+                    <field-map field-name="ownerTypeId" value="MFG_ATT_DELIVERY"/>
+                    <field-map field-name="ownerId" from-field="parameters.deliveryId"/>
+                </service>
             </actions>
             <widgets>
                 <decorator-screen name="mfg-decorator" location="component://mfg/widget/MfgCommonScreens.xml">
@@ -374,6 +383,10 @@
                 </service>
                 <service service-name="mfgClaimDetail" result-map="claimDetail" auto-field-map="false">
                     <field-map field-name="claimId" from-field="parameters.claimId"/>
+                </service>
+                <service service-name="mfgAttachmentList" result-map="attachmentResult" auto-field-map="false">
+                    <field-map field-name="ownerTypeId" value="MFG_ATT_CLAIM"/>
+                    <field-map field-name="ownerId" from-field="parameters.claimId"/>
                 </service>
             </actions>
             <widgets>

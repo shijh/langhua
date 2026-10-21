@@ -15,7 +15,7 @@
 <#assign vr = (versionResult)!{}>
 <#assign versions = (vr.bomVersions)![]>
 <#assign ir = (imageResult)!{}>
-<#assign images = (ir.images)![]>
+<#assign images = (ir.attachments)![]>
 <#assign errList = (errorMessageList)![]>
 
 <#function stageLabel stageId>
@@ -120,46 +120,11 @@
 </#if>
 
 <#if product.productCode??>
-    <h2>产品照片（${images?size} 张）</h2>
-    <fieldset>
-        <legend>上传照片：JPG / PNG / GIF，单张不超过 4 MB</legend>
-        <form method="post" action="/mfg/control/productImageUpload" enctype="multipart/form-data">
-            <input type="hidden" name="productCode" value="${product.productCode}"/>
-            <p>
-                <input type="file" name="imageFile" accept="image/jpeg,image/png,image/gif"/>
-                备注 <input type="text" name="note" size="30" placeholder="例如：正面 / 背面 / 包装"/>
-                <input type="submit" value="上传"/>
-            </p>
-        </form>
-    </fieldset>
-    <#if images?has_content>
-        <table>
-            <tr><th>照片</th><th class="num">序号</th><th>文件</th><th class="num">大小</th><th>备注</th><th>上传时间</th><th>操作</th></tr>
-            <#list images as img>
-                <tr>
-                    <td>
-                        <a href="/mfg/control/productImage?productCode=${product.productCode}&seq=${img.seq}" target="_blank">
-                            <img src="/mfg/control/productImage?productCode=${product.productCode}&seq=${img.seq}&thumb=1" alt="${img.fileName!}" height="90" style="border: 1px solid #ddd;"/>
-                        </a>
-                    </td>
-                    <td class="num">${img.seq}</td>
-                    <td>${img.fileName!}</td>
-                    <td class="num">${((img.imageSize!0) / 1024)?string("0")} KB</td>
-                    <td>${img.note!}</td>
-                    <td><#if img.createdStamp??>${img.createdStamp?string("yyyy-MM-dd HH:mm")}</#if></td>
-                    <td>
-                        <form method="post" action="/mfg/control/productImageDelete" class="inline">
-                            <input type="hidden" name="productCode" value="${product.productCode}"/>
-                            <input type="hidden" name="seq" value="${img.seq}"/>
-                            <input type="submit" value="删除"/>
-                        </form>
-                    </td>
-                </tr>
-            </#list>
-        </table>
-    <#else>
-        <p class="hint">还没有照片。上传后型号列表会显示缩略图，点缩略图可以看原图。</p>
-    </#if>
+    <h2>产品照片（${images?size} 个）</h2>
+    <#include "attachmentBlock.ftl">
+    <#assign attOwner = product.productCode>
+    <#assign attBack = '/mfg/control/products?productCode=' + attOwner>
+    <@attachmentBlock 'MFG_ATT_PRODUCT' attOwner attBack '上传照片：JPG / PNG / GIF / PDF，图片不超过 4 MB' images/>
 
     <h2>BOM 版本（${versions?size} 个）</h2>
     <#if versions?has_content>

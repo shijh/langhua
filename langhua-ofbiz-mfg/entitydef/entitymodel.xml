@@ -100,7 +100,7 @@
     <entity entity-name="MfgProductImage"
             package-name="org.langhua.ofbiz.mfg"
             title="Product photo">
-        <description>One photo of a product model, stored in the database so a redeploy of the component never loses it</description>
+        <description>Old single table of product photos. Deprecated: the rows are copied into MfgAttachment on first read</description>
         <field name="productCode" type="id"><description>Parent model</description></field>
         <field name="seq" type="numeric"><description>Running number inside the model, 1 is the oldest photo</description></field>
         <field name="fileName" type="short-varchar"><description>Original file name, cleaned of any path</description></field>
@@ -117,6 +117,30 @@
         <relation type="one" fk-name="MFG_PHOTO_PRODUCT" rel-entity-name="MfgProduct">
             <key-map field-name="productCode"/>
         </relation>
+    </entity>
+
+    <entity entity-name="MfgAttachment"
+            package-name="org.langhua.ofbiz.mfg"
+            title="Attachment">
+        <description>File attached to any business record of the component: product photo, 3D print photo, delivery receipt, damage photo of a claim. Kept in the database so a redeploy never loses it</description>
+        <field name="ownerTypeId" type="id"><description>MFG_ATT_PRODUCT, MFG_ATT_DEV_PROJECT, MFG_ATT_WORK_ORDER, MFG_ATT_DELIVERY or MFG_ATT_CLAIM</description></field>
+        <field name="ownerId" type="id"><description>Key of the owning record: productCode, projectCode, workOrderId, deliveryId or claimId</description></field>
+        <field name="seq" type="numeric"><description>Running number inside the owner, 1 is the oldest file</description></field>
+        <field name="fileName" type="short-varchar"><description>Original file name, cleaned of any path</description></field>
+        <field name="contentType" type="short-varchar"><description>image/jpeg, image/png, image/gif or application/pdf</description></field>
+        <field name="fileSize" type="numeric"><description>Size in bytes</description></field>
+        <field name="fileData" type="byte-array"><description>The file itself</description></field>
+        <field name="note" type="description"/>
+        <field name="createdStamp" type="date-time"/>
+        <field name="createdTxStamp" type="date-time"/>
+        <field name="lastUpdatedStamp" type="date-time"/>
+        <field name="lastUpdatedTxStamp" type="date-time"/>
+        <prim-key field="ownerTypeId"/>
+        <prim-key field="ownerId"/>
+        <prim-key field="seq"/>
+        <index name="MFG_ATT_OWNER" unique="false">
+            <index-field name="ownerId"/>
+        </index>
     </entity>
 
     <entity entity-name="MfgRouting"

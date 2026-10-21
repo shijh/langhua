@@ -622,9 +622,33 @@ public class MfgServicesTest {
         assertEquals("image/jpeg", MfgServices.imageTypeOfFileName("C:\\photos\\back.jpeg"));
         assertEquals("image/png", MfgServices.imageTypeOfFileName("board.png"));
         assertEquals("image/gif", MfgServices.imageTypeOfFileName("anim.Gif"));
-        assertNull(MfgServices.imageTypeOfFileName("manual.pdf"));
+        assertEquals("application/pdf", MfgServices.imageTypeOfFileName("report.pdf"));
+        assertNull(MfgServices.imageTypeOfFileName("notes.txt"));
         assertNull(MfgServices.imageTypeOfFileName("noextension"));
         assertNull(MfgServices.imageTypeOfFileName(null));
+    }
+
+    @Test
+    public void allowsImagesAndPdfOnly() {
+        assertTrue(MfgServices.isAllowedAttachmentType("image/png"));
+        assertTrue(MfgServices.isAllowedAttachmentType("application/pdf"));
+        assertTrue(MfgServices.isAllowedAttachmentType("APPLICATION/PDF"));
+        assertTrue(!MfgServices.isAllowedAttachmentType("text/plain"));
+        assertTrue(!MfgServices.isAllowedAttachmentType("application/zip"));
+        assertTrue(!MfgServices.isAllowedAttachmentType(null));
+        // the pdf is not an image, so it never gets a thumbnail
+        assertTrue(!MfgServices.isAllowedImageType("application/pdf"));
+    }
+
+    @Test
+    public void knowsTheAttachmentOwnerTypes() {
+        assertTrue(MfgServices.isKnownAttachmentOwnerType("MFG_ATT_PRODUCT"));
+        assertTrue(MfgServices.isKnownAttachmentOwnerType("MFG_ATT_DEV_PROJECT"));
+        assertTrue(MfgServices.isKnownAttachmentOwnerType("MFG_ATT_WORK_ORDER"));
+        assertTrue(MfgServices.isKnownAttachmentOwnerType("MFG_ATT_DELIVERY"));
+        assertTrue(MfgServices.isKnownAttachmentOwnerType("MFG_ATT_CLAIM"));
+        assertTrue(!MfgServices.isKnownAttachmentOwnerType("MFG_ATT_BOGUS"));
+        assertTrue(!MfgServices.isKnownAttachmentOwnerType(null));
     }
 
     @Test
@@ -634,8 +658,8 @@ public class MfgServicesTest {
         // characters outside letters, digits and dot dash underscore become underscores
         String cleaned = MfgServices.cleanFileName("外壳 正面.jpg");
         assertTrue("expected only underscores and the extension, got " + cleaned, cleaned.matches("_+\\.jpg"));
-        assertEquals("photo", MfgServices.cleanFileName(""));
-        assertEquals("photo", MfgServices.cleanFileName(null));
+        assertEquals("file", MfgServices.cleanFileName(""));
+        assertEquals("file", MfgServices.cleanFileName(null));
         assertTrue(MfgServices.cleanFileName("a".repeat(200) + ".png").length() <= 60);
     }
 }

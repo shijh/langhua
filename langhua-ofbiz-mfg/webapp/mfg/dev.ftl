@@ -16,6 +16,7 @@
 <#assign ecos = (d.ecos)![]>
 <#assign steps = (d.steps)![]>
 <#assign trackId = (d.trackId)!''>
+<#assign atts = ((attachmentResult).attachments)![]>
 <#assign errList = (errorMessageList)![]>
 
 <#function stageLabel stageId>
@@ -318,8 +319,13 @@
         </form>
     </fieldset>
 
-    <h3>相关变更单（${ecos?size} 个）</h3>
-    <#if ecos?has_content>
+    <h3>项目资料</h3>
+    <#include "attachmentBlock.ftl">
+    <#assign attOwner = project.projectCode>
+    <#assign attBack = '/mfg/control/dev?projectCode=' + attOwner>
+    <@attachmentBlock 'MFG_ATT_DEV_PROJECT' attOwner attBack '上传资料：3D 打印照片、合同扫描件、Gerber 截图（JPG、PNG、PDF）' atts/>
+
+    <h3>相关变更单（${ecos?size} 个）</h3>    <#if ecos?has_content>
         <table>
             <tr><th>变更单</th><th>类型</th><th>状态</th><th>原因</th><th>目标 BOM</th></tr>
             <#list ecos as e>

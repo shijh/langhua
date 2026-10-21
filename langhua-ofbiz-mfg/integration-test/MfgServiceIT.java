@@ -82,6 +82,12 @@ public final class MfgServiceIT {
     private static final String TINY_PNG_BASE64 =
         "iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAAFklEQVQI12P4//8/AzYEYgADMAciAAB6"
         + "wwMBAAAAAElFTkSuQmCC";
+
+    /** A one page pdf, small enough to keep in the source. */
+    private static final String TINY_PDF_BASE64 =
+        "JVBERi0xLjQKMSAwIG9iago8PC9UeXBlL0NhdGFsb2cvUGFnZXMgMiAwIFI+PmVuZG9iagoyIDAgb2Jq"
+        + "Cjw8L1R5cGUvUGFnZXMvQ291bnQgMC9LaWRzW10+PmVuZG9iagp0cmFpbGVyCjw8L1Jvb3QgMSAw"
+        + "IFI+PgolJUVPRgo=";
     private static final String KEY_COMPONENT = "U1-BT5-SOC";
     private static final String SUPPLIER_LOT = "DC-IT-2410";
 
@@ -1150,12 +1156,13 @@ public final class MfgServiceIT {
      */
     private void storesProductPhotos() throws IOException {
         Map<String, String> form = new LinkedHashMap<>();
-        form.put("productCode", PRODUCT_CODE);
+        form.put("ownerTypeId", "MFG_ATT_PRODUCT");
+        form.put("ownerId", PRODUCT_CODE);
         form.put("fileName", "C:\\Users\\it\\Pictures\\正面 照片.png");
         form.put("contentType", "image/png");
         form.put("base64Data", TINY_PNG_BASE64);
         form.put("note", "IT 照片");
-        Response saved = invoke("mfgProductImageSave", form);
+        Response saved = invoke("mfgAttachmentSave", form);
         check("photo: save returns HTTP 200", saved.status == 200, "HTTP " + saved.status);
         String seq = firstGroup(PHOTO_SEQ, saved.body);
         check("photo: a sequence number is returned", seq != null, "no seq in response");
@@ -1163,39 +1170,68 @@ public final class MfgServiceIT {
                 "file name still carries a path");
 
         Map<String, String> listForm = new LinkedHashMap<>();
-        listForm.put("productCode", PRODUCT_CODE);
-        Response list = invoke("mfgProductImageList", listForm);
+        listForm.put("ownerTypeId", "MFG_ATT_PRODUCT");
+        listForm.put("ownerId", PRODUCT_CODE);
+        Response list = invoke("mfgAttachmentList", listForm);
         check("photo: list returns HTTP 200", list.status == 200, "HTTP " + list.status);
         check("photo: the photo is listed", list.body.contains("image/png"), "content type missing from the list");
 
         Map<String, String> detailForm = new LinkedHashMap<>();
-        detailForm.put("productCode", PRODUCT_CODE);
-        Response detail = invoke("mfgProductImageList", detailForm);
-        check("photo: the model reports one photo", detail.body.contains("imageCount"),
-                "no imageCount in the response");
+        detailForm.put("ownerTypeId", "MFG_ATT_PRODUCT");
+        detailForm.put("ownerId", PRODUCT_CODE);
+        Response detail = invoke("mfgAttachmentList", detailForm);
+        check("photo: the owner reports one attachment", detail.body.contains("attachmentCount"),
+                "no attachmentCount in the response");
 
         // the photo is served through the controller; the page script checks the bytes with a real
         // browser session, here only the service side is covered
         Map<String, String> rejectForm = new LinkedHashMap<>();
-        rejectForm.put("productCode", PRODUCT_CODE);
-        rejectForm.put("fileName", "manual.pdf");
-        rejectForm.put("contentType", "application/pdf");
+        rejectForm.put("ownerTypeId", "MFG_ATT_PRODUCT");
+        rejectForm.put("ownerId", PRODUCT_CODE);
+        rejectForm.put("fileName", "manual.zip");
+        rejectForm.put("contentType", "application/zip");
         rejectForm.put("base64Data", TINY_PNG_BASE64);
-        Response rejected = invoke("mfgProductImageSave", rejectForm);
-        check("photo: a pdf is rejected", rejected.body.contains("Only JPG, PNG and GIF photos are supported"),
-                "a pdf was stored");
+        Response rejected = invoke("mfgAttachmentSave", rejectForm);
+        check("photo: a zip is rejected", rejected.body.contains("Only JPG, PNG, GIF and PDF files are supported"),
+                "a zip was stored");
+
+        Map<String, String> badOwner = new LinkedHashMap<>();
+        badOwner.put("ownerTypeId", "MFG_ATT_BOGUS");
+        badOwner.put("ownerId", PRODUCT_CODE);
+        badOwner.put("fileName", "photo.png");
+        badOwner.put("contentType", "image/png");
+        badOwner.put("base64Data", TINY_PNG_BASE64);
+        Response badOwnerResponse = invoke("mfgAttachmentSave", badOwner);
+        check("photo: an unknown owner type is rejected",
+                badOwnerResponse.body.contains("Unknown attachment owner type"), "the owner type was accepted");
+
+        // a pdf on a claim, to prove the same code serves another record
+        Map<String, String> pdfForm = new LinkedHashMap<>();
+        pdfForm.put("ownerTypeId", "MFG_ATT_CLAIM");
+        pdfForm.put("ownerId", claimId == null ? "NO-CLAIM" : claimId);
+        pdfForm.put("fileName", "inspection.pdf");
+        pdfForm.put("contentType", "application/pdf");
+        pdfForm.put("base64Data", TINY_PDF_BASE64);
+        Response pdfSaved = invoke("mfgAttachmentSave", pdfForm);
+        // the webtools result page escapes the slash of the content type as &#x2f;
+        boolean pdfEchoed = pdfSaved.body.contains("application/pdf")
+                || pdfSaved.body.contains("application&#x2f;pdf");
+        check("claim attachment: a pdf is accepted", pdfSaved.status == 200 && pdfEchoed,
+                "HTTP " + pdfSaved.status);
 
         Map<String, String> deleteForm = new LinkedHashMap<>();
-        deleteForm.put("productCode", PRODUCT_CODE);
+        deleteForm.put("ownerTypeId", "MFG_ATT_PRODUCT");
+        deleteForm.put("ownerId", PRODUCT_CODE);
         deleteForm.put("seq", seq == null ? "1" : seq);
-        Response deleted = invoke("mfgProductImageDelete", deleteForm);
+        Response deleted = invoke("mfgAttachmentDelete", deleteForm);
         check("photo: delete returns HTTP 200", deleted.status == 200
                 && !deleted.body.contains("does not exist"), "HTTP " + deleted.status);
 
         Map<String, String> emptyListForm = new LinkedHashMap<>();
-        emptyListForm.put("productCode", PRODUCT_CODE);
-        Response emptyList = invoke("mfgProductImageList", emptyListForm);
-        check("photo: the list is empty after the delete", emptyList.body.contains("imageCount</td>")
+        emptyListForm.put("ownerTypeId", "MFG_ATT_PRODUCT");
+        emptyListForm.put("ownerId", PRODUCT_CODE);
+        Response emptyList = invoke("mfgAttachmentList", emptyListForm);
+        check("photo: the list is empty after the delete", emptyList.body.contains("attachmentCount</td>")
                 && emptyList.body.contains(">0<"), "the photo is still listed");
     }
 

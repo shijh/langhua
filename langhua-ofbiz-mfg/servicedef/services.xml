@@ -60,38 +60,42 @@
 
     <!-- BOM versions: one product can keep several BOMs, the model points to the one in use -->
 
-    <!-- product photos: uploaded through the multipart event, kept in the database -->
+    <!-- attachments: photos and pdf kept with any business record, stored in the database -->
 
-    <service name="mfgProductImageSave" engine="java"
-            location="org.langhua.ofbiz.mfg.MfgServices" invoke="productImageSave"
+    <service name="mfgAttachmentSave" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgServices" invoke="attachmentSave"
             auth="false" use-transaction="false">
-        <description>Store one photo of a model from a base64 string; JPG, PNG or GIF up to 4 MB</description>
-        <attribute name="productCode" type="String" mode="IN" optional="false"/>
+        <description>Store one attachment from a base64 string; JPG, PNG, GIF up to 4 MB or PDF up to 8 MB</description>
+        <attribute name="ownerTypeId" type="String" mode="IN" optional="false"/>
+        <attribute name="ownerId" type="String" mode="IN" optional="false"/>
         <attribute name="fileName" type="String" mode="IN" optional="true"/>
         <attribute name="contentType" type="String" mode="IN" optional="true"/>
         <attribute name="base64Data" type="String" mode="IN" optional="false"/>
         <attribute name="note" type="String" mode="IN" optional="true"/>
         <attribute name="seq" type="Long" mode="OUT" optional="true"/>
-        <attribute name="imageSize" type="Long" mode="OUT" optional="true"/>
+        <attribute name="fileSize" type="Long" mode="OUT" optional="true"/>
         <attribute name="contentType" type="String" mode="OUT" optional="true"/>
     </service>
 
-    <service name="mfgProductImageList" engine="java"
-            location="org.langhua.ofbiz.mfg.MfgServices" invoke="productImageList"
+    <service name="mfgAttachmentList" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgServices" invoke="attachmentList"
             auth="false" use-transaction="false">
-        <description>List the photos of a model, newest first, without the image bytes</description>
-        <attribute name="productCode" type="String" mode="IN" optional="true"/>
-        <attribute name="images" type="java.util.List" mode="OUT" optional="true"/>
-        <attribute name="imageCount" type="Integer" mode="OUT" optional="true"/>
+        <description>List the attachments of one record, newest first, without the file bytes</description>
+        <attribute name="ownerTypeId" type="String" mode="IN" optional="true"/>
+        <attribute name="ownerId" type="String" mode="IN" optional="true"/>
+        <attribute name="attachments" type="java.util.List" mode="OUT" optional="true"/>
+        <attribute name="attachmentCount" type="Integer" mode="OUT" optional="true"/>
     </service>
 
-    <service name="mfgProductImageDelete" engine="java"
-            location="org.langhua.ofbiz.mfg.MfgServices" invoke="productImageDelete"
+    <service name="mfgAttachmentDelete" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgServices" invoke="attachmentDelete"
             auth="false" use-transaction="false">
-        <description>Remove one photo of a model</description>
-        <attribute name="productCode" type="String" mode="IN" optional="false"/>
+        <description>Remove one attachment of a record</description>
+        <attribute name="ownerTypeId" type="String" mode="IN" optional="false"/>
+        <attribute name="ownerId" type="String" mode="IN" optional="false"/>
         <attribute name="seq" type="Long" mode="IN" optional="false"/>
-        <attribute name="productCode" type="String" mode="OUT" optional="true"/>
+        <attribute name="ownerTypeId" type="String" mode="OUT" optional="true"/>
+        <attribute name="ownerId" type="String" mode="OUT" optional="true"/>
         <attribute name="seq" type="Long" mode="OUT" optional="true"/>
     </service>
 
