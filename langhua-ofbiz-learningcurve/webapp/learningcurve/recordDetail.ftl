@@ -42,19 +42,19 @@
 
     <h2>趋势图（单位值 vs 累计数量）</h2>
     <p class="legend">
-        <span><i class="dot" style="background:#d1242f"></i>实际</span>
-        <span><svg width="18" height="10"><line x1="0" y1="5" x2="18" y2="5" stroke="#1f6feb" stroke-width="2"/></svg> 拟合</span>
+    <span><i class="dot" style="background:#f14c4c"></i>实际</span>
+    <span><svg width="18" height="10"><line x1="0" y1="5" x2="18" y2="5" stroke="#4daafc" stroke-width="2"/></svg> 拟合</span>
     </p>
     <svg width="620" height="280" xmlns="http://www.w3.org/2000/svg">
-        <line x1="${x0}" y1="${y0}" x2="${x0 + plotW}" y2="${y0}" stroke="#999"/>
-        <line x1="${x0}" y1="${y0}" x2="${x0}" y2="${y0 - plotH}" stroke="#999"/>
+        <line x1="${x0}" y1="${y0}" x2="${x0 + plotW}" y2="${y0}" stroke="#4b4b4b"/>
+        <line x1="${x0}" y1="${y0}" x2="${x0}" y2="${y0 - plotH}" stroke="#4b4b4b"/>
         <text x="${x0 - 8}" y="${y0}" text-anchor="end" font-size="11">0</text>
         <text x="${x0 - 8}" y="${y0 - plotH + 4}" text-anchor="end" font-size="11">${(maxY)?string("0.##")}</text>
         <text x="${x0 + plotW}" y="${y0 + 16}" text-anchor="end" font-size="11">${(maxX)?string("0.##")} 单位</text>
         <#if points?has_content>
-            <polyline fill="none" stroke="#1f6feb" stroke-width="2" points="<#list points as pt>${(x0 + (pt.units / maxX) * plotW)?string("0.#")},${(y0 - (pt.predicted / maxY) * plotH)?string("0.#")}<#if pt_has_next> </#if></#list>"/>
+            <polyline fill="none" stroke="#4daafc" stroke-width="2" points="<#list points as pt>${(x0 + (pt.units / maxX) * plotW)?string("0.#")},${(y0 - (pt.predicted / maxY) * plotH)?string("0.#")}<#if pt_has_next> </#if></#list>"/>
             <#list points as pt>
-                <circle cx="${(x0 + (pt.units / maxX) * plotW)?string("0.#")}" cy="${(y0 - (pt.actual / maxY) * plotH)?string("0.#")}" r="4" fill="#d1242f"/>
+                <circle cx="${(x0 + (pt.units / maxX) * plotW)?string("0.#")}" cy="${(y0 - (pt.actual / maxY) * plotH)?string("0.#")}" r="4" fill="#f14c4c"/>
             </#list>
         </#if>
     </svg>

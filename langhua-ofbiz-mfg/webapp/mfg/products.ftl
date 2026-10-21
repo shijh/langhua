@@ -88,7 +88,7 @@
         </tr>
         <#list products as p>
             <tr>
-                <td><#if p.latestImageSeq??><img src="/mfg/control/productImage?productCode=${p.productCode}&seq=${p.latestImageSeq}&thumb=1" alt="${p.productCode}" width="44" height="44" style="object-fit: cover; border: 1px solid #ddd;"/><#else><span class="hint">-</span></#if></td>
+                <td><#if p.latestImageSeq??><img src="/mfg/control/productImage?productCode=${p.productCode}&seq=${p.latestImageSeq}&thumb=1" alt="${p.productCode}" width="44" height="44" style="object-fit: cover; border: 1px solid #3c3c3c;"/><#else><span class="hint">-</span></#if></td>
                 <td><a href="/mfg/control/products?productCode=${p.productCode}">${p.productCode}</a></td>
                 <td>${p.productName!}</td>
                 <td>${p.snPrefix!}</td>

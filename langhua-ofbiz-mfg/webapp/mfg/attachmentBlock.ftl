@@ -41,7 +41,7 @@
                     <td>
                         <#if att.isImage>
                             <a href="/mfg/control/attachment?ownerTypeId=${ownerTypeId}&ownerId=${ownerId}&seq=${att.seq}" target="_blank">
-                                <img src="/mfg/control/attachment?ownerTypeId=${ownerTypeId}&ownerId=${ownerId}&seq=${att.seq}&thumb=1" alt="${att.fileName!}" height="80" style="border: 1px solid #ddd;"/>
+                                <img src="/mfg/control/attachment?ownerTypeId=${ownerTypeId}&ownerId=${ownerId}&seq=${att.seq}&thumb=1" alt="${att.fileName!}" height="80" style="border: 1px solid #3c3c3c;"/>
                             </a>
                         <#else>
                             <a href="/mfg/control/attachment?ownerTypeId=${ownerTypeId}&ownerId=${ownerId}&seq=${att.seq}" target="_blank">查看 PDF</a>

@@ -1,31 +1,160 @@
 /*
  * Shared styles of the learning curve screens.
  * Served as a static file: /learningcurve/css/lc.css (see web.xml allowedPaths).
+ *
+ * Same palette as the hardware assembly component: VS Code "Dark Modern".
+ * All colours live in the custom properties below, so a different theme is a
+ * single block to change.
  */
-body { font-family: Arial, Helvetica, sans-serif; margin: 1.5em; color: #222; }
-h1 { font-size: 1.35em; }
-h2 { font-size: 1.05em; margin-top: 1.4em; }
-h3 { font-size: 1em; margin-top: 1.2em; }
+:root {
+    color-scheme: dark;
 
-table { border-collapse: collapse; margin-top: .6em; }
-th, td { border: 1px solid #ccc; padding: 4px 10px; text-align: left; vertical-align: top; }
-th { background: #f3f3f3; }
+    --bg: #1f1f1f;            /* editor background */
+    --bg-bar: #181818;        /* title bar / activity bar */
+    --bg-panel: #202020;      /* fieldset, tile */
+    --bg-widget: #252526;     /* table header, card, widget */
+    --bg-input: #313131;      /* input, textarea, select */
+    --bg-hover: #2a2d2e;      /* hovered row / link */
+    --bg-odd: #232323;        /* zebra row */
+
+    --border: #2b2b2b;
+    --border-strong: #3c3c3c;
+
+    --fg: #cccccc;
+    --fg-strong: #e7e7e7;
+    --fg-muted: #9d9d9d;
+
+    --accent: #0078d4;
+    --accent-hover: #026ec1;
+    --link: #4daafc;
+
+    --ok: #89d185;
+    --warn: #cca700;
+    --error: #f14c4c;
+    --code: #ce9178;
+}
+
+body {
+    font-family: "Segoe UI", "Microsoft YaHei", system-ui, Arial, Helvetica, sans-serif;
+    margin: 0;
+    padding: 0 2em 3em;
+    background: var(--bg);
+    color: var(--fg);
+    line-height: 1.55;
+}
+
+h1 { font-size: 1.35em; color: var(--fg-strong); }
+h2 { font-size: 1.05em; margin-top: 1.4em; color: var(--fg-strong); }
+h3 { font-size: 1em; margin-top: 1.2em; color: var(--fg-strong); }
+
+a { color: var(--link); text-decoration: none; }
+a:hover { text-decoration: underline; }
+::selection { background: #264f78; color: #ffffff; }
+
+table { border-collapse: collapse; margin-top: .6em; font-size: .93em; }
+th, td { border: 1px solid var(--border); padding: 5px 10px; text-align: left; vertical-align: top; }
+th { background: var(--bg-widget); color: var(--fg-strong); font-weight: 600; }
+tr:nth-child(even) > td { background: var(--bg-odd); }
+tr:hover > td { background: var(--bg-hover); }
+
+/* form controls: dark surfaces, a single blue focus ring */
+input[type="text"], input[type="number"], input[type="search"], select, textarea {
+    background: var(--bg-input);
+    color: var(--fg);
+    border: 1px solid var(--border-strong);
+    border-radius: 2px;
+    padding: 3px 6px;
+    font: inherit;
+}
+input:focus, select:focus, textarea:focus {
+    outline: 1px solid var(--accent);
+    outline-offset: -1px;
+    border-color: var(--accent);
+}
+input[type="submit"], button {
+    background: var(--accent);
+    color: #ffffff;
+    border: 1px solid transparent;
+    border-radius: 2px;
+    padding: 4px 14px;
+    font: inherit;
+    cursor: pointer;
+}
+input[type="submit"]:hover, button:hover { background: var(--accent-hover); }
+/* row level buttons stay quiet: only the main action of a page is blue */
+table input[type="submit"], table button {
+    background: var(--bg-input);
+    color: var(--fg);
+    border: 1px solid var(--border-strong);
+    padding: 2px 10px;
+}
+table input[type="submit"]:hover, table button:hover { background: #3a3d41; }
 
 .num { text-align: right; }
-.error { color: #b00000; font-weight: bold; }
-.ok { color: #1a7f37; font-weight: bold; }
-.warn { color: #9a6700; font-weight: bold; }
-.hint { color: #666; font-size: .85em; }
-.empty { color: #666; margin-top: 1em; }
+.error { color: var(--error); font-weight: bold; }
+.ok { color: var(--ok); font-weight: bold; }
+.warn { color: var(--warn); font-weight: bold; }
+.hint { color: var(--fg-muted); font-size: .85em; }
+.empty { color: var(--fg-muted); margin-top: 1em; }
 
-.nav { margin: 0 0 1em 0; padding-bottom: .5em; border-bottom: 1px solid #ddd; }
-.nav a { margin-right: 1em; }
+/* the navigation bar behaves like the editor title bar: one line, scrolls sideways */
+.nav {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    margin: 0 -2em 1.4em;
+    padding: .55em 2em;
+    background: var(--bg-bar);
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+}
+.nav a {
+    display: inline-block;
+    margin-right: .15em;
+    padding: .3em .65em;
+    border-radius: 4px;
+    color: var(--fg);
+    text-decoration: none;
+}
+.nav a:hover { background: var(--bg-hover); text-decoration: none; }
+.nav a.active {
+    background: var(--bg-widget);
+    color: #ffffff;
+    box-shadow: inset 0 -2px 0 var(--accent);
+}
+.nav::-webkit-scrollbar { height: 4px; }
+.nav::-webkit-scrollbar-track { background: transparent; }
+.nav::-webkit-scrollbar-thumb { background: #3a3a3a; border: none; border-radius: 2px; }
 
 /* estimation form */
 label { display: inline-block; width: 11em; }
 form.inline { display: inline; }
-code { background: #f6f6f6; padding: 1px 4px; }
+fieldset { border: 1px solid var(--border); background: var(--bg-panel); border-radius: 4px;
+           padding: .6em 1em; margin-top: 1em; }
+legend { color: var(--fg-strong); padding: 0 .4em; }
+code { background: var(--bg-widget); color: var(--code); padding: 1px 4px; border-radius: 2px;
+       font-family: Consolas, "Cascadia Mono", monospace; }
 
 /* learning curve chart legend */
 .legend span { margin-right: 1.5em; font-size: .9em; }
 .dot { display: inline-block; width: 10px; height: 10px; border-radius: 5px; margin-right: 4px; }
+
+/* the chart is drawn with plain svg, whose text is black unless it is told otherwise */
+svg text { fill: var(--fg-muted); }
+
+/* thin scrollbars, like the editor */
+::-webkit-scrollbar { width: 12px; height: 12px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: #424242; border: 3px solid var(--bg); border-radius: 6px; }
+::-webkit-scrollbar-thumb:hover { background: #4f4f4f; }
+
+/* narrow screens (a tablet on the bench): less side padding, same look */
+@media (max-width: 900px) {
+    body { padding: 0 1em 2em; }
+    .nav { margin: 0 -1em 1.2em; padding: .5em 1em; }
+    table { font-size: .88em; }
+    th, td { padding: 4px 6px; }
+    label { width: 9em; }
+}

@@ -80,8 +80,8 @@
 
 <h2>每日出货 / 售后</h2>
 <p class="legend">
-    <span><i style="background:#4a7ebb"></i>出货台数</span>
-    <span><i style="background:#b00000"></i>售后单数</span>
+    <span><i style="background:#0078d4"></i>出货台数</span>
+    <span><i style="background:#f14c4c"></i>售后单数</span>
     <span class="hint">柱高按各自序列的最大值缩放，鼠标悬停可看具体数字</span>
 </p>
 <#if days?has_content>
