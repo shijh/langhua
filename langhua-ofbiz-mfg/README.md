@@ -26,6 +26,7 @@ flowchart LR
         DP["MfgDevProject<br/>五道关卡 · 三条线路"]
         STEP["MfgDevTrackStep<br/>外壳入库"]
         ECO["MfgDevEco<br/>草稿→批准→生效"]
+        SWP["MfgSoftwareProject<br/>规模 · 估算人天 · 实际工时"]
         DP --> STEP
     end
 
@@ -72,6 +73,8 @@ flowchart LR
     WO -. "欠料" .-> DASH
     RPT -. "工时 / 良品" .-> DASH
     RMA -. "窗口到期" .-> DASH
+    SWP -. "超人天 / 超期" .-> DASH
+    SWP -. "实测 PDR" .-> COST
     DEF -. "不良" .-> QA
     RMA -. "售后成本" .-> QA
 ```
@@ -104,6 +107,7 @@ flowchart LR
 | **来料检验（IQC）** | 批次可标待检 / 合格 / 让步接收 / 不合格并记录不良数与检验人；**不合格批次不能发料**，待检与让步接收仍可用 |
 | **发料** | 按工单发料（料号 + 批次 + 数量 + 位号），形成“SN → 工单 → 批次”链路 |
 | **成本核算** | 型号层：BOM 单价 × 用量 + 标准工时 × 工时费率 = 单台成本，可乘批量算总额，并与开发项目的目标成本 / 目标售价对比（超了、亏了分色标出）；工单层：标准成本 vs 实际成本（已发料按批次采购单价 + 报工工时 × 费率），给出差异 |
+| **软件项目** | 固件 / 外壳设计 / 上位机 / 平台的开发台账：按功能点口径估规模与工作量（UFP、PDR、SWF、RDF），算工期、人天、含税报价；同时记实际工时与成本，算出偏差与实测 PDR，为下一个项目做依据 |
 | **齐套** | BOM 需求（用量 × 计划数）vs 已发料，自动算出欠料行 |
 | **齐套预警** | 按交期列出所有在制工单的欠料明细（欠料行数 / 欠料总量） |
 | **外协收发** | 发往 SMT 的套数、回厂板数与不良数、快递单号 |
@@ -190,6 +194,7 @@ https://localhost:8443/mfg/control/main
 | `MfgDevTrackStep` | 线路步骤状态：`projectCode` + `stepId`（联合主键）、`statusId`（TODO/DOING/DONE/SKIPPED）、`plannedDate`、`doneDate`、`ownerName`、`vendorName`、`amount`、`qty`、`referenceNo`（合同号/付款凭证/快递单）、`lotId`（外壳入库生成的批次） |
 | `MfgDevStageReview` | 阶段关卡评审：`projectCode` + `stageId`（联合主键）、`plannedDate`、`doneDate`、`resultId`（PASS/CONDITIONAL/FAIL）、`reviewer`、`note` |
 | `MfgDevEco` | 设计变更单：`ecoId`（ECO-yyMMdd-NN）、`productCode`、`projectCode`、`ecoTypeId`（BOM/工艺/设计/物料）、`reason`、`changeSummary`、`statusId`（DRAFT/APPROVED/APPLIED/CANCELLED）、`fromBomVersionId` → `toBomVersionId`、`requestedBy`、`approvedBy`、`effectiveDate` |
+| `MfgSoftwareProject` | 软件项目台账：`projectCode`（SW-yyMMdd-NN）、`categoryId`（固件/外壳设计/上位机/平台）、`productCode`、`devProjectCode`、`statusId`、`deliverySeq`（同类第几次）、规模 `ilfCount`/`eifCount`/`ufp`、估算参数 `swfBase`/`swfReuse`/`swfPreInvest`/`swfQuality`/`rdf`/`pdrHoursPerFp`/`dayRate`/`taxRate`/`dncRate`、`plannedDays`（估算冻结）、`plannedStartDate`/`plannedEndDate`、实际 `actualHours`/`actualCost`、`quotedAmount` |
 
 ## 服务
 
@@ -238,6 +243,8 @@ https://localhost:8443/mfg/control/main
 | `mfgDevEcoApprove` / `mfgDevEcoApply` / `mfgDevEcoCancel` | 批准、生效（可切换 BOM 版本）、取消；重复生效与已生效后取消都会被拒绝 |
 | `mfgProductCost` | 型号成本：`qty` 台的材料 / 工时 / 合计，加上目标成本差、目标售价与毛利；带逐行金额与缺单价行数 |
 | `mfgWorkOrderCost` | 工单成本：标准（BOM 单价 + 标准工时 × 费率）vs 实际（已发料按批次单价 + 报工工时 × 费率），给出差异与被排除的无单价笔数 |
+| `mfgSoftwareEstimate` | 软件报价四步：规模 UFP = 35×ILF + 15×EIF、工作量 AE = PDR×UFP×SWF×RDF、工期 D = 1.277×(AE/176)^0.404、金额 = 人天×日费率 + 增值税 + 非人力成本；参数都可传，缺省取 2019 案例值 |
+| `mfgSoftwareProjectSave` / `mfgSoftwareProjectList` | 软件项目台账维护与查询（规模、估算快照、实际工时、偏差、实测 PDR、已完成的 PDR 中位数） |
 
 示例（Web Tools → Run Service → `mfgBomImport`）：
 
@@ -266,7 +273,9 @@ csv         = R0402-10K,10K 0402 resistor,4,R1-R4,N,0.05
 | `/mfg/control/eco?ecoId=...` | 设计变更：新建变更单、按状态筛选、指定目标 BOM 版本、批准 / 生效 / 取消 |
 | `/mfg/control/workOrder?workOrderId=...` | 工单详情：工序进度、报工、SN 生成、不良登记、**工单附件（首件/不良照片/外协快递单）**、**成本（标准 vs 实际，含差异）** |
 | `/mfg/control/sn?sn=...` | 单板履历：报工、不良、所用物料批次 |
-| `/mfg/control/dashboard` | 车间看板：生产卡片 + **告警（欠料 / 售后窗口）** + 售后 KPI + 每日柱图 + 责任方成本 + 最近报工，60 秒自动刷新 |
+| `/mfg/control/dashboard` | 车间看板：生产卡片 + **告警（欠料 / 售后窗口 / 软件项目）** + 售后 KPI + 每日柱图 + 责任方成本 + 最近报工，60 秒自动刷新 |
+| `/mfg/control/software` | 软件项目：功能点估算试算（ILF/EIF 或 UFP + SWF/RDF + PDR + 费率/税率）、估算结果表、项目台账（计划 vs 实际人天、偏差、实测 PDR、超期标记） |
+| `/mfg/control/softwareProjectSave` | POST 保存/更新软件项目（编号留空自动生成） |
 | `/mfg/control/dashboardCsv` | 看板导出：`区段,名称,数值` 三段合一（生产卡片、每日趋势、责任方成本、告警） |
 | `/mfg/control/alertsCsv` | 告警导出：`级别,类型,编号,对象,截止,剩余小时,说明` |
 | `/mfg/control/shortageCsv` | 欠料导出：一行一个缺料元件（`工单,型号,交期,客户,料号,名称,需求,已发,欠料`），直接给采购用 |
@@ -442,9 +451,11 @@ productSave → bomImport → routingSave → productDetail
            → 成本：带单价的 BOM + 工时费率 → productCost（材料 3.32 / 工时 20.00 / 合计 23.32，10 台 233.20）
            → 目标成本差 3.32、毛利 6.68 → 工单标准 23.32 / 总额 116.60 → 发 2 个 0.5 元的批次 → 实际材料 1.00
            → 告警：7 天窗口已过的售后单 + 欠料工单都进 mfgAlerts（含 ERROR 级别与计数）
+           → 软件：10 个功能点 → 400 人时 / 50 人天 / 1.78 人月 / 税前 44000 / 含税 46640 / 合计 48972
+           → 台账：项目编号自动生成、计划人天冻结 → 记 480 人时 → 实测 PDR 48 → 超期项目进看板告警
 ```
 
-共 239 项断言，全部通过时退出码为 0。文件的字节输出（含缩略图、CSV 下载）用页面脚本验证（见下方“页面巡检”），
+共 256 项断言，全部通过时退出码为 0。文件的字节输出（含缩略图、CSV 下载）用页面脚本验证（见下方“页面巡检”），
 因为它需要一个真正的浏览器会话。测试是**可重复执行**的：每次创建/更新产品型号 `ITMFG`、替换其 BOM、
 新建一张工单、物料批次与出货单，以及相应的报工、不良、发料、收发、换件与测试数据；
 BOM 版本与变更单会每次新增一版，所以编号会一直往上走，不影响断言。
@@ -470,7 +481,7 @@ java -cp "build/test-classes:ofbiz.jar:junit-4.13.2.jar:hamcrest-core-1.3.jar" \
 覆盖 BOM / 批次 / 测试结果 CSV 解析（引号、缺列、CRLF、注释行、大小写归一）、SN 列表拆分、FIFO 推定切片、
 邮寄标签格式、SN / 工单编号格式，保修到期日、7 天 / 15 天窗口、剩余小时与运费承担，
 以及买家匹配键、手机号归一化与打码、风险等级建议、名单到期判定，还有百分比、日期差与失效分档、售后成本计算、红线判定、看板坐标轴与柱高缩放、关键词过滤与分页切片，
-以及 BOM 版本号生成与下一版号推导、开发阶段阶梯与关卡推进规则、变更单状态与类型校验、三条线路的步骤目录与首个未完成步骤推导、附件类型白名单（含 PDF）与 owner 类型白名单、文件名清洗、成本合计与目标差 / 毛利换算（含两位小数取整、目标售价为空时的处理）、CSV 单元格转义与数量格式化（共 60 个用例）。
+以及 BOM 版本号生成与下一版号推导、开发阶段阶梯与关卡推进规则、变更单状态与类型校验、三条线路的步骤目录与首个未完成步骤推导、附件类型白名单（含 PDF）与 owner 类型白名单、文件名清洗、成本合计与目标差 / 毛利换算（含两位小数取整、目标售价为空时的处理）、CSV 单元格转义与数量格式化、软件报价四步公式与 PDR 中位数（共 63 个用例）。
 
 ## 页面巡检（PowerShell）
 
@@ -487,6 +498,7 @@ java -cp "build/test-classes:ofbiz.jar:junit-4.13.2.jar:hamcrest-core-1.3.jar" \
 | `verify-m31.ps1` | 来料检验：四个状态、建批次 → 判不合格 → 发料被拒 → 让步接收 → 放行 | 21 |
 | `verify-m32.ps1` | 成本核算：产品页成本块（材料/工时/合计/目标成本/毛利）、批量重算、BOM 单价与金额列、无单价时告警、工单成本块（标准 vs 实际、发料后实际材料跟着批次单价走） | 38 |
 | `verify-m33.ps1` | 看板告警与 CSV 导出：告警区结构、三个导出链接、`text/csv` 与下载头、表头列数、行内容（工单号、缺料元件、看板三段） | 30 |
+| `verify-m34.ps1` | 软件项目：导航项、估算试算（10 功能点 → 400 人时 / 50 人天 / 1.78 人月 / 44000 / 46640 / 48972）、保存与编号、台账的计划 vs 实际与实测 PDR、超期项目进看板告警 | 30 |
 
 > 这些脚本在断言页面内容，不只是看 HTTP 200：OFBiz 的模板错误也是 200 + 一页堆栈，
 > 所以每个页面都要扫 `FTL stack trace` / `FreeMarker template error`。
@@ -662,6 +674,34 @@ SMT 为外协，且对方**不提供上料 / 换料记录**，因此追溯精度
   - `/mfg/control/shortageCsv`：一行一个缺料元件，采购直接拿去对单；
 - 文件带 **UTF-8 BOM**，中文 Excel 双击就能正确打开（否则会被当成 ANSI）；数字一律用小数点、不用千分位，方便再导入；
 - 下载走事件（`MfgExportEvents`）+ `<response type="none"/>`，和附件下载一个套路，不会多渲一页盖在文件后面。
+
+## 软件项目：按功能点估算 + 实际数据回流
+
+固件、外壳设计、上位机、平台这些“敲键盘的活”，成本不由 BOM 决定，而由**规模 × 生产率**决定。
+本组件按《软件研发成本度量规范》的四步来算，同时把真实工时记下来，让下一次估算有依据：
+
+| 步骤 | 公式 | 默认值（取自 2019 年西部云谷评估案例，页面可改） |
+| --- | --- | --- |
+| 规模 | $UFP = 35 \times ILF + 15 \times EIF$（预估功能点法，也可直接填 UFP） | — |
+| 工作量 | $AE = PDR \times UFP \times SWF \times RDF$（人时） | PDR = 40 人时/FP，RDF = 1 |
+| 工期 | $D = 1.277 \times (AE/176)^{0.404}$（人月） | 系数 1.277，指数 0.404，HM = 176 |
+| 报价 | 人天 $= AE/8$；税前 $=$ 人天 × 日费率；再加增值税与非人力成本 | 日费率 880 元/人天，税 6%，非人力成本 5% |
+
+**SWF 怎么来**（案例里的做法，页面拆成四个可填项）：定制开发从 **1.5** 起，
+有成熟产品可复用 **−0.5**，前期方案设计已投入 **+0.1**，有 CMMI/ISO 质量体系 **+0.05** → 合计 1.15。
+移动端这类可以大量复用的部分在案例里直接取 0.1；支撑平台 / 数据资源中心取 0.75。
+
+**两条用法**（对应两个目的）：
+
+1. **自用管理**：每做完一个固件版本 / 一版外壳设计，就把规模、估算人天、实际工时填进台账。
+   页面自动算出**偏差**（实际 − 计划）与**实测 PDR**（实际工时 ÷ UFP），
+   并给出已完成项目的 **PDR 中位数**——这就是“下一版该按多少人时算”的依据；
+   超人天或超期的项目会进看板告警（`MFG_ALERT_SOFTWARE`）。
+2. **对外报价**：同一个公式，改日费率 / 税率 / 非人力成本率即可出**税前 / 含税 / 合计**，
+   并给出工期与所需人天；也可以拿台账里的实测 PDR 替换行业基准 40。
+
+> 口径提醒：40 人时/FP 是**预估功能点**（只数 ILF/EIF）的口径，与明细功能点（再数 EI/EO/EQ）
+> 的 6~7 人时/FP **相差约六倍**，两者不能混用。
 
 ## 前端选型：为什么看板不上框架
 

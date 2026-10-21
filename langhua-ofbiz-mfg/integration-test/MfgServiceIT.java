@@ -188,6 +188,7 @@ public final class MfgServiceIT {
             it.storesProductPhotos();
             it.costsTheModel();
             it.listsTheDashboardAlerts();
+            it.quotesAndTracksSoftware();
         } finally {
             it.tearDown();
         }
@@ -1657,6 +1658,95 @@ public final class MfgServiceIT {
 
         // The three CSV downloads answer on the mfg webapp, which has its own session: they are
         // checked by the page script (verify-m33.ps1), not here.
+    }
+
+    /**
+     * Quotes software from its function points, keeps a project in the ledger and checks that the
+     * measured productivity and the late project show up.
+     *
+     * @throws IOException when a service call fails
+     */
+    private void quotesAndTracksSoftware() throws IOException {
+        Map<String, String> quoteForm = new LinkedHashMap<>();
+        quoteForm.put("ufp", "10");
+        quoteForm.put("swfBase", "1");
+        quoteForm.put("rdf", "1");
+        quoteForm.put("pdrHoursPerFp", "40");
+        quoteForm.put("dayRate", "880");
+        quoteForm.put("taxRate", "0.06");
+        quoteForm.put("dncRate", "0.05");
+        Response quote = invoke("mfgSoftwareEstimate", quoteForm);
+        check("software: quote returns HTTP 200", quote.status == 200, "HTTP " + quote.status);
+        check("software: ten function points take 400 hours",
+                near(fieldValue(quote.body, "effortHours"), 400.0), "effort wrong");
+        check("software: the effort is fifty person days",
+                near(fieldValue(quote.body, "effortDays"), 50.0), "person days wrong");
+        check("software: the schedule follows the standard",
+                near(fieldValue(quote.body, "scheduleMonths"), 1.78), "schedule wrong");
+        check("software: the price is the person days times the day rate",
+                near(fieldValue(quote.body, "amountBeforeTax"), 44000.0), "price wrong");
+        check("software: the tax is added",
+                near(fieldValue(quote.body, "amountWithTax"), 46640.0), "tax wrong");
+        check("software: the non labour cost is added",
+                near(fieldValue(quote.body, "totalAmount"), 48972.0), "total wrong");
+
+        Map<String, String> saveForm = new LinkedHashMap<>();
+        saveForm.put("projectName", "IT firmware 1.0");
+        saveForm.put("categoryId", "MFG_SW_FIRMWARE");
+        saveForm.put("ownerName", "it_developer");
+        saveForm.put("statusId", "MFG_SW_DOING");
+        saveForm.put("deliverySeq", "1");
+        saveForm.put("ufp", "10");
+        saveForm.put("swfBase", "1");
+        saveForm.put("pdrHoursPerFp", "40");
+        saveForm.put("dayRate", "880");
+        saveForm.put("plannedEndDate", java.time.LocalDate.now().plusDays(10).toString());
+        Response saved = invoke("mfgSoftwareProjectSave", saveForm);
+        check("software: save returns HTTP 200", saved.status == 200, "HTTP " + saved.status);
+        String softwareCode = firstMatch(java.util.regex.Pattern.compile("SW-\\d{6}-\\d+"), saved.body);
+        check("software: the project gets a number", softwareCode != null, "no SW- number in response");
+        check("software: the planned person days are frozen",
+                near(fieldValue(saved.body, "plannedDays"), 50.0), "planned days wrong");
+
+        Map<String, String> doneForm = new LinkedHashMap<>();
+        doneForm.put("projectCode", softwareCode == null ? "" : softwareCode);
+        doneForm.put("projectName", "IT firmware 1.0");
+        doneForm.put("categoryId", "MFG_SW_FIRMWARE");
+        doneForm.put("statusId", "MFG_SW_DONE");
+        doneForm.put("ufp", "10");
+        doneForm.put("actualHours", "480");
+        doneForm.put("actualCost", "1200");
+        doneForm.put("quotedAmount", "50000");
+        Response done = invoke("mfgSoftwareProjectSave", doneForm);
+        check("software: the finished project is saved", done.status == 200
+                && !done.body.contains("responseMessage=error"), "HTTP " + done.status);
+
+        Map<String, String> listForm = new LinkedHashMap<>();
+        listForm.put("search", softwareCode == null ? "IT firmware" : softwareCode);
+        Response list = invoke("mfgSoftwareProjectList", listForm);
+        check("software: list returns HTTP 200", list.status == 200, "HTTP " + list.status);
+        check("software: the project is listed", softwareCode != null && list.body.contains(softwareCode),
+                "project missing from the list");
+        check("software: the real hours are reported", list.body.contains("actualHours"),
+                "no actual hours in the list");
+        check("software: a productivity baseline is reported",
+                list.body.contains("pdrMedian") && list.body.contains("pdrSampleCount"),
+                "no baseline in the response");
+        // the row level figures are nested, the page script checks the rendered numbers
+        check("software: every row reports its measured productivity", list.body.contains("pdrActual"),
+                "no measured productivity in the rows");
+
+        Map<String, String> lateForm = new LinkedHashMap<>();
+        lateForm.put("projectName", "IT late enclosure");
+        lateForm.put("categoryId", "MFG_SW_ENCLOSURE");
+        lateForm.put("statusId", "MFG_SW_DOING");
+        lateForm.put("ufp", "10");
+        lateForm.put("plannedEndDate", java.time.LocalDate.now().minusDays(5).toString());
+        invoke("mfgSoftwareProjectSave", lateForm);
+
+        Response alerts = invoke("mfgAlerts", new LinkedHashMap<String, String>());
+        check("software: a late project raises a dashboard alert",
+                alerts.body.contains("MFG_ALERT_SOFTWARE"), "no software alert");
     }
 
     private Response get(String path) throws IOException {

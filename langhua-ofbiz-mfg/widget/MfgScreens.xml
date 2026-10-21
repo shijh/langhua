@@ -107,6 +107,47 @@
         </section>
     </screen>
 
+    <!-- Software projects: size, estimate, what it really took -->
+    <screen name="software">
+        <section>
+            <actions>
+                <set field="title" value="Software Projects"/>
+                <set field="pageTitle" value="软件项目"/>
+                <set field="activeMenu" value="software"/>
+                <service service-name="mfgSoftwareProjectList" result-map="swResult" auto-field-map="false">
+                    <field-map field-name="search" from-field="parameters.search"/>
+                    <field-map field-name="page" from-field="parameters.page"/>
+                </service>
+                <service service-name="mfgSoftwareEstimate" result-map="swPreview" auto-field-map="false">
+                    <field-map field-name="ilfCount" from-field="parameters.ilfCount"/>
+                    <field-map field-name="eifCount" from-field="parameters.eifCount"/>
+                    <field-map field-name="ufp" from-field="parameters.ufp"/>
+                    <field-map field-name="swfBase" from-field="parameters.swfBase"/>
+                    <field-map field-name="swfReuse" from-field="parameters.swfReuse"/>
+                    <field-map field-name="swfPreInvest" from-field="parameters.swfPreInvest"/>
+                    <field-map field-name="swfQuality" from-field="parameters.swfQuality"/>
+                    <field-map field-name="rdf" from-field="parameters.rdf"/>
+                    <field-map field-name="pdrHoursPerFp" from-field="parameters.pdrHoursPerFp"/>
+                    <field-map field-name="dayRate" from-field="parameters.dayRate"/>
+                    <field-map field-name="taxRate" from-field="parameters.taxRate"/>
+                    <field-map field-name="dncRate" from-field="parameters.dncRate"/>
+                </service>
+                <service service-name="mfgProductList" result-map="productList" auto-field-map="false"/>
+            </actions>
+            <widgets>
+                <decorator-screen name="mfg-decorator" location="component://mfg/widget/MfgCommonScreens.xml">
+                    <decorator-section name="body">
+                        <platform-specific>
+                            <html>
+                                <html-template location="component://mfg/webapp/mfg/software.ftl"/>
+                            </html>
+                        </platform-specific>
+                    </decorator-section>
+                </decorator-screen>
+            </widgets>
+        </section>
+    </screen>
+
     <!-- Engineering change orders and the BOM version they switch to -->
     <screen name="eco">
         <section>

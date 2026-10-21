@@ -26,6 +26,7 @@
     <@navItem 'main' '/mfg/control/main' '工单'/>
     <@navItem 'products' '/mfg/control/products' '产品与 BOM'/>
     <@navItem 'dev' '/mfg/control/dev' '产品开发'/>
+    <@navItem 'software' '/mfg/control/software' '软件项目'/>
     <@navItem 'eco' '/mfg/control/eco' '设计变更'/>
     <@navItem 'materials' '/mfg/control/materials' '物料批次'/>
     <@navItem 'shortage' '/mfg/control/shortage' '齐套预警'/>

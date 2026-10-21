@@ -681,4 +681,48 @@
             <index-field name="productCode"/>
         </index>
     </entity>
+
+    <entity entity-name="MfgSoftwareProject"
+            package-name="org.langhua.ofbiz.mfg"
+            title="Software project ledger">
+        <description>One software or design project (firmware, enclosure, host tool, platform...): its estimated size, the parameters used for the estimate and what it really took, so the next estimate can be built on real numbers</description>
+        <field name="projectCode" type="id"><description>Project number, e.g. SW-261021-01</description></field>
+        <field name="projectName" type="name"><description>What is being built</description></field>
+        <field name="categoryId" type="id"><description>MFG_SW_FIRMWARE, MFG_SW_ENCLOSURE, MFG_SW_HOST, MFG_SW_PLATFORM or MFG_SW_OTHER</description></field>
+        <field name="productCode" type="id"><description>Model this work belongs to, may be empty</description></field>
+        <field name="devProjectCode" type="id"><description>Development project of this component, may be empty</description></field>
+        <field name="ownerName" type="name"><description>Who does the work</description></field>
+        <field name="statusId" type="id"><description>MFG_SW_PLANNED, MFG_SW_DOING, MFG_SW_DONE or MFG_SW_CANCELLED</description></field>
+        <field name="deliverySeq" type="numeric"><description>Nth delivery of this kind, used by the learning curve of the productivity</description></field>
+        <field name="ilfCount" type="floating-point"><description>Internal logical files counted for the estimate</description></field>
+        <field name="eifCount" type="floating-point"><description>External interface files counted for the estimate</description></field>
+        <field name="ufp" type="floating-point"><description>Unadjusted function points, 35 x ILF + 15 x EIF when empty</description></field>
+        <field name="swfBase" type="floating-point"><description>Software factor starting value, 1.5 for custom development</description></field>
+        <field name="swfReuse" type="floating-point"><description>Adjustment for reusable products and experience, usually negative</description></field>
+        <field name="swfPreInvest" type="floating-point"><description>Adjustment for design work already paid for, usually positive</description></field>
+        <field name="swfQuality" type="floating-point"><description>Adjustment for a certified quality system, usually positive</description></field>
+        <field name="rdf" type="floating-point"><description>Development factor, 1 when nothing special is required</description></field>
+        <field name="pdrHoursPerFp" type="floating-point"><description>Productivity in hours per function point, 40 for the estimated function point method</description></field>
+        <field name="dayRate" type="currency-amount"><description>Price of one person day used for the quote</description></field>
+        <field name="taxRate" type="floating-point"><description>VAT rate, 0.06 for a Chinese software service invoice</description></field>
+        <field name="dncRate" type="floating-point"><description>Direct non labour cost as a share of the taxed amount, 0.05 by default</description></field>
+        <field name="plannedDays" type="floating-point"><description>Person days the estimate gives, kept as a snapshot</description></field>
+        <field name="plannedStartDate" type="date"><description>When the work should start</description></field>
+        <field name="plannedEndDate" type="date"><description>When the work should be finished</description></field>
+        <field name="actualHours" type="floating-point"><description>Hours really spent, filled in as the work goes</description></field>
+        <field name="actualCost" type="currency-amount"><description>Money really spent, e.g. tooling or outsourcing</description></field>
+        <field name="quotedAmount" type="currency-amount"><description>What was quoted to the customer, to compare with the estimate</description></field>
+        <field name="note" type="description"/>
+        <field name="createdStamp" type="date-time"/>
+        <field name="createdTxStamp" type="date-time"/>
+        <field name="lastUpdatedStamp" type="date-time"/>
+        <field name="lastUpdatedTxStamp" type="date-time"/>
+        <prim-key field="projectCode"/>
+        <index name="MFG_SWPJ_STATUS" unique="false">
+            <index-field name="statusId"/>
+        </index>
+        <index name="MFG_SWPJ_CATEGORY" unique="false">
+            <index-field name="categoryId"/>
+        </index>
+    </entity>
 </entitymodel>

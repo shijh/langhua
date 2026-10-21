@@ -31,6 +31,20 @@
         <response name="success" type="view" value="dashboard"/>
     </request-map>
 
+    <request-map uri="software">
+        <security https="true" auth="true"/>
+        <response name="success" type="view" value="software"/>
+    </request-map>
+
+    <request-map uri="softwareProjectSave">
+        <security https="true" auth="true"/>
+        <event type="service" invoke="mfgSoftwareProjectSave"/>
+        <response name="success" type="request-redirect" value="software">
+            <redirect-parameter name="projectCode"/>
+        </response>
+        <response name="error" type="view" value="software"/>
+    </request-map>
+
     <!-- CSV downloads: the dashboard snapshot, the alerts and the material shortages -->
 
     <request-map uri="dashboardCsv">
@@ -442,4 +456,5 @@
     <view-map name="quality" type="screen" page="component://mfg/widget/MfgScreens.xml#quality"/>
     <view-map name="dev" type="screen" page="component://mfg/widget/MfgScreens.xml#dev"/>
     <view-map name="eco" type="screen" page="component://mfg/widget/MfgScreens.xml#eco"/>
+    <view-map name="software" type="screen" page="component://mfg/widget/MfgScreens.xml#software"/>
 </site-conf>

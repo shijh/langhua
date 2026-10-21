@@ -733,4 +733,45 @@ public class MfgServicesTest {
         assertEquals("12.5", MfgServices.formatQty(12.5));
         assertEquals("1.234", MfgServices.formatQty(1.23449));
     }
+
+    @Test
+    public void quotesSoftwareFromFunctionPoints() {
+        // the 2019 assessment case: 10 function points, SWF 1, PDR 40, 880 per person day
+        java.util.Map<String, Object> cost = MfgServices.softwareCost(0.0, 0.0, Double.valueOf(10.0),
+                1.0, 0.0, 0.0, 0.0, 1.0, 40.0, 880.0, 0.06, 0.05);
+
+        assertEquals(10.0, ((Double) cost.get("ufp")).doubleValue(), 1e-9);
+        assertEquals(400.0, ((Double) cost.get("effortHours")).doubleValue(), 1e-9);
+        assertEquals(50.0, ((Double) cost.get("effortDays")).doubleValue(), 1e-9);
+        // 1.277 x (400/176)^0.404, the schedule the workbook of that case shows
+        assertEquals(1.78, ((Double) cost.get("scheduleMonths")).doubleValue(), 0.01);
+        assertEquals(44000.0, ((Double) cost.get("amountBeforeTax")).doubleValue(), 1e-9);
+        assertEquals(2640.0, ((Double) cost.get("taxAmount")).doubleValue(), 1e-9);
+        assertEquals(46640.0, ((Double) cost.get("amountWithTax")).doubleValue(), 1e-9);
+        assertEquals(2332.0, ((Double) cost.get("dncAmount")).doubleValue(), 1e-9);
+        assertEquals(48972.0, ((Double) cost.get("totalAmount")).doubleValue(), 1e-9);
+        assertEquals(4664.0, ((Double) cost.get("costPerFp")).doubleValue(), 1e-9);
+    }
+
+    @Test
+    public void countsFunctionPointsWhenTheyAreNotGiven() {
+        // UFP = 35 x ILF + 15 x EIF, and the four software factors add up
+        java.util.Map<String, Object> cost = MfgServices.softwareCost(4.0, 2.0, null,
+                1.5, -0.5, 0.1, 0.05, 1.0, 40.0, 880.0, 0.06, 0.05);
+
+        assertEquals(170.0, ((Double) cost.get("ufp")).doubleValue(), 1e-9);
+        assertEquals(1.15, ((Double) cost.get("swf")).doubleValue(), 1e-9);
+        // 40 x 170 x 1.15 = 7820 hours
+        assertEquals(7820.0, ((Double) cost.get("effortHours")).doubleValue(), 1e-9);
+    }
+
+    @Test
+    public void knowsTheMedianOfTheProductivitySamples() {
+        assertEquals(0.0, MfgServices.median(null), 1e-9);
+        assertEquals(0.0, MfgServices.median(java.util.Collections.<Double>emptyList()), 1e-9);
+        assertEquals(45.0, MfgServices.median(java.util.Arrays.asList(
+                Double.valueOf(45.0), Double.valueOf(40.0), Double.valueOf(50.0))), 1e-9);
+        assertEquals(45.0, MfgServices.median(java.util.Arrays.asList(
+                Double.valueOf(40.0), Double.valueOf(50.0))), 1e-9);
+    }
 }

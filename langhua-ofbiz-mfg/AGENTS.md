@@ -61,13 +61,19 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
 - **每个 webapp 一个会话**：`/mfg` 与 `/learningcurve`（还有 `/webtools`）的 `auth="true"` **不共用登录**，
   同一个 PS 脚本要分别 POST `/mfg/control/login` 与 `/learningcurve/control/login`；集成测试是登录 `/webtools` 跑服务，
   所以**页面/CSV 下载这类 GET 断言只能放巡检脚本**（IT 里 GET `/mfg/control/*` 会 401）
+- **新增一个页面要改三处**：`widget/MfgScreens.xml` 的 `<screen>` + `controller.xml` 的 `<request-map>` **和 `<view-map>`**
+  （只加 request-map 会报 `No definition found for view with name [...]`）；导航项在 `decorator.ftl`
+- **OFBiz 的错误页也是 HTTP 200**：巡检的 `NoTemplateError` 必须同时扫 `ERROR MESSAGE`、`FTL stack trace`、
+  `FreeMarker template error`、`Error rendering`，否则错误页会被当成通过
+- **FreeMarker 默认值运算符 `!` 的优先级低于比较**：`<#if (x)!0 gt 0>` 会解析成 `x!(0 gt 0)` 而报
+  `Expected a boolean, but this has evaluated to a number+extended_hash`；要写 `<#if ((x)!0) gt 0>`
 
 ## 测试与巡检
 
 | 脚本 | 覆盖 | 断言数 |
 | --- | --- | --- |
-| `MfgServicesTest` | 解析/规则/格式化（CSV、SN、FIFO、窗口、编号、附件类型、来料检验规则、成本取整与毛利、CSV 单元格转义…） | 60 |
-| `MfgServiceIT` | 全链路服务调用（含 BOM 版本、三条开发线、ECO、附件、来料检验、成本、告警） | 239 |
+| `MfgServicesTest` | 解析/规则/格式化（CSV、SN、FIFO、窗口、编号、附件类型、来料检验规则、成本取整与毛利、CSV 单元格转义、软件报价公式与 PDR 中位数…） | 63 |
+| `MfgServiceIT` | 全链路服务调用（含 BOM 版本、三条开发线、ECO、附件、来料检验、成本、告警、软件报价与台账） | 256 |
 | `verify-m11.ps1` | 列表页搜索/过滤/翻页/编码 | 55 |
 | `verify-m12.ps1` | 装饰器布局（1 个 html、1 条导航、1 个高亮、样式表、无内联 style、无 FTL 报错） | 102 |
 | `verify-m13.ps1` | 产品开发 + BOM 版本 + 三条线路 | 49 |
@@ -76,6 +82,7 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
 | `verify-m31.ps1` | 来料检验：四个状态、建批次 → 判不合格 → 发料被拒 → 让步接收 → 放行 | 21 |
 | `verify-m32.ps1` | 成本核算：产品页成本块（材料/工时/合计/目标成本/毛利）、批量重算、BOM 单价与金额列、无单价告警、工单成本块（标准 vs 实际，发料后实际材料跟批次单价走） | 38 |
 | `verify-m33.ps1` | 看板告警与 CSV 导出（告警区、三个导出链接、`text/csv` + 下载头、表头列数、行内容） | 30 |
+| `verify-m34.ps1` | 软件项目：估算试算、保存与编号、台账计划 vs 实际、实测 PDR、超期进告警 | 30 |
 
 ## 设计决策
 
@@ -111,11 +118,17 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   两张表分别带 `id="productCost"` / `id="workOrderCost"`，巡检按 id 切片断言，不碰中文
 - **BOM 导入的第一个版本就是当前版本**：`bomImport` 在型号还没有 `currentBomVersionId` 时，把新建的版本直接置 RELEASED 并指给型号，
   否则导完 BOM 页面上还是「未建 BOM」（成本、齐套都读不到）
-- **看板告警 + CSV 导出**：服务 `mfgAlerts` 收集「欠料工单」（`shortageRows()`，一行一个缺料元件）与「售后窗口」
-  （未结售后单的 `sevenDayDeadline` / `afterSaleDeadline`，已过期=ERROR、≤24h=WARN；`hoursLeft` 为 0 表示没设截止，
+- **看板告警 + CSV 导出**：服务 `mfgAlerts` 收集「欠料工单」（`shortageRows()`，一行一个缺料元件）与「售后窗口」  （未结售后单的 `sevenDayDeadline` / `afterSaleDeadline`，已过期=ERROR、≤24h=WARN；`hoursLeft` 为 0 表示没设截止，
   所以**判断有没有截止要看 Timestamp 是否为 null**）；排序 ERROR 优先、再按剩余小时升序，页面只列前 20 条；
   三个下载 `dashboardCsv` / `alertsCsv` / `shortageCsv` 在 `MfgExportEvents`（事件 + `<response type="none"/>`），
   文件带 UTF-8 BOM（中文 Excel 否则按 ANSI 读），数字用 `.` 小数点；CSV 转义用 `MfgServices.csvCell/csvLine`（有单测）
+- **软件项目（功能点口径）**：`MfgSoftwareProject` 一台账两用——自用记实际工时、对外报价算价格。
+  纯函数 `softwareCost(ilf, eif, ufp, swf四项, rdf, pdr, dayRate, taxRate, dncRate)`：
+  UFP=35ILF+15EIF、AE=PDR×UFP×SWF×RDF、D=1.277×(AE/176)^0.404、金额=人天×日费率+税+非人力成本；
+  默认值（2019 西部云谷案例）：PDR **40 人时/FP**（预估功能点口径）、日费率 880、税 6%、DNC 5%、HM 176；
+  SWF = 基础 1.5 − 复用 0.5 + 前期投入 0.1 + 质量 0.05 这类加减项相加，页面四项可填；
+  `plannedDays` 在保存时冻结成快照（改参数不改历史），实测 PDR = actualHours/UFP，列表返回中位数做基准；
+  项目超人天/超期进 `mfgAlerts`（`MFG_ALERT_SOFTWARE`）。**40 人时/FP 与明细功能点的 6~7 人时/FP 差约六倍，不能混用**
 - **保修**：从出货日开始算，月数在产品上（`warrantyMonths`，默认 12）- **淘宝窗口**：7 天无理由 = 签收日 + 8 天 00:00（即签收次日起 168 小时）；15 天售后 = 签收 + 15 天 23:59:59
 - **买家名单**：匹配键优先买家昵称（`TB:N:nick`），因为淘宝收件手机号常被隐私号掩码；手机号必须是 11 位真号、
   带 `*` 一律拒绝；名单 12 个月自动失效；**只提示，不拦截任何法定售后**
