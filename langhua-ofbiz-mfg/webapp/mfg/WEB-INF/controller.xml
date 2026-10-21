@@ -41,6 +41,46 @@
         <response name="success" type="view" value="reports"/>
     </request-map>
 
+    <request-map uri="stock">
+        <security https="true" auth="true"/>
+        <response name="success" type="view" value="stock"/>
+    </request-map>
+
+    <request-map uri="stockMoves">
+        <security https="true" auth="true"/>
+        <response name="success" type="view" value="stockMoves"/>
+    </request-map>
+
+    <request-map uri="stockCount">
+        <security https="true" auth="true"/>
+        <response name="success" type="view" value="stockCount"/>
+    </request-map>
+
+    <request-map uri="stockSettingSave">
+        <security https="true" auth="true"/>
+        <event type="service" invoke="mfgStockSettingSave"/>
+        <response name="success" type="request-redirect" value="stock"/>
+        <response name="error" type="view" value="stock"/>
+    </request-map>
+
+    <request-map uri="inventoryMove">
+        <security https="true" auth="true"/>
+        <event type="service" invoke="mfgInventoryMove"/>
+        <response name="success" type="request-redirect" value="stockMoves">
+            <redirect-parameter name="componentCode"/>
+        </response>
+        <response name="error" type="view" value="stockMoves"/>
+    </request-map>
+
+    <request-map uri="stockCountSave">
+        <security https="true" auth="true"/>
+        <event type="service" invoke="mfgStockCount"/>
+        <response name="success" type="request-redirect" value="stockCount">
+            <redirect-parameter name="lotId"/>
+        </response>
+        <response name="error" type="view" value="stockCount"/>
+    </request-map>
+
     <request-map uri="yieldCsv">
         <security https="true" auth="true"/>
         <event type="java" path="org.langhua.ofbiz.mfg.MfgExportEvents" invoke="yieldCsv"/>
@@ -504,4 +544,7 @@
     <view-map name="eco" type="screen" page="component://mfg/widget/MfgScreens.xml#eco"/>
     <view-map name="software" type="screen" page="component://mfg/widget/MfgScreens.xml#software"/>
     <view-map name="reports" type="screen" page="component://mfg/widget/MfgScreens.xml#reports"/>
+    <view-map name="stock" type="screen" page="component://mfg/widget/MfgScreens.xml#stock"/>
+    <view-map name="stockMoves" type="screen" page="component://mfg/widget/MfgScreens.xml#stockMoves"/>
+    <view-map name="stockCount" type="screen" page="component://mfg/widget/MfgScreens.xml#stockCount"/>
 </site-conf>

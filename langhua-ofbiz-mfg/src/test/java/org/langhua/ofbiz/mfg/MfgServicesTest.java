@@ -826,4 +826,32 @@ public class MfgServicesTest {
         assertTrue(MfgServices.isKnownIssueSeverity(MfgServices.ISSUE_HIGH));
         assertFalse(MfgServices.isKnownIssueSeverity("MFG_ISSUE_URGENT"));
     }
+
+    @Test
+    public void signsTheInventoryMovements() {
+        // receipts and returns add, issues and scraps take away
+        assertEquals(5.0, MfgServices.movementDiff(MfgServices.MOVE_RECEIPT, 5.0), 1e-9);
+        assertEquals(5.0, MfgServices.movementDiff(MfgServices.MOVE_RETURN, 5.0), 1e-9);
+        assertEquals(-5.0, MfgServices.movementDiff(MfgServices.MOVE_ISSUE, 5.0), 1e-9);
+        assertEquals(-5.0, MfgServices.movementDiff(MfgServices.MOVE_SCRAP, 5.0), 1e-9);
+        // a count and an adjustment carry their own sign
+        assertEquals(-2.0, MfgServices.movementDiff(MfgServices.MOVE_COUNT, -2.0), 1e-9);
+        assertEquals(-2.0, MfgServices.movementDiff(MfgServices.MOVE_ADJUST, -2.0), 1e-9);
+        assertEquals(0.0, MfgServices.movementDiff(null, 5.0), 1e-9);
+
+        assertTrue(MfgServices.isKnownMovement(MfgServices.MOVE_COUNT));
+        assertFalse(MfgServices.isKnownMovement("MFG_MOVE_BOGUS"));
+        assertFalse(MfgServices.isKnownMovement(null));
+    }
+
+    @Test
+    public void blocksTheStockOfAFailedLot() {
+        assertEquals(10.0, MfgServices.availableOf(10.0, MfgServices.IQC_PASS), 1e-9);
+        // a pending lot may still be issued, a small workshop does not inspect everything
+        assertEquals(10.0, MfgServices.availableOf(10.0, MfgServices.IQC_PENDING), 1e-9);
+        assertEquals(10.0, MfgServices.availableOf(10.0, MfgServices.IQC_CONCESSION), 1e-9);
+        assertEquals(0.0, MfgServices.availableOf(10.0, MfgServices.IQC_FAIL), 1e-9);
+        // an overdrawn lot never offers a negative quantity
+        assertEquals(0.0, MfgServices.availableOf(-3.0, MfgServices.IQC_PASS), 1e-9);
+    }
 }

@@ -282,6 +282,8 @@
         <field name="supplierName" type="name"><description>Where the lot was bought</description></field>
         <field name="supplierLot" type="short-varchar"><description>Supplier lot / reel / date code printed on the label</description></field>
         <field name="receivedQty" type="floating-point"><description>Quantity received</description></field>
+        <field name="onHandQty" type="floating-point"><description>Quantity still in stock: the sum of the movements of this lot</description></field>
+        <field name="availableQty" type="floating-point"><description>Quantity that may be issued: on hand, but zero while the lot failed the incoming inspection</description></field>
         <field name="receivedDate" type="date"><description>Date received from the supplier</description></field>
         <field name="unitPrice" type="currency-amount"><description>Purchase price per unit, used for the actual material cost</description></field>
         <field name="inspectStatusId" type="id"><description>Incoming inspection: MFG_IQC_PENDING, MFG_IQC_PASS, MFG_IQC_CONCESSION (use as is) or MFG_IQC_FAIL (cannot be issued)</description></field>
@@ -312,6 +314,7 @@
         <field name="componentCode" type="id"><description>Component part number</description></field>
         <field name="lotId" type="id"><description>Lot that was issued</description></field>
         <field name="qty" type="floating-point"><description>Issued quantity</description></field>
+        <field name="directionId" type="id"><description>MFG_MOVE_ISSUE for a normal issue, MFG_MOVE_RETURN for material coming back from the line</description></field>
         <field name="issuedDate" type="date"><description>Date of issue</description></field>
         <field name="designators" type="very-long"><description>Designators covered, when the SMT house reports reel changes</description></field>
         <field name="snFrom" type="id"><description>First serial number covered, when known</description></field>
@@ -755,5 +758,78 @@
         <index name="MFG_SWPJ_CATEGORY" unique="false">
             <index-field name="categoryId"/>
         </index>
+    </entity>
+
+    <entity entity-name="MfgInventoryDetail"
+            package-name="org.langhua.ofbiz.mfg"
+            title="Inventory movement">
+        <description>One movement of one material lot: receipt, issue, return, scrap, stock count or adjustment. Append only, the lot totals are summed from these rows</description>
+        <field name="lotId" type="id"><description>Lot the movement belongs to</description></field>
+        <field name="seqId" type="numeric"><description>Sequence inside the lot, oldest first</description></field>
+        <field name="movementTypeId" type="id"><description>MFG_MOVE_RECEIPT, ISSUE, RETURN, SCRAP, COUNT or ADJUST</description></field>
+        <field name="quantityDiff" type="floating-point"><description>Change of the quantity on hand, negative when material leaves</description></field>
+        <field name="unitCost" type="currency-amount"><description>Unit cost of this movement</description></field>
+        <field name="workOrderId" type="id"><description>Work order the material was issued to or returned from</description></field>
+        <field name="physicalInventoryId" type="id"><description>Stock count that produced the movement</description></field>
+        <field name="referenceNo" type="short-varchar"><description>Voucher, tracking number or count sheet</description></field>
+        <field name="operatorName" type="name"><description>Who did it</description></field>
+        <field name="effectiveDate" type="date-time"><description>When it happened</description></field>
+        <field name="note" type="description"/>
+        <field name="createdStamp" type="date-time"/>
+        <field name="createdTxStamp" type="date-time"/>
+        <field name="lastUpdatedStamp" type="date-time"/>
+        <field name="lastUpdatedTxStamp" type="date-time"/>
+        <prim-key field="lotId"/>
+        <prim-key field="seqId"/>
+        <relation type="one" fk-name="MFG_INVDET_LOT" rel-entity-name="MfgMaterialLot">
+            <key-map field-name="lotId"/>
+        </relation>
+        <index name="MFG_INVDET_TYPE" unique="false">
+            <index-field name="movementTypeId"/>
+        </index>
+        <index name="MFG_INVDET_WO" unique="false">
+            <index-field name="workOrderId"/>
+        </index>
+    </entity>
+
+    <entity entity-name="MfgStockSetting"
+            package-name="org.langhua.ofbiz.mfg"
+            title="Stock setting per component">
+        <description>Component master record with the safety stock: below it the dashboard raises an alert</description>
+        <field name="componentCode" type="id"><description>Part number</description></field>
+        <field name="componentName" type="name"><description>Description</description></field>
+        <field name="unitOfMeasure" type="short-varchar"><description>Piece, reel, meter ...</description></field>
+        <field name="minimumStock" type="floating-point"><description>Safety stock; below it the component is short</description></field>
+        <field name="reorderQty" type="floating-point"><description>How much to buy when the safety stock is reached</description></field>
+        <field name="supplierName" type="name"><description>Usual supplier, printed on the shortage list</description></field>
+        <field name="note" type="description"/>
+        <field name="createdStamp" type="date-time"/>
+        <field name="createdTxStamp" type="date-time"/>
+        <field name="lastUpdatedStamp" type="date-time"/>
+        <field name="lastUpdatedTxStamp" type="date-time"/>
+        <prim-key field="componentCode"/>
+    </entity>
+
+    <entity entity-name="MfgStockCount"
+            package-name="org.langhua.ofbiz.mfg"
+            title="Stock count">
+        <description>One physical count of one lot: what was counted, what the system had and the difference</description>
+        <field name="physicalInventoryId" type="id"><description>Count number, CNT-yyMMdd-NN</description></field>
+        <field name="countDate" type="date"><description>When it was counted</description></field>
+        <field name="counterName" type="name"><description>Who counted</description></field>
+        <field name="lotId" type="id"><description>Lot that was counted</description></field>
+        <field name="bookQty" type="floating-point"><description>Quantity the system had before the count</description></field>
+        <field name="countedQty" type="floating-point"><description>Quantity really found</description></field>
+        <field name="varianceQty" type="floating-point"><description>Counted minus book quantity</description></field>
+        <field name="varianceReasonId" type="id"><description>MFG_MOVE_COUNT for a count, MFG_MOVE_ADJUST for a manual adjustment</description></field>
+        <field name="note" type="description"/>
+        <field name="createdStamp" type="date-time"/>
+        <field name="createdTxStamp" type="date-time"/>
+        <field name="lastUpdatedStamp" type="date-time"/>
+        <field name="lastUpdatedTxStamp" type="date-time"/>
+        <prim-key field="physicalInventoryId"/>
+        <relation type="one" fk-name="MFG_COUNT_LOT" rel-entity-name="MfgMaterialLot">
+            <key-map field-name="lotId"/>
+        </relation>
     </entity>
 </entitymodel>

@@ -110,6 +110,90 @@
         </section>
     </screen>
 
+    <!-- Stock on hand per component, safety stock, movements and counts -->
+    <screen name="stock">
+        <section>
+            <actions>
+                <set field="title" value="Stock"/>
+                <set field="pageTitle" value="库存结存"/>
+                <set field="activeMenu" value="stock"/>
+                <service service-name="mfgStockSummary" result-map="stock" auto-field-map="false">
+                    <field-map field-name="search" from-field="parameters.search"/>
+                    <field-map field-name="belowOnly" from-field="parameters.belowOnly"/>
+                    <field-map field-name="page" from-field="parameters.page"/>
+                </service>
+            </actions>
+            <widgets>
+                <decorator-screen name="mfg-decorator" location="component://mfg/widget/MfgCommonScreens.xml">
+                    <decorator-section name="body">
+                        <platform-specific>
+                            <html>
+                                <html-template location="component://mfg/webapp/mfg/stock.ftl"/>
+                            </html>
+                        </platform-specific>
+                    </decorator-section>
+                </decorator-screen>
+            </widgets>
+        </section>
+    </screen>
+
+    <screen name="stockMoves">
+        <section>
+            <actions>
+                <set field="title" value="Inventory Movements"/>
+                <set field="pageTitle" value="出入库流水"/>
+                <set field="activeMenu" value="stock"/>
+                <service service-name="mfgInventoryLedger" result-map="ledger" auto-field-map="false">
+                    <field-map field-name="lotId" from-field="parameters.lotId"/>
+                    <field-map field-name="componentCode" from-field="parameters.componentCode"/>
+                    <field-map field-name="movementTypeId" from-field="parameters.movementTypeId"/>
+                    <field-map field-name="fromDate" from-field="parameters.fromDate"/>
+                    <field-map field-name="toDate" from-field="parameters.toDate"/>
+                    <field-map field-name="page" from-field="parameters.page"/>
+                </service>
+            </actions>
+            <widgets>
+                <decorator-screen name="mfg-decorator" location="component://mfg/widget/MfgCommonScreens.xml">
+                    <decorator-section name="body">
+                        <platform-specific>
+                            <html>
+                                <html-template location="component://mfg/webapp/mfg/stockMoves.ftl"/>
+                            </html>
+                        </platform-specific>
+                    </decorator-section>
+                </decorator-screen>
+            </widgets>
+        </section>
+    </screen>
+
+    <screen name="stockCount">
+        <section>
+            <actions>
+                <set field="title" value="Stock Count"/>
+                <set field="pageTitle" value="盘点"/>
+                <set field="activeMenu" value="stock"/>
+                <service service-name="mfgLotList" result-map="lotResult" auto-field-map="false">
+                    <field-map field-name="search" from-field="parameters.search"/>
+                    <field-map field-name="page" from-field="parameters.page"/>
+                </service>
+                <service service-name="mfgStockCountList" result-map="countResult" auto-field-map="false">
+                    <field-map field-name="lotId" from-field="parameters.lotId"/>
+                </service>
+            </actions>
+            <widgets>
+                <decorator-screen name="mfg-decorator" location="component://mfg/widget/MfgCommonScreens.xml">
+                    <decorator-section name="body">
+                        <platform-specific>
+                            <html>
+                                <html-template location="component://mfg/webapp/mfg/stockCount.ftl"/>
+                            </html>
+                        </platform-specific>
+                    </decorator-section>
+                </decorator-screen>
+            </widgets>
+        </section>
+    </screen>
+
     <!-- Yield and labour hour trend, with the two CSV exports -->
     <screen name="reports">
         <section>

@@ -18,6 +18,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -134,10 +135,27 @@ public final class MfgServices {
     public static final String ALERT_CLAIM_7DAY = "MFG_ALERT_CLAIM_7DAY";
     public static final String ALERT_CLAIM_AFTERSALE = "MFG_ALERT_CLAIM_AFTERSALE";
     public static final String ALERT_SOFTWARE = "MFG_ALERT_SOFTWARE";
+    public static final String ALERT_STOCK = "MFG_ALERT_STOCK";
     /** A warning that is worth a look. */
     public static final String ALERT_WARN = "WARN";
     /** Something is already late: a shortage or a passed deadline. */
     public static final String ALERT_ERROR = "ERROR";
+
+    /** Movement types of the inventory ledger. */
+    public static final String MOVE_RECEIPT = "MFG_MOVE_RECEIPT";
+    public static final String MOVE_ISSUE = "MFG_MOVE_ISSUE";
+    public static final String MOVE_RETURN = "MFG_MOVE_RETURN";
+    public static final String MOVE_SCRAP = "MFG_MOVE_SCRAP";
+    public static final String MOVE_COUNT = "MFG_MOVE_COUNT";
+    public static final String MOVE_ADJUST = "MFG_MOVE_ADJUST";
+
+    /** Movement types that put material into stock, and the ones that take it out. */
+    public static final String[] MOVE_IN_TYPES = {MOVE_RECEIPT, MOVE_RETURN};
+    public static final String[] MOVE_OUT_TYPES = {MOVE_ISSUE, MOVE_SCRAP};
+
+    /** Every movement type, in the order the ledger filter lists them. */
+    public static final String[] MOVE_TYPES = {MOVE_RECEIPT, MOVE_ISSUE, MOVE_RETURN, MOVE_SCRAP,
+        MOVE_COUNT, MOVE_ADJUST};
 
     public static final String SW_PLANNED = "MFG_SW_PLANNED";
     public static final String SW_DOING = "MFG_SW_DOING";
@@ -1418,8 +1436,13 @@ public final class MfgServices {
         }
         try {
             String lotId = toText(context.get("lotId"));
+            boolean isNew = false;
             if (lotId == null) {
                 lotId = nextLotId(delegator, LocalDate.now());
+                isNew = true;
+            } else if (EntityQuery.use(delegator).from("MfgMaterialLot")
+                    .where("lotId", lotId).queryOne() == null) {
+                isNew = true;
             }
             GenericValue lot = delegator.makeValue("MfgMaterialLot");
             lot.set("lotId", lotId);
@@ -1427,7 +1450,9 @@ public final class MfgServices {
             lot.set("componentName", toText(context.get("componentName")));
             lot.set("supplierName", toText(context.get("supplierName")));
             lot.set("supplierLot", toText(context.get("supplierLot")));
-            lot.set("receivedQty", Double.valueOf(receivedQty));
+            if (isNew) {
+                lot.set("receivedQty", Double.valueOf(receivedQty));
+            }
             Object receivedDate = parseDate(context.get("receivedDate"));
             lot.set("receivedDate", receivedDate == null
                     ? java.sql.Date.valueOf(LocalDate.now()) : receivedDate);
@@ -1440,10 +1465,19 @@ public final class MfgServices {
             lot.set("inspectStatusId", inspectStatus);
             lot.set("note", toText(context.get("note")));
             delegator.createOrStore(lot);
+            if (isNew) {
+                recordMovement(delegator, lot, MOVE_RECEIPT, receivedQty, lot.get("unitPrice"), null, null,
+                        lot.getString("supplierLot"), null,
+                        Timestamp.valueOf(lot.getDate("receivedDate").toLocalDate().atStartOfDay()),
+                        "到货入库");
+            }
+            recalcLotStock(delegator, lot);
 
             Map<String, Object> result = ServiceUtil.returnSuccess();
             result.put("lotId", lotId);
             result.put("inspectStatusId", inspectStatus);
+            result.put("onHandQty", lot.get("onHandQty"));
+            result.put("availableQty", lot.get("availableQty"));
             return result;
         } catch (GenericEntityException e) {
             return ServiceUtil.returnError("Could not save the material lot: " + e.getMessage());
@@ -1580,6 +1614,12 @@ public final class MfgServices {
                 return ServiceUtil.returnError("Lot [" + lotId
                         + "] failed incoming inspection, mark it passed or concession in the material lots first");
             }
+            ensureLotLedger(delegator, lot);
+            double available = numberOrZero(lot.get("availableQty"));
+            if (available + 0.0001 < qty) {
+                return ServiceUtil.returnError("Only " + formatQty(available) + " left in lot [" + lotId
+                        + "], cannot issue " + formatQty(qty));
+            }
             String issueId = delegator.getNextSeqId("MfgMaterialIssue");
             GenericValue issue = delegator.makeValue("MfgMaterialIssue");
             issue.set("issueId", issueId);
@@ -1587,6 +1627,7 @@ public final class MfgServices {
             issue.set("componentCode", componentCode);
             issue.set("lotId", lotId);
             issue.set("qty", Double.valueOf(qty));
+            issue.set("directionId", MOVE_ISSUE);
             Object issuedDate = parseDate(context.get("issuedDate"));
             issue.set("issuedDate", issuedDate == null
                     ? java.sql.Date.valueOf(LocalDate.now()) : issuedDate);
@@ -1595,9 +1636,16 @@ public final class MfgServices {
             issue.set("snTo", toText(context.get("snTo")));
             issue.set("note", toText(context.get("note")));
             delegator.create(issue);
+            recordMovement(delegator, lot, MOVE_ISSUE, -qty, lot.get("unitPrice"), workOrderId, null,
+                    null, null,
+                    Timestamp.valueOf(issue.getDate("issuedDate").toLocalDate().atStartOfDay()),
+                    "发料给工单 " + workOrderId);
+            recalcLotStock(delegator, lot);
 
             Map<String, Object> result = ServiceUtil.returnSuccess();
             result.put("issueId", issueId);
+            result.put("onHandQty", lot.get("onHandQty"));
+            result.put("availableQty", lot.get("availableQty"));
             return result;
         } catch (GenericEntityException e) {
             return ServiceUtil.returnError("Could not issue the material: " + e.getMessage());
@@ -1951,6 +1999,10 @@ public final class MfgServices {
         map.put("supplierLot", lot.getString("supplierLot"));
         map.put("unitPrice", lot.get("unitPrice"));
         map.put("receivedQty", lot.getDouble("receivedQty"));
+        map.put("onHandQty", lot.getDouble("onHandQty") == null
+                ? Double.valueOf(0.0) : lot.getDouble("onHandQty"));
+        map.put("availableQty", lot.getDouble("availableQty") == null
+                ? Double.valueOf(0.0) : lot.getDouble("availableQty"));
         map.put("receivedDate", lot.getDate("receivedDate"));
         map.put("issuedQty", issuedQty == null ? Double.valueOf(0.0) : issuedQty);
         double received = lot.getDouble("receivedQty") == null ? 0.0 : lot.getDouble("receivedQty").doubleValue();
@@ -1975,6 +2027,7 @@ public final class MfgServices {
         map.put("componentCode", issue.getString("componentCode"));
         map.put("lotId", issue.getString("lotId"));
         map.put("qty", issue.getDouble("qty"));
+        map.put("directionId", issue.getString("directionId"));
         map.put("issuedDate", issue.getDate("issuedDate"));
         map.put("designators", issue.getString("designators"));
         map.put("snFrom", issue.getString("snFrom"));
@@ -2078,6 +2131,10 @@ public final class MfgServices {
                 lot.set("receivedDate", receivedDate == null
                         ? java.sql.Date.valueOf(LocalDate.now()) : receivedDate);
                 delegator.create(lot);
+                recordMovement(delegator, lot, MOVE_RECEIPT, qty, null, null, null, row[3], null,
+                        Timestamp.valueOf(lot.getDate("receivedDate").toLocalDate().atStartOfDay()),
+                        "CSV 导入到货");
+                recalcLotStock(delegator, lot);
                 lotIds.add(lotId);
                 imported++;
             }
@@ -4256,6 +4313,7 @@ always
         }
 
         addSoftwareAlerts(alerts, delegator);
+        addStockAlerts(alerts, delegator);
 
         alerts.sort(new Comparator<Map<String, Object>>() {
             @Override
@@ -4447,6 +4505,694 @@ always
             line.append(csvCell(cell));
         }
         return line.toString();
+    }
+
+    // ==================== inventory: append only movements, totals summed from them ====================
+
+    /**
+     * Tells whether a movement type is one of the six the ledger knows.
+     *
+     * @param movementTypeId the type to test
+     * @return {@code true} when it is known
+     */
+    static boolean isKnownMovement(String movementTypeId) {
+        for (String known : MOVE_TYPES) {
+            if (known.equals(movementTypeId)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Signed quantity change of one movement. Receipts and returns add, issues and scraps take away,
+     * a count and an adjustment carry their own signed quantity.
+     *
+     * @param movementTypeId the movement type
+     * @param qty the quantity as entered, positive for the directed types
+     * @return the change of the quantity on hand
+     */
+    static double movementDiff(String movementTypeId, double qty) {
+        if (movementTypeId == null) {
+            return 0.0;
+        }
+        for (String in : MOVE_IN_TYPES) {
+            if (in.equals(movementTypeId)) {
+                return Math.abs(qty);
+            }
+        }
+        for (String out : MOVE_OUT_TYPES) {
+            if (out.equals(movementTypeId)) {
+                return -Math.abs(qty);
+            }
+        }
+        return qty;
+    }
+
+    /**
+     * What may still be issued out of a lot: everything on hand, except for a lot that failed the
+     * incoming inspection.
+     *
+     * @param onHand the quantity in stock
+     * @param inspectStatusId the inspection status of the lot
+     * @return the quantity that may be issued, never negative
+     */
+    static double availableOf(double onHand, String inspectStatusId) {
+        if (IQC_FAIL.equals(inspectStatusId)) {
+            return 0.0;
+        }
+        return onHand <= 0.0 ? 0.0 : round2(onHand);
+    }
+
+    /**
+     * Everything that happened to one lot, oldest first.
+     *
+     * @param delegator the delegator
+     * @param lotId the lot
+     * @return the movements
+     * @throws GenericEntityException when they cannot be read
+     */
+    private static List<GenericValue> movementsOf(Delegator delegator, String lotId)
+            throws GenericEntityException {
+        return EntityQuery.use(delegator).from("MfgInventoryDetail")
+                .where("lotId", lotId).orderBy("seqId").queryList();
+    }
+
+    /**
+     * Appends one movement to the ledger of a lot, the same way OFBiz keeps its own inventory: the
+     * row is only ever created, the totals of the lot are summed afterwards.
+     *
+     * @return the row that was written
+     * @throws GenericEntityException when it cannot be stored
+     */
+    static GenericValue recordMovement(Delegator delegator, GenericValue lot, String movementTypeId,
+            double diff, Object unitCost, String workOrderId, String physicalInventoryId,
+            String referenceNo, String operatorName, java.sql.Timestamp effectiveDate, String note)
+            throws GenericEntityException {
+        long seq = 1L;
+        List<GenericValue> existing = movementsOf(delegator, lot.getString("lotId"));
+        if (!existing.isEmpty()) {
+            Long last = existing.get(existing.size() - 1).getLong("seqId");
+            seq = last == null ? existing.size() + 1L : last.longValue() + 1L;
+        }
+        GenericValue movement = delegator.makeValue("MfgInventoryDetail");
+        movement.set("lotId", lot.getString("lotId"));
+        movement.set("seqId", Long.valueOf(seq));
+        movement.set("movementTypeId", movementTypeId);
+        movement.set("quantityDiff", Double.valueOf(round2(diff)));
+        if (unitCost != null) {
+            movement.set("unitCost", unitCost);
+        }
+        movement.set("workOrderId", workOrderId);
+        movement.set("physicalInventoryId", physicalInventoryId);
+        movement.set("referenceNo", referenceNo);
+        movement.set("operatorName", operatorName);
+        movement.set("effectiveDate", effectiveDate == null
+                ? new Timestamp(System.currentTimeMillis()) : effectiveDate);
+        movement.set("note", note);
+        delegator.create(movement);
+        return movement;
+    }
+
+    /**
+     * Recomputes the stock of a lot from its movements and stores it. Totals are never incremented,
+     * so they cannot drift away from the ledger.
+     *
+     * @param delegator the delegator
+     * @param lot the lot, updated and stored
+     * @throws GenericEntityException when the movements cannot be read
+     */
+    static void recalcLotStock(Delegator delegator, GenericValue lot) throws GenericEntityException {
+        double onHand = 0.0;
+        for (GenericValue movement : movementsOf(delegator, lot.getString("lotId"))) {
+            onHand += numberOrZero(movement.get("quantityDiff"));
+        }
+        lot.set("onHandQty", Double.valueOf(round2(onHand)));
+        lot.set("availableQty", Double.valueOf(availableOf(onHand, lot.getString("inspectStatusId"))));
+        delegator.store(lot);
+    }
+
+    /**
+     * Gives a lot that predates the ledger the receipt and the issues it already had, so every lot
+     * answers "how much is left" the same way. Does nothing when the lot already has movements.
+     *
+     * @param delegator the delegator
+     * @param lot the lot
+     * @throws GenericEntityException when the ledger cannot be written
+     */
+    static void ensureLotLedger(Delegator delegator, GenericValue lot) throws GenericEntityException {
+        String lotId = lot.getString("lotId");
+        if (lotId == null || !movementsOf(delegator, lotId).isEmpty()) {
+            recalcLotStock(delegator, lot);
+            return;
+        }
+        double receivedQty = numberOrZero(lot.get("receivedQty"));
+        if (receivedQty > 0.0) {
+            java.sql.Date receivedDate = lot.getDate("receivedDate");
+            recordMovement(delegator, lot, MOVE_RECEIPT, receivedQty, lot.get("unitPrice"), null, null,
+                    lot.getString("supplierLot"), null,
+                    receivedDate == null ? null
+                            : Timestamp.valueOf(receivedDate.toLocalDate().atStartOfDay()),
+                    "首次建账：到货");
+        }
+        List<GenericValue> issues = EntityQuery.use(delegator).from("MfgMaterialIssue")
+                .where("lotId", lotId).orderBy("issuedDate").queryList();
+        for (GenericValue issue : issues) {
+            java.sql.Date issuedDate = issue.getDate("issuedDate");
+            recordMovement(delegator, lot, MOVE_ISSUE, -numberOrZero(issue.get("qty")),
+                    lot.get("unitPrice"), issue.getString("workOrderId"), null, null, null,
+                    issuedDate == null ? null
+                            : Timestamp.valueOf(issuedDate.toLocalDate().atStartOfDay()),
+                    "首次建账：历史发料");
+        }
+        recalcLotStock(delegator, lot);
+    }
+
+    /**
+     * Records one movement of one lot: receipt, issue, return, scrap or adjustment. An issue and a
+     * return that name a work order also write the work order issue record, so kitting and the
+     * actual material cost keep working.
+     *
+     * @param dctx the dispatch context
+     * @param context service context, see {@code servicedef/services.xml#mfgInventoryMove}
+     * @return the service result containing the new totals of the lot
+     */
+    public static Map<String, Object> inventoryMove(DispatchContext dctx, Map<String, ? extends Object> context) {
+        Delegator delegator = dctx.getDelegator();
+        String lotId = toText(context.get("lotId"));
+        String movementTypeId = toText(context.get("movementTypeId"));
+        double qty = toDouble(context.get("qty"), 0.0);
+        String workOrderId = toText(context.get("workOrderId"));
+        if (lotId == null) {
+            return ServiceUtil.returnError("lotId is required");
+        }
+        if (!isKnownMovement(movementTypeId)) {
+            return ServiceUtil.returnError("Unknown movement type [" + movementTypeId
+                    + "], expected " + String.join(" / ", MOVE_TYPES));
+        }
+        if (qty == 0.0) {
+            return ServiceUtil.returnError("qty must not be zero");
+        }
+        if (MOVE_COUNT.equals(movementTypeId)) {
+            return ServiceUtil.returnError("Use the stock count screen to book a count");
+        }
+        try {
+            GenericValue lot = EntityQuery.use(delegator).from("MfgMaterialLot")
+                    .where("lotId", lotId).queryOne();
+            if (lot == null) {
+                return ServiceUtil.returnError("Unknown material lot [" + lotId + "]");
+            }
+            ensureLotLedger(delegator, lot);
+            double diff = movementDiff(movementTypeId, qty);
+            if (diff < 0.0) {
+                double available = numberOrZero(lot.get("availableQty"));
+                if (available + 0.0001 < -diff) {
+                    return ServiceUtil.returnError("Only " + formatQty(available) + " left in lot [" + lotId
+                            + "], cannot take " + formatQty(-diff));
+                }
+            }
+            if (workOrderId != null
+                    && (MOVE_ISSUE.equals(movementTypeId) || MOVE_RETURN.equals(movementTypeId))) {
+                if (EntityQuery.use(delegator).from("MfgWorkOrder")
+                        .where("workOrderId", workOrderId).queryOne() == null) {
+                    return ServiceUtil.returnError("Unknown work order [" + workOrderId + "]");
+                }
+            }
+            GenericValue movement = recordMovement(delegator, lot, movementTypeId, diff,
+                    optionalAmount(context.get("unitCost")), workOrderId, null,
+                    toText(context.get("referenceNo")), toText(context.get("operatorName")),
+                    parseTimestamp(context.get("effectiveDate")), toText(context.get("note")));
+            if (workOrderId != null
+                    && (MOVE_ISSUE.equals(movementTypeId) || MOVE_RETURN.equals(movementTypeId))) {
+                GenericValue issue = delegator.makeValue("MfgMaterialIssue");
+                issue.set("issueId", delegator.getNextSeqId("MfgMaterialIssue"));
+                issue.set("workOrderId", workOrderId);
+                issue.set("componentCode", lot.getString("componentCode"));
+                issue.set("lotId", lotId);
+                issue.set("qty", Double.valueOf(diff));
+                issue.set("directionId", movementTypeId);
+                issue.set("issuedDate", java.sql.Date.valueOf(LocalDate.now()));
+                issue.set("note", toText(context.get("note")));
+                delegator.create(issue);
+            }
+            recalcLotStock(delegator, lot);
+
+            Map<String, Object> result = ServiceUtil.returnSuccess();
+            result.put("lotId", lotId);
+            result.put("seqId", movement.get("seqId"));
+            result.put("movementTypeId", movementTypeId);
+            result.put("quantityDiff", Double.valueOf(round2(diff)));
+            result.put("onHandQty", lot.get("onHandQty"));
+            result.put("availableQty", lot.get("availableQty"));
+            return result;
+        } catch (GenericEntityException e) {
+            return ServiceUtil.returnError("Could not record the movement: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Stock on hand per component, with the safety stock of each one, so the page can show what is
+     * short before the next work order needs it.
+     *
+     * @param dctx the dispatch context
+     * @param context service context, see {@code servicedef/services.xml#mfgStockSummary}
+     * @return the service result containing {@code rows} and the totals
+     */
+    public static Map<String, Object> stockSummary(DispatchContext dctx, Map<String, ? extends Object> context) {
+        Delegator delegator = dctx.getDelegator();
+        Map<String, Object> result = ServiceUtil.returnSuccess();
+        result.put("rows", new ArrayList<Map<String, Object>>());
+        result.put("componentCount", Integer.valueOf(0));
+        result.put("belowCount", Integer.valueOf(0));
+        result.put("onHandTotal", Double.valueOf(0.0));
+        result.put("valueTotal", Double.valueOf(0.0));
+        try {
+            Map<String, GenericValue> settings = new LinkedHashMap<>();
+            for (GenericValue setting : EntityQuery.use(delegator).from("MfgStockSetting").queryList()) {
+                settings.put(setting.getString("componentCode"), setting);
+            }
+            Map<String, Map<String, Object>> byComponent = new LinkedHashMap<>();
+            for (GenericValue lot : EntityQuery.use(delegator).from("MfgMaterialLot")
+                    .orderBy("componentCode", "lotId").queryList()) {
+                ensureLotLedger(delegator, lot);
+                String componentCode = lot.getString("componentCode");
+                if (componentCode == null) {
+                    continue;
+                }
+                Map<String, Object> row = byComponent.get(componentCode);
+                if (row == null) {
+                    row = new LinkedHashMap<>();
+                    row.put("componentCode", componentCode);
+                    row.put("componentName", lot.getString("componentName"));
+                    row.put("onHandQty", Double.valueOf(0.0));
+                    row.put("availableQty", Double.valueOf(0.0));
+                    row.put("pendingQty", Double.valueOf(0.0));
+                    row.put("failedQty", Double.valueOf(0.0));
+                    row.put("value", Double.valueOf(0.0));
+                    row.put("lotCount", Integer.valueOf(0));
+                    byComponent.put(componentCode, row);
+                }
+                double onHand = numberOrZero(lot.get("onHandQty"));
+                row.put("onHandQty", Double.valueOf(numberOrZero(row.get("onHandQty")) + onHand));
+                row.put("availableQty", Double.valueOf(numberOrZero(row.get("availableQty"))
+                        + numberOrZero(lot.get("availableQty"))));
+                row.put("lotCount", Integer.valueOf(((Integer) row.get("lotCount")).intValue() + 1));
+                String inspect = lot.getString("inspectStatusId");
+                if (IQC_PENDING.equals(inspect)) {
+                    row.put("pendingQty", Double.valueOf(numberOrZero(row.get("pendingQty")) + onHand));
+                }
+                if (IQC_FAIL.equals(inspect)) {
+                    row.put("failedQty", Double.valueOf(numberOrZero(row.get("failedQty")) + onHand));
+                }
+                Object price = lot.get("unitPrice");
+                if (price instanceof Number) {
+                    row.put("value", Double.valueOf(numberOrZero(row.get("value"))
+                            + onHand * ((Number) price).doubleValue()));
+                }
+            }
+            List<Map<String, Object>> rows = new ArrayList<>(byComponent.size());
+            double onHandTotal = 0.0;
+            double valueTotal = 0.0;
+            int below = 0;
+            for (Map<String, Object> row : byComponent.values()) {
+                String componentCode = (String) row.get("componentCode");
+                GenericValue setting = settings.get(componentCode);
+                double minimum = setting == null ? 0.0 : numberOrZero(setting.get("minimumStock"));
+                double reorder = setting == null ? 0.0 : numberOrZero(setting.get("reorderQty"));
+                if (setting != null && setting.getString("componentName") != null) {
+                    row.put("componentName", setting.getString("componentName"));
+                }
+                row.put("minimumStock", Double.valueOf(round2(minimum)));
+                row.put("reorderQty", Double.valueOf(round2(reorder)));
+                row.put("unitOfMeasure", setting == null ? null : setting.getString("unitOfMeasure"));
+                row.put("supplierName", setting == null ? null : setting.getString("supplierName"));
+                row.put("onHandQty", Double.valueOf(round2(numberOrZero(row.get("onHandQty")))));
+                row.put("availableQty", Double.valueOf(round2(numberOrZero(row.get("availableQty")))));
+                row.put("value", Double.valueOf(round2(numberOrZero(row.get("value")))));
+                boolean isBelow = minimum > 0.0 && numberOrZero(row.get("onHandQty")) < minimum;
+                row.put("belowMinimum", Boolean.valueOf(isBelow));
+                double suggested = 0.0;
+                if (isBelow) {
+                    suggested = reorder > 0.0 ? reorder
+                            : round2(minimum - numberOrZero(row.get("onHandQty")));
+                    below++;
+                }
+                row.put("suggestedQty", Double.valueOf(round2(suggested)));
+                onHandTotal += numberOrZero(row.get("onHandQty"));
+                valueTotal += numberOrZero(row.get("value"));
+                rows.add(row);
+            }
+            String search = toText(context.get("search"));
+            if (search != null) {
+                String needle = search.toLowerCase(Locale.ROOT);
+                List<Map<String, Object>> matched = new ArrayList<>();
+                for (Map<String, Object> row : rows) {
+                    String code = String.valueOf(row.get("componentCode")).toLowerCase(Locale.ROOT);
+                    String name = row.get("componentName") == null ? ""
+                            : String.valueOf(row.get("componentName")).toLowerCase(Locale.ROOT);
+                    if (code.contains(needle) || name.contains(needle)) {
+                        matched.add(row);
+                    }
+                }
+                rows = matched;
+            }
+            if ("Y".equalsIgnoreCase(toText(context.get("belowOnly")))) {
+                List<Map<String, Object>> matched = new ArrayList<>();
+                for (Map<String, Object> row : rows) {
+                    if (Boolean.TRUE.equals(row.get("belowMinimum"))) {
+                        matched.add(row);
+                    }
+                }
+                rows = matched;
+            }
+            putPage(result, "rows", rows, pageOf(context), pageSizeOf(context), search);
+            result.put("componentCount", Integer.valueOf(rows.size()));
+            result.put("belowCount", Integer.valueOf(below));
+            result.put("onHandTotal", Double.valueOf(round2(onHandTotal)));
+            result.put("valueTotal", Double.valueOf(round2(valueTotal)));
+            result.put("search", search);
+            return result;
+        } catch (GenericEntityException e) {
+            return ServiceUtil.returnError("Could not read the stock: " + e.getMessage());
+        }
+    }
+
+    /**
+     * The ledger: one row per movement, newest first, with the balance of its lot after the movement.
+     *
+     * @param dctx the dispatch context
+     * @param context service context, see {@code servicedef/services.xml#mfgInventoryLedger}
+     * @return the service result containing {@code rows} and the paging information
+     */
+    public static Map<String, Object> inventoryLedger(DispatchContext dctx, Map<String, ? extends Object> context) {
+        Delegator delegator = dctx.getDelegator();
+        String lotId = toText(context.get("lotId"));
+        String componentCode = toText(context.get("componentCode"));
+        String movementTypeId = toText(context.get("movementTypeId"));
+        java.sql.Date fromDate = (java.sql.Date) parseDate(context.get("fromDate"));
+        java.sql.Date toDate = (java.sql.Date) parseDate(context.get("toDate"));
+        Map<String, Object> result = ServiceUtil.returnSuccess();
+        result.put("rows", new ArrayList<Map<String, Object>>());
+        try {
+            Map<String, GenericValue> lots = new LinkedHashMap<>();
+            for (GenericValue lot : EntityQuery.use(delegator).from("MfgMaterialLot").queryList()) {
+                lots.put(lot.getString("lotId"), lot);
+            }
+            List<GenericValue> movements = EntityQuery.use(delegator).from("MfgInventoryDetail")
+                    .orderBy("lotId", "seqId").queryList();
+            Map<String, Double> balances = new LinkedHashMap<>();
+            List<Map<String, Object>> rows = new ArrayList<>();
+            for (GenericValue movement : movements) {
+                String movementLot = movement.getString("lotId");
+                double diff = numberOrZero(movement.get("quantityDiff"));
+                double balance = numberOrZero(balances.get(movementLot)) + diff;
+                balances.put(movementLot, Double.valueOf(balance));
+                if (lotId != null && !lotId.equals(movementLot)) {
+                    continue;
+                }
+                if (movementTypeId != null && !movementTypeId.equals(movement.getString("movementTypeId"))) {
+                    continue;
+                }
+                GenericValue lot = lots.get(movementLot);
+                if (componentCode != null
+                        && (lot == null || !componentCode.equals(lot.getString("componentCode")))) {
+                    continue;
+                }
+                Timestamp effective = movement.getTimestamp("effectiveDate");
+                if (effective != null) {
+                    java.sql.Date day = new java.sql.Date(effective.getTime());
+                    if (fromDate != null && day.before(fromDate)) {
+                        continue;
+                    }
+                    if (toDate != null && day.after(toDate)) {
+                        continue;
+                    }
+                }
+                Map<String, Object> row = new LinkedHashMap<>();
+                row.put("lotId", movementLot);
+                row.put("seqId", movement.get("seqId"));
+                row.put("componentCode", lot == null ? null : lot.getString("componentCode"));
+                row.put("componentName", lot == null ? null : lot.getString("componentName"));
+                row.put("movementTypeId", movement.getString("movementTypeId"));
+                row.put("quantityDiff", Double.valueOf(round2(diff)));
+                row.put("balanceQty", Double.valueOf(round2(balance)));
+                row.put("unitCost", movement.get("unitCost"));
+                row.put("workOrderId", movement.getString("workOrderId"));
+                row.put("physicalInventoryId", movement.getString("physicalInventoryId"));
+                row.put("referenceNo", movement.getString("referenceNo"));
+                row.put("operatorName", movement.getString("operatorName"));
+                row.put("effectiveDate", effective);
+                row.put("note", movement.getString("note"));
+                rows.add(row);
+            }
+            Collections.reverse(rows);
+            putPage(result, "rows", rows, pageOf(context), pageSizeOf(context), null);
+            result.put("lotId", lotId);
+            result.put("componentCode", componentCode);
+            result.put("movementTypeId", movementTypeId);
+            result.put("fromDate", fromDate);
+            result.put("toDate", toDate);
+            return result;
+        } catch (GenericEntityException e) {
+            return ServiceUtil.returnError("Could not read the ledger: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Writes the component master record with its safety stock.
+     *
+     * @param dctx the dispatch context
+     * @param context service context, see {@code servicedef/services.xml#mfgStockSettingSave}
+     * @return the service result containing {@code componentCode}
+     */
+    public static Map<String, Object> stockSettingSave(DispatchContext dctx, Map<String, ? extends Object> context) {
+        Delegator delegator = dctx.getDelegator();
+        String componentCode = toText(context.get("componentCode"));
+        if (componentCode == null) {
+            return ServiceUtil.returnError("componentCode is required");
+        }
+        try {
+            GenericValue setting = EntityQuery.use(delegator).from("MfgStockSetting")
+                    .where("componentCode", componentCode).queryOne();
+            if (setting == null) {
+                setting = delegator.makeValue("MfgStockSetting");
+                setting.set("componentCode", componentCode);
+            }
+            if (context.containsKey("componentName")) {
+                setting.set("componentName", toText(context.get("componentName")));
+            }
+            if (context.containsKey("unitOfMeasure")) {
+                setting.set("unitOfMeasure", toText(context.get("unitOfMeasure")));
+            }
+            if (context.containsKey("minimumStock")) {
+                setting.set("minimumStock", Double.valueOf(round2(toDouble(context.get("minimumStock"), 0.0))));
+            }
+            if (context.containsKey("reorderQty")) {
+                setting.set("reorderQty", Double.valueOf(round2(toDouble(context.get("reorderQty"), 0.0))));
+            }
+            if (context.containsKey("supplierName")) {
+                setting.set("supplierName", toText(context.get("supplierName")));
+            }
+            if (context.containsKey("note")) {
+                setting.set("note", toText(context.get("note")));
+            }
+            delegator.createOrStore(setting);
+
+            Map<String, Object> result = ServiceUtil.returnSuccess();
+            result.put("componentCode", componentCode);
+            result.put("minimumStock", setting.get("minimumStock"));
+            result.put("reorderQty", setting.get("reorderQty"));
+            return result;
+        } catch (GenericEntityException e) {
+            return ServiceUtil.returnError("Could not save the stock setting: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Books a physical count of one lot: the difference between what was counted and what the
+     * ledger says becomes a movement, never a silent edit of the quantity.
+     *
+     * @param dctx the dispatch context
+     * @param context service context, see {@code servicedef/services.xml#mfgStockCount}
+     * @return the service result containing the count number and the variance
+     */
+    public static Map<String, Object> stockCount(DispatchContext dctx, Map<String, ? extends Object> context) {
+        Delegator delegator = dctx.getDelegator();
+        String lotId = toText(context.get("lotId"));
+        Object countedInput = context.get("countedQty");
+        if (lotId == null) {
+            return ServiceUtil.returnError("lotId is required");
+        }
+        if (toText(countedInput) == null) {
+            return ServiceUtil.returnError("countedQty is required");
+        }
+        double countedQty = toDouble(countedInput, -1.0);
+        if (countedQty < 0.0) {
+            return ServiceUtil.returnError("countedQty must not be negative");
+        }
+        try {
+            GenericValue lot = EntityQuery.use(delegator).from("MfgMaterialLot")
+                    .where("lotId", lotId).queryOne();
+            if (lot == null) {
+                return ServiceUtil.returnError("Unknown material lot [" + lotId + "]");
+            }
+            ensureLotLedger(delegator, lot);
+            double bookQty = numberOrZero(lot.get("onHandQty"));
+            double variance = round2(countedQty - bookQty);
+            String physicalInventoryId = nextStockCountId(delegator, LocalDate.now());
+            String counterName = toText(context.get("counterName"));
+            GenericValue count = delegator.makeValue("MfgStockCount");
+            count.set("physicalInventoryId", physicalInventoryId);
+            Object countDate = parseDate(context.get("countDate"));
+            count.set("countDate", countDate == null
+                    ? java.sql.Date.valueOf(LocalDate.now()) : countDate);
+            count.set("counterName", counterName);
+            count.set("lotId", lotId);
+            count.set("bookQty", Double.valueOf(bookQty));
+            count.set("countedQty", Double.valueOf(countedQty));
+            count.set("varianceQty", Double.valueOf(variance));
+            count.set("varianceReasonId", MOVE_COUNT);
+            count.set("note", toText(context.get("note")));
+            delegator.create(count);
+            if (Math.abs(variance) > 0.0001) {
+                recordMovement(delegator, lot, MOVE_COUNT, variance, lot.get("unitPrice"), null,
+                        physicalInventoryId, null, counterName, null,
+                        "盘点 " + physicalInventoryId + "：" + formatQty(bookQty) + " → " + formatQty(countedQty));
+            }
+            recalcLotStock(delegator, lot);
+
+            Map<String, Object> result = ServiceUtil.returnSuccess();
+            result.put("physicalInventoryId", physicalInventoryId);
+            result.put("lotId", lotId);
+            result.put("bookQty", Double.valueOf(bookQty));
+            result.put("countedQty", Double.valueOf(countedQty));
+            result.put("varianceQty", Double.valueOf(variance));
+            result.put("onHandQty", lot.get("onHandQty"));
+            return result;
+        } catch (GenericEntityException e) {
+            return ServiceUtil.returnError("Could not book the count: " + e.getMessage());
+        }
+    }
+
+    /**
+     * The counts that were booked, newest first.
+     *
+     * @param dctx the dispatch context
+     * @param context service context, see {@code servicedef/services.xml#mfgStockCountList}
+     * @return the service result containing {@code counts}
+     */
+    public static Map<String, Object> stockCountList(DispatchContext dctx, Map<String, ? extends Object> context) {
+        Delegator delegator = dctx.getDelegator();
+        String lotId = toText(context.get("lotId"));
+        List<Map<String, Object>> rows = new ArrayList<>();
+        Map<String, Object> result = ServiceUtil.returnSuccess();
+        result.put("counts", rows);
+        try {
+            Map<String, GenericValue> lots = new LinkedHashMap<>();
+            for (GenericValue lot : EntityQuery.use(delegator).from("MfgMaterialLot").queryList()) {
+                lots.put(lot.getString("lotId"), lot);
+            }
+            EntityQuery query = EntityQuery.use(delegator).from("MfgStockCount");
+            if (lotId != null) {
+                query = query.where("lotId", lotId);
+            }
+            int shown = 0;
+            for (GenericValue count : query.orderBy("-createdStamp").queryList()) {
+                if (shown >= 50) {
+                    break;
+                }
+                shown++;
+                GenericValue lot = lots.get(count.getString("lotId"));
+                Map<String, Object> map = new LinkedHashMap<>();
+                map.put("physicalInventoryId", count.getString("physicalInventoryId"));
+                map.put("countDate", count.get("countDate"));
+                map.put("counterName", count.getString("counterName"));
+                map.put("lotId", count.getString("lotId"));
+                map.put("componentCode", lot == null ? null : lot.getString("componentCode"));
+                map.put("componentName", lot == null ? null : lot.getString("componentName"));
+                map.put("bookQty", count.get("bookQty"));
+                map.put("countedQty", count.get("countedQty"));
+                map.put("varianceQty", count.get("varianceQty"));
+                map.put("note", count.getString("note"));
+                rows.add(map);
+            }
+            return result;
+        } catch (GenericEntityException e) {
+            return ServiceUtil.returnError("Could not read the counts: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Next stock count number, CNT-yyMMdd-NN.
+     *
+     * @param delegator the delegator
+     * @param today the day
+     * @return the identifier
+     * @throws GenericEntityException when the counts cannot be read
+     */
+    private static String nextStockCountId(Delegator delegator, LocalDate today)
+            throws GenericEntityException {
+        String prefix = "CNT-" + today.format(DAY) + "-";
+        int max = 0;
+        for (GenericValue count : EntityQuery.use(delegator).from("MfgStockCount").queryList()) {
+            String id = count.getString("physicalInventoryId");
+            if (id != null && id.startsWith(prefix)) {
+                max = Math.max(max, parseTrailingNumber(id.substring(prefix.length())));
+            }
+        }
+        return prefix + String.format(Locale.ROOT, "%02d", Integer.valueOf(max + 1));
+    }
+
+    /**
+     * Adds one alert per component whose stock dropped below its safety stock.
+     *
+     * @param alerts the alert list to append to
+     * @param delegator the delegator
+     * @throws GenericEntityException when the stock cannot be read
+     */
+    private static void addStockAlerts(List<Map<String, Object>> alerts, Delegator delegator)
+            throws GenericEntityException {
+        Map<String, GenericValue> settings = new LinkedHashMap<>();
+        for (GenericValue setting : EntityQuery.use(delegator).from("MfgStockSetting").queryList()) {
+            settings.put(setting.getString("componentCode"), setting);
+        }
+        if (settings.isEmpty()) {
+            return;
+        }
+        Map<String, Double> onHand = new LinkedHashMap<>();
+        for (GenericValue lot : EntityQuery.use(delegator).from("MfgMaterialLot").queryList()) {
+            ensureLotLedger(delegator, lot);
+            String componentCode = lot.getString("componentCode");
+            if (componentCode == null) {
+                continue;
+            }
+            onHand.put(componentCode, Double.valueOf(numberOrZero(onHand.get(componentCode))
+                    + numberOrZero(lot.get("onHandQty"))));
+        }
+        for (Map.Entry<String, GenericValue> entry : settings.entrySet()) {
+            double minimum = numberOrZero(entry.getValue().get("minimumStock"));
+            if (minimum <= 0.0) {
+                continue;
+            }
+            double current = numberOrZero(onHand.get(entry.getKey()));
+            if (current >= minimum) {
+                continue;
+            }
+            double reorder = numberOrZero(entry.getValue().get("reorderQty"));
+            double suggested = reorder > 0.0 ? reorder : round2(minimum - current);
+            Map<String, Object> alert = new LinkedHashMap<>();
+            alert.put("typeId", ALERT_STOCK);
+            alert.put("level", current <= 0.0 ? ALERT_ERROR : ALERT_WARN);
+            alert.put("refId", entry.getKey());
+            alert.put("subject", entry.getValue().getString("componentName"));
+            alert.put("dueDate", null);
+            alert.put("hoursLeft", Long.valueOf(0L));
+            alert.put("detail", "现有 " + formatQty(current) + " / 安全库存 " + formatQty(minimum)
+                    + "，建议采购 " + formatQty(suggested)
+                    + (entry.getValue().getString("supplierName") == null ? ""
+                            : "（" + entry.getValue().getString("supplierName") + "）"));
+            alerts.add(alert);
+        }
     }
 
     // ==================== software projects: estimate, ledger, statistics ====================
@@ -5649,6 +6395,27 @@ always
         }
         try {
             return java.sql.Date.valueOf(LocalDate.parse(text));
+        } catch (RuntimeException e) {
+            return null;
+        }
+    }
+
+    /**
+     * Parses an optional day and time, used by the movements of the inventory ledger.
+     *
+     * @param value the raw input, e.g. {@code 2026-10-21} or {@code 2026-10-21T14:30:00}
+     * @return the timestamp, {@code null} when there is none or it cannot be read
+     */
+    private static Timestamp parseTimestamp(Object value) {
+        String text = toText(value);
+        if (text == null) {
+            return null;
+        }
+        try {
+            if (text.length() <= 10) {
+                return Timestamp.valueOf(LocalDate.parse(text).atStartOfDay());
+            }
+            return Timestamp.valueOf(java.time.LocalDateTime.parse(text.replace(' ', 'T')));
         } catch (RuntimeException e) {
             return null;
         }
@@ -7297,6 +8064,10 @@ always
         lot.set("receivedDate", java.sql.Date.valueOf(LocalDate.now()));
         lot.set("note", "Enclosure stock in of project " + project.getString("projectCode"));
         delegator.create(lot);
+        recordMovement(delegator, lot, MOVE_RECEIPT, qty.doubleValue(), null, null, null,
+                step.getString("referenceNo"), null,
+                Timestamp.valueOf(LocalDate.now().atStartOfDay()), "外壳入库");
+        recalcLotStock(delegator, lot);
         step.set("lotId", lotId);
         return null;
     }

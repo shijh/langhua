@@ -370,6 +370,8 @@
         <attribute name="note" type="String" mode="IN" optional="true"/>
         <attribute name="lotId" type="String" mode="OUT" optional="true"/>
         <attribute name="inspectStatusId" type="String" mode="OUT" optional="true"/>
+        <attribute name="onHandQty" type="Double" mode="OUT" optional="true"/>
+        <attribute name="availableQty" type="Double" mode="OUT" optional="true"/>
     </service>
 
     <service name="mfgLotInspect" engine="java"
@@ -417,6 +419,8 @@
         <attribute name="snTo" type="String" mode="IN" optional="true"/>
         <attribute name="note" type="String" mode="IN" optional="true"/>
         <attribute name="issueId" type="String" mode="OUT" optional="true"/>
+        <attribute name="onHandQty" type="Double" mode="OUT" optional="true"/>
+        <attribute name="availableQty" type="Double" mode="OUT" optional="true"/>
     </service>
 
     <service name="mfgWorkOrderMaterials" engine="java"
@@ -621,6 +625,112 @@
         <attribute name="outsourceAmount" type="Double" mode="IN" optional="true"/>
         <attribute name="workOrderId" type="String" mode="OUT" optional="true"/>
         <attribute name="outsourceAmount" type="Double" mode="OUT" optional="true"/>
+    </service>
+
+    <!-- ==================== inventory: movements, stock, counts ==================== -->
+
+    <service name="mfgInventoryMove" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgServices" invoke="inventoryMove"
+            auth="false" use-transaction="false">
+        <description>Record one movement of one lot (receipt, issue, return, scrap or adjustment); the lot totals are summed from the movements</description>
+        <attribute name="lotId" type="String" mode="IN" optional="false"/>
+        <attribute name="movementTypeId" type="String" mode="IN" optional="false"/>
+        <attribute name="qty" type="Double" mode="IN" optional="false"/>
+        <attribute name="unitCost" type="Double" mode="IN" optional="true"/>
+        <attribute name="workOrderId" type="String" mode="IN" optional="true"/>
+        <attribute name="referenceNo" type="String" mode="IN" optional="true"/>
+        <attribute name="operatorName" type="String" mode="IN" optional="true"/>
+        <attribute name="effectiveDate" type="String" mode="IN" optional="true"/>
+        <attribute name="note" type="String" mode="IN" optional="true"/>
+        <attribute name="lotId" type="String" mode="OUT" optional="true"/>
+        <attribute name="seqId" type="Long" mode="OUT" optional="true"/>
+        <attribute name="movementTypeId" type="String" mode="OUT" optional="true"/>
+        <attribute name="quantityDiff" type="Double" mode="OUT" optional="true"/>
+        <attribute name="onHandQty" type="Double" mode="OUT" optional="true"/>
+        <attribute name="availableQty" type="Double" mode="OUT" optional="true"/>
+    </service>
+
+    <service name="mfgStockSummary" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgServices" invoke="stockSummary"
+            auth="false" use-transaction="false">
+        <description>Stock on hand per component with its safety stock and what to buy</description>
+        <attribute name="search" type="String" mode="IN" optional="true"/>
+        <attribute name="belowOnly" type="String" mode="IN" optional="true"/>
+        <attribute name="page" type="String" mode="IN" optional="true"/>
+        <attribute name="rows" type="java.util.List" mode="OUT" optional="true"/>
+        <attribute name="componentCount" type="Integer" mode="OUT" optional="true"/>
+        <attribute name="belowCount" type="Integer" mode="OUT" optional="true"/>
+        <attribute name="onHandTotal" type="Double" mode="OUT" optional="true"/>
+        <attribute name="valueTotal" type="Double" mode="OUT" optional="true"/>
+        <attribute name="search" type="String" mode="OUT" optional="true"/>
+        <attribute name="totalCount" type="Integer" mode="OUT" optional="true"/>
+        <attribute name="page" type="Long" mode="OUT" optional="true"/>
+        <attribute name="pageCount" type="Long" mode="OUT" optional="true"/>
+        <attribute name="pageSize" type="Long" mode="OUT" optional="true"/>
+        <attribute name="message" type="String" mode="OUT" optional="true"/>
+    </service>
+
+    <service name="mfgInventoryLedger" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgServices" invoke="inventoryLedger"
+            auth="false" use-transaction="false">
+        <description>The inventory movements, newest first, with the balance of their lot</description>
+        <attribute name="lotId" type="String" mode="IN" optional="true"/>
+        <attribute name="componentCode" type="String" mode="IN" optional="true"/>
+        <attribute name="movementTypeId" type="String" mode="IN" optional="true"/>
+        <attribute name="fromDate" type="String" mode="IN" optional="true"/>
+        <attribute name="toDate" type="String" mode="IN" optional="true"/>
+        <attribute name="page" type="String" mode="IN" optional="true"/>
+        <attribute name="rows" type="java.util.List" mode="OUT" optional="true"/>
+        <attribute name="lotId" type="String" mode="OUT" optional="true"/>
+        <attribute name="componentCode" type="String" mode="OUT" optional="true"/>
+        <attribute name="movementTypeId" type="String" mode="OUT" optional="true"/>
+        <attribute name="fromDate" type="java.sql.Date" mode="OUT" optional="true"/>
+        <attribute name="toDate" type="java.sql.Date" mode="OUT" optional="true"/>
+        <attribute name="totalCount" type="Integer" mode="OUT" optional="true"/>
+        <attribute name="page" type="Long" mode="OUT" optional="true"/>
+        <attribute name="pageCount" type="Long" mode="OUT" optional="true"/>
+        <attribute name="pageSize" type="Long" mode="OUT" optional="true"/>
+    </service>
+
+    <service name="mfgStockSettingSave" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgServices" invoke="stockSettingSave"
+            auth="false" use-transaction="false">
+        <description>Write the component master record with its safety stock and reorder quantity</description>
+        <attribute name="componentCode" type="String" mode="IN" optional="false"/>
+        <attribute name="componentName" type="String" mode="IN" optional="true"/>
+        <attribute name="unitOfMeasure" type="String" mode="IN" optional="true"/>
+        <attribute name="minimumStock" type="Double" mode="IN" optional="true"/>
+        <attribute name="reorderQty" type="Double" mode="IN" optional="true"/>
+        <attribute name="supplierName" type="String" mode="IN" optional="true"/>
+        <attribute name="note" type="String" mode="IN" optional="true"/>
+        <attribute name="componentCode" type="String" mode="OUT" optional="true"/>
+        <attribute name="minimumStock" type="Double" mode="OUT" optional="true"/>
+        <attribute name="reorderQty" type="Double" mode="OUT" optional="true"/>
+    </service>
+
+    <service name="mfgStockCount" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgServices" invoke="stockCount"
+            auth="false" use-transaction="false">
+        <description>Book a physical count of one lot: the difference becomes a movement</description>
+        <attribute name="lotId" type="String" mode="IN" optional="false"/>
+        <attribute name="countedQty" type="Double" mode="IN" optional="false"/>
+        <attribute name="counterName" type="String" mode="IN" optional="true"/>
+        <attribute name="countDate" type="String" mode="IN" optional="true"/>
+        <attribute name="note" type="String" mode="IN" optional="true"/>
+        <attribute name="physicalInventoryId" type="String" mode="OUT" optional="true"/>
+        <attribute name="lotId" type="String" mode="OUT" optional="true"/>
+        <attribute name="bookQty" type="Double" mode="OUT" optional="true"/>
+        <attribute name="countedQty" type="Double" mode="OUT" optional="true"/>
+        <attribute name="varianceQty" type="Double" mode="OUT" optional="true"/>
+        <attribute name="onHandQty" type="Double" mode="OUT" optional="true"/>
+    </service>
+
+    <service name="mfgStockCountList" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgServices" invoke="stockCountList"
+            auth="false" use-transaction="false">
+        <description>The counts that were booked, newest first</description>
+        <attribute name="lotId" type="String" mode="IN" optional="true"/>
+        <attribute name="counts" type="java.util.List" mode="OUT" optional="true"/>
     </service>
 
     <!-- ==================== warranty claims ==================== -->

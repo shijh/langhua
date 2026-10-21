@@ -188,6 +188,7 @@ public final class MfgServiceIT {
             it.storesProductPhotos();
             it.costsTheModel();
             it.addsCostDetailToTheWorkOrder();
+            it.tracksInventory();
             it.raisesDevelopmentIssues();
             it.readsTrendReport();
             it.listsTheDashboardAlerts();
@@ -1517,6 +1518,131 @@ public final class MfgServiceIT {
         Response project = invoke("mfgDevProjectDetail", projectForm);
         check("change order: linked project shows the change order", ecoId != null
                 && project.body.contains(ecoId), "change order missing on the project");
+    }
+
+    /**
+     * Receives a lot, issues, scraps, returns it, sets a safety stock, then counts it: the on hand
+     * quantity must always be the sum of the movements.
+     *
+     * @throws IOException when a service call fails
+     */
+    private void tracksInventory() throws IOException {
+        String component = "INV-IT-01";
+
+        Map<String, String> lotForm = new LinkedHashMap<>();
+        lotForm.put("componentCode", component);
+        lotForm.put("componentName", "Inventory test part");
+        lotForm.put("supplierName", "IT parts");
+        lotForm.put("supplierLot", "DC-INV");
+        lotForm.put("receivedQty", "10");
+        lotForm.put("receivedDate", "2026-10-21");
+        lotForm.put("unitPrice", "2");
+        Response lot = invoke("mfgLotSave", lotForm);
+        String invLotId = firstMatch(LOT_ID, lot.body);
+        check("inventory: the receipt puts ten on hand", invLotId != null
+                && near(fieldValue(lot.body, "onHandQty"), 10.0), "onHandQty is not 10");
+        check("inventory: a pending lot is fully available",
+                near(fieldValue(lot.body, "availableQty"), 10.0), "availableQty is not 10");
+
+        check("inventory: there is a work order to issue to", workOrderId != null, "no work order");
+        Map<String, String> issueForm = new LinkedHashMap<>();
+        issueForm.put("workOrderId", workOrderId == null ? "" : workOrderId);
+        issueForm.put("componentCode", component);
+        issueForm.put("lotId", invLotId == null ? "" : invLotId);
+        issueForm.put("qty", "4");
+        Response issue = invoke("mfgIssueSave", issueForm);
+        check("inventory: issuing four leaves six on hand",
+                near(fieldValue(issue.body, "onHandQty"), 6.0), "onHandQty is not 6");
+
+        Map<String, String> tooMuchForm = new LinkedHashMap<>();
+        tooMuchForm.putAll(issueForm);
+        tooMuchForm.put("qty", "7");
+        Response tooMuch = invoke("mfgIssueSave", tooMuchForm);
+        check("inventory: issuing more than on hand is refused",
+                tooMuch.body.contains("left in lot"), "an overdrawn issue was accepted");
+
+        Map<String, String> scrapForm = new LinkedHashMap<>();
+        scrapForm.put("lotId", invLotId == null ? "" : invLotId);
+        scrapForm.put("movementTypeId", "MFG_MOVE_SCRAP");
+        scrapForm.put("qty", "1");
+        scrapForm.put("operatorName", "IT");
+        scrapForm.put("note", "dropped on the floor");
+        Response scrap = invoke("mfgInventoryMove", scrapForm);
+        check("inventory: scrapping one leaves five",
+                near(fieldValue(scrap.body, "onHandQty"), 5.0), "onHandQty is not 5");
+
+        Map<String, String> returnForm = new LinkedHashMap<>();
+        returnForm.put("lotId", invLotId == null ? "" : invLotId);
+        returnForm.put("movementTypeId", "MFG_MOVE_RETURN");
+        returnForm.put("qty", "1");
+        returnForm.put("workOrderId", workOrderId == null ? "" : workOrderId);
+        returnForm.put("operatorName", "IT");
+        Response returned = invoke("mfgInventoryMove", returnForm);
+        check("inventory: a return puts one back",
+                near(fieldValue(returned.body, "onHandQty"), 6.0), "onHandQty is not 6");
+
+        Map<String, String> badMoveForm = new LinkedHashMap<>();
+        badMoveForm.put("lotId", invLotId == null ? "" : invLotId);
+        badMoveForm.put("movementTypeId", "MFG_MOVE_BOGUS");
+        badMoveForm.put("qty", "1");
+        Response badMove = invoke("mfgInventoryMove", badMoveForm);
+        check("inventory: an unknown movement type is refused",
+                badMove.body.contains("Unknown movement type"), "the bogus type was accepted");
+
+        Map<String, String> settingForm = new LinkedHashMap<>();
+        settingForm.put("componentCode", component);
+        settingForm.put("componentName", "Inventory test part");
+        settingForm.put("minimumStock", "20");
+        settingForm.put("reorderQty", "50");
+        settingForm.put("supplierName", "IT parts");
+        Response setting = invoke("mfgStockSettingSave", settingForm);
+        check("inventory: the safety stock is stored",
+                near(fieldValue(setting.body, "minimumStock"), 20.0), "minimumStock is not 20");
+
+        Map<String, String> summaryForm = new LinkedHashMap<>();
+        summaryForm.put("search", component);
+        Response summary = invoke("mfgStockSummary", summaryForm);
+        check("inventory: the summary lists the component",
+                summary.body.contains("componentCode:" + component), "the component is missing");
+        check("inventory: the summary shows six on hand",
+                summary.body.contains("onHandQty:6"), "onHandQty is not 6 in the summary");
+        check("inventory: the component is below its safety stock",
+                summary.body.contains("belowMinimum:true"), "belowMinimum is not true");
+        check("inventory: the reorder quantity is suggested",
+                summary.body.contains("suggestedQty:50"), "suggestedQty is not 50");
+
+        Map<String, String> ledgerForm = new LinkedHashMap<>();
+        ledgerForm.put("lotId", invLotId == null ? "" : invLotId);
+        Response ledger = invoke("mfgInventoryLedger", ledgerForm);
+        check("inventory: the ledger keeps every movement",
+                ledger.body.contains("MFG_MOVE_RECEIPT") && ledger.body.contains("MFG_MOVE_ISSUE")
+                        && ledger.body.contains("MFG_MOVE_SCRAP")
+                        && ledger.body.contains("MFG_MOVE_RETURN"), "a movement type is missing");
+        check("inventory: the ledger shows the balance of the lot",
+                ledger.body.contains("balanceQty"), "no balance column");
+
+        Map<String, String> countForm = new LinkedHashMap<>();
+        countForm.put("lotId", invLotId == null ? "" : invLotId);
+        countForm.put("countedQty", "4");
+        countForm.put("counterName", "IT counter");
+        Response count = invoke("mfgStockCount", countForm);
+        check("inventory: the count books the variance",
+                near(fieldValue(count.body, "varianceQty"), -2.0), "varianceQty is not -2");
+        check("inventory: the count corrects the stock",
+                near(fieldValue(count.body, "onHandQty"), 4.0), "onHandQty is not 4");
+        check("inventory: the count gets a number",
+                count.body.contains("CNT-"), "no count number in response");
+
+        Map<String, String> countListForm = new LinkedHashMap<>();
+        countListForm.put("lotId", invLotId == null ? "" : invLotId);
+        Response countList = invoke("mfgStockCountList", countListForm);
+        check("inventory: the count is listed with its numbers",
+                countList.body.contains("countedQty") && countList.body.contains("varianceQty"),
+                "the count is missing from the list");
+
+        Response alerts = invoke("mfgAlerts", new LinkedHashMap<String, String>());
+        check("inventory: a component below its safety stock is alerted",
+                alerts.body.contains("MFG_ALERT_STOCK"), "no stock alert in the result");
     }
 
     /**

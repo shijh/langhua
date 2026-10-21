@@ -29,6 +29,7 @@
     <@navItem 'software' '/mfg/control/software' '软件项目'/>
     <@navItem 'eco' '/mfg/control/eco' '设计变更'/>
     <@navItem 'materials' '/mfg/control/materials' '物料批次'/>
+    <@navItem 'stock' '/mfg/control/stock' '库存'/>
     <@navItem 'shortage' '/mfg/control/shortage' '齐套预警'/>
     <@navItem 'delivery' '/mfg/control/delivery' '出货单'/>
     <@navItem 'vendors' '/mfg/control/vendors' '外协厂家'/>

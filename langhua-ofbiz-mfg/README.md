@@ -109,7 +109,10 @@ flowchart LR
 | **看板** | 在制工单数/数量、今日工时、今日良率；**告警区（欠料 / 售后窗口到期）**、**售后 KPI（出货台数、售后单、发生率、未结、成本）** + 每日出货/售后柱图 + 责任方成本横条，60 秒自动刷新；**看板 / 告警 / 欠料都能一键导出 CSV** |
 | **物料批次** | 采购到货台账：内部批次 `LOT-yyMMdd-NN`、供应商批号/DateCode、到货数量；支持 CSV 批量导入 |
 | **来料检验（IQC）** | 批次可标待检 / 合格 / 让步接收 / 不合格并记录不良数与检验人；**不合格批次不能发料**，待检与让步接收仍可用 |
-| **发料** | 按工单发料（料号 + 批次 + 数量 + 位号），形成“SN → 工单 → 批次”链路 |
+| **发料** | 按工单发料（料号 + 批次 + 数量 + 位号），形成“SN → 工单 → 批次”链路；**发料不得超过该批次可用库存** |
+| **库存结存** | 按料号汇总在库 / 可发 / 待检 / 不合格 / 批次 / 金额，带安全库存与建议采购；低于安全库存标红并进看板告警 |
+| **出入库流水** | 一条一篇、只增不改：到货入库 / 发料 / 退料 / 报废 / 盘盈亏 / 调整，带**批次结存余额**与工单/单据、操作人；可按料号/批次/类型/日期过滤，可手工补登 |
+| **盘点** | 逐批填实盘数，系统算盘盈亏并写成一条流水（不直接改数），盘点单号 `CNT-yyMMdd-NN`，历史可查 |
 | **成本核算** | 型号层：BOM 单价 × 用量 + **工时（按工序模板分摊，没有模板时取型号标准工时）** × 工时费率 = 单台成本，可乘批量算总额，并与开发项目的目标成本 / 目标售价对比（超了、亏了分色标出）；工单层：标准成本 vs 实际成本（已发料按批次采购单价 + 报工工时 × 费率 + **外协加工费**），逐工序列出标准/实际/差异，差异同时给含外协与不含外协两个口径 |
 | **软件项目** | 固件 / 外壳设计 / 上位机 / 平台的开发台账：按功能点口径估规模与工作量（内部/外部接口文件数、功能点耗时率、两个调整因子），算工期、人天、含税报价；同时记实际工时与成本，算出偏差与实测耗时率，为下一个项目做依据 |
 | **齐套** | BOM 需求（用量 × 计划数）vs 已发料，自动算出欠料行 |
@@ -185,8 +188,11 @@ https://localhost:8443/mfg/control/main
 | `MfgWorkOrder` | 工单：`workOrderId`、`productCode`、`plannedQty`、`statusId`、`dueDate`、`customerName`、`smtVendor`、`bomVersionId`（建单时冻结的 BOM 版本）、`outsourceAmount`（外协加工费，整单，计入实际成本） |
 | `MfgSn` | 单板：`sn`（主键）、`workOrderId`、`productCode`、状态 |
 | `MfgReport` | 报工：`reportId`、`workOrderId`、`opSeq`、`sn`（可选）、`operatorName`、`workHours`、`qtyOk`、`qtyNg` || `MfgDefect` | 不良：`defectId`、`workOrderId`、`sn`、`opSeq`、`defectCode`、`qty`、`responsibility`、`repairHours` |
-| `MfgMaterialLot` | 物料批次：`lotId`（主键，LOT-yyMMdd-NN）、`componentCode`、`supplierName`、`supplierLot`（DateCode）、`receivedQty`、`receivedDate`、`unitPrice`（采购单价，算实际成本用）；来料检验：`inspectStatusId`（MFG_IQC_PENDING/PASS/CONCESSION/FAIL）、`rejectedQty`、`inspectDate`、`inspector`、`inspectNote` |
-| `MfgMaterialIssue` | 发料：`issueId`、`workOrderId`、`componentCode`、`lotId`、`qty`、`issuedDate`、可选 `designators` / `snFrom` / `snTo` |
+| `MfgMaterialLot` | 物料批次：`lotId`（主键，LOT-yyMMdd-NN）、`componentCode`、`supplierName`、`supplierLot`（DateCode）、`receivedQty`（到货量）、**`onHandQty` / `availableQty`（由流水求和得出）**、`receivedDate`、`unitPrice`（采购单价，算实际成本用）；来料检验：`inspectStatusId`（MFG_IQC_PENDING/PASS/CONCESSION/FAIL）、`rejectedQty`、`inspectDate`、`inspector`、`inspectNote` |
+| `MfgMaterialIssue` | 发料：`issueId`、`workOrderId`、`componentCode`、`lotId`、`qty`、`directionId`（发料 / 退料）、`issuedDate`、可选 `designators` / `snFrom` / `snTo` |
+| `MfgInventoryDetail` | **库存流水（只增不改）**：`lotId` + `seqId` 主键、`movementTypeId`（RECEIPT/ISSUE/RETURN/SCRAP/COUNT/ADJUST）、`quantityDiff`（带符号）、`unitCost`、`workOrderId`、`physicalInventoryId`、`referenceNo`、`operatorName`、`effectiveDate` |
+| `MfgStockSetting` | 料号主档与安全库存：`componentCode` 主键、`componentName`、`unitOfMeasure`、`minimumStock`、`reorderQty`、`supplierName` |
+| `MfgStockCount` | 盘点记录：`physicalInventoryId`（CNT-yyMMdd-NN）、`countDate`、`counterName`、`lotId`、`bookQty`、`countedQty`、`varianceQty` |
 | `MfgShipment` | 外协收发：`shipmentId`、`workOrderId`、`directionId`（`MFG_SHIP_OUT` / `MFG_SHIP_IN`）、`qty`、`defectQty`、`carrier`、`trackingNo` |
 | `MfgReplacement` | 返修换件：`replacementId`、`sn`、`componentCode`、`oldLotId` → `newLotId`、`qty`、`reason`、`hours` |
 | `MfgDelivery` | 出货单：`deliveryId`（DO-yyMMdd-NN）、`customerName`、`customerPo`、`deliveryDate`、`carrier`、`trackingNo`、`workOrderId` |
@@ -219,7 +225,7 @@ https://localhost:8443/mfg/control/main
 | `mfgDashboard` | 看板数据 |
 | `mfgLotSave` / `mfgLotList` | 物料批次台账（到货、已发、剩余）；新建批次默认 MFG_IQC_PENDING |
 | `mfgLotInspect` | 记录来料检验结果（待检/合格/让步接收/不合格 + 不良数 + 检验人） |
-| `mfgIssueSave` | 向工单发料（校验批次属于该料号） |
+| `mfgIssueSave` | 向工单发料（校验批次属于该料号、来料检验未失败、**不超过该批次可用量**），同时记一笔库存流水 |
 | `mfgWorkOrderMaterials` | 齐套（BOM 需求 vs 已发）、发料清单、外协收发汇总 |
 | `mfgShipmentSave` | 记录发往 SMT（`MFG_SHIP_OUT`）与回厂收货（`MFG_SHIP_IN`） |
 | `mfgTraceByLot` | 反向追溯：批次 → 工单 → SN 数（召回范围），并给出 FIFO 推定 SN 区间 |
@@ -242,6 +248,11 @@ https://localhost:8443/mfg/control/main
 | `mfgDashboardTrends` | 看板数据：近 N 天每日出货/售后序列（已按最大值缩放到百分比）+ 售后 KPI + 责任方成本 |
 | `mfgAlerts` | 看板告警：欠料工单（欠料行数、欠料总量、前三个料号）与售后窗口告警（7 天 / 15 天，已过期或 24 小时内到期），按“紧急 → 剩余时间”排序 |
 | `mfgTrendReport` | 良率与工时趋势：按日 / 周 / 月汇总报工（良品、不良、良率、工时、单台工时、工单数），给出区间总计与最差期间；未知汇总口径自动换成按月 |
+| `mfgInventoryMove` | 登一笔库存流水：到货 / 发料 / 退料 / 报废 / 调整（盘点走单独的盘点服务）；负数超可用量被拒；带工单的发料与退料同时写发料记录，齐套与成本跟着变 |
+| `mfgStockSummary` | 按料号汇总在库 / 可发 / 待检 / 不合格 / 批次 / 金额，带上安全库存与建议采购，标出低于阈值的料号；首次访问会给旧批次补建流水（幂等） |
+| `mfgInventoryLedger` | 流水查询：按料号 / 批次 / 类型 / 日期过滤，带每笔之后的**批次余额** |
+| `mfgStockSettingSave` | 维护料号主档与安全库存（阈值、补货量、供应商） |
+| `mfgStockCount` / `mfgStockCountList` | 盘点：记录账面数与实盘数，**差异写成一条盘盈亏流水**并重算结存；历史盘点单可查 |
 | `mfgWorkOrderOutsourceSave` | 登记工单的外协加工费（整单金额，负数被拒绝） |
 | `mfgDevProjectSave` / `mfgDevProjectList` / `mfgDevProjectDetail` | 开发项目立项与查询（列表带阶段、关卡进度、未结变更数） |
 | `mfgDevStageSave` | 登记关卡评审；通过/有条件通过时项目自动进入下一阶段，进到量产时填实际上市日并转为已量产 |
@@ -294,6 +305,12 @@ csv         = R0402-10K,10K 0402 resistor,4,R1-R4,N,0.05
 | `/mfg/control/alertsCsv` | 告警导出：`级别,类型,编号,对象,截止,剩余小时,说明` |
 | `/mfg/control/shortageCsv` | 欠料导出：一行一个缺料元件（`工单,型号,交期,客户,料号,名称,需求,已发,欠料`），直接给采购用 |
 | `/mfg/control/materials` | 物料批次台账、收货登记、CSV 批量导入、按批次反向追溯 |
+| `/mfg/control/stock` | **库存结存**：按料号看在库/可发/待检/不合格/批次/金额，安全库存与建议采购；可只看低于阈值，带安全库存维护表单 |
+| `/mfg/control/stockMoves` | **出入库流水**：一笔一行，带批次余额；按料号/批次/类型/日期过滤，可手工补登报废/退料/调整 |
+| `/mfg/control/stockCount` | **盘点**：逐批填实盘数 → 盘盈亏入流水；下方列最近盘点记录 |
+| `/mfg/control/inventoryMove` | POST 登一笔库存流水（`lotId` + `movementTypeId` + `qty` ± `workOrderId` / `referenceNo` / `operatorName` / `note`） |
+| `/mfg/control/stockSettingSave` | POST 保存料号安全库存（`componentCode` + `minimumStock` + `reorderQty`） |
+| `/mfg/control/stockCountSave` | POST 登记盘点（`lotId` + `countedQty` + `counterName`） |
 | `/mfg/control/shortage` | 齐套预警：按交期列出欠料工单与明细 |
 | `/mfg/control/delivery` | 出货单：新建、列表、明细（**签收单 / 快递面单附件**）；出货后 SN 变为 `MFG_SHIPPED` |
 | `/mfg/control/vendors` | 外协厂家：档案维护 + 可复制的邮寄标签（收件人/手机/地址/客户编号） |
@@ -471,9 +488,11 @@ productSave → bomImport → routingSave → productDetail
            → 工单实际合计 = 材料 + 工时 + 外协，逐工序给出标准/实际/差异
            → 问题清单：编号自动生成 → 未结 1 / 严重 1 → 关闭后未结 0 → 重开 → 拿别的线路的步骤登记被拒
            → 趋势：按日 / 周 / 月汇总报工，未知口径回落按月，工时为 0 时不报错
+           → 库存：到货 10 → 发 4 剩 6 → 再发 7 被拒 → 报废 1 剩 5 → 退 1 剩 6
+           → 流水含到货/发料/报废/退料与余额；盘点实盘 4 → 盘亏 2；安全库存 20 → 低于阈值 + 建议采购 50 + 看板告警
 ```
 
-共 282 项断言，全部通过时退出码为 0。文件的字节输出（含缩略图、CSV 下载）用页面脚本验证（见下方“页面巡检”），
+共 302 项断言，全部通过时退出码为 0。文件的字节输出（含缩略图、CSV 下载）用页面脚本验证（见下方“页面巡检”），
 因为它需要一个真正的浏览器会话。测试是**可重复执行**的：每次创建/更新产品型号 `ITMFG`、替换其 BOM、
 新建一张工单、物料批次与出货单，以及相应的报工、不良、发料、收发、换件与测试数据；
 BOM 版本与变更单会每次新增一版，所以编号会一直往上走，不影响断言。
@@ -499,7 +518,7 @@ java -cp "build/test-classes:ofbiz.jar:junit-4.13.2.jar:hamcrest-core-1.3.jar" \
 覆盖 BOM / 批次 / 测试结果 CSV 解析（引号、缺列、CRLF、注释行、大小写归一）、SN 列表拆分、FIFO 推定切片、
 邮寄标签格式、SN / 工单编号格式，保修到期日、7 天 / 15 天窗口、剩余小时与运费承担，
 以及买家匹配键、手机号归一化与打码、风险等级建议、名单到期判定，还有百分比、日期差与失效分档、售后成本计算、红线判定、看板坐标轴与柱高缩放、关键词过滤与分页切片，
-以及 BOM 版本号生成与下一版号推导、开发阶段阶梯与关卡推进规则、变更单状态与类型校验、三条线路的步骤目录与首个未完成步骤推导、附件类型白名单（含 PDF）与 owner 类型白名单、文件名清洗、成本合计与目标差 / 毛利换算（含两位小数取整、目标售价为空时的处理）、CSV 单元格转义与数量格式化、软件报价四步公式与耗时率中位数、趋势期间的日/周/月标签与良率/单台工时（共 67 个用例）。
+以及 BOM 版本号生成与下一版号推导、开发阶段阶梯与关卡推进规则、变更单状态与类型校验、三条线路的步骤目录与首个未完成步骤推导、附件类型白名单（含 PDF）与 owner 类型白名单、文件名清洗、成本合计与目标差 / 毛利换算（含两位小数取整、目标售价为空时的处理）、CSV 单元格转义与数量格式化、软件报价四步公式与耗时率中位数、趋势期间的日/周/月标签与良率/单台工时、库存流水符号与不合格批次可用量为 0、问题排序与校验（共 69 个用例）。
 
 ## 页面巡检（PowerShell）
 
@@ -518,6 +537,7 @@ java -cp "build/test-classes:ofbiz.jar:junit-4.13.2.jar:hamcrest-core-1.3.jar" \
 | `verify-m33.ps1` | 看板告警与 CSV 导出：告警区结构、三个导出链接、`text/csv` 与下载头、表头列数、行内容（工单号、缺料元件、看板三段） | 30 |
 | `verify-m34.ps1` | 软件项目：导航项、估算试算（10 功能点 → 400 人时 / 50 人天 / 1.78 人月 / 44000 / 46640 / 48972）、保存与编号、台账的计划 vs 实际与实测耗时率、超期项目进看板告警 | 30 |
 | `verify-m35.ps1` | 报表与成本细化：报表页（导航、六个卡片、趋势表、日/周/月切换、未知口径回落）、两份 CSV（BOM + 表头列数 + 合计行 + 周标签）、产品页按工序分摊工时、工单页工序成本表与外协费表单与登记、开发页问题清单（登记 → 列表 → 关闭 → 重开） | 54 |
+| `verify-m36.ps1` | 库存：结存页（导航、四张卡片、12 列表头、安全库存表单）、流水页（表头、余额、报废入账、超量被拒）、盘点（表单、盘点单号、差异、备注）、安全库存低于阈值标红与建议采购、告警 CSV 里出现该料号 | 34 |
 
 > 这些脚本在断言页面内容，不只是看 HTTP 200：OFBiz 的模板错误也是 200 + 一页堆栈，
 > 所以每个页面都要扫 `FTL stack trace` / `FreeMarker template error`。
@@ -886,6 +906,22 @@ $R^2$ 低于期望值（默认 0.95）时逐点剔除误差最大的批次重拟
 工时 CSV 列 `期间,汇总方式,工时,良品,单台工时,工单数`，末尾都带合计行；单台工时可以直接拿去与
 学习曲线组件的实测点对照（那边的 X 是批次序号）。
 
+### 11. 库存：流水与结存（`inventoryMove` / `stockSummary` / `stockCount`）
+
+借鉴 OFBiz 自己库存的做法：**只增不改的流水 + 总量由流水求和**，盘点差异也写流水，从不直接改数。
+
+| 项 | 公式 |
+| --- | --- |
+| 流水符号 | 到货、退料、补入库 $= +qty$；发料、报废 $= -qty$；盘盈亏与调整取输入符号 |
+| 批次在库 | $\text{onHandQty} = \sum \text{quantityDiff}$（该批次所有流水） |
+| 批次可发 | 检验不合格的批次为 $0$，其余等于在库（待检、让步接收仍可发，与小厂实情一致） |
+| 料号在库 | 该料号所有批次 onHand 之和；可发、待检、不合格、金额（$\sum \text{onHand} \times \text{采购单价}$）同理 |
+| 盘点差异 | $\text{variance} = \text{实盘} - \text{账面}$，写成一条 `MFG_MOVE_COUNT` 流水 |
+| 安全库存告警 | $\text{在库} < \text{minimumStock}$（且阈值 > 0）→ 看板告警（在库为 0 时紧急，否则预警） |
+| 建议采购 | 低于阈值时取 `reorderQty`，没填则取 $\text{minimumStock} - \text{在库}$ |
+| 发料校验 | $qty \le \text{availableQty} + 0.0001$，否则报“批次只剩 X” |
+| 旧批次补账 | 批次没有流水时，按 `receivedQty` 补一条到货、按已有发料记录逐条补 `MFG_MOVE_ISSUE`（幂等） |
+
 ## 前端选型：为什么看板不上框架
 
 看板一律用**服务端渲染 + 原生 CSS/JS**，不引入 React/Vue，也不引图表库：
@@ -944,14 +980,10 @@ PDA/手机扫码作业、车间大屏、对外客户门户。
 
 ## 后续想法
 
-- **库存还没补齐，这是当前最大的一块空白**：现在只有“批次台账（`MfgMaterialLot`）+ 发料（`MfgMaterialIssue`）”，
-  也就是**入库 = 建批次、出库 = 给工单发料**，齐套算的是“需求 − 已发”；缺的是：
-  - **结存视图**：按料号汇总「到货 − 已发」，一处看清现有多少、在哪几个批次里；
-  - **退料 / 报废 / 盘盈亏**：现在只有正向发料，退料只能手工反填；
-  - **安全库存与补货提醒**：低于阈值时进看板告警、进导出；
-  - **出入库流水页**：一张单据一张单据地看，谁在什么时候动了多少。
-  做法不需要新账本：给 `MfgMaterialIssue` 加一个 `directionId`（发料/退料/报废/盘盈亏）就能把结存算全。
-- 外协费按单/按批分摊（现在是整单一个数），SMT 按板计价时更准。
+- 库存已经补齐（结存 / 流水 / 退料 / 报废 / 盘点 / 安全库存告警），**下一步可以把库存接到工单上自动预留**：
+  开工单时按 BOM 自动预留（或提示“差多少”），发货时自动扣；现在还是手填实盘数与手工退料。
+- 库位（仓 / 区 / 架）与移库：现在批次就是颗粒度，多地存放时只能靠备注；要细分就再加 `locationSeqId` 与移库单。
+- 外协费的按单/按批分摊（现在是整单一个数），SMT 按板计价时更准。
 - 学习曲线回接：把报表里的单台工时直接喂进曲线（现在要在学习曲线页手填 `数量:工时`）。
 - 淘宝订单号自动对单：需要走开放平台或导出表导入（千牛对接暂时不做）。
 - 告警往外推（钉钉/邮件）：目前只在看板与 CSV 里，一个人的团队够用，人多了再说。

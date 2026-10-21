@@ -74,8 +74,8 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
 
 | 脚本 | 覆盖 | 断言数 |
 | --- | --- | --- |
-| `MfgServicesTest` | 解析/规则/格式化（CSV、SN、FIFO、窗口、编号、附件类型、来料检验规则、成本取整与毛利、CSV 单元格转义、软件报价公式与耗时率中位数、趋势期间标签与良率/单台工时、问题清单排序与校验…） | 67 |
-| `MfgServiceIT` | 全链路服务调用（含 BOM 版本、三条开发线、ECO、附件、来料检验、成本、告警、软件报价与台账、成本细化与外协费、步骤问题清单、良率/工时趋势） | 282 |
+| `MfgServicesTest` | 解析/规则/格式化（CSV、SN、FIFO、窗口、编号、附件类型、来料检验规则、成本取整与毛利、CSV 单元格转义、软件报价公式与耗时率中位数、趋势期间标签与良率/单台工时、库存流水符号与不合格批次可用量、问题清单排序与校验…） | 69 |
+| `MfgServiceIT` | 全链路服务调用（含 BOM 版本、三条开发线、ECO、附件、来料检验、成本、告警、软件报价与台账、成本细化与外协费、步骤问题清单、良率/工时趋势、库存流水与盘点） | 302 |
 | `verify-m11.ps1` | 列表页搜索/过滤/翻页/编码 | 55 |
 | `verify-m12.ps1` | 装饰器布局（1 个 html、1 条导航、1 个高亮、样式表、无内联 style、无 FTL 报错） | 102 |
 | `verify-m13.ps1` | 产品开发 + BOM 版本 + 三条线路 | 49 |
@@ -86,6 +86,7 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
 | `verify-m33.ps1` | 看板告警与 CSV 导出（告警区、三个导出链接、`text/csv` + 下载头、表头列数、行内容） | 30 |
 | `verify-m34.ps1` | 软件项目：估算试算、保存与编号、台账计划 vs 实际、实测耗时率、超期进告警 | 30 |
 | `verify-m35.ps1` | 报表与成本细化：报表页（卡片/趋势表/日周月切换/未知口径回落）、两份趋势 CSV（BOM + 列数 + 合计行）、产品页按工序分摊、工单页工序成本与外协费、开发页问题清单登记→关闭→重开 | 54 |
+| `verify-m36.ps1` | 库存：结存页与卡片、流水页与余额、报废入账与超量被拒、盘点单号与差异、安全库存低于阈值标红与建议采购、告警 CSV | 34 |
 
 ## 设计决策
 
@@ -103,6 +104,14 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   纯函数 `yieldRate` / `hoursPerUnit`（分母 0 记 0，页面显示「—」）；页面 `/mfg/control/reports`
   带 `id="trendTable"`，两份 CSV 走 `MfgExportEvents.yieldCsv/hoursCsv`（同一服务、同一份数字）；
   单台工时可以拿去与学习曲线的实测点对照
+- **库存：流水 + 重算（照 OFBiz 的做法）**：`MfgInventoryDetail`（`lotId`+`seqId` 主键、`quantityDiff` 带符号、
+  `movementTypeId` = RECEIPT/ISSUE/RETURN/SCRAP/COUNT/ADJUST）**只增不改**；
+  `MfgMaterialLot.onHandQty` / `availableQty` 永远由 `recalcLotStock()` 用流水 SUM 覆盖写回，不做加减；
+  `availableOf()`：只有 `MFG_IQC_FAIL` 的批次可用量为 0（待检、让步接收照常可发）；
+  `ensureLotLedger()` 给旧批次补到货 + 历史发料（幂等），页面/汇总/告警里第一次访问时顺手补；
+  发料（`issueSave`）与通用流水（`inventoryMove`）都先校验「不超过该批次可用量」，超了报 “Only X left in lot”；
+  盘点写 `MfgStockCount` + 一条 COUNT 流水，**不直接改数**；安全库存 `MfgStockSetting.minimumStock` 低于时进 `addStockAlerts`（料号为 refId）
+- **`LOT-yyMMdd-NN` 的序号不一定是两位**：同一天超过 99 个批次后会变成 3 位，巡检脚本里的正则是 `LOT-[0-9]{6}-[0-9]+`（踩过：写成 `{2}` 会截断成别的批次并写到错的批次上）
 - **三条开发线**：项目有 `trackId`（TRACK_PCB / FIRMWARE / ENCLOSURE）+ `partCode`；步骤目录写在代码里
   （`PCB_STEPS` 5、`FIRMWARE_STEPS` 3、`ENCLOSURE_STEPS` 7，最后两步是 外壳入库 → 产品组装），
   状态存 `MfgDevTrackStep`（status/planned/done/owner/vendor/amount/qty/referenceNo/lotId）；

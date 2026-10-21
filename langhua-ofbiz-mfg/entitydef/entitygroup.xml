@@ -29,4 +29,7 @@
     <entity-group group="org.apache.ofbiz" entity="MfgDevStageReview"/>
     <entity-group group="org.apache.ofbiz" entity="MfgDevEco"/>
     <entity-group group="org.apache.ofbiz" entity="MfgSoftwareProject"/>
+    <entity-group group="org.apache.ofbiz" entity="MfgInventoryDetail"/>
+    <entity-group group="org.apache.ofbiz" entity="MfgStockSetting"/>
+    <entity-group group="org.apache.ofbiz" entity="MfgStockCount"/>
 </entitygroup>
