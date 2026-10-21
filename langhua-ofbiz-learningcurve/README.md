@@ -142,7 +142,8 @@ flowchart LR
 
 - 只有 **MES → 本组件** 这一个方向：本组件读 MES 的表，MES 不知道本组件的存在；
 - 两个组件跑在同一个 OFBiz、同一个库上，**不复制数据**；MES 没部署时返回空结果 + 提示，不抛异常；
-- `/mfg` 与 `/learningcurve` 的登录会话互不共享，脚本里要分别登录。
+- `/mfg` 与 `/learningcurve` 的登录会话互不共享，脚本里要分别登录；
+- MES 内部的完整数据流见 `langhua-ofbiz-mfg` README 的「总体流程」。
 
 规则（`learningCurveMesBatches` 服务里实现）：
 

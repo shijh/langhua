@@ -5,6 +5,83 @@
 面向"小批量、多品种、SMT 外协 + 自行组装测试"的模式：**产品/BOM/工艺 → 工单 → 工序报工 → SN 履历 → 不良与返修 → 车间看板**。
 支持 OFBiz **24.09 及以上**版本，编译目标 **Java 17**。
 
+## 总体流程
+
+一张图看完数据怎么流（实线 = 主流程，虚线 = 自动联动/横切）：
+
+```mermaid
+flowchart LR
+    subgraph MASTER["主数据"]
+        direction TB
+        P["MfgProduct<br/>型号 · 标准工时 · 工时费率"]
+        BV["MfgBomVersion<br/>当前版本 V1/V2…"]
+        BI["MfgBomVersionItem<br/>用量 · 单价"]
+        RT["MfgRouting<br/>工序 · 标准工时"]
+        P --> BV --> BI
+        P --> RT
+    end
+
+    subgraph DEV["产品开发（可选）"]
+        direction TB
+        DP["MfgDevProject<br/>五道关卡 · 三条线路"]
+        STEP["MfgDevTrackStep<br/>外壳入库"]
+        ECO["MfgDevEco<br/>草稿→批准→生效"]
+        DP --> STEP
+    end
+
+    subgraph SHOP["生产执行"]
+        direction TB
+        WO["MfgWorkOrder<br/>建单时冻结 BOM 版本"]
+        LOT["MfgMaterialLot<br/>采购价 · IQC 四态"]
+        ISS["MfgMaterialIssue<br/>发料"]
+        SN["MfgSn<br/>单板"]
+        RPT["MfgReport<br/>报工：工时 · 良品/不良"]
+        DEF["MfgDefect<br/>不良与返修工时"]
+        SHP["MfgShipment<br/>外协收发"]
+        WO --> SN --> RPT --> DEF
+        LOT --> ISS --> WO
+        WO --- SHP
+    end
+
+    subgraph SELL["出货与售后"]
+        direction TB
+        DO["MfgDelivery<br/>出货即保修起算"]
+        RMA["MfgWarrantyClaim<br/>7 天 / 15 天窗口"]
+        FIX["返修工单 · 换货出货<br/>MfgReplacement"]
+        DO --> RMA --> FIX
+    end
+
+    subgraph OUT["汇总输出"]
+        direction TB
+        COST["成本<br/>型号：材料 + 工时<br/>工单：标准 vs 实际"]
+        DASH["看板 · 告警 · CSV"]
+        QA["质量报表<br/>四率 · 成本率 · 红线"]
+    end
+
+    BI -- "齐套需求 = 用量 × 计划数" --> WO
+    RT -- "报工按工序" --> RPT
+    SN --> DO
+    DEF -- "返修" --> WO
+    STEP -. "入库完成 → 自动建批次" .-> LOT
+    ECO -. "生效 → 切换 BOM 版本" .-> BV
+    LOT -. "IQC 不合格禁止发料" .-> ISS
+
+    BI -. "单价" .-> COST
+    P -. "工时费率" .-> COST
+    ISS -. "批次采购价" .-> COST
+    WO -. "欠料" .-> DASH
+    RPT -. "工时 / 良品" .-> DASH
+    RMA -. "窗口到期" .-> DASH
+    DEF -. "不良" .-> QA
+    RMA -. "售后成本" .-> QA
+```
+
+横向能力（不在图里，避免线条交叉）：
+
+- **附件** `MfgAttachment` 可挂在 产品 / 开发项目 / 工单 / 出货单 / 售后单 上（图片与 PDF 存数据库）；
+- **CSV**：BOM、物料批次、测试结果可导入；看板 / 告警 / 欠料可导出；
+- **跨组件**：学习曲线组件读本组件的 `MfgWorkOrder` + `MfgReport`，见[与学习曲线组件的关系](#与学习曲线组件的关系)。
+
 ## 功能
 
 | 模块 | 内容 |

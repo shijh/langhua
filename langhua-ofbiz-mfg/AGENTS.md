@@ -16,7 +16,10 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
 | `mfg-it.bat` | 集成测试 `integration-test/MfgServiceIT.java`，走 `/webtools/control/scheduleServiceSync` + `_RUN_SYNC_=Y`（日志 `mfg-it.txt`） |
 | `verify-m*.ps1` | 页面巡检（真实登录会话），日志 `F:\build-ofbiz\mfg-m*.txt` |
 
-只改 `webapp/` 下的静态文件（css/图片/ftl）时，直接 `Copy-Item` 到 `plugins/mfg/...` 就能生效，不必整包重发。
+只改 `webapp/` 下的静态文件（css / 图片 / js）时，直接 `Copy-Item` 到 `plugins/mfg/...` 就能生效；
+**`.ftl` 不行**（模板缓存命中后不看 mtime），要重新 `deploy-mfg.bat`。
+
+全模块的数据流图在 `README.md` 的「总体流程」（mermaid）；增删实体或服务时顺手更新那张图。
 
 ## 约定与坑（都踩过）
 
