@@ -12,7 +12,8 @@
 | 产品型号 | 型号、SN 前缀、单台标准工时、**开发阶段**（概念/设计/打样/试产/量产） |
 | BOM | CSV 批量导入元件行：`料号,名称,用量,位号,是否关键件` |
 | **BOM 版本** | 型号可保留多个 BOM 版本（`型号-V1`、`-V2`…），每个版本独立存行；型号指向“当前使用”的版本，启用新版本时旧版本自动废止；工单创建时冻结所用版本 |
-| **产品开发** | 开发项目立项（目标成本/售价/计划上市日），五道阶段关卡（概念→设计→打样→试产→量产），评审通过自动进入下一阶段 |
+| **产品开发** | 开发项目立项（可选线路：**PCB / 固件 / 外壳**，带料号；目标成本/售价/计划上市日），五道阶段关卡（概念→设计→打样→试产→量产），评审通过自动进入下一阶段 |
+| **三条开发线** | 每个项目按线路带自己的步骤清单，逐步打勾，每步可记负责人、供应商、金额、数量、单号与备注；外壳线「外壳入库」完成时自动生成物料批次 |
 | **设计变更 ECO** | 变更单（BOM/工艺/设计/物料替代）走 草稿 → 批准 → 生效；生效时自动切换到指定 BOM 版本 |
 | 工艺路线 | 工序模板（组装 / 老化 / 测试 / 包装…），含工位与标准工时 |
 | 工单 | 型号 + 计划数量 + 交期 + 客户 + 外协 SMT 厂，编号 `WO-yyMMdd-NNN` |
@@ -103,7 +104,8 @@ https://localhost:8443/mfg/control/main
 | `MfgVendor` | 外协厂家：`vendorId`（V-yyMMdd-NN）、`vendorName`、`vendorType`、`contactName`（收件人）、`contactMobile`、`addressText`、`customerCode`（厂家给我们的编号） |
 | `MfgWarrantyClaim` | 售后单：`claimId`（RMA-yyMMdd-NN）、`sn`、`workOrderId`、`customerName`、`deliveryId` / `deliveryDate`（保修起算）、`warrantyEndDate`、`inWarranty`、`receivedDate`、`issueDesc`、`statusId`、`responsibility`、`repairHours`、`closedDate`；淘宝侧：`claimType`（RTN/EXCH/REPAIR/REFUND_ONLY）、`tradeNo`、`buyerNick`、`signedDate`、`sevenDayDeadline`、`afterSaleDeadline`、`refundAmount`、`deductAmount`、`freightPayer`、`returnTrackingNo`、`receivedBackDate`、`inspectResult`、`vendorClaimStatus`、`repairWorkOrderId`、`exchangeDeliveryId` |
 | `MfgBuyerFlag` | 买家风险名单：`buyerKey`（`TB:手机号` 或 `TB:N:昵称`）、`channelId`、`buyerNick`、`receiverName`、`receiverMobile`、`addressText`、`riskLevel`（WATCH/BLOCK）、`reasonCode`、`evidenceNote`、`statusId`（ACTIVE/RELEASED）、`releasedDate` |
-| `MfgDevProject` | 开发项目：`projectCode`（DEV-yyMMdd-NN）、`projectName`、`productCode`（可空，与型号解耦）、`stageId`（概念/设计/打样/试产/量产）、`statusId`、`ownerName`、`targetCost`、`targetPrice`、`plannedLaunchDate`、`actualLaunchDate` |
+| `MfgDevProject` | 开发项目：`projectCode`（DEV-yyMMdd-NN）、`projectName`、`productCode`（可空，与型号解耦）、`trackId`（PCB/固件/外壳/空）、`partCode`（板号或外壳料号）、`stageId`（概念/设计/打样/试产/量产）、`statusId`、`ownerName`、`targetCost`、`targetPrice`、`plannedLaunchDate`、`actualLaunchDate` |
+| `MfgDevTrackStep` | 线路步骤状态：`projectCode` + `stepId`（联合主键）、`statusId`（TODO/DOING/DONE/SKIPPED）、`plannedDate`、`doneDate`、`ownerName`、`vendorName`、`amount`、`qty`、`referenceNo`（合同号/付款凭证/快递单）、`lotId`（外壳入库生成的批次） |
 | `MfgDevStageReview` | 阶段关卡评审：`projectCode` + `stageId`（联合主键）、`plannedDate`、`doneDate`、`resultId`（PASS/CONDITIONAL/FAIL）、`reviewer`、`note` |
 | `MfgDevEco` | 设计变更单：`ecoId`（ECO-yyMMdd-NN）、`productCode`、`projectCode`、`ecoTypeId`（BOM/工艺/设计/物料）、`reason`、`changeSummary`、`statusId`（DRAFT/APPROVED/APPLIED/CANCELLED）、`fromBomVersionId` → `toBomVersionId`、`requestedBy`、`approvedBy`、`effectiveDate` |
 
@@ -145,6 +147,8 @@ https://localhost:8443/mfg/control/main
 | `mfgDashboardTrends` | 看板数据：近 N 天每日出货/售后序列（已按最大值缩放到百分比）+ 售后 KPI + 责任方成本 |
 | `mfgDevProjectSave` / `mfgDevProjectList` / `mfgDevProjectDetail` | 开发项目立项与查询（列表带阶段、关卡进度、未结变更数） |
 | `mfgDevStageSave` | 登记关卡评审；通过/有条件通过时项目自动进入下一阶段，进到量产时填实际上市日并转为已量产 |
+| `mfgDevStepSave` | 写入一个线路步骤的详情（状态、计划/完成日、负责人、供应商、金额、数量、单号、备注），空值即清空 |
+| `mfgDevStepStatus` | 只改步骤状态（页面上的开始/完成按钮），首次完成时自动填完成日 |
 | `mfgDevEcoSave` / `mfgDevEcoList` / `mfgDevEcoDetail` | 变更单登记与查询（详情带来源/目标 BOM 版本与可选版本列表） |
 | `mfgDevEcoApprove` / `mfgDevEcoApply` / `mfgDevEcoCancel` | 批准、生效（可切换 BOM 版本）、取消；重复生效与已生效后取消都会被拒绝 |
 
@@ -168,7 +172,7 @@ csv         = R0402-10K,10K 0402 resistor,4,R1-R4,N
 | --- | --- |
 | `/mfg/control/main` | 工单列表 + 新建工单（含产品型号下拉） |
 | `/mfg/control/products?productCode=...` | 产品型号、**BOM 版本（查看/新建下一版/启用）**、BOM 导入与工艺路线维护 |
-| `/mfg/control/dev?projectCode=...` | 产品开发：立项与改动、阶段筛选、五道关卡评审（通过即进入下一阶段）、项目下的变更单 |
+| `/mfg/control/dev?projectCode=...` | 产品开发：立项与改动、线路与步骤进度、步骤台账与快速推进、五道关卡评审、项目下的变更单 |
 | `/mfg/control/eco?ecoId=...` | 设计变更：新建变更单、按状态筛选、指定目标 BOM 版本、批准 / 生效 / 取消 |
 | `/mfg/control/workOrder?workOrderId=...` | 工单详情：工序进度、报工、SN 生成、不良登记 |
 | `/mfg/control/sn?sn=...` | 单板履历：报工、不良、所用物料批次 |
@@ -250,10 +254,13 @@ productSave → bomImport → routingSave → productDetail
            → devStageSave（概念过关 → 自动进设计）→ 非法阶段被拒
            → devEcoSave（指定目标版本）→ 草稿不能直接生效
            → devEcoApprove → devEcoApply（切到目标 BOM）→ 重复生效被拒
+           → PCB 项目：五步清单不含固件步骤 → 快速完成 → 步骤详情（负责人/供应商/单号）
+           → 拿固件步骤去改 PCB 项目被拒
+           → 外壳项目：入库不填数量被拒 → 填数量完成 → 自动生成物料批次（重复完成不重建）
            → 非法报工（workHours = 0）/ 错料发料（批次不属于该料号）/ 非法售后状态
 ```
 
-共 174 项断言，全部通过时退出码为 0。测试是**可重复执行**的：每次创建/更新产品型号 `ITMFG`、替换其 BOM、
+共 192 项断言，全部通过时退出码为 0。测试是**可重复执行**的：每次创建/更新产品型号 `ITMFG`、替换其 BOM、
 新建一张工单、物料批次与出货单，以及相应的报工、不良、发料、收发、换件与测试数据；
 BOM 版本与变更单会每次新增一版，所以编号会一直往上走，不影响断言。
 
@@ -278,7 +285,7 @@ java -cp "build/test-classes:ofbiz.jar:junit-4.13.2.jar:hamcrest-core-1.3.jar" \
 覆盖 BOM / 批次 / 测试结果 CSV 解析（引号、缺列、CRLF、注释行、大小写归一）、SN 列表拆分、FIFO 推定切片、
 邮寄标签格式、SN / 工单编号格式，保修到期日、7 天 / 15 天窗口、剩余小时与运费承担，
 以及买家匹配键、手机号归一化与打码、风险等级建议、名单到期判定，还有百分比、日期差与失效分档、售后成本计算、红线判定、看板坐标轴与柱高缩放、关键词过滤与分页切片，
-以及 BOM 版本号生成与下一版号推导、开发阶段阶梯与关卡推进规则、变更单状态与类型校验（共 46 个用例）。
+以及 BOM 版本号生成与下一版号推导、开发阶段阶梯与关卡推进规则、变更单状态与类型校验、三条线路的步骤目录与首个未完成步骤推导（共 49 个用例）。
 
 ## 追溯精度说明（重要）
 
@@ -357,6 +364,26 @@ SMT 为外协，且对方**不提供上料 / 换料记录**，因此追溯精度
 - 关卡评审结论为 通过 / 有条件通过 时，项目自动进入下一阶段；进到 量产 时自动填实际上市日并置为已量产；
   评审结论为 不通过 时项目停在原阶段。
 
+**三条开发线（线路 + 步骤）**
+
+阶段是项目级的粗颗粒，线路步骤是执行层的细颗粒，两者独立：一个「外壳开发」项目同样要过一次「打样」关卡。
+
+| 线路 | 步骤清单（有序，由代码里的目录决定） |
+| --- | --- |
+| PCB 开发 `MFG_TRACK_PCB` | 面包板验证 → 原理图 → PCB 布线 → 样板打样 → 手焊测试 |
+| 固件开发 `MFG_TRACK_FIRMWARE` | 固件开发 → 烧录 → 功能测试 |
+| 外壳开发 `MFG_TRACK_ENCLOSURE` | Gerber/PNP 导入 Blender 设计 → 3D 打印与装配确认 → 注塑厂家签合同 → 付款 → 生产外壳 → 外壳入库 → 产品组装 |
+| （空） | 不带步骤，只用五级阶段管理 |
+
+- 步骤目录写在代码里（`MfgServices.PCB_STEPS` / `FIRMWARE_STEPS` / `ENCLOSURE_STEPS`），表 `MfgDevTrackStep` 只存“走到哪了”，
+  因此改流程只改代码、不用改数据；步骤 id 与线路不匹配会被直接拒绝；
+- 每个步骤可记：状态（未开始/进行中/已完成/跳过）、计划日、完成日、负责人、供应商、金额、数量、单号（合同号/付款凭证/快递单）、备注；
+- 页面每行有「开始 / 完成」快速按钮（只改状态，不动其它字段），细节用下面的「更新步骤详情」表单；
+- 列表上直接显示 `步骤 3 / 5` 与**当前步骤**，哪条线卡在哪一步一眼能看出来；
+- **外壳入库 → 物料批次**：把「外壳入库」置为已完成时，用项目的 `partCode` 和该步骤填的 `qty` 自动生成一个
+  `MfgMaterialLot`（供应商、单号也带过去），批次号回填到步骤上，重复完成不会重复建批次；
+  之后组装仍按正常流程人工开生产工单（`/mfg/control/main`），批次的领用与前面对 BOM/批次追溯完全一致。
+
 **设计变更（ECO）**
 
 - 状态流转只有一条路：`草稿 → 批准 → 生效`，`草稿`/`批准` 可以取消，`生效` 之后不能改也不能取消；
@@ -412,7 +439,7 @@ PDA/手机扫码作业、车间大屏、对外客户门户。
 ## 后续想法
 
 - 来料检验（IQC）：到货批次标记合格/不合格，并影响可发料性。
-- 开发阶段细化：打样/试产批次（EVT/DVT/PVT 数量与样机去向）、项目问题清单跟踪。
+- 每个步骤挂问题清单（现在只在步骤上有备注）：打样/试产发现的问题单独立项、指派与关闭。
 - 成本核算：按 BOM 行单价 + 工时算出目标成本之外的“实际成本”，与目标成本对比。
 - 淘宝订单号自动对单（开放平台/导出表导入），省掉手录订单号。
 - 看板自动刷新与钉钉/邮件告警（欠料、测试通过率异常、售后即将超时）。

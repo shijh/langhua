@@ -552,4 +552,55 @@ public class MfgServicesTest {
         assertEquals("ECO-261021-01", MfgServices.formatEcoId(day, 1));
         assertEquals("ECO-261021-07", MfgServices.formatEcoId(day, 7));
     }
+
+    @Test
+    public void knowsTheStepsOfEachDevelopmentTrack() {
+        assertEquals(5, MfgServices.stepsOfTrack(MfgServices.TRACK_PCB).length);
+        assertEquals(3, MfgServices.stepsOfTrack(MfgServices.TRACK_FIRMWARE).length);
+        assertEquals(7, MfgServices.stepsOfTrack(MfgServices.TRACK_ENCLOSURE).length);
+        assertEquals(0, MfgServices.stepsOfTrack("").length);
+        assertEquals(0, MfgServices.stepsOfTrack(null).length);
+        assertEquals(0, MfgServices.stepsOfTrack("MFG_TRACK_BOGUS").length);
+
+        // the PCB track starts on the breadboard and ends on the hand soldered test
+        assertEquals("MFG_PCB_BREADBOARD", MfgServices.stepsOfTrack(MfgServices.TRACK_PCB)[0]);
+        assertEquals("MFG_PCB_HAND_SOLDER", MfgServices.stepsOfTrack(MfgServices.TRACK_PCB)[4]);
+        // the enclosure track ends with the product assembly
+        assertEquals("MFG_ENC_ASSEMBLY", MfgServices.stepsOfTrack(MfgServices.TRACK_ENCLOSURE)[6]);
+
+        assertTrue(MfgServices.isKnownTrack(MfgServices.TRACK_ENCLOSURE));
+        assertTrue(!MfgServices.isKnownTrack("MFG_TRACK_BOGUS"));
+
+        assertTrue(MfgServices.isKnownStep(MfgServices.TRACK_FIRMWARE, "MFG_FW_FLASH"));
+        assertTrue(!MfgServices.isKnownStep(MfgServices.TRACK_PCB, "MFG_FW_FLASH"));
+        assertTrue(!MfgServices.isKnownStep("", "MFG_PCB_SCHEMATIC"));
+    }
+
+    @Test
+    public void findsTheFirstOpenStep() {
+        // nothing done yet, so the first step of the track is still open
+        assertEquals("MFG_PCB_BREADBOARD",
+                MfgServices.firstOpenStep(MfgServices.TRACK_PCB, new java.util.ArrayList<String>()));
+
+        java.util.List<String> done = java.util.Arrays.asList("MFG_PCB_BREADBOARD", "MFG_PCB_SCHEMATIC");
+        assertEquals("MFG_PCB_LAYOUT", MfgServices.firstOpenStep(MfgServices.TRACK_PCB, done));
+
+        java.util.List<String> all = java.util.Arrays.asList(MfgServices.PCB_STEPS);
+        assertNull(MfgServices.firstOpenStep(MfgServices.TRACK_PCB, all));
+
+        // a track without steps has nothing to open
+        assertNull(MfgServices.firstOpenStep("", done));
+    }
+
+    @Test
+    public void countsSkippedStepsAsFinished() {
+        assertTrue(MfgServices.stepFinished("MFG_STEP_DONE"));
+        assertTrue(MfgServices.stepFinished("MFG_STEP_SKIPPED"));
+        assertTrue(!MfgServices.stepFinished("MFG_STEP_DOING"));
+        assertTrue(!MfgServices.stepFinished("MFG_STEP_TODO"));
+        assertTrue(!MfgServices.stepFinished(null));
+
+        assertTrue(MfgServices.isKnownStepStatus("MFG_STEP_DOING"));
+        assertTrue(!MfgServices.isKnownStepStatus("DONE"));
+    }
 }

@@ -74,6 +74,8 @@ public final class MfgServiceIT {
     private static final Pattern DEV_PROJECT_ID = Pattern.compile("DEV-\\d{6}-\\d{2}");
     private static final Pattern ECO_ID = Pattern.compile("ECO-\\d{6}-\\d{2}");
     private static final Pattern BOM_VERSION_ID = Pattern.compile(PRODUCT_CODE + "-V\\d+");
+    private static final Pattern LOT_NUMBER = Pattern.compile("LOT-\\d{6}-\\d{2}");
+    private static final String ENCLOSURE_PART = "ENC-IT-SHELL";
     private static final String KEY_COMPONENT = "U1-BT5-SOC";
     private static final String SUPPLIER_LOT = "DC-IT-2410";
 
@@ -159,6 +161,7 @@ public final class MfgServiceIT {
             it.managesBomVersions();
             it.runsProductDevelopment();
             it.appliesChangeOrderToBomVersion();
+            it.runsTheThreeDevelopmentTracks();
         } finally {
             it.tearDown();
         }
@@ -1014,6 +1017,120 @@ public final class MfgServiceIT {
                 response.body.contains("workHours must be greater than zero"),
                 "no validation error in response");
         System.out.println("[invalid report] error reported as expected");
+    }
+
+    /**
+     * Runs one PCB project, one enclosure project and checks the step rules of the three tracks.
+     *
+     * @throws IOException when the service call fails
+     */
+    private void runsTheThreeDevelopmentTracks() throws IOException {
+        // a PCB project only knows the PCB steps
+        Map<String, String> pcbForm = new LinkedHashMap<>();
+        pcbForm.put("projectName", "IT PCB 项目");
+        pcbForm.put("productCode", PRODUCT_CODE);
+        pcbForm.put("trackId", "MFG_TRACK_PCB");
+        pcbForm.put("partCode", "PCB-IT-BT5");
+        Response pcb = invoke("mfgDevProjectSave", pcbForm);
+        check("pcb track: project created", pcb.status == 200, "HTTP " + pcb.status);
+        String pcbProjectCode = firstMatch(DEV_PROJECT_ID, pcb.body);
+        check("pcb track: identifier generated", pcbProjectCode != null, "no project code");
+
+        Map<String, String> pcbDetailForm = new LinkedHashMap<>();
+        pcbDetailForm.put("projectCode", pcbProjectCode == null ? "" : pcbProjectCode);
+        Response pcbDetail = invoke("mfgDevProjectDetail", pcbDetailForm);
+        check("pcb track: five steps listed", pcbDetail.body.contains("MFG_PCB_BREADBOARD")
+                && pcbDetail.body.contains("MFG_PCB_HAND_SOLDER"), "PCB steps missing");
+        check("pcb track: no firmware step in the PCB project",
+                !pcbDetail.body.contains("MFG_FW_FLASH"), "firmware step leaked into the PCB project");
+
+        Map<String, String> startForm = new LinkedHashMap<>();
+        startForm.put("projectCode", pcbProjectCode == null ? "" : pcbProjectCode);
+        startForm.put("stepId", "MFG_PCB_BREADBOARD");
+        startForm.put("statusId", "MFG_STEP_DONE");
+        Response started = invoke("mfgDevStepStatus", startForm);
+        check("pcb track: quick status works", started.status == 200
+                && started.body.contains("MFG_STEP_DONE"), "HTTP " + started.status);
+
+        Map<String, String> stepForm = new LinkedHashMap<>();
+        stepForm.put("projectCode", pcbProjectCode == null ? "" : pcbProjectCode);
+        stepForm.put("stepId", "MFG_PCB_SCHEMATIC");
+        stepForm.put("statusId", "MFG_STEP_DOING");
+        stepForm.put("plannedDate", "2026-11-05");
+        stepForm.put("ownerName", "it_hw");
+        stepForm.put("vendorName", "立创");
+        stepForm.put("amount", "120");
+        stepForm.put("referenceNo", "PO-IT-001");
+        stepForm.put("note", "二阶电路");
+        Response saved = invoke("mfgDevStepSave", stepForm);
+        check("pcb track: step details saved", saved.status == 200, "HTTP " + saved.status);
+
+        Map<String, String> pcbAgainForm = new LinkedHashMap<>();
+        pcbAgainForm.put("projectCode", pcbProjectCode == null ? "" : pcbProjectCode);
+        Response pcbAgain = invoke("mfgDevProjectDetail", pcbAgainForm);
+        check("pcb track: reference number is kept", pcbAgain.body.contains("PO-IT-001"),
+                "reference number missing");
+        check("pcb track: current step moved on", pcbAgain.body.contains("MFG_PCB_LAYOUT"),
+                "current step not reported");
+
+        Map<String, String> wrongTrack = new LinkedHashMap<>();
+        wrongTrack.put("projectCode", pcbProjectCode == null ? "" : pcbProjectCode);
+        wrongTrack.put("stepId", "MFG_FW_FLASH");
+        wrongTrack.put("statusId", "MFG_STEP_DONE");
+        Response rejected = invoke("mfgDevStepStatus", wrongTrack);
+        check("pcb track: a firmware step is rejected",
+                rejected.body.contains("does not belong to project"), "wrong step was accepted");
+
+        // the enclosure track creates a material lot when the stock in step is finished
+        Map<String, String> encForm = new LinkedHashMap<>();
+        encForm.put("projectName", "IT 外壳项目");
+        encForm.put("productCode", PRODUCT_CODE);
+        encForm.put("trackId", "MFG_TRACK_ENCLOSURE");
+        encForm.put("partCode", ENCLOSURE_PART);
+        Response enc = invoke("mfgDevProjectSave", encForm);
+        String encProjectCode = firstMatch(DEV_PROJECT_ID, enc.body);
+        check("enclosure track: project created", encProjectCode != null, "no project code");
+
+        Map<String, String> noQty = new LinkedHashMap<>();
+        noQty.put("projectCode", encProjectCode == null ? "" : encProjectCode);
+        noQty.put("stepId", "MFG_ENC_STOCK_IN");
+        noQty.put("statusId", "MFG_STEP_DONE");
+        Response noQtyResponse = invoke("mfgDevStepStatus", noQty);
+        check("enclosure track: stock in without quantity is rejected",
+                noQtyResponse.body.contains("Set the quantity"), "stock in accepted without quantity");
+
+        Map<String, String> stockIn = new LinkedHashMap<>();
+        stockIn.put("projectCode", encProjectCode == null ? "" : encProjectCode);
+        stockIn.put("stepId", "MFG_ENC_STOCK_IN");
+        stockIn.put("statusId", "MFG_STEP_DONE");
+        stockIn.put("qty", "50");
+        stockIn.put("vendorName", "IT 注塑厂");
+        stockIn.put("referenceNo", "HT-IT-2026-01");
+        stockIn.put("amount", "8500");
+        Response stocked = invoke("mfgDevStepSave", stockIn);
+        check("enclosure track: stock in returns HTTP 200", stocked.status == 200, "HTTP " + stocked.status);
+        String lotId = firstMatch(LOT_NUMBER, stocked.body);
+        check("enclosure track: a material lot was created", lotId != null, "no lot id in response");
+
+        Map<String, String> lotsForm = new LinkedHashMap<>();
+        lotsForm.put("search", lotId == null ? ENCLOSURE_PART : lotId);
+        Response lots = invoke("mfgLotList", lotsForm);
+        check("enclosure track: the lot is in the material lots", lotId != null && lots.body.contains(lotId),
+                "lot missing from the material lot list");
+        check("enclosure track: the lot carries the enclosure part", lots.body.contains(ENCLOSURE_PART),
+                "part code missing on the lot");
+
+        Response stockedAgain = invoke("mfgDevStepSave", stockIn);
+        check("enclosure track: finishing the stock in twice keeps one lot",
+                stockedAgain.body.contains(lotId == null ? "no-lot" : lotId), "a second lot was created");
+
+        Map<String, String> encDetailForm = new LinkedHashMap<>();
+        encDetailForm.put("projectCode", encProjectCode == null ? "" : encProjectCode);
+        Response encDetail = invoke("mfgDevProjectDetail", encDetailForm);
+        check("enclosure track: seven steps listed", encDetail.body.contains("MFG_ENC_BLENDER")
+                && encDetail.body.contains("MFG_ENC_ASSEMBLY"), "enclosure steps missing");
+        check("enclosure track: lot shown on the stock in step", lotId != null
+                && encDetail.body.contains(lotId), "lot not shown on the step");
     }
 
     private Response invoke(String serviceName, Map<String, String> parameters) throws IOException {

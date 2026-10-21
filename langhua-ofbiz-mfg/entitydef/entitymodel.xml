@@ -525,6 +525,8 @@
         <field name="projectCode" type="id"><description>Project number, e.g. DEV-261021-01</description></field>
         <field name="projectName" type="name"><description>What is being developed</description></field>
         <field name="productCode" type="id"><description>Model this project belongs to, empty while the project is only an idea</description></field>
+        <field name="trackId" type="id"><description>MFG_TRACK_PCB, MFG_TRACK_FIRMWARE or MFG_TRACK_ENCLOSURE; empty for a project that only uses the stage ladder</description></field>
+        <field name="partCode" type="id"><description>Board code, firmware code or enclosure part number this track works on</description></field>
         <field name="stageId" type="id"><description>MFG_STAGE_CONCEPT, DESIGN, PROTOTYPE, TRIAL or MASS</description></field>
         <field name="statusId" type="id"><description>MFG_DEV_ACTIVE, MFG_DEV_ONHOLD, MFG_DEV_DONE or MFG_DEV_CANCELLED</description></field>
         <field name="ownerName" type="name"><description>Who drives the project</description></field>
@@ -564,6 +566,33 @@
         <prim-key field="projectCode"/>
         <prim-key field="stageId"/>
         <relation type="one" fk-name="MFG_DEVSTG_PROJECT" rel-entity-name="MfgDevProject">
+            <key-map field-name="projectCode"/>
+        </relation>
+    </entity>
+
+    <entity entity-name="MfgDevTrackStep"
+            package-name="org.langhua.ofbiz.mfg"
+            title="Development track step">
+        <description>State of one step of one development track. The step catalog (PCB, firmware, enclosure) lives in the code, this table only keeps how far each step got</description>
+        <field name="projectCode" type="id"><description>Parent project, the track comes from the project</description></field>
+        <field name="stepId" type="id"><description>Step of the track, e.g. MFG_PCB_SCHEMATIC or MFG_ENC_PAY</description></field>
+        <field name="statusId" type="id"><description>MFG_STEP_TODO, MFG_STEP_DOING, MFG_STEP_DONE or MFG_STEP_SKIPPED</description></field>
+        <field name="plannedDate" type="date"><description>When the step should be finished</description></field>
+        <field name="doneDate" type="date"><description>When the step was finished</description></field>
+        <field name="ownerName" type="name"><description>Who does the step</description></field>
+        <field name="vendorName" type="name"><description>Supplier of the step, e.g. the moulding house or the SMT house</description></field>
+        <field name="amount" type="currency-amount"><description>Money involved: contract value, payment, tooling cost</description></field>
+        <field name="qty" type="floating-point"><description>Quantity involved, used by the stock in step to create the material lot</description></field>
+        <field name="referenceNo" type="short-varchar"><description>Contract number, payment voucher, tracking number</description></field>
+        <field name="lotId" type="id"><description>Material lot created when the enclosure went into stock</description></field>
+        <field name="note" type="description"/>
+        <field name="createdStamp" type="date-time"/>
+        <field name="createdTxStamp" type="date-time"/>
+        <field name="lastUpdatedStamp" type="date-time"/>
+        <field name="lastUpdatedTxStamp" type="date-time"/>
+        <prim-key field="projectCode"/>
+        <prim-key field="stepId"/>
+        <relation type="one" fk-name="MFG_DEVSTEP_PROJECT" rel-entity-name="MfgDevProject">
             <key-map field-name="projectCode"/>
         </relation>
     </entity>

@@ -731,6 +731,8 @@
         <attribute name="projectCode" type="String" mode="IN" optional="true"/>
         <attribute name="projectName" type="String" mode="IN" optional="true"/>
         <attribute name="productCode" type="String" mode="IN" optional="true"/>
+        <attribute name="trackId" type="String" mode="IN" optional="true"/>
+        <attribute name="partCode" type="String" mode="IN" optional="true"/>
         <attribute name="stageId" type="String" mode="IN" optional="true"/>
         <attribute name="statusId" type="String" mode="IN" optional="true"/>
         <attribute name="ownerName" type="String" mode="IN" optional="true"/>
@@ -771,6 +773,8 @@
         <attribute name="project" type="java.util.Map" mode="OUT" optional="true"/>
         <attribute name="reviews" type="java.util.List" mode="OUT" optional="true"/>
         <attribute name="ecos" type="java.util.List" mode="OUT" optional="true"/>
+        <attribute name="steps" type="java.util.List" mode="OUT" optional="true"/>
+        <attribute name="trackId" type="String" mode="OUT" optional="true"/>
         <attribute name="stageIndex" type="Long" mode="OUT" optional="true"/>
     </service>
 
@@ -788,6 +792,40 @@
         <attribute name="projectCode" type="String" mode="OUT" optional="true"/>
         <attribute name="stageId" type="String" mode="OUT" optional="true"/>
         <attribute name="projectStageId" type="String" mode="OUT" optional="true"/>
+    </service>
+
+    <service name="mfgDevStepSave" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgServices" invoke="devStepSave"
+            auth="false" use-transaction="false">
+        <description>Write the details of one development track step; an empty value clears the field</description>
+        <attribute name="projectCode" type="String" mode="IN" optional="false"/>
+        <attribute name="stepId" type="String" mode="IN" optional="false"/>
+        <attribute name="statusId" type="String" mode="IN" optional="true"/>
+        <attribute name="plannedDate" type="String" mode="IN" optional="true"/>
+        <attribute name="doneDate" type="String" mode="IN" optional="true"/>
+        <attribute name="ownerName" type="String" mode="IN" optional="true"/>
+        <attribute name="vendorName" type="String" mode="IN" optional="true"/>
+        <attribute name="amount" type="Double" mode="IN" optional="true"/>
+        <attribute name="qty" type="Double" mode="IN" optional="true"/>
+        <attribute name="referenceNo" type="String" mode="IN" optional="true"/>
+        <attribute name="note" type="String" mode="IN" optional="true"/>
+        <attribute name="projectCode" type="String" mode="OUT" optional="true"/>
+        <attribute name="stepId" type="String" mode="OUT" optional="true"/>
+        <attribute name="statusId" type="String" mode="OUT" optional="true"/>
+        <attribute name="lotId" type="String" mode="OUT" optional="true"/>
+    </service>
+
+    <service name="mfgDevStepStatus" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgServices" invoke="devStepStatus"
+            auth="false" use-transaction="false">
+        <description>Change only the status of one step, used by the quick buttons of the project page</description>
+        <attribute name="projectCode" type="String" mode="IN" optional="false"/>
+        <attribute name="stepId" type="String" mode="IN" optional="false"/>
+        <attribute name="statusId" type="String" mode="IN" optional="false"/>
+        <attribute name="projectCode" type="String" mode="OUT" optional="true"/>
+        <attribute name="stepId" type="String" mode="OUT" optional="true"/>
+        <attribute name="statusId" type="String" mode="OUT" optional="true"/>
+        <attribute name="lotId" type="String" mode="OUT" optional="true"/>
     </service>
 
     <service name="mfgDevEcoSave" engine="java"

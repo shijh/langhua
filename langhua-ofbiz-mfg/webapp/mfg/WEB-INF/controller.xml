@@ -294,6 +294,24 @@
         <response name="error" type="view" value="dev"/>
     </request-map>
 
+    <request-map uri="devStepSave">
+        <security https="true" auth="true"/>
+        <event type="service" invoke="mfgDevStepSave"/>
+        <response name="success" type="request-redirect" value="dev">
+            <redirect-parameter name="projectCode"/>
+        </response>
+        <response name="error" type="view" value="dev"/>
+    </request-map>
+
+    <request-map uri="devStepStatus">
+        <security https="true" auth="true"/>
+        <event type="service" invoke="mfgDevStepStatus"/>
+        <response name="success" type="request-redirect" value="dev">
+            <redirect-parameter name="projectCode"/>
+        </response>
+        <response name="error" type="view" value="dev"/>
+    </request-map>
+
     <request-map uri="eco">
         <security https="true" auth="true"/>
         <response name="success" type="view" value="eco"/>

@@ -143,6 +143,31 @@ public final class MfgServices {
     /** Suffix between the model code and the version number of a BOM version identifier. */
     public static final String BOM_VERSION_SEPARATOR = "-V";
 
+    public static final String TRACK_PCB = "MFG_TRACK_PCB";
+    public static final String TRACK_FIRMWARE = "MFG_TRACK_FIRMWARE";
+    public static final String TRACK_ENCLOSURE = "MFG_TRACK_ENCLOSURE";
+
+    /** PCB track, from the breadboard proof to the hand soldered first board. */
+    public static final String[] PCB_STEPS = {
+        "MFG_PCB_BREADBOARD", "MFG_PCB_SCHEMATIC", "MFG_PCB_LAYOUT", "MFG_PCB_SAMPLE", "MFG_PCB_HAND_SOLDER"};
+
+    /** Firmware track: write it, flash it, test the functions. */
+    public static final String[] FIRMWARE_STEPS = {
+        "MFG_FW_DEVELOP", "MFG_FW_FLASH", "MFG_FW_FUNCTION_TEST"};
+
+    /** Enclosure track, from the 3D model to the assembled product. */
+    public static final String[] ENCLOSURE_STEPS = {
+        "MFG_ENC_BLENDER", "MFG_ENC_PRINT_CHECK", "MFG_ENC_CONTRACT", "MFG_ENC_PAY",
+        "MFG_ENC_PRODUCTION", "MFG_ENC_STOCK_IN", "MFG_ENC_ASSEMBLY"};
+
+    /** The step whose completion puts the enclosure into stock as a material lot. */
+    public static final String STEP_ENCLOSURE_STOCK_IN = "MFG_ENC_STOCK_IN";
+
+    public static final String STEP_TODO = "MFG_STEP_TODO";
+    public static final String STEP_DOING = "MFG_STEP_DOING";
+    public static final String STEP_DONE = "MFG_STEP_DONE";
+    public static final String STEP_SKIPPED = "MFG_STEP_SKIPPED";
+
     private static final DateTimeFormatter DAY = DateTimeFormatter.ofPattern("yyMMdd");
     private static final DateTimeFormatter MONTH_DAY = DateTimeFormatter.ofPattern("MM-dd");
 
@@ -4879,6 +4904,76 @@ always
     }
 
     /**
+     * Returns the steps of one development track, in the order they have to be done.
+     *
+     * @param trackId the track, one of the {@code TRACK_*} constants
+     * @return the step identifiers, empty when the track is unknown or has no steps
+     */
+    static String[] stepsOfTrack(String trackId) {
+        if (TRACK_PCB.equals(trackId)) {
+            return PCB_STEPS;
+        }
+        if (TRACK_FIRMWARE.equals(trackId)) {
+            return FIRMWARE_STEPS;
+        }
+        if (TRACK_ENCLOSURE.equals(trackId)) {
+            return ENCLOSURE_STEPS;
+        }
+        return new String[0];
+    }
+
+    static boolean isKnownTrack(String trackId) {
+        return TRACK_PCB.equals(trackId) || TRACK_FIRMWARE.equals(trackId) || TRACK_ENCLOSURE.equals(trackId);
+    }
+
+    /**
+     * Tells whether a step belongs to a track.
+     *
+     * @param trackId the track, may be empty for a project without a track
+     * @param stepId the step
+     * @return {@code true} when the step is part of the catalog of that track
+     */
+    static boolean isKnownStep(String trackId, String stepId) {
+        for (String step : stepsOfTrack(trackId)) {
+            if (step.equals(stepId)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    static boolean isKnownStepStatus(String statusId) {
+        return STEP_TODO.equals(statusId) || STEP_DOING.equals(statusId) || STEP_DONE.equals(statusId)
+                || STEP_SKIPPED.equals(statusId);
+    }
+
+    /**
+     * Tells whether a step status counts as finished, so it no longer holds the track up.
+     *
+     * @param statusId the step status
+     * @return {@code true} for done and for skipped
+     */
+    static boolean stepFinished(String statusId) {
+        return STEP_DONE.equals(statusId) || STEP_SKIPPED.equals(statusId);
+    }
+
+    /**
+     * Returns the first step of a track that is not finished yet.
+     *
+     * @param trackId the track
+     * @param finishedStepIds the steps that are done or skipped
+     * @return the step identifier, {@code null} when every step is finished
+     */
+    static String firstOpenStep(String trackId, List<String> finishedStepIds) {
+        for (String step : stepsOfTrack(trackId)) {
+            if (finishedStepIds == null || !finishedStepIds.contains(step)) {
+                return step;
+            }
+        }
+        return null;
+    }
+
+    /**
      * Formats a development project number as {@code DEV-yyMMdd-NN}.
      *
      * @param date the creation day
@@ -4960,6 +5055,37 @@ always
             }
         }
         map.put("openEcoCount", Integer.valueOf(openEcos));
+
+        String trackId = project.getString("trackId");
+        map.put("trackId", trackId);
+        map.put("partCode", project.getString("partCode"));
+        String[] catalog = stepsOfTrack(trackId);
+        List<String> finished = new ArrayList<>();
+        for (GenericValue step : EntityQuery.use(delegator).from("MfgDevTrackStep")
+                .where("projectCode", projectCode).queryList()) {
+            if (stepFinished(step.getString("statusId"))) {
+                finished.add(step.getString("stepId"));
+            }
+        }
+        map.put("stepTotal", Integer.valueOf(catalog.length));
+        map.put("stepDone", Integer.valueOf(finished.size()));
+        map.put("currentStepId", firstOpenStep(trackId, finished));
+        return map;
+    }
+
+    private static Map<String, Object> toTrackStepMap(GenericValue step) {
+        Map<String, Object> map = new LinkedHashMap<>();
+        map.put("stepId", step.getString("stepId"));
+        map.put("statusId", step.getString("statusId"));
+        map.put("plannedDate", step.get("plannedDate"));
+        map.put("doneDate", step.get("doneDate"));
+        map.put("ownerName", step.getString("ownerName"));
+        map.put("vendorName", step.getString("vendorName"));
+        map.put("amount", step.getDouble("amount"));
+        map.put("qty", step.getDouble("qty"));
+        map.put("referenceNo", step.getString("referenceNo"));
+        map.put("lotId", step.getString("lotId"));
+        map.put("note", step.getString("note"));
         return map;
     }
 
@@ -4995,11 +5121,15 @@ always
         String projectName = toText(context.get("projectName"));
         String stageId = toText(context.get("stageId"));
         String statusId = toText(context.get("statusId"));
+        String trackId = toText(context.get("trackId"));
         if (stageId != null && !isKnownDevStage(stageId)) {
             return ServiceUtil.returnError("Unknown development stage [" + stageId + "]");
         }
         if (statusId != null && !isKnownDevStatus(statusId)) {
             return ServiceUtil.returnError("Unknown project status [" + statusId + "]");
+        }
+        if (trackId != null && !isKnownTrack(trackId)) {
+            return ServiceUtil.returnError("Unknown development track [" + trackId + "]");
         }
         try {
             GenericValue project;
@@ -5037,6 +5167,12 @@ always
             }
             if (context.containsKey("productCode")) {
                 project.set("productCode", toText(context.get("productCode")));
+            }
+            if (trackId != null) {
+                project.set("trackId", trackId);
+            }
+            if (context.containsKey("partCode")) {
+                project.set("partCode", toText(context.get("partCode")));
             }
             if (context.containsKey("ownerName")) {
                 project.set("ownerName", toText(context.get("ownerName")));
@@ -5161,10 +5297,45 @@ always
             String stageId = project.getString("stageId");
             Map<String, Object> projectMap = toDevProjectMap(delegator, project);
             projectMap.put("nextStageId", nextDevStage(stageId));
+
+            // the steps of the track, with the stored state merged in, in catalog order
+            String trackId = project.getString("trackId");
+            Map<String, GenericValue> stepByStepId = new LinkedHashMap<>();
+            for (GenericValue step : EntityQuery.use(delegator).from("MfgDevTrackStep")
+                    .where("projectCode", projectCode).queryList()) {
+                stepByStepId.put(step.getString("stepId"), step);
+            }
+            List<Map<String, Object>> steps = new ArrayList<>();
+            String[] catalog = stepsOfTrack(trackId);
+            for (int i = 0; i < catalog.length; i++) {
+                GenericValue storedStep = stepByStepId.get(catalog[i]);
+                Map<String, Object> map;
+                if (storedStep == null) {
+                    map = new LinkedHashMap<>();
+                    map.put("stepId", catalog[i]);
+                    map.put("statusId", STEP_TODO);
+                    map.put("plannedDate", null);
+                    map.put("doneDate", null);
+                    map.put("ownerName", null);
+                    map.put("vendorName", null);
+                    map.put("amount", null);
+                    map.put("qty", null);
+                    map.put("referenceNo", null);
+                    map.put("lotId", null);
+                    map.put("note", null);
+                } else {
+                    map = toTrackStepMap(storedStep);
+                }
+                map.put("stepIndex", Integer.valueOf(i));
+                steps.add(map);
+            }
+
             Map<String, Object> result = ServiceUtil.returnSuccess();
             result.put("project", projectMap);
             result.put("reviews", reviews);
             result.put("ecos", ecos);
+            result.put("steps", steps);
+            result.put("trackId", trackId);
             result.put("stageIndex", Integer.valueOf(devStageIndex(stageId)));
             return result;
         } catch (GenericEntityException e) {
@@ -5231,6 +5402,180 @@ always
             return result;
         } catch (GenericEntityException e) {
             return ServiceUtil.returnError("Could not save the stage review: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Loads the project and checks that the step belongs to its track.
+     *
+     * @param delegator the delegator
+     * @param projectCode the project
+     * @param stepId the step
+     * @return the project, or {@code null} when the project is unknown or the step does not fit it
+     * @throws GenericEntityException when the project cannot be read
+     */
+    private static GenericValue projectOfStep(Delegator delegator, String projectCode, String stepId)
+            throws GenericEntityException {
+        GenericValue project = EntityQuery.use(delegator).from("MfgDevProject")
+                .where("projectCode", projectCode).queryOne();
+        if (project == null) {
+            return null;
+        }
+        return isKnownStep(project.getString("trackId"), stepId) ? project : null;
+    }
+
+    /**
+     * Creates the material lot of the enclosure when its stock in step is finished and no lot was
+     * created before, so that the same step never produces two lots.
+     *
+     * @param delegator the delegator
+     * @param project the project the step belongs to
+     * @param step the step, already carrying status, quantity and supplier
+     * @return an error message for the user, {@code null} when everything is fine
+     * @throws GenericEntityException when the lot cannot be created
+     */
+    private static String createStockInLot(Delegator delegator, GenericValue project, GenericValue step)
+            throws GenericEntityException {
+        if (!TRACK_ENCLOSURE.equals(project.getString("trackId"))
+                || !STEP_ENCLOSURE_STOCK_IN.equals(step.getString("stepId"))
+                || !STEP_DONE.equals(step.getString("statusId"))
+                || toText(step.getString("lotId")) != null) {
+            return null;
+        }
+        String partCode = toText(project.getString("partCode"));
+        if (partCode == null) {
+            return "Set the part code of the project first, the stock in step creates a material lot for it";
+        }
+        Double qty = step.getDouble("qty");
+        if (qty == null || qty.doubleValue() <= 0) {
+            return "Set the quantity of the stock in step first, it becomes the received quantity of the lot";
+        }
+        String lotId = nextLotId(delegator, LocalDate.now());
+        GenericValue lot = delegator.makeValue("MfgMaterialLot");
+        lot.set("lotId", lotId);
+        lot.set("componentCode", partCode);
+        lot.set("componentName", partCode);
+        lot.set("supplierName", step.getString("vendorName"));
+        lot.set("supplierLot", step.getString("referenceNo"));
+        lot.set("receivedQty", qty);
+        lot.set("receivedDate", java.sql.Date.valueOf(LocalDate.now()));
+        lot.set("note", "Enclosure stock in of project " + project.getString("projectCode"));
+        delegator.create(lot);
+        step.set("lotId", lotId);
+        return null;
+    }
+
+    /**
+     * Writes the details of one development track step. An empty value clears the field, the
+     * status is only touched when it is given.
+     *
+     * @param dctx the dispatch context
+     * @param context service context, see {@code servicedef/services.xml#mfgDevStepSave}
+     * @return the service result containing {@code stepId} and the {@code lotId} when one was created
+     */
+    public static Map<String, Object> devStepSave(DispatchContext dctx, Map<String, ? extends Object> context) {
+        Delegator delegator = dctx.getDelegator();
+        String projectCode = toText(context.get("projectCode"));
+        String stepId = toText(context.get("stepId"));
+        String statusId = toText(context.get("statusId"));
+        if (projectCode == null || stepId == null) {
+            return ServiceUtil.returnError("projectCode and stepId are required");
+        }
+        if (statusId != null && !isKnownStepStatus(statusId)) {
+            return ServiceUtil.returnError("Unknown step status [" + statusId + "]");
+        }
+        try {
+            GenericValue project = projectOfStep(delegator, projectCode, stepId);
+            if (project == null) {
+                return ServiceUtil.returnError("Step [" + stepId + "] does not belong to project ["
+                        + projectCode + "], check the track of the project");
+            }
+            GenericValue step = EntityQuery.use(delegator).from("MfgDevTrackStep")
+                    .where("projectCode", projectCode, "stepId", stepId).queryOne();
+            if (step == null) {
+                step = delegator.makeValue("MfgDevTrackStep");
+                step.set("projectCode", projectCode);
+                step.set("stepId", stepId);
+                step.set("statusId", STEP_TODO);
+            }
+            step.set("plannedDate", parseDate(context.get("plannedDate")));
+            step.set("doneDate", parseDate(context.get("doneDate")));
+            step.set("ownerName", toText(context.get("ownerName")));
+            step.set("vendorName", toText(context.get("vendorName")));
+            step.set("amount", Double.valueOf(toDouble(context.get("amount"), 0.0)));
+            step.set("qty", Double.valueOf(toDouble(context.get("qty"), 0.0)));
+            step.set("referenceNo", toText(context.get("referenceNo")));
+            step.set("note", toText(context.get("note")));
+            if (statusId != null) {
+                step.set("statusId", statusId);
+            }
+            String error = createStockInLot(delegator, project, step);
+            if (error != null) {
+                return ServiceUtil.returnError(error);
+            }
+            delegator.createOrStore(step);
+
+            Map<String, Object> result = ServiceUtil.returnSuccess();
+            result.put("projectCode", projectCode);
+            result.put("stepId", stepId);
+            result.put("statusId", step.getString("statusId"));
+            result.put("lotId", step.getString("lotId"));
+            return result;
+        } catch (GenericEntityException e) {
+            return ServiceUtil.returnError("Could not save the step: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Changes only the status of one step, keeping every other field, and stamps the completion
+     * date the first time it is finished.
+     *
+     * @param dctx the dispatch context
+     * @param context service context, see {@code servicedef/services.xml#mfgDevStepStatus}
+     * @return the service result containing {@code stepId} and the {@code lotId} when one was created
+     */
+    public static Map<String, Object> devStepStatus(DispatchContext dctx, Map<String, ? extends Object> context) {
+        Delegator delegator = dctx.getDelegator();
+        String projectCode = toText(context.get("projectCode"));
+        String stepId = toText(context.get("stepId"));
+        String statusId = toText(context.get("statusId"));
+        if (projectCode == null || stepId == null || statusId == null) {
+            return ServiceUtil.returnError("projectCode, stepId and statusId are required");
+        }
+        if (!isKnownStepStatus(statusId)) {
+            return ServiceUtil.returnError("Unknown step status [" + statusId + "]");
+        }
+        try {
+            GenericValue project = projectOfStep(delegator, projectCode, stepId);
+            if (project == null) {
+                return ServiceUtil.returnError("Step [" + stepId + "] does not belong to project ["
+                        + projectCode + "], check the track of the project");
+            }
+            GenericValue step = EntityQuery.use(delegator).from("MfgDevTrackStep")
+                    .where("projectCode", projectCode, "stepId", stepId).queryOne();
+            if (step == null) {
+                step = delegator.makeValue("MfgDevTrackStep");
+                step.set("projectCode", projectCode);
+                step.set("stepId", stepId);
+            }
+            step.set("statusId", statusId);
+            if (STEP_DONE.equals(statusId) && step.get("doneDate") == null) {
+                step.set("doneDate", java.sql.Date.valueOf(LocalDate.now()));
+            }
+            String error = createStockInLot(delegator, project, step);
+            if (error != null) {
+                return ServiceUtil.returnError(error);
+            }
+            delegator.createOrStore(step);
+
+            Map<String, Object> result = ServiceUtil.returnSuccess();
+            result.put("projectCode", projectCode);
+            result.put("stepId", stepId);
+            result.put("statusId", statusId);
+            result.put("lotId", step.getString("lotId"));
+            return result;
+        } catch (GenericEntityException e) {
+            return ServiceUtil.returnError("Could not change the step status: " + e.getMessage());
         }
     }
 
