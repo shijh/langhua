@@ -53,11 +53,11 @@ langhua-ofbiz-mfg/
 │   ├── entitymodel.xml                  # 25 个业务实体
 │   └── entitygroup.xml
 ├── servicedef/
-│   └── services.xml                     # 61 个服务
+│   └── services.xml                     # 65 个服务
 ├── widget/
 │   ├── MfgCommonScreens.xml             # 登录/错误页 decorator + 页面布局装饰器 mfg-decorator
 │   └── MfgScreens.xml                   # 14 个页面（内容包在 mfg-decorator 里）
-├── webapp/mfg/                          # controller.xml + web.xml + 15 个 FTL + decorator.ftl + attachmentBlock.ftl + css/ + js/
+├── webapp/mfg/                          # controller.xml + web.xml + 16 个 FTL + decorator.ftl + attachmentBlock.ftl + css/ + js/
 ├── src/main/java/org/langhua/ofbiz/mfg/
 └── src/test/java/org/langhua/ofbiz/mfg/
 ```
@@ -373,7 +373,7 @@ java -cp "build/test-classes:ofbiz.jar:junit-4.13.2.jar:hamcrest-core-1.3.jar" \
 | `verify-m12.ps1` | 12 个页面的布局：一个 `<html>`、一条导航、一个高亮项、样式表、无内联 `<style>`、无 FTL 报错 | 102 |
 | `verify-m13.ps1` | 产品开发的线路与步骤、变更单流程、BOM 版本块 | 49 |
 | `verify-m28.ps1` | 通用附件：页面上的宏、multipart 上传 → 列表 → 原图（`image/png`）→ 缩略图（`image/jpeg`）→ 下载文件名 → `err=type` / `err=nofile` / `err=owner` → 删除 → 404 → PDF 直出 → 开发项目 / 工单 / 售后单 / 出货单四处挂附件 | 59 |
-| `verify-m29.ps1` | 网站图标与导航标志：favicon、brand 图、四个尺寸、全站渲染 | 42 |
+| `verify-m29.ps1` | 网站图标与导航标志：favicon、brand 图、四个尺寸、全站渲染（`/mfg` 与 `/learningcurve` 各登一次，两个 webapp 会话独立） | 43 |
 | `verify-m31.ps1` | 来料检验：四个状态、建批次 → 判不合格 → 发料被拒 → 让步接收 → 放行 | 21 |
 | `verify-m32.ps1` | 成本核算：产品页成本块（材料/工时/合计/目标成本/毛利）、批量重算、BOM 单价与金额列、无单价时告警、工单成本块（标准 vs 实际、发料后实际材料跟着批次单价走） | 38 |
 | `verify-m33.ps1` | 看板告警与 CSV 导出：告警区结构、三个导出链接、`text/csv` 与下载头、表头列数、行内容（工单号、缺料元件、看板三段） | 30 |
