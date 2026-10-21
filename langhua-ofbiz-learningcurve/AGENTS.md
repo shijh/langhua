@@ -32,6 +32,8 @@ OFBiz **学习曲线**插件：按历史批次（数量 + 总额/工时）拟合
 
 ## 注意
 
+- **算式只在 README 的「计算公式一览」一节**（批次转绘图点 / 对数拟合与迭代剔除 / 待投产批次估算 / 耗时率预测），
+  软件报价四步在 MES 那边；改算法时同步那一节与 MES 的同一节
 - **与 MES 的联动**：`learningCurveMesBatches`（`LearningCurveServices.mesBatches`）直接读 MES 的
   `MfgWorkOrder` / `MfgReport` 实体，把「一个工单 = 一个批次」汇总成 `数量:工时` 串；估算页 `?mesProduct=<型号>` 会预填表单并自动切口径到 HOURS。
   规则：按 `dueDate` → `createdStamp` 排序；没合格数或没报工工时的工单跳过；数字用 `Locale.ROOT` 的 `0.###`（小数点必须是 `.`）；
