@@ -15,9 +15,9 @@ OFBiz **学习曲线**插件：按历史批次（数量 + 总额/工时）拟合
 | --- | --- |
 | `deploy-lc.bat` | 停 OFBiz → robocopy 到 `plugins/learningcurve` → `gradle jar` → 启动（日志 `F:\build-ofbiz\lc-deploy.txt`） |
 | `run-tests.bat` | 单元测试 32 个（需要 jama：`C:\Users\shi.jinghai-honor\.m2\repository\gov\nist\math\jama\1.0.3\jama-1.0.3.jar`） |
-| `lc-it.bat` | 集成测试 32 项（日志 `lc-it.txt`） |
+| `lc-it.bat` | 集成测试 35 项（日志 `lc-it.txt`） |
 | `verify-lc.ps1` | 页面巡检 56 项（日志 `lc-verify.txt`） |
-| `verify-lcq.ps1` | 软件报价页巡检 26 项（日志 `lc-quote.txt`） |
+| `verify-lcq.ps1` | 软件报价页巡检 37 项（日志 `lc-quote.txt`） |
 
 只改 `webapp/` 下的静态文件时，直接 `Copy-Item` 到 `plugins/learningcurve/...` 就生效，不必整包重发。
 
@@ -44,6 +44,11 @@ OFBiz **学习曲线**插件：按历史批次（数量 + 总额/工时）拟合
 - `learningCurvePdrForecast` 直接读 MES 的 `MfgSoftwareProject`（状态 `MFG_SW_DONE`，`ufp>0`、`actualHours>0`），
   一个交付一个点喂 Wright（`buildPdrSeries`），样本 < 2 时返回 `message` 而不是报错；
   曲线算出的斜率可能是 `-0.0`，输出前要 `+ 0.0` 否则页面会显示 `-0`
+- **样本全相同会让最小二乘奇异**（Jama 抛 `Matrix is rank deficient` 的 RuntimeException）：`pdrForecast`
+  先判“全部一样”直接给同一个值，再 catch `RuntimeException` 兜底，不能让服务崩
+- `learningCurveQuoteToProject` 把报价建成 MES 的软件项目（调 `mfgSoftwareProjectSave`），
+  `LearningCurveSoftwareQuote.projectCode` 回写做幂等；报价 CSV 在 `LearningCurveEvents.exportQuotesCsv`
+  （事件要 `catch (Exception)`，`queryList()` 抛的是受检的 `GenericEntityException`）
 - **`numeric` 字段是 Long，`floating-point` 才是 Double**：`getDouble()` 对 `numeric` 字段会 `ClassCastException`，一律走 `Number`
 - **服务返回的中文会被渲染成数字实体**（`&#x8fd9;`），页面断言要改用结构特征（如「没有哪个表头」）或实体形式
 - **趋势图是手写 SVG**：`<text>` 默认黑色，深色主题下必须靠 `svg text { fill: var(--fg-muted) }` 才能看见；

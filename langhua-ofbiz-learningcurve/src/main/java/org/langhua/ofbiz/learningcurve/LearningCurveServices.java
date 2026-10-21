@@ -592,6 +592,24 @@ public final class LearningCurveServices {
             result.put("message", "已完成并填了实际工时的项目不足 2 个，先积累数据再预测");
             return result;
         }
+        // when every delivery has the same productivity the least squares would be singular:
+        // the honest forecast is "the same again", not an error
+        double first = ((Number) rows.get(0).get("pdr")).doubleValue();
+        boolean flat = true;
+        for (Map<String, Object> row : rows) {
+            if (Math.abs(((Number) row.get("pdr")).doubleValue() - first) > 1e-9) {
+                flat = false;
+                break;
+            }
+        }
+        if (flat) {
+            result.put("predictedPdr", Double.valueOf(first));
+            result.put("slope", Double.valueOf(1.0));
+            result.put("intercept", Double.valueOf(first));
+            result.put("leastSquare", Double.valueOf(1.0));
+            result.put("message", "实测 PDR 完全一样，暂时看不出学习效应");
+            return result;
+        }
         try {
             Matrix series = buildPdrSeries(rows);
             double leastSquare = toDouble(context.get("leastSquare"), DEFAULT_LEAST_SQUARE);
@@ -609,6 +627,11 @@ public final class LearningCurveServices {
             return result;
         } catch (GeneralException e) {
             result.put("message", "拟合失败：" + e.getMessage());
+            return result;
+        } catch (RuntimeException e) {
+            // Jama reports a singular system as an unchecked exception
+            result.put("predictedPdr", Double.valueOf(first));
+            result.put("message", "样本太少或过于集中，暂时用最近一次的实测 PDR 代替拟合");
             return result;
         }
     }
@@ -628,6 +651,65 @@ public final class LearningCurveServices {
             data[i][1] = value instanceof Number ? ((Number) value).doubleValue() : 0.0;
         }
         return new Matrix(data, rows.size(), 2);
+    }
+
+    /**
+     * Turns a saved quotation into a software project of the appliance component, so the quote and
+     * the ledger row that will report the real hours are the same thing. Calling it twice returns
+     * the project created the first time instead of creating another one.
+     *
+     * @param dctx the dispatch context
+     * @param context service context, see {@code servicedef/services.xml#learningCurveQuoteToProject}
+     * @return the service result containing {@code projectCode}
+     */
+    public static Map<String, Object> quoteToProject(DispatchContext dctx, Map<String, ? extends Object> context) {
+        String quoteId = toText(context.get("quoteId"));
+        if (quoteId == null) {
+            return ServiceUtil.returnError("quoteId is required");
+        }
+        try {
+            GenericValue quote = EntityQuery.use(dctx.getDelegator()).from("LearningCurveSoftwareQuote")
+                    .where("quoteId", quoteId).queryOne();
+            if (quote == null) {
+                return ServiceUtil.returnError("Unknown quote [" + quoteId + "]");
+            }
+            String existing = toText(quote.getString("projectCode"));
+            if (existing != null) {
+                Map<String, Object> done = ServiceUtil.returnSuccess();
+                done.put("projectCode", existing);
+                done.put("message", "这个报价已经建过项目：" + existing);
+                return done;
+            }
+            Map<String, Object> params = new HashMap<>();
+            String projectName = toText(quote.getString("projectName"));
+            params.put("projectName", projectName == null ? quoteId : projectName);
+            String categoryId = toText(context.get("categoryId"));
+            params.put("categoryId", categoryId == null ? "MFG_SW_OTHER" : categoryId);
+            params.put("statusId", "MFG_SW_PLANNED");
+            for (String field : SOFTWARE_PARAMS) {
+                Object value = quote.get(field);
+                if (value != null) {
+                    params.put(field, value);
+                }
+            }
+            params.put("quotedAmount", quote.get("totalAmount"));
+            params.put("note", "来自报价 " + quoteId);
+            Map<String, Object> saved = dctx.getDispatcher().runSync("mfgSoftwareProjectSave", params);
+            if (ServiceUtil.isError(saved)) {
+                return ServiceUtil.returnError(ServiceUtil.getErrorMessage(saved));
+            }
+            String projectCode = (String) saved.get("projectCode");
+            quote.set("projectCode", projectCode);
+            dctx.getDelegator().store(quote);
+
+            Map<String, Object> result = ServiceUtil.returnSuccess();
+            result.put("projectCode", projectCode);
+            return result;
+        } catch (GenericServiceException e) {
+            return ServiceUtil.returnError("MES 组件未部署或服务不可用（mfgSoftwareProjectSave）：" + e.getMessage());
+        } catch (GenericEntityException e) {
+            return ServiceUtil.returnError("Could not convert the quote: " + e.getMessage());
+        }
     }
 
     /**
@@ -671,6 +753,7 @@ public final class LearningCurveServices {
         for (String field : SOFTWARE_QUOTE_FIELDS) {
             map.put(field, value.get(field));
         }
+        map.put("projectCode", value.getString("projectCode"));
         map.put("note", value.getString("note"));
         map.put("createdStamp", value.getTimestamp("createdStamp"));
         return map;

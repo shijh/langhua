@@ -78,6 +78,7 @@
         <field name="amountWithTax" type="currency-amount"><description>Price with VAT</description></field>
         <field name="dncAmount" type="currency-amount"><description>Direct non labour cost</description></field>
         <field name="totalAmount" type="currency-amount"><description>Total of the quote</description></field>
+        <field name="projectCode" type="short-varchar"><description>Software project of the appliance component created from this quote, empty until it is</description></field>
         <field name="note" type="description"/>
         <field name="createdStamp" type="date-time"/>
         <field name="createdTxStamp" type="date-time"/>

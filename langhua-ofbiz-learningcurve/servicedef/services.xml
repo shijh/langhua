@@ -216,4 +216,14 @@
         <attribute name="leastSquare" type="Double" mode="OUT" optional="true"/>
         <attribute name="message" type="String" mode="OUT" optional="true"/>
     </service>
+
+    <service name="learningCurveQuoteToProject" engine="java"
+            location="org.langhua.ofbiz.learningcurve.LearningCurveServices" invoke="quoteToProject"
+            auth="false" export="false" validate="true">
+        <description>Create a software project of the MES component from a saved quote; calling it again returns the project it already made</description>
+        <attribute name="quoteId" type="String" mode="IN" optional="false"/>
+        <attribute name="categoryId" type="String" mode="IN" optional="true"/>
+        <attribute name="projectCode" type="String" mode="OUT" optional="true"/>
+        <attribute name="message" type="String" mode="OUT" optional="true"/>
+    </service>
 </services>

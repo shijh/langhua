@@ -234,6 +234,40 @@ public final class LearningCurveServiceIT {
                 "quote missing from the list");
         check("software quote: the list counts the quotes", list.body.contains("quoteCount"),
                 "no quoteCount in response");
+
+        // the quote becomes a software project of the appliance component, once
+        String quoteId = valueOf(saved.body, "quoteId");
+        check("software quote: the quote id can be read", quoteId != null, "no quote id in response");
+        Map<String, String> projectForm = new LinkedHashMap<>();
+        projectForm.put("SERVICE_NAME", "learningCurveQuoteToProject");
+        projectForm.put("_RUN_SYNC_", "Y");
+        projectForm.put("quoteId", quoteId == null ? "" : quoteId);
+        projectForm.put("categoryId", "MFG_SW_FIRMWARE");
+        Response project = post("/webtools/control/scheduleServiceSync", projectForm);
+        check("software quote: it becomes a project", project.status == 200, "HTTP " + project.status);
+        String projectCode = valueOf(project.body, "projectCode");
+        check("software quote: the project has a number", projectCode != null
+                && projectCode.matches("SW-\\d{6}-\\d+"), "no SW- number: " + projectCode);
+        System.out.println("[software quote] project " + projectCode);
+
+        Response again = post("/webtools/control/scheduleServiceSync", projectForm);
+        check("software quote: converting twice keeps one project",
+                projectCode != null && projectCode.equals(valueOf(again.body, "projectCode")),
+                "a second project was created");
+    }
+
+    /**
+     * Reads one value out of the parameter table the Web Tools service runner renders.
+     *
+     * @param body the response body
+     * @param name the parameter name
+     * @return the value, {@code null} when the parameter is missing
+     */
+    private String valueOf(String body, String name) {
+        java.util.regex.Matcher matcher = java.util.regex.Pattern
+                .compile("<td>" + java.util.regex.Pattern.quote(name) + "</td>\\s*<td>([^<]*)</td>")
+                .matcher(body);
+        return matcher.find() ? matcher.group(1).trim() : null;
     }
 
     /**

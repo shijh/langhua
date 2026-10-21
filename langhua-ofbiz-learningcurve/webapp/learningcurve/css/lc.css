@@ -176,3 +176,26 @@ svg text { fill: var(--fg-muted); }
     th, td { padding: 4px 6px; }
     label { width: 9em; }
 }
+
+/* software quote page: small KPI cards and a quiet download link */
+.cards { display: flex; flex-wrap: wrap; gap: .6em; margin: .6em 0 1em; }
+.card {
+    background: var(--bg-widget);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: .5em .9em;
+    min-width: 9em;
+}
+.card .label { color: var(--fg-muted); font-size: .82em; }
+.card .value { font-size: 1.25em; color: var(--fg-strong); }
+a.download {
+    display: inline-block;
+    padding: 2px 10px;
+    border: 1px solid var(--border-strong);
+    border-radius: 2px;
+    background: var(--bg-widget);
+    color: var(--fg);
+    text-decoration: none;
+    font-size: .85em;
+}
+a.download:hover { background: var(--bg-hover); border-color: var(--accent); color: var(--fg-strong); }

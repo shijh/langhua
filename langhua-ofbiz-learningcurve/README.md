@@ -114,6 +114,8 @@ https://localhost:8443/learningcurve/control/main
 | `/learningcurve/control/exportCsv?estimateId=...` | 导出该记录为 CSV（`text/csv`） |
 | `/learningcurve/control/quote` | **软件报价**：功能点规模 + 可调参数（PDR、日费率、税率、非人力成本率、SWF 四项）→ 人时 / 人天 / 工期 / 税前 / 含税 / 合计，并可保存报价；上方给“下一个项目 PDR 预测” |
 | `POST /learningcurve/control/quoteSave` | 调用 `learningCurveSaveSoftwareQuote` 保存报价（参数 + 结果快照） |
+| `/learningcurve/control/exportQuotesCsv` | 导出全部报价为 CSV（UTF-8 带 BOM，Excel 直接开） |
+| `POST /learningcurve/control/quoteToProject` | 把一条保存好的报价**建为 MES 的软件项目**（带类别），重复点不会重复建 |
 
 ## 软件报价：功能点口径的一支
 
@@ -131,6 +133,10 @@ https://localhost:8443/learningcurve/control/main
 - PDR 改成台账实测值？页面顶部直接给建议值：用 Wright 曲线拟合 MES 软件台账里已完成项目的实测 PDR
   （实际工时 ÷ UFP，一个项目一个点，按 `deliverySeq` → `createdStamp` 排序），点“用这个 PDR 试算”一键带入；
 - 保存时把参数与结果一起存进 `LearningCurveSoftwareQuote`，以后改费率不影响历史报价；
+- 报价可以直接**转成 MES 的软件项目**（`learningCurveQuoteToProject`）：带上规模与参数、`quotedAmount` 取报价合计，
+  项目编号回写到报价上，表里那个格就变成指向台账的链接；重复点返回第一次建的项目，不会重复建；
+- 报价可**导出 CSV**（`/learningcurve/control/exportQuotesCsv`）：编号、项目、客户、UFP、人时/人天/工期、
+  税前/税/含税/非人力/合计、PDR、日费率、税率、关联项目、时间、备注；
 - MES 没部署时本页仍能打开，只是报价会提示“MES 组件未部署或服务不可用（mfgSoftwareEstimate）”。
 
 ## 与 MES 联动：直接从工单取历史批次
@@ -267,7 +273,7 @@ flowchart LR
 两种算法与非法输入，并通过 `learningCurveSaveEstimate` / `learningCurveListEstimates` /
 `learningCurveChartData` 验证「保存 → 列表 → 详情图表」整条链路（含数据库写入），
 最后还跑一遍软件报价（`learningCurveSoftwareQuote` → 保存 → 列表）与 PDR 预测（`learningCurvePdrForecast`），
-共 **32 项断言**，全部通过时退出码为 0。
+共 **35 项断言**，全部通过时退出码为 0。
 
 前置条件：OFBiz 已启动、已执行 `loadAll`、组件已部署。
 
@@ -295,8 +301,8 @@ java -cp "build/test-classes:src/main/java:ofbiz.jar:jama-1.0.3.jar:junit-4.13.2
 目前共 **32 个用例**：其中 4 个专门覆盖 MES 取数的规则（工单 → 批次换算、跳过没有合格数/工时的工单、
 小数点固定为 `.`、空列表不报错），2 个覆盖 PDR 序列（一个交付一个点、空序列）。
 页面巡检分两组：`verify-lc.ps1`（56 项，主页面 / 记录 / 详情 / 取数链路）与 `verify-lcq.ps1`
-（26 项，软件报价：导航项、参数默认值、400 人时 / 50 人天 / 1.78 人月 / 88000 / 93280 / 97944、
-保存后回显、下次默认沿用上次参数、同尺寸重算结果一致）。
+（37 项，软件报价：导航项、参数默认值、400 人时 / 50 人天 / 1.78 人月 / 88000 / 93280 / 97944、
+保存后回显、下次默认沿用上次参数、同尺寸重算结果一致、报价 CSV 下载、报价转项目与重复点击不多建）。
 
 ## 从 OFBiz 09.04 迁移
 

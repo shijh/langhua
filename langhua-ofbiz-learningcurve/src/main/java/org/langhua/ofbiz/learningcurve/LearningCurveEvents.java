@@ -85,6 +85,50 @@ public final class LearningCurveEvents {
         }
     }
 
+    /**
+     * Exports every saved software quote as one CSV table, newest first.
+     *
+     * <p>The file is written with a byte order mark, because Excel on a Chinese Windows would
+     * otherwise read it as ANSI and garble the headings.
+     *
+     * @param request the request
+     * @param response the response the CSV is written to
+     * @return "success" or "error"
+     */
+    public static String exportQuotesCsv(HttpServletRequest request, HttpServletResponse response) {
+        Delegator delegator = (Delegator) request.getAttribute("delegator");
+        try {
+            List<GenericValue> quotes = EntityQuery.use(delegator)
+                    .from("LearningCurveSoftwareQuote").orderBy("-createdStamp").queryList();
+
+            response.setContentType("text/csv; charset=UTF-8");
+            response.setHeader("Content-Disposition",
+                    "attachment; filename=learningcurve-software-quotes.csv");
+
+            PrintWriter writer = response.getWriter();
+            writer.print('\uFEFF');
+            writer.println(join("quoteId", "projectName", "customerName", "ufp", "effortHours",
+                    "effortDays", "scheduleMonths", "amountBeforeTax", "taxAmount", "amountWithTax",
+                    "dncAmount", "totalAmount", "pdrHoursPerFp", "dayRate", "taxRate", "projectCode",
+                    "createdStamp", "note"));
+            for (GenericValue quote : quotes) {
+                writer.println(join(quote.get("quoteId"), quote.get("projectName"),
+                        quote.get("customerName"), quote.get("ufp"), quote.get("effortHours"),
+                        quote.get("effortDays"), quote.get("scheduleMonths"),
+                        quote.get("amountBeforeTax"), quote.get("taxAmount"),
+                        quote.get("amountWithTax"), quote.get("dncAmount"), quote.get("totalAmount"),
+                        quote.get("pdrHoursPerFp"), quote.get("dayRate"), quote.get("taxRate"),
+                        quote.get("projectCode"), quote.get("createdStamp"), quote.get("note")));
+            }
+            writer.flush();
+            return "success";
+        } catch (Exception e) {
+            Debug.logError(e, "Could not export the software quotes", MODULE);
+            request.setAttribute("_ERROR_MESSAGE_", e.getMessage());
+            return "error";
+        }
+    }
+
     private static String join(Object... values) {
         StringBuilder line = new StringBuilder();
         for (int i = 0; i < values.length; i++) {
@@ -95,7 +139,6 @@ public final class LearningCurveEvents {
         }
         return line.toString();
     }
-
     private static String csv(Object value) {
         if (value == null) {
             return "";

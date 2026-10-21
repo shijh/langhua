@@ -123,11 +123,13 @@
 </#if>
 
 <h2>已保存的报价（${(saved.quoteCount)!0} 条，合计 ${((saved.totalAmount)!0)?string("#,##0.00")}）</h2>
+<p class="hint">报价存的是快照，以后改费率不影响历史。
+    <a class="download" href="/learningcurve/control/exportQuotesCsv">导出报价 CSV</a></p>
 <#if quotes?has_content>
     <table id="quoteList">
         <tr><th>编号</th><th>项目</th><th>客户</th><th class="num">UFP</th><th class="num">人天</th>
             <th class="num">工期（人月）</th><th class="num">含税</th><th class="num">合计</th>
-            <th class="num">日费率</th><th>时间</th><th>备注</th></tr>
+            <th class="num">日费率</th><th>时间</th><th>项目</th><th>备注</th></tr>
         <#list quotes as x>
             <tr>
                 <td>${(x.quoteId)!''}</td>
@@ -140,6 +142,21 @@
                 <td class="num"><b>${((x.totalAmount)!0)?string("#,##0.00")}</b></td>
                 <td class="num"><#if x.dayRate??>${x.dayRate?string("0.##")}</#if></td>
                 <td><#if x.createdStamp??>${x.createdStamp?string("MM-dd HH:mm")}</#if></td>
+                <td><#if ((x.projectCode)!'') != ''>
+                        <a href="/mfg/control/software?projectCode=${x.projectCode}">${x.projectCode}</a>
+                    <#else>
+                        <form method="post" action="/learningcurve/control/quoteToProject">
+                            <input type="hidden" name="quoteId" value="${x.quoteId}"/>
+                            <select name="categoryId">
+                                <option value="MFG_SW_FIRMWARE">固件</option>
+                                <option value="MFG_SW_ENCLOSURE">外壳设计</option>
+                                <option value="MFG_SW_HOST">上位机</option>
+                                <option value="MFG_SW_PLATFORM">平台</option>
+                                <option value="MFG_SW_OTHER" selected="selected">其它</option>
+                            </select>
+                            <input type="submit" value="建为项目"/>
+                        </form>
+                    </#if></td>
                 <td>${(x.note)!''}</td>
             </tr>
         </#list>

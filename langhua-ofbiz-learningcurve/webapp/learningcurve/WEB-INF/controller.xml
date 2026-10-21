@@ -39,6 +39,20 @@
         <response name="error" type="view" value="quote"/>
     </request-map>
 
+    <request-map uri="quoteToProject">
+        <security https="true" auth="true"/>
+        <event type="service" invoke="learningCurveQuoteToProject"/>
+        <response name="success" type="request-redirect" value="quote"/>
+        <response name="error" type="view" value="quote"/>
+    </request-map>
+
+    <request-map uri="exportQuotesCsv">
+        <security https="true" auth="true"/>
+        <event type="java" path="org.langhua.ofbiz.learningcurve.LearningCurveEvents" invoke="exportQuotesCsv"/>
+        <response name="success" type="none"/>
+        <response name="error" type="view" value="quote"/>
+    </request-map>
+
     <request-map uri="recordDetail">
         <security https="true" auth="true"/>
         <response name="success" type="view" value="recordDetail"/>
