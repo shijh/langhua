@@ -786,6 +786,17 @@
         <attribute name="refreshedAt" type="String" mode="OUT" optional="true"/>
     </service>
 
+    <service name="mfgAlerts" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgServices" invoke="alerts"
+            auth="false" use-transaction="false">
+        <description>Dashboard warnings: work orders with a material shortage and claims whose 7 day or 15 day window is closing or closed</description>
+        <attribute name="alerts" type="java.util.List" mode="OUT" optional="true"/>
+        <attribute name="alertCount" type="Integer" mode="OUT" optional="true"/>
+        <attribute name="errorCount" type="Integer" mode="OUT" optional="true"/>
+        <attribute name="shortageCount" type="Integer" mode="OUT" optional="true"/>
+        <attribute name="claimCount" type="Integer" mode="OUT" optional="true"/>
+    </service>
+
     <service name="mfgQualityReport" engine="java"
             location="org.langhua.ofbiz.mfg.MfgServices" invoke="qualityReport"
             auth="false" use-transaction="false">

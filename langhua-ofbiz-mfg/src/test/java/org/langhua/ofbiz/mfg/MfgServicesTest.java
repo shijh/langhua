@@ -710,4 +710,27 @@ public class MfgServicesTest {
         assertNull(cost.get("marginRate"));
         assertNull(cost.get("targetDifference"));
     }
+
+    @Test
+    public void quotesCsvCellsThatWouldBreakTheLine() {
+        assertEquals("B5X", MfgServices.csvCell("B5X"));
+        assertEquals("", MfgServices.csvCell(null));
+        // a comma, a quote and a line break all force the quotes, and quotes are doubled
+        assertEquals("\"a,b\"", MfgServices.csvCell("a,b"));
+        assertEquals("\"say \"\"hi\"\"\"", MfgServices.csvCell("say \"hi\""));
+        assertEquals("\"two\nlines\"", MfgServices.csvCell("two\nlines"));
+        assertEquals("B5X,12,0.5", MfgServices.csvLine(
+                java.util.Arrays.asList("B5X", "12", "0.5")));
+        // null cells become empty cells, so the columns stay aligned
+        assertEquals("B5X,,12", MfgServices.csvLine(
+                java.util.Arrays.asList("B5X", null, "12")));
+    }
+
+    @Test
+    public void formatsQuantitiesForTheAlertTexts() {
+        assertEquals("0", MfgServices.formatQty(0.0));
+        assertEquals("12", MfgServices.formatQty(12.0));
+        assertEquals("12.5", MfgServices.formatQty(12.5));
+        assertEquals("1.234", MfgServices.formatQty(1.23449));
+    }
 }

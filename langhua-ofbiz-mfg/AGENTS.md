@@ -55,20 +55,24 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   所以模板改动必须重新 `deploy-mfg.bat`（重启）；Java 改动本来就要重启
 - `EntityQuery...queryOne()` 在可能多行时抛 `Passed List had more than one value`（一个型号可以有多个开发项目），
   要排序取一条就用 `queryFirst()`
+- **每个 webapp 一个会话**：`/mfg` 与 `/learningcurve`（还有 `/webtools`）的 `auth="true"` **不共用登录**，
+  同一个 PS 脚本要分别 POST `/mfg/control/login` 与 `/learningcurve/control/login`；集成测试是登录 `/webtools` 跑服务，
+  所以**页面/CSV 下载这类 GET 断言只能放巡检脚本**（IT 里 GET `/mfg/control/*` 会 401）
 
 ## 测试与巡检
 
 | 脚本 | 覆盖 | 断言数 |
 | --- | --- | --- |
-| `MfgServicesTest` | 解析/规则/格式化（CSV、SN、FIFO、窗口、编号、附件类型、来料检验规则、成本取整与毛利…） | 58 |
-| `MfgServiceIT` | 全链路服务调用（含 BOM 版本、三条开发线、ECO、附件、来料检验、成本） | 232 |
+| `MfgServicesTest` | 解析/规则/格式化（CSV、SN、FIFO、窗口、编号、附件类型、来料检验规则、成本取整与毛利、CSV 单元格转义…） | 60 |
+| `MfgServiceIT` | 全链路服务调用（含 BOM 版本、三条开发线、ECO、附件、来料检验、成本、告警） | 239 |
 | `verify-m11.ps1` | 列表页搜索/过滤/翻页/编码 | 55 |
 | `verify-m12.ps1` | 装饰器布局（1 个 html、1 条导航、1 个高亮、样式表、无内联 style、无 FTL 报错） | 102 |
 | `verify-m13.ps1` | 产品开发 + BOM 版本 + 三条线路 | 49 |
 | `verify-m28b.ps1` | 通用附件（上传/列表/原图/缩略图/错误码/删除/PDF，覆盖产品/开发项目/工单/售后单/出货单） | 59 |
-| `verify-m29b.ps1` | 网站图标与导航标志（favicon、brand 图、四个尺寸、全站渲染） | 42 |
+| `verify-m29b.ps1` | 网站图标与导航标志（favicon、brand 图、四个尺寸、全站渲染，两个 webapp 各登一次） | 43 |
 | `verify-m31.ps1` | 来料检验：四个状态、建批次 → 判不合格 → 发料被拒 → 让步接收 → 放行 | 21 |
 | `verify-m32.ps1` | 成本核算：产品页成本块（材料/工时/合计/目标成本/毛利）、批量重算、BOM 单价与金额列、无单价告警、工单成本块（标准 vs 实际，发料后实际材料跟批次单价走） | 38 |
+| `verify-m33.ps1` | 看板告警与 CSV 导出（告警区、三个导出链接、`text/csv` + 下载头、表头列数、行内容） | 30 |
 
 ## 设计决策
 
@@ -104,6 +108,11 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   两张表分别带 `id="productCost"` / `id="workOrderCost"`，巡检按 id 切片断言，不碰中文
 - **BOM 导入的第一个版本就是当前版本**：`bomImport` 在型号还没有 `currentBomVersionId` 时，把新建的版本直接置 RELEASED 并指给型号，
   否则导完 BOM 页面上还是「未建 BOM」（成本、齐套都读不到）
+- **看板告警 + CSV 导出**：服务 `mfgAlerts` 收集「欠料工单」（`shortageRows()`，一行一个缺料元件）与「售后窗口」
+  （未结售后单的 `sevenDayDeadline` / `afterSaleDeadline`，已过期=ERROR、≤24h=WARN；`hoursLeft` 为 0 表示没设截止，
+  所以**判断有没有截止要看 Timestamp 是否为 null**）；排序 ERROR 优先、再按剩余小时升序，页面只列前 20 条；
+  三个下载 `dashboardCsv` / `alertsCsv` / `shortageCsv` 在 `MfgExportEvents`（事件 + `<response type="none"/>`），
+  文件带 UTF-8 BOM（中文 Excel 否则按 ANSI 读），数字用 `.` 小数点；CSV 转义用 `MfgServices.csvCell/csvLine`（有单测）
 - **保修**：从出货日开始算，月数在产品上（`warrantyMonths`，默认 12）- **淘宝窗口**：7 天无理由 = 签收日 + 8 天 00:00（即签收次日起 168 小时）；15 天售后 = 签收 + 15 天 23:59:59
 - **买家名单**：匹配键优先买家昵称（`TB:N:nick`），因为淘宝收件手机号常被隐私号掩码；手机号必须是 11 位真号、
   带 `*` 一律拒绝；名单 12 个月自动失效；**只提示，不拦截任何法定售后**

@@ -140,6 +140,25 @@ table input[type="submit"], table button {
     padding: 2px 10px;
 }
 table input[type="submit"]:hover, table button:hover { background: #3a3d41; }
+/* download links sit next to a hint, so they look like a small quiet button, not the page action */
+a.download {
+    display: inline-block;
+    margin-right: .5em;
+    padding: 2px 10px;
+    border: 1px solid var(--border-strong);
+    border-radius: 2px;
+    background: var(--bg-widget);
+    color: var(--fg);
+    text-decoration: none;
+    font-size: .85em;
+}
+a.download:hover { background: var(--bg-hover); border-color: var(--accent); color: var(--fg-strong); }
+/* the alert table: ids and deadlines stay on one line, only the detail column wraps */
+#alerts { width: 100%; }
+#alerts td { vertical-align: top; }
+#alerts td:nth-child(1), #alerts td:nth-child(2) { white-space: nowrap; }
+#alerts td:nth-child(3), #alerts td:nth-child(4), #alerts td:nth-child(5) { white-space: nowrap; }
+#alerts td:nth-child(7) { min-width: 18em; }
 input[type="checkbox"], input[type="radio"] { accent-color: var(--accent); }
 input[type="file"] { color: var(--fg-muted); }
 input[type="file"]::file-selector-button {

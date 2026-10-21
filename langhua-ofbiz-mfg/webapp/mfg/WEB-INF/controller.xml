@@ -31,6 +31,29 @@
         <response name="success" type="view" value="dashboard"/>
     </request-map>
 
+    <!-- CSV downloads: the dashboard snapshot, the alerts and the material shortages -->
+
+    <request-map uri="dashboardCsv">
+        <security https="true" auth="true"/>
+        <event type="java" path="org.langhua.ofbiz.mfg.MfgExportEvents" invoke="dashboardCsv"/>
+        <response name="success" type="none"/>
+        <response name="error" type="none"/>
+    </request-map>
+
+    <request-map uri="alertsCsv">
+        <security https="true" auth="true"/>
+        <event type="java" path="org.langhua.ofbiz.mfg.MfgExportEvents" invoke="alertsCsv"/>
+        <response name="success" type="none"/>
+        <response name="error" type="none"/>
+    </request-map>
+
+    <request-map uri="shortageCsv">
+        <security https="true" auth="true"/>
+        <event type="java" path="org.langhua.ofbiz.mfg.MfgExportEvents" invoke="shortageCsv"/>
+        <response name="success" type="none"/>
+        <response name="error" type="none"/>
+    </request-map>
+
     <request-map uri="productSave">
         <security https="true" auth="true"/>
         <event type="service" invoke="mfgProductSave"/>

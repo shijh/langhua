@@ -12,6 +12,8 @@
 <#assign kpi = (t.kpi)!{}>
 <#assign days = (t.days)![]>
 <#assign resp = (t.responsibilities)![]>
+<#assign ar = (alertResult)!{}>
+<#assign alerts = (ar.alerts)![]>
 <#macro respLabel code>
     <#if (code!'') == 'HOUSE'>自制
     <#elseif (code!'') == 'SMT'>SMT 外协
@@ -19,9 +21,20 @@
     <#elseif (code!'') == 'DESIGN'>设计
     <#else>-</#if>
 </#macro>
+<#macro alertLabel typeId>
+    <#if (typeId!'') == 'MFG_ALERT_SHORTAGE'>欠料
+    <#elseif (typeId!'') == 'MFG_ALERT_CLAIM_7DAY'>7 天窗口
+    <#elseif (typeId!'') == 'MFG_ALERT_CLAIM_AFTERSALE'>15 天窗口
+    <#else>${(typeId!'')}</#if>
+</#macro>
 
 <h1>车间看板</h1>
 <p class="hint">最后更新 ${(t.refreshedAt)!'-'}　<span id="refresh-hint">页面每 60 秒自动刷新</span></p>
+<p>
+    <a class="download" href="/mfg/control/dashboardCsv">导出看板 CSV</a>
+    <a class="download" href="/mfg/control/alertsCsv">导出告警 CSV</a>
+    <a class="download" href="/mfg/control/shortageCsv">导出欠料 CSV</a>
+</p>
 
 <div class="cards">
     <div class="card">
@@ -49,6 +62,33 @@
         <div class="value"><#if (b.todayQtyOk)?default(0) + (b.todayQtyNg)?default(0) gt 0>${(yieldRate * 100)?string("0.0")}%<#else>-</#if></div>
     </div>
 </div>
+
+<h2>告警（${(ar.alertCount)?string("0")}）</h2>
+<#if alerts?has_content>
+    <p class="hint">欠料 ${(ar.shortageCount)?string("0")} 项、售后窗口 ${(ar.claimCount)?string("0")} 项；
+        红色是已经欠料或过期，黄色是 24 小时内到期。<#if alerts?size gt 20>只列最紧急的 20 条，其余看「导出告警 CSV」。</#if></p>
+    <table id="alerts">
+        <tr><th>级别</th><th>类型</th><th>编号</th><th>对象</th><th>截止</th><th class="num">剩余(h)</th><th>说明</th></tr>
+        <#list alerts as a>
+            <#if a_index == 20><#break></#if>
+            <tr>
+                <td><#if (a.level!'') == 'ERROR'><span class="error">紧急</span><#else><span class="warn">预警</span></#if></td>
+                <td><@alertLabel (a.typeId)!''/></td>
+                <td><#if (a.typeId!'') == 'MFG_ALERT_SHORTAGE'>
+                        <a href="/mfg/control/workOrder?workOrderId=${(a.refId)!}">${(a.refId)!}</a>
+                    <#else>
+                        <a href="/mfg/control/claims?claimId=${(a.refId)!}">${(a.refId)!}</a>
+                    </#if></td>
+                <td>${(a.subject)!''}</td>
+                <td><#if a.dueDate??>${(a.dueDate)?string("MM-dd HH:mm")}</#if></td>
+                <td class="num">${(a.hoursLeft)?string("0")}</td>
+                <td>${(a.detail)!''}</td>
+            </tr>
+        </#list>
+    </table>
+<#else>
+    <p class="hint" id="alerts-none">没有欠料，也没有快到期的售后窗口。</p>
+</#if>
 
 <h2>售后（近 30 天）</h2>
 <div class="cards">

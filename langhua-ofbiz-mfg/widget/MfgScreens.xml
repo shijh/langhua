@@ -248,6 +248,7 @@
                 <service service-name="mfgDashboardTrends" result-map="trends" auto-field-map="false">
                     <field-map field-name="dayCount" from-field="parameters.days"/>
                 </service>
+                <service service-name="mfgAlerts" result-map="alertResult" auto-field-map="false"/>
             </actions>
             <widgets>
                 <decorator-screen name="mfg-decorator" location="component://mfg/widget/MfgCommonScreens.xml">

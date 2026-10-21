@@ -187,6 +187,7 @@ public final class MfgServiceIT {
             it.runsTheThreeDevelopmentTracks();
             it.storesProductPhotos();
             it.costsTheModel();
+            it.listsTheDashboardAlerts();
         } finally {
             it.tearDown();
         }
@@ -1618,6 +1619,44 @@ public final class MfgServiceIT {
         check("cost: every issued lot carries a price",
                 near(fieldValue(orderCost.body, "issuesWithoutPrice"), 0.0),
                 "an issued lot has no price");
+    }
+
+    /**
+     * Tests the alerts of the dashboard (a shortage and a passed after sales window) and the three
+     * CSV downloads built on the same data.
+     *
+     * @throws IOException when a service call fails
+     */
+    private void listsTheDashboardAlerts() throws IOException {
+        // signed eight days ago: the seven day window closed at midnight
+        String signedDate = java.time.LocalDate.now().minusDays(8).toString();
+        Map<String, String> claimForm = new LinkedHashMap<>();
+        claimForm.put("sn", serialNumber == null ? "" : serialNumber);
+        claimForm.put("issueDesc", "Alerts test claim");
+        claimForm.put("claimType", "RTN");
+        claimForm.put("tradeNo", "T-ALERT-1");
+        claimForm.put("signedDate", signedDate);
+        Response claim = invoke("mfgClaimCreate", claimForm);
+        String alertClaimId = firstMatch(CLAIM_ID, claim.body);
+        check("alerts: a claim with a passed 7 day window is opened", alertClaimId != null,
+                "no claim id in the response");
+
+        Map<String, String> form = new LinkedHashMap<>();
+        Response alerts = invoke("mfgAlerts", form);
+        check("alerts: service call returns HTTP 200", alerts.status == 200, "HTTP " + alerts.status);
+        check("alerts: the shortage of the test order is listed",
+                alerts.body.contains("MFG_ALERT_SHORTAGE"), "no shortage alert");
+        check("alerts: the passed seven day window is listed",
+                alerts.body.contains("MFG_ALERT_CLAIM_7DAY"), "no claim alert");
+        check("alerts: the claim is named in the list",
+                alertClaimId != null && alerts.body.contains(alertClaimId), "claim missing from the alerts");
+        check("alerts: a passed deadline is an error", alerts.body.contains("ERROR"),
+                "no error level in the response");
+        check("alerts: the counts are reported", alerts.body.contains("alertCount")
+                && alerts.body.contains("errorCount"), "no counts in the response");
+
+        // The three CSV downloads answer on the mfg webapp, which has its own session: they are
+        // checked by the page script (verify-m33.ps1), not here.
     }
 
     private Response get(String path) throws IOException {

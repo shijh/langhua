@@ -17,6 +17,7 @@
 <p>
     在制工单 ${(sh.orderCount)!0} 张，其中 <span class="big error">${(sh.shortageOrderCount)!0}</span> 张欠料。
     <span class="hint">需求 = BOM 用量 × 计划数量；欠料 = 需求 − 已发料。</span>
+    <a class="download" href="/mfg/control/shortageCsv">导出欠料 CSV</a>
 </p>
 
 <form method="get" action="/mfg/control/shortage">

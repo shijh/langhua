@@ -12,6 +12,8 @@
 package org.langhua.ofbiz.mfg;
 
 import java.sql.Timestamp;
+import java.text.DecimalFormat;
+import java.text.DecimalFormatSymbols;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -126,6 +128,15 @@ public final class MfgServices {
     public static final long AFTER_SALE_DAYS = 15L;
     /** Hours left before a deadline is flagged as expiring soon. */
     public static final long DEADLINE_WARNING_HOURS = 24L;
+
+    /** Alert types of the dashboard warning block. */
+    public static final String ALERT_SHORTAGE = "MFG_ALERT_SHORTAGE";
+    public static final String ALERT_CLAIM_7DAY = "MFG_ALERT_CLAIM_7DAY";
+    public static final String ALERT_CLAIM_AFTERSALE = "MFG_ALERT_CLAIM_AFTERSALE";
+    /** A warning that is worth a look. */
+    public static final String ALERT_WARN = "WARN";
+    /** Something is already late: a shortage or a passed deadline. */
+    public static final String ALERT_ERROR = "ERROR";
 
     public static final String BOM_DRAFT = "MFG_BOM_DRAFT";
     public static final String BOM_RELEASED = "MFG_BOM_RELEASED";
@@ -3844,6 +3855,233 @@ always
         } catch (GenericEntityException e) {
             return ServiceUtil.returnError("Could not build the dashboard series: " + e.getMessage());
         }
+    }
+
+    /**
+     * Collects what the shop floor should look at today: work orders with material shortages, and
+     * open claims whose 7 day or 15 day window is running out or has already passed.
+     *
+     * @param dctx the dispatch context
+     * @param context service context, see {@code servicedef/services.xml#mfgAlerts}
+     * @return the service result containing {@code alerts} (worst first) and their counts
+     */
+    public static Map<String, Object> alerts(DispatchContext dctx, Map<String, ? extends Object> context) {
+        Delegator delegator = dctx.getDelegator();
+        try {
+            List<Map<String, Object>> alerts = buildAlerts(delegator);
+            int errors = 0;
+            int shortages = 0;
+            for (Map<String, Object> alert : alerts) {
+                if (ALERT_ERROR.equals(alert.get("level"))) {
+                    errors++;
+                }
+                if (ALERT_SHORTAGE.equals(alert.get("typeId"))) {
+                    shortages++;
+                }
+            }
+            Map<String, Object> result = ServiceUtil.returnSuccess();
+            result.put("alerts", alerts);
+            result.put("alertCount", Integer.valueOf(alerts.size()));
+            result.put("errorCount", Integer.valueOf(errors));
+            result.put("shortageCount", Integer.valueOf(shortages));
+            result.put("claimCount", Integer.valueOf(alerts.size() - shortages));
+            return result;
+        } catch (GenericEntityException e) {
+            return ServiceUtil.returnError("Could not compute the alerts: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Builds the dashboard alerts: one per work order with a shortage, and one per open claim window
+     * that is about to close or already closed.
+     *
+     * @param delegator the delegator
+     * @return the alerts, already first and then the closest deadline first
+     * @throws GenericEntityException when the data cannot be read
+     */
+    static List<Map<String, Object>> buildAlerts(Delegator delegator) throws GenericEntityException {
+        List<Map<String, Object>> alerts = new ArrayList<>();
+
+        Map<String, List<Map<String, Object>>> byOrder = new LinkedHashMap<>();
+        for (Map<String, Object> row : shortageRows(delegator)) {
+            String workOrderId = String.valueOf(row.get("workOrderId"));
+            List<Map<String, Object>> rows = byOrder.get(workOrderId);
+            if (rows == null) {
+                rows = new ArrayList<>();
+                byOrder.put(workOrderId, rows);
+            }
+            rows.add(row);
+        }
+        for (Map.Entry<String, List<Map<String, Object>>> entry : byOrder.entrySet()) {
+            List<Map<String, Object>> rows = entry.getValue();
+            Map<String, Object> first = rows.get(0);
+            double total = 0.0;
+            List<String> codes = new ArrayList<>();
+            for (Map<String, Object> row : rows) {
+                total += numberOrZero(row.get("shortage"));
+                if (codes.size() < 3) {
+                    codes.add(String.valueOf(row.get("componentCode")));
+                }
+            }
+            java.sql.Date dueDate = (java.sql.Date) first.get("dueDate");
+            long dueHours = 0L;
+            if (dueDate != null) {
+                dueHours = hoursLeft(java.sql.Timestamp.valueOf(dueDate.toLocalDate().atTime(23, 59, 59)));
+            }
+            Map<String, Object> alert = new LinkedHashMap<>();
+            alert.put("typeId", ALERT_SHORTAGE);
+            alert.put("level", ALERT_ERROR);
+            alert.put("refId", entry.getKey());
+            alert.put("subject", first.get("productCode"));
+            alert.put("dueDate", dueDate);
+            alert.put("hoursLeft", Long.valueOf(dueHours));
+            alert.put("detail", rows.size() + " 行欠料，共 " + formatQty(total)
+                    + "；" + String.join("、", codes) + (rows.size() > codes.size() ? " 等" : ""));
+            alerts.add(alert);
+        }
+
+        List<GenericValue> openClaims = EntityQuery.use(delegator).from("MfgWarrantyClaim")
+                .where("statusId", RMA_OPEN).orderBy("sevenDayDeadline").queryList();
+        for (GenericValue claim : openClaims) {
+            addClaimAlert(alerts, claim, "sevenDayDeadline", ALERT_CLAIM_7DAY);
+            addClaimAlert(alerts, claim, "afterSaleDeadline", ALERT_CLAIM_AFTERSALE);
+        }
+
+        alerts.sort(new Comparator<Map<String, Object>>() {
+            @Override
+            public int compare(Map<String, Object> left, Map<String, Object> right) {
+                String leftLevel = String.valueOf(left.get("level"));
+                String rightLevel = String.valueOf(right.get("level"));
+                if (!leftLevel.equals(rightLevel)) {
+                    return ALERT_ERROR.equals(leftLevel) ? -1 : 1;
+                }
+                return ((Long) left.get("hoursLeft")).compareTo((Long) right.get("hoursLeft"));
+            }
+        });
+        return alerts;
+    }
+
+    /**
+     * Adds the alert of one claim window when it is inside the warning window or already passed.
+     *
+     * @param alerts the list to add to
+     * @param claim the claim
+     * @param deadlineField the field holding the deadline
+     * @param typeId the alert type
+     */
+    private static void addClaimAlert(List<Map<String, Object>> alerts, GenericValue claim,
+            String deadlineField, String typeId) {
+        java.sql.Timestamp deadline = claim.getTimestamp(deadlineField);
+        if (deadline == null) {
+            return;
+        }
+        long hours = hoursLeft(deadline);
+        if (hours > DEADLINE_WARNING_HOURS) {
+            return;
+        }
+        StringBuilder detail = new StringBuilder(ALERT_CLAIM_7DAY.equals(typeId)
+                ? "7 天无理由窗口" : "15 天售后窗口");
+        detail.append(hours < 0 ? "已经过期 " + (-hours) + " 小时" : "还有 " + hours + " 小时");
+        if (claim.getString("claimType") != null) {
+            detail.append("；").append(claim.getString("claimType"));
+        }
+        if (claim.getString("tradeNo") != null) {
+            detail.append("；订单 ").append(claim.getString("tradeNo"));
+        }
+        Map<String, Object> alert = new LinkedHashMap<>();
+        alert.put("typeId", typeId);
+        alert.put("level", hours < 0 ? ALERT_ERROR : ALERT_WARN);
+        alert.put("refId", claim.getString("claimId"));
+        alert.put("subject", claim.getString("sn"));
+        alert.put("dueDate", deadline);
+        alert.put("hoursLeft", Long.valueOf(hours));
+        alert.put("detail", detail.toString());
+        alerts.add(alert);
+    }
+
+    /**
+     * Flattens the shortages of every open work order into one row per component, ordered by due
+     * date, so the page and the CSV export tell the same numbers.
+     *
+     * @param delegator the delegator
+     * @return one row per component that is short, empty when everything is kitted
+     * @throws GenericEntityException when the data cannot be read
+     */
+    static List<Map<String, Object>> shortageRows(Delegator delegator) throws GenericEntityException {
+        List<Map<String, Object>> rows = new ArrayList<>();
+        List<GenericValue> orders = EntityQuery.use(delegator).from("MfgWorkOrder")
+                .orderBy("dueDate").queryList();
+        for (GenericValue order : orders) {
+            String statusId = order.getString("statusId");
+            if (WO_CLOSED.equals(statusId) || WO_COMPLETED.equals(statusId)) {
+                continue;
+            }
+            for (Map<String, Object> line : kittingLines(delegator, order)) {
+                double shortage = numberOrZero(line.get("shortage"));
+                if (shortage <= 0.0001) {
+                    continue;
+                }
+                Map<String, Object> row = new LinkedHashMap<>();
+                row.put("workOrderId", order.getString("workOrderId"));
+                row.put("productCode", order.getString("productCode"));
+                row.put("dueDate", order.getDate("dueDate"));
+                row.put("customerName", order.getString("customerName"));
+                row.put("componentCode", line.get("componentCode"));
+                row.put("componentName", line.get("componentName"));
+                row.put("requiredQty", line.get("requiredQty"));
+                row.put("issuedQty", line.get("issuedQty"));
+                row.put("shortage", Double.valueOf(shortage));
+                rows.add(row);
+            }
+        }
+        return rows;
+    }
+
+    /**
+     * Formats a quantity for the short texts of the alerts: at most three decimals and a dot as the
+     * decimal separator, whatever the server locale is.
+     *
+     * @param value the quantity
+     * @return the formatted quantity
+     */
+    static String formatQty(double value) {
+        DecimalFormat format = new DecimalFormat("0.###",
+                DecimalFormatSymbols.getInstance(Locale.ROOT));
+        return format.format(value);
+    }
+
+    /**
+     * Quotes one CSV cell: a value holding a comma, a quote or a line break is wrapped in double
+     * quotes and its own quotes are doubled.
+     *
+     * @param value the cell value, may be {@code null}
+     * @return the cell as it goes into the file
+     */
+    static String csvCell(String value) {
+        if (value == null) {
+            return "";
+        }
+        boolean quote = value.indexOf(',') >= 0 || value.indexOf('"') >= 0
+                || value.indexOf('\n') >= 0 || value.indexOf('\r') >= 0;
+        String escaped = value.replace("\"", "\"\"");
+        return quote ? "\"" + escaped + "\"" : escaped;
+    }
+
+    /**
+     * Joins cells into one CSV line, without the line break.
+     *
+     * @param cells the cells, {@code null} cells become empty
+     * @return the line
+     */
+    static String csvLine(List<String> cells) {
+        StringBuilder line = new StringBuilder();
+        for (String cell : cells) {
+            if (line.length() > 0) {
+                line.append(',');
+            }
+            line.append(csvCell(cell));
+        }
+        return line.toString();
     }
 
     /**
