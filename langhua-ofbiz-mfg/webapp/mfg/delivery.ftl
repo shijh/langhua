@@ -106,6 +106,6 @@
     <#include "attachmentBlock.ftl">
     <#assign attOwner = delivery.deliveryId>
     <#assign attBack = '/mfg/control/delivery?deliveryId=' + attOwner>
-    <@attachmentBlock 'MFG_ATT_DELIVERY' attOwner attBack '上传签收单 / 快递面单（JPG、PNG、PDF）' atts/>
+    <@attachmentBlock 'MFG_ATT_DELIVERY' attOwner attBack '签收单 / 快递面单' atts/>
 </#if>
 

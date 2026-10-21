@@ -234,7 +234,7 @@
     <#include "attachmentBlock.ftl">
     <#assign attOwner = claim.claimId>
     <#assign attBack = '/mfg/control/claims?claimId=' + attOwner>
-    <@attachmentBlock 'MFG_ATT_CLAIM' attOwner attBack '上传照片 / 检测报告（JPG、PNG、PDF）' atts/>
+    <@attachmentBlock 'MFG_ATT_CLAIM' attOwner attBack '照片与检测报告' atts/>
 
     <h3 style="font-size:1em;margin-top:1.2em;">该板换件记录</h3>
     <#if replacements?has_content>

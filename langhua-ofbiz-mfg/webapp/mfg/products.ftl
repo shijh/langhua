@@ -124,7 +124,7 @@
     <#include "attachmentBlock.ftl">
     <#assign attOwner = product.productCode>
     <#assign attBack = '/mfg/control/products?productCode=' + attOwner>
-    <@attachmentBlock 'MFG_ATT_PRODUCT' attOwner attBack '上传照片：JPG / PNG / GIF / PDF，图片不超过 4 MB' images/>
+    <@attachmentBlock 'MFG_ATT_PRODUCT' attOwner attBack '产品照片' images/>
 
     <h2>BOM 版本（${versions?size} 个）</h2>
     <#if versions?has_content>

@@ -323,7 +323,7 @@
     <#include "attachmentBlock.ftl">
     <#assign attOwner = project.projectCode>
     <#assign attBack = '/mfg/control/dev?projectCode=' + attOwner>
-    <@attachmentBlock 'MFG_ATT_DEV_PROJECT' attOwner attBack '上传资料：3D 打印照片、合同扫描件、Gerber 截图（JPG、PNG、PDF）' atts/>
+    <@attachmentBlock 'MFG_ATT_DEV_PROJECT' attOwner attBack '项目资料：3D 打印照片 / 合同扫描件 / Gerber 截图' atts/>
 
     <h3>相关变更单（${ecos?size} 个）</h3>    <#if ecos?has_content>
         <table>

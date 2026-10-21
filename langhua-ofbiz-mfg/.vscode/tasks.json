@@ -41,6 +41,24 @@
 			"type": "shell",
 			"command": "powershell -NoProfile -ExecutionPolicy Bypass -File F:\\build-ofbiz\\mfg-commit.ps1",
 			"group": "build"
+		},
+		{
+			"label": "deploy-mfg-att5",
+			"type": "shell",
+			"command": "cmd /c C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\deploy-mfg.bat",
+			"group": "build"
+		},
+		{
+			"label": "deploy-mfg-att6",
+			"type": "shell",
+			"command": "cmd /c C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\deploy-mfg.bat",
+			"group": "build"
+		},
+		{
+			"label": "verify-m28b4",
+			"type": "shell",
+			"command": "powershell -NoProfile -ExecutionPolicy Bypass -File C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\verify-m28b.ps1; Copy-Item F:\\build-ofbiz\\mfg-m28.txt F:\\build-ofbiz\\mfg-m28-r4.txt -Force",
+			"group": "test"
 		}
 	]
 }

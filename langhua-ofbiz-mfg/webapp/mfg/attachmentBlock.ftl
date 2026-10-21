@@ -27,10 +27,10 @@
             <input type="hidden" name="back" value="${back}"/>
             <p>
                 <input type="file" name="file" accept="image/jpeg,image/png,image/gif,application/pdf"/>
-                备注 <input type="text" name="note" size="28" placeholder="例如：正面 / 破损 / 合同扫描件"/>
+                <input type="text" name="note" size="22" placeholder="备注：正面 / 破损 / 合同扫描件"/>
                 <input type="submit" value="上传"/>
-                <span class="hint">JPG / PNG / GIF / PDF，图片 ≤ 4 MB，PDF ≤ 8 MB</span>
             </p>
+            <p class="hint">支持 JPG / PNG / GIF / PDF；图片 ≤ 4 MB，PDF ≤ 8 MB</p>
         </form>
     </fieldset>
     <#if attachments?has_content>
