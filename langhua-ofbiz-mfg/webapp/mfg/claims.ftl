@@ -230,13 +230,13 @@
         <tr><th>该工单不良记录数</th><td>${(det.defectCount)!0}</td></tr>
     </table>
 
-    <h3 style="font-size:1em;margin-top:1.2em;">照片与凭证</h3>
+    <h3>照片与凭证</h3>
     <#include "attachmentBlock.ftl">
     <#assign attOwner = claim.claimId>
     <#assign attBack = '/mfg/control/claims?claimId=' + attOwner>
     <@attachmentBlock 'MFG_ATT_CLAIM' attOwner attBack '照片与检测报告' atts/>
 
-    <h3 style="font-size:1em;margin-top:1.2em;">该板换件记录</h3>
+    <h3>该板换件记录</h3>
     <#if replacements?has_content>
         <table>
             <tr><th>日期</th><th>料号</th><th>原批次</th><th>新批次</th><th class="num">数量</th><th>原因</th></tr>

@@ -136,6 +136,8 @@ https://localhost:8443/learningcurve/control/main
 | 通过 / 注意 / 异常 | `#89d185` / `#cca700` / `#f14c4c` |
 
 - 颜色全部收在 `:root` 的变量里，换主题只改这一段；`color-scheme: dark` 让原生控件也跟着变深；
+- 分隔线用 `--border: #3a3a3a`（比 VS Code 原生的 `#2b2b2b` 亮一档，因为页面底色是 `#1f1f1f`）；
+- `h2` / `h3` 自带 `border-top`，区块之间有一条分隔线（详情页的估算结果 / 趋势图 / 历史批次 / 原始输入 各块分开）；
 - 只有主操作是蓝色按钮，表格行内的小按钮（删除等）是安静的深灰次要按钮；
 - 趋势图是手写 SVG，`<text>` 默认黑色，靠 `svg text { fill: var(--fg-muted) }` 在深色底上才看得见；
   拟合线用 `#4daafc`、实测点用 `#f14c4c`，坐标轴用 `#4b4b4b`；

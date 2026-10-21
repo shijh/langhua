@@ -102,7 +102,7 @@
         </#list>
     </table>
 
-    <h3 style="font-size:1em;margin-top:1.2em;">签收单 / 出货凭证</h3>
+    <h3>签收单 / 出货凭证</h3>
     <#include "attachmentBlock.ftl">
     <#assign attOwner = delivery.deliveryId>
     <#assign attBack = '/mfg/control/delivery?deliveryId=' + attOwner>

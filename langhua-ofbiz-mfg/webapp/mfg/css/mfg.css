@@ -18,8 +18,8 @@
     --bg-hover: #2a2d2e;      /* hovered row / link */
     --bg-odd: #232323;        /* zebra row */
 
-    --border: #2b2b2b;
-    --border-strong: #3c3c3c;
+    --border: #3a3a3a;          /* hairlines: nav, tables, section breaks */
+    --border-strong: #4b4b4b;   /* inputs and other controls that must stand out */
 
     --fg: #cccccc;
     --fg-strong: #e7e7e7;
@@ -45,8 +45,21 @@ body {
 }
 
 h1 { font-size: 1.35em; color: var(--fg-strong); }
-h2 { font-size: 1.05em; margin-top: 1.4em; color: var(--fg-strong); }
-h3 { font-size: 1em; margin-top: 1.2em; color: var(--fg-strong); }
+/* every section heading opens with a hairline, so the blocks of a long page are separated */
+h2 {
+    font-size: 1.05em;
+    margin-top: 1.8em;
+    padding-top: .8em;
+    border-top: 1px solid var(--border);
+    color: var(--fg-strong);
+}
+h3 {
+    font-size: 1em;
+    margin-top: 1.6em;
+    padding-top: .7em;
+    border-top: 1px solid var(--border);
+    color: var(--fg-strong);
+}
 
 a { color: var(--link); text-decoration: none; }
 a:hover { text-decoration: underline; }
