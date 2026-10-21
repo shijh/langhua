@@ -6,24 +6,8 @@
 -->
 <#assign p = (parameters)!{}>
 <#assign errList = (errorMessageList)![]>
-<html>
-<head>
-    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
-    <title>Learning Curve Estimation</title>
-    <style type="text/css">
-        body { font-family: Arial, Helvetica, sans-serif; margin: 2em; color: #222; }
-        h1 { font-size: 1.5em; }
-        label { display: inline-block; width: 11em; }
-        table { border-collapse: collapse; margin-top: .8em; }
-        th, td { border: 1px solid #ccc; padding: 4px 10px; text-align: left; }
-        .error { color: #b00000; font-weight: bold; }
-        .hint { color: #666; font-size: .85em; }
-    </style>
-</head>
-<body>
-<h1>Learning Curve Estimation</h1>
 
-<p><a href="/learningcurve/control/records">已保存的估算记录 →</a></p>
+<h1>学习曲线估算</h1>
 
 <form method="post" action="/learningcurve/control/estimate">
     <p>
@@ -68,5 +52,3 @@
 <#if errList?has_content>
     <p class="error"><#list errList as msg>${msg}<#if msg_has_next><br/></#if></#list></p>
 </#if>
-</body>
-</html>

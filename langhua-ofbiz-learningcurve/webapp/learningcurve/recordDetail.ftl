@@ -15,23 +15,7 @@
 <#assign plotH = 200>
 <#assign x0 = 60>
 <#assign y0 = 250>
-<html>
-<head>
-    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
-    <title>Learning Curve Record</title>
-    <style type="text/css">
-        body { font-family: Arial, Helvetica, sans-serif; margin: 2em; color: #222; }
-        h1 { font-size: 1.4em; }
-        h2 { font-size: 1.1em; margin-top: 1.6em; }
-        table { border-collapse: collapse; margin-top: .6em; }
-        th, td { border: 1px solid #ccc; padding: 4px 10px; text-align: left; }
-        th { background: #f3f3f3; }
-        .num { text-align: right; }
-        .legend span { margin-right: 1.5em; font-size: .9em; }
-        .dot { display: inline-block; width: 10px; height: 10px; border-radius: 5px; margin-right: 4px; }
-    </style>
-</head>
-<body>
+
 <#if !(e.estimateId??)>
     <h1>记录不存在</h1>
     <p><a href="/learningcurve/control/records">← 返回记录列表</a></p>
@@ -91,5 +75,3 @@
     <h2>原始输入</h2>
     <p><code>${e.historyData!}</code></p>
 </#if>
-</body>
-</html>

@@ -30,9 +30,9 @@ langhua-ofbiz-learningcurve/
 ├── servicedef/
 │   └── services.xml                     # 服务定义
 ├── widget/
-│   ├── LearningCurveCommonScreens.xml   # 登录/错误页使用的 decorator
-│   └── LearningCurveScreens.xml         # 估算、记录列表、记录详情页面
-├── webapp/learningcurve/                # controller.xml + estimation/records/recordDetail.ftl
+│   ├── LearningCurveCommonScreens.xml   # 登录/错误页 decorator + 页面布局装饰器 lc-decorator
+│   └── LearningCurveScreens.xml         # 估算、记录列表、记录详情页面（内容包在 lc-decorator 里）
+├── webapp/learningcurve/                # controller.xml + web.xml + 3 个 FTL + decorator.ftl + css/
 ├── src/main/java/org/langhua/ofbiz/learningcurve/
 ├── src/test/java/org/langhua/ofbiz/learningcurve/
 └── integration-test/LearningCurveServiceIT.java
@@ -106,6 +106,19 @@ https://localhost:8443/learningcurve/control/main
 | `/learningcurve/control/recordDetail?estimateId=...` | 详情：估算结果、历史批次、趋势图（SVG）、CSV 下载 |
 | `/learningcurve/control/exportCsv?estimateId=...` | 导出该记录为 CSV（`text/csv`） |
 
+### 页面布局：单一装饰器
+
+页面外壳（`<html>` / `<head>` / 样式表 / 顶部导航）只定义一次，和组装 MES 组件（`langhua-ofbiz-mfg`）用同一套做法：
+
+- `widget/LearningCurveCommonScreens.xml` 的 `lc-decorator` 渲染 `webapp/learningcurve/decorator.ftl`；
+- `widget/LearningCurveScreens.xml` 的每个屏幕把自己的内容放进 `decorator-section name="body"`；
+- 每个屏幕的 `actions` 设 `pageTitle`（页面标题）与 `activeMenu`（当前菜单键：`estimate` / `records`），
+  装饰器据此生成 `<title>`、高亮当前菜单项；
+- 样式集中在 `webapp/learningcurve/css/lc.css`（`web.xml` 的 `allowedPaths` 加了 `:/css`），
+  模板里不再有 `<style>` 块，3 个模板合计减少了约 45 行重复的外壳代码。
+
+加一个菜单项只改 `decorator.ftl`（一行 `navItem`），改配色只改 `lc.css`。
+
 ## 数据模型
 
 | 实体 | 说明 |
@@ -177,4 +190,14 @@ java -cp "build/test-classes:src/main/java:ofbiz.jar:jama-1.0.3.jar:junit-4.13.2
 ## 开发说明
 
 本次针对 OFBiz 24.09 / Java 17 的代码升级（包名迁移、服务化封装、插件化重构、单元测试补充与编译告警清理），使用 **DeepSeek V4.1 Flash** 辅助开发完成。
+
+界面布局踩坑（与 `langhua-ofbiz-mfg` 共用结论）：
+
+- **装饰器**：`<decorator-screen>` 放在 `widgets` 里，内容写在 `<decorator-section name="body">`，
+  装饰器模板用 `sections.render("body")` 输出；屏幕 `actions` 里设的上下文变量（`pageTitle` / `activeMenu`）
+  在装饰器里可直接读取。
+- **静态资源放行**：`webapp/learningcurve/WEB-INF/web.xml` 的 `ControlFilter` 只放行 `allowedPaths`
+  中的前缀，新增 `css/` 就必须加 `:/css`，否则样式表 404。
+- **`<screen>` 只能有一个 `<section>`**；模板报错时 OFBiz 仍返回 HTTP 200，所以页面断言要扫
+  `FTL stack trace` / `FreeMarker template error`，不能只看状态码。
 

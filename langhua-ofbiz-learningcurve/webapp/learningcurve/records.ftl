@@ -5,26 +5,8 @@
 -->
 <#assign lr = (listResult)!{}>
 <#assign estimates = (lr.estimates)![]>
-<html>
-<head>
-    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
-    <title>Learning Curve Records</title>
-    <style type="text/css">
-        body { font-family: Arial, Helvetica, sans-serif; margin: 2em; color: #222; }
-        h1 { font-size: 1.5em; }
-        table { border-collapse: collapse; margin-top: 1em; }
-        th, td { border: 1px solid #ccc; padding: 4px 10px; text-align: left; }
-        th { background: #f3f3f3; }
-        .num { text-align: right; }
-        .empty { color: #666; margin-top: 1em; }
-    </style>
-</head>
-<body>
-<h1>估算记录</h1>
 
-<p>
-    <a href="/learningcurve/control/main">← 新建估算</a>
-</p>
+<h1>估算记录</h1>
 
 <form method="get" action="/learningcurve/control/records">
     产品型号 / 项目：<input type="text" name="productCode" size="24" value="${(parameters.productCode)!''}"/>
@@ -65,5 +47,3 @@
 <#else>
     <p class="empty">还没有保存的估算记录。</p>
 </#if>
-</body>
-</html>

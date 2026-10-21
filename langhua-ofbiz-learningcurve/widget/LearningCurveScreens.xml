@@ -8,13 +8,19 @@
         <section>
             <actions>
                 <set field="title" value="Learning Curve Estimation"/>
+                <set field="pageTitle" value="学习曲线估算"/>
+                <set field="activeMenu" value="estimate"/>
             </actions>
             <widgets>
-                <platform-specific>
-                    <html>
-                        <html-template location="component://learningcurve/webapp/learningcurve/estimation.ftl"/>
-                    </html>
-                </platform-specific>
+                <decorator-screen name="lc-decorator" location="component://learningcurve/widget/LearningCurveCommonScreens.xml">
+                    <decorator-section name="body">
+                        <platform-specific>
+                            <html>
+                                <html-template location="component://learningcurve/webapp/learningcurve/estimation.ftl"/>
+                            </html>
+                        </platform-specific>
+                    </decorator-section>
+                </decorator-screen>
             </widgets>
         </section>
     </screen>
@@ -23,16 +29,23 @@
     <screen name="records">
         <section>
             <actions>
+                <set field="title" value="Learning Curve Records"/>
+                <set field="pageTitle" value="估算记录"/>
+                <set field="activeMenu" value="records"/>
                 <service service-name="learningCurveListEstimates" result-map="listResult" auto-field-map="false">
                     <field-map field-name="productCode" from-field="parameters.productCode"/>
                 </service>
             </actions>
             <widgets>
-                <platform-specific>
-                    <html>
-                        <html-template location="component://learningcurve/webapp/learningcurve/records.ftl"/>
-                    </html>
-                </platform-specific>
+                <decorator-screen name="lc-decorator" location="component://learningcurve/widget/LearningCurveCommonScreens.xml">
+                    <decorator-section name="body">
+                        <platform-specific>
+                            <html>
+                                <html-template location="component://learningcurve/webapp/learningcurve/records.ftl"/>
+                            </html>
+                        </platform-specific>
+                    </decorator-section>
+                </decorator-screen>
             </widgets>
         </section>
     </screen>
@@ -41,16 +54,23 @@
     <screen name="recordDetail">
         <section>
             <actions>
+                <set field="title" value="Learning Curve Record"/>
+                <set field="pageTitle" value="估算详情"/>
+                <set field="activeMenu" value="records"/>
                 <service service-name="learningCurveChartData" result-map="chart" auto-field-map="false">
                     <field-map field-name="estimateId" from-field="parameters.estimateId"/>
                 </service>
             </actions>
             <widgets>
-                <platform-specific>
-                    <html>
-                        <html-template location="component://learningcurve/webapp/learningcurve/recordDetail.ftl"/>
-                    </html>
-                </platform-specific>
+                <decorator-screen name="lc-decorator" location="component://learningcurve/widget/LearningCurveCommonScreens.xml">
+                    <decorator-section name="body">
+                        <platform-specific>
+                            <html>
+                                <html-template location="component://learningcurve/webapp/learningcurve/recordDetail.ftl"/>
+                            </html>
+                        </platform-specific>
+                    </decorator-section>
+                </decorator-screen>
             </widgets>
         </section>
     </screen>

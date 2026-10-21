@@ -20,4 +20,23 @@
             </widgets>
         </section>
     </screen>
+
+    <!--
+        Layout decorator of the learning curve screens: html shell, shared stylesheet and the main
+        navigation. Screens render their content into the "body" decorator section.
+    -->
+    <screen name="lc-decorator">
+        <section>
+            <actions>
+                <set field="activeApp" value="learningcurve"/>
+            </actions>
+            <widgets>
+                <platform-specific>
+                    <html>
+                        <html-template location="component://learningcurve/webapp/learningcurve/decorator.ftl"/>
+                    </html>
+                </platform-specific>
+            </widgets>
+        </section>
+    </screen>
 </screens>

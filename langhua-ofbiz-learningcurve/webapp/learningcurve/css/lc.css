@@ -1,0 +1,31 @@
+/*
+ * Shared styles of the learning curve screens.
+ * Served as a static file: /learningcurve/css/lc.css (see web.xml allowedPaths).
+ */
+body { font-family: Arial, Helvetica, sans-serif; margin: 1.5em; color: #222; }
+h1 { font-size: 1.35em; }
+h2 { font-size: 1.05em; margin-top: 1.4em; }
+h3 { font-size: 1em; margin-top: 1.2em; }
+
+table { border-collapse: collapse; margin-top: .6em; }
+th, td { border: 1px solid #ccc; padding: 4px 10px; text-align: left; vertical-align: top; }
+th { background: #f3f3f3; }
+
+.num { text-align: right; }
+.error { color: #b00000; font-weight: bold; }
+.ok { color: #1a7f37; font-weight: bold; }
+.warn { color: #9a6700; font-weight: bold; }
+.hint { color: #666; font-size: .85em; }
+.empty { color: #666; margin-top: 1em; }
+
+.nav { margin: 0 0 1em 0; padding-bottom: .5em; border-bottom: 1px solid #ddd; }
+.nav a { margin-right: 1em; }
+
+/* estimation form */
+label { display: inline-block; width: 11em; }
+form.inline { display: inline; }
+code { background: #f6f6f6; padding: 1px 4px; }
+
+/* learning curve chart legend */
+.legend span { margin-right: 1.5em; font-size: .9em; }
+.dot { display: inline-block; width: 10px; height: 10px; border-radius: 5px; margin-right: 4px; }
