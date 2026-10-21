@@ -225,4 +225,35 @@ public class LearningCurveServicesTest {
         assertEquals("", result.get("historyData"));
         assertEquals(Integer.valueOf(0), result.get("batchCount"));
     }
+
+    @Test
+    public void pdrSeriesIsOneUnitPerDelivery() {
+        java.util.List<Map<String, Object>> rows = new java.util.ArrayList<>();
+        rows.add(pdrRow("SW-1", 60.0));
+        rows.add(pdrRow("SW-2", 48.0));
+        rows.add(pdrRow("SW-3", 40.0));
+
+        Matrix series = LearningCurveServices.buildPdrSeries(rows);
+
+        // every delivery counts as one unit, its value is that delivery's hours per point
+        assertEquals(3, series.getRowDimension());
+        assertEquals(2, series.getColumnDimension());
+        assertEquals(1.0, series.get(0, 0), 1e-9);
+        assertEquals(60.0, series.get(0, 1), 1e-9);
+        assertEquals(40.0, series.get(2, 1), 1e-9);
+    }
+
+    @Test
+    public void pdrSeriesOfNoRowsHasNoRow() {
+        Matrix series = LearningCurveServices.buildPdrSeries(new java.util.ArrayList<Map<String, Object>>());
+
+        assertEquals(0, series.getRowDimension());
+    }
+
+    private Map<String, Object> pdrRow(String projectCode, double pdr) {
+        Map<String, Object> row = new HashMap<>();
+        row.put("projectCode", projectCode);
+        row.put("pdr", Double.valueOf(pdr));
+        return row;
+    }
 }

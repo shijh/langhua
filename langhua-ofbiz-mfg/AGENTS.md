@@ -125,7 +125,7 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
 - **软件项目（功能点口径）**：`MfgSoftwareProject` 一台账两用——自用记实际工时、对外报价算价格。
   纯函数 `softwareCost(ilf, eif, ufp, swf四项, rdf, pdr, dayRate, taxRate, dncRate)`：
   UFP=35ILF+15EIF、AE=PDR×UFP×SWF×RDF、D=1.277×(AE/176)^0.404、金额=人天×日费率+税+非人力成本；
-  默认值（2019 西部云谷案例）：PDR **40 人时/FP**（预估功能点口径）、日费率 880、税 6%、DNC 5%、HM 176；
+  默认值（2019 西部云谷案例，日费率已从 880 加倍到 1760）：PDR **40 人时/FP**（预估功能点口径）、日费率 1760、税 6%、DNC 5%、HM 176；
   SWF = 基础 1.5 − 复用 0.5 + 前期投入 0.1 + 质量 0.05 这类加减项相加，页面四项可填；
   `plannedDays` 在保存时冻结成快照（改参数不改历史），实测 PDR = actualHours/UFP，列表返回中位数做基准；
   项目超人天/超期进 `mfgAlerts`（`MFG_ALERT_SOFTWARE`）。**40 人时/FP 与明细功能点的 6~7 人时/FP 差约六倍，不能混用**

@@ -80,6 +80,8 @@ public final class LearningCurveServiceIT {
             it.estimateCrawford();
             it.rejectsMalformedHistoryData();
             it.savesAndReadsBack();
+            it.quotesSoftware();
+            it.forecastsTheProductivity();
         } finally {
             it.tearDown();
         }
@@ -176,6 +178,83 @@ public final class LearningCurveServiceIT {
         form.put("leastSquare", leastSquare);
         form.put("methodType", methodType);
         return post("/webtools/control/scheduleServiceSync", form);
+    }
+
+    /**
+     * Quotes software through the MES cost model and keeps the quotation: ten function points at the
+     * default day rate, then the same quote read back from the list.
+     *
+     * @throws IOException when the service call fails
+     */
+    private void quotesSoftware() throws IOException {
+        Map<String, String> form = new LinkedHashMap<>();
+        form.put("SERVICE_NAME", "learningCurveSoftwareQuote");
+        form.put("_RUN_SYNC_", "Y");
+        form.put("ufp", "10");
+        form.put("swfBase", "1");
+        form.put("rdf", "1");
+        form.put("pdrHoursPerFp", "40");
+        form.put("taxRate", "0.06");
+        form.put("dncRate", "0.05");
+        Response quote = post("/webtools/control/scheduleServiceSync", form);
+        check("software quote: service call returns HTTP 200", quote.status == 200, "HTTP " + quote.status);
+        check("software quote: the effort is 400 hours", quote.body.contains("effortHours")
+                && quote.body.contains("400"), "no 400 hours in response");
+        check("software quote: the price uses the default day rate", quote.body.contains("88000"),
+                "expected 88000 before tax");
+        check("software quote: the total is reported", quote.body.contains("97944"),
+                "expected 97944 in total");
+
+        Map<String, String> saveForm = new LinkedHashMap<>();
+        saveForm.put("SERVICE_NAME", "learningCurveSaveSoftwareQuote");
+        saveForm.put("_RUN_SYNC_", "Y");
+        saveForm.put("projectName", "IT software quote");
+        saveForm.put("customerName", "IT customer");
+        saveForm.put("ilfCount", "4");
+        saveForm.put("eifCount", "2");
+        saveForm.put("swfBase", "1");
+        saveForm.put("rdf", "1");
+        saveForm.put("pdrHoursPerFp", "40");
+        saveForm.put("dayRate", "880");
+        saveForm.put("taxRate", "0.06");
+        saveForm.put("dncRate", "0.05");
+        Response saved = post("/webtools/control/scheduleServiceSync", saveForm);
+        check("software quote: saving returns HTTP 200", saved.status == 200, "HTTP " + saved.status);
+        check("software quote: a quote id comes back", saved.body.contains("quoteId"),
+                "no quoteId in response");
+        check("software quote: the size is 170 function points", saved.body.contains("170"),
+                "expected 170 function points (35 x 4 + 15 x 2)");
+
+        Map<String, String> listForm = new LinkedHashMap<>();
+        listForm.put("SERVICE_NAME", "learningCurveListSoftwareQuotes");
+        listForm.put("_RUN_SYNC_", "Y");
+        Response list = post("/webtools/control/scheduleServiceSync", listForm);
+        check("software quote: the list returns HTTP 200", list.status == 200, "HTTP " + list.status);
+        check("software quote: the saved quote is listed", list.body.contains("IT software quote"),
+                "quote missing from the list");
+        check("software quote: the list counts the quotes", list.body.contains("quoteCount"),
+                "no quoteCount in response");
+    }
+
+    /**
+     * Forecasts the productivity of the next delivery from the software projects of MES.
+     *
+     * @throws IOException when the service call fails
+     */
+    private void forecastsTheProductivity() throws IOException {
+        Map<String, String> form = new LinkedHashMap<>();
+        form.put("SERVICE_NAME", "learningCurvePdrForecast");
+        form.put("_RUN_SYNC_", "Y");
+        Response forecast = post("/webtools/control/scheduleServiceSync", form);
+
+        check("pdr forecast: service call returns HTTP 200", forecast.status == 200,
+                "HTTP " + forecast.status);
+        check("pdr forecast: the samples are reported", forecast.body.contains("sampleCount"),
+                "no sampleCount in response");
+        // with fewer than two finished projects the service explains itself instead of failing
+        check("pdr forecast: it either predicts or explains",
+                forecast.body.contains("predictedPdr") || forecast.body.contains("message"),
+                "neither a prediction nor a message");
     }
 
     /**

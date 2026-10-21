@@ -78,7 +78,7 @@
     </p>
     <p>
         PDR（人时/FP）<input type="text" name="pdrHoursPerFp" size="5" value="${(parameters.pdrHoursPerFp)!'40'}"/>
-        日费率 <input type="text" name="dayRate" size="6" value="${(parameters.dayRate)!'880'}"/>
+        日费率 <input type="text" name="dayRate" size="6" value="${(parameters.dayRate)!'1760'}"/>
         税率 <input type="text" name="taxRate" size="5" value="${(parameters.taxRate)!'0.06'}"/>
         非人力成本率 <input type="text" name="dncRate" size="5" value="${(parameters.dncRate)!'0.05'}"/>
         <input type="submit" value="试算"/>

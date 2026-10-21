@@ -29,6 +29,44 @@
         </section>
     </screen>
 
+    <!-- Software quotes: function points, effort, schedule, price -->
+    <screen name="quote">
+        <section>
+            <actions>
+                <set field="title" value="Software Quote"/>
+                <set field="pageTitle" value="软件报价"/>
+                <set field="activeMenu" value="quote"/>
+                <service service-name="learningCurveSoftwareQuote" result-map="quoteResult" auto-field-map="false">
+                    <field-map field-name="ilfCount" from-field="parameters.ilfCount"/>
+                    <field-map field-name="eifCount" from-field="parameters.eifCount"/>
+                    <field-map field-name="ufp" from-field="parameters.ufp"/>
+                    <field-map field-name="swfBase" from-field="parameters.swfBase"/>
+                    <field-map field-name="swfReuse" from-field="parameters.swfReuse"/>
+                    <field-map field-name="swfPreInvest" from-field="parameters.swfPreInvest"/>
+                    <field-map field-name="swfQuality" from-field="parameters.swfQuality"/>
+                    <field-map field-name="rdf" from-field="parameters.rdf"/>
+                    <field-map field-name="pdrHoursPerFp" from-field="parameters.pdrHoursPerFp"/>
+                    <field-map field-name="dayRate" from-field="parameters.dayRate"/>
+                    <field-map field-name="taxRate" from-field="parameters.taxRate"/>
+                    <field-map field-name="dncRate" from-field="parameters.dncRate"/>
+                </service>
+                <service service-name="learningCurveListSoftwareQuotes" result-map="quoteList" auto-field-map="false"/>
+                <service service-name="learningCurvePdrForecast" result-map="pdr" auto-field-map="false"/>
+            </actions>
+            <widgets>
+                <decorator-screen name="lc-decorator" location="component://learningcurve/widget/LearningCurveCommonScreens.xml">
+                    <decorator-section name="body">
+                        <platform-specific>
+                            <html>
+                                <html-template location="component://learningcurve/webapp/learningcurve/softwareQuote.ftl"/>
+                            </html>
+                        </platform-specific>
+                    </decorator-section>
+                </decorator-screen>
+            </widgets>
+        </section>
+    </screen>
+
     <!-- Stored estimates -->
     <screen name="records">
         <section>

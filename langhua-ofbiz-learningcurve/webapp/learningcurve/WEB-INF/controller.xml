@@ -25,6 +25,20 @@
         <response name="success" type="view" value="records"/>
     </request-map>
 
+    <request-map uri="quote">
+        <security https="true" auth="true"/>
+        <response name="success" type="view" value="quote"/>
+    </request-map>
+
+    <request-map uri="quoteSave">
+        <security https="true" auth="true"/>
+        <event type="service" invoke="learningCurveSaveSoftwareQuote"/>
+        <response name="success" type="request-redirect" value="quote">
+            <redirect-parameter name="quoteId"/>
+        </response>
+        <response name="error" type="view" value="quote"/>
+    </request-map>
+
     <request-map uri="recordDetail">
         <security https="true" auth="true"/>
         <response name="success" type="view" value="recordDetail"/>
@@ -40,4 +54,5 @@
     <view-map name="main" type="screen" page="component://learningcurve/widget/LearningCurveScreens.xml#main"/>
     <view-map name="records" type="screen" page="component://learningcurve/widget/LearningCurveScreens.xml#records"/>
     <view-map name="recordDetail" type="screen" page="component://learningcurve/widget/LearningCurveScreens.xml#recordDetail"/>
+    <view-map name="quote" type="screen" page="component://learningcurve/widget/LearningCurveScreens.xml#quote"/>
 </site-conf>

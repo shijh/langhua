@@ -1,7 +1,7 @@
 # AGENTS.md — langhua-ofbiz-learningcurve
 
 OFBiz **学习曲线**插件：按历史批次（数量 + 总额/工时）拟合 Wright / Crawford 学习曲线，输出斜率、截距、R²、
-待投产批次估算与 CSV 导出。
+待投产批次估算与 CSV 导出；另有一支**软件报价**（功能点口径，参数可调，调 MES 的估算服务）。
 
 - 仓库根 `F:\git\langhua`，本组件 `langhua-ofbiz-learningcurve`，兄弟组件 `langhua-ofbiz-mfg`（硬件组装 MES）
 - 运行环境：OFBiz **24.09.07**（`F:\build-ofbiz\apache-ofbiz-24.09.07`，Derby，HTTPS 8443，admin/ofbiz），
@@ -14,16 +14,17 @@ OFBiz **学习曲线**插件：按历史批次（数量 + 总额/工时）拟合
 | 脚本 | 作用 |
 | --- | --- |
 | `deploy-lc.bat` | 停 OFBiz → robocopy 到 `plugins/learningcurve` → `gradle jar` → 启动（日志 `F:\build-ofbiz\lc-deploy.txt`） |
-| `run-tests.bat` | 单元测试 30 个（需要 jama：`C:\Users\shi.jinghai-honor\.m2\repository\gov\nist\math\jama\1.0.3\jama-1.0.3.jar`） |
-| `lc-it.bat` | 集成测试 18 项（日志 `lc-it.txt`） |
+| `run-tests.bat` | 单元测试 32 个（需要 jama：`C:\Users\shi.jinghai-honor\.m2\repository\gov\nist\math\jama\1.0.3\jama-1.0.3.jar`） |
+| `lc-it.bat` | 集成测试 32 项（日志 `lc-it.txt`） |
 | `verify-lc.ps1` | 页面巡检 56 项（日志 `lc-verify.txt`） |
+| `verify-lcq.ps1` | 软件报价页巡检 26 项（日志 `lc-quote.txt`） |
 
 只改 `webapp/` 下的静态文件时，直接 `Copy-Item` 到 `plugins/learningcurve/...` 就生效，不必整包重发。
 
 ## 结构
 
-- 屏幕：`main`（新建估算）/ `records`（记录列表）/ `recordDetail`（详情）
-- 模板：`webapp/learningcurve/estimation.ftl` / `records.ftl` / `recordDetail.ftl`，只写内容，保留自己的 `<h1>`
+- 屏幕：`main`（新建估算）/ `records`（记录列表）/ `recordDetail`（详情）/ `quote`（软件报价）
+- 模板：`webapp/learningcurve/estimation.ftl` / `records.ftl` / `recordDetail.ftl` / `softwareQuote.ftl`，只写内容，保留自己的 `<h1>`
 - 装饰器：`widget/LearningCurveCommonScreens.xml` 的 `lc-decorator` + `webapp/learningcurve/decorator.ftl`，
   屏幕 actions 设 `pageTitle`（学习曲线估算 / 估算记录 / 估算详情）与 `activeMenu`（estimate / records）
 - 样式：`webapp/learningcurve/css/lc.css`（`/css` 与 `/images` 已在 `web.xml` 的 `allowedPaths` 里）
@@ -37,6 +38,12 @@ OFBiz **学习曲线**插件：按历史批次（数量 + 总额/工时）拟合
   MES 没部署时返回空结果 + 提示，**不要抛异常**
 - 两组件的关系图（mermaid）在 `langhua-ofbiz-mfg/README.md` 的「与学习曲线组件的关系」，
   本组件 README 的「与 MES 联动」里是孪生份；改联动口径时两处一起改
+- **软件报价**（`quote` 屏幕，`LearningCurveSoftwareQuote`）：公式不在这里，`learningCurveSoftwareQuote`
+  只把参数转发给 MES 的 `mfgSoftwareEstimate`（跨组件服务调用）——所以 MES 没部署时报价会报
+  “MES 组件未部署或服务不可用”，其余页面照旧能用；金额快照与参数一起存，改费率不改历史
+- `learningCurvePdrForecast` 直接读 MES 的 `MfgSoftwareProject`（状态 `MFG_SW_DONE`，`ufp>0`、`actualHours>0`），
+  一个交付一个点喂 Wright（`buildPdrSeries`），样本 < 2 时返回 `message` 而不是报错；
+  曲线算出的斜率可能是 `-0.0`，输出前要 `+ 0.0` 否则页面会显示 `-0`
 - **`numeric` 字段是 Long，`floating-point` 才是 Double**：`getDouble()` 对 `numeric` 字段会 `ClassCastException`，一律走 `Number`
 - **服务返回的中文会被渲染成数字实体**（`&#x8fd9;`），页面断言要改用结构特征（如「没有哪个表头」）或实体形式
 - **趋势图是手写 SVG**：`<text>` 默认黑色，深色主题下必须靠 `svg text { fill: var(--fg-muted) }` 才能看见；

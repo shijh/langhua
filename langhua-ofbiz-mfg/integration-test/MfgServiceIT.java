@@ -1672,7 +1672,6 @@ public final class MfgServiceIT {
         quoteForm.put("swfBase", "1");
         quoteForm.put("rdf", "1");
         quoteForm.put("pdrHoursPerFp", "40");
-        quoteForm.put("dayRate", "880");
         quoteForm.put("taxRate", "0.06");
         quoteForm.put("dncRate", "0.05");
         Response quote = invoke("mfgSoftwareEstimate", quoteForm);
@@ -1683,12 +1682,12 @@ public final class MfgServiceIT {
                 near(fieldValue(quote.body, "effortDays"), 50.0), "person days wrong");
         check("software: the schedule follows the standard",
                 near(fieldValue(quote.body, "scheduleMonths"), 1.78), "schedule wrong");
-        check("software: the price is the person days times the day rate",
-                near(fieldValue(quote.body, "amountBeforeTax"), 44000.0), "price wrong");
+        check("software: the price uses the default day rate",
+                near(fieldValue(quote.body, "amountBeforeTax"), 88000.0), "price wrong");
         check("software: the tax is added",
-                near(fieldValue(quote.body, "amountWithTax"), 46640.0), "tax wrong");
+                near(fieldValue(quote.body, "amountWithTax"), 93280.0), "tax wrong");
         check("software: the non labour cost is added",
-                near(fieldValue(quote.body, "totalAmount"), 48972.0), "total wrong");
+                near(fieldValue(quote.body, "totalAmount"), 97944.0), "total wrong");
 
         Map<String, String> saveForm = new LinkedHashMap<>();
         saveForm.put("projectName", "IT firmware 1.0");

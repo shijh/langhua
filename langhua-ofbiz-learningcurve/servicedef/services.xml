@@ -129,4 +129,91 @@
         <attribute name="historyData" type="String" mode="OUT" optional="true"/>
         <attribute name="message" type="String" mode="OUT" optional="true"/>
     </service>
+
+    <!--
+        Software quotes: the formulas live in the MES component (mfgSoftwareEstimate), the quote is
+        kept here. UFP = 35 x ILF + 15 x EIF, AE = PDR x UFP x SWF x RDF,
+        D = 1.277 x (AE/176)^0.404, price = person days x day rate + VAT + non labour cost.
+    -->
+    <service name="learningCurveSoftwareQuote" engine="java"
+            location="org.langhua.ofbiz.learningcurve.LearningCurveServices" invoke="softwareQuote"
+            auth="false" export="false" validate="true">
+        <description>Quote software from its function points through the MES cost model</description>
+        <attribute name="ilfCount" type="Double" mode="IN" optional="true"/>
+        <attribute name="eifCount" type="Double" mode="IN" optional="true"/>
+        <attribute name="ufp" type="Double" mode="IN" optional="true"/>
+        <attribute name="swfBase" type="Double" mode="IN" optional="true"/>
+        <attribute name="swfReuse" type="Double" mode="IN" optional="true"/>
+        <attribute name="swfPreInvest" type="Double" mode="IN" optional="true"/>
+        <attribute name="swfQuality" type="Double" mode="IN" optional="true"/>
+        <attribute name="rdf" type="Double" mode="IN" optional="true"/>
+        <attribute name="pdrHoursPerFp" type="Double" mode="IN" optional="true"/>
+        <attribute name="dayRate" type="Double" mode="IN" optional="true"/>
+        <attribute name="taxRate" type="Double" mode="IN" optional="true"/>
+        <attribute name="dncRate" type="Double" mode="IN" optional="true"/>
+        <attribute name="ufp" type="Double" mode="OUT" optional="true"/>
+        <attribute name="swf" type="Double" mode="OUT" optional="true"/>
+        <attribute name="effortHours" type="Double" mode="OUT" optional="true"/>
+        <attribute name="effortDays" type="Double" mode="OUT" optional="true"/>
+        <attribute name="scheduleMonths" type="Double" mode="OUT" optional="true"/>
+        <attribute name="amountBeforeTax" type="Double" mode="OUT" optional="true"/>
+        <attribute name="taxAmount" type="Double" mode="OUT" optional="true"/>
+        <attribute name="amountWithTax" type="Double" mode="OUT" optional="true"/>
+        <attribute name="dncAmount" type="Double" mode="OUT" optional="true"/>
+        <attribute name="totalAmount" type="Double" mode="OUT" optional="true"/>
+        <attribute name="costPerFp" type="Double" mode="OUT" optional="true"/>
+    </service>
+
+    <service name="learningCurveSaveSoftwareQuote" engine="java"
+            location="org.langhua.ofbiz.learningcurve.LearningCurveServices" invoke="saveSoftwareQuote"
+            auth="false" export="false" validate="true">
+        <description>Quote software and keep the result with the parameters that produced it</description>
+        <attribute name="projectName" type="String" mode="IN" optional="false"/>
+        <attribute name="customerName" type="String" mode="IN" optional="true"/>
+        <attribute name="ilfCount" type="Double" mode="IN" optional="true"/>
+        <attribute name="eifCount" type="Double" mode="IN" optional="true"/>
+        <attribute name="ufp" type="Double" mode="IN" optional="true"/>
+        <attribute name="swfBase" type="Double" mode="IN" optional="true"/>
+        <attribute name="swfReuse" type="Double" mode="IN" optional="true"/>
+        <attribute name="swfPreInvest" type="Double" mode="IN" optional="true"/>
+        <attribute name="swfQuality" type="Double" mode="IN" optional="true"/>
+        <attribute name="rdf" type="Double" mode="IN" optional="true"/>
+        <attribute name="pdrHoursPerFp" type="Double" mode="IN" optional="true"/>
+        <attribute name="dayRate" type="Double" mode="IN" optional="true"/>
+        <attribute name="taxRate" type="Double" mode="IN" optional="true"/>
+        <attribute name="dncRate" type="Double" mode="IN" optional="true"/>
+        <attribute name="note" type="String" mode="IN" optional="true"/>
+        <attribute name="quoteId" type="String" mode="OUT" optional="true"/>
+        <attribute name="ufp" type="Double" mode="OUT" optional="true"/>
+        <attribute name="effortHours" type="Double" mode="OUT" optional="true"/>
+        <attribute name="effortDays" type="Double" mode="OUT" optional="true"/>
+        <attribute name="scheduleMonths" type="Double" mode="OUT" optional="true"/>
+        <attribute name="amountBeforeTax" type="Double" mode="OUT" optional="true"/>
+        <attribute name="amountWithTax" type="Double" mode="OUT" optional="true"/>
+        <attribute name="totalAmount" type="Double" mode="OUT" optional="true"/>
+    </service>
+
+    <service name="learningCurveListSoftwareQuotes" engine="java"
+            location="org.langhua.ofbiz.learningcurve.LearningCurveServices" invoke="listSoftwareQuotes"
+            auth="false" export="false" validate="true">
+        <description>Saved software quotes, newest first, with the last one as the default of the form</description>
+        <attribute name="quotes" type="java.util.List" mode="OUT" optional="true"/>
+        <attribute name="quoteCount" type="Integer" mode="OUT" optional="true"/>
+        <attribute name="totalAmount" type="Double" mode="OUT" optional="true"/>
+        <attribute name="lastQuote" type="java.util.Map" mode="OUT" optional="true"/>
+    </service>
+
+    <service name="learningCurvePdrForecast" engine="java"
+            location="org.langhua.ofbiz.learningcurve.LearningCurveServices" invoke="pdrForecast"
+            auth="false" export="false" validate="true">
+        <description>Forecast the hours per function point of the next delivery from the finished software projects of MES</description>
+        <attribute name="leastSquare" type="Double" mode="IN" optional="true"/>
+        <attribute name="samples" type="java.util.List" mode="OUT" optional="true"/>
+        <attribute name="sampleCount" type="Integer" mode="OUT" optional="true"/>
+        <attribute name="predictedPdr" type="Double" mode="OUT" optional="true"/>
+        <attribute name="slope" type="Double" mode="OUT" optional="true"/>
+        <attribute name="intercept" type="Double" mode="OUT" optional="true"/>
+        <attribute name="leastSquare" type="Double" mode="OUT" optional="true"/>
+        <attribute name="message" type="String" mode="OUT" optional="true"/>
+    </service>
 </services>

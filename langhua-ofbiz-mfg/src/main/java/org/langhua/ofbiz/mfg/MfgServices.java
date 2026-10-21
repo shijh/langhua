@@ -146,8 +146,8 @@ public final class MfgServices {
 
     /** Hours per function point of the estimated function point method (industry baseline). */
     public static final double DEFAULT_PDR = 40.0;
-    /** Price of one person day before tax, taken from the 2019 assessment case. */
-    public static final double DEFAULT_DAY_RATE = 880.0;
+    /** Price of one person day before tax; the 2019 case used 880, doubled for the current rate. */
+    public static final double DEFAULT_DAY_RATE = 1760.0;
     /** Chinese VAT on a software service invoice. */
     public static final double DEFAULT_TAX_RATE = 0.06;
     /** Direct non labour cost as a share of the taxed amount, from the same case. */

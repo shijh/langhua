@@ -3,4 +3,5 @@
         xsi:noNamespaceSchemaLocation="https://ofbiz.apache.org/dtds/entitygroup.xsd">
     <entity-group group="org.apache.ofbiz" entity="LearningCurveEstimate"/>
     <entity-group group="org.apache.ofbiz" entity="LearningCurveBatch"/>
+    <entity-group group="org.apache.ofbiz" entity="LearningCurveSoftwareQuote"/>
 </entitygroup>

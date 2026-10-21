@@ -38,6 +38,7 @@ import org.apache.ofbiz.entity.GenericEntityException;
 import org.apache.ofbiz.entity.GenericValue;
 import org.apache.ofbiz.entity.util.EntityQuery;
 import org.apache.ofbiz.service.DispatchContext;
+import org.apache.ofbiz.service.GenericServiceException;
 import org.apache.ofbiz.service.ServiceUtil;
 
 import Jama.Matrix;
@@ -432,9 +433,250 @@ public final class LearningCurveServices {
         Object object = value.get(field);
         return object instanceof Number ? ((Number) object).doubleValue() : 0.0;
     }
+    // ==================== software quotes: size, effort, price ====================
 
-    private static Map<String, Object> emptyMesResult(String message) {        Map<String, Object> result = ServiceUtil.returnSuccess();
-        result.put("batches", new ArrayList<Map<String, Object>>());
+    /** Parameters the software estimate understands, forwarded unchanged to the appliance component. */
+    private static final String[] SOFTWARE_PARAMS = {
+        "ilfCount", "eifCount", "ufp", "swfBase", "swfReuse", "swfPreInvest", "swfQuality",
+        "rdf", "pdrHoursPerFp", "dayRate", "taxRate", "dncRate"
+    };
+
+    /** Values the estimate returns and the screen shows. */
+    private static final String[] SOFTWARE_RESULTS = {
+        "ufp", "swf", "effortHours", "effortDays", "scheduleMonths", "amountBeforeTax",
+        "taxAmount", "amountWithTax", "dncAmount", "totalAmount", "costPerFp"
+    };
+
+    /** Values kept with a saved quote (the entity only holds the ones it declares). */
+    private static final String[] SOFTWARE_QUOTE_FIELDS = {
+        "ufp", "effortHours", "effortDays", "scheduleMonths", "amountBeforeTax", "taxAmount",
+        "amountWithTax", "dncAmount", "totalAmount"
+    };
+
+    /**
+     * Quotes software from its size. The formulas live in the appliance component
+     * ({@code mfgSoftwareEstimate}), so the estimate screen of MFG and this one always tell the same
+     * numbers; this service only forwards the parameters and returns the result.
+     *
+     * @param dctx the dispatch context
+     * @param context service context, see {@code servicedef/services.xml#learningCurveSoftwareQuote}
+     * @return the service result with the size, effort, schedule and prices
+     */
+    public static Map<String, Object> softwareQuote(DispatchContext dctx, Map<String, ? extends Object> context) {
+        Map<String, Object> estimate;
+        try {
+            estimate = dctx.getDispatcher().runSync("mfgSoftwareEstimate", softwareParams(context));
+        } catch (GenericServiceException e) {
+            return ServiceUtil.returnError("MES 组件未部署或服务不可用（mfgSoftwareEstimate）：" + e.getMessage());
+        }
+        if (ServiceUtil.isError(estimate)) {
+            return ServiceUtil.returnError(ServiceUtil.getErrorMessage(estimate));
+        }
+        Map<String, Object> result = ServiceUtil.returnSuccess();
+        for (String field : SOFTWARE_RESULTS) {
+            result.put(field, estimate.get(field));
+        }
+        return result;
+    }
+
+    /**
+     * Quotes the software and keeps the result as a record, together with the parameters that were
+     * used, so a later change of the rates does not rewrite an old quotation.
+     *
+     * @param dctx the dispatch context
+     * @param context service context, see {@code servicedef/services.xml#learningCurveSaveSoftwareQuote}
+     * @return the service result containing {@code quoteId} and the computed values
+     */
+    public static Map<String, Object> saveSoftwareQuote(DispatchContext dctx, Map<String, ? extends Object> context) {
+        Map<String, Object> quote = softwareQuote(dctx, context);
+        if (ServiceUtil.isError(quote)) {
+            return quote;
+        }
+        try {
+            Delegator delegator = dctx.getDelegator();
+            String quoteId = delegator.getNextSeqId("LearningCurveSoftwareQuote");
+            GenericValue value = delegator.makeValue("LearningCurveSoftwareQuote");
+            value.set("quoteId", quoteId);
+            value.set("projectName", toText(context.get("projectName")));
+            value.set("customerName", toText(context.get("customerName")));
+            for (String field : SOFTWARE_PARAMS) {
+                Double number = asDouble(context.get(field));
+                if (number != null) {
+                    value.set(field, number);
+                }
+            }
+            for (String field : SOFTWARE_QUOTE_FIELDS) {
+                value.set(field, quote.get(field));
+            }
+            value.set("note", toText(context.get("note")));
+            delegator.create(value);
+
+            Map<String, Object> result = ServiceUtil.returnSuccess();
+            result.put("quoteId", quoteId);
+            for (String field : SOFTWARE_RESULTS) {
+                result.put(field, quote.get(field));
+            }
+            return result;
+        } catch (GenericEntityException e) {
+            return ServiceUtil.returnError("Could not save the quote: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Lists the saved quotations, newest first, with the last one as the default of the form.
+     *
+     * @param dctx the dispatch context
+     * @param context service context, see {@code servicedef/services.xml#learningCurveListSoftwareQuotes}
+     * @return the service result containing {@code quotes}, {@code quoteCount} and {@code lastQuote}
+     */
+    public static Map<String, Object> listSoftwareQuotes(DispatchContext dctx, Map<String, ? extends Object> context) {
+        try {
+            List<GenericValue> quotes = EntityQuery.use(dctx.getDelegator())
+                    .from("LearningCurveSoftwareQuote").orderBy("-createdStamp").queryList();
+            List<Map<String, Object>> rows = new ArrayList<>(quotes.size());
+            double total = 0.0;
+            for (GenericValue quote : quotes) {
+                rows.add(toQuoteMap(quote));
+                total += numberOf(quote, "totalAmount");
+            }
+            Map<String, Object> result = ServiceUtil.returnSuccess();
+            result.put("quotes", rows);
+            result.put("quoteCount", Integer.valueOf(rows.size()));
+            result.put("totalAmount", Double.valueOf(total));
+            result.put("lastQuote", rows.isEmpty() ? null : rows.get(0));
+            return result;
+        } catch (GenericEntityException e) {
+            return ServiceUtil.returnError("Could not read the software quotes: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Forecasts the productivity of the next project from the finished ones: the real hours per
+     * function point of each delivery are fitted with the Wright curve, so "the third firmware is
+     * cheaper than the first" becomes a number instead of a feeling. The appliance component holds
+     * the ledger this reads.
+     *
+     * @param dctx the dispatch context
+     * @param context service context, see {@code servicedef/services.xml#learningCurvePdrForecast}
+     * @return the service result with the samples, the predicted productivity and the curve
+     */
+    public static Map<String, Object> pdrForecast(DispatchContext dctx, Map<String, ? extends Object> context) {
+        Map<String, Object> result = ServiceUtil.returnSuccess();
+        result.put("samples", new ArrayList<Map<String, Object>>());
+        result.put("sampleCount", Integer.valueOf(0));
+        List<Map<String, Object>> rows = new ArrayList<>();
+        try {
+            List<GenericValue> projects = EntityQuery.use(dctx.getDelegator())
+                    .from("MfgSoftwareProject").where("statusId", "MFG_SW_DONE")
+                    .orderBy("deliverySeq", "createdStamp").queryList();
+            for (GenericValue project : projects) {
+                double ufp = numberOf(project, "ufp");
+                double hours = numberOf(project, "actualHours");
+                if (ufp <= 0.0 || hours <= 0.0) {
+                    continue;
+                }
+                Map<String, Object> row = new HashMap<>();
+                row.put("projectCode", project.getString("projectCode"));
+                row.put("projectName", project.getString("projectName"));
+                row.put("deliverySeq", project.get("deliverySeq"));
+                row.put("pdr", Double.valueOf(hours / ufp));
+                rows.add(row);
+            }
+        } catch (GenericEntityException e) {
+            result.put("message", "读不到 MES 的软件项目（MES 未部署？）：" + e.getMessage());
+            return result;
+        }
+        result.put("samples", rows);
+        result.put("sampleCount", Integer.valueOf(rows.size()));
+        if (rows.size() < 2) {
+            result.put("message", "已完成并填了实际工时的项目不足 2 个，先积累数据再预测");
+            return result;
+        }
+        try {
+            Matrix series = buildPdrSeries(rows);
+            double leastSquare = toDouble(context.get("leastSquare"), DEFAULT_LEAST_SQUARE);
+            Map<String, Object> handlerContext = newHandlerContext(context);
+            OFBizLearningCurveHandler handler = OFBizLearningCurveHandler.getInstance();
+            double predicted = handler.getEstimate(leastSquare, series, 1.0, handlerContext,
+                    I_OFBizLearningCurve.WRIGHT);
+            LearningCurve curve = handler.getLearningCurve(leastSquare, series, handlerContext,
+                    I_OFBizLearningCurve.WRIGHT);
+            result.put("predictedPdr", Double.valueOf(predicted));
+            // + 0.0 turns a negative zero into a positive one, so the page does not show "-0"
+            result.put("slope", Double.valueOf(curve.getSlope() + 0.0));
+            result.put("intercept", Double.valueOf(curve.getIntercept() + 0.0));
+            result.put("leastSquare", Double.valueOf(curve.getLeastSquare()));
+            return result;
+        } catch (GeneralException e) {
+            result.put("message", "拟合失败：" + e.getMessage());
+            return result;
+        }
+    }
+
+    /**
+     * Turns a series of deliveries into the history rows the curve expects: one unit per delivery,
+     * its value being the hours per function point of that delivery.
+     *
+     * @param rows rows with a {@code pdr} value, oldest first
+     * @return the history matrix with one row per delivery
+     */
+    static Matrix buildPdrSeries(List<Map<String, Object>> rows) {
+        double[][] data = new double[rows.size()][2];
+        for (int i = 0; i < rows.size(); i++) {
+            Object value = rows.get(i).get("pdr");
+            data[i][0] = 1.0;
+            data[i][1] = value instanceof Number ? ((Number) value).doubleValue() : 0.0;
+        }
+        return new Matrix(data, rows.size(), 2);
+    }
+
+    /**
+     * Copies the parameters of the form, leaving out the empty ones so the service engine does not
+     * have to convert an empty string into a number.
+     *
+     * @param context the service context
+     * @return the parameters of the software estimate
+     */
+    private static Map<String, Object> softwareParams(Map<String, ? extends Object> context) {
+        Map<String, Object> params = new HashMap<>();
+        for (String field : SOFTWARE_PARAMS) {
+            Object value = context.get(field);
+            if (value != null && toText(value) != null) {
+                params.put(field, value);
+            }
+        }
+        return params;
+    }
+
+    private static Double asDouble(Object value) {
+        String text = toText(value);
+        if (text == null) {
+            return null;
+        }
+        try {
+            return Double.valueOf(text);
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
+    private static Map<String, Object> toQuoteMap(GenericValue value) {
+        Map<String, Object> map = new HashMap<>();
+        map.put("quoteId", value.getString("quoteId"));
+        map.put("projectName", value.getString("projectName"));
+        map.put("customerName", value.getString("customerName"));
+        for (String field : SOFTWARE_PARAMS) {
+            map.put(field, value.get(field));
+        }
+        for (String field : SOFTWARE_QUOTE_FIELDS) {
+            map.put(field, value.get(field));
+        }
+        map.put("note", value.getString("note"));
+        map.put("createdStamp", value.getTimestamp("createdStamp"));
+        return map;
+    }
+
+    private static Map<String, Object> emptyMesResult(String message) {        Map<String, Object> result = ServiceUtil.returnSuccess();        result.put("batches", new ArrayList<Map<String, Object>>());
         result.put("batchCount", Integer.valueOf(0));
         result.put("skippedCount", Integer.valueOf(0));
         result.put("totalQty", Double.valueOf(0.0));

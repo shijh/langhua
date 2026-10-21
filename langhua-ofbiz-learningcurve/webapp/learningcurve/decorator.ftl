@@ -25,6 +25,7 @@
     <img class="brand" src="/learningcurve/images/logo-64.png" alt="" width="26" height="26"/>
     <@navItem 'estimate' '/learningcurve/control/main' '新建估算'/>
     <@navItem 'records' '/learningcurve/control/records' '估算记录'/>
+    <@navItem 'quote' '/learningcurve/control/quote' '软件报价'/>
 </p>
 
 <#if sections??>${sections.render("body")}</#if>
