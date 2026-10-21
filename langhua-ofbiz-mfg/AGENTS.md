@@ -58,7 +58,7 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
 | `verify-m11.ps1` | 列表页搜索/过滤/翻页/编码 | 55 |
 | `verify-m12.ps1` | 装饰器布局（1 个 html、1 条导航、1 个高亮、样式表、无内联 style、无 FTL 报错） | 102 |
 | `verify-m13.ps1` | 产品开发 + BOM 版本 + 三条线路 | 49 |
-| `verify-m28b.ps1` | 通用附件（上传/列表/原图/缩略图/错误码/删除/PDF/四种单据） | 50 |
+| `verify-m28b.ps1` | 通用附件（上传/列表/原图/缩略图/错误码/删除/PDF，覆盖产品/开发项目/工单/售后单/出货单） | 59 |
 | `verify-m29b.ps1` | 网站图标与导航标志（favicon、brand 图、四个尺寸、全站渲染） | 42 |
 
 ## 设计决策
@@ -79,7 +79,7 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   PRODUCT / DEV_PROJECT / WORK_ORDER / DELIVERY / CLAIM；服务 `mfgAttachmentSave/List/Delete`，
   事件 `MfgAttachmentEvents.upload/delete/serve`（`/mfg/control/attachmentUpload|attachment|attachmentDelete`，
   旧的 `productImage*` 保留为兼容别名）；页面共用一个宏 `webapp/mfg/attachmentBlock.ftl`，
-  产品页/开发项目页/出货页/售后页各调用一次；JPG/PNG/GIF ≤ 4 MB、PDF ≤ 8 MB，
+  产品页/开发项目页/工单详情页/出货页/售后页各调用一次；JPG/PNG/GIF ≤ 4 MB、PDF ≤ 8 MB，
   出错回原页带 `?err=type|size|nofile|owner`，图片 `thumb=1` 现场缩放成 200px JPEG；
   旧表 `MfgProductImage` 首次读产品时复制进来（幂等）
 - **保修**：从出货日开始算，月数在产品上（`warrantyMonths`，默认 12）

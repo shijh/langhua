@@ -17,6 +17,7 @@
 <#assign lines = (mat.lines)![]>
 <#assign issues = (mat.issues)![]>
 <#assign shipments = (mat.shipments)![]>
+<#assign atts = ((attachmentResult).attachments)![]>
 <#assign errList = (errorMessageList)![]>
 
 <#if !wo.workOrderId??>
@@ -304,6 +305,12 @@ ITMFG-261021-0001,FCT,IQ,12.4,mA,Y</textarea>
             <p><input type="submit" value="导入"/></p>
         </form>
     </fieldset>
+
+    <h3>工单附件</h3>
+    <#include "attachmentBlock.ftl">
+    <#assign attOwner = wo.workOrderId>
+    <#assign attBack = '/mfg/control/workOrder?workOrderId=' + attOwner>
+    <@attachmentBlock 'MFG_ATT_WORK_ORDER' attOwner attBack '首件确认 / 不良照片 / 外协快递单' atts/>
 </#if>
 <script type="text/javascript" src="/mfg/js/copyLabel.js"></script>
 

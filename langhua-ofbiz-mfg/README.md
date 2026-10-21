@@ -181,7 +181,7 @@ csv         = R0402-10K,10K 0402 resistor,4,R1-R4,N
 | `/mfg/control/attachmentDelete` | POST `ownerTypeId` + `ownerId` + `seq` + `back`，删除后回跳 |
 | `/mfg/control/dev?projectCode=...` | 产品开发：立项与改动、线路与步骤进度、步骤台账与快速推进、五道关卡评审、项目下的变更单、**项目资料附件** |
 | `/mfg/control/eco?ecoId=...` | 设计变更：新建变更单、按状态筛选、指定目标 BOM 版本、批准 / 生效 / 取消 |
-| `/mfg/control/workOrder?workOrderId=...` | 工单详情：工序进度、报工、SN 生成、不良登记 |
+| `/mfg/control/workOrder?workOrderId=...` | 工单详情：工序进度、报工、SN 生成、不良登记、**工单附件（首件/不良照片/外协快递单）** |
 | `/mfg/control/sn?sn=...` | 单板履历：报工、不良、所用物料批次 |
 | `/mfg/control/dashboard` | 车间看板：生产卡片 + 售后 KPI + 每日柱图 + 责任方成本 + 最近报工，60 秒自动刷新 |
 | `/mfg/control/materials` | 物料批次台账、收货登记、CSV 批量导入、按批次反向追溯 |
@@ -360,7 +360,7 @@ java -cp "build/test-classes:ofbiz.jar:junit-4.13.2.jar:hamcrest-core-1.3.jar" \
 | `verify-m11.ps1` | 8 个列表页的关键词搜索、过滤、翻页、编码、全站无模板报错 | 55 |
 | `verify-m12.ps1` | 12 个页面的布局：一个 `<html>`、一条导航、一个高亮项、样式表、无内联 `<style>`、无 FTL 报错 | 102 |
 | `verify-m13.ps1` | 产品开发的线路与步骤、变更单流程、BOM 版本块 | 49 |
-| `verify-m28.ps1` | 通用附件：页面上的宏、multipart 上传 → 列表 → 原图（`image/png`）→ 缩略图（`image/jpeg`）→ 下载文件名 → `err=type` / `err=nofile` / `err=owner` → 删除 → 404 → PDF 直出 → 开发项目 / 售后单 / 出货单三处挂附件 | 50 |
+| `verify-m28.ps1` | 通用附件：页面上的宏、multipart 上传 → 列表 → 原图（`image/png`）→ 缩略图（`image/jpeg`）→ 下载文件名 → `err=type` / `err=nofile` / `err=owner` → 删除 → 404 → PDF 直出 → 开发项目 / 工单 / 售后单 / 出货单四处挂附件 | 59 |
 
 > 这些脚本在断言页面内容，不只是看 HTTP 200：OFBiz 的模板错误也是 200 + 一页堆栈，
 > 所以每个页面都要扫 `FTL stack trace` / `FreeMarker template error`。
@@ -431,7 +431,7 @@ SMT 为外协，且对方**不提供上料 / 换料记录**，因此追溯精度
   `MFG_ATT_WORK_ORDER` 工单 / `MFG_ATT_DELIVERY` 出货单 / `MFG_ATT_CLAIM` 售后单），`ownerId` 是那条记录的主键，
   `seq` 在同一 `ownerTypeId + ownerId` 下从 1 递增。以后要给供应商、批次挂文件，只加一个 owner 类型常量；
 - 页面只用一个宏：`webapp/mfg/attachmentBlock.ftl` 的 `<@attachmentBlock ownerTypeId ownerId back title attachments/>`，
-  产品页、开发项目页、出货页、售后页各自 `<#include "attachmentBlock.ftl">` 后调用一次；
+  产品页、开发项目页、工单详情页、出货页、售后页各自 `<#include "attachmentBlock.ftl">` 后调用一次；
   列表数据来自 `mfgAttachmentList`（widget 的 result-map，如 `imageResult` / `attachmentResult`）；
 - 页面上传表单是 `enctype="multipart/form-data"`，字段名 `file`，外加隐藏的 `ownerTypeId` / `ownerId` / `back`，
   由 `MfgAttachmentEvents.upload` 处理：OFBiz 的 `UtilHttp.getParameterMap` 已经把 multipart 解析好

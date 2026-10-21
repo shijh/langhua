@@ -184,6 +184,10 @@
                         <service service-name="mfgWorkOrderMaterials" result-map="material" auto-field-map="false">
                             <field-map field-name="workOrderId" from-field="parameters.workOrderId"/>
                         </service>
+                        <service service-name="mfgAttachmentList" result-map="attachmentResult" auto-field-map="false">
+                            <field-map field-name="ownerTypeId" value="MFG_ATT_WORK_ORDER"/>
+                            <field-map field-name="ownerId" from-field="parameters.workOrderId"/>
+                        </service>
                     </actions>
                     <widgets>
                         <decorator-screen name="mfg-decorator" location="component://mfg/widget/MfgCommonScreens.xml">
