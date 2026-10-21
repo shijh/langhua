@@ -21,15 +21,16 @@
         || ((parameters.eifCount)!'')?has_content || ((parameters.ufp)!'')?has_content>
 
 <h1>软件报价</h1>
-<p class="hint">规模口径：UFP = 35 × ILF + 15 × EIF（预估功能点法）；工作量 AE = PDR × UFP × SWF × RDF；
-    工期 D = 1.277 × (AE/176)<sup>0.404</sup>；金额 = 人天 × 日费率 + 增值税 + 直接非人力成本。
+<p class="hint">规模口径：未调整功能点 = 35 × 内部逻辑文件 + 15 × 外部接口文件（预估功能点法）；
+    工作量 = 功能点耗时率 × 功能点 × 软件因素调整因子 × 开发因素调整因子；
+    工期 = 1.277 × (工作量/176)<sup>0.404</sup>；金额 = 人天 × 日费率 + 增值税 + 直接非人力成本。
     公式与默认值在 MES 的软件项目里，这里只调参数、出报价、存记录。</p>
 
 <#if forecast.predictedPdr??>
     <div class="cards">
         <div class="card">
-            <div class="label">下一个项目预测 PDR</div>
-            <div class="value">${forecast.predictedPdr?string("0.##")}<span class="hint"> 人时/FP</span></div>
+            <div class="label">下一个项目预测耗时率</div>
+            <div class="value">${forecast.predictedPdr?string("0.##")}<span class="hint"> 人时/功能点</span></div>
         </div>
         <div class="card">
             <div class="label">样本（已完成项目）</div>
@@ -40,10 +41,10 @@
             <div class="value">${forecast.slope?string("0.###")}</div>
         </div>
     </div>
-    <p class="hint">按 Wright 曲线拟合 MES 台账里已完成项目的实测 PDR（实际工时 ÷ UFP）；
-        斜率小于 1 表示越做越省。<a href="/learningcurve/control/quote?pdrHoursPerFp=${forecast.predictedPdr?string("0.##")}">用这个 PDR 试算</a></p>
+    <p class="hint">按 Wright 曲线拟合 MES 台账里已完成项目的实测耗时率（实际工时 ÷ 功能点数）；
+        斜率小于 1 表示越做越省。<a href="/learningcurve/control/quote?pdrHoursPerFp=${forecast.predictedPdr?string("0.##")}">用这个耗时率试算</a></p>
 <#elseif forecast.message??>
-    <p class="hint">PDR 预测：${forecast.message}</p>
+    <p class="hint">耗时率预测：${forecast.message}</p>
 </#if>
 
 <h2>参数</h2>
@@ -53,19 +54,19 @@
         客户 <input type="text" name="customerName" size="14" value="${(parameters.customerName)!''}"/>
     </p>
     <p>
-        ILF <input type="text" name="ilfCount" size="5" value="${(parameters.ilfCount)!''}"/>
-        EIF <input type="text" name="eifCount" size="5" value="${(parameters.eifCount)!''}"/>
-        或直接填 UFP <input type="text" name="ufp" size="5" value="${(parameters.ufp)!''}"/>
+        内部逻辑文件 <input type="text" name="ilfCount" size="5" value="${(parameters.ilfCount)!''}"/>
+        外部接口文件 <input type="text" name="eifCount" size="5" value="${(parameters.eifCount)!''}"/>
+        或直接填未调整功能点 <input type="text" name="ufp" size="5" value="${(parameters.ufp)!''}"/>
     </p>
     <p>
-        SWF 基础 <input type="text" name="swfBase" size="4" value="${(parameters.swfBase)!swfBaseDefault}"/>
+        软件因素：基础 <input type="text" name="swfBase" size="4" value="${(parameters.swfBase)!swfBaseDefault}"/>
         复用 <input type="text" name="swfReuse" size="4" value="${(parameters.swfReuse)!'0'}"/>
         前期投入 <input type="text" name="swfPreInvest" size="4" value="${(parameters.swfPreInvest)!'0'}"/>
         质量 <input type="text" name="swfQuality" size="4" value="${(parameters.swfQuality)!'0'}"/>
-        RDF <input type="text" name="rdf" size="4" value="${(parameters.rdf)!'1'}"/>
+        开发因素调整因子 <input type="text" name="rdf" size="4" value="${(parameters.rdf)!'1'}"/>
     </p>
     <p>
-        PDR（人时/FP）<input type="text" name="pdrHoursPerFp" size="5" value="${(parameters.pdrHoursPerFp)!pdrDefault}"/>
+        功能点耗时率（人时/功能点）<input type="text" name="pdrHoursPerFp" size="5" value="${(parameters.pdrHoursPerFp)!pdrDefault}"/>
         日费率（元/人天）<input type="text" name="dayRate" size="6" value="${(parameters.dayRate)!rateDefault}"/>
         税率 <input type="text" name="taxRate" size="5" value="${(parameters.taxRate)!taxDefault}"/>
         非人力成本率 <input type="text" name="dncRate" size="5" value="${(parameters.dncRate)!dncDefault}"/>
@@ -76,9 +77,9 @@
 <#if sizeInput>
     <h2>结果</h2>
     <table id="quoteResult">
-        <tr><th>规模 UFP</th><th>SWF</th><th>工作量（人时）</th><th>人天</th><th>工期（人月）</th>
+        <tr><th>功能点</th><th>软件因素调整因子</th><th>工作量（人时）</th><th>人天</th><th>工期（人月）</th>
             <th class="num">税前</th><th class="num">增值税</th><th class="num">含税</th>
-            <th class="num">非人力成本</th><th class="num">合计</th><th class="num">元/功能点</th></tr>
+            <th class="num">直接非人力成本</th><th class="num">合计</th><th class="num">元/功能点</th></tr>
         <tr>
             <td>${q.ufp?string("0.##")}</td>
             <td>${(q.swf)?string("0.###")}</td>
@@ -119,7 +120,7 @@
         </form>
     </fieldset>
 <#else>
-    <p class="hint">填 ILF / EIF（或直接填 UFP）后点「试算」。</p>
+    <p class="hint">填内部逻辑文件 / 外部接口文件（或直接填未调整功能点）后点「试算」。</p>
 </#if>
 
 <h2>已保存的报价（${(saved.quoteCount)!0} 条，合计 ${((saved.totalAmount)!0)?string("#,##0.00")}）</h2>
@@ -127,7 +128,7 @@
     <a class="download" href="/learningcurve/control/exportQuotesCsv">导出报价 CSV</a></p>
 <#if quotes?has_content>
     <table id="quoteList">
-        <tr><th>编号</th><th>项目</th><th>客户</th><th class="num">UFP</th><th class="num">人天</th>
+        <tr><th>编号</th><th>项目</th><th>客户</th><th class="num">功能点</th><th class="num">人天</th>
             <th class="num">工期（人月）</th><th class="num">含税</th><th class="num">合计</th>
             <th class="num">日费率</th><th>时间</th><th>项目</th><th>备注</th></tr>
         <#list quotes as x>

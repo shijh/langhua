@@ -11,8 +11,8 @@
 - `I_OFBizLearningCurve`：接口定义（`WRIGHT = 1`、`CRAWFORD = 2`）
 - `LearningCurveServices`：OFBiz 服务门面（可通过服务引擎调用）
 - Web 页面：录入历史数据并**保存估算记录**、记录列表、单条详情（含趋势图）与 CSV 导出
-- **软件报价**（新增一支）：功能点规模 + 可调的 PDR / 日费率 / 税率 / 非人力成本率 / SWF 因子
-  → 人时、人天、工期、税前 / 含税 / 合计，可保存报价；并用 Wright 拟合台账实测 PDR 给出下一个项目的预测
+- **软件报价**（新增一支）：功能点规模 + 可调的功能点耗时率 / 日费率 / 税率 / 直接非人力成本率 / 软件因素因子
+  → 人时、人天、工期、税前 / 含税 / 合计，可保存报价；并用 Wright 拟合台账实测耗时率给出下一个项目的预测
 - 口径可切换：`COST`（成本，元）与 `HOURS`（工时，小时），同一套算法
 - 估算记录按 **产品型号 / 项目 + 批次** 两个维度存储（`LearningCurveEstimate` / `LearningCurveBatch`）
 
@@ -69,10 +69,10 @@ Windows 下用 `gradlew.bat`，`JAVA_HOME` 指向 JDK 17。
 | `learningCurveListEstimates` | 按产品型号（可选）列出已保存记录，按创建时间倒序 |
 | `learningCurveChartData` | 返回详情页所需数据：记录头、批次列表、趋势图坐标点、坐标轴最大值 |
 | `learningCurveMesBatches` | **从 MES 取历史批次**：按型号把工单汇总成 `数量:工时` 串（可选，没型号就返回空） |
-| `learningCurveSoftwareQuote` | **软件报价试算**：把参数转给 MES 的 `mfgSoftwareEstimate`，返回 UFP、AE、工期与各段金额 |
+| `learningCurveSoftwareQuote` | **软件报价试算**：把参数转给 MES 的 `mfgSoftwareEstimate`，返回功能点数、工作量（人时）、工期与各段金额 |
 | `learningCurveSaveSoftwareQuote` | 报价并**保存快照**（参数 + 结果），返回 `quoteId` |
 | `learningCurveListSoftwareQuotes` | 已保存报价列表（倒序）与合计，`lastQuote` 给表单当默认值 |
-| `learningCurvePdrForecast` | 读 MES 软件台账里已完成项目的实测 PDR（工时 ÷ UFP），用 Wright 曲线预测下一个项目的 PDR |
+| `learningCurvePdrForecast` | 读 MES 软件台账里已完成项目的实测耗时率（工时 ÷ 功能点数），用 Wright 曲线预测下一个项目的耗时率 |
 
 参数说明：
 
@@ -112,7 +112,7 @@ https://localhost:8443/learningcurve/control/main
 | `/learningcurve/control/records` | 记录列表，可按产品型号筛选 |
 | `/learningcurve/control/recordDetail?estimateId=...` | 详情：估算结果、历史批次、趋势图（SVG）、CSV 下载 |
 | `/learningcurve/control/exportCsv?estimateId=...` | 导出该记录为 CSV（`text/csv`） |
-| `/learningcurve/control/quote` | **软件报价**：功能点规模 + 可调参数（PDR、日费率、税率、非人力成本率、SWF 四项）→ 人时 / 人天 / 工期 / 税前 / 含税 / 合计，并可保存报价；上方给“下一个项目 PDR 预测” |
+| `/learningcurve/control/quote` | **软件报价**：功能点规模 + 可调参数（功能点耗时率、日费率、税率、直接非人力成本率、软件因素四项）→ 人时 / 人天 / 工期 / 税前 / 含税 / 合计，并可保存报价；上方给“下一个项目耗时率预测” |
 | `POST /learningcurve/control/quoteSave` | 调用 `learningCurveSaveSoftwareQuote` 保存报价（参数 + 结果快照） |
 | `/learningcurve/control/exportQuotesCsv` | 导出全部报价为 CSV（UTF-8 带 BOM，Excel 直接开） |
 | `POST /learningcurve/control/quoteToProject` | 把一条保存好的报价**建为 MES 的软件项目**（带类别），重复点不会重复建 |
@@ -123,21 +123,25 @@ https://localhost:8443/learningcurve/control/main
 
 | | 学习曲线（硬件） | 软件报价 |
 | --- | --- | --- |
-| 输入 | 历史批次 `数量:工时` | 规模（ILF/EIF 或直接 UFP）+ 参数 |
+| 输入 | 历史批次 `数量:工时` | 规模（内部/外部接口文件数，或直接填功能点数）+ 参数 |
 | 输出 | 待投产批次的人时、斜率、R² | 人时、人天、工期（人月）、税前/含税/合计、元/功能点 |
-| 公式 | Wright / Crawford | UFP = 35×ILF + 15×EIF；AE = PDR×UFP×SWF×RDF；D = 1.277×(AE/176)^0.404；金额 = 人天×日费率+税+非人力成本 |
+| 公式 | Wright / Crawford | 未调整功能点 = 35×内部逻辑文件 + 15×外部接口文件；工作量 = 耗时率×功能点×软件因素×开发因素；工期 = 1.277×(工作量/176)^0.404；金额 = 人天×日费率+税+直接非人力成本 |
 | 数据源 | MES 的报工 | 公式与默认值在 MES（`mfgSoftwareEstimate`），本组件调它 |
 
-参数都可改，默认取**上一次保存的报价**（新装时取 MES 的默认值：PDR 40 人时/FP、日费率 1760、税 6%、非人力成本 5%）：
+参数都可改，默认取**上一次保存的报价**（新装时取 MES 的默认值：功能点耗时率 40 人时/功能点、日费率 1760、税 6%、直接非人力成本 5%）：
 
-- PDR 改成台账实测值？页面顶部直接给建议值：用 Wright 曲线拟合 MES 软件台账里已完成项目的实测 PDR
-  （实际工时 ÷ UFP，一个项目一个点，按 `deliverySeq` → `createdStamp` 排序），点“用这个 PDR 试算”一键带入；
+- 耗时率改成台账实测值？页面顶部直接给建议值：用 Wright 曲线拟合 MES 软件台账里已完成项目的实测耗时率
+  （实际工时 ÷ 功能点数，一个项目一个点，按 `deliverySeq` → `createdStamp` 排序），点“用这个耗时率试算”一键带入；
 - 保存时把参数与结果一起存进 `LearningCurveSoftwareQuote`，以后改费率不影响历史报价；
 - 报价可以直接**转成 MES 的软件项目**（`learningCurveQuoteToProject`）：带上规模与参数、`quotedAmount` 取报价合计，
   项目编号回写到报价上，表里那个格就变成指向台账的链接；重复点返回第一次建的项目，不会重复建；
-- 报价可**导出 CSV**（`/learningcurve/control/exportQuotesCsv`）：编号、项目、客户、UFP、人时/人天/工期、
-  税前/税/含税/非人力/合计、PDR、日费率、税率、关联项目、时间、备注；
+- 报价可**导出 CSV**（`/learningcurve/control/exportQuotesCsv`）：编号、项目、客户、功能点、人时/人天/工期、
+  税前/税/含税/直接非人力成本/合计、耗时率、日费率、税率、关联项目、时间、备注；
 - MES 没部署时本页仍能打开，只是报价会提示“MES 组件未部署或服务不可用（mfgSoftwareEstimate）”。
+
+> 术语：页面上一律用中文——内部逻辑文件、外部接口文件、未调整功能点、功能点耗时率、软件因素调整因子、
+> 开发因素调整因子、直接非人力成本；与国家标准里英文缩写的对应关系见
+> `../langhua-ofbiz-mfg/README.md` 的「软件项目」一节里的术语对照表。
 
 ## 与 MES 联动：直接从工单取历史批次
 
@@ -272,7 +276,7 @@ flowchart LR
 `scheduleServiceSync` + `_RUN_SYNC_=Y`）真正调用服务，覆盖 `learningCurveEstimate` 的 Wright、Crawford
 两种算法与非法输入，并通过 `learningCurveSaveEstimate` / `learningCurveListEstimates` /
 `learningCurveChartData` 验证「保存 → 列表 → 详情图表」整条链路（含数据库写入），
-最后还跑一遍软件报价（`learningCurveSoftwareQuote` → 保存 → 列表）与 PDR 预测（`learningCurvePdrForecast`），
+最后还跑一遍软件报价（`learningCurveSoftwareQuote` → 保存 → 列表）与耗时率预测（`learningCurvePdrForecast`），
 共 **35 项断言**，全部通过时退出码为 0。
 
 前置条件：OFBiz 已启动、已执行 `loadAll`、组件已部署。
@@ -299,7 +303,7 @@ java -cp "build/test-classes:src/main/java:ofbiz.jar:jama-1.0.3.jar:junit-4.13.2
 ```
 
 目前共 **32 个用例**：其中 4 个专门覆盖 MES 取数的规则（工单 → 批次换算、跳过没有合格数/工时的工单、
-小数点固定为 `.`、空列表不报错），2 个覆盖 PDR 序列（一个交付一个点、空序列）。
+小数点固定为 `.`、空列表不报错），2 个覆盖耗时率序列（一个交付一个点、空序列）。
 页面巡检分两组：`verify-lc.ps1`（56 项，主页面 / 记录 / 详情 / 取数链路）与 `verify-lcq.ps1`
 （37 项，软件报价：导航项、参数默认值、400 人时 / 50 人天 / 1.78 人月 / 88000 / 93280 / 97944、
 保存后回显、下次默认沿用上次参数、同尺寸重算结果一致、报价 CSV 下载、报价转项目与重复点击不多建）。

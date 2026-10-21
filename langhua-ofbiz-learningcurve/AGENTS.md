@@ -42,7 +42,7 @@ OFBiz **学习曲线**插件：按历史批次（数量 + 总额/工时）拟合
   只把参数转发给 MES 的 `mfgSoftwareEstimate`（跨组件服务调用）——所以 MES 没部署时报价会报
   “MES 组件未部署或服务不可用”，其余页面照旧能用；金额快照与参数一起存，改费率不改历史
 - `learningCurvePdrForecast` 直接读 MES 的 `MfgSoftwareProject`（状态 `MFG_SW_DONE`，`ufp>0`、`actualHours>0`），
-  一个交付一个点喂 Wright（`buildPdrSeries`），样本 < 2 时返回 `message` 而不是报错；
+  一个交付一个点喂 Wright（`buildPdrSeries`），算下一个项目的**功能点耗时率**；样本 < 2 时返回 `message` 而不是报错；
   曲线算出的斜率可能是 `-0.0`，输出前要 `+ 0.0` 否则页面会显示 `-0`
 - **样本全相同会让最小二乘奇异**（Jama 抛 `Matrix is rank deficient` 的 RuntimeException）：`pdrForecast`
   先判“全部一样”直接给同一个值，再 catch `RuntimeException` 兜底，不能让服务崩

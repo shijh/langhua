@@ -54,30 +54,31 @@
         <div class="value">${((r.plannedDaysTotal)!0)?string("0.#")} / ${((r.actualDaysTotal)!0)?string("0.#")}</div>
     </div>
     <div class="card">
-        <div class="label">实测 PDR（人时/FP）</div>
+        <div class="label">实测功能点耗时率（人时/功能点）</div>
         <div class="value"><#if ((r.pdrSampleCount)!0) gt 0>${((r.pdrMedian)!0)?string("0.##")}<span class="hint">（${(r.pdrSampleCount)!0} 个样本）</span><#else><span class="hint">样本不足</span></#if></div>
     </div>
 </div>
 
 <h2>估算（功能点口径）</h2>
-<p class="hint">UFP = 35 × ILF + 15 × EIF；AE = PDR × UFP × SWF × RDF；工期 = 1.277 × (AE/176)<sup>0.404</sup>；
-    金额 = 人天 × 日费率，再加增值税与非人力成本。默认值取自 2019 年评估案例，可逐项改。
-    实测 PDR 中位数 ${((r.pdrMedian)!0)?string("0.##")} 人时/FP（样本 ${(r.pdrSampleCount)!0}），行业基准 ${((r.defaultPdr)!0)?string("0")}。</p>
+<p class="hint">未调整功能点 = 35 × 内部逻辑文件 + 15 × 外部接口文件；
+    工作量 = 功能点耗时率 × 功能点 × 软件因素调整因子 × 开发因素调整因子；工期 = 1.277 × (工作量/176)<sup>0.404</sup>；
+    金额 = 人天 × 日费率，再加增值税与直接非人力成本。默认值取自 2019 年评估案例，可逐项改。
+    实测耗时率中位数 ${((r.pdrMedian)!0)?string("0.##")} 人时/功能点（样本 ${(r.pdrSampleCount)!0}），行业基准 ${((r.defaultPdr)!0)?string("0")}。</p>
 <form method="get" action="/mfg/control/software">
     <p>
-        ILF <input type="text" name="ilfCount" size="5" value="${(parameters.ilfCount)!''}"/>
-        EIF <input type="text" name="eifCount" size="5" value="${(parameters.eifCount)!''}"/>
-        或直接填 UFP <input type="text" name="ufp" size="5" value="${(parameters.ufp)!''}"/>
+        内部逻辑文件 <input type="text" name="ilfCount" size="5" value="${(parameters.ilfCount)!''}"/>
+        外部接口文件 <input type="text" name="eifCount" size="5" value="${(parameters.eifCount)!''}"/>
+        或直接填未调整功能点 <input type="text" name="ufp" size="5" value="${(parameters.ufp)!''}"/>
     </p>
     <p>
-        SWF 基础 <input type="text" name="swfBase" size="4" value="${(parameters.swfBase)!'1.5'}"/>
+        软件因素：基础 <input type="text" name="swfBase" size="4" value="${(parameters.swfBase)!'1.5'}"/>
         复用 <input type="text" name="swfReuse" size="4" value="${(parameters.swfReuse)!'0'}"/>
         前期投入 <input type="text" name="swfPreInvest" size="4" value="${(parameters.swfPreInvest)!'0'}"/>
         质量 <input type="text" name="swfQuality" size="4" value="${(parameters.swfQuality)!'0'}"/>
-        RDF <input type="text" name="rdf" size="4" value="${(parameters.rdf)!'1'}"/>
+        开发因素调整因子 <input type="text" name="rdf" size="4" value="${(parameters.rdf)!'1'}"/>
     </p>
     <p>
-        PDR（人时/FP）<input type="text" name="pdrHoursPerFp" size="5" value="${(parameters.pdrHoursPerFp)!'40'}"/>
+        功能点耗时率（人时/功能点）<input type="text" name="pdrHoursPerFp" size="5" value="${(parameters.pdrHoursPerFp)!'40'}"/>
         日费率 <input type="text" name="dayRate" size="6" value="${(parameters.dayRate)!'1760'}"/>
         税率 <input type="text" name="taxRate" size="5" value="${(parameters.taxRate)!'0.06'}"/>
         非人力成本率 <input type="text" name="dncRate" size="5" value="${(parameters.dncRate)!'0.05'}"/>
@@ -87,9 +88,9 @@
 
 <#if pv?has_content && pv.ufp??>
     <table id="swPreview">
-        <tr><th>规模 UFP</th><th>SWF</th><th>工作量（人时）</th><th>人天</th><th>工期（人月）</th>
+        <tr><th>功能点</th><th>软件因素调整因子</th><th>工作量（人时）</th><th>人天</th><th>工期（人月）</th>
             <th class="num">税前</th><th class="num">增值税</th><th class="num">含税</th>
-            <th class="num">非人力成本</th><th class="num">合计</th></tr>
+            <th class="num">直接非人力成本</th><th class="num">合计</th></tr>
         <tr>
             <td>${pv.ufp?string("0.##")}</td>
             <td>${pv.swf?string("0.###")}</td>
@@ -141,19 +142,19 @@
             开发项目编号 <input type="text" name="devProjectCode" size="16"/>
         </p>
         <p>
-            ILF <input type="text" name="ilfCount" size="5"/>
-            EIF <input type="text" name="eifCount" size="5"/>
-            UFP（可空，空则按 ILF/EIF 算）<input type="text" name="ufp" size="5"/>
-            PDR <input type="text" name="pdrHoursPerFp" size="5"/>
+            内部逻辑文件 <input type="text" name="ilfCount" size="5"/>
+            外部接口文件 <input type="text" name="eifCount" size="5"/>
+            未调整功能点（可空，空则按两个文件数算）<input type="text" name="ufp" size="5"/>
+            功能点耗时率 <input type="text" name="pdrHoursPerFp" size="5"/>
             日费率 <input type="text" name="dayRate" size="6"/>
             税率 <input type="text" name="taxRate" size="5"/>
         </p>
         <p>
-            SWF 基础 <input type="text" name="swfBase" size="4"/>
+            软件因素：基础 <input type="text" name="swfBase" size="4"/>
             复用 <input type="text" name="swfReuse" size="4"/>
             前期投入 <input type="text" name="swfPreInvest" size="4"/>
             质量 <input type="text" name="swfQuality" size="4"/>
-            RDF <input type="text" name="rdf" size="4"/>
+            开发因素 <input type="text" name="rdf" size="4"/>
             非人力成本率 <input type="text" name="dncRate" size="5"/>
         </p>
         <p>
@@ -179,9 +180,9 @@
 
 <#if rows?has_content>
     <table id="swLedger">
-        <tr><th>编号</th><th>名称</th><th>类别</th><th>状态</th><th class="num">UFP</th>
+        <tr><th>编号</th><th>名称</th><th>类别</th><th>状态</th><th class="num">功能点</th>
             <th class="num">计划人天</th><th class="num">实际人天</th><th class="num">偏差</th>
-            <th class="num">实测 PDR</th><th>计划结束</th><th class="num">含税报价</th><th>备注</th></tr>
+            <th class="num">实测耗时率</th><th>计划结束</th><th class="num">含税报价</th><th>备注</th></tr>
         <#list rows as x>
             <tr>
                 <td><a href="/mfg/control/software?projectCode=${x.projectCode}">${x.projectCode}</a></td>
@@ -204,7 +205,7 @@
         </#list>
     </table>
     <p class="hint">共 ${(r.totalCount)!0} 个，第 ${(r.page)!1} / ${(r.pageCount)!1} 页。
-        “偏差”= 实际 − 计划，正数表示超人天；“实测 PDR”= 实际工时 ÷ UFP，是计划下一个项目的依据。</p>
+        “偏差”= 实际 − 计划，正数表示超人天；“实测耗时率”= 实际工时 ÷ 功能点数（人时/功能点），是计划下一个项目的依据。</p>
 <#else>
     <p class="hint">还没有软件项目。上面填一个型号的一次开发工作（例如某个固件的版本），以后估算就有依据了。</p>
 </#if>
