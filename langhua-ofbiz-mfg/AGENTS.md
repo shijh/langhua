@@ -44,7 +44,8 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
 - **文件上传**：multipart 表单的 Java 事件要先 `UtilHttp.getParameterMap(request)`（或读
   `request.getAttribute("multiPartMap")`）；文件字段是 `ByteBuffer`，另有 `_<字段>_fileName` / `_contentType` / `_size`；
   输出二进制用 `<response name="success" type="none"/>`
-- **服务的 OUT 属性必须在 services.xml 里声明**，否则 Java 返回的键会被静默丢弃（`mfgDevProjectDetail` 的 `steps` 曾中招）
+- **服务的 OUT 属性必须在 services.xml 里声明**，否则 Java 返回的键会被静默丢弃（`mfgDevProjectDetail` 的 `steps` 曾中招）；
+  **屏幕里无条件调用的服务，OUT 还要 `optional="true"`**，否则「没有记录」的分支会整页 500（学习曲线 `/recordDetail` 不带 id 曾中招）
 - 屏幕里**无条件调用**的服务，所有 IN 参数要 `optional="true"`，否则不带参数打开列表页会抛
   `ServiceValidationException` → 整页 500；实现里对 null 直接返回空结果
 - 集成测试的错误断言看**消息文本**（如 `"Unknown development stage"`），不看 `responseMessage=error`

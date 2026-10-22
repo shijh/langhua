@@ -250,7 +250,9 @@ public final class LearningCurveServices {
         try {
             String estimateId = toText(context.get("estimateId"));
             Delegator delegator = dctx.getDelegator();
-            GenericValue header = EntityQuery.use(delegator).from("LearningCurveEstimate")
+            // opening the page without an identifier shows the "no such record" branch of the template,
+            // so it must not fail here either
+            GenericValue header = estimateId == null ? null : EntityQuery.use(delegator).from("LearningCurveEstimate")
                     .where("estimateId", estimateId).queryOne();
             if (header == null) {
                 Map<String, Object> empty = ServiceUtil.returnSuccess();

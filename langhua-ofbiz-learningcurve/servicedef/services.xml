@@ -96,14 +96,17 @@
             location="org.langhua.ofbiz.learningcurve.LearningCurveServices" invoke="chartData"
             auth="false" export="false" validate="true">
         <description>Chart series of a stored estimate</description>
-        <attribute name="estimateId" type="String" mode="IN" optional="false"/>
-        <attribute name="estimate" type="java.util.Map" mode="OUT"/>
-        <attribute name="batches" type="java.util.List" mode="OUT"/>
-        <attribute name="points" type="java.util.List" mode="OUT"/>
-        <attribute name="maxX" type="Double" mode="OUT"/>
-        <attribute name="maxY" type="Double" mode="OUT"/>
-        <attribute name="productCode" type="String" mode="OUT"/>
-        <attribute name="measureType" type="String" mode="OUT"/>
+        <attribute name="estimateId" type="String" mode="IN" optional="true">
+            <description>Stored estimate; empty renders the page without a record</description>
+        </attribute>
+        <!-- the record branch leaves the record fields out, so every OUT stays optional -->
+        <attribute name="estimate" type="java.util.Map" mode="OUT" optional="true"/>
+        <attribute name="batches" type="java.util.List" mode="OUT" optional="true"/>
+        <attribute name="points" type="java.util.List" mode="OUT" optional="true"/>
+        <attribute name="maxX" type="Double" mode="OUT" optional="true"/>
+        <attribute name="maxY" type="Double" mode="OUT" optional="true"/>
+        <attribute name="productCode" type="String" mode="OUT" optional="true"/>
+        <attribute name="measureType" type="String" mode="OUT" optional="true"/>
     </service>
 
     <!--

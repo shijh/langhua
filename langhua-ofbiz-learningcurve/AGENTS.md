@@ -16,7 +16,7 @@ OFBiz **学习曲线**插件：按历史批次（数量 + 总额/工时）拟合
 | `deploy-lc.bat` | 停 OFBiz → robocopy 到 `plugins/learningcurve` → `gradle jar` → 启动（日志 `F:\build-ofbiz\lc-deploy.txt`） |
 | `run-tests.bat` | 单元测试 40 个（需要 jama：`C:\Users\shi.jinghai-honor\.m2\repository\gov\nist\math\jama\1.0.3\jama-1.0.3.jar`） |
 | `lc-it.bat` | 集成测试 52 项（日志 `lc-it.txt`） |
-| `verify-lc.ps1` | 页面巡检 84 项（日志 `lc-verify.txt`） |
+| `verify-lc.ps1` | 页面巡检 87 项（日志 `lc-verify.txt`） |
 | `verify-lcq.ps1` | 软件报价页巡检 37 项（日志 `lc-quote.txt`） |
 
 只改 `webapp/` 下的静态文件时，直接 `Copy-Item` 到 `plugins/learningcurve/...` 就生效，不必整包重发。
@@ -48,6 +48,9 @@ OFBiz **学习曲线**插件：按历史批次（数量 + 总额/工时）拟合
   `<th class="num">单台工时</th>` 而不是这四个字
 - MES 报表页 `/mfg/control/reports` 的「喂进学习曲线」链接指向 `/learningcurve/control/main`，
   带 `mesGroupBy` + `mesFrom` + `mesTo`；两个 webapp 会话不共享，点过去要再登一次
+- **屏幕里无条件调用的服务，IN 与 OUT 都要 `optional="true"`**：`learningCurveChartData` 的 `estimateId`
+  与 `estimate` / `batches` / `productCode` / `measureType` 漏一个，打开 `/recordDetail`（不带 id）就整页 500
+  （HTTP 200 但内容是 `ERROR MESSAGE` 页）——模板里那个「记录不存在」分支就是靠这个前提
 - **标准工时回填**（`learningCurveStandardHours` 预览 / `learningCurveApplyStandardHours` 写库）：
   单台工时 = 曲线算的「下一批 n 台」合计 ÷ n（`unitHours`），写 `MfgProduct.standardHours` +
   `standardHoursSource='LEARNING_CURVE'` + `standardHoursBaseQty` + `standardHoursEstimateRef`，

@@ -37,7 +37,7 @@
         <p>
             <label for="mesProduct">产品型号</label>
             <input type="text" id="mesProduct" name="mesProduct" size="20" value="${(p.mesProduct)!''}"/>
-            <input type="submit" value="取数"/>
+            <input type="submit" class="secondary" value="取数"/>
         </p>
     </form>
     <#if mesRows?has_content>
@@ -76,7 +76,7 @@
             </select>
             起 <input type="text" name="mesFrom" size="10" value="${(p.mesFrom)!''}" placeholder="yyyy-mm-dd"/>
             止 <input type="text" name="mesTo" size="10" value="${(p.mesTo)!''}" placeholder="yyyy-mm-dd"/>
-            <input type="submit" value="取点"/>
+            <input type="submit" class="secondary" value="取点"/>
         </p>
         <p class="hint">每个期间算一个批次：数量 = 该期间的报工良品数，数值 = 该期间的报工工时；
             这样「报表里的单台工时」直接就喂进曲线，不用手填 <code>数量:工时</code>。</p>

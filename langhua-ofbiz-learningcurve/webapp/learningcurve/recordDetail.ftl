@@ -94,7 +94,7 @@
                 <td class="num">${(h.estimateTotal)?string("0.###")}</td>
                 <td class="num">${(h.proposedUnitHours)?string("0.###")}</td>
                 <td class="num"><#if (h.existsInMes!'') == 'Y'>${(h.currentHours)?string("0.###")}<#else>—</#if></td>
-                <td class="num"><#if (h.existsInMes!'') == 'Y'><#if ((h.deltaHours)!0) gte 0>+</#if>${(h.deltaHours)?string("0.###")}（<#if ((h.deltaPercent)!0) gte 0>+</#if>${(h.deltaPercent)?string("0.#")}%）<#else>—</#if></td>
+                <td class="num"><#if (h.existsInMes!'') == 'Y'><#if (((h.deltaHours)!0)?abs) lt 0.0005>无变化<#else><#if ((h.deltaHours)!0) gt 0>+</#if>${(h.deltaHours)?string("0.###")}（<#if ((h.deltaPercent)!0) gt 0>+</#if>${(h.deltaPercent)?string("0.#")}%）</#if><#else>—</#if></td>
                 <td data-source="${(h.currentSource)!''}"><#if (h.currentSource!'') == 'LEARNING_CURVE'>学习曲线回填（基准 ${((h.currentBaseQty)!0)?string("0.##")} 台，估算 ${(h.currentRef)!''}）<#elseif (h.currentSource!'') == 'MANUAL'>手工填写<#else>—</#if></td>
             </tr>
         </table>
