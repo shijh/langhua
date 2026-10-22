@@ -14,6 +14,13 @@
                 <service service-name="learningCurveMesBatches" result-map="mesBatches" auto-field-map="false">
                     <field-map field-name="productCode" from-field="parameters.mesProduct"/>
                 </service>
+                <!-- optional: the MES shop floor report per day, week or month -->
+                <service service-name="learningCurveMesPeriods" result-map="mesPeriods" auto-field-map="false">
+                    <field-map field-name="productCode" from-field="parameters.mesProduct"/>
+                    <field-map field-name="groupBy" from-field="parameters.mesGroupBy"/>
+                    <field-map field-name="fromDate" from-field="parameters.mesFrom"/>
+                    <field-map field-name="toDate" from-field="parameters.mesTo"/>
+                </service>
             </actions>
             <widgets>
                 <decorator-screen name="lc-decorator" location="component://learningcurve/widget/LearningCurveCommonScreens.xml">

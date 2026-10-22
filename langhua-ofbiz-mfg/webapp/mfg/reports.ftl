@@ -56,7 +56,9 @@
 <p>
     <a class="download" href="/mfg/control/yieldCsv?fromDate=<#if t.fromDate??>${t.fromDate?string("yyyy-MM-dd")}</#if>&amp;toDate=<#if t.toDate??>${t.toDate?string("yyyy-MM-dd")}</#if>&amp;groupBy=${groupBy}">导出良率趋势 CSV</a>
     <a class="download" href="/mfg/control/hoursCsv?fromDate=<#if t.fromDate??>${t.fromDate?string("yyyy-MM-dd")}</#if>&amp;toDate=<#if t.toDate??>${t.toDate?string("yyyy-MM-dd")}</#if>&amp;groupBy=${groupBy}">导出工时趋势 CSV</a>
-    <span class="hint">两份 CSV 都带 UTF-8 BOM，Excel 双击直接开；数字用小数点、不用千分位。</span>
+    <a class="download" href="/learningcurve/control/main?mesGroupBy=${groupBy}&amp;mesFrom=<#if t.fromDate??>${t.fromDate?string("yyyy-MM-dd")}</#if>&amp;mesTo=<#if t.toDate??>${t.toDate?string("yyyy-MM-dd")}</#if>">喂进学习曲线</a>
+    <span class="hint">两份 CSV 都带 UTF-8 BOM，Excel 双击直接开；数字用小数点、不用千分位。<br/>
+        最后那个链接会把这张表按期间的良品数与工时直接带进学习曲线页（同一个汇总口径），不用手填 <code>数量:工时</code>。</span>
 </p>
 
 <#if rows?has_content>

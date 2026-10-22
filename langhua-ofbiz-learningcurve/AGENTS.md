@@ -14,9 +14,9 @@ OFBiz **学习曲线**插件：按历史批次（数量 + 总额/工时）拟合
 | 脚本 | 作用 |
 | --- | --- |
 | `deploy-lc.bat` | 停 OFBiz → robocopy 到 `plugins/learningcurve` → `gradle jar` → 启动（日志 `F:\build-ofbiz\lc-deploy.txt`） |
-| `run-tests.bat` | 单元测试 32 个（需要 jama：`C:\Users\shi.jinghai-honor\.m2\repository\gov\nist\math\jama\1.0.3\jama-1.0.3.jar`） |
-| `lc-it.bat` | 集成测试 35 项（日志 `lc-it.txt`） |
-| `verify-lc.ps1` | 页面巡检 56 项（日志 `lc-verify.txt`） |
+| `run-tests.bat` | 单元测试 36 个（需要 jama：`C:\Users\shi.jinghai-honor\.m2\repository\gov\nist\math\jama\1.0.3\jama-1.0.3.jar`） |
+| `lc-it.bat` | 集成测试 39 项（日志 `lc-it.txt`） |
+| `verify-lc.ps1` | 页面巡检 68 项（日志 `lc-verify.txt`） |
 | `verify-lcq.ps1` | 软件报价页巡检 37 项（日志 `lc-quote.txt`） |
 
 只改 `webapp/` 下的静态文件时，直接 `Copy-Item` 到 `plugins/learningcurve/...` 就生效，不必整包重发。
@@ -40,6 +40,14 @@ OFBiz **学习曲线**插件：按历史批次（数量 + 总额/工时）拟合
   MES 没部署时返回空结果 + 提示，**不要抛异常**
 - 两组件的关系图（mermaid）在 `langhua-ofbiz-mfg/README.md` 的「与学习曲线组件的关系」，
   本组件 README 的「与 MES 联动」里是孪生份；改联动口径时两处一起改
+- **按期间取点**（`learningCurveMesPeriods`，`buildMesPeriods`）：按 `MfgReport.reportDate` 分日 / ISO 周 / 月
+  （`periodKeyOf`，周用 `WeekFields.ISO` 出 `2026-W43`），一个期间一个批次（良品数:工时），跳过良品或工时为 0 的期间，
+  用 `TreeMap` 保证时间正序；**估算页只有带了 `mesGroupBy` / `mesFrom` / `mesTo` 才用它**（`periodAsked`），
+  否则直接打开页面仍是样例数据 `2:200;3:285;5:450`——巡检里「没有型号时用样例数据」那几项靠这个前提
+- **模板里 `单台工时` 出现在两处**（MES 批次表头与按期间框的说明文字），巡检判断「不该有批次表」时要匹配
+  `<th class="num">单台工时</th>` 而不是这四个字
+- MES 报表页 `/mfg/control/reports` 的「喂进学习曲线」链接指向 `/learningcurve/control/main`，
+  带 `mesGroupBy` + `mesFrom` + `mesTo`；两个 webapp 会话不共享，点过去要再登一次
 - **软件报价**（`quote` 屏幕，`LearningCurveSoftwareQuote`）：公式不在这里，`learningCurveSoftwareQuote`
   只把参数转发给 MES 的 `mfgSoftwareEstimate`（跨组件服务调用）——所以 MES 没部署时报价会报
   “MES 组件未部署或服务不可用”，其余页面照旧能用；金额快照与参数一起存，改费率不改历史

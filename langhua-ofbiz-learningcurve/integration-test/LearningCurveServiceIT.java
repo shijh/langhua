@@ -82,6 +82,7 @@ public final class LearningCurveServiceIT {
             it.savesAndReadsBack();
             it.quotesSoftware();
             it.forecastsTheProductivity();
+            it.readsShopFloorPeriods();
         } finally {
             it.tearDown();
         }
@@ -289,6 +290,30 @@ public final class LearningCurveServiceIT {
         check("pdr forecast: it either predicts or explains",
                 forecast.body.contains("predictedPdr") || forecast.body.contains("message"),
                 "neither a prediction nor a message");
+    }
+
+    /**
+     * Asks the learning curve for the per-period points of the MES shop floor report. The service reads
+     * the work orders of the MES component, so on a machine without shop floor data it has to answer
+     * with zero periods instead of an error.
+     *
+     * @throws IOException when the service call fails
+     */
+    private void readsShopFloorPeriods() throws IOException {
+        Map<String, String> form = new LinkedHashMap<>();
+        form.put("SERVICE_NAME", "learningCurveMesPeriods");
+        form.put("groupBy", "MONTH");
+        form.put("_RUN_SYNC_", "Y");
+        Response periods = post("/webtools/control/scheduleServiceSync", form);
+
+        check("mes periods: service call returns HTTP 200", periods.status == 200,
+                "HTTP " + periods.status);
+        check("mes periods: the period count is reported", periods.body.contains("periodCount"),
+                "no periodCount in response");
+        check("mes periods: the grouping comes back", periods.body.contains("MONTH"),
+                "no groupBy in response");
+        check("mes periods: no service error", !periods.body.contains("errorMessage"),
+                "service reported an error");
     }
 
     /**

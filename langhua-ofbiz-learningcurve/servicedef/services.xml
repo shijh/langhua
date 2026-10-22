@@ -130,6 +130,29 @@
         <attribute name="message" type="String" mode="OUT" optional="true"/>
     </service>
 
+    <service name="learningCurveMesPeriods" engine="java"
+        location="org.langhua.ofbiz.learningcurve.LearningCurveServices" invoke="mesPeriods"
+        auth="false" export="false" validate="true">
+        <description>Build the history batches from the MES shop floor report: the reported labour of every day, week or month becomes one point</description>
+        <attribute name="productCode" type="String" mode="IN" optional="true">
+            <description>Model code; empty takes the whole shop floor</description>
+        </attribute>
+        <attribute name="groupBy" type="String" mode="IN" optional="true">
+            <description>DAY, WEEK (default) or MONTH</description>
+        </attribute>
+        <attribute name="fromDate" type="String" mode="IN" optional="true"/>
+        <attribute name="toDate" type="String" mode="IN" optional="true"/>
+        <attribute name="productCode" type="String" mode="OUT" optional="true"/>
+        <attribute name="groupBy" type="String" mode="OUT" optional="true"/>
+        <attribute name="periods" type="java.util.List" mode="OUT" optional="true"/>
+        <attribute name="periodCount" type="Integer" mode="OUT" optional="true"/>
+        <attribute name="skippedCount" type="Integer" mode="OUT" optional="true"/>
+        <attribute name="totalQty" type="Double" mode="OUT" optional="true"/>
+        <attribute name="totalHours" type="Double" mode="OUT" optional="true"/>
+        <attribute name="historyData" type="String" mode="OUT" optional="true"/>
+        <attribute name="message" type="String" mode="OUT" optional="true"/>
+    </service>
+
     <!--
         Software quotes: the formulas live in the MES component (mfgSoftwareEstimate), the quote is
         kept here. UFP = 35 x ILF + 15 x EIF, AE = PDR x UFP x SWF x RDF,

@@ -17,6 +17,8 @@
 - **软件报价**（新增一支）：功能点规模 + 可调的功能点耗时率 / 日费率 / 税率 / 直接非人力成本率 / 软件因素因子
   → 人时、人天、工期、税前 / 含税 / 合计，可保存报价；并用 Wright 拟合台账实测耗时率给出下一个项目的预测
 - 口径可切换：`COST`（成本，元）与 `HOURS`（工时，小时），同一套算法
+- **与 MES 联动**：按工单取批次（`learningCurveMesBatches`）或按日/周/月取报表期间
+  （`learningCurveMesPeriods`），结果直接填进历史批次数据；MES 报表页有「喂进学习曲线」的入口
 - 估算记录按 **产品型号 / 项目 + 批次** 两个维度存储（`LearningCurveEstimate` / `LearningCurveBatch`）
 
 ## 目录结构
@@ -72,6 +74,7 @@ Windows 下用 `gradlew.bat`，`JAVA_HOME` 指向 JDK 17。
 | `learningCurveListEstimates` | 按产品型号（可选）列出已保存记录，按创建时间倒序 |
 | `learningCurveChartData` | 返回详情页所需数据：记录头、批次列表、趋势图坐标点、坐标轴最大值 |
 | `learningCurveMesBatches` | **从 MES 取历史批次**：按型号把工单汇总成 `数量:工时` 串（可选，没型号就返回空） |
+| `learningCurveMesPeriods` | **从 MES 报表按期间取点**：把报工按日/ISO 周/月分桶，每个期间算一个批次（良品数为数量、报工工时为数值），返回 `periods`、`periodCount`、`historyData` |
 | `learningCurveSoftwareQuote` | **软件报价试算**：把参数转给 MES 的 `mfgSoftwareEstimate`，返回功能点数、工作量（人时）、工期与各段金额 |
 | `learningCurveSaveSoftwareQuote` | 报价并**保存快照**（参数 + 结果），返回 `quoteId` |
 | `learningCurveListSoftwareQuotes` | 已保存报价列表（倒序）与合计，`lastQuote` 给表单当默认值 |
@@ -110,7 +113,7 @@ https://localhost:8443/learningcurve/control/main
 
 | 路径 | 说明 |
 | --- | --- |
-| `/learningcurve/control/main` | 估算表单：产品型号、口径（成本/工时）、历史批次、待估算单位数、期望 R²、方法；上方可选「从 MES 取历史批次」 |
+| `/learningcurve/control/main` | 估算表单：产品型号、口径（成本/工时）、历史批次、待估算单位数、期望 R²、方法；上方可选「从 MES 取历史批次」与「从 MES 报表取点」（按日/周/月，带起止日期） |
 | `POST /learningcurve/control/estimate` | 调用 `learningCurveSaveEstimate` 保存记录，跳转到详情页 |
 | `/learningcurve/control/records` | 记录列表，可按产品型号筛选 |
 | `/learningcurve/control/recordDetail?estimateId=...` | 详情：估算结果、历史批次、趋势图（SVG）、CSV 下载 |
@@ -150,6 +153,7 @@ https://localhost:8443/learningcurve/control/main
 
 所有算式集中在这里，四步：**批次 → 绘图点 → 对数拟合 → 估算**。页面不参与计算，数字都来自服务
 （`LearningCurveServices` + `OFBizLearningCurveHandler`）；改文案只改模板，改口径改这里列的常量。
+第 6 节是「按期间生成批次」的求和口径（与 MES 报表页同源），软件报价的四步在 MES 那边（第 5 节）。
 
 ### 1. 批次转绘图点
 
@@ -206,6 +210,20 @@ $$
 未调整功能点、工作量、工期、金额四步全在 MES 的 `MfgServices.softwareCost`，本组件只转发参数，
 算式与默认值见 `../langhua-ofbiz-mfg/README.md` 的「[计算公式一览](../langhua-ofbiz-mfg/README.md#计算公式一览)」第 8 节。
 
+### 6. 报表按期间取点（`learningCurveMesPeriods`）
+
+MES 报表页的汇总口径搬过来当一个「批次生成器」，本身没有新算式，仍是求和加相除：
+
+| 量 | 公式 |
+| --- | --- |
+| 期间键 | 日 `yyyy-MM-dd`；周按 `WeekFields.ISO` 出 `yyyy-'W'ww`（如 `2026-W43`，周一为界）；月 `yyyy-MM` |
+| 期间数量 $x$ | $\sum_{\text{该期间所有报工}} \text{良品数}$ |
+| 期间数值 $y$ | $\sum_{\text{该期间所有报工}} \text{报工工时}$ |
+| 单台工时 | $y \big/ x$（页面显示，仅 $x > 0$ 时） |
+| 跳过规则 | $x = 0$ 或 $y = 0$ 的期间不进批次串（否则 $y/x$ 除零），计入「跳过期间数」 |
+
+生成的串仍是 `数量:工时;数量:工时;...`，按时间正序，直接进第 1 节的 Wright / Crawford 拟合。
+
 ## 与 MES 联动：直接从工单取历史批次
 
 手工敲 `2:200;3:285;5:450` 容易抄错，而 MES 组件（`langhua-ofbiz-mfg`）里本来就有真实的批次数据。
@@ -225,17 +243,20 @@ flowchart LR
     subgraph LC["langhua-ofbiz-learningcurve · /learningcurve"]
         direction TB
         SVC["learningCurveMesBatches<br/>读 MES 实体并按工单汇总"]
+        PERSVC["learningCurveMesPeriods<br/>按日/周/月分桶汇总报工"]
         SERIES["批次串<br/>数量:工时;数量:工时"]
         MANUAL["手工录入 historyData"]
         FIT["学习曲线拟合<br/>Wright / Crawford"]
         KPI["斜率 · 截距 · R²<br/>待投产批次估算"]
         CSV["CSV 导出"]
         SVC --> SERIES --> FIT
+        PERSVC --> SERIES
         MANUAL --> FIT
         FIT --> KPI --> CSV
     end
 
     RPT -- "按 dueDate → createdStamp 排序<br/>没合格数或没报工工时的工单跳过" --> SVC
+    RPT -- "按 reportDate 分日/周/月<br/>空期间跳过" --> PERSVC
     KPI -. "斜率 / 标准工时人工回填（未自动写回）" .-> STD
 ```
 
@@ -255,6 +276,18 @@ flowchart LR
 
 > 注意：`numeric` 字段在 OFBiz 里是 `Long`，`floating-point` 才是 `Double`，
 > 直接 `getDouble("qtyOk")` 会 `ClassCastException`，统一走 `Number` 取 `doubleValue()`。
+
+### 按期间取点（`learningCurveMesPeriods`）
+
+工单批次适合「一批一批算」，但 MES 报表页（`/mfg/control/reports`）看的是**按日/周/月汇总的单台工时**，
+两边口径不一样。估算页第二个小框「从 MES 报表取点（按期间，可选）」就把报表的口径直接搬过来：
+
+- 输入：产品型号（空 = 全车间）、汇总口径（日 / ISO 周 / 月）、起止日期（空 = 最近 180 天）；
+- **一个期间 = 一个批次**：数量 = 该期间报工良品数之和，数值 = 该期间报工工时之和，按时间正序排；
+- 良品数为 0 或工时为 0 的期间跳过（除零），页面上写跳过几个；期间键为 `2026-10-22` / `2026-W43` / `2026-10`；
+- 结果填进历史批次数据并把口径切成「工时」——与「从 MES 取历史批次」同样的用法；
+- 与报表页同一套口径，所以 MES 报表页右下角有一个「喂进学习曲线」链接，把当前区间与汇总口径带过来；
+- **没带 `mesGroupBy` / `mesFrom` / `mesTo` 时不生效**：直接打开估算页仍是样例数据，不会被车间数据默默覆盖。
 
 ### 页面布局：单一装饰器
 
@@ -339,8 +372,9 @@ flowchart LR
 `scheduleServiceSync` + `_RUN_SYNC_=Y`）真正调用服务，覆盖 `learningCurveEstimate` 的 Wright、Crawford
 两种算法与非法输入，并通过 `learningCurveSaveEstimate` / `learningCurveListEstimates` /
 `learningCurveChartData` 验证「保存 → 列表 → 详情图表」整条链路（含数据库写入），
-最后还跑一遍软件报价（`learningCurveSoftwareQuote` → 保存 → 列表）与耗时率预测（`learningCurvePdrForecast`），
-共 **35 项断言**，全部通过时退出码为 0。
+最后还跑一遍软件报价（`learningCurveSoftwareQuote` → 保存 → 列表）、耗时率预测（`learningCurvePdrForecast`）
+与 MES 报表取点（`learningCurveMesPeriods`），
+共 **39 项断言**，全部通过时退出码为 0。
 
 前置条件：OFBiz 已启动、已执行 `loadAll`、组件已部署。
 
@@ -365,9 +399,10 @@ java -cp "build/test-classes:src/main/java:ofbiz.jar:jama-1.0.3.jar:junit-4.13.2
       org.langhua.ofbiz.learningcurve.LearningCurveServicesTest
 ```
 
-目前共 **32 个用例**：其中 4 个专门覆盖 MES 取数的规则（工单 → 批次换算、跳过没有合格数/工时的工单、
-小数点固定为 `.`、空列表不报错），2 个覆盖耗时率序列（一个交付一个点、空序列）。
-页面巡检分两组：`verify-lc.ps1`（56 项，主页面 / 记录 / 详情 / 取数链路）与 `verify-lcq.ps1`
+目前共 **36 个用例**：其中 4 个专门覆盖 MES 取数的规则（工单 → 批次换算、跳过没有合格数/工时的工单、
+小数点固定为 `.`、空列表不报错），4 个覆盖报表按期间取点（日/周/月分桶与求和、跳过空期间、
+未知口径回落 WEEK 且小数点固定为 `.`、空列表不报错），2 个覆盖耗时率序列（一个交付一个点、空序列）。
+页面巡检分两组：`verify-lc.ps1`（68 项，主页面 / 记录 / 详情 / 取数链路 / 报表按期间取点）与 `verify-lcq.ps1`
 （37 项，软件报价：导航项、参数默认值、400 人时 / 50 人天 / 1.78 人月 / 88000 / 93280 / 97944、
 保存后回显、下次默认沿用上次参数、同尺寸重算结果一致、报价 CSV 下载、报价转项目与重复点击不多建）。
 

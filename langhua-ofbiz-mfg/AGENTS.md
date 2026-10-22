@@ -89,7 +89,7 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
 | `verify-m32.ps1` | 成本核算：产品页成本块（材料/工时/合计/目标成本/毛利）、批量重算、BOM 单价与金额列、无单价告警、工单成本块（标准 vs 实际，发料后实际材料跟批次单价走） | 38 |
 | `verify-m33.ps1` | 看板告警与 CSV 导出（告警区、三个导出链接、`text/csv` + 下载头、表头列数、行内容） | 30 |
 | `verify-m34.ps1` | 软件项目：估算试算、保存与编号、台账计划 vs 实际、实测耗时率、超期进告警 | 30 |
-| `verify-m35.ps1` | 报表与成本细化：报表页（卡片/趋势表/日周月切换/未知口径回落）、两份趋势 CSV（BOM + 列数 + 合计行）、产品页按工序分摊、工单页工序成本与外协费、开发页问题清单登记→关闭→重开 | 54 |
+| `verify-m35.ps1` | 报表与成本细化：报表页（卡片/趋势表/日周月切换/未知口径回落/喂进学习曲线的链接）、两份趋势 CSV（BOM + 列数 + 合计行）、产品页按工序分摊、工单页工序成本与外协费、开发页问题清单登记→关闭→重开 | 57 |
 | `verify-m36.ps1` | 库存：结存页与卡片、流水页与余额、报废入账与超量被拒、盘点单号与差异、安全库存低于阈值标红与建议采购、告警 CSV、工单预留按钮与两次 POST、成品链路（完工入库 → 成品批次 → 出货扣减 → 重复发货被拒） | 63 |
 | `verify-m37.ps1` | 销售订单：列表与新建表单、详情（行明细/三个按钮/出货表单）、先锁在库、排产生工单、关单转 CLOSED | 26 |
 | `verify-m38.ps1` | 库位与移库：库位页与两个表单、建库位、到货指定库位、按库位看结存、移库两边余额、流水同单号、超量被拒 | 24 |
@@ -204,12 +204,16 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
 
 ## 兄弟组件 langhua-ofbiz-learningcurve
 
-- 部署到 `plugins/learningcurve`；`deploy-lc.bat`（`lc-deploy.txt`）、`run-tests.bat`（30 个单元测试，需要 jama
-  `C:\Users\...\.m2\repository\gov\nist\math\jama\1.0.3\jama-1.0.3.jar`）、`lc-it.bat`（18 项）、
-  `verify-lc.ps1`（56 项页面巡检）
-- **它与本组件有数据联动**：`learningCurveMesBatches` 读本组件的 `MfgWorkOrder` + `MfgReport`，
+- 部署到 `plugins/learningcurve`；`deploy-lc.bat`（`lc-deploy.txt`）、`run-tests.bat`（36 个单元测试，需要 jama
+  `C:\Users\...\.m2\repository\gov\nist\math\jama\1.0.3\jama-1.0.3.jar`）、`lc-it.bat`（39 项）、
+  `verify-lc.ps1`（68 项页面巡检）
+- **它与本组件有数据联动（两个服务）**：`learningCurveMesBatches` 读本组件的 `MfgWorkOrder` + `MfgReport`，
   把每个工单折成一个批次（数量 = 报工合格数之和，数值 = 报工工时之和）喂给学习曲线；
+  `learningCurveMesPeriods` 按 `reportDate` 分日/ISO 周/月，一个期间一个批次——与本组件报表页同一口径；
   因此改 `MfgReport` 的字段或语义时要同步检查那边
+- 联动入口：报表页 `/mfg/control/reports` 尾部的「喂进学习曲线」链接带 `mesGroupBy` + `mesFrom` + `mesTo`，
+  目标 `/learningcurve/control/main`（两个 webapp 会话不共享）；学习曲线那边只有带了这些参数才用期间取点，
+  否则直接打开仍是样例数据
 - 两个组件的关系图画在 `langhua-ofbiz-mfg/README.md` 的「与学习曲线组件的关系」（mermaid，
   两组件结构一致时的单一出处；孪生份在学习曲线 README 的「与 MES 联动」）
 - 屏幕 `main` / `records` / `recordDetail`，模板 `estimation.ftl` / `records.ftl` / `recordDetail.ftl`

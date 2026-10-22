@@ -433,6 +433,214 @@ public final class LearningCurveServices {
         Object object = value.get(field);
         return object instanceof Number ? ((Number) object).doubleValue() : 0.0;
     }
+
+    /**
+     * Builds the history batches of the MES shop floor report: the reported labour of every day,
+     * week or month becomes one point, its quantity the good units and its value the hours.
+     *
+     * <p>This is the "hand the shop floor report to the curve" path: the unit hours of each period
+     * are already the moving average the curve is fitted to, so nobody has to type
+     * {@code 数量:工时} by hand.
+     *
+     * @param dctx the dispatch context
+     * @param context service context, see {@code servicedef/services.xml#learningCurveMesPeriods}
+     * @return the service result map containing {@code periods} and {@code historyData}
+     */
+    public static Map<String, Object> mesPeriods(DispatchContext dctx, Map<String, ? extends Object> context) {
+        String groupBy = normalizeGroupBy(toText(context.get("groupBy")));
+        String productCode = toText(context.get("productCode"));
+        java.sql.Date fromDate = parseDay(context.get("fromDate"));
+        java.sql.Date toDate = parseDay(context.get("toDate"));
+        List<Map<String, Object>> rows = new ArrayList<>();
+        try {
+            Delegator delegator = dctx.getDelegator();
+            List<GenericValue> reports;
+            if (productCode == null) {
+                reports = EntityQuery.use(delegator).from("MfgReport").queryList();
+            } else {
+                // a report knows its work order, the work order knows the model
+                List<String> workOrders = new ArrayList<>();
+                for (GenericValue order : EntityQuery.use(delegator).from("MfgWorkOrder")
+                        .where("productCode", productCode).queryList()) {
+                    workOrders.add(order.getString("workOrderId"));
+                }
+                reports = new ArrayList<>();
+                for (GenericValue report : EntityQuery.use(delegator).from("MfgReport").queryList()) {
+                    if (workOrders.contains(report.getString("workOrderId"))) {
+                        reports.add(report);
+                    }
+                }
+            }
+            for (GenericValue report : reports) {
+                java.sql.Timestamp reportDate = report.getTimestamp("reportDate");
+                if (reportDate == null) {
+                    continue;
+                }
+                java.sql.Date day = new java.sql.Date(reportDate.getTime());
+                if (fromDate != null && day.before(fromDate)) {
+                    continue;
+                }
+                if (toDate != null && day.after(toDate)) {
+                    continue;
+                }
+                Map<String, Object> row = new HashMap<>();
+                row.put("date", day);
+                row.put("qtyOk", Double.valueOf(numberOf(report, "qtyOk")));
+                row.put("hours", Double.valueOf(numberOf(report, "workHours")));
+                rows.add(row);
+            }
+        } catch (GeneralException e) {
+            Map<String, Object> empty = emptyMesResult("读不到 MES 的报工数据（MES 组件可能没部署）：" + e.getMessage());
+            empty.put("groupBy", groupBy);
+            return empty;
+        } catch (RuntimeException e) {
+            Map<String, Object> empty = emptyMesResult("读不到 MES 的报工数据（MES 组件可能没部署）：" + e.getMessage());
+            empty.put("groupBy", groupBy);
+            return empty;
+        }
+        Map<String, Object> result = buildMesPeriods(rows, groupBy);
+        result.put("productCode", productCode);
+        result.put("groupBy", groupBy);
+        result.put("message", rows.isEmpty()
+                ? (productCode == null ? "MES 里还没有报工记录。" : "这个型号还没有报工记录。")
+                : null);
+        return result;
+    }
+
+    /**
+     * Buckets the reported rows by day, ISO week or month and turns them into the history string.
+     *
+     * <p>A period without good units or without hours is skipped, because it would make the unit
+     * value infinite; the periods are kept in chronological order because the cumulative quantity
+     * is what the curve is fitted on.
+     *
+     * @param rows rows with {@code date} (a day), {@code qtyOk} and {@code hours}; may be empty
+     * @param groupBy {@code DAY}, {@code WEEK} or {@code MONTH}
+     * @return the service result map with {@code periods}, {@code periodCount},
+     *         {@code skippedCount}, {@code totalQty}, {@code totalHours} and {@code historyData}
+     */
+    public static Map<String, Object> buildMesPeriods(List<Map<String, Object>> rows, String groupBy) {
+        String bucket = normalizeGroupBy(groupBy);
+        Map<String, double[]> totals = new java.util.TreeMap<>();
+        int skipped = 0;
+        for (Map<String, Object> row : rows) {
+            java.time.LocalDate day = toLocalDate(row.get("date"));
+            if (day == null) {
+                skipped++;
+                continue;
+            }
+            double qtyOk = row.get("qtyOk") instanceof Number ? ((Number) row.get("qtyOk")).doubleValue() : 0.0;
+            double hours = row.get("hours") instanceof Number ? ((Number) row.get("hours")).doubleValue() : 0.0;
+            if (qtyOk <= 0.0 || hours <= 0.0) {
+                skipped++;
+                continue;
+            }
+            String key = periodKeyOf(bucket, day);
+            double[] total = totals.get(key);
+            if (total == null) {
+                total = new double[] {0.0, 0.0};
+                totals.put(key, total);
+            }
+            total[0] += qtyOk;
+            total[1] += hours;
+        }
+        java.text.DecimalFormat format = new java.text.DecimalFormat("0.###",
+                java.text.DecimalFormatSymbols.getInstance(Locale.ROOT));
+        List<Map<String, Object>> periods = new ArrayList<>();
+        StringBuilder history = new StringBuilder();
+        double totalQty = 0.0;
+        double totalHours = 0.0;
+        for (Map.Entry<String, double[]> entry : totals.entrySet()) {
+            double qtyOk = entry.getValue()[0];
+            double hours = entry.getValue()[1];
+            Map<String, Object> period = new HashMap<>();
+            period.put("periodKey", entry.getKey());
+            period.put("qtyOk", Double.valueOf(qtyOk));
+            period.put("hours", Double.valueOf(hours));
+            period.put("unitHours", Double.valueOf(hours / qtyOk));
+            periods.add(period);
+            totalQty += qtyOk;
+            totalHours += hours;
+            if (history.length() > 0) {
+                history.append(';');
+            }
+            history.append(format.format(qtyOk)).append(':').append(format.format(hours));
+        }
+        Map<String, Object> result = ServiceUtil.returnSuccess();
+        result.put("periods", periods);
+        result.put("periodCount", Integer.valueOf(periods.size()));
+        result.put("skippedCount", Integer.valueOf(skipped));
+        result.put("totalQty", Double.valueOf(totalQty));
+        result.put("totalHours", Double.valueOf(totalHours));
+        result.put("historyData", history.toString());
+        result.put("groupBy", bucket);
+        return result;
+    }
+
+    /**
+     * The label of the period a day belongs to.
+     *
+     * @param groupBy {@code DAY}, {@code WEEK} or {@code MONTH}
+     * @param day the day
+     * @return {@code 2026-10-22}, {@code 2026-W43} or {@code 2026-10}
+     */
+    static String periodKeyOf(String groupBy, java.time.LocalDate day) {
+        if (day == null) {
+            return "";
+        }
+        String bucket = normalizeGroupBy(groupBy);
+        if ("DAY".equals(bucket)) {
+            return day.toString();
+        }
+        if ("MONTH".equals(bucket)) {
+            return String.format(Locale.ROOT, "%04d-%02d", Integer.valueOf(day.getYear()),
+                    Integer.valueOf(day.getMonthValue()));
+        }
+        java.time.temporal.WeekFields iso = java.time.temporal.WeekFields.ISO;
+        int week = day.get(iso.weekOfWeekBasedYear());
+        int year = day.get(iso.weekBasedYear());
+        return String.format(Locale.ROOT, "%04d-W%02d", Integer.valueOf(year), Integer.valueOf(week));
+    }
+
+    /**
+     * Normalizes the grouping of the MES periods.
+     *
+     * @param groupBy the raw value, may be {@code null}
+     * @return {@code DAY}, {@code WEEK} (the default) or {@code MONTH}
+     */
+    static String normalizeGroupBy(String groupBy) {
+        if (groupBy == null) {
+            return "WEEK";
+        }
+        String upper = groupBy.trim().toUpperCase(Locale.ROOT);
+        if ("DAY".equals(upper) || "MONTH".equals(upper)) {
+            return upper;
+        }
+        return "WEEK";
+    }
+
+    private static java.time.LocalDate toLocalDate(Object value) {
+        if (value instanceof java.sql.Date) {
+            return ((java.sql.Date) value).toLocalDate();
+        }
+        if (value instanceof java.util.Date) {
+            return new java.sql.Date(((java.util.Date) value).getTime()).toLocalDate();
+        }
+        String text = toText(value);
+        if (text == null) {
+            return null;
+        }
+        try {
+            return java.time.LocalDate.parse(text.length() > 10 ? text.substring(0, 10) : text);
+        } catch (RuntimeException e) {
+            return null;
+        }
+    }
+
+    private static java.sql.Date parseDay(Object value) {
+        java.time.LocalDate day = toLocalDate(value);
+        return day == null ? null : java.sql.Date.valueOf(day);
+    }
     // ==================== software quotes: size, effort, price ====================
 
     /** Parameters the software estimate understands, forwarded unchanged to the appliance component. */

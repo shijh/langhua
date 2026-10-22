@@ -227,6 +227,77 @@ public class LearningCurveServicesTest {
     }
 
     @Test
+    public void mesPeriodsTurnTheShopFloorReportIntoHistoryPairs() {
+        java.util.List<Map<String, Object>> rows = new java.util.ArrayList<>();
+        rows.add(periodRow("2026-10-05", 4, 8));
+        rows.add(periodRow("2026-10-06", 4, 6));
+        rows.add(periodRow("2026-10-13", 5, 5));
+
+        Map<String, Object> byWeek = LearningCurveServices.buildMesPeriods(rows, "WEEK");
+
+        // the first two days are the same ISO week, so they add up into one point
+        assertEquals("8:14;5:5", byWeek.get("historyData"));
+        assertEquals(Integer.valueOf(2), byWeek.get("periodCount"));
+        @SuppressWarnings("unchecked")
+        java.util.List<Map<String, Object>> periods = (java.util.List<Map<String, Object>>) byWeek.get("periods");
+        assertEquals("2026-W41", periods.get(0).get("periodKey"));
+        assertEquals(8, ((Double) periods.get(0).get("qtyOk")).intValue());
+        assertEquals(1.75, ((Double) periods.get(0).get("unitHours")).doubleValue(), 1e-9);
+
+        Map<String, Object> byMonth = LearningCurveServices.buildMesPeriods(rows, "MONTH");
+        assertEquals("13:19", byMonth.get("historyData"));
+        assertEquals(Integer.valueOf(1), byMonth.get("periodCount"));
+
+        Map<String, Object> byDay = LearningCurveServices.buildMesPeriods(rows, "DAY");
+        assertEquals(Integer.valueOf(3), byDay.get("periodCount"));
+        assertEquals("4:8;4:6;5:5", byDay.get("historyData"));
+    }
+
+    @Test
+    public void mesPeriodsSkipPeriodsWithoutGoodUnitsOrHours() {
+        java.util.List<Map<String, Object>> rows = new java.util.ArrayList<>();
+        rows.add(periodRow("2026-10-05", 0, 5));
+        rows.add(periodRow("2026-10-06", 5, 0));
+        rows.add(periodRow("2026-10-07", 3, 6));
+
+        Map<String, Object> result = LearningCurveServices.buildMesPeriods(rows, "DAY");
+
+        assertEquals(Integer.valueOf(1), result.get("periodCount"));
+        assertEquals(Integer.valueOf(2), result.get("skippedCount"));
+        assertEquals("3:6", result.get("historyData"));
+    }
+
+    @Test
+    public void mesPeriodsFallBackToWeeksAndKeepDotDecimals() {
+        java.util.List<Map<String, Object>> rows = new java.util.ArrayList<>();
+        rows.add(periodRow("2026-10-05", 2.5, 7.25));
+
+        // an unknown grouping is read as WEEK, and the history string keeps the dot
+        Map<String, Object> result = LearningCurveServices.buildMesPeriods(rows, "BOGUS");
+
+        assertEquals("WEEK", result.get("groupBy"));
+        assertEquals("2.5:7.25", result.get("historyData"));
+    }
+
+    @Test
+    public void mesPeriodsOfNoRowsAreEmpty() {
+        Map<String, Object> result = LearningCurveServices.buildMesPeriods(
+                new java.util.ArrayList<Map<String, Object>>(), "WEEK");
+
+        assertFalse(ServiceUtil.isError(result));
+        assertEquals("", result.get("historyData"));
+        assertEquals(Integer.valueOf(0), result.get("periodCount"));
+    }
+
+    private Map<String, Object> periodRow(String day, double qtyOk, double hours) {
+        Map<String, Object> row = new HashMap<>();
+        row.put("date", java.sql.Date.valueOf(day));
+        row.put("qtyOk", Double.valueOf(qtyOk));
+        row.put("hours", Double.valueOf(hours));
+        return row;
+    }
+
+    @Test
     public void pdrSeriesIsOneUnitPerDelivery() {
         java.util.List<Map<String, Object>> rows = new java.util.ArrayList<>();
         rows.add(pdrRow("SW-1", 60.0));
