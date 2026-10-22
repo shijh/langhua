@@ -200,6 +200,38 @@
         </section>
     </screen>
 
+    <!-- Stock locations: warehouse / zone / shelf and the transfers between them -->
+    <screen name="locations">
+        <section>
+            <actions>
+                <set field="title" value="Stock Locations"/>
+                <set field="pageTitle" value="库位与移库"/>
+                <set field="activeMenu" value="locations"/>
+                <set field="transferType" value="MFG_MOVE_TRANSFER"/>
+                <service service-name="mfgLocationList" result-map="locationResult" auto-field-map="false"/>
+                <service service-name="mfgLocationStock" result-map="locationStock" auto-field-map="false">
+                    <field-map field-name="locationId" from-field="parameters.locationId"/>
+                    <field-map field-name="componentCode" from-field="parameters.componentCode"/>
+                </service>
+                <service service-name="mfgInventoryLedger" result-map="transferResult" auto-field-map="false">
+                    <field-map field-name="movementTypeId" from-field="transferType"/>
+                    <field-map field-name="page" value="1"/>
+                </service>
+            </actions>
+            <widgets>
+                <decorator-screen name="mfg-decorator" location="component://mfg/widget/MfgCommonScreens.xml">
+                    <decorator-section name="body">
+                        <platform-specific>
+                            <html>
+                                <html-template location="component://mfg/webapp/mfg/locations.ftl"/>
+                            </html>
+                        </platform-specific>
+                    </decorator-section>
+                </decorator-screen>
+            </widgets>
+        </section>
+    </screen>
+
     <!-- Sales orders: reserve from the shelf first, then plan the rest into production -->
     <screen name="salesOrders">
         <section>

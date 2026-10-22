@@ -31,6 +31,7 @@
     <entity-group group="org.apache.ofbiz" entity="MfgSoftwareProject"/>
     <entity-group group="org.apache.ofbiz" entity="MfgInventoryDetail"/>
     <entity-group group="org.apache.ofbiz" entity="MfgStockSetting"/>
+    <entity-group group="org.apache.ofbiz" entity="MfgStockLocation"/>
     <entity-group group="org.apache.ofbiz" entity="MfgStockCount"/>
     <entity-group group="org.apache.ofbiz" entity="MfgSalesOrder"/>
     <entity-group group="org.apache.ofbiz" entity="MfgSalesOrderItem"/>

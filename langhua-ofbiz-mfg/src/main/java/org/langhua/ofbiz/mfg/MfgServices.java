@@ -148,6 +148,8 @@ public final class MfgServices {
     public static final String MOVE_SCRAP = "MFG_MOVE_SCRAP";
     public static final String MOVE_COUNT = "MFG_MOVE_COUNT";
     public static final String MOVE_ADJUST = "MFG_MOVE_ADJUST";
+    /** A move between two locations of the same lot: written as a pair, one out and one in. */
+    public static final String MOVE_TRANSFER = "MFG_MOVE_TRANSFER";
     /** Reservation of stock for a work order; it changes the reserved quantity, not the quantity on hand. */
     public static final String MOVE_RESERVE = "MFG_MOVE_RESERVE";
     /** Release of a reservation, booked when the material is issued or the order is dropped. */
@@ -159,7 +161,16 @@ public final class MfgServices {
 
     /** Every movement type, in the order the ledger filter lists them. */
     public static final String[] MOVE_TYPES = {MOVE_RECEIPT, MOVE_ISSUE, MOVE_RETURN, MOVE_SCRAP,
-        MOVE_COUNT, MOVE_ADJUST, MOVE_RESERVE, MOVE_RELEASE};
+        MOVE_COUNT, MOVE_ADJUST, MOVE_TRANSFER, MOVE_RESERVE, MOVE_RELEASE};
+
+    /** What kind of place a stock location is. */
+    public static final String LOC_WAREHOUSE = "MFG_LOC_WAREHOUSE";
+    public static final String LOC_ZONE = "MFG_LOC_ZONE";
+    public static final String LOC_BIN = "MFG_LOC_BIN";
+    /** Every location type, in the order the lists show them. */
+    public static final String[] LOC_TYPES = {LOC_WAREHOUSE, LOC_ZONE, LOC_BIN};
+    /** Prefix of a transfer number, followed by {@code yyMMdd-NN}. */
+    public static final String TRANSFER_PREFIX = "TR-";
 
     /** What a stock lot holds: a purchased component, or the finished goods of one work order. */
     public static final String LOT_COMPONENT = "MFG_LOT_COMPONENT";
@@ -1510,7 +1521,7 @@ public final class MfgServices {
                 recordMovement(delegator, lot, MOVE_RECEIPT, receivedQty, lot.get("unitPrice"), null, null,
                         lot.getString("supplierLot"), null,
                         Timestamp.valueOf(lot.getDate("receivedDate").toLocalDate().atStartOfDay()),
-                        "到货入库");
+                        "到货入库", toText(context.get("locationId")));
             }
             recalcLotStock(delegator, lot);
 
@@ -2203,7 +2214,7 @@ public final class MfgServices {
                 delegator.create(lot);
                 recordMovement(delegator, lot, MOVE_RECEIPT, qty, null, null, null, row[3], null,
                         Timestamp.valueOf(lot.getDate("receivedDate").toLocalDate().atStartOfDay()),
-                        "CSV 导入到货");
+                        "CSV 导入到货", toText(context.get("locationId")));
                 recalcLotStock(delegator, lot);
                 lotIds.add(lotId);
                 imported++;
@@ -4853,6 +4864,20 @@ always
             double diff, Object unitCost, String workOrderId, String physicalInventoryId,
             String referenceNo, String operatorName, java.sql.Timestamp effectiveDate, String note)
             throws GenericEntityException {
+        return recordMovement(delegator, lot, movementTypeId, diff, unitCost, workOrderId,
+                physicalInventoryId, referenceNo, operatorName, effectiveDate, note, null);
+    }
+
+    /**
+     * Appends one movement and remembers where it happened.
+     *
+     * @return the row that was written
+     * @throws GenericEntityException when it cannot be stored
+     */
+    static GenericValue recordMovement(Delegator delegator, GenericValue lot, String movementTypeId,
+            double diff, Object unitCost, String workOrderId, String physicalInventoryId,
+            String referenceNo, String operatorName, java.sql.Timestamp effectiveDate, String note,
+            String locationId) throws GenericEntityException {
         long seq = nextMovementSeq(delegator, lot.getString("lotId"));
         GenericValue movement = delegator.makeValue("MfgInventoryDetail");
         movement.set("lotId", lot.getString("lotId"));
@@ -4866,6 +4891,7 @@ always
         movement.set("physicalInventoryId", physicalInventoryId);
         movement.set("referenceNo", referenceNo);
         movement.set("operatorName", operatorName);
+        movement.set("locationId", locationId);
         movement.set("effectiveDate", effectiveDate == null
                 ? new Timestamp(System.currentTimeMillis()) : effectiveDate);
         movement.set("note", note);
@@ -6253,6 +6279,299 @@ always
     }
 
     /**
+     * Tells whether a type is one of the stock location types.
+     *
+     * @param locationTypeId the type to test
+     * @return {@code true} when it is known
+     */
+    static boolean isKnownLocationType(String locationTypeId) {
+        for (String type : LOC_TYPES) {
+            if (type.equals(locationTypeId)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Writes one stock location: a warehouse, a zone or a shelf.
+     *
+     * @param dctx the dispatch context
+     * @param context service context, see {@code servicedef/services.xml#mfgLocationSave}
+     * @return the service result containing {@code locationId}
+     */
+    public static Map<String, Object> locationSave(DispatchContext dctx, Map<String, ? extends Object> context) {
+        Delegator delegator = dctx.getDelegator();
+        String locationId = toText(context.get("locationId"));
+        String locationTypeId = toText(context.get("locationTypeId"));
+        if (locationId == null) {
+            return ServiceUtil.returnError("locationId is required, it is the code printed on the shelf");
+        }
+        if (locationTypeId == null) {
+            locationTypeId = LOC_BIN;
+        }
+        if (!isKnownLocationType(locationTypeId)) {
+            return ServiceUtil.returnError("Unknown location type [" + locationTypeId + "], expected "
+                    + String.join(" / ", LOC_TYPES));
+        }
+        try {
+            GenericValue location = EntityQuery.use(delegator).from("MfgStockLocation")
+                    .where("locationId", locationId).queryOne();
+            if (location == null) {
+                location = delegator.makeValue("MfgStockLocation");
+                location.set("locationId", locationId);
+            }
+            location.set("locationTypeId", locationTypeId);
+            location.set("locationName", toText(context.get("locationName")));
+            location.set("parentLocationId", toText(context.get("parentLocationId")));
+            if (context.containsKey("note")) {
+                location.set("note", toText(context.get("note")));
+            }
+            delegator.createOrStore(location);
+
+            Map<String, Object> result = ServiceUtil.returnSuccess();
+            result.put("locationId", locationId);
+            result.put("locationTypeId", locationTypeId);
+            result.put("onHandQty", Double.valueOf(round2(locationOnHand(delegator, null, locationId))));
+            return result;
+        } catch (GenericEntityException e) {
+            return ServiceUtil.returnError("Could not save the location: " + e.getMessage());
+        }
+    }
+
+    /**
+     * The stock locations with what each one holds right now.
+     *
+     * @param dctx the dispatch context
+     * @param context service context, see {@code servicedef/services.xml#mfgLocationList}
+     * @return the service result containing {@code locations} and the unassigned quantity
+     */
+    public static Map<String, Object> locationList(DispatchContext dctx, Map<String, ? extends Object> context) {
+        Delegator delegator = dctx.getDelegator();
+        Map<String, Object> result = ServiceUtil.returnSuccess();
+        result.put("locations", new ArrayList<Map<String, Object>>());
+        result.put("unassignedQty", Double.valueOf(0.0));
+        result.put("onHandTotal", Double.valueOf(0.0));
+        try {
+            List<Map<String, Object>> rows = new ArrayList<>();
+            double unassigned = 0.0;
+            double total = 0.0;
+            Map<String, Integer> lotCounts = new LinkedHashMap<>();
+            Map<String, Double> onHand = new LinkedHashMap<>();
+            for (GenericValue movement : EntityQuery.use(delegator).from("MfgInventoryDetail").queryList()) {
+                String locationId = movement.getString("locationId");
+                double diff = numberOrZero(movement.get("quantityDiff"));
+                if (locationId == null) {
+                    unassigned += diff;
+                    continue;
+                }
+                onHand.put(locationId, Double.valueOf(numberOrZero(onHand.get(locationId)) + diff));
+                if (diff > 0.0) {
+                    Integer count = lotCounts.get(locationId);
+                    lotCounts.put(locationId, Integer.valueOf(count == null ? 1 : count.intValue() + 1));
+                }
+                total += diff;
+            }
+            for (GenericValue location : EntityQuery.use(delegator).from("MfgStockLocation")
+                    .orderBy("locationId").queryList()) {
+                String locationId = location.getString("locationId");
+                Map<String, Object> row = new LinkedHashMap<>();
+                row.put("locationId", locationId);
+                row.put("locationName", location.getString("locationName"));
+                row.put("locationTypeId", location.getString("locationTypeId"));
+                row.put("parentLocationId", location.getString("parentLocationId"));
+                row.put("onHandQty", Double.valueOf(round2(numberOrZero(onHand.get(locationId)))));
+                row.put("lotCount", lotCounts.containsKey(locationId) ? lotCounts.get(locationId)
+                        : Integer.valueOf(0));
+                row.put("note", location.getString("note"));
+                rows.add(row);
+            }
+            result.put("locations", rows);
+            result.put("unassignedQty", Double.valueOf(round2(unassigned)));
+            result.put("onHandTotal", Double.valueOf(round2(total + unassigned)));
+            return result;
+        } catch (GenericEntityException e) {
+            return ServiceUtil.returnError("Could not read the locations: " + e.getMessage());
+        }
+    }
+
+    /**
+     * What sits where: the balance of every lot in every location, so a shelf can be checked
+     * against the screen.
+     *
+     * @param dctx the dispatch context
+     * @param context service context, see {@code servicedef/services.xml#mfgLocationStock}
+     * @return the service result containing {@code rows}
+     */
+    public static Map<String, Object> locationStock(DispatchContext dctx, Map<String, ? extends Object> context) {
+        Delegator delegator = dctx.getDelegator();
+        String locationId = toText(context.get("locationId"));
+        String componentCode = toText(context.get("componentCode"));
+        Map<String, Object> result = ServiceUtil.returnSuccess();
+        result.put("rows", new ArrayList<Map<String, Object>>());
+        try {
+            Map<String, GenericValue> lots = new LinkedHashMap<>();
+            for (GenericValue lot : EntityQuery.use(delegator).from("MfgMaterialLot").queryList()) {
+                lots.put(lot.getString("lotId"), lot);
+            }
+            Map<String, Double> balances = new LinkedHashMap<>();
+            for (GenericValue movement : EntityQuery.use(delegator).from("MfgInventoryDetail")
+                    .orderBy("lotId", "seqId").queryList()) {
+                String key = movement.getString("lotId") + "\u0000"
+                        + (movement.getString("locationId") == null ? "" : movement.getString("locationId"));
+                balances.put(key, Double.valueOf(numberOrZero(balances.get(key))
+                        + numberOrZero(movement.get("quantityDiff"))));
+            }
+            List<Map<String, Object>> rows = new ArrayList<>();
+            for (Map.Entry<String, Double> entry : balances.entrySet()) {
+                if (Math.abs(entry.getValue().doubleValue()) < 0.0001) {
+                    continue;
+                }
+                int split = entry.getKey().indexOf('\u0000');
+                String lotId = entry.getKey().substring(0, split);
+                String rowLocation = entry.getKey().substring(split + 1);
+                GenericValue lot = lots.get(lotId);
+                String rowComponent = lot == null ? null : lot.getString("componentCode");
+                if (locationId != null && !locationId.equals(rowLocation)) {
+                    continue;
+                }
+                if (componentCode != null && !componentCode.equals(rowComponent)) {
+                    continue;
+                }
+                Map<String, Object> row = new LinkedHashMap<>();
+                row.put("lotId", lotId);
+                row.put("locationId", rowLocation.isEmpty() ? null : rowLocation);
+                row.put("lotKindId", lot == null ? LOT_COMPONENT : lotKindOf(lot));
+                row.put("componentCode", rowComponent);
+                row.put("componentName", lot == null ? null : lot.getString("componentName"));
+                row.put("onHandQty", Double.valueOf(round2(entry.getValue().doubleValue())));
+                row.put("receivedDate", lot == null ? null : lot.get("receivedDate"));
+                rows.add(row);
+            }
+            result.put("rows", rows);
+            result.put("locationId", locationId);
+            result.put("componentCode", componentCode);
+            return result;
+        } catch (GenericEntityException e) {
+            return ServiceUtil.returnError("Could not read the location stock: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Moves a quantity of one lot from one location to another: two rows of the same transfer number,
+     * one leaving and one arriving, so the lot total does not change.
+     *
+     * @param dctx the dispatch context
+     * @param context service context, see {@code servicedef/services.xml#mfgStockTransfer}
+     * @return the service result with the transfer number
+     */
+    public static Map<String, Object> stockTransfer(DispatchContext dctx, Map<String, ? extends Object> context) {
+        Delegator delegator = dctx.getDelegator();
+        String lotId = toText(context.get("lotId"));
+        String fromLocationId = toText(context.get("fromLocationId"));
+        String toLocationId = toText(context.get("toLocationId"));
+        double qty = toDouble(context.get("qty"), 0.0);
+        if (lotId == null) {
+            return ServiceUtil.returnError("lotId is required");
+        }
+        if (toLocationId == null) {
+            return ServiceUtil.returnError("toLocationId is required");
+        }
+        if (toLocationId.equals(fromLocationId)) {
+            return ServiceUtil.returnError("The source and the target location are the same");
+        }
+        if (qty <= 0.0) {
+            return ServiceUtil.returnError("qty must be greater than zero");
+        }
+        try {
+            GenericValue lot = EntityQuery.use(delegator).from("MfgMaterialLot")
+                    .where("lotId", lotId).queryOne();
+            if (lot == null) {
+                return ServiceUtil.returnError("Unknown material lot [" + lotId + "]");
+            }
+            if (EntityQuery.use(delegator).from("MfgStockLocation")
+                    .where("locationId", toLocationId).queryOne() == null) {
+                return ServiceUtil.returnError("Unknown location [" + toLocationId + "], create it first");
+            }
+            if (fromLocationId != null && EntityQuery.use(delegator).from("MfgStockLocation")
+                    .where("locationId", fromLocationId).queryOne() == null) {
+                return ServiceUtil.returnError("Unknown location [" + fromLocationId + "]");
+            }
+            ensureLotLedger(delegator, lot);
+            double here = locationOnHand(delegator, lotId, fromLocationId);
+            if (here + 0.0001 < qty) {
+                return ServiceUtil.returnError("Only " + formatQty(here) + " left in location ["
+                        + (fromLocationId == null ? "?" : fromLocationId) + "], cannot move " + formatQty(qty));
+            }
+            String transferId = nextTransferId(delegator, LocalDate.now());
+            String operator = toText(context.get("operatorName"));
+            String note = toText(context.get("note"));
+            recordMovement(delegator, lot, MOVE_TRANSFER, -qty, lot.get("unitPrice"), null, null,
+                    transferId, operator, null,
+                    "移库 " + transferId + "：" + (fromLocationId == null ? "未分配" : fromLocationId)
+                            + " → " + toLocationId + (note == null ? "" : "，" + note), fromLocationId);
+            recordMovement(delegator, lot, MOVE_TRANSFER, qty, lot.get("unitPrice"), null, null,
+                    transferId, operator, null,
+                    "移库 " + transferId + "：" + (fromLocationId == null ? "未分配" : fromLocationId)
+                            + " → " + toLocationId + (note == null ? "" : "，" + note), toLocationId);
+            recalcLotStock(delegator, lot);
+
+            Map<String, Object> result = ServiceUtil.returnSuccess();
+            result.put("transferId", transferId);
+            result.put("lotId", lotId);
+            result.put("fromLocationId", fromLocationId);
+            result.put("toLocationId", toLocationId);
+            result.put("locationId", toLocationId);
+            result.put("qty", Double.valueOf(round2(qty)));
+            result.put("toLocationQty", Double.valueOf(round2(locationOnHand(delegator, lotId, toLocationId))));
+            result.put("onHandQty", lot.get("onHandQty"));
+            return result;
+        } catch (GenericEntityException e) {
+            return ServiceUtil.returnError("Could not move the stock: " + e.getMessage());
+        }
+    }
+
+    /**
+     * How much of one lot sits in one location; a {@code null} location counts the movements that
+     * were booked without one, which is where the lots created before locations ended up.
+     *
+     * @param delegator the delegator
+     * @param lotId the lot, {@code null} to sum every lot of the location
+     * @param locationId the location, {@code null} for the unassigned bucket
+     * @return the quantity in that place
+     * @throws GenericEntityException when the ledger cannot be read
+     */
+    static double locationOnHand(Delegator delegator, String lotId, String locationId)
+            throws GenericEntityException {
+        double onHand = 0.0;
+        EntityQuery query = EntityQuery.use(delegator).from("MfgInventoryDetail");
+        if (lotId != null) {
+            query = query.where("lotId", lotId);
+        }
+        for (GenericValue movement : query.queryList()) {
+            String movementLocation = movement.getString("locationId");
+            if (locationId == null ? movementLocation != null : !locationId.equals(movementLocation)) {
+                continue;
+            }
+            onHand += numberOrZero(movement.get("quantityDiff"));
+        }
+        return round2(onHand);
+    }
+
+    private static String nextTransferId(Delegator delegator, LocalDate today) throws GenericEntityException {
+        String prefix = TRANSFER_PREFIX + today.format(DAY) + "-";
+        int max = 0;
+        for (GenericValue movement : EntityQuery.use(delegator).from("MfgInventoryDetail")
+                .where("movementTypeId", MOVE_TRANSFER).queryList()) {
+            String reference = movement.getString("referenceNo");
+            if (reference != null && reference.startsWith(prefix)) {
+                max = Math.max(max, parseTrailingNumber(reference.substring(prefix.length())));
+            }
+        }
+        return prefix + String.format(Locale.ROOT, "%02d", Integer.valueOf(max + 1));
+    }
+
+    /**
      * Records one movement of one lot: receipt, issue, return, scrap or adjustment. An issue and a
      * return that name a work order also write the work order issue record, so kitting and the
      * actual material cost keep working.
@@ -6307,7 +6626,8 @@ always
             GenericValue movement = recordMovement(delegator, lot, movementTypeId, diff,
                     optionalAmount(context.get("unitCost")), workOrderId, null,
                     toText(context.get("referenceNo")), toText(context.get("operatorName")),
-                    parseTimestamp(context.get("effectiveDate")), toText(context.get("note")));
+                    parseTimestamp(context.get("effectiveDate")), toText(context.get("note")),
+                    toText(context.get("locationId")));
             if (workOrderId != null
                     && (MOVE_ISSUE.equals(movementTypeId) || MOVE_RETURN.equals(movementTypeId))) {
                 GenericValue issue = delegator.makeValue("MfgMaterialIssue");
@@ -6532,6 +6852,7 @@ always
                 row.put("lotId", movementLot);
                 row.put("seqId", movement.get("seqId"));
                 row.put("lotKindId", lot == null ? LOT_COMPONENT : lotKindOf(lot));
+                row.put("locationId", movement.getString("locationId"));
                 row.put("componentCode", lot == null ? null : lot.getString("componentCode"));
                 row.put("componentName", lot == null ? null : lot.getString("componentName"));
                 row.put("movementTypeId", movement.getString("movementTypeId"));

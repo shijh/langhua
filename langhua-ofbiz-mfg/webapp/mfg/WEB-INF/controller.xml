@@ -327,6 +327,27 @@
         <response name="success" type="view" value="salesOrders"/>
     </request-map>
 
+    <request-map uri="locations">
+        <security https="true" auth="true"/>
+        <response name="success" type="view" value="locations"/>
+    </request-map>
+
+    <request-map uri="locationSave">
+        <security https="true" auth="true"/>
+        <event type="service" invoke="mfgLocationSave"/>
+        <response name="success" type="request-redirect" value="locations"/>
+        <response name="error" type="view" value="locations"/>
+    </request-map>
+
+    <request-map uri="stockTransfer">
+        <security https="true" auth="true"/>
+        <event type="service" invoke="mfgStockTransfer"/>
+        <response name="success" type="request-redirect" value="locations">
+            <redirect-parameter name="locationId"/>
+        </response>
+        <response name="error" type="view" value="locations"/>
+    </request-map>
+
     <request-map uri="salesOrder">
         <security https="true" auth="true"/>
         <response name="success" type="view" value="salesOrder"/>
@@ -610,6 +631,7 @@
     <view-map name="shortage" type="screen" page="component://mfg/widget/MfgScreens.xml#shortage"/>
     <view-map name="delivery" type="screen" page="component://mfg/widget/MfgScreens.xml#delivery"/>
     <view-map name="salesOrders" type="screen" page="component://mfg/widget/MfgScreens.xml#salesOrders"/>
+    <view-map name="locations" type="screen" page="component://mfg/widget/MfgScreens.xml#locations"/>
     <view-map name="salesOrder" type="screen" page="component://mfg/widget/MfgScreens.xml#salesOrder"/>
     <view-map name="vendors" type="screen" page="component://mfg/widget/MfgScreens.xml#vendors"/>
     <view-map name="claims" type="screen" page="component://mfg/widget/MfgScreens.xml#claims"/>

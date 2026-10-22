@@ -30,6 +30,7 @@
     <@navItem 'eco' '/mfg/control/eco' '设计变更'/>
     <@navItem 'materials' '/mfg/control/materials' '物料批次'/>
     <@navItem 'stock' '/mfg/control/stock' '库存'/>
+    <@navItem 'locations' '/mfg/control/locations' '库位'/>
     <@navItem 'shortage' '/mfg/control/shortage' '齐套预警'/>
     <@navItem 'salesOrders' '/mfg/control/salesOrders' '销售订单'/>
     <@navItem 'delivery' '/mfg/control/delivery' '出货单'/>

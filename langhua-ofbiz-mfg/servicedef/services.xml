@@ -369,6 +369,7 @@
         <attribute name="receivedQty" type="Double" mode="IN" optional="false"/>
         <attribute name="receivedDate" type="String" mode="IN" optional="true"/>
         <attribute name="unitPrice" type="Double" mode="IN" optional="true"/>
+        <attribute name="locationId" type="String" mode="IN" optional="true"/>
         <attribute name="inspectStatusId" type="String" mode="IN" optional="true"/>
         <attribute name="note" type="String" mode="IN" optional="true"/>
         <attribute name="lotId" type="String" mode="OUT" optional="true"/>
@@ -476,6 +477,7 @@
             auth="false" use-transaction="false">
         <description>Import lots from CSV: componentCode,componentName,supplierName,supplierLot,qty,receivedDate</description>
         <attribute name="csv" type="String" mode="IN" optional="false"/>
+        <attribute name="locationId" type="String" mode="IN" optional="true"/>
         <attribute name="importedCount" type="String" mode="OUT" optional="true"/>
         <attribute name="lotIds" type="java.util.List" mode="OUT" optional="true"/>
     </service>
@@ -690,6 +692,7 @@
         <attribute name="operatorName" type="String" mode="IN" optional="true"/>
         <attribute name="effectiveDate" type="String" mode="IN" optional="true"/>
         <attribute name="note" type="String" mode="IN" optional="true"/>
+        <attribute name="locationId" type="String" mode="IN" optional="true"/>
         <attribute name="lotId" type="String" mode="OUT" optional="true"/>
         <attribute name="seqId" type="Long" mode="OUT" optional="true"/>
         <attribute name="movementTypeId" type="String" mode="OUT" optional="true"/>
@@ -839,6 +842,59 @@
         <attribute name="page" type="Long" mode="OUT" optional="true"/>
         <attribute name="pageCount" type="Long" mode="OUT" optional="true"/>
         <attribute name="pageSize" type="Long" mode="OUT" optional="true"/>
+    </service>
+
+    <service name="mfgLocationSave" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgServices" invoke="locationSave"
+            auth="false" use-transaction="false">
+        <description>Write a stock location: a warehouse, a zone or a shelf</description>
+        <attribute name="locationId" type="String" mode="IN" optional="false"/>
+        <attribute name="locationName" type="String" mode="IN" optional="true"/>
+        <attribute name="locationTypeId" type="String" mode="IN" optional="true"/>
+        <attribute name="parentLocationId" type="String" mode="IN" optional="true"/>
+        <attribute name="note" type="String" mode="IN" optional="true"/>
+        <attribute name="locationId" type="String" mode="OUT" optional="true"/>
+        <attribute name="locationTypeId" type="String" mode="OUT" optional="true"/>
+        <attribute name="onHandQty" type="Double" mode="OUT" optional="true"/>
+    </service>
+
+    <service name="mfgLocationList" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgServices" invoke="locationList"
+            auth="false" use-transaction="false">
+        <description>The stock locations with what each one holds</description>
+        <attribute name="locations" type="java.util.List" mode="OUT" optional="true"/>
+        <attribute name="unassignedQty" type="Double" mode="OUT" optional="true"/>
+        <attribute name="onHandTotal" type="Double" mode="OUT" optional="true"/>
+    </service>
+
+    <service name="mfgLocationStock" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgServices" invoke="locationStock"
+            auth="false" use-transaction="false">
+        <description>The balance of every lot in every location</description>
+        <attribute name="locationId" type="String" mode="IN" optional="true"/>
+        <attribute name="componentCode" type="String" mode="IN" optional="true"/>
+        <attribute name="rows" type="java.util.List" mode="OUT" optional="true"/>
+        <attribute name="locationId" type="String" mode="OUT" optional="true"/>
+        <attribute name="componentCode" type="String" mode="OUT" optional="true"/>
+    </service>
+
+    <service name="mfgStockTransfer" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgServices" invoke="stockTransfer"
+            auth="false" use-transaction="false">
+        <description>Move a quantity of one lot to another location; written as a pair of movements, the lot total does not change</description>
+        <attribute name="lotId" type="String" mode="IN" optional="false"/>
+        <attribute name="fromLocationId" type="String" mode="IN" optional="true"/>
+        <attribute name="toLocationId" type="String" mode="IN" optional="false"/>
+        <attribute name="qty" type="Double" mode="IN" optional="false"/>
+        <attribute name="operatorName" type="String" mode="IN" optional="true"/>
+        <attribute name="note" type="String" mode="IN" optional="true"/>
+        <attribute name="transferId" type="String" mode="OUT" optional="true"/>
+        <attribute name="lotId" type="String" mode="OUT" optional="true"/>
+        <attribute name="fromLocationId" type="String" mode="OUT" optional="true"/>
+        <attribute name="toLocationId" type="String" mode="OUT" optional="true"/>
+        <attribute name="qty" type="Double" mode="OUT" optional="true"/>
+        <attribute name="toLocationQty" type="Double" mode="OUT" optional="true"/>
+        <attribute name="onHandQty" type="Double" mode="OUT" optional="true"/>
     </service>
 
     <service name="mfgStockSettingSave" engine="java"

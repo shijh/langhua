@@ -780,6 +780,7 @@
         <field name="workOrderId" type="id"><description>Work order the material was issued to or returned from</description></field>
         <field name="salesOrderId" type="id"><description>Sales order the goods are reserved for, empty for a work order reservation</description></field>
         <field name="salesOrderItemSeq" type="numeric"><description>Line of the sales order the reservation belongs to</description></field>
+        <field name="locationId" type="id"><description>Warehouse location the movement happened in, empty when it was not recorded</description></field>
         <field name="physicalInventoryId" type="id"><description>Stock count that produced the movement</description></field>
         <field name="referenceNo" type="short-varchar"><description>Voucher, tracking number or count sheet</description></field>
         <field name="operatorName" type="name"><description>Who did it</description></field>
@@ -801,7 +802,21 @@
             <index-field name="workOrderId"/>
         </index>
     </entity>
-
+    <entity entity-name="MfgStockLocation"
+            package-name="org.langhua.ofbiz.mfg"
+            title="Stock location">
+        <description>Warehouse, zone or shelf: where a lot physically sits. Movements carry the location, so a transfer is just two rows</description>
+        <field name="locationId" type="id"><description>Code printed on the shelf, e.g. WH1-A-03</description></field>
+        <field name="locationName" type="name"><description>Name of the place</description></field>
+        <field name="locationTypeId" type="id"><description>MFG_LOC_WAREHOUSE, MFG_LOC_ZONE or MFG_LOC_BIN</description></field>
+        <field name="parentLocationId" type="id"><description>Location this one belongs to, e.g. the zone of a shelf</description></field>
+        <field name="note" type="description"/>
+        <field name="createdStamp" type="date-time"/>
+        <field name="createdTxStamp" type="date-time"/>
+        <field name="lastUpdatedStamp" type="date-time"/>
+        <field name="lastUpdatedTxStamp" type="date-time"/>
+        <prim-key field="locationId"/>
+    </entity>
     <entity entity-name="MfgStockSetting"
             package-name="org.langhua.ofbiz.mfg"
             title="Stock setting per component">

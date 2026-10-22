@@ -19,6 +19,7 @@
     <#elseif (id!'') == 'MFG_MOVE_SCRAP'><#return '报废'>
     <#elseif (id!'') == 'MFG_MOVE_COUNT'><#return '盘盈亏'>
     <#elseif (id!'') == 'MFG_MOVE_ADJUST'><#return '调整'>
+    <#elseif (id!'') == 'MFG_MOVE_TRANSFER'><#return '移库'>
     <#elseif (id!'') == 'MFG_MOVE_RESERVE'><#return '预留'>
     <#elseif (id!'') == 'MFG_MOVE_RELEASE'><#return '释放预留'>
     <#else><#return '${id!}'>
@@ -49,6 +50,7 @@
         <option value="MFG_MOVE_SCRAP"<#if typeId == 'MFG_MOVE_SCRAP'> selected="selected"</#if>>报废</option>
         <option value="MFG_MOVE_COUNT"<#if typeId == 'MFG_MOVE_COUNT'> selected="selected"</#if>>盘盈亏</option>
         <option value="MFG_MOVE_ADJUST"<#if typeId == 'MFG_MOVE_ADJUST'> selected="selected"</#if>>调整</option>
+        <option value="MFG_MOVE_TRANSFER"<#if typeId == 'MFG_MOVE_TRANSFER'> selected="selected"</#if>>移库</option>
         <option value="MFG_MOVE_RESERVE"<#if typeId == 'MFG_MOVE_RESERVE'> selected="selected"</#if>>预留</option>
         <option value="MFG_MOVE_RELEASE"<#if typeId == 'MFG_MOVE_RELEASE'> selected="selected"</#if>>释放预留</option>
     </select>
@@ -61,7 +63,7 @@
 <#if rows?has_content>
     <table id="ledgerTable">
         <tr>
-            <th>时间</th><th>料号</th><th>批次</th><th>类别</th><th class="num">序号</th><th>类型</th>
+            <th>时间</th><th>料号</th><th>批次</th><th>类别</th><th>库位</th><th class="num">序号</th><th>类型</th>
             <th class="num">数量</th><th class="num">结存</th><th class="num">单价</th>
             <th>工单 / 单据</th><th>操作人</th><th>备注</th>
         </tr>
@@ -71,6 +73,7 @@
                 <td>${row.componentCode!}</td>
                 <td><a href="/mfg/control/stockMoves?lotId=${row.lotId?url}">${row.lotId}</a></td>
                 <td><#if (row.lotKindId!'') == 'MFG_LOT_PRODUCT'>成品<#else>元件</#if></td>
+                <td><#if row.locationId??>${row.locationId}<#else><span class="hint">—</span></#if></td>
                 <td class="num">${row.seqId?string("0")}</td>
                 <td><#if (row.movementTypeId!'') == 'MFG_MOVE_ISSUE' || (row.movementTypeId!'') == 'MFG_MOVE_SCRAP'><span class="error">${moveLabel(row.movementTypeId)}</span><#elseif (row.movementTypeId!'') == 'MFG_MOVE_RECEIPT'><span class="ok">${moveLabel(row.movementTypeId)}</span><#else>${moveLabel(row.movementTypeId)}</#if></td>
                 <td class="num"><#if ((row.displayQty)!0) lt 0><span class="error">${row.displayQty?string("0.##")}</span><#else><span class="ok">+${row.displayQty?string("0.##")}</span></#if></td>

@@ -925,4 +925,13 @@ public class MfgServicesTest {
         assertFalse(MfgServices.isKnownSoStatus("MFG_SO_BOGUS"));
         assertFalse(MfgServices.isKnownSoStatus(null));
     }
+
+    @Test
+    public void knowsTheLocationTypes() {
+        assertTrue(MfgServices.isKnownLocationType(MfgServices.LOC_WAREHOUSE));
+        assertTrue(MfgServices.isKnownLocationType(MfgServices.LOC_ZONE));
+        assertTrue(MfgServices.isKnownLocationType(MfgServices.LOC_BIN));
+        assertFalse(MfgServices.isKnownLocationType("MFG_LOC_BOGUS"));
+        assertFalse(MfgServices.isKnownLocationType(null));
+    }
 }

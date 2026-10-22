@@ -201,6 +201,7 @@ public final class MfgServiceIT {
             it.listsTheDashboardAlerts();
             it.quotesAndTracksSoftware();
             it.runsSalesOrders();
+            it.movesStockBetweenLocations();
         } finally {
             it.tearDown();
         }
@@ -326,6 +327,109 @@ public final class MfgServiceIT {
         check("sales order: the shelf is free again",
                 value(fieldValue(stock.body, "onHandTotal")) >= onHand,
                 "on hand dropped below the starting quantity");
+    }
+
+    /**
+     * Puts a lot on a shelf, moves part of it to another shelf and checks both balances, plus the
+     * refusal when the source shelf does not hold that much.
+     *
+     * @throws IOException when a service call fails
+     */
+    private void movesStockBetweenLocations() throws IOException {
+        String suffix = String.valueOf(System.currentTimeMillis() % 1000000);
+        String shelfA = "IT-A-" + suffix;
+        String shelfB = "IT-B-" + suffix;
+        String part = "LOC" + suffix;
+
+        Map<String, String> saveA = new LinkedHashMap<>();
+        saveA.put("locationId", shelfA);
+        saveA.put("locationName", "Shelf A");
+        saveA.put("locationTypeId", "MFG_LOC_BIN");
+        Response savedA = invoke("mfgLocationSave", saveA);
+        check("location: a shelf is saved", savedA.status == 200 && savedA.body.contains(shelfA),
+                "the shelf was not saved");
+
+        Map<String, String> saveB = new LinkedHashMap<>();
+        saveB.put("locationId", shelfB);
+        saveB.put("locationTypeId", "MFG_LOC_WAREHOUSE");
+        invoke("mfgLocationSave", saveB);
+
+        Map<String, String> badType = new LinkedHashMap<>();
+        badType.put("locationId", shelfA + "-X");
+        badType.put("locationTypeId", "MFG_LOC_BOGUS");
+        check("location: an unknown type is refused",
+                invoke("mfgLocationSave", badType).body.contains("Unknown location type"),
+                "a bogus type was accepted");
+
+        Map<String, String> lotForm = new LinkedHashMap<>();
+        lotForm.put("componentCode", part);
+        lotForm.put("componentName", "Location test part");
+        lotForm.put("supplierLot", "DC-LOC");
+        lotForm.put("receivedQty", "10");
+        lotForm.put("unitPrice", "2");
+        lotForm.put("receivedDate", "2026-10-22");
+        lotForm.put("locationId", shelfA);
+        Response lotResponse = invoke("mfgLotSave", lotForm);
+        String receptionLot = firstMatch(LOT_ID, lotResponse.body);
+        check("location: the lot arrives on the shelf", receptionLot != null, "no lot id");
+
+        Map<String, String> shelfAFilter = new LinkedHashMap<>();
+        shelfAFilter.put("locationId", shelfA);
+        shelfAFilter.put("componentCode", part);
+        Response onShelfA = invoke("mfgLocationStock", shelfAFilter);
+        check("location: the lot is listed on the shelf with its quantity",
+                onShelfA.body.contains("10.0"), "the quantity on the shelf is not 10");
+
+        Map<String, String> moveForm = new LinkedHashMap<>();
+        moveForm.put("lotId", receptionLot == null ? "" : receptionLot);
+        moveForm.put("fromLocationId", shelfA);
+        moveForm.put("toLocationId", shelfB);
+        moveForm.put("qty", "4");
+        moveForm.put("operatorName", "IT storeman");
+        Response moved = invoke("mfgStockTransfer", moveForm);
+        String transferId = firstMatch(java.util.regex.Pattern.compile("TR-[0-9]{6}-[0-9]+"), moved.body);
+        check("location: the transfer gets a number", transferId != null, "no TR- number");
+        check("location: the target shelf holds the moved quantity",
+                near(fieldValue(moved.body, "toLocationQty"), 4.0), "toLocationQty is not 4");
+
+        Map<String, String> shelfBFilter = new LinkedHashMap<>();
+        shelfBFilter.put("locationId", shelfB);
+        shelfBFilter.put("componentCode", part);
+        check("location: the target shelf is listed with its quantity",
+                invoke("mfgLocationStock", shelfBFilter).body.contains("4.0"),
+                "the target shelf does not hold 4");
+        Response onShelfAAfter = invoke("mfgLocationStock", shelfAFilter);
+        check("location: the source shelf kept the rest", onShelfAAfter.body.contains("6.0"),
+                "the source shelf does not hold 6");
+
+        Map<String, String> lotListForm = new LinkedHashMap<>();
+        lotListForm.put("componentCode", part);
+        Response lots = invoke("mfgLotList", lotListForm);
+        check("location: the lot total did not change", lots.body.contains("onHandQty:10"),
+                "the lot total changed by the transfer");
+
+        Map<String, String> tooMuch = new LinkedHashMap<>();
+        tooMuch.put("lotId", receptionLot == null ? "" : receptionLot);
+        tooMuch.put("fromLocationId", shelfA);
+        tooMuch.put("toLocationId", shelfB);
+        tooMuch.put("qty", "99");
+        check("location: moving more than the shelf holds is refused",
+                invoke("mfgStockTransfer", tooMuch).body.contains("left in location"),
+                "an overdrawn transfer was accepted");
+
+        Map<String, String> unknownShelf = new LinkedHashMap<>();
+        unknownShelf.put("lotId", receptionLot == null ? "" : receptionLot);
+        unknownShelf.put("toLocationId", "NO-SUCH-" + suffix);
+        unknownShelf.put("qty", "1");
+        check("location: moving to an unknown shelf is refused",
+                invoke("mfgStockTransfer", unknownShelf).body.contains("Unknown location"),
+                "a transfer to an unknown shelf was accepted");
+
+        Response list = invoke("mfgLocationList", new LinkedHashMap<String, String>());
+        check("location: both shelves are listed", list.body.contains(shelfA) && list.body.contains(shelfB),
+                "a shelf is missing from the list");
+        check("location: the list reports the quantity of a shelf",
+                list.body.contains("onHandQty:6"), "the shelf quantity is missing");
     }
 
     private void setUp() throws Exception {
