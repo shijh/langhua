@@ -2,7 +2,6 @@
 <ofbiz-component xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
         xsi:noNamespaceSchemaLocation="https://ofbiz.apache.org/dtds/ofbiz-component.xsd"
         name="mfg"
-        title="Hardware Assembly"
         enabled="true">
 
     <resource-loader name="main" type="component"/>

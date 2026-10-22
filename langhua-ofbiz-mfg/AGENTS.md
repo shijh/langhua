@@ -4,14 +4,19 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
 供编码助手在本仓库工作时参考：命令、约定、踩过的坑、关键设计决策。
 
 - 仓库根 `F:\git\langhua`，本组件 `langhua-ofbiz-mfg`，同仓库还有兄弟组件 `langhua-ofbiz-learningcurve`
-- 运行环境：OFBiz **24.09.07**（`F:\build-ofbiz\apache-ofbiz-24.09.07`，Derby 库 `OFBIZ`，HTTPS 8443，admin/ofbiz），
+- 运行环境：OFBiz **24.09.07**（开发 `F:\build-ofbiz\apache-ofbiz-24.09.07`，https 8443；
+  生产 `F:\build-ofbiz\ofbiz-prod`，https 8453，两套各一个 Derby 库，可同时跑），
   Java 17 corretto，Gradle 8.6；服务端渲染 FTL + Screen widget，无前端框架
 
 ## 命令（脚本都在 `C:\Users\shi.jinghai-honor\AppData\Local\Temp\jup`）
 
 | 脚本 | 作用 |
 | --- | --- |
-| `deploy-mfg.bat` | 停 OFBiz → robocopy 到 `plugins/mfg` → `gradle jar` → 启动 → 等 8443（日志 `F:\build-ofbiz\mfg-deploy.txt`） |
+| `deploy-mfg.bat` | **开发实例（8443）**：停 OFBiz → robocopy 到 `plugins/mfg` → `gradle jar` → 启动（日志 `F:\build-ofbiz\mfg-deploy.txt`） |
+| `deploy-lc.bat` | 同上，学习曲线插件（日志 `lc-deploy.txt`） |
+| `stop-ofbiz.bat` | 停所有 `org.apache.ofbiz.base.start.Start`（会把两套都停掉） |
+| `deploy-prod.bat` | **生产实例（8453）**：停生产 → robocopy 两个插件到 `ofbiz-prod\plugins` → `gradle jar` → 启动（日志 `prod-deploy.txt`） |
+| `start-prod.bat` / `stop-prod.bat` | 只启/停生产实例（按命令行里的 `ofbiz-prod` 匹配进程） |
 | `mfg-tests.bat` | 单元测试（JUnit 4，离线，依赖 `F:\build-ofbiz\lib` 的 jar） |
 | `mfg-it.bat` | 集成测试 `integration-test/MfgServiceIT.java`，走 `/webtools/control/scheduleServiceSync` + `_RUN_SYNC_=Y`（日志 `mfg-it.txt`） |
 | `verify-m*.ps1` | 页面巡检（真实登录会话），日志 `F:\build-ofbiz\mfg-m*.txt` |

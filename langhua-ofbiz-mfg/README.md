@@ -187,6 +187,27 @@ https://localhost:8443/mfg/control/main
 `AFTER_SALE_DEADLINE`、`REFUND_AMOUNT`、`DEDUCT_AMOUNT`、`FREIGHT_PAYER`、`RETURN_TRACKING_NO`、
 `RECEIVED_BACK_DATE`、`INSPECT_RESULT`、`VENDOR_CLAIM_STATUS`、`REPAIR_WORK_ORDER_ID`、`EXCHANGE_DELIVERY_ID`、`BUYER_RISK_LEVEL`）。
 
+### 开发环境与生产环境并存（同一台机器）
+
+开发时改代码、测试时跑脚本都会往库里写测试数据，所以生产另起一套，互不干扰：
+
+| | 开发（dev） | 生产（prod） |
+| --- | --- | --- |
+| 安装目录 | `F:\build-ofbiz\apache-ofbiz-24.09.07` | `F:\build-ofbiz\ofbiz-prod` |
+| 访问 | `https://localhost:8443/mfg` | `https://localhost:8453/mfg` |
+| 端口 | https 8443 / http 8080 / ajp 8009 / naming 1099 | https 8453 / http 8090 / ajp 8109 / naming 1199 |
+| 数据库 | 自己 `runtime/data/derby`（测试数据，可随时清空重来） | 自己 `runtime/data/derby`（真实数据，`loadAll` 建库） |
+| 启停脚本（`…\Temp\jup`） | `deploy-mfg.bat` / `deploy-lc.bat` / `stop-ofbiz.bat` | `deploy-prod.bat` / `start-prod.bat` / `stop-prod.bat` |
+
+做两份安装的原因：OFBiz 用**内嵌 Derby**（库文件被进程独占，两个进程不能共用一个库），端口又写死在
+`framework/base/ofbiz-component.xml`（naming 1099）和 `framework/catalina/ofbiz-component.xml`（8080 / 8443 / 8009）里；
+复制一份改端口最省事。每套各占约 1 GB 左右内存。
+
+上线节奏：分支上改 → `deploy-mfg.bat` / `deploy-lc.bat` 到 **dev** → 跑单元测试、集成测试与巡检 →
+确认后再 `deploy-prod.bat` 到 **prod**。**别在生产实例上跑 `mfg-it.bat` / `verify-*.ps1`**（它们会写测试数据）。
+
+生产实例首次登录 `admin` / `ofbiz`（`loadAll` 建的），**登录后第一件事是改密码**。
+
 ## 数据模型
 
 | 实体 | 说明 |
