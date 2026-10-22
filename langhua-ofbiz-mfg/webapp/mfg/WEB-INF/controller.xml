@@ -136,6 +136,14 @@
         <response name="error" type="view" value="products"/>
     </request-map>
 
+    <!-- the password gate posts here; on error the same page shows the form again with the message -->
+    <request-map uri="changePasswordSave">
+        <security https="true" auth="true"/>
+        <event type="service" invoke="mfgChangePassword"/>
+        <response name="success" type="request-redirect" value="main"/>
+        <response name="error" type="view" value="main"/>
+    </request-map>
+
     <request-map uri="bomImport">
         <security https="true" auth="true"/>
         <event type="service" invoke="mfgBomImport"/>

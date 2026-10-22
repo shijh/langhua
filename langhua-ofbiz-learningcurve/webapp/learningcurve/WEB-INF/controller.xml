@@ -58,6 +58,14 @@
         <response name="success" type="view" value="recordDetail"/>
     </request-map>
 
+    <!-- the password gate posts here (the service lives in the MES component) -->
+    <request-map uri="changePasswordSave">
+        <security https="true" auth="true"/>
+        <event type="service" invoke="mfgChangePassword"/>
+        <response name="success" type="request-redirect" value="main"/>
+        <response name="error" type="view" value="main"/>
+    </request-map>
+
     <!-- write the hours of a curve back into the standard hours of the MES model -->
     <request-map uri="standardHoursApply">
         <security https="true" auth="true"/>

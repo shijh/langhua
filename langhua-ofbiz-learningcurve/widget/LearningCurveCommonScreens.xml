@@ -29,6 +29,8 @@
         <section>
             <actions>
                 <set field="activeApp" value="learningcurve"/>
+                <!-- the gate lives in the MES component; ignore error so a missing MES keeps the pages usable -->
+                <service service-name="mfgPasswordStatus" result-map="pwdStatus" auto-field-map="true" ignore-error="true"/>
             </actions>
             <widgets>
                 <platform-specific>

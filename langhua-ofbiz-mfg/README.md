@@ -214,10 +214,33 @@ https://localhost:8443/mfg/control/main
 上线节奏：分支上改 → `deploy-mfg.bat` / `deploy-lc.bat` 到 **dev** → 跑单元测试、集成测试与巡检 →
 确认后再 `deploy-prod.bat` 到 **prod**。**别在生产实例上跑 `mfg-it.bat` / `verify-*.ps1`**（它们会写测试数据）。
 
-生产实例首次登录 `admin` / `ofbiz`（`loadAll` 建的），**登录后第一件事是改密码**。
+生产实例首次登录 `admin` / `ofbiz`（`loadAll` 建的），**登录后被强制改密码**（见下一节）。
 
 > 空库第一次录真实数据（型号 / BOM / 到货批次的顺序、CSV 模板、常见坑）看
 > [`docs/首次使用-主数据录入.md`](docs/首次使用-主数据录入.md)。
+
+### 首次登录强制修改密码
+
+`admin` 还是出厂密码 `ofbiz` 时，`/mfg` 与 `/learningcurve` **都不渲染页面内容**，只显示一张
+「请先修改默认密码」的表单（当前密码 / 新密码 / 确认新密码 / 密码提示，新密码至少 5 位）：
+
+- 门禁做在装饰器上：`widget/MfgCommonScreens.xml` 的 `mfg-decorator` 调 `mfgPasswordStatus`（`result-map="pwdStatus"`），
+  `decorator.ftl` 里 `mustChange` 为真时只输出表单，导航和 `sections.render("body")` 都跳过；
+  学习曲线组件在 `lc-decorator` 里调**同一个服务**（`ignore-error="true"`，MES 没部署时不影响它自己的页面）；
+- 服务 `mfgPasswordStatus` 用 `isDefaultPassword()` 判断当前登录用户的 `currentPassword` 是否等于出厂值
+  （按 `security` 组的 `password.encrypt` 决定是否走 `LoginServices.checkPassword` 比对），返回 `mustChange=Y/N`；
+  `mfgChangePassword` 先核对当前密码，再转调 OFBiz 自带的 `updatePassword`（不自己写库）；
+- 表单 POST 到 `/mfg/control/changePasswordSave` 或 `/learningcurve/control/changePasswordSave`，两边都落到
+  `mfgChangePassword`，成功后 302 回首页，页面就正常了；
+- **开关是系统属性 `org.langhua.mfg.requirePasswordChange`，只有等于 `Y` 才启用**（默认关闭）。
+  `start-prod.bat` 里 `set JAVA_TOOL_OPTIONS=… -Dorg.langhua.mfg.requirePasswordChange=Y`；
+  开发实例的 `ofbiz-server.bat` 显式设成 `N`——巡检脚本与集成测试都用 `admin` / `ofbiz` 登录，
+  开着门禁会整片变红。要临时进门禁页调试用 `start-dev-gate.bat`（同一个属性设成 `Y`）；
+- 忘了新密码：停实例 → `gradle loadAdminUserLogin -PuserLoginId=admin` 把 `admin` 重置回 `ofbiz` → 重启，
+  门禁页又会出来；
+- 不想走门禁也能改密码：OFBiz 自带的 `/partymgr/control/ProfileEditUserLogin`（需要 `PARTY_ADMIN` 权限）。
+
+> 门禁只管「当前登录用户仍是出厂密码」这一种情况；换成别的弱密码它不管，安全边界靠运维自己把握（小厂内网使用）。
 
 ## 数据模型
 
@@ -261,6 +284,8 @@ https://localhost:8443/mfg/control/main
 
 | 服务名 | 说明 |
 | --- | --- |
+| `mfgPasswordStatus` | 当前登录用户是否还得出厂密码（`mustChange=Y`），供装饰器做「首次登录强制改密码」的门禁 |
+| `mfgChangePassword` | 改密码：先核对 `currentPassword`，再转调 OFBiz 的 `updatePassword` |
 | `mfgProductSave` / `mfgProductList` / `mfgProductDetail` | 型号维护与查询（含当前 BOM 版本的行、工艺路线、版本数）；工时改了就把 `standardHoursSource` 退回 `MANUAL`；`snPrefix` 超 10 字符直接报错（不填时默认取型号编码） |
 | `mfgBomImport` | 从 CSV 导入 BOM 到指定版本（缺省为当前版本），`replace=N` 时追加而不清空；第 6 列单价可空；**型号还没有版本时，导入的这个版本直接成为当前版本** |
 | `mfgBomVersionCreate` / `mfgBomVersionActivate` / `mfgBomVersionList` | 新建下一版（可复制当前行）、启用某版（旧版转废止、型号指向新版）、列出各版本 |
@@ -397,7 +422,9 @@ csv         = R0402-10K,10K 0402 resistor,4,R1-R4,N,0.05
 > 因为脚本是外部的，将来 OFBiz 把 `Content-Security-Policy` 从 `Report-Only` 改为强制模式也不需要改动（`default-src 'self'` 允许同源脚本）。
 
 访问控制由 `ofbiz-component.xml` 的 `base-permission="OFBTOOLS"` 决定；
-`data/MfgSecurityPermissionSeedData.xml` 定义 `MFG_VIEW` / `MFG_ADMIN` 并授予 `SUPER`、`FULLADMIN`。
+`data/MfgSecurityPermissionSeedData.xml` 定义 `MFG_VIEW` / `MFG_ADMIN`，**只授予 `SUPER`**。
+不要授给 `FULLADMIN`：全新库（`gradle loadAll`）里没有这个权限组，`SEC_GRP_PERM_GRP` 外键会失败，
+`--load-data` 整批回滚（踩过，21 分钟后才报 BUILD FAILED）。
 
 ## 页面布局：单一装饰器
 

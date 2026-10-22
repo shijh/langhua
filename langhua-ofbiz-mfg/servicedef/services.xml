@@ -2,6 +2,34 @@
 <services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
         xsi:noNamespaceSchemaLocation="https://ofbiz.apache.org/dtds/services.xsd">
 
+    <!-- ==================== password gate ==================== -->
+
+    <!--
+        Tells the decorator whether the account still uses the password of a fresh OFBiz database.
+        The gate is switched off with the system property
+        org.langhua.mfg.requirePasswordChange=N (development instances start that way).
+    -->
+    <service name="mfgPasswordStatus" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgServices" invoke="passwordStatus"
+            auth="true" use-transaction="false">
+        <description>Say whether the logged in account still uses the default password</description>
+        <attribute name="mustChange" type="String" mode="OUT" optional="true"/>
+        <attribute name="userLoginId" type="String" mode="OUT" optional="true"/>
+        <attribute name="message" type="String" mode="OUT" optional="true"/>
+    </service>
+
+    <service name="mfgChangePassword" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgServices" invoke="changePassword"
+            auth="true" use-transaction="false">
+        <description>Change the password of the logged in account, checking the current one first</description>
+        <attribute name="currentPassword" type="String" mode="IN" optional="false"/>
+        <attribute name="newPassword" type="String" mode="IN" optional="false"/>
+        <attribute name="newPasswordVerify" type="String" mode="IN" optional="false"/>
+        <attribute name="passwordHint" type="String" mode="IN" optional="true"/>
+        <attribute name="changed" type="String" mode="OUT" optional="true"/>
+        <attribute name="userLoginId" type="String" mode="OUT" optional="true"/>
+    </service>
+
     <!-- ==================== product models ==================== -->
 
     <service name="mfgProductSave" engine="java"

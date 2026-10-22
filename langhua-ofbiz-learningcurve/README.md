@@ -342,6 +342,19 @@ flowchart LR
 
 加一个菜单项只改 `decorator.ftl`（一行 `navItem`），改配色只改 `lc.css`。
 
+### 首次登录强制改密码
+
+`admin` 还是出厂密码 `ofbiz` 时，本组件的页面也**只显示一张改密表单**（和 MES 组件同一套门禁）：
+
+- 服务不在这里——`lc-decorator` 调 MES 组件的 `mfgPasswordStatus`（`ignore-error="true"`，
+  MES 没部署时本组件页面照常打开），`mustChange` 为真时 `decorator.ftl` 只输出表单；
+- 表单 POST 到 `/learningcurve/control/changePasswordSave`，`controller.xml` 的 request-map 调
+  `mfgChangePassword`（校验当前密码后转调 OFBiz 的 `updatePassword`）；
+- 开关是系统属性 `org.langhua.mfg.requirePasswordChange`，只有 `Y` 才启用：
+  生产（`start-prod.bat`）是 `Y`，开发实例（`ofbiz-server.bat`）显式设成 `N`，
+  否则巡检脚本用 `admin` / `ofbiz` 登录会全部失败；调试门禁页用 `start-dev-gate.bat`；
+- 忘了新密码：`gradle loadAdminUserLogin -PuserLoginId=admin` 重置回 `ofbiz`。
+
 ### 配色：跟随 VS Code Dark Modern
 
 和组装 MES 组件用同一套深色配色（白底长时间看着太刺眼）：

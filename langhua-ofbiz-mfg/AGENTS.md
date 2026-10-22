@@ -199,6 +199,17 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   `plannedDays` 在保存时冻结成快照（改参数不改历史），实测耗时率 = actualHours/功能点，列表返回中位数做基准；
   项目超人天/超期进 `mfgAlerts`（`MFG_ALERT_SOFTWARE`）。**40 人时/功能点与明细功能点的 6~7 人时/功能点 差约六倍，不能混用**；
   页面上一律用中文术语（内部逻辑文件 / 外部接口文件 / 未调整功能点 / 功能点耗时率 / 软件因素调整因子 / 开发因素调整因子），不写英文缩写
+- **首次登录强制改密码（Step 49）**：出厂密码 `ofbiz` 未改时 `/mfg` 与 `/learningcurve` 只渲染一张改密表单——
+  门禁在**装饰器**里（`mfg-decorator` 调 `mfgPasswordStatus` → `result-map="pwdStatus"`，`decorator.ftl` 里
+  `mustChange` 为真就只输出表单，导航与 `sections.render("body")` 都跳过），不是每个屏幕各写一遍；
+  服务 `mfgPasswordStatus` 用 `isDefaultPassword()` 比对 `currentPassword`（按 `security` 的 `password.encrypt`
+  决定要不要走 `LoginServices.checkPassword`），`mfgChangePassword` 核对完当前密码后**转调 OFBiz 的 `updatePassword`**，不自己写库；
+  表单 POST `changePasswordSave`（两个 webapp 各一个 request-map，落到同一个服务）；
+  **开关是系统属性 `org.langhua.mfg.requirePasswordChange`，只有 `Y` 才启用**：`start-prod.bat` 设 `Y`，
+  开发实例 `ofbiz-server.bat` 显式设 `N`（否则巡检/集成测试用 `admin`/`ofbiz` 登录会整片红），
+  `start-dev-gate.bat` 是「开发实例 + 门禁开」的调试入口；重置密码用 `gradle loadAdminUserLogin -PuserLoginId=admin`；
+  巡检断言改密码要用 ASCII 标记（`action="/mfg/control/changePasswordSave"` / `action="/mfg/control/workOrderCreate"`），
+  别断言中文——上下文里的字符串会被渲染成数字实体
 - **保修**：从出货日开始算，月数在产品上（`warrantyMonths`，默认 12）- **淘宝窗口**：7 天无理由 = 签收日 + 8 天 00:00（即签收次日起 168 小时）；15 天售后 = 签收 + 15 天 23:59:59
 - **买家名单**：匹配键优先买家昵称（`TB:N:nick`），因为淘宝收件手机号常被隐私号掩码；手机号必须是 11 位真号、
   带 `*` 一律拒绝；名单 12 个月自动失效；**只提示，不拦截任何法定售后**

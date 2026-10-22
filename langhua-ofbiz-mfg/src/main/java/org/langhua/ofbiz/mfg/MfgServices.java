@@ -28,11 +28,14 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
+import org.apache.ofbiz.common.login.LoginServices;
 import org.apache.ofbiz.entity.Delegator;
 import org.apache.ofbiz.entity.GenericEntityException;
 import org.apache.ofbiz.entity.GenericValue;
 import org.apache.ofbiz.entity.util.EntityQuery;
+import org.apache.ofbiz.entity.util.EntityUtilProperties;
 import org.apache.ofbiz.service.DispatchContext;
+import org.apache.ofbiz.service.GenericServiceException;
 import org.apache.ofbiz.service.ServiceUtil;
 
 /**
@@ -53,6 +56,16 @@ public final class MfgServices {
     public static final String HOURS_SOURCE_MANUAL = "MANUAL";
     /** Where the standard hours of a model came from: written back by the learning curve component. */
     public static final String HOURS_SOURCE_CURVE = "LEARNING_CURVE";
+
+    /**
+     * System property that switches the forced password change on or off; {@code Y} by default so a
+     * fresh install cannot be used with the password that ships with OFBiz. Development instances
+     * start with {@code N} so the page check scripts can keep logging in with the default account.
+     */
+    public static final String FORCE_PASSWORD_CHANGE_PROPERTY = "org.langhua.mfg.requirePasswordChange";
+
+    /** The password of the {@code admin} account of a freshly loaded OFBiz database. */
+    public static final String DEFAULT_PASSWORD = "ofbiz";
 
     public static final String WO_CREATED = "MFG_CREATED";
     public static final String WO_IN_PROGRESS = "MFG_IN_PROGRESS";
@@ -302,6 +315,134 @@ public final class MfgServices {
     private static final DateTimeFormatter MONTH_DAY = DateTimeFormatter.ofPattern("MM-dd");
 
     private MfgServices() {
+    }
+
+    /**
+     * Tells the decorator whether the logged in account still uses the password that ships with a
+     * fresh OFBiz database, so every page can show the change form instead of its content.
+     *
+     * <p>The whole gate can be switched off with the system property
+     * {@code org.langhua.mfg.requirePasswordChange=N}; development instances start that way because
+     * the page check scripts log in with the default account.
+     *
+     * @param dctx the dispatch context
+     * @param context service context, see {@code servicedef/services.xml#mfgPasswordStatus}
+     * @return the service result with {@code mustChange} ({@code Y} / {@code N})
+     */
+    public static Map<String, Object> passwordStatus(DispatchContext dctx, Map<String, ? extends Object> context) {
+        Map<String, Object> result = ServiceUtil.returnSuccess();
+        result.put("mustChange", "N");
+        result.put("userLoginId", "");
+        result.put("message", "");
+        if (!"Y".equalsIgnoreCase(System.getProperty(FORCE_PASSWORD_CHANGE_PROPERTY, "Y"))) {
+            return result;
+        }
+        GenericValue userLogin = (GenericValue) context.get("userLogin");
+        if (userLogin == null) {
+            return result;
+        }
+        String userLoginId = userLogin.getString("userLoginId");
+        result.put("userLoginId", userLoginId == null ? "" : userLoginId);
+        if (isDefaultPassword(dctx.getDelegator(), userLogin.getString("currentPassword"))) {
+            result.put("mustChange", "Y");
+            result.put("message", "当前账号还在用出厂密码，请先改成自己的密码再继续使用");
+        }
+        return result;
+    }
+
+    /**
+     * Changes the password of the logged in account. The current password is always checked, even
+     * for an administrator (OFBiz itself lets an administrator skip that check).
+     *
+     * @param dctx the dispatch context
+     * @param context service context, see {@code servicedef/services.xml#mfgChangePassword}
+     * @return the service result with {@code changed} = {@code Y}
+     */
+    public static Map<String, Object> changePassword(DispatchContext dctx, Map<String, ? extends Object> context) {
+        Delegator delegator = dctx.getDelegator();
+        GenericValue userLogin = (GenericValue) context.get("userLogin");
+        if (userLogin == null) {
+            return ServiceUtil.returnError("请先登录再改密码");
+        }
+        String userLoginId = userLogin.getString("userLoginId");
+        String currentPassword = toText(context.get("currentPassword"));
+        if (currentPassword == null || !matchesStoredPassword(delegator, userLoginId, currentPassword)) {
+            return ServiceUtil.returnError("当前密码不对");
+        }
+        Map<String, Object> updateContext = new HashMap<>();
+        updateContext.put("userLogin", userLogin);
+        updateContext.put("userLoginId", userLoginId);
+        updateContext.put("currentPassword", currentPassword);
+        updateContext.put("newPassword", toText(context.get("newPassword")));
+        updateContext.put("newPasswordVerify", toText(context.get("newPasswordVerify")));
+        updateContext.put("passwordHint", toText(context.get("passwordHint")));
+        try {
+            Map<String, Object> updated = dctx.getDispatcher().runSync("updatePassword", updateContext, -1, true);
+            if (ServiceUtil.isError(updated)) {
+                Object errors = updated.get("errorMessageList");
+                if (errors instanceof List) {
+                    List<String> messages = new ArrayList<>();
+                    for (Object error : (List<?>) errors) {
+                        messages.add(String.valueOf(error));
+                    }
+                    return ServiceUtil.returnError(messages);
+                }
+                return ServiceUtil.returnError(ServiceUtil.getErrorMessage(updated));
+            }
+        } catch (GenericServiceException e) {
+            return ServiceUtil.returnError("改密码失败：" + e.getMessage());
+        }
+        Map<String, Object> result = ServiceUtil.returnSuccess("密码已修改");
+        result.put("changed", "Y");
+        result.put("userLoginId", userLoginId == null ? "" : userLoginId);
+        return result;
+    }
+
+    /**
+     * Checks the password of one account against the value the user typed in.
+     *
+     * @param delegator the delegator
+     * @param userLoginId the account
+     * @param password the password as typed in
+     * @return {@code true} when it matches
+     */
+    private static boolean matchesStoredPassword(Delegator delegator, String userLoginId, String password) {
+        try {
+            GenericValue stored = EntityQuery.use(delegator).from("UserLogin")
+                    .where("userLoginId", userLoginId).queryOne();
+            return stored != null && matchesPassword(delegator, stored.getString("currentPassword"), password);
+        } catch (GenericEntityException e) {
+            return false;
+        }
+    }
+
+    /**
+     * Says whether a stored password hash is the one of the password that ships with OFBiz.
+     *
+     * @param delegator the delegator
+     * @param storedPassword the hash kept on {@code UserLogin}
+     * @return {@code true} when the account still uses the default password
+     */
+    static boolean isDefaultPassword(Delegator delegator, String storedPassword) {
+        return matchesPassword(delegator, storedPassword, DEFAULT_PASSWORD);
+    }
+
+    /**
+     * Compares a stored password (hash or plain text, depending on the security settings) with a
+     * password as typed in.
+     *
+     * @param delegator the delegator
+     * @param storedPassword the stored value
+     * @param password the password as typed in
+     * @return {@code true} when they match
+     */
+    static boolean matchesPassword(Delegator delegator, String storedPassword, String password) {
+        if (storedPassword == null || password == null) {
+            return false;
+        }
+        boolean useEncryption = "true".equals(
+                EntityUtilProperties.getPropertyValue("security", "password.encrypt", delegator));
+        return LoginServices.checkPassword(storedPassword, useEncryption, password);
     }
 
     /**

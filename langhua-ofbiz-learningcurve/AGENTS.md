@@ -30,6 +30,11 @@ OFBiz **学习曲线**插件：按历史批次（数量 + 总额/工时）拟合
 - 装饰器：`widget/LearningCurveCommonScreens.xml` 的 `lc-decorator` + `webapp/learningcurve/decorator.ftl`，
   屏幕 actions 设 `pageTitle`（学习曲线估算 / 估算记录 / 估算详情）与 `activeMenu`（estimate / records）
 - 样式：`webapp/learningcurve/css/lc.css`（`/css` 与 `/images` 已在 `web.xml` 的 `allowedPaths` 里）
+- **首次登录强制改密码复用 MES 的服务**：`lc-decorator` 调 `mfgPasswordStatus`（`ignore-error="true"`，MES 没部署时
+  本组件页面照常），`decorator.ftl` 里 `mustChange` 为真只输出改密表单，POST 到
+  `/learningcurve/control/changePasswordSave`（controller.xml 的 request-map 调 `mfgChangePassword`）。
+  开关是系统属性 `org.langhua.mfg.requirePasswordChange=Y`（生产开着，开发实例设成 `N`，否则巡检用 `admin`/`ofbiz` 登录会全红）；
+  巡检断言用 `action="/learningcurve/control/changePasswordSave"` / `action="/learningcurve/control/estimate"`，不要断言中文
 - `recordDetail.ftl` 里除了结果表还有「记录不存在」分支和 CSV/返回链接那一段，别删
 
 ## 注意
