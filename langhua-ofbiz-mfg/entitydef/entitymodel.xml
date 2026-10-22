@@ -13,6 +13,9 @@
         <field name="productName" type="name"><description>Display name</description></field>
         <field name="snPrefix" type="very-short"><description>Prefix used when serial numbers are generated</description></field>
         <field name="standardHours" type="floating-point"><description>Standard assembly hours per unit</description></field>
+        <field name="standardHoursSource" type="short-varchar"><description>MANUAL when typed in on the product page, LEARNING_CURVE when written back by the learning curve component</description></field>
+        <field name="standardHoursBaseQty" type="floating-point"><description>Lot size the curve was asked about when the hours were written back, informational only</description></field>
+        <field name="standardHoursEstimateRef" type="short-varchar"><description>Identifier of the learning curve estimate the hours came from</description></field>
         <field name="laborRate" type="currency-amount"><description>Labour cost per hour used to cost the model, empty means 0</description></field>
         <field name="warrantyMonths" type="numeric"><description>Warranty in months from the delivery date, 12 when empty</description></field>
         <field name="salePrice" type="currency-amount"><description>Typical selling price, used to turn the after sales cost into a percentage</description></field>

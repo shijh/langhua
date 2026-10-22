@@ -641,6 +641,302 @@ public final class LearningCurveServices {
         java.time.LocalDate day = toLocalDate(value);
         return day == null ? null : java.sql.Date.valueOf(day);
     }
+
+    // ==================== writing the curve back as the standard hours of a model ====================
+
+    /** Source marker the MES product carries while its standard hours came from a learning curve. */
+    public static final String HOURS_SOURCE_CURVE = "LEARNING_CURVE";
+
+    /** Source marker of hours typed in by hand; a model without one counts as hand filled in. */
+    public static final String HOURS_SOURCE_MANUAL = "MANUAL";
+
+    /** A curve can only become standard hours when it was fitted on hours. */
+    private static final String MEASURE_HOURS = "HOURS";
+
+    /** How many past backfills the record page lists. */
+    private static final int APPLY_HISTORY = 5;
+
+    /**
+     * Works out the standard hours the stored curve would give a model, without changing anything.
+     *
+     * <p>The unit hours are the hours the curve predicts for the next {@code baseQty} units divided
+     * by that quantity, which is exactly the unit value the estimation page shows.
+     *
+     * @param dctx the dispatch context
+     * @param context service context, see {@code servicedef/services.xml#learningCurveStandardHours}
+     * @return the service result containing the proposal, the hours the model uses today and whether
+     *         it can be written back
+     */
+    public static Map<String, Object> standardHours(DispatchContext dctx, Map<String, ? extends Object> context) {
+        Delegator delegator = dctx.getDelegator();
+        String estimateId = toText(context.get("estimateId"));
+        if (estimateId == null) {
+            return emptyHoursResult("先保存一条估算，再从估算详情页回填标准工时");
+        }
+        Map<String, Object> result;
+        try {
+            result = proposeHours(delegator, estimateId, context.get("baseQty"), newHandlerContext(context));
+        } catch (GenericEntityException e) {
+            return emptyHoursResult("读不到这条估算：" + e.getMessage());
+        } catch (GeneralException e) {
+            return emptyHoursResult(e.getMessage());
+        }
+        appendApplyRows(delegator, result);
+        return result;
+    }
+
+    /**
+     * Writes the hours of the stored curve into the standard hours of the MES model and keeps a row
+     * describing the change, so the previous value is never lost.
+     *
+     * @param dctx the dispatch context
+     * @param context service context, see {@code servicedef/services.xml#learningCurveApplyStandardHours}
+     * @return the service result containing the new hours and the identifier of the audit row
+     */
+    public static Map<String, Object> applyStandardHours(DispatchContext dctx, Map<String, ? extends Object> context) {
+        Delegator delegator = dctx.getDelegator();
+        String estimateId = toText(context.get("estimateId"));
+        if (estimateId == null) {
+            return ServiceUtil.returnError("estimateId is required");
+        }
+        try {
+            Map<String, Object> proposal = proposeHours(delegator, estimateId, context.get("baseQty"), newHandlerContext(context));
+            if (!"Y".equals(proposal.get("canApply"))) {
+                return ServiceUtil.returnError(String.valueOf(proposal.get("message")));
+            }
+            String productCode = String.valueOf(proposal.get("productCode"));
+            GenericValue product = mesProduct(delegator, productCode);
+            if (product == null) {
+                return ServiceUtil.returnError("MES 里没有型号 " + productCode + "，先在产品页建好型号再回填");
+            }
+            double baseQty = ((Double) proposal.get("baseQty")).doubleValue();
+            double newHours = ((Double) proposal.get("proposedUnitHours")).doubleValue();
+            double oldHours = toDouble(product.get("standardHours"), 0.0);
+
+            product.set("standardHours", Double.valueOf(newHours));
+            product.set("standardHoursSource", HOURS_SOURCE_CURVE);
+            product.set("standardHoursBaseQty", Double.valueOf(baseQty));
+            product.set("standardHoursEstimateRef", estimateId);
+            delegator.store(product);
+
+            String applyId = delegator.getNextSeqId("LearningCurveHoursApply");
+            GenericValue apply = delegator.makeValue("LearningCurveHoursApply");
+            apply.set("applyId", applyId);
+            apply.set("productCode", productCode);
+            apply.set("estimateId", estimateId);
+            apply.set("baseQty", Double.valueOf(baseQty));
+            apply.set("oldHours", Double.valueOf(oldHours));
+            apply.set("newHours", Double.valueOf(newHours));
+            apply.set("methodType", proposal.get("methodType"));
+            apply.set("slope", proposal.get("slope"));
+            apply.set("intercept", proposal.get("intercept"));
+            apply.set("appliedBy", appliedBy(context.get("userLogin")));
+            delegator.create(apply);
+
+            Map<String, Object> result = ServiceUtil.returnSuccess();
+            result.put("applyId", applyId);
+            result.put("estimateId", estimateId);
+            result.put("productCode", productCode);
+            result.put("baseQty", Double.valueOf(baseQty));
+            result.put("oldHours", Double.valueOf(oldHours));
+            result.put("appliedHours", Double.valueOf(newHours));
+            result.put("applied", "Y");
+            result.put("message", "已把 " + productCode + " 的标准工时从 "
+                    + String.format(Locale.ROOT, "%.3f", oldHours) + " h 改成 "
+                    + String.format(Locale.ROOT, "%.3f", newHours) + " h（基准 "
+                    + String.format(Locale.ROOT, "%.0f", baseQty) + " 台）");
+            return result;
+        } catch (GenericEntityException e) {
+            return ServiceUtil.returnError("回填失败：" + e.getMessage());
+        } catch (GeneralException e) {
+            return ServiceUtil.returnError(e.getMessage());
+        }
+    }
+
+    /**
+     * Unit hours of one lot: the hours divided by the quantity, 0 for an empty lot.
+     *
+     * @param lotHours the hours of the whole lot
+     * @param baseQty the lot size
+     * @return the hours of one unit
+     */
+    static double unitHours(double lotHours, double baseQty) {
+        return baseQty <= 0.0 ? 0.0 : lotHours / baseQty;
+    }
+
+    /**
+     * Relative change between two values, in percent.
+     *
+     * @param from the value used today
+     * @param to the proposed value
+     * @return the change in percent, 0 when there is nothing to compare against
+     */
+    static double percentChange(double from, double to) {
+        return from == 0.0 ? 0.0 : (to - from) / from * 100.0;
+    }
+
+    /**
+     * Turns the curve of an estimate into the hours of one unit, and reads what the model uses today.
+     *
+     * @param delegator the delegator
+     * @param estimateId the stored estimate
+     * @param baseQtyParam the lot size to spread the curve over, empty takes the one of the estimate
+     * @param handlerContext context for the curve handler (it needs the locale)
+     * @return the proposal, with {@code canApply} saying whether it can be written back
+     * @throws GeneralException when the estimate or its history data cannot be read
+     * @throws GenericEntityException when the estimate cannot be read from the database
+     */
+    private static Map<String, Object> proposeHours(Delegator delegator, String estimateId, Object baseQtyParam,
+            Map<String, Object> handlerContext) throws GeneralException, GenericEntityException {
+        GenericValue estimate = EntityQuery.use(delegator).from("LearningCurveEstimate")
+                .where("estimateId", estimateId).queryOne();
+        if (estimate == null) {
+            return emptyHoursResult("找不到估算 " + estimateId);
+        }
+        String productCode = estimate.getString("productCode");
+        String measureType = estimate.getString("measureType");
+        double baseQty = toDouble(baseQtyParam, toDouble(estimate.get("newUnitNumber"), 0.0));
+        Long method = estimate.getLong("methodType");
+        int methodType = method == null ? I_OFBizLearningCurve.WRIGHT : method.intValue();
+        double leastSquare = toDouble(estimate.get("leastSquareTarget"), DEFAULT_LEAST_SQUARE);
+
+        Map<String, Object> result = emptyHoursResult(null);
+        result.put("estimateId", estimateId);
+        result.put("productCode", productCode == null ? "" : productCode);
+        result.put("measureType", measureType == null ? "" : measureType);
+        result.put("methodType", Long.valueOf(methodType));
+        result.put("slope", estimate.get("slope"));
+        result.put("intercept", estimate.get("intercept"));
+        result.put("baseQty", Double.valueOf(baseQty));
+
+        if (!MEASURE_HOURS.equals(measureType)) {
+            result.put("message", "这条估算按成本口径算的，没有工时可比；按工时口径重新估算后再回填");
+            return result;
+        }
+        if (baseQty <= 0.0) {
+            result.put("message", "基准批量要大于 0：它决定把曲线上的哪一批摊成单台工时");
+            return result;
+        }
+        Matrix history = parseHistoryData(estimate.getString("historyData"));
+        double lotHours = OFBizLearningCurveHandler.getInstance()
+                .getEstimate(leastSquare, history, baseQty, handlerContext, methodType);
+        double hours = unitHours(lotHours, baseQty);
+        result.put("estimateTotal", Double.valueOf(lotHours));
+        result.put("proposedUnitHours", Double.valueOf(hours));
+
+        GenericValue product = mesProduct(delegator, productCode);
+        if (product == null) {
+            result.put("message", "MES 里没有型号 " + productCode + "，先在产品页建好型号再回填");
+            return result;
+        }
+        double currentHours = toDouble(product.get("standardHours"), 0.0);
+        result.put("existsInMes", "Y");
+        result.put("currentHours", Double.valueOf(currentHours));
+        result.put("currentSource", textOrEmpty(product.getString("standardHoursSource")) == ""
+                ? HOURS_SOURCE_MANUAL : product.getString("standardHoursSource"));
+        result.put("currentBaseQty", Double.valueOf(toDouble(product.get("standardHoursBaseQty"), 0.0)));
+        result.put("currentRef", textOrEmpty(product.getString("standardHoursEstimateRef")));
+        result.put("deltaHours", Double.valueOf(hours - currentHours));
+        result.put("deltaPercent", Double.valueOf(percentChange(currentHours, hours)));
+        result.put("canApply", "Y");
+        return result;
+    }
+
+    /**
+     * Reads a model of the MES component; {@code null} when it is missing or that component is not
+     * deployed, which is not an error here - there is simply nothing to fill in.
+     *
+     * @param delegator the delegator
+     * @param productCode the model code
+     * @return the product row, or {@code null}
+     */
+    private static GenericValue mesProduct(Delegator delegator, String productCode) {
+        if (productCode == null) {
+            return null;
+        }
+        try {
+            return EntityQuery.use(delegator).from("MfgProduct").where("productCode", productCode).queryOne();
+        } catch (GenericEntityException e) {
+            return null;
+        }
+    }
+
+    /**
+     * Adds the last backfills of the model to a proposal, newest first.
+     *
+     * @param delegator the delegator
+     * @param result the proposal to complete
+     */
+    private static void appendApplyRows(Delegator delegator, Map<String, Object> result) {
+        List<Map<String, Object>> rows = new ArrayList<>();
+        Object productCode = result.get("productCode");
+        if (productCode != null && toText(productCode) != null) {
+            try {
+                List<GenericValue> applies = EntityQuery.use(delegator).from("LearningCurveHoursApply")
+                        .where("productCode", toText(productCode))
+                        .orderBy("-createdStamp").maxRows(APPLY_HISTORY).queryList();
+                for (GenericValue apply : applies) {
+                    Map<String, Object> row = new HashMap<>();
+                    row.put("applyId", apply.getString("applyId"));
+                    row.put("estimateId", apply.getString("estimateId"));
+                    row.put("baseQty", apply.get("baseQty"));
+                    row.put("oldHours", apply.get("oldHours"));
+                    row.put("newHours", apply.get("newHours"));
+                    row.put("appliedBy", apply.getString("appliedBy"));
+                    row.put("createdStamp", apply.get("createdStamp"));
+                    rows.add(row);
+                }
+            } catch (GenericEntityException e) {
+                rows.clear();
+            }
+        }
+        result.put("applies", rows);
+    }
+
+    /**
+     * Builds a proposal that carries the neutral values, so the page can render it without checks.
+     *
+     * @param message the reason why nothing can be written back, empty or {@code null} when it can
+     * @return the result map
+     */
+    private static Map<String, Object> emptyHoursResult(String message) {
+        Map<String, Object> result = ServiceUtil.returnSuccess();
+        result.put("estimateId", "");
+        result.put("productCode", "");
+        result.put("measureType", "");
+        result.put("methodType", Long.valueOf(0));
+        result.put("slope", Double.valueOf(0.0));
+        result.put("intercept", Double.valueOf(0.0));
+        result.put("baseQty", Double.valueOf(0.0));
+        result.put("estimateTotal", Double.valueOf(0.0));
+        result.put("proposedUnitHours", Double.valueOf(0.0));
+        result.put("currentHours", Double.valueOf(0.0));
+        result.put("currentSource", "");
+        result.put("currentBaseQty", Double.valueOf(0.0));
+        result.put("currentRef", "");
+        result.put("deltaHours", Double.valueOf(0.0));
+        result.put("deltaPercent", Double.valueOf(0.0));
+        result.put("existsInMes", "N");
+        result.put("canApply", "N");
+        result.put("applies", new ArrayList<Map<String, Object>>());
+        result.put("message", message == null ? "" : message);
+        return result;
+    }
+
+    /**
+     * Reads the login name out of the service context.
+     *
+     * @param userLogin the {@code userLogin} generic value, may be {@code null}
+     * @return the login name, {@code null} when the service was called without one
+     */
+    private static String appliedBy(Object userLogin) {
+        return userLogin instanceof GenericValue ? ((GenericValue) userLogin).getString("userLoginId") : null;
+    }
+
+    private static String textOrEmpty(String value) {
+        return value == null ? "" : value;
+    }
+
     // ==================== software quotes: size, effort, price ====================
 
     /** Parameters the software estimate understands, forwarded unchanged to the appliance component. */

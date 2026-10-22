@@ -298,6 +298,43 @@ public class LearningCurveServicesTest {
     }
 
     @Test
+    public void unitHoursSpreadTheLotOverItsSize() {
+        // the estimate of the next 5 units divided by those 5 units
+        assertEquals(88.0376, LearningCurveServices.unitHours(440.188, 5), 1e-6);
+        assertEquals(7.5, LearningCurveServices.unitHours(15, 2), 1e-9);
+    }
+
+    @Test
+    public void unitHoursOfAnEmptyLotAreZero() {
+        // never divide by an empty lot, the page would show NaN
+        assertEquals(0.0, LearningCurveServices.unitHours(100, 0), 1e-9);
+        assertEquals(0.0, LearningCurveServices.unitHours(100, -3), 1e-9);
+    }
+
+    @Test
+    public void percentChangeComparesTheProposalWithTheValueInUse() {
+        assertEquals(10.0, LearningCurveServices.percentChange(10, 11), 1e-9);
+        assertEquals(-25.0, LearningCurveServices.percentChange(8, 6), 1e-9);
+        // nothing to compare against: do not report an infinite change
+        assertEquals(0.0, LearningCurveServices.percentChange(0, 5), 1e-9);
+    }
+
+    @Test
+    public void curveHoursBecomeTheStandardHoursOfOneUnit() throws GeneralException {
+        Matrix history = LearningCurveServices.parseHistoryData("2:20;3:28;5:40");
+        Map<String, Object> handlerContext = new HashMap<>();
+        handlerContext.put("locale", Locale.ROOT);
+
+        double lotHours = OFBizLearningCurveHandler.getInstance()
+                .getEstimate(0.95, history, 20, handlerContext, I_OFBizLearningCurve.WRIGHT);
+        double unitHours = LearningCurveServices.unitHours(lotHours, 20);
+
+        // a lot further down the curve has to be cheaper per unit than the first batch (20/2 = 10 h)
+        assertTrue(unitHours > 0.0);
+        assertTrue(unitHours < 10.0);
+    }
+
+    @Test
     public void pdrSeriesIsOneUnitPerDelivery() {
         java.util.List<Map<String, Object>> rows = new java.util.ArrayList<>();
         rows.add(pdrRow("SW-1", 60.0));

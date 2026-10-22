@@ -191,7 +191,7 @@ https://localhost:8443/mfg/control/main
 
 | 实体 | 说明 |
 | --- | --- |
-| `MfgProduct` | 产品型号：`productCode`（主键）、`snPrefix`、`standardHours`、`laborRate`（工时费率，成本核算用）、`warrantyMonths`（保修月数，默认 12）、`devStageId`（开发阶段）、`currentBomVersionId`（当前 BOM 版本）、状态 |
+| `MfgProduct` | 产品型号：`productCode`（主键）、`snPrefix`（**≤ 10 字符**，空时取型号编码）、`standardHours`、`standardHoursSource`（`MANUAL` / `LEARNING_CURVE`）、`standardHoursBaseQty`、`standardHoursEstimateRef`、`laborRate`（工时费率，成本核算用）、`warrantyMonths`（保修月数，默认 12）、`devStageId`（开发阶段）、`currentBomVersionId`（当前 BOM 版本）、状态 |
 | `MfgBomItem` | 旧版单表 BOM 行（`productCode` + `lineSeq`）。**已停用**，首次读取时自动冻结为 `型号-V1` 版本，新代码只用版���表 |
 | `MfgBomVersion` | BOM 版本：`bomVersionId`（主键，`型号-Vn`）、`versionNo`、`statusId`（DRAFT/RELEASED/OBSOLETE）、`effectiveDate`、`basisVersionId`（从哪版复制）、`ecoId`（哪张变更单引入） |
 | `MfgBomVersionItem` | 版本内 BOM 行：`bomVersionId` + `lineSeq`（联合主键）、`componentCode`、`qty`、`designators`、`isKeyPart`、`unitPrice`（单价，成本核算用，可空） |
@@ -229,7 +229,7 @@ https://localhost:8443/mfg/control/main
 
 | 服务名 | 说明 |
 | --- | --- |
-| `mfgProductSave` / `mfgProductList` / `mfgProductDetail` | 型号维护与查询（含当前 BOM 版本的行、工艺路线、版本数） |
+| `mfgProductSave` / `mfgProductList` / `mfgProductDetail` | 型号维护与查询（含当前 BOM 版本的行、工艺路线、版本数）；工时改了就把 `standardHoursSource` 退回 `MANUAL`；`snPrefix` 超 10 字符直接报错（不填时默认取型号编码） |
 | `mfgBomImport` | 从 CSV 导入 BOM 到指定版本（缺省为当前版本），`replace=N` 时追加而不清空；第 6 列单价可空；**型号还没有版本时，导入的这个版本直接成为当前版本** |
 | `mfgBomVersionCreate` / `mfgBomVersionActivate` / `mfgBomVersionList` | 新建下一版（可复制当前行）、启用某版（旧版转废止、型号指向新版）、列出各版本 |
 | `mfgBomMigrateLegacy` | 把旧单表 BOM 冻结为版本（幂等，可重复调用） |
@@ -316,7 +316,7 @@ csv         = R0402-10K,10K 0402 resistor,4,R1-R4,N,0.05
 | 路径 | 说明 |
 | --- | --- |
 | `/mfg/control/main` | 工单列表 + 新建工单（含产品型号下拉） |
-| `/mfg/control/products?productCode=...` | 产品型号、**照片上传与删改**、**BOM 版本（查看/新建下一版/启用）**、BOM 导入（带单价）与工艺路线维护、**成本（单台 / 批量）**——材料/工时/合计、目标成本对比与毛利，缺单价会提示 |
+| `/mfg/control/products?productCode=...` | 产品型号、**照片上传与删改**、**BOM 版本（查看/新建下一版/启用）**、BOM 导入（带单价）与工艺路线维护、**成本（单台 / 批量）**——材料/工时/合计、目标成本对比与毛利，缺单价会提示；标准工时旁边注明来源（手工填写 / 学习曲线回填 + 基准台数 + 估算号） |
 | `/mfg/control/attachmentUpload` | POST multipart，字段 `file` + `ownerTypeId` + `ownerId` + `back`（回跳页面）+ 可选 `note` |
 | `/mfg/control/attachment?ownerTypeId=...&ownerId=...&seq=...` | 输出文件字节；`seq` 缺省取最新一件，`thumb=1` 对图片输出最长边 200px 的 JPEG 缩略图；PDF 直出 |
 | `/mfg/control/attachmentDelete` | POST `ownerTypeId` + `ownerId` + `seq` + `back`，删除后回跳 |
@@ -477,7 +477,7 @@ flowchart LR
 
     RPT -- "按 dueDate → createdStamp 排序<br/>没合格数或没报工工时的工单跳过" --> SVC
     RPT -- "按 reportDate 分日/周/月<br/>空期间跳过" --> PERSVC
-    KPI -. "斜率 / 标准工时人工回填（未自动写回）" .-> STD
+    KPI -- "回填单台工时（基准 N 台）" --> STD
 ```
 
 | 事项 | 说明 |
@@ -487,7 +487,7 @@ flowchart LR
 | 数据口径（按工单） | 数量 = 该工单报工合格数之和，数值 = 报工工时之和；一个工单折成一个批次 |
 | 数据口径（按期间） | 一个日 / ISO 周 / 月 = 一个批次，数量 = 该期间良品数之和，数值 = 该期间工时之和；与本组件报表页同一套口径 |
 | 会话 | `/mfg` 与 `/learningcurve` 的登录**互不共享**，脚本要分别登录；报表页的链接点过去要再登一次 |
-| 回填 | 拟合结果目前靠人看、手工填回 `MfgProduct.standardHours` / 报价，没有自动写回 |
+| 回填 | 拟合结果已经能一键写回 `MfgProduct.standardHours`（学习曲线详情页的「回填到型号标准工时」，旧值记在 `LearningCurveHoursApply`）；软件报价仍靠人看 |
 
 因此 `langhua-ofbiz-learningcurve` 的手工录入 `historyData` 已经被「按批次取的实际工时」与
 「按期间取的报表点数」替代，报表页那个链接就是直接入口。
@@ -588,7 +588,7 @@ java -cp "build/test-classes:ofbiz.jar:junit-4.13.2.jar:hamcrest-core-1.3.jar" \
 | `verify-m28.ps1` | 通用附件：页面上的宏、multipart 上传 → 列表 → 原图（`image/png`）→ 缩略图（`image/jpeg`）→ 下载文件名 → `err=type` / `err=nofile` / `err=owner` → 删除 → 404 → PDF 直出 → 开发项目 / 工单 / 售后单 / 出货单四处挂附件 | 59 |
 | `verify-m29.ps1` | 网站图标与导航标志：favicon、brand 图、四个尺寸、全站渲染（`/mfg` 与 `/learningcurve` 各登一次，两个 webapp 会话独立） | 43 |
 | `verify-m31.ps1` | 来料检验：四个状态、建批次 → 判不合格 → 发料被拒 → 让步接收 → 放行 | 21 |
-| `verify-m32.ps1` | 成本核算：产品页成本块（材料/工时/合计/目标成本/毛利）、批量重算、BOM 单价与金额列、无单价时告警、工单成本块（标准 vs 实际、发料后实际材料跟着批次单价走） | 38 |
+| `verify-m32.ps1` | 成本核算：产品页成本块（材料/工时/合计/目标成本/毛利）、**标准工时来源标记**、批量重算、BOM 单价与金额列、无单价时告警、工单成本块（标准 vs 实际、发料后实际材料跟着批次单价走） | 39 |
 | `verify-m33.ps1` | 看板告警与 CSV 导出：告警区结构、三个导出链接、`text/csv` 与下载头、表头列数、行内容（工单号、缺料元件、看板三段） | 30 |
 | `verify-m34.ps1` | 软件项目：导航项、估算试算（10 功能点 → 400 人时 / 50 人天 / 1.78 人月 / 44000 / 46640 / 48972）、保存与编号、台账的计划 vs 实际与实测耗时率、超期项目进看板告警 | 30 |
 | `verify-m35.ps1` | 报表与成本细化：报表页（导航、六个卡片、趋势表、日/周/月切换、未知口径回落、**喂进学习曲线的链接带区间与口径**）、两份 CSV（BOM + 表头列数 + 合计行 + 周标签）、产品页按工序分摊工时、工单页工序成本表与外协费表单与登记、开发页问题清单（登记 → 列表 → 关闭 → 重开） | 57 |
@@ -748,6 +748,12 @@ SMT 为外协，且对方**不提供上料 / 换料记录**，因此追溯精度
 
 - **标准工时优先看工序模板**：有工序就按工序工时合计（页面注明“按工序分摊”），没有才退回型号上的 `standardHours`；
   两者不一致时页面上会提醒，避免“改了工序但成本没变”；
+- **型号的标准工时能由学习曲线写回**：`standardHours` 旁边注明来源（`standardHoursSource`：学习曲线回填写
+  「学习曲线回填（基准 N 台，估算 ID）」，手填写「手工填写」）；在型号页改了数值，来源自动退回手工，
+  但学习曲线那边的回填台账（`LearningCurveHoursApply`）仍保留旧值；回填只改工时、不改 `laborRate`；
+- **型号的标准工时能由学习曲线写回**：`standardHours` 旁边注明来源（`standardHoursSource`：
+  学习曲线回填就写「基准 N 台，估算 ID」，手填就是「手工填写」）；在型号页改了数值，来源自动退回手工，
+  但学习曲线那边的回填台账（`LearningCurveHoursApply`）仍保留旧值；回填只改工时、不改 `laborRate`；
 - **外协加工费单列**：SMT 加工费、模具费、外发组装费记在工单上（`outsourceAmount`），计入实际成本；
   标准成本里没有这一项，所以差异给两个口径：不含外协（和以前可比）与含外协（真实的“这批到底花了多少”）；
 - **没填单价就说没填，不当成 0**：`unitPrice` 可空，缺价的 BOM 行 / 批次不计入金额，另给出
@@ -1071,6 +1077,6 @@ PDA/手机扫码作业、车间大屏、对外客户门户。
 
 - 订单–库存–生产这条线已经闭环（下单锁库 → 排产 → 完工回锁 → 出货核销 → 关单释放），库位有了，外协费也能按台/按点/整单拆着记并分摊到单台，
   报表的单台工时也已经能一键喂进学习曲线。
-- 学习曲线回填：拟合出来的斜率/标准工时目前靠人看、手工填回 `MfgProduct.standardHours`，还没有自动写回。
+- 学习曲线回填已经通了（曲线 → 型号标准工时 → 成本核算，旧值记台账），剩下的是报价那边还靠人看。
 - 淘宝订单号自动对单：需要走开放平台或导出表导入（千牛对接暂时不做）。
 - 告警往外推（钉钉/邮件）：目前只在看板与 CSV 里，一个人的团队够用，人多了再说。

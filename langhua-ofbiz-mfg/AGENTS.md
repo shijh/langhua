@@ -86,7 +86,7 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
 | `verify-m28b.ps1` | 通用附件（上传/列表/原图/缩略图/错误码/删除/PDF，覆盖产品/开发项目/工单/售后单/出货单） | 59 |
 | `verify-m29b.ps1` | 网站图标与导航标志（favicon、brand 图、四个尺寸、全站渲染，两个 webapp 各登一次） | 43 |
 | `verify-m31.ps1` | 来料检验：四个状态、建批次 → 判不合格 → 发料被拒 → 让步接收 → 放行 | 21 |
-| `verify-m32.ps1` | 成本核算：产品页成本块（材料/工时/合计/目标成本/毛利）、批量重算、BOM 单价与金额列、无单价告警、工单成本块（标准 vs 实际，发料后实际材料跟批次单价走） | 38 |
+| `verify-m32.ps1` | 成本核算：产品页成本块（材料/工时/合计/目标成本/毛利）、标准工时来源标记、批量重算、BOM 单价与金额列、无单价告警、工单成本块（标准 vs 实际，发料后实际材料跟批次单价走） | 39 |
 | `verify-m33.ps1` | 看板告警与 CSV 导出（告警区、三个导出链接、`text/csv` + 下载头、表头列数、行内容） | 30 |
 | `verify-m34.ps1` | 软件项目：估算试算、保存与编号、台账计划 vs 实际、实测耗时率、超期进告警 | 30 |
 | `verify-m35.ps1` | 报表与成本细化：报表页（卡片/趋势表/日周月切换/未知口径回落/喂进学习曲线的链接）、两份趋势 CSV（BOM + 列数 + 合计行）、产品页按工序分摊、工单页工序成本与外协费、开发页问题清单登记→关闭→重开 | 57 |
@@ -168,6 +168,8 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
 - **成本核算**：只算材料 + 工时两项，数据全在现有表里——`MfgBomVersionItem.unitPrice`（BOM 导入第 6 列）、
   `MfgProduct.laborRate` + `standardHours`、`MfgMaterialLot.unitPrice`（采购价）+ `MfgIssue`、`MfgReport.workHours`；
   **标准工时优先按工序模板汇总**（`MfgRouting.stdHours`，页面注“按工序分摊”），没模板才用型号 `standardHours`；
+  **型号标准工时有来源**（`standardHoursSource` = MANUAL / LEARNING_CURVE + `standardHoursBaseQty` + `standardHoursEstimateRef`，
+  学习曲线组件回填时写，型号页 `data-hours-source="..."` 渲染，手改数值时 `productSave` 退回 MANUAL）；
   工单另记 `MfgWorkOrder.outsourceAmount`（整单外协加工费），实际合计 = 材料 + 工时 + 外协，
   差异给“含外协 / 不含外协”两个口径；逐工序表（`operationCosts`）列出标准/实际/差异，
   报工里出现模板外的 `opSeq` 单列 `inRouting=false`，工时不能丢；
@@ -204,9 +206,9 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
 
 ## 兄弟组件 langhua-ofbiz-learningcurve
 
-- 部署到 `plugins/learningcurve`；`deploy-lc.bat`（`lc-deploy.txt`）、`run-tests.bat`（36 个单元测试，需要 jama
-  `C:\Users\...\.m2\repository\gov\nist\math\jama\1.0.3\jama-1.0.3.jar`）、`lc-it.bat`（39 项）、
-  `verify-lc.ps1`（68 项页面巡检）
+- 部署到 `plugins/learningcurve`；`deploy-lc.bat`（`lc-deploy.txt`）、`run-tests.bat`（40 个单元测试，需要 jama
+  `C:\Users\...\.m2\repository\gov\nist\math\jama\1.0.3\jama-1.0.3.jar`）、`lc-it.bat`（52 项）、
+  `verify-lc.ps1`（84 项页面巡检）
 - **它与本组件有数据联动（两个服务）**：`learningCurveMesBatches` 读本组件的 `MfgWorkOrder` + `MfgReport`，
   把每个工单折成一个批次（数量 = 报工合格数之和，数值 = 报工工时之和）喂给学习曲线；
   `learningCurveMesPeriods` 按 `reportDate` 分日/ISO 周/月，一个期间一个批次——与本组件报表页同一口径；
@@ -214,6 +216,12 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
 - 联动入口：报表页 `/mfg/control/reports` 尾部的「喂进学习曲线」链接带 `mesGroupBy` + `mesFrom` + `mesTo`，
   目标 `/learningcurve/control/main`（两个 webapp 会话不共享）；学习曲线那边只有带了这些参数才用期间取点，
   否则直接打开仍是样例数据
+- **学习曲线能把工时写回型号**（Step 47）：那边 `learningCurveApplyStandardHours` 直接改
+  `MfgProduct.standardHours` + `standardHoursSource='LEARNING_CURVE'` + `standardHoursBaseQty` + `standardHoursEstimateRef`，
+  所以改 `MfgProduct` 工时字段时要同步检查那边；`productSave` 发现数值变了会把来源退回 `MANUAL`
+- **`snPrefix` 是 `very-short`（10 字符）且默认取型号编码**：型号编码超过 10 位又不给 `snPrefix` 时，
+  过去是 Derby 报错→错误页（HTTP 200，巡检看不出来），现在 `productSave` 直接返回中文错误；
+  巡检脚本建型号用 `PSLC<HHmmss>` 这种 10 位码
 - 两个组件的关系图画在 `langhua-ofbiz-mfg/README.md` 的「与学习曲线组件的关系」（mermaid，
   两组件结构一致时的单一出处；孪生份在学习曲线 README 的「与 MES 联动」）
 - 屏幕 `main` / `records` / `recordDetail`，模板 `estimation.ftl` / `records.ftl` / `recordDetail.ftl`

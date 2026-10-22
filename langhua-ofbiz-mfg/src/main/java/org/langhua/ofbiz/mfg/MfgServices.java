@@ -49,6 +49,11 @@ public final class MfgServices {
     public static final String STATUS_ACTIVE = "MFG_ACTIVE";
     public static final String STATUS_INACTIVE = "MFG_INACTIVE";
 
+    /** Where the standard hours of a model came from: typed in on the product page. */
+    public static final String HOURS_SOURCE_MANUAL = "MANUAL";
+    /** Where the standard hours of a model came from: written back by the learning curve component. */
+    public static final String HOURS_SOURCE_CURVE = "LEARNING_CURVE";
+
     public static final String WO_CREATED = "MFG_CREATED";
     public static final String WO_IN_PROGRESS = "MFG_IN_PROGRESS";
     public static final String WO_COMPLETED = "MFG_COMPLETED";
@@ -317,8 +322,27 @@ public final class MfgServices {
             product.set("productCode", productCode);
             product.set("productName", toText(context.get("productName")));
             String snPrefix = toText(context.get("snPrefix"));
-            product.set("snPrefix", snPrefix == null ? productCode : snPrefix);
-            product.set("standardHours", Double.valueOf(toDouble(context.get("standardHours"), 0.0)));
+            if (snPrefix == null) {
+                snPrefix = productCode;
+            }
+            // snPrefix is a very-short field (10 characters): without this guard Derby refuses the
+            // row and the page only shows a database error
+            if (snPrefix.length() > 10) {
+                return ServiceUtil.returnError("SN 前缀最长 10 个字符（现在是 \"" + snPrefix
+                        + "\"）：不带前缀时它默认取型号编码，型号编码超过 10 位就要自己给一个短前缀");
+            }
+            product.set("snPrefix", snPrefix);
+            double newHours = toDouble(context.get("standardHours"), 0.0);
+            product.set("standardHours", Double.valueOf(newHours));
+            // hours changed by hand come from the shop floor again, not from a learning curve;
+            // the base quantity and the estimate reference are left as they are, the page only
+            // shows them while the source still says LEARNING_CURVE
+            GenericValue existing = EntityQuery.use(delegator).from("MfgProduct")
+                    .where("productCode", productCode).queryOne();
+            double storedHours = existing == null ? 0.0 : toDouble(existing.get("standardHours"), 0.0);
+            if (existing == null || Math.abs(storedHours - newHours) > 0.000001) {
+                product.set("standardHoursSource", HOURS_SOURCE_MANUAL);
+            }
             product.set("laborRate", optionalAmount(context.get("laborRate")));
             long warrantyMonths = toLong(context.get("warrantyMonths"), 12);
             product.set("warrantyMonths", Long.valueOf(warrantyMonths <= 0 ? 12 : warrantyMonths));
@@ -8893,6 +8917,11 @@ always
         map.put("productName", product.getString("productName"));
         map.put("snPrefix", product.getString("snPrefix"));
         map.put("standardHours", product.getDouble("standardHours"));
+        String hoursSource = product.getString("standardHoursSource");
+        // models created before the provenance was recorded are hand filled in by definition
+        map.put("standardHoursSource", hoursSource == null ? HOURS_SOURCE_MANUAL : hoursSource);
+        map.put("standardHoursBaseQty", product.getDouble("standardHoursBaseQty"));
+        map.put("standardHoursEstimateRef", product.getString("standardHoursEstimateRef"));
         map.put("laborRate", product.get("laborRate"));
         map.put("warrantyMonths", product.getLong("warrantyMonths"));
         map.put("salePrice", product.getDouble("salePrice"));

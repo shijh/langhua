@@ -7,6 +7,7 @@
 <#assign e = (ch.estimate)!{}>
 <#assign batches = (ch.batches)![]>
 <#assign points = (ch.points)![]>
+<#assign h = (hours)!{}>
 <#assign maxX = (ch.maxX)!1>
 <#assign maxY = (ch.maxY)!1>
 <#if maxX <= 0><#assign maxX = 1></#if>
@@ -71,6 +72,62 @@
             </tr>
         </#list>
     </table>
+
+    <h2>回填成 MES 型号的标准工时</h2>
+    <#if (parameters.applied!'') == 'Y'>
+        <p class="ok">已回填：型号的标准工时已按这条曲线更新，旧值记在下面的台账里。</p>
+    </#if>
+    <#if ((h.proposedUnitHours)!0) gt 0>
+        <p class="hint">曲线给出的不是「某一台」的工时，而是「下一批」的工时；这里按基准批量摊成单台，
+            写进 MES 型号 <code>${h.productCode!}</code> 的标准工时（型号页会注明来源与基准）。</p>
+        <table id="hoursPreview">
+            <tr>
+                <th>基准批量（台）</th>
+                <th class="num">该批合计工时</th>
+                <th class="num">单台工时（曲线）</th>
+                <th class="num">MES 现用标准工时</th>
+                <th class="num">差额</th>
+                <th>MES 现用来源</th>
+            </tr>
+            <tr>
+                <td>${(h.baseQty)?string("0.##")}</td>
+                <td class="num">${(h.estimateTotal)?string("0.###")}</td>
+                <td class="num">${(h.proposedUnitHours)?string("0.###")}</td>
+                <td class="num"><#if (h.existsInMes!'') == 'Y'>${(h.currentHours)?string("0.###")}<#else>—</#if></td>
+                <td class="num"><#if (h.existsInMes!'') == 'Y'><#if ((h.deltaHours)!0) gte 0>+</#if>${(h.deltaHours)?string("0.###")}（<#if ((h.deltaPercent)!0) gte 0>+</#if>${(h.deltaPercent)?string("0.#")}%）<#else>—</#if></td>
+                <td data-source="${(h.currentSource)!''}"><#if (h.currentSource!'') == 'LEARNING_CURVE'>学习曲线回填（基准 ${((h.currentBaseQty)!0)?string("0.##")} 台，估算 ${(h.currentRef)!''}）<#elseif (h.currentSource!'') == 'MANUAL'>手工填写<#else>—</#if></td>
+            </tr>
+        </table>
+        <#if (h.canApply!'') == 'Y'>
+            <form method="post" action="/learningcurve/control/standardHoursApply">
+                <p>
+                    <input type="hidden" name="estimateId" value="${e.estimateId}"/>
+                    基准批量 <input type="text" name="baseQty" size="6" value="${(h.baseQty)?string("0.##")}"/>
+                    <input type="submit" value="回填到型号标准工时"/>
+                    <span class="hint">回填会覆盖型号上现有的标准工时，旧值记在下面的台账里；成本核算立刻按新工时算。</span>
+                </p>
+            </form>
+        <#else>
+            <p class="hint">${(h.message)!'这条估算暂时不能回填'}</p>
+        </#if>
+    <#else>
+        <p class="hint">${(h.message)!'这条估算暂时不能回填'}</p>
+    </#if>
+    <#if (h.applies)?has_content>
+        <table id="hoursApplyTable">
+            <tr><th>时间</th><th>估算</th><th class="num">基准批量</th><th class="num">原工时</th><th class="num">新工时</th><th>操作人</th></tr>
+            <#list h.applies as row>
+                <tr>
+                    <td><#if row.createdStamp??>${row.createdStamp?string("yyyy-MM-dd HH:mm")}</#if></td>
+                    <td><a href="/learningcurve/control/recordDetail?estimateId=${row.estimateId!}">${row.estimateId!}</a></td>
+                    <td class="num">${((row.baseQty)!0)?string("0.##")}</td>
+                    <td class="num">${((row.oldHours)!0)?string("0.###")}</td>
+                    <td class="num">${((row.newHours)!0)?string("0.###")}</td>
+                    <td>${row.appliedBy!''}</td>
+                </tr>
+            </#list>
+        </table>
+    </#if>
 
     <h2>原始输入</h2>
     <p><code>${e.historyData!}</code></p>

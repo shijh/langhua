@@ -4,4 +4,5 @@
     <entity-group group="org.apache.ofbiz" entity="LearningCurveEstimate"/>
     <entity-group group="org.apache.ofbiz" entity="LearningCurveBatch"/>
     <entity-group group="org.apache.ofbiz" entity="LearningCurveSoftwareQuote"/>
+    <entity-group group="org.apache.ofbiz" entity="LearningCurveHoursApply"/>
 </entitygroup>

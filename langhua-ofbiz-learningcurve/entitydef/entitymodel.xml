@@ -89,4 +89,27 @@
             <index-field name="createdStamp"/>
         </index>
     </entity>
+    <entity entity-name="LearningCurveHoursApply"
+            package-name="org.langhua.ofbiz.learningcurve"
+            title="Standard hours written back to the MES model">
+        <description>One backfill: the curve of an estimate turned into the standard hours of a model, kept so the old value is never lost</description>
+        <field name="applyId" type="id"><description>Primary key</description></field>
+        <field name="productCode" type="short-varchar"><description>Model whose standard hours were written</description></field>
+        <field name="estimateId" type="id"><description>Estimate the hours came from</description></field>
+        <field name="baseQty" type="floating-point"><description>Lot size the curve was asked about, the hours are that lot divided by it</description></field>
+        <field name="oldHours" type="floating-point"><description>Standard hours before the backfill</description></field>
+        <field name="newHours" type="floating-point"><description>Standard hours after the backfill</description></field>
+        <field name="methodType" type="numeric"><description>1 = Wright, 2 = Crawford</description></field>
+        <field name="slope" type="floating-point"><description>Fitted slope at the time of the backfill</description></field>
+        <field name="intercept" type="floating-point"><description>Fitted intercept at the time of the backfill</description></field>
+        <field name="appliedBy" type="name"><description>Who pressed the button, empty for a service call</description></field>
+        <field name="createdStamp" type="date-time"/>
+        <field name="createdTxStamp" type="date-time"/>
+        <field name="lastUpdatedStamp" type="date-time"/>
+        <field name="lastUpdatedTxStamp" type="date-time"/>
+        <prim-key field="applyId"/>
+        <index name="LC_APPLY_PRODUCT" unique="false">
+            <index-field name="productCode"/>
+        </index>
+    </entity>
 </entitymodel>

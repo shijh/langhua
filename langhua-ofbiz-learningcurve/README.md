@@ -79,6 +79,8 @@ Windows 下用 `gradlew.bat`，`JAVA_HOME` 指向 JDK 17。
 | `learningCurveSaveSoftwareQuote` | 报价并**保存快照**（参数 + 结果），返回 `quoteId` |
 | `learningCurveListSoftwareQuotes` | 已保存报价列表（倒序）与合计，`lastQuote` 给表单当默认值 |
 | `learningCurvePdrForecast` | 读 MES 软件台账里已完成项目的实测耗时率（工时 ÷ 功能点数），用 Wright 曲线预测下一个项目的耗时率 |
+| `learningCurveStandardHours` | **回填预览**：把曲线给出的下一批工时摊成单台，与 MES 型号现用的标准工时对比（不写库） |
+| `learningCurveApplyStandardHours` | **回填**：把单台工时写进 MES 型号的 `standardHours`，并记一行 `LearningCurveHoursApply` 台账（旧值不丢） |
 
 参数说明：
 
@@ -116,12 +118,13 @@ https://localhost:8443/learningcurve/control/main
 | `/learningcurve/control/main` | 估算表单：产品型号、口径（成本/工时）、历史批次、待估算单位数、期望 R²、方法；上方可选「从 MES 取历史批次」与「从 MES 报表取点」（按日/周/月，带起止日期） |
 | `POST /learningcurve/control/estimate` | 调用 `learningCurveSaveEstimate` 保存记录，跳转到详情页 |
 | `/learningcurve/control/records` | 记录列表，可按产品型号筛选 |
-| `/learningcurve/control/recordDetail?estimateId=...` | 详情：估算结果、历史批次、趋势图（SVG）、CSV 下载 |
+| `/learningcurve/control/recordDetail?estimateId=...` | 详情：估算结果、历史批次、趋势图（SVG）、CSV 下载、**回填成 MES 型号标准工时**（预览 + 回填 + 台账） |
 | `/learningcurve/control/exportCsv?estimateId=...` | 导出该记录为 CSV（`text/csv`） |
 | `/learningcurve/control/quote` | **软件报价**：功能点规模 + 可调参数（功能点耗时率、日费率、税率、直接非人力成本率、软件因素四项）→ 人时 / 人天 / 工期 / 税前 / 含税 / 合计，并可保存报价；上方给“下一个项目耗时率预测” |
 | `POST /learningcurve/control/quoteSave` | 调用 `learningCurveSaveSoftwareQuote` 保存报价（参数 + 结果快照） |
 | `/learningcurve/control/exportQuotesCsv` | 导出全部报价为 CSV（UTF-8 带 BOM，Excel 直接开） |
 | `POST /learningcurve/control/quoteToProject` | 把一条保存好的报价**建为 MES 的软件项目**（带类别），重复点不会重复建 |
+| `POST /learningcurve/control/standardHoursApply` | 把工时口径的估算回填成 MES 型号的标准工时（`estimateId` + `baseQty`）；回填后跳到详情页带 `applied=Y` |
 
 ## 软件报价：功能点口径的一支
 
@@ -153,7 +156,8 @@ https://localhost:8443/learningcurve/control/main
 
 所有算式集中在这里，四步：**批次 → 绘图点 → 对数拟合 → 估算**。页面不参与计算，数字都来自服务
 （`LearningCurveServices` + `OFBizLearningCurveHandler`）；改文案只改模板，改口径改这里列的常量。
-第 6 节是「按期间生成批次」的求和口径（与 MES 报表页同源），软件报价的四步在 MES 那边（第 5 节）。
+第 6 节是「按期间生成批次」的求和口径（与 MES 报表页同源），软件报价的四步在 MES 那边（第 5 节），
+第 7 节是把曲线写回型号标准工时的摊算口径。
 
 ### 1. 批次转绘图点
 
@@ -224,6 +228,28 @@ MES 报表页的汇总口径搬过来当一个「批次生成器」，本身没�
 
 生成的串仍是 `数量:工时;数量:工时;...`，按时间正序，直接进第 1 节的 Wright / Crawford 拟合。
 
+### 7. 曲线回填成标准工时（`learningCurveStandardHours` / `learningCurveApplyStandardHours`）
+
+拟合出来的斜率只有「看」的价值，得落回型号主档才会进成本核算。回填口径就是页面上的「估算单位值」：
+
+| 量 | 公式 |
+| --- | --- |
+| 基准批量 $n$ | 回填时填的台数（默认取估算里的「待估算单位数」），$n \le 0$ 拒绝回填 |
+| 该批合计工时 $H$ | 第 3 节按 $x_0$（历史累计量）、$n$ 算出的估算总额（用估算当时的斜率/截距/期望 R²，不重拟合） |
+| 单台标准工时 | $h = H \big/ n$ |
+| 差额 | $\Delta h = h - h_{\text{现用}}$；相对差额 $= \Delta h \big/ h_{\text{现用}} \times 100\%$ |
+
+回填时写 `MfgProduct.standardHours = h`、`standardHoursSource = LEARNING_CURVE`、
+`standardHoursBaseQty = n`、`standardHoursEstimateRef = estimateId`，并新增一行 `LearningCurveHoursApply`
+（`oldHours` / `newHours` / `baseQty` / 斜率 / 截距 / 操作人）。
+
+规则：
+
+- **只有工时口径（`HOURS`）的估算能回填**——成本口径的点没有「小时/台」的含义，页面明确拒绝；
+- 型号不存在（MES 没这个型号，或 MES 没部署）只提示，不报错；
+- 手工改型号的标准工时（MES 型号页保存时数值变了）来源自动退回 `MANUAL`，回填记录仍在台账里；
+- `LearningCurveHoursApply` 只增不改：同一个估算回填两次就有两行，看得出中间谁改过。
+
 ## 与 MES 联动：直接从工单取历史批次
 
 手工敲 `2:200;3:285;5:450` 容易抄错，而 MES 组件（`langhua-ofbiz-mfg`）里本来就有真实的批次数据。
@@ -257,7 +283,7 @@ flowchart LR
 
     RPT -- "按 dueDate → createdStamp 排序<br/>没合格数或没报工工时的工单跳过" --> SVC
     RPT -- "按 reportDate 分日/周/月<br/>空期间跳过" --> PERSVC
-    KPI -. "斜率 / 标准工时人工回填（未自动写回）" .-> STD
+    KPI -- "回填单台工时（基准 20 台）" --> STD
 ```
 
 - 只有 **MES → 本组件** 这一个方向：本组件读 MES 的表，MES 不知道本组件的存在；
@@ -288,6 +314,18 @@ flowchart LR
 - 结果填进历史批次数据并把口径切成「工时」——与「从 MES 取历史批次」同样的用法；
 - 与报表页同一套口径，所以 MES 报表页右下角有一个「喂进学习曲线」链接，把当前区间与汇总口径带过来；
 - **没带 `mesGroupBy` / `mesFrom` / `mesTo` 时不生效**：直接打开估算页仍是样例数据，不会被车间数据默默覆盖。
+
+### 回填成 MES 型号的标准工时
+
+估算详情页最后一块「回填成 MES 型号的标准工时」把曲线落回型号主档（算式见第 7 节）：
+
+- 预览表给出**基准批量 / 该批合计工时 / 单台工时（曲线）/ MES 现用标准工时 / 差额 / 现用来源**；
+- 基准批量默认为估算里的「待估算单位数」，可以改（例如按下一批 20 台摊）；
+- 「回填到型号标准工时」只对**工时口径**的估算出现；成本口径、型号不存在、批量 ≤ 0 都只给提示；
+- 回填后台账表（`LearningCurveHoursApply`）列出每次回填的时间、估算号、基准批量、原值、新值与操作人，
+  旧值因此不会丢；
+- MES 型号页的标准工时旁边会注明「学习曲线回填（基准 N 台，估算 ID）」，手工改过就退回「手工填写」；
+- 回填只写 `standardHours`，**不动 `laborRate`**：费率是财务口径，不由曲线给。
 
 ### 页面布局：单一装饰器
 
@@ -344,9 +382,12 @@ flowchart LR
 | --- | --- |
 | `LearningCurveEstimate` | 估算记录头：`estimateId`（主键）、`productCode`、`measureType`、`methodType`、`leastSquareTarget`、`newUnitNumber`、`estimateTotal`、`estimateUnit`、`slope`、`intercept`、`leastSquareActual`、`qualifiedRows`、`filteredRows`、`historyData`、四个审计时间戳 |
 | `LearningCurveBatch` | 历史批次明细：`estimateId` + `batchSeq`（联合主键）、`lotSize`、`lotValue`；通过 `LC_BATCH_EST` 关联头记录 |
+| `LearningCurveSoftwareQuote` | 软件报价快照：参数 + 结果一起存，改费率不影响历史报价 |
+| `LearningCurveHoursApply` | 标准工时回填台账：`applyId`（主键）、`productCode`、`estimateId`、`baseQty`、`oldHours`、`newHours`、`methodType`、`slope`、`intercept`、`appliedBy`；**只增不改** |
 
-首次启动时 OFBiz 会根据 `entitydef/entitymodel.xml` 自动建表（Derby 下为 `LEARNING_CURVE_ESTIMATE`、`LEARNING_CURVE_BATCH`）。
+首次启动时 OFBiz 会根据 `entitydef/entitymodel.xml` 自动建表（Derby 下为 `LEARNING_CURVE_ESTIMATE`、`LEARNING_CURVE_BATCH` 等）。
 字段类型使用 OFBiz 24.09 的定义（注意：`id-ne` 等旧类型已不存在，主键用 `id`，整数用 `numeric` → Java `Long`）。
+回填写入的 `MfgProduct.standardHours*` 三个字段属于 MES 组件，见那份 README。
 
 ## 中文编码注意
 
@@ -372,9 +413,10 @@ flowchart LR
 `scheduleServiceSync` + `_RUN_SYNC_=Y`）真正调用服务，覆盖 `learningCurveEstimate` 的 Wright、Crawford
 两种算法与非法输入，并通过 `learningCurveSaveEstimate` / `learningCurveListEstimates` /
 `learningCurveChartData` 验证「保存 → 列表 → 详情图表」整条链路（含数据库写入），
-最后还跑一遍软件报价（`learningCurveSoftwareQuote` → 保存 → 列表）、耗时率预测（`learningCurvePdrForecast`）
-与 MES 报表取点（`learningCurveMesPeriods`），
-共 **39 项断言**，全部通过时退出码为 0。
+最后还跑一遍软件报价（`learningCurveSoftwareQuote` → 保存 → 列表）、耗时率预测（`learningCurvePdrForecast`）、
+MES 报表取点（`learningCurveMesPeriods`）与标准工时回填（建型号 → 估工时 → 预览 → 回填 → 回读，
+成本口径被拒），
+共 **52 项断言**，全部通过时退出码为 0。
 
 前置条件：OFBiz 已启动、已执行 `loadAll`、组件已部署。
 
@@ -399,10 +441,11 @@ java -cp "build/test-classes:src/main/java:ofbiz.jar:jama-1.0.3.jar:junit-4.13.2
       org.langhua.ofbiz.learningcurve.LearningCurveServicesTest
 ```
 
-目前共 **36 个用例**：其中 4 个专门覆盖 MES 取数的规则（工单 → 批次换算、跳过没有合格数/工时的工单、
+目前共 **40 个用例**：其中 4 个专门覆盖 MES 取数的规则（工单 → 批次换算、跳过没有合格数/工时的工单、
 小数点固定为 `.`、空列表不报错），4 个覆盖报表按期间取点（日/周/月分桶与求和、跳过空期间、
-未知口径回落 WEEK 且小数点固定为 `.`、空列表不报错），2 个覆盖耗时率序列（一个交付一个点、空序列）。
-页面巡检分两组：`verify-lc.ps1`（68 项，主页面 / 记录 / 详情 / 取数链路 / 报表按期间取点）与 `verify-lcq.ps1`
+未知口径回落 WEEK 且小数点固定为 `.`、空列表不报错），4 个覆盖回填（批量摊成单台、空批量不除零、
+差额百分比、曲线给出的单台工时要低于首批），2 个覆盖耗时率序列（一个交付一个点、空序列）。
+页面巡检分两组：`verify-lc.ps1`（84 项，主页面 / 记录 / 详情 / 取数链路 / 报表按期间取点 / 标准工时回填）与 `verify-lcq.ps1`
 （37 项，软件报价：导航项、参数默认值、400 人时 / 50 人天 / 1.78 人月 / 88000 / 93280 / 97944、
 保存后回显、下次默认沿用上次参数、同尺寸重算结果一致、报价 CSV 下载、报价转项目与重复点击不多建）。
 

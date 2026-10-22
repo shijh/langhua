@@ -83,6 +83,7 @@ public final class LearningCurveServiceIT {
             it.quotesSoftware();
             it.forecastsTheProductivity();
             it.readsShopFloorPeriods();
+            it.appliesTheCurveAsStandardHours();
         } finally {
             it.tearDown();
         }
@@ -314,6 +315,103 @@ public final class LearningCurveServiceIT {
                 "no groupBy in response");
         check("mes periods: no service error", !periods.body.contains("errorMessage"),
                 "service reported an error");
+    }
+
+    /**
+     * Writes the hours of a curve back into the standard hours of a model of the MES component: the
+     * preview proposes a value, the apply stores it with an audit row, and a cost estimate has to be
+     * refused because it says nothing about hours.
+     *
+     * @throws IOException when a service call fails
+     */
+    private void appliesTheCurveAsStandardHours() throws IOException {
+        String productCode = "LCIT" + (System.currentTimeMillis() % 1000000L);
+
+        Map<String, String> product = new LinkedHashMap<>();
+        product.put("SERVICE_NAME", "mfgProductSave");
+        product.put("_RUN_SYNC_", "Y");
+        product.put("productCode", productCode);
+        product.put("productName", "IT standard hours model");
+        product.put("standardHours", "9");
+        product.put("laborRate", "120");
+        Response created = post("/webtools/control/scheduleServiceSync", product);
+        check("hours: the MES model is created",
+                created.status == 200 && !created.body.contains("errorMessage"),
+                "HTTP " + created.status + " " + valueOf(created.body, "errorMessage"));
+
+        Map<String, String> estimateForm = new LinkedHashMap<>();
+        estimateForm.put("SERVICE_NAME", "learningCurveSaveEstimate");
+        estimateForm.put("_RUN_SYNC_", "Y");
+        estimateForm.put("productCode", productCode);
+        estimateForm.put("measureType", "HOURS");
+        estimateForm.put("historyData", "2:20;3:28;5:40");
+        estimateForm.put("newUnitNumber", "5");
+        estimateForm.put("leastSquare", "0.9");
+        estimateForm.put("methodType", "1");
+        String estimateId = extractEstimateId(post("/webtools/control/scheduleServiceSync", estimateForm).body);
+        check("hours: the hours estimate is stored", estimateId != null, "could not parse estimateId");
+        if (estimateId == null) {
+            return;
+        }
+
+        Map<String, String> previewForm = new LinkedHashMap<>();
+        previewForm.put("SERVICE_NAME", "learningCurveStandardHours");
+        previewForm.put("_RUN_SYNC_", "Y");
+        previewForm.put("estimateId", estimateId);
+        previewForm.put("baseQty", "5");
+        Response preview = post("/webtools/control/scheduleServiceSync", previewForm);
+
+        String proposedText = valueOf(preview.body, "proposedUnitHours");
+        check("hours: the preview proposes unit hours", proposedText != null, "no proposedUnitHours");
+        check("hours: the model is found in MES", "Y".equals(valueOf(preview.body, "existsInMes")),
+                "existsInMes=" + valueOf(preview.body, "existsInMes"));
+        check("hours: it can be applied", "Y".equals(valueOf(preview.body, "canApply")),
+                "canApply=" + valueOf(preview.body, "canApply"));
+        check("hours: the hours in use are read", "9.0".equals(valueOf(preview.body, "currentHours")),
+                "currentHours=" + valueOf(preview.body, "currentHours"));
+
+        Map<String, String> applyForm = new LinkedHashMap<>();
+        applyForm.put("SERVICE_NAME", "learningCurveApplyStandardHours");
+        applyForm.put("_RUN_SYNC_", "Y");
+        applyForm.put("estimateId", estimateId);
+        applyForm.put("baseQty", "5");
+        Response applied = post("/webtools/control/scheduleServiceSync", applyForm);
+        check("hours: the apply reports success", "Y".equals(valueOf(applied.body, "applied")),
+                "applied=" + valueOf(applied.body, "applied"));
+        check("hours: the old value is kept in the audit", "9.0".equals(valueOf(applied.body, "oldHours")),
+                "oldHours=" + valueOf(applied.body, "oldHours"));
+        check("hours: an audit row is written", valueOf(applied.body, "applyId") != null, "no applyId");
+
+        // reading the proposal again shows what the model carries now
+        Response after = post("/webtools/control/scheduleServiceSync", previewForm);
+        check("hours: the model now says the hours come from the curve",
+                "LEARNING_CURVE".equals(valueOf(after.body, "currentSource")),
+                "currentSource=" + valueOf(after.body, "currentSource"));
+        double proposed = proposedText == null ? -1.0 : Double.parseDouble(proposedText);
+        String storedText = valueOf(after.body, "currentHours");
+        double stored = storedText == null ? -2.0 : Double.parseDouble(storedText);
+        check("hours: the model holds the value of the curve", Math.abs(stored - proposed) < 1e-6,
+                "stored " + storedText + " against " + proposedText);
+
+        Map<String, String> costForm = new LinkedHashMap<>();
+        costForm.put("SERVICE_NAME", "learningCurveSaveEstimate");
+        costForm.put("_RUN_SYNC_", "Y");
+        costForm.put("productCode", productCode);
+        costForm.put("measureType", "COST");
+        costForm.put("historyData", "2:200;3:285;5:450");
+        costForm.put("newUnitNumber", "5");
+        String costEstimateId = extractEstimateId(post("/webtools/control/scheduleServiceSync", costForm).body);
+        check("hours: a cost estimate is stored for the refusal", costEstimateId != null, "no estimate id");
+        if (costEstimateId != null) {
+            Map<String, String> costApplyForm = new LinkedHashMap<>();
+            costApplyForm.put("SERVICE_NAME", "learningCurveApplyStandardHours");
+            costApplyForm.put("_RUN_SYNC_", "Y");
+            costApplyForm.put("estimateId", costEstimateId);
+            Response refused = post("/webtools/control/scheduleServiceSync", costApplyForm);
+            check("hours: a cost estimate cannot become standard hours",
+                    refused.body.contains("errorMessage") && !"Y".equals(valueOf(refused.body, "applied")),
+                    "the apply did not refuse");
+        }
     }
 
     /**

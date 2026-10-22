@@ -109,6 +109,11 @@
                 <service service-name="learningCurveChartData" result-map="chart" auto-field-map="false">
                     <field-map field-name="estimateId" from-field="parameters.estimateId"/>
                 </service>
+                <!-- optional: what the curve would mean as the standard hours of the MES model -->
+                <service service-name="learningCurveStandardHours" result-map="hours" auto-field-map="false">
+                    <field-map field-name="estimateId" from-field="parameters.estimateId"/>
+                    <field-map field-name="baseQty" from-field="parameters.baseQty"/>
+                </service>
             </actions>
             <widgets>
                 <decorator-screen name="lc-decorator" location="component://learningcurve/widget/LearningCurveCommonScreens.xml">

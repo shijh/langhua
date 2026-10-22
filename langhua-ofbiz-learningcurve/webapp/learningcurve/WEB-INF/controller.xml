@@ -58,6 +58,17 @@
         <response name="success" type="view" value="recordDetail"/>
     </request-map>
 
+    <!-- write the hours of a curve back into the standard hours of the MES model -->
+    <request-map uri="standardHoursApply">
+        <security https="true" auth="true"/>
+        <event type="service" invoke="learningCurveApplyStandardHours"/>
+        <response name="success" type="request-redirect" value="recordDetail">
+            <redirect-parameter name="estimateId"/>
+            <redirect-parameter name="applied"/>
+        </response>
+        <response name="error" type="view" value="recordDetail"/>
+    </request-map>
+
     <request-map uri="exportCsv">
         <security https="true" auth="true"/>
         <event type="java" path="org.langhua.ofbiz.learningcurve.LearningCurveEvents" invoke="exportEstimateCsv"/>

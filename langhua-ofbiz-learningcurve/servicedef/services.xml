@@ -249,4 +249,55 @@
         <attribute name="projectCode" type="String" mode="OUT" optional="true"/>
         <attribute name="message" type="String" mode="OUT" optional="true"/>
     </service>
+
+    <!--
+        Writing a curve back as the standard hours of the MES model: the hours the curve predicts
+        for the next baseQty units, divided by baseQty, become MfgProduct.standardHours.
+        The preview changes nothing, the apply keeps a LearningCurveHoursApply row with the old value.
+    -->
+    <service name="learningCurveStandardHours" engine="java"
+            location="org.langhua.ofbiz.learningcurve.LearningCurveServices" invoke="standardHours"
+            auth="false" export="false" validate="true">
+        <description>Work out the standard hours a stored curve would give a model, without changing anything</description>
+        <attribute name="estimateId" type="String" mode="IN" optional="true"/>
+        <attribute name="baseQty" type="Double" mode="IN" optional="true">
+            <description>Lot size to spread the curve over; empty takes the one of the estimate</description>
+        </attribute>
+        <attribute name="estimateId" type="String" mode="OUT" optional="true"/>
+        <attribute name="productCode" type="String" mode="OUT" optional="true"/>
+        <attribute name="measureType" type="String" mode="OUT" optional="true"/>
+        <attribute name="methodType" type="Integer" mode="OUT" optional="true"/>
+        <attribute name="slope" type="Double" mode="OUT" optional="true"/>
+        <attribute name="intercept" type="Double" mode="OUT" optional="true"/>
+        <attribute name="baseQty" type="Double" mode="OUT" optional="true"/>
+        <attribute name="estimateTotal" type="Double" mode="OUT" optional="true"/>
+        <attribute name="proposedUnitHours" type="Double" mode="OUT" optional="true"/>
+        <attribute name="currentHours" type="Double" mode="OUT" optional="true"/>
+        <attribute name="currentSource" type="String" mode="OUT" optional="true"/>
+        <attribute name="currentBaseQty" type="Double" mode="OUT" optional="true"/>
+        <attribute name="currentRef" type="String" mode="OUT" optional="true"/>
+        <attribute name="deltaHours" type="Double" mode="OUT" optional="true"/>
+        <attribute name="deltaPercent" type="Double" mode="OUT" optional="true"/>
+        <attribute name="existsInMes" type="String" mode="OUT" optional="true"/>
+        <attribute name="canApply" type="String" mode="OUT" optional="true"/>
+        <attribute name="applies" type="java.util.List" mode="OUT" optional="true"/>
+        <attribute name="message" type="String" mode="OUT" optional="true"/>
+    </service>
+
+    <service name="learningCurveApplyStandardHours" engine="java"
+            location="org.langhua.ofbiz.learningcurve.LearningCurveServices" invoke="applyStandardHours"
+            auth="false" export="false" validate="true">
+        <description>Write the hours of a stored curve into the standard hours of the MES model and keep the old value</description>
+        <attribute name="estimateId" type="String" mode="IN" optional="false"/>
+        <attribute name="baseQty" type="Double" mode="IN" optional="true"/>
+        <attribute name="userLogin" type="org.apache.ofbiz.entity.GenericValue" mode="IN" optional="true"/>
+        <attribute name="applyId" type="String" mode="OUT" optional="true"/>
+        <attribute name="estimateId" type="String" mode="OUT" optional="true"/>
+        <attribute name="productCode" type="String" mode="OUT" optional="true"/>
+        <attribute name="baseQty" type="Double" mode="OUT" optional="true"/>
+        <attribute name="oldHours" type="Double" mode="OUT" optional="true"/>
+        <attribute name="appliedHours" type="Double" mode="OUT" optional="true"/>
+        <attribute name="applied" type="String" mode="OUT" optional="true"/>
+        <attribute name="message" type="String" mode="OUT" optional="true"/>
+    </service>
 </services>

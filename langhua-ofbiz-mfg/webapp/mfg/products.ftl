@@ -51,7 +51,7 @@
             型号编码 <input type="text" name="productCode" size="10" value="${product.productCode!''}"/>
             名称 <input type="text" name="productName" size="22" value="${product.productName!''}"/>
             SN 前缀 <input type="text" name="snPrefix" size="8" value="${product.snPrefix!''}"/>
-            标准工时/台 <input type="text" name="standardHours" size="6" value="<#if product.standardHours??>${product.standardHours?string("0.##")}</#if>"/>
+            标准工时/台 <input type="text" name="standardHours" size="6" value="<#if product.standardHours??>${product.standardHours?string("0.##")}</#if>" data-hours-source="${(product.standardHoursSource)!''}"/><#if (product.standardHoursSource!'') == 'LEARNING_CURVE'><span class="hint">（学习曲线回填，基准 ${((product.standardHoursBaseQty)!0)?string("0.##")} 台，估算 ${(product.standardHoursEstimateRef)!''}）</span><#else><span class="hint">（手工填写）</span></#if>
             工时费率 <input type="text" name="laborRate" size="6" value="<#if product.laborRate??>${product.laborRate?string("0.##")}</#if>" title="元/小时，用于成本核算"/>
             保修月数 <input type="text" name="warrantyMonths" size="4" value="${product.warrantyMonths!12}"/>
             售价 <input type="text" name="salePrice" size="7" value="${product.salePrice!0}"/>
