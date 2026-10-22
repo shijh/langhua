@@ -122,6 +122,10 @@ input:focus, select:focus, textarea:focus {
     outline-offset: -1px;
     border-color: var(--accent);
 }
+/* a picker with long option texts (security groups) must not stretch the whole page */
+select.compact { max-width: 26em; }
+/* short, structured values (a state, a date) should never break into a vertical word */
+.nowrap { white-space: nowrap; }
 input[type="submit"], button {
     background: var(--accent);
     color: #ffffff;

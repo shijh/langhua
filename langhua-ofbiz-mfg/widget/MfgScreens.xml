@@ -694,8 +694,7 @@
         </section>
     </screen>
     <!-- After sales quality -->
-    <screen name="quality">
-        <section>
+    <screen name="quality">        <section>
             <actions>
                 <set field="title" value="Quality"/>
                 <set field="pageTitle" value="质量指标"/>
@@ -711,6 +710,28 @@
                         <platform-specific>
                             <html>
                                 <html-template location="component://mfg/webapp/mfg/quality.ftl"/>
+                            </html>
+                        </platform-specific>
+                    </decorator-section>
+                </decorator-screen>
+            </widgets>
+        </section>
+    </screen>
+    <!-- User accounts -->
+    <screen name="users">
+        <section>
+            <actions>
+                <set field="title" value="User Accounts"/>
+                <set field="pageTitle" value="用户账号"/>
+                <set field="activeMenu" value="users"/>
+                <service service-name="mfgUserList" result-map="accountList" auto-field-map="true"/>
+            </actions>
+            <widgets>
+                <decorator-screen name="mfg-decorator" location="component://mfg/widget/MfgCommonScreens.xml">
+                    <decorator-section name="body">
+                        <platform-specific>
+                            <html>
+                                <html-template location="component://mfg/webapp/mfg/users.ftl"/>
                             </html>
                         </platform-specific>
                     </decorator-section>

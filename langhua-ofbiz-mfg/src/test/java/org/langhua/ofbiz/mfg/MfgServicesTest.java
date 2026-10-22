@@ -998,4 +998,34 @@ public class MfgServicesTest {
         assertTrue(MfgServices.isKnownOutsourceBasis(MfgServices.OUTSRC_PER_POINT));
         assertFalse(MfgServices.isKnownOutsourceBasis("MFG_OUTSRC_BOGUS"));
     }
+
+    @Test
+    public void normalizesAccountNames() {
+        // trimmed and lowered, so Admin and admin cannot become two accounts
+        assertEquals("zhang.san", MfgServices.normalizeAccountName("  Zhang.San  "));
+        assertEquals("wh-01", MfgServices.normalizeAccountName("WH-01"));
+        assertNull(MfgServices.normalizeAccountName("   "));
+        assertNull(MfgServices.normalizeAccountName(null));
+    }
+
+    @Test
+    public void checksAccountNames() {
+        assertNull(MfgServices.accountNameProblem("zhang.san"));
+        assertNull(MfgServices.accountNameProblem("wh_01"));
+        assertNull(MfgServices.accountNameProblem("a1234567890123456789"));
+        // empty, too long (the field is id-ne = 20) or with characters OFBiz does not expect
+        assertEquals("账号不能为空", MfgServices.accountNameProblem(null));
+        assertEquals("账号最多 20 个字符", MfgServices.accountNameProblem("a12345678901234567890"));
+        assertEquals("账号只能用字母、数字、点、下划线、短横线", MfgServices.accountNameProblem("张 三"));
+        assertEquals("账号只能用字母、数字、点、下划线、短横线", MfgServices.accountNameProblem("zhang san"));
+    }
+
+    @Test
+    public void joinsThePersonName() {
+        assertEquals("张 三", MfgServices.displayNameOf("张", null, "三"));
+        assertEquals("San Zhang", MfgServices.displayNameOf("San", null, "Zhang"));
+        // the middle name is rare here but must not leave a double space
+        assertEquals("San Q Zhang", MfgServices.displayNameOf("San", "Q", "Zhang"));
+        assertEquals("", MfgServices.displayNameOf(null, "  ", null));
+    }
 }

@@ -72,6 +72,7 @@
     <@navItem 'dashboard' '/mfg/control/dashboard' '看板'/>
     <@navItem 'reports' '/mfg/control/reports' '报表'/>
     <@navItem 'sn' '/mfg/control/sn' 'SN 查询'/>
+    <@navItem 'users' '/mfg/control/users' '用户账号'/>
 </p>
 
 <#if sections??>${sections.render("body")}</#if>

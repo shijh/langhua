@@ -32,7 +32,10 @@ import org.apache.ofbiz.common.login.LoginServices;
 import org.apache.ofbiz.entity.Delegator;
 import org.apache.ofbiz.entity.GenericEntityException;
 import org.apache.ofbiz.entity.GenericValue;
+import org.apache.ofbiz.entity.condition.EntityCondition;
+import org.apache.ofbiz.entity.condition.EntityOperator;
 import org.apache.ofbiz.entity.util.EntityQuery;
+import org.apache.ofbiz.entity.util.EntityUtil;
 import org.apache.ofbiz.entity.util.EntityUtilProperties;
 import org.apache.ofbiz.service.DispatchContext;
 import org.apache.ofbiz.service.GenericServiceException;
@@ -313,6 +316,7 @@ public final class MfgServices {
 
     private static final DateTimeFormatter DAY = DateTimeFormatter.ofPattern("yyMMdd");
     private static final DateTimeFormatter MONTH_DAY = DateTimeFormatter.ofPattern("MM-dd");
+    private static final DateTimeFormatter FULL_DAY = DateTimeFormatter.ofPattern("yyyy-MM-dd");
 
     private MfgServices() {
     }
@@ -443,6 +447,520 @@ public final class MfgServices {
         boolean useEncryption = "true".equals(
                 EntityUtilProperties.getPropertyValue("security", "password.encrypt", delegator));
         return LoginServices.checkPassword(storedPassword, useEncryption, password);
+    }
+
+    /**
+     * Security group new accounts are put in by default, and the one the group picker lists first.
+     * It is the only group a fresh OFBiz database defines, so it is the only safe default.
+     */
+    public static final String ACCOUNT_ADMIN_GROUP = "SUPER";
+
+    /** The {@code UserLogin.userLoginId} field is {@code id-ne}, so an account name cannot be longer. */
+    private static final int MAX_ACCOUNT_NAME = 20;
+
+    /**
+     * Lists the accounts with the person behind each one, its security group and whether it still
+     * uses the default password.
+     *
+     * <p>Never returns an error: the page is reachable by every logged in user, so a user without
+     * the administrator group just gets {@code canManage=N} and a message instead of a form.
+     *
+     * @param dctx the dispatch context
+     * @param context service context, see {@code servicedef/services.xml#mfgUserList}
+     * @return the service result with {@code rows}, {@code groupOptions}, {@code canManage}
+     */
+    public static Map<String, Object> userList(DispatchContext dctx, Map<String, ? extends Object> context) {
+        Delegator delegator = dctx.getDelegator();
+        List<Map<String, Object>> rows = new ArrayList<>();
+        List<Map<String, Object>> groups = new ArrayList<>();
+        Map<String, Object> result = ServiceUtil.returnSuccess();
+        result.put("rows", rows);
+        result.put("groupOptions", groups);
+        result.put("canManage", "N");
+        result.put("message", "");
+        result.put("totalCount", Long.valueOf(0));
+        GenericValue userLogin = (GenericValue) context.get("userLogin");
+        if (userLogin == null) {
+            return result;
+        }
+        try {
+            String caller = userLogin.getString("userLoginId");
+            String denied = accountAdminProblem(dctx, userLogin);
+            result.put("canManage", denied == null ? "Y" : "N");
+            result.put("message", denied == null ? "" : denied);
+            result.put("currentUserLoginId", caller == null ? "" : caller);
+            if (denied != null) {
+                // the account names are not shown to somebody who may not manage them
+                return result;
+            }
+            for (GenericValue group : EntityQuery.use(delegator).from("SecurityGroup").orderBy("groupId").queryList()) {
+                String groupId = group.getString("groupId");
+                if (!usableGroups(delegator).contains(groupId)) {
+                    continue;
+                }
+                Map<String, Object> option = new LinkedHashMap<>();
+                option.put("groupId", groupId);
+                String description = toText(group.getString("description"));
+                option.put("description", description == null ? toText(group.getString("groupName")) : description);
+                groups.add(option);
+            }
+            // the administrator group first: that is what almost every new account needs
+            Collections.sort(groups, new Comparator<Map<String, Object>>() {
+                @Override
+                public int compare(Map<String, Object> left, Map<String, Object> right) {
+                    String leftId = String.valueOf(left.get("groupId"));
+                    String rightId = String.valueOf(right.get("groupId"));
+                    if (ACCOUNT_ADMIN_GROUP.equals(leftId) != ACCOUNT_ADMIN_GROUP.equals(rightId)) {
+                        return ACCOUNT_ADMIN_GROUP.equals(leftId) ? -1 : 1;
+                    }
+                    return leftId.compareTo(rightId);
+                }
+            });
+            for (GenericValue login : EntityQuery.use(delegator).from("UserLogin").orderBy("userLoginId").queryList()) {
+                String userLoginId = login.getString("userLoginId");
+                Map<String, Object> row = new LinkedHashMap<>();
+                row.put("userLoginId", userLoginId);
+                row.put("partyId", toText(login.getString("partyId")));
+                row.put("personName", personNameOf(delegator, login.getString("partyId")));
+                row.put("enabled", "N".equals(login.getString("enabled")) ? "N" : "Y");
+                List<String> groupIds = groupIdsOf(delegator, userLoginId);
+                row.put("groups", groupIds.isEmpty() ? "" : String.join(" / ", groupIds));
+                row.put("groupIds", groupIds);
+                row.put("defaultPassword", isDefaultPassword(delegator, login.getString("currentPassword")) ? "Y" : "N");
+                row.put("self", userLoginId != null && userLoginId.equals(caller) ? "Y" : "N");
+                row.put("createdDate", dayText(login.getTimestamp("createdStamp")));
+                rows.add(row);
+            }
+            result.put("totalCount", Long.valueOf(rows.size()));
+            return result;
+        } catch (GenericEntityException e) {
+            return ServiceUtil.returnError("读取账号失败：" + e.getMessage());
+        }
+    }
+
+    /**
+     * Creates an account (person + user login + security group) or updates the name, the security
+     * group and the enabled flag of an existing one. An existing password is never changed here:
+     * that is {@link #userResetPassword(DispatchContext, Map)}.
+     *
+     * @param dctx the dispatch context
+     * @param context service context, see {@code servicedef/services.xml#mfgUserSave}
+     * @return the service result with {@code userLoginId} and {@code created} ({@code Y} on insert)
+     */
+    public static Map<String, Object> userSave(DispatchContext dctx, Map<String, ? extends Object> context) {
+        Delegator delegator = dctx.getDelegator();
+        GenericValue userLogin = (GenericValue) context.get("userLogin");
+        if (userLogin == null) {
+            return ServiceUtil.returnError("请先登录");
+        }
+        String caller = userLogin.getString("userLoginId");
+        String denied = accountAdminProblem(dctx, userLogin);
+        if (denied != null) {
+            return ServiceUtil.returnError(denied);
+        }
+        String userLoginId = normalizeAccountName(context.get("userLoginId"));
+        String problem = accountNameProblem(userLoginId);
+        if (problem != null) {
+            return ServiceUtil.returnError(problem);
+        }
+        String personName = toText(context.get("personName"));
+        String groupId = toText(context.get("groupId"));
+        String enabled = "N".equalsIgnoreCase(String.valueOf(context.get("enabled"))) ? "N" : "Y";
+        try {
+            GenericValue existing = findUserLogin(delegator, userLoginId);
+            boolean created = existing == null;
+            if (created) {
+                String password = toText(context.get("password"));
+                if (password == null) {
+                    password = DEFAULT_PASSWORD;
+                }
+                if (password.length() < 5) {
+                    return ServiceUtil.returnError("初始密码至少 5 个字符");
+                }
+                if (groupId == null) {
+                    groupId = ACCOUNT_ADMIN_GROUP;
+                }
+                if (!securityGroupExists(delegator, groupId)) {
+                    return ServiceUtil.returnError("安全组不存在：" + groupId);
+                }
+                Map<String, Object> createContext = new HashMap<>();
+                createContext.put("userLogin", userLogin);
+                createContext.put("userLoginId", userLoginId);
+                createContext.put("firstName", personName == null ? userLoginId : personName);
+                createContext.put("lastName", "");
+                createContext.put("currentPassword", password);
+                createContext.put("currentPasswordVerify", password);
+                createContext.put("passwordHint", toText(context.get("passwordHint")));
+                createContext.put("enabled", enabled);
+                createContext.put("requirePasswordChange", "N");
+                Map<String, Object> createdResult =
+                        dctx.getDispatcher().runSync("createPersonAndUserLogin", createContext, -1, true);
+                if (ServiceUtil.isError(createdResult)) {
+                    return copyErrors(createdResult);
+                }
+                existing = findUserLogin(delegator, userLoginId);
+                if (existing == null) {
+                    return ServiceUtil.returnError("账号创建失败，请重试");
+                }
+                replaceSecurityGroup(delegator, existing.getString("userLoginId"), groupId);
+            } else {
+                String actualId = existing.getString("userLoginId");
+                boolean self = actualId != null && actualId.equals(caller);
+                if (self && "N".equals(enabled)) {
+                    return ServiceUtil.returnError("不能停用当前登录的账号");
+                }
+                if (self && groupId != null && !groupIdsOf(delegator, actualId).contains(groupId)) {
+                    return ServiceUtil.returnError("不能修改当前登录账号自己的安全组，否则可能就管不了账号了");
+                }
+                if (personName != null) {
+                    renamePerson(delegator, existing.getString("partyId"), personName);
+                }
+                String currentEnabled = "N".equals(existing.getString("enabled")) ? "N" : "Y";
+                if (!enabled.equals(currentEnabled)) {
+                    Map<String, Object> securityContext = new HashMap<>();
+                    securityContext.put("userLogin", userLogin);
+                    securityContext.put("userLoginId", actualId);
+                    securityContext.put("enabled", enabled);
+                    Map<String, Object> changed =
+                            dctx.getDispatcher().runSync("updateUserLoginSecurity", securityContext, -1, true);
+                    if (ServiceUtil.isError(changed)) {
+                        return copyErrors(changed);
+                    }
+                }
+                if (groupId != null) {
+                    if (!securityGroupExists(delegator, groupId)) {
+                        return ServiceUtil.returnError("安全组不存在：" + groupId);
+                    }
+                    replaceSecurityGroup(delegator, actualId, groupId);
+                }
+                userLoginId = actualId;
+            }
+            Map<String, Object> result = ServiceUtil.returnSuccess(created ? "账号已创建" : "账号已更新");
+            result.put("account", userLoginId);
+            result.put("created", created ? "Y" : "N");
+            return result;
+        } catch (GenericEntityException | GenericServiceException e) {
+            return ServiceUtil.returnError("保存账号失败：" + e.getMessage());
+        }
+    }
+
+    /**
+     * Puts the account back on the password of a fresh database, which makes the password gate
+     * force a new one at the next login.
+     *
+     * @param dctx the dispatch context
+     * @param context service context, see {@code servicedef/services.xml#mfgUserResetPassword}
+     * @return the service result with {@code userLoginId}
+     */
+    public static Map<String, Object> userResetPassword(DispatchContext dctx, Map<String, ? extends Object> context) {
+        Delegator delegator = dctx.getDelegator();
+        GenericValue userLogin = (GenericValue) context.get("userLogin");
+        if (userLogin == null) {
+            return ServiceUtil.returnError("请先登录");
+        }
+        String denied = accountAdminProblem(dctx, userLogin);
+        if (denied != null) {
+            return ServiceUtil.returnError(denied);
+        }
+        String userLoginId = normalizeAccountName(context.get("userLoginId"));
+        if (userLoginId == null) {
+            return ServiceUtil.returnError("请选择要重置的账号");
+        }
+        try {
+            GenericValue target = findUserLogin(delegator, userLoginId);
+            if (target == null) {
+                return ServiceUtil.returnError("账号不存在：" + userLoginId);
+            }
+            Map<String, Object> updateContext = new HashMap<>();
+            updateContext.put("userLogin", userLogin);
+            updateContext.put("userLoginId", target.getString("userLoginId"));
+            updateContext.put("newPassword", DEFAULT_PASSWORD);
+            updateContext.put("newPasswordVerify", DEFAULT_PASSWORD);
+            updateContext.put("requirePasswordChange", "N");
+            Map<String, Object> updated = dctx.getDispatcher().runSync("updatePassword", updateContext, -1, true);
+            if (ServiceUtil.isError(updated)) {
+                return copyErrors(updated);
+            }
+            Map<String, Object> result = ServiceUtil.returnSuccess(
+                    "密码已重置为出厂密码，该账号下次登录会被要求修改");
+            result.put("userLoginId", target.getString("userLoginId"));
+            result.put("reset", "Y");
+            return result;
+        } catch (GenericEntityException | GenericServiceException e) {
+            return ServiceUtil.returnError("重置密码失败：" + e.getMessage());
+        }
+    }
+
+    /**
+     * Trims an account name and lowers it, so {@code Admin} and {@code admin} cannot become two
+     * different accounts.
+     *
+     * @param raw the value typed in
+     * @return the normalized name or {@code null} when it is empty
+     */
+    static String normalizeAccountName(Object raw) {
+        String text = toText(raw);
+        return text == null ? null : text.toLowerCase(Locale.ROOT);
+    }
+
+    /**
+     * Checks an account name against the rules of the page (letters, digits, dot, dash, underscore;
+     * at most 20 characters because the field is {@code id-ne}).
+     *
+     * @param userLoginId the normalized account name
+     * @return the message to show, or {@code null} when the name is usable
+     */
+    static String accountNameProblem(String userLoginId) {
+        if (userLoginId == null) {
+            return "账号不能为空";
+        }
+        if (userLoginId.length() > MAX_ACCOUNT_NAME) {
+            return "账号最多 " + MAX_ACCOUNT_NAME + " 个字符";
+        }
+        if (!userLoginId.matches("[a-z0-9._-]+")) {
+            return "账号只能用字母、数字、点、下划线、短横线";
+        }
+        return null;
+    }
+
+    /**
+     * Builds the name shown in the account list from the columns of {@code Person}.
+     *
+     * @param firstName first name
+     * @param middleName middle name
+     * @param lastName last name
+     * @return the joined name, empty when all parts are empty
+     */
+    static String displayNameOf(String firstName, String middleName, String lastName) {
+        StringBuilder name = new StringBuilder();
+        for (String part : new String[] {firstName, middleName, lastName}) {
+            String text = toText(part);
+            if (text != null) {
+                if (name.length() > 0) {
+                    name.append(' ');
+                }
+                name.append(text);
+            }
+        }
+        return name.toString();
+    }
+
+    /**
+     * Says why the account may not manage other accounts.
+     *
+     * <p>Uses the same rule OFBiz applies before it lets an account reset the password of another
+     * one ({@code PARTYMGR_UPDATE} / {@code PARTYMGR_ADMIN}), so a development database where the
+     * administrator sits in {@code FULLADMIN} behaves like a fresh one where it sits in
+     * {@code SUPER}.
+     *
+     * @param dctx the dispatch context
+     * @param userLogin the logged in account
+     * @return the message to show, or {@code null} when the account may manage accounts
+     */
+    private static String accountAdminProblem(DispatchContext dctx, GenericValue userLogin) {
+        if (userLogin == null) {
+            return "请先登录";
+        }
+        if (dctx.getSecurity() != null && dctx.getSecurity().hasEntityPermission("PARTYMGR", "_UPDATE", userLogin)) {
+            return null;
+        }
+        return "只有管理员可以管理账号";
+    }
+
+    /**
+     * Returns the security groups that can open this component at all, so the page does not
+     * offer every framework group of the installation.
+     *
+     * <p>A group qualifies when it carries one of the permissions of the two components
+     * ({@code OFBTOOLS_VIEW} to enter a webapp, or one of the {@code MFG_*} /
+     * {@code LEARNINGCURVE_*} permissions). The administrator group is always included.
+     *
+     * @param delegator the delegator
+     * @return the usable group ids
+     * @throws GenericEntityException when the permissions cannot be read
+     */
+    private static Set<String> usableGroups(Delegator delegator) throws GenericEntityException {
+        Set<String> groupIds = new LinkedHashSet<>();
+        groupIds.add(ACCOUNT_ADMIN_GROUP);
+        EntityCondition permissionFilter = EntityCondition.makeCondition("permissionId", EntityOperator.IN,
+                java.util.Arrays.asList("OFBTOOLS_VIEW", "MFG_VIEW", "MFG_ADMIN", "LEARNINGCURVE_VIEW",
+                        "LEARNINGCURVE_ADMIN"));
+        List<GenericValue> grants = EntityQuery.use(delegator).from("SecurityGroupPermission")
+                .where(permissionFilter).queryList();
+        for (GenericValue grant : EntityUtil.filterByDate(grants)) {
+            String groupId = grant.getString("groupId");
+            if (groupId != null) {
+                groupIds.add(groupId);
+            }
+        }
+        return groupIds;
+    }
+
+    /**
+     * Returns the security groups of an account that are valid today.
+     *
+     * @param delegator the delegator
+     * @param userLoginId the account
+     * @return the group ids, possibly empty
+     * @throws GenericEntityException when the memberships cannot be read
+     */
+    private static List<String> groupIdsOf(Delegator delegator, String userLoginId) throws GenericEntityException {
+        List<String> groupIds = new ArrayList<>();
+        if (userLoginId == null) {
+            return groupIds;
+        }
+        List<GenericValue> memberships = EntityQuery.use(delegator).from("UserLoginSecurityGroup")
+                .where("userLoginId", userLoginId).orderBy("groupId").queryList();
+        for (GenericValue membership : EntityUtil.filterByDate(memberships)) {
+            groupIds.add(membership.getString("groupId"));
+        }
+        return groupIds;
+    }
+
+    /**
+     * Finds an account ignoring the case of the name, the way OFBiz checks for duplicates.
+     *
+     * @param delegator the delegator
+     * @param userLoginId the account name
+     * @return the row or {@code null}
+     * @throws GenericEntityException when the accounts cannot be read
+     */
+    private static GenericValue findUserLogin(Delegator delegator, String userLoginId) throws GenericEntityException {
+        if (userLoginId == null) {
+            return null;
+        }
+        for (GenericValue login : EntityQuery.use(delegator).from("UserLogin").queryList()) {
+            String existing = login.getString("userLoginId");
+            if (existing != null && existing.equalsIgnoreCase(userLoginId)) {
+                return login;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Says whether a security group exists, so a typo does not end up as a foreign key error.
+     *
+     * @param delegator the delegator
+     * @param groupId the group id
+     * @return {@code true} when the group exists
+     * @throws GenericEntityException when the group cannot be read
+     */
+    private static boolean securityGroupExists(Delegator delegator, String groupId) throws GenericEntityException {
+        return EntityQuery.use(delegator).from("SecurityGroup").where("groupId", groupId).queryOne() != null;
+    }
+
+    /**
+     * Makes {@code groupId} the only active security group of the account, so the page has a single
+     * group picker instead of a matrix of memberships.
+     *
+     * @param delegator the delegator
+     * @param userLoginId the account
+     * @param groupId the group to keep
+     * @throws GenericEntityException when the memberships cannot be written
+     */
+    private static void replaceSecurityGroup(Delegator delegator, String userLoginId, String groupId)
+            throws GenericEntityException {
+        Timestamp now = new Timestamp(System.currentTimeMillis());
+        boolean kept = false;
+        for (GenericValue membership : EntityQuery.use(delegator).from("UserLoginSecurityGroup")
+                .where("userLoginId", userLoginId).queryList()) {
+            String existingGroup = membership.getString("groupId");
+            Timestamp thruDate = membership.getTimestamp("thruDate");
+            boolean active = thruDate == null || thruDate.after(now);
+            if (groupId.equals(existingGroup)) {
+                if (!active) {
+                    membership.set("thruDate", null);
+                    membership.store();
+                }
+                kept = true;
+            } else if (active) {
+                membership.set("thruDate", now);
+                membership.store();
+            }
+        }
+        if (!kept) {
+            Map<String, Object> values = new HashMap<>();
+            values.put("userLoginId", userLoginId);
+            values.put("groupId", groupId);
+            values.put("fromDate", now);
+            delegator.create("UserLoginSecurityGroup", values);
+        }
+    }
+
+    /**
+     * Renames the person behind an account.
+     *
+     * @param delegator the delegator
+     * @param partyId the party of the account, may be empty
+     * @param personName the new name
+     * @throws GenericEntityException when the person cannot be written
+     */
+    private static void renamePerson(Delegator delegator, String partyId, String personName)
+            throws GenericEntityException {
+        if (partyId == null) {
+            return;
+        }
+        GenericValue person = EntityQuery.use(delegator).from("Person").where("partyId", partyId).queryOne();
+        if (person == null) {
+            return;
+        }
+        if (!personName.equals(displayNameOf(person.getString("firstName"), person.getString("middleName"),
+                person.getString("lastName")))) {
+            person.set("firstName", personName);
+            person.set("middleName", null);
+            person.set("lastName", "");
+            person.store();
+        }
+    }
+
+    /**
+     * Returns the name of the person behind an account, falling back to the party id.
+     *
+     * @param delegator the delegator
+     * @param partyId the party of the account, may be empty
+     * @return the name, never {@code null}
+     * @throws GenericEntityException when the person cannot be read
+     */
+    private static String personNameOf(Delegator delegator, String partyId) throws GenericEntityException {
+        if (partyId == null) {
+            return "";
+        }
+        GenericValue person = EntityQuery.use(delegator).from("Person").where("partyId", partyId).queryOne();
+        if (person == null) {
+            return partyId;
+        }
+        String name = displayNameOf(person.getString("firstName"), person.getString("middleName"),
+                person.getString("lastName"));
+        return name.isEmpty() ? partyId : name;
+    }
+
+    /**
+     * Copies the messages of a failed service call into a new error result.
+     *
+     * @param failed the result of the failed call
+     * @return the error result to hand back
+     */
+    private static Map<String, Object> copyErrors(Map<String, Object> failed) {
+        Object errors = failed.get("errorMessageList");
+        if (errors instanceof List) {
+            List<String> messages = new ArrayList<>();
+            for (Object error : (List<?>) errors) {
+                messages.add(String.valueOf(error));
+            }
+            return ServiceUtil.returnError(messages);
+        }
+        return ServiceUtil.returnError(ServiceUtil.getErrorMessage(failed));
+    }
+
+    /**
+     * Formats the day part of a timestamp for the account list.
+     *
+     * @param value the timestamp, may be {@code null}
+     * @return {@code yyyy-MM-dd} or an empty string
+     */
+    private static String dayText(Timestamp value) {
+        return value == null ? "" : value.toLocalDateTime().format(FULL_DAY);
     }
 
     /**

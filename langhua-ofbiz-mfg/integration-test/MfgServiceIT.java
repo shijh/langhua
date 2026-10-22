@@ -203,6 +203,7 @@ public final class MfgServiceIT {
             it.quotesAndTracksSoftware();
             it.runsSalesOrders();
             it.movesStockBetweenLocations();
+            it.managesUserAccounts();
         } finally {
             it.tearDown();
         }
@@ -1698,6 +1699,87 @@ public final class MfgServiceIT {
         form.put("_RUN_SYNC_", "Y");
         form.putAll(parameters);
         return post("/webtools/control/scheduleServiceSync", form);
+    }
+
+    /**
+     * Runs the user management page: create an account that starts on the default password, list
+     * it, reset the password, disable it, and the guards that keep an administrator from locking
+     * himself out of the page.
+     *
+     * @throws IOException when a service call fails
+     */
+    private void managesUserAccounts() throws IOException {
+        String account = "itu" + new java.text.SimpleDateFormat("HHmmss").format(new java.util.Date());
+
+        Map<String, String> createForm = new LinkedHashMap<>();
+        createForm.put("userLoginId", account);
+        createForm.put("personName", "IT store keeper");
+        createForm.put("groupId", "SUPER");
+        createForm.put("enabled", "Y");
+        Response created = invoke("mfgUserSave", createForm);
+        check("accounts: create returns HTTP 200", created.status == 200, "HTTP " + created.status);
+        check("accounts: the account is created", !created.body.contains("errorMessage"),
+                "the service refused the new account");
+
+        Response list = invoke("mfgUserList", new LinkedHashMap<String, String>());
+        check("accounts: list returns HTTP 200", list.status == 200, "HTTP " + list.status);
+        check("accounts: the new account is listed", list.body.contains("userLoginId:" + account),
+                "account missing from the list");
+        // webtools renders the rows as "userLoginId:x, partyId:y, ..., defaultPassword:Y"
+        check("accounts: the account starts on the default password",
+                java.util.regex.Pattern.compile("userLoginId:" + account + "[^\\]]*defaultPassword:Y")
+                        .matcher(list.body).find(), "no default password flag");
+        check("accounts: the chosen security group is stored",
+                java.util.regex.Pattern.compile("userLoginId:" + account + "[^\\]]*groups:SUPER")
+                        .matcher(list.body).find(), "group not applied");
+
+        // the same name in another case updates that account instead of creating a second one
+        Map<String, String> renameForm = new LinkedHashMap<>();
+        renameForm.put("userLoginId", account.toUpperCase(java.util.Locale.ROOT));
+        renameForm.put("personName", "IT store keeper 2");
+        Response renamed = invoke("mfgUserSave", renameForm);
+        check("accounts: an existing account is updated", renamed.status == 200
+                && !renamed.body.contains("errorMessage"), "update refused");
+        Response secondList = invoke("mfgUserList", new LinkedHashMap<String, String>());
+        java.util.regex.Matcher rows = java.util.regex.Pattern.compile("userLoginId:" + account + ",")
+                .matcher(secondList.body);
+        int occurrences = 0;
+        while (rows.find()) {
+            occurrences++;
+        }
+        check("accounts: the account is not created twice", occurrences == 1,
+                occurrences + " rows for " + account);
+
+        Map<String, String> resetForm = new LinkedHashMap<>();
+        resetForm.put("userLoginId", account);
+        Response reset = invoke("mfgUserResetPassword", resetForm);
+        check("accounts: the password reset is accepted", reset.status == 200
+                && !reset.body.contains("errorMessage"), "reset failed");
+
+        Map<String, String> disableForm = new LinkedHashMap<>();
+        disableForm.put("userLoginId", account);
+        disableForm.put("enabled", "N");
+        Response disabled = invoke("mfgUserSave", disableForm);
+        check("accounts: the account can be disabled", disabled.status == 200
+                && !disabled.body.contains("errorMessage"), "disable failed");
+        Response afterDisable = invoke("mfgUserList", new LinkedHashMap<String, String>());
+        check("accounts: the account is reported as disabled",
+                java.util.regex.Pattern.compile("userLoginId:" + account + "[^\\]]*enabled:N")
+                        .matcher(afterDisable.body).find(), "still enabled");
+
+        Map<String, String> selfForm = new LinkedHashMap<>();
+        selfForm.put("userLoginId", "admin");
+        selfForm.put("enabled", "N");
+        Response self = invoke("mfgUserSave", selfForm);
+        check("accounts: the logged in account cannot disable itself",
+                self.body.contains("errorMessage"), "self disable allowed");
+
+        Map<String, String> badForm = new LinkedHashMap<>();
+        badForm.put("userLoginId", "bad account");
+        Response bad = invoke("mfgUserSave", badForm);
+        check("accounts: an invalid account name is rejected",
+                bad.body.contains("errorMessage"), "invalid name accepted");
+        // the account created here stays on purpose, disabled, so a later run can be compared
     }
 
     /**

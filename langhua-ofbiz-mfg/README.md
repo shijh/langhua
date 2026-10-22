@@ -242,6 +242,29 @@ https://localhost:8443/mfg/control/main
 
 > 门禁只管「当前登录用户仍是出厂密码」这一种情况；换成别的弱密码它不管，安全边界靠运维自己把握（小厂内网使用）。
 
+### 用户账号（加人 / 停人 / 重置密码）
+
+`/mfg/control/users`（导航最后一项「用户账号」）是给老板/管理员用的账号页，不用去 OFBiz 原生的 Party Manager：
+
+| 做什么 | 怎么用 |
+| --- | --- |
+| 加一个账号 | 填账号（小写字母/数字/点/下划线/短横线，≤ 20 位）+ 姓名 + 安全组 + 初始密码（留空 = `ofbiz`）→ 保存 |
+| 改姓名 / 换组 | 账号填已有账号再保存（账号名不区分大小写，`Zhang` 和 `zhang` 是同一个）；一个账号只属于一个组，换组会把旧组设为过期 |
+| 停用 / 启用 | 行尾的「停用 / 启用」按钮；被停用的账号登录会被 OFBiz 拒绝 |
+| 重置密码 | 行尾「重置密码」→ 密码回到 `ofbiz`，该账号下次登录会被门禁要求改新密码 |
+
+- 建账号走 OFBiz 的 `createPersonAndUserLogin`（建 `Person` + `UserLogin`，密码按 `security` 的
+  `password.encrypt` 规则哈希，不自己写库），再写一行 `UserLoginSecurityGroup`；
+- **谁能管账号**沿用 OFBiz 自己的规矩：有 `PARTYMGR_UPDATE` 或 `PARTYMGR_ADMIN` 的人（`admin` 在两套库里都有）。
+  没这个权限的人打开页面只能看清单，服务里也会拒绝写入；
+- **防锁死**：不能停用自己、不能改自己的安全组；
+- 安全组下拉只列**能进本组件**的组（有 `OFBTOOLS_VIEW`、`MFG_VIEW`/`MFG_ADMIN`、`LEARNINGCURVE_VIEW`/`LEARNINGCURVE_ADMIN`
+  之一的组），默认 `SUPER`——全新库里只有 `SUPER` 有这些权限，所以新账号也放进 `SUPER`；
+- 还没有细粒度角色控制：登录进来的账号在插件里能做所有事（服务只校验 `auth`，没有按 `MFG_VIEW`/`MFG_ADMIN` 拦）。
+  需要「仓管不能看成本」这类分工，要先给服务加权限点；
+- 安全组本身（及其权限）仍要在 OFBiz 里维护：`/webtools` 的 Entity/Service 工具，或者
+  `/partymgr/control/ProfileEditUserLoginSecurityGroups`。
+
 ## 数据模型
 
 | 实体 | 说明 |
@@ -286,6 +309,9 @@ https://localhost:8443/mfg/control/main
 | --- | --- |
 | `mfgPasswordStatus` | 当前登录用户是否还得出厂密码（`mustChange=Y`），供装饰器做「首次登录强制改密码」的门禁 |
 | `mfgChangePassword` | 改密码：先核对 `currentPassword`，再转调 OFBiz 的 `updatePassword` |
+| `mfgUserList` | 账号清单：姓名（来自 `Person`）、安全组、启用状态、是否出厂密码、能否管理账号（`canManage`）；可选的组只列能进本组件的（有 `OFBTOOLS_VIEW` 或 `MFG_*` / `LEARNINGCURVE_*` 权限） |
+| `mfgUserSave` | 建账号（`createPersonAndUserLogin` 建人与登录，再写安全组）或改姓名/组/状态；不改密码 |
+| `mfgUserResetPassword` | 把账号密码重置回 `ofbiz`（走 OFBiz 的 `updatePassword`），下次登录被门禁拦住要求改 |
 | `mfgProductSave` / `mfgProductList` / `mfgProductDetail` | 型号维护与查询（含当前 BOM 版本的行、工艺路线、版本数）；工时改了就把 `standardHoursSource` 退回 `MANUAL`；`snPrefix` 超 10 字符直接报错（不填时默认取型号编码） |
 | `mfgBomImport` | 从 CSV 导入 BOM 到指定版本（缺省为当前版本），`replace=N` 时追加而不清空；第 6 列单价可空；**型号还没有版本时，导入的这个版本直接成为当前版本** |
 | `mfgBomVersionCreate` / `mfgBomVersionActivate` / `mfgBomVersionList` | 新建下一版（可复制当前行）、启用某版（旧版转废止、型号指向新版）、列出各版本 |
@@ -413,6 +439,9 @@ csv         = R0402-10K,10K 0402 resistor,4,R1-R4,N,0.05
 | `/mfg/control/claims` | 售后单：登记（类型/订单号/买家/签收日）、按 SN/类型/状态过滤、7 天与 15 天窗口倒计时、处理（检测结论、退款、运费、索赔）、换货与开返修工单、**照片与检测报告附件** |
 | `/mfg/control/buyers` | 买家名单：登记/解除、发货前查询命中、售后历史汇总与建议等级 |
 | `/mfg/control/quality` | 质量指标：四率 + 成本率、钱花在哪、按型号/责任方/批次/失效时间/检测结论分解、红线告警 |
+| `/mfg/control/users` | **用户账号**：账号清单（姓名 / 安全组 / 启用状态 / 是否还在用出厂密码 / 建立日期），新建账号、改组、停用/启用、重置密码；只有能管账号的人（OFBiz 的 `PARTYMGR_UPDATE` / `PARTYMGR_ADMIN`）看得到表单，其他人只能看 |
+| `/mfg/control/userSave` | POST 建账号或改姓名/安全组/启用状态（`userLoginId` + 可选 `personName` / `groupId` / `enabled` / `password` / `passwordHint`） |
+| `/mfg/control/userResetPassword` | POST 把某个账号的密码重置回出厂密码 `ofbiz`，该账号下次登录会被强制改密码 |
 
 邮寄标签旁边有 **「复制标签」按钮**：脚本在静态文件 `webapp/mfg/js/copyLabel.js`，
 页面只引 `<script src="/mfg/js/copyLabel.js"></script>`（`web.xml` 的 `allowedPaths` 里加了 `:/js`）。

@@ -84,8 +84,8 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
 
 | 脚本 | 覆盖 | 断言数 |
 | --- | --- | --- |
-| `MfgServicesTest` | 解析/规则/格式化（CSV、SN、FIFO、窗口、编号、附件类型、来料检验规则、成本取整与毛利、CSV 单元格转义、软件报价公式与耗时率中位数、趋势期间标签与良率/单台工时、库存流水符号与不合格批次可用量、预留对可发量的影响、成品批次命名与单位成本分摊、订单行欠货与待排产量、订单行文本解析、库位类型、外协费计价与单台分摊、问题清单排序与校验…） | 82 |
-| `MfgServiceIT` | 全链路服务调用（含 BOM 版本、三条开发线、ECO、附件、来料检验、成本、告警、软件报价与台账、成本细化与外协费明细、步骤问题清单、良率/工时趋势、库存流水与盘点、工单预留/发料释放、完工入库与出货扣减、销售订单两级预留与核销、库位与移库） | 380 |
+| `MfgServicesTest` | 解析/规则/格式化（CSV、SN、FIFO、窗口、编号、附件类型、来料检验规则、成本取整与毛利、CSV 单元格转义、软件报价公式与耗时率中位数、趋势期间标签与良率/单台工时、库存流水符号与不合格批次可用量、预留对可发量的影响、成品批次命名与单位成本分摊、订单行欠货与待排产量、订单行文本解析、库位类型、外协费计价与单台分摊、问题清单排序与校验、账号名规范与姓名拼接…） | 85 |
+| `MfgServiceIT` | 全链路服务调用（含 BOM 版本、三条开发线、ECO、附件、来料检验、成本、告警、软件报价与台账、成本细化与外协费明细、步骤问题清单、良率/工时趋势、库存流水与盘点、工单预留/发料释放、完工入库与出货扣减、销售订单两级预留与核销、库位与移库、用户账号） | 393 |
 | `verify-m11.ps1` | 列表页搜索/过滤/翻页/编码 | 55 |
 | `verify-m12.ps1` | 装饰器布局（1 个 html、1 条导航、1 个高亮、样式表、无内联 style、无 FTL 报错） | 102 |
 | `verify-m13.ps1` | 产品开发 + BOM 版本 + 三条线路 | 49 |
@@ -100,9 +100,21 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
 | `verify-m37.ps1` | 销售订单：列表与新建表单、详情（行明细/三个按钮/出货表单）、先锁在库、排产生工单、关单转 CLOSED | 26 |
 | `verify-m38.ps1` | 库位与移库：库位页与两个表单、建库位、到货指定库位、按库位看结存、移库两边余额、流水同单号、超量被拒 | 24 |
 | `verify-m39.ps1` | 外协费按单分摊：工单页三个表单、加一条按台明细、金额与对账单号、删除后消失、非法计价方式被拒 | 16 |
+| `verify-m40.ps1` | 用户账号页：渲染与高亮、建账号（行上的 `data-account` / `data-enabled` / `data-default-password` / `data-groups`）、非法名校验、大小写重名不新增行、重置密码、停用/启用、不能停用自己 | 24 |
 
 ## 设计决策
 
+- **用户账号页（Step 50）**：`/mfg/control/users` 是插件自己的账号维护（不用 OFBiz 原生的 Party Manager）。
+  服务 `mfgUserList`（清单 + 可选组 + `canManage`）、`mfgUserSave`（建/改）、`mfgUserResetPassword`（回到 `ofbiz`）；
+  建账号**调 OFBiz 的 `createPersonAndUserLogin`**（内部以 `system` 身份跑，绕开 `PARTYMGR_CREATE`，密码哈希由框架做），
+  再直接写 `UserLoginSecurityGroup`；**一个账号只一个组**，换组就把旧行 `thruDate` 置为当前时间；
+  **能管账号的判定跟 OFBiz 一致**：`Security.hasEntityPermission("PARTYMGR", "_UPDATE", userLogin)`（含 `_ADMIN` 兜底），
+  所以开发库（admin 在 `FULLADMIN`）和全新库（admin 在 `SUPER`）都成立——**别写死 `SUPER`**（踩过：dev 直接 403/拒绝）；
+  防锁死：不能停用自己、不能改自己的安全组；下拉只列有 `OFBTOOLS_VIEW` / `MFG_*` / `LEARNINGCURVE_*` 的组并默认 `SUPER`；
+  改密码只走「重置为 `ofbiz`」，真正的改密还是门禁那句；自己改需要 `PARTYMGR_UPDATE`，`updatePassword` 对管理员会跳过旧密码校验
+- **屏幕里用 `auth="true"` 的服务必须 `auto-field-map="true"`**：`auto-field-map="false"` 只传显式 `field-map`，
+  上下文里的 `userLogin` 不会进服务 → `ServiceAuthException: User authorization is required`（整页 500，
+  HTTP 200 但内容是错误页）；`mfgUserList` 就这么踩过，改成 `auto-field-map="true"` 才好
 - **BOM 版本化**：`MfgBomVersion`（`型号-Vn`，DRAFT/RELEASED/OBSOLETE，`basisVersionId`、`ecoId`）+ `MfgBomVersionItem`；
   `MfgProduct.currentBomVersionId` 指向在用版本；启用新版本会把上一个 RELEASED 转 OBSOLETE；
   工单创建时把版本冻结到 `MfgWorkOrder.bomVersionId`，齐套/发料按工单的版本算。
