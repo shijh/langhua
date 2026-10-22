@@ -439,6 +439,9 @@
                         <service service-name="mfgWorkOrderCost" result-map="costResult" auto-field-map="false">
                             <field-map field-name="workOrderId" from-field="parameters.workOrderId"/>
                         </service>
+                        <service service-name="mfgOutsourceFeeList" result-map="outsourceResult" auto-field-map="false">
+                            <field-map field-name="workOrderId" from-field="parameters.workOrderId"/>
+                        </service>
                     </actions>
                     <widgets>
                         <decorator-screen name="mfg-decorator" location="component://mfg/widget/MfgCommonScreens.xml">

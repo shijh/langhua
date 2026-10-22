@@ -934,4 +934,35 @@ public class MfgServicesTest {
         assertFalse(MfgServices.isKnownLocationType("MFG_LOC_BOGUS"));
         assertFalse(MfgServices.isKnownLocationType(null));
     }
+
+    @Test
+    public void pricesTheOutsourcedFeeByItsBasis() {
+        // per board: the price is multiplied by the units given
+        assertEquals(120.0, MfgServices.outsourceAmount(MfgServices.OUTSRC_PER_UNIT, 30.0, 4.0, 0.0, 0.0), 1e-9);
+        // per board without a quantity falls back to the good units, then to the planned ones
+        assertEquals(90.0, MfgServices.outsourceAmount(MfgServices.OUTSRC_PER_UNIT, 30.0, 0.0, 3.0, 10.0), 1e-9);
+        assertEquals(300.0, MfgServices.outsourceAmount(MfgServices.OUTSRC_PER_UNIT, 30.0, 0.0, 0.0, 10.0), 1e-9);
+        // per placement point: always the points given
+        assertEquals(25.0, MfgServices.outsourceAmount(MfgServices.OUTSRC_PER_POINT, 0.05, 500.0, 3.0, 10.0), 1e-9);
+        // a lump sum is its own amount, whatever else is given
+        assertEquals(88.5, MfgServices.outsourceAmount(MfgServices.OUTSRC_LUMP, 88.5, 7.0, 3.0, 10.0), 1e-9);
+    }
+
+    @Test
+    public void spreadsTheOutsourcedFeeOverTheUnits() {
+        // 120 yuan over 4 good units is 30 each
+        assertEquals(30.0, MfgServices.outsourcePerUnit(120.0, 4.0, 10.0), 1e-9);
+        // nothing finished yet: the planned units carry it, so the estimate is still meaningful
+        assertEquals(12.0, MfgServices.outsourcePerUnit(120.0, 0.0, 10.0), 1e-9);
+        // no unit at all: no share, never a division by zero
+        assertEquals(0.0, MfgServices.outsourcePerUnit(120.0, 0.0, 0.0), 1e-9);
+    }
+
+    @Test
+    public void knowsTheOutsourcedFeeCodes() {
+        assertTrue(MfgServices.isKnownOutsourceType(MfgServices.OUTSRC_SMT));
+        assertFalse(MfgServices.isKnownOutsourceType("MFG_OUTSRC_BOGUS"));
+        assertTrue(MfgServices.isKnownOutsourceBasis(MfgServices.OUTSRC_PER_POINT));
+        assertFalse(MfgServices.isKnownOutsourceBasis("MFG_OUTSRC_BOGUS"));
+    }
 }

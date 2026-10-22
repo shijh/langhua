@@ -581,6 +581,24 @@
         <response name="error" type="view" value="workOrder"/>
     </request-map>
 
+    <request-map uri="outsourceFeeSave">
+        <security https="true" auth="true"/>
+        <event type="service" invoke="mfgOutsourceFeeSave"/>
+        <response name="success" type="request-redirect" value="workOrder">
+            <redirect-parameter name="workOrderId"/>
+        </response>
+        <response name="error" type="view" value="workOrder"/>
+    </request-map>
+
+    <request-map uri="outsourceFeeDelete">
+        <security https="true" auth="true"/>
+        <event type="service" invoke="mfgOutsourceFeeDelete"/>
+        <response name="success" type="request-redirect" value="workOrder">
+            <redirect-parameter name="workOrderId"/>
+        </response>
+        <response name="error" type="view" value="workOrder"/>
+    </request-map>
+
     <request-map uri="eco">
         <security https="true" auth="true"/>
         <response name="success" type="view" value="eco"/>

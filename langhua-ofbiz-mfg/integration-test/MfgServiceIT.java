@@ -193,6 +193,7 @@ public final class MfgServiceIT {
             it.storesProductPhotos();
             it.costsTheModel();
             it.addsCostDetailToTheWorkOrder();
+            it.detailsTheOutsourceFee();
             it.pricesTheFinishedGoods();
             it.tracksInventory();
             it.reservesMaterialForAWorkOrder();
@@ -430,6 +431,91 @@ public final class MfgServiceIT {
                 "a shelf is missing from the list");
         check("location: the list reports the quantity of a shelf",
                 list.body.contains("onHandQty:6"), "the shelf quantity is missing");
+    }
+
+    /**
+     * Records outsourced processing cost as lines (per board, per point, lump sum), checks the total
+     * and the share of one unit, and that the quick lump sum entry is refused once lines exist.
+     *
+     * @throws IOException when a service call fails
+     */
+    private void detailsTheOutsourceFee() throws IOException {
+        Map<String, String> orderForm = new LinkedHashMap<>();
+        orderForm.put("productCode", PRODUCT_CODE);
+        orderForm.put("plannedQty", "4");
+        orderForm.put("dueDate", "2026-12-31");
+        orderForm.put("customerName", "Outsource line test");
+        String feeOrderId = firstMatch(WORK_ORDER_ID, invoke("mfgWorkOrderCreate", orderForm).body);
+        check("outsource fee: work order created", feeOrderId != null, "no work order id");
+
+        Map<String, String> reportForm = new LinkedHashMap<>();
+        reportForm.put("workOrderId", feeOrderId == null ? "" : feeOrderId);
+        reportForm.put("opSeq", "1");
+        reportForm.put("workHours", "2");
+        reportForm.put("qtyOk", "3");
+        invoke("mfgReportCreate", reportForm);
+
+        Map<String, String> smtForm = new LinkedHashMap<>();
+        smtForm.put("workOrderId", feeOrderId == null ? "" : feeOrderId);
+        smtForm.put("feeTypeId", "MFG_OUTSRC_SMT");
+        smtForm.put("basisId", "MFG_OUTSRC_PER_UNIT");
+        smtForm.put("rate", "30");
+        smtForm.put("vendorName", "IT SMT house");
+        smtForm.put("referenceNo", "INV-SMT-1");
+        Response smt = invoke("mfgOutsourceFeeSave", smtForm);
+        check("outsource fee: a per board line prices itself with the good units",
+                near(fieldValue(smt.body, "amount"), 90.0), "amount is not 90 (30 x 3 good units)");
+        String firstSeq = attribute(smt.body, "seqId");
+        check("outsource fee: the line gets a number", firstSeq != null, "no seqId");
+        check("outsource fee: the total follows the line",
+                near(fieldValue(smt.body, "outsourceAmount"), 90.0), "the total is not 90");
+        check("outsource fee: one unit carries its share",
+                near(fieldValue(smt.body, "outsourcePerUnit"), 30.0), "the share is not 30");
+
+        Map<String, String> toolingForm = new LinkedHashMap<>();
+        toolingForm.put("workOrderId", feeOrderId == null ? "" : feeOrderId);
+        toolingForm.put("feeTypeId", "MFG_OUTSRC_TOOLING");
+        toolingForm.put("basisId", "MFG_OUTSRC_LUMP");
+        toolingForm.put("rate", "50");
+        Response tooling = invoke("mfgOutsourceFeeSave", toolingForm);
+        check("outsource fee: a lump sum adds itself",
+                near(fieldValue(tooling.body, "outsourceAmount"), 140.0), "the total is not 140");
+        check("outsource fee: the share follows the total",
+                near(fieldValue(tooling.body, "outsourcePerUnit"), 46.67), "the share is not 46.67");
+
+        Map<String, String> listForm = new LinkedHashMap<>();
+        listForm.put("workOrderId", feeOrderId == null ? "" : feeOrderId);
+        Response list = invoke("mfgOutsourceFeeList", listForm);
+        check("outsource fee: both lines are listed", list.body.contains("INV-SMT-1")
+                && list.body.contains("MFG_OUTSRC_TOOLING"), "a line is missing from the list");
+        check("outsource fee: the list totals the lines",
+                near(fieldValue(list.body, "outsourceAmount"), 140.0), "the list total is not 140");
+
+        Map<String, String> quickForm = new LinkedHashMap<>();
+        quickForm.put("workOrderId", feeOrderId == null ? "" : feeOrderId);
+        quickForm.put("outsourceAmount", "10");
+        check("outsource fee: the quick lump sum is refused once lines exist",
+                invoke("mfgWorkOrderOutsourceSave", quickForm).body.contains("already has outsourced fee lines"),
+                "the lump sum overwrote the lines");
+
+        Map<String, String> deleteForm = new LinkedHashMap<>();
+        deleteForm.put("workOrderId", feeOrderId == null ? "" : feeOrderId);
+        deleteForm.put("seqId", "2");
+        Response deleted = invoke("mfgOutsourceFeeDelete", deleteForm);
+        check("outsource fee: deleting a line refreshes the total",
+                near(fieldValue(deleted.body, "outsourceAmount"), 90.0), "the total is not 90 after the delete");
+
+        Map<String, String> costForm = new LinkedHashMap<>();
+        costForm.put("workOrderId", feeOrderId == null ? "" : feeOrderId);
+        Response cost = invoke("mfgWorkOrderCost", costForm);
+        check("outsource fee: the cost carries the outsourced total",
+                near(fieldValue(cost.body, "outsourceAmount"), 90.0), "the cost total is not 90");
+        check("outsource fee: the cost reports the share of one unit",
+                near(fieldValue(cost.body, "outsourcePerUnit"), 30.0), "the cost share is not 30");
+        double issued = value(fieldValue(cost.body, "issuedMaterialCost"));
+        double labour = value(fieldValue(cost.body, "actualLaborCost"));
+        check("outsource fee: the actual total includes it",
+                near(fieldValue(cost.body, "actualTotal"), issued + labour + 90.0), "actualTotal does not add up");
     }
 
     private void setUp() throws Exception {

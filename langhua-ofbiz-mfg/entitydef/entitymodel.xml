@@ -312,6 +312,32 @@
         </index>
     </entity>
 
+    <entity entity-name="MfgOutsourceFee"
+            package-name="org.langhua.ofbiz.mfg"
+            title="Outsourced processing fee">
+        <description>One line of outsourced processing cost of a work order: priced per unit, per point or as a lump sum, then spread over the good units</description>
+        <field name="workOrderId" type="id"><description>Work order the fee belongs to</description></field>
+        <field name="seqId" type="numeric"><description>Line number inside the work order</description></field>
+        <field name="feeTypeId" type="id"><description>MFG_OUTSRC_SMT, TOOLING, ASSEMBLY, TEST or OTHER</description></field>
+        <field name="basisId" type="id"><description>MFG_OUTSRC_PER_UNIT (price per board), MFG_OUTSRC_PER_POINT (price per placement) or MFG_OUTSRC_LUMP (one amount)</description></field>
+        <field name="rate" type="currency-amount"><description>Price of one unit or one point, or the lump sum itself</description></field>
+        <field name="qty" type="floating-point"><description>How many units or points were priced, 1 for a lump sum</description></field>
+        <field name="amount" type="currency-amount"><description>Line amount, rate times quantity</description></field>
+        <field name="vendorName" type="name"><description>Who did the work</description></field>
+        <field name="referenceNo" type="short-varchar"><description>Invoice or statement number</description></field>
+        <field name="feeDate" type="date"><description>Day the fee was incurred</description></field>
+        <field name="note" type="description"/>
+        <field name="createdStamp" type="date-time"/>
+        <field name="createdTxStamp" type="date-time"/>
+        <field name="lastUpdatedStamp" type="date-time"/>
+        <field name="lastUpdatedTxStamp" type="date-time"/>
+        <prim-key field="workOrderId"/>
+        <prim-key field="seqId"/>
+        <relation type="one" fk-name="MFG_OUTSRC_WO" rel-entity-name="MfgWorkOrder">
+            <key-map field-name="workOrderId"/>
+        </relation>
+    </entity>
+
     <entity entity-name="MfgMaterialIssue"
             package-name="org.langhua.ofbiz.mfg"
             title="Material issue">

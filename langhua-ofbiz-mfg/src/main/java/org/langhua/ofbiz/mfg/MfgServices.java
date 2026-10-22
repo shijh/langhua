@@ -172,6 +172,23 @@ public final class MfgServices {
     /** Prefix of a transfer number, followed by {@code yyMMdd-NN}. */
     public static final String TRANSFER_PREFIX = "TR-";
 
+    /** What an outsourced fee pays for. */
+    public static final String OUTSRC_SMT = "MFG_OUTSRC_SMT";
+    public static final String OUTSRC_TOOLING = "MFG_OUTSRC_TOOLING";
+    public static final String OUTSRC_ASSEMBLY = "MFG_OUTSRC_ASSEMBLY";
+    public static final String OUTSRC_TEST = "MFG_OUTSRC_TEST";
+    public static final String OUTSRC_OTHER = "MFG_OUTSRC_OTHER";
+    /** Every outsourced fee type, in the order the lists show them. */
+    public static final String[] OUTSRC_TYPES = {OUTSRC_SMT, OUTSRC_TOOLING, OUTSRC_ASSEMBLY,
+        OUTSRC_TEST, OUTSRC_OTHER};
+
+    /** How an outsourced fee is priced: per board, per placement point, or as one amount. */
+    public static final String OUTSRC_PER_UNIT = "MFG_OUTSRC_PER_UNIT";
+    public static final String OUTSRC_PER_POINT = "MFG_OUTSRC_PER_POINT";
+    public static final String OUTSRC_LUMP = "MFG_OUTSRC_LUMP";
+    /** Every pricing basis, in the order the form lists them. */
+    public static final String[] OUTSRC_BASES = {OUTSRC_PER_UNIT, OUTSRC_PER_POINT, OUTSRC_LUMP};
+
     /** What a stock lot holds: a purchased component, or the finished goods of one work order. */
     public static final String LOT_COMPONENT = "MFG_LOT_COMPONENT";
     public static final String LOT_PRODUCT = "MFG_LOT_PRODUCT";
@@ -1155,6 +1172,8 @@ public final class MfgServices {
             result.put("reportedHours", Double.valueOf(reportedHours));
             result.put("actualLaborCost", Double.valueOf(actualLabor));
             result.put("outsourceAmount", Double.valueOf(outsourceAmount));
+            result.put("outsourcePerUnit", Double.valueOf(outsourcePerUnit(outsourceAmount, qtyOk, plannedQty)));
+            result.put("outsourcePerPlannedUnit", Double.valueOf(outsourcePerUnit(outsourceAmount, plannedQty, 0.0)));
             result.put("actualTotal", Double.valueOf(issuedMaterial + actualLabor + outsourceAmount));
             result.put("operations", operationCosts(routing, reports, laborRate, qtyOk));
             double actualUnit = qtyOk > 0.0 ? (issuedMaterial + actualLabor + outsourceAmount) / qtyOk : 0.0;
@@ -10372,6 +10391,12 @@ always
             if (amount < 0.0) {
                 return ServiceUtil.returnError("The outsourced processing fee cannot be negative");
             }
+            // once the fee is broken down into lines the lines are the truth, not this one number
+            if (!EntityQuery.use(delegator).from("MfgOutsourceFee")
+                    .where("workOrderId", workOrderId).queryList().isEmpty()) {
+                return ServiceUtil.returnError("Work order [" + workOrderId
+                        + "] already has outsourced fee lines, change them instead of the total");
+            }
             order.set("outsourceAmount", Double.valueOf(amount));
             delegator.store(order);
 
@@ -10382,6 +10407,289 @@ always
         } catch (GenericEntityException e) {
             return ServiceUtil.returnError("Could not store the outsourced fee: " + e.getMessage());
         }
+    }
+
+    /**
+     * Whether a type is one of the outsourced fee types.
+     *
+     * @param feeTypeId the type to test
+     * @return {@code true} when it is known
+     */
+    static boolean isKnownOutsourceType(String feeTypeId) {
+        for (String type : OUTSRC_TYPES) {
+            if (type.equals(feeTypeId)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Whether a basis is one of the outsourced fee bases.
+     *
+     * @param basisId the basis to test
+     * @return {@code true} when it is known
+     */
+    static boolean isKnownOutsourceBasis(String basisId) {
+        for (String basis : OUTSRC_BASES) {
+            if (basis.equals(basisId)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Amount of one outsourced fee line. A lump sum is its own amount; a price per board is
+     * multiplied by the units (defaulting to the good units, then to the planned ones); a price per
+     * placement point is multiplied by the points.
+     *
+     * @param basisId how the line is priced
+     * @param rate the price of one unit / point, or the lump sum
+     * @param qty how many units or points, {@code 0} to take the good units
+     * @param qtyOk the good units of the work order
+     * @param plannedQty the planned units of the work order
+     * @return the line amount
+     */
+    static double outsourceAmount(String basisId, double rate, double qty, double qtyOk, double plannedQty) {
+        if (OUTSRC_LUMP.equals(basisId)) {
+            return round2(rate);
+        }
+        double count = qty;
+        if (count <= 0.0) {
+            count = OUTSRC_PER_UNIT.equals(basisId) ? (qtyOk > 0.0 ? qtyOk : plannedQty) : 0.0;
+        }
+        return round2(rate * count);
+    }
+
+    /**
+     * One outsourced amount spread over the units it was spent on.
+     *
+     * @param amount the total outsourced cost
+     * @param qtyOk the good units, preferred
+     * @param plannedQty the planned units, used while nothing is finished yet
+     * @return the cost per unit, {@code 0} when there is no unit
+     */
+    static double outsourcePerUnit(double amount, double qtyOk, double plannedQty) {
+        double base = qtyOk > 0.0 ? qtyOk : plannedQty;
+        return base > 0.0 ? round2(amount / base) : 0.0;
+    }
+
+    /**
+     * Saves one line of outsourced processing cost and refreshes the total of the work order, so the
+     * single number the cost report uses never drifts away from its lines.
+     *
+     * @param dctx the dispatch context
+     * @param context service context, see {@code servicedef/services.xml#mfgOutsourceFeeSave}
+     * @return the service result with the line amount and the new totals
+     */
+    public static Map<String, Object> outsourceFeeSave(DispatchContext dctx, Map<String, ? extends Object> context) {
+        Delegator delegator = dctx.getDelegator();
+        String workOrderId = toText(context.get("workOrderId"));
+        String feeTypeId = toText(context.get("feeTypeId"));
+        String basisId = toText(context.get("basisId"));
+        if (workOrderId == null) {
+            return ServiceUtil.returnError("workOrderId is required");
+        }
+        if (feeTypeId == null) {
+            feeTypeId = OUTSRC_OTHER;
+        }
+        if (!isKnownOutsourceType(feeTypeId)) {
+            return ServiceUtil.returnError("Unknown fee type [" + feeTypeId + "], expected "
+                    + String.join(" / ", OUTSRC_TYPES));
+        }
+        if (basisId == null) {
+            basisId = OUTSRC_LUMP;
+        }
+        if (!isKnownOutsourceBasis(basisId)) {
+            return ServiceUtil.returnError("Unknown pricing basis [" + basisId + "], expected "
+                    + String.join(" / ", OUTSRC_BASES));
+        }
+        double rate = round2(toDouble(context.get("rate"), 0.0));
+        double qty = round2(toDouble(context.get("qty"), 0.0));
+        if (rate < 0.0) {
+            return ServiceUtil.returnError("The price cannot be negative");
+        }
+        if (qty < 0.0) {
+            return ServiceUtil.returnError("The quantity cannot be negative");
+        }
+        try {
+            GenericValue order = EntityQuery.use(delegator).from("MfgWorkOrder")
+                    .where("workOrderId", workOrderId).queryOne();
+            if (order == null) {
+                return ServiceUtil.returnError("Unknown work order [" + workOrderId + "]");
+            }
+            double qtyOk = 0.0;
+            for (GenericValue report : EntityQuery.use(delegator).from("MfgReport")
+                    .where("workOrderId", workOrderId).queryList()) {
+                qtyOk += numberOrZero(report.get("qtyOk"));
+            }
+            double plannedQty = numberOrZero(order.get("plannedQty"));
+            if (OUTSRC_LUMP.equals(basisId)) {
+                qty = 1.0;
+            } else if (qty <= 0.0) {
+                qty = qtyOk > 0.0 ? qtyOk : plannedQty;
+            }
+            double amount = outsourceAmount(basisId, rate, qty, qtyOk, plannedQty);
+
+            long seq = toLong(context.get("seqId"), 0);
+            GenericValue fee;
+            if (seq > 0) {
+                fee = EntityQuery.use(delegator).from("MfgOutsourceFee")
+                        .where("workOrderId", workOrderId, "seqId", Long.valueOf(seq)).queryOne();
+                if (fee == null) {
+                    return ServiceUtil.returnError("Unknown fee line [" + seq + "] of [" + workOrderId + "]");
+                }
+            } else {
+                fee = delegator.makeValue("MfgOutsourceFee");
+                fee.set("workOrderId", workOrderId);
+                fee.set("seqId", Long.valueOf(nextOutsourceSeq(delegator, workOrderId)));
+            }
+            fee.set("feeTypeId", feeTypeId);
+            fee.set("basisId", basisId);
+            fee.set("rate", Double.valueOf(rate));
+            fee.set("qty", Double.valueOf(qty));
+            fee.set("amount", Double.valueOf(amount));
+            fee.set("vendorName", toText(context.get("vendorName")));
+            fee.set("referenceNo", toText(context.get("referenceNo")));
+            Object feeDate = parseDate(context.get("feeDate"));
+            fee.set("feeDate", feeDate == null ? null : feeDate);
+            if (context.containsKey("note")) {
+                fee.set("note", toText(context.get("note")));
+            }
+            delegator.createOrStore(fee);
+
+            double total = storeOutsourceTotal(delegator, order);
+            Map<String, Object> result = ServiceUtil.returnSuccess();
+            result.put("workOrderId", workOrderId);
+            result.put("seqId", fee.get("seqId"));
+            result.put("amount", Double.valueOf(amount));
+            result.put("outsourceAmount", Double.valueOf(total));
+            result.put("outsourcePerUnit", Double.valueOf(outsourcePerUnit(total, qtyOk, plannedQty)));
+            return result;
+        } catch (GenericEntityException e) {
+            return ServiceUtil.returnError("Could not store the outsourced fee: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Deletes one line of outsourced processing cost and refreshes the total of the work order.
+     *
+     * @param dctx the dispatch context
+     * @param context service context, see {@code servicedef/services.xml#mfgOutsourceFeeDelete}
+     * @return the service result with the new total
+     */
+    public static Map<String, Object> outsourceFeeDelete(DispatchContext dctx, Map<String, ? extends Object> context) {
+        Delegator delegator = dctx.getDelegator();
+        String workOrderId = toText(context.get("workOrderId"));
+        long seq = toLong(context.get("seqId"), 0);
+        if (workOrderId == null || seq <= 0) {
+            return ServiceUtil.returnError("workOrderId and seqId are required");
+        }
+        try {
+            GenericValue fee = EntityQuery.use(delegator).from("MfgOutsourceFee")
+                    .where("workOrderId", workOrderId, "seqId", Long.valueOf(seq)).queryOne();
+            if (fee == null) {
+                return ServiceUtil.returnError("Unknown fee line [" + seq + "] of [" + workOrderId + "]");
+            }
+            delegator.removeValue(fee);
+            GenericValue order = EntityQuery.use(delegator).from("MfgWorkOrder")
+                    .where("workOrderId", workOrderId).queryOne();
+            double total = order == null ? 0.0 : storeOutsourceTotal(delegator, order);
+            Map<String, Object> result = ServiceUtil.returnSuccess();
+            result.put("workOrderId", workOrderId);
+            result.put("seqId", Long.valueOf(seq));
+            result.put("outsourceAmount", Double.valueOf(total));
+            return result;
+        } catch (GenericEntityException e) {
+            return ServiceUtil.returnError("Could not delete the outsourced fee: " + e.getMessage());
+        }
+    }
+
+    /**
+     * The outsourced fee lines of a work order with their total and what one unit carries.
+     *
+     * @param dctx the dispatch context
+     * @param context service context, see {@code servicedef/services.xml#mfgOutsourceFeeList}
+     * @return the service result containing {@code fees}
+     */
+    public static Map<String, Object> outsourceFeeList(DispatchContext dctx, Map<String, ? extends Object> context) {
+        Delegator delegator = dctx.getDelegator();
+        String workOrderId = toText(context.get("workOrderId"));
+        Map<String, Object> result = ServiceUtil.returnSuccess();
+        result.put("fees", new ArrayList<Map<String, Object>>());
+        result.put("outsourceAmount", Double.valueOf(0.0));
+        result.put("outsourcePerUnit", Double.valueOf(0.0));
+        result.put("feeCount", Integer.valueOf(0));
+        if (workOrderId == null) {
+            return result;
+        }
+        try {
+            List<Map<String, Object>> rows = new ArrayList<>();
+            double total = 0.0;
+            for (GenericValue fee : EntityQuery.use(delegator).from("MfgOutsourceFee")
+                    .where("workOrderId", workOrderId).orderBy("seqId").queryList()) {
+                Map<String, Object> map = new LinkedHashMap<>();
+                map.put("seqId", fee.get("seqId"));
+                map.put("feeTypeId", fee.getString("feeTypeId"));
+                map.put("basisId", fee.getString("basisId"));
+                map.put("rate", fee.get("rate"));
+                map.put("qty", fee.get("qty"));
+                map.put("amount", fee.get("amount"));
+                map.put("vendorName", fee.getString("vendorName"));
+                map.put("referenceNo", fee.getString("referenceNo"));
+                map.put("feeDate", fee.get("feeDate"));
+                map.put("note", fee.getString("note"));
+                rows.add(map);
+                total += numberOrZero(fee.get("amount"));
+            }
+            GenericValue order = EntityQuery.use(delegator).from("MfgWorkOrder")
+                    .where("workOrderId", workOrderId).queryOne();
+            double qtyOk = 0.0;
+            double plannedQty = order == null ? 0.0 : numberOrZero(order.get("plannedQty"));
+            for (GenericValue report : EntityQuery.use(delegator).from("MfgReport")
+                    .where("workOrderId", workOrderId).queryList()) {
+                qtyOk += numberOrZero(report.get("qtyOk"));
+            }
+            result.put("fees", rows);
+            result.put("feeCount", Integer.valueOf(rows.size()));
+            result.put("outsourceAmount", Double.valueOf(round2(total)));
+            result.put("outsourcePerUnit", Double.valueOf(outsourcePerUnit(total, qtyOk, plannedQty)));
+            result.put("qtyOk", Double.valueOf(round2(qtyOk)));
+            result.put("plannedQty", Double.valueOf(round2(plannedQty)));
+            return result;
+        } catch (GenericEntityException e) {
+            return ServiceUtil.returnError("Could not read the outsourced fees: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Adds up the fee lines of a work order and stores the total on it.
+     *
+     * @return the total
+     */
+    private static double storeOutsourceTotal(Delegator delegator, GenericValue order)
+            throws GenericEntityException {
+        double total = 0.0;
+        for (GenericValue fee : EntityQuery.use(delegator).from("MfgOutsourceFee")
+                .where("workOrderId", order.getString("workOrderId")).queryList()) {
+            total += numberOrZero(fee.get("amount"));
+        }
+        total = round2(total);
+        order.set("outsourceAmount", Double.valueOf(total));
+        delegator.store(order);
+        return total;
+    }
+
+    private static long nextOutsourceSeq(Delegator delegator, String workOrderId)
+            throws GenericEntityException {
+        long max = 0;
+        for (GenericValue fee : EntityQuery.use(delegator).from("MfgOutsourceFee")
+                .where("workOrderId", workOrderId).queryList()) {
+            long seq = fee.getLong("seqId") == null ? 0L : fee.getLong("seqId").longValue();
+            max = Math.max(max, seq);
+        }
+        return max + 1L;
     }
 
     /**

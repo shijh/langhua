@@ -186,6 +186,8 @@
         <attribute name="routingHoursPerUnit" type="Double" mode="OUT" optional="true"/>
         <attribute name="productStandardHours" type="Double" mode="OUT" optional="true"/>
         <attribute name="outsourceAmount" type="Double" mode="OUT" optional="true"/>
+        <attribute name="outsourcePerUnit" type="Double" mode="OUT" optional="true"/>
+        <attribute name="outsourcePerPlannedUnit" type="Double" mode="OUT" optional="true"/>
         <attribute name="differenceExOutsource" type="Double" mode="OUT" optional="true"/>
         <attribute name="operations" type="java.util.List" mode="OUT" optional="true"/>
         <attribute name="message" type="String" mode="OUT" optional="true"/>
@@ -649,6 +651,51 @@
         <attribute name="operatorName" type="String" mode="IN" optional="true"/>
         <attribute name="workOrderId" type="String" mode="OUT" optional="true"/>
         <attribute name="releasedQty" type="Double" mode="OUT" optional="true"/>
+    </service>
+
+    <service name="mfgOutsourceFeeSave" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgServices" invoke="outsourceFeeSave"
+            auth="false" use-transaction="false">
+        <description>Save one line of outsourced processing cost (per unit, per point or a lump sum) and refresh the total of the work order</description>
+        <attribute name="workOrderId" type="String" mode="IN" optional="false"/>
+        <attribute name="seqId" type="String" mode="IN" optional="true"/>
+        <attribute name="feeTypeId" type="String" mode="IN" optional="true"/>
+        <attribute name="basisId" type="String" mode="IN" optional="true"/>
+        <attribute name="rate" type="Double" mode="IN" optional="true"/>
+        <attribute name="qty" type="Double" mode="IN" optional="true"/>
+        <attribute name="vendorName" type="String" mode="IN" optional="true"/>
+        <attribute name="referenceNo" type="String" mode="IN" optional="true"/>
+        <attribute name="feeDate" type="String" mode="IN" optional="true"/>
+        <attribute name="note" type="String" mode="IN" optional="true"/>
+        <attribute name="workOrderId" type="String" mode="OUT" optional="true"/>
+        <attribute name="seqId" type="Long" mode="OUT" optional="true"/>
+        <attribute name="amount" type="Double" mode="OUT" optional="true"/>
+        <attribute name="outsourceAmount" type="Double" mode="OUT" optional="true"/>
+        <attribute name="outsourcePerUnit" type="Double" mode="OUT" optional="true"/>
+    </service>
+
+    <service name="mfgOutsourceFeeDelete" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgServices" invoke="outsourceFeeDelete"
+            auth="false" use-transaction="false">
+        <description>Delete one outsourced fee line and refresh the total of the work order</description>
+        <attribute name="workOrderId" type="String" mode="IN" optional="false"/>
+        <attribute name="seqId" type="String" mode="IN" optional="false"/>
+        <attribute name="workOrderId" type="String" mode="OUT" optional="true"/>
+        <attribute name="seqId" type="Long" mode="OUT" optional="true"/>
+        <attribute name="outsourceAmount" type="Double" mode="OUT" optional="true"/>
+    </service>
+
+    <service name="mfgOutsourceFeeList" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgServices" invoke="outsourceFeeList"
+            auth="false" use-transaction="false">
+        <description>Outsourced fee lines of a work order with their total and the share of one unit</description>
+        <attribute name="workOrderId" type="String" mode="IN" optional="true"/>
+        <attribute name="fees" type="java.util.List" mode="OUT" optional="true"/>
+        <attribute name="feeCount" type="Integer" mode="OUT" optional="true"/>
+        <attribute name="outsourceAmount" type="Double" mode="OUT" optional="true"/>
+        <attribute name="outsourcePerUnit" type="Double" mode="OUT" optional="true"/>
+        <attribute name="qtyOk" type="Double" mode="OUT" optional="true"/>
+        <attribute name="plannedQty" type="Double" mode="OUT" optional="true"/>
     </service>
 
     <service name="mfgWorkOrderOutsourceSave" engine="java"

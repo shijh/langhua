@@ -22,7 +22,25 @@
 <#assign cost = (costResult)!{}>
 <#assign costOps = ((costResult).operations)![]>
 <#assign prodLot = (d.productLot)!{}>
+<#assign os = (outsourceResult)!{}>
+<#assign fees = (os.fees)![]>
 <#assign errList = (errorMessageList)![]>
+
+<#function feeTypeLabel id>
+    <#if (id!'') == 'MFG_OUTSRC_SMT'><#return 'SMT 贴片'>
+    <#elseif (id!'') == 'MFG_OUTSRC_TOOLING'><#return '模具 / 钢网'>
+    <#elseif (id!'') == 'MFG_OUTSRC_ASSEMBLY'><#return '外发组装'>
+    <#elseif (id!'') == 'MFG_OUTSRC_TEST'><#return '外协测试'>
+    <#else><#return '其他'>
+    </#if>
+</#function>
+
+<#function basisLabel id>
+    <#if (id!'') == 'MFG_OUTSRC_PER_UNIT'><#return '按台'>
+    <#elseif (id!'') == 'MFG_OUTSRC_PER_POINT'><#return '按点'>
+    <#else><#return '整单'>
+    </#if>
+</#function>
 
 <#if !wo.workOrderId??>
     <h1>工单不存在</h1>
@@ -251,13 +269,76 @@
             <input type="submit" value="保存"/>
         </p>
     </form>
+    <h2>外协加工费（按单分摊）</h2>
+    <p>
+        合计 <b>${((os.outsourceAmount)!0)?string("0.00")}</b> 元
+        <span class="hint">（按良品 ${((os.qtyOk)!0)?string("0.##")} 台分摊 = ${((os.outsourcePerUnit)!0)?string("0.00")} 元/台；
+            计入工单实际成本与差异，不计入单台标准成本）</span>
+    </p>
+    <#if fees?has_content>
+        <table id="outsourceTable">
+            <tr>
+                <th class="num">#</th><th>类型</th><th>计价</th><th class="num">单价</th>
+                <th class="num">数量</th><th class="num">金额</th><th>供应商</th>
+                <th>单据</th><th>日期</th><th>操作</th>
+            </tr>
+            <#list fees as fee>
+                <tr>
+                    <td class="num">${fee.seqId?string("0")}</td>
+                    <td>${feeTypeLabel(fee.feeTypeId)}</td>
+                    <td>${basisLabel(fee.basisId)}</td>
+                    <td class="num">${((fee.rate)!0)?string("0.00")}</td>
+                    <td class="num">${((fee.qty)!0)?string("0.##")}</td>
+                    <td class="num">${((fee.amount)!0)?string("0.00")}</td>
+                    <td>${fee.vendorName!}</td>
+                    <td>${fee.referenceNo!}</td>
+                    <td><#if fee.feeDate??>${fee.feeDate?string("yyyy-MM-dd")}</#if></td>
+                    <td>
+                        <form method="post" action="/mfg/control/outsourceFeeDelete" class="inline">
+                            <input type="hidden" name="workOrderId" value="${wo.workOrderId}"/>
+                            <input type="hidden" name="seqId" value="${fee.seqId?string("0")}"/>
+                            <input type="submit" value="删除"/>
+                        </form>
+                    </td>
+                </tr>
+            </#list>
+        </table>
+    <#else>
+        <p class="hint">还没有外协费明细。下面按「按台 / 按点 / 整单」记一条，SMT 按板计价时就填单价 × 板数。</p>
+    </#if>
+    <form method="post" action="/mfg/control/outsourceFeeSave">
+        <input type="hidden" name="workOrderId" value="${wo.workOrderId}"/>
+        <p>
+            类型
+            <select name="feeTypeId">
+                <option value="MFG_OUTSRC_SMT">SMT 贴片</option>
+                <option value="MFG_OUTSRC_TOOLING">模具 / 钢网</option>
+                <option value="MFG_OUTSRC_ASSEMBLY">外发组装</option>
+                <option value="MFG_OUTSRC_TEST">外协测试</option>
+                <option value="MFG_OUTSRC_OTHER">其他</option>
+            </select>
+            计价
+            <select name="basisId">
+                <option value="MFG_OUTSRC_PER_UNIT">按台</option>
+                <option value="MFG_OUTSRC_PER_POINT">按点</option>
+                <option value="MFG_OUTSRC_LUMP">整单</option>
+            </select>
+            单价 <input type="text" name="rate" size="8"/>
+            数量 <input type="text" name="qty" size="6" placeholder="留空 = 良品数"/>
+            供应商 <input type="text" name="vendorName" size="12"/>
+            单据 <input type="text" name="referenceNo" size="12"/>
+            日期 <input type="text" name="feeDate" size="10" placeholder="yyyy-mm-dd"/>
+            <input type="submit" value="加一条"/>
+        </p>
+        <p class="hint">「按台」数量留空就按已报工良品数算；「按点」填总点数；「整单」金额 = 单价。
+            明细合计会写回工单外协费，有明细时下面那个整单金额就不能再直接改了。</p>
+    </form>
     <form method="post" action="/mfg/control/workOrderOutsource">
         <input type="hidden" name="workOrderId" value="${wo.workOrderId}"/>
         <p>
-            外协加工费（整单，元）
+            整单直填（不拆明细时用）
             <input type="text" name="outsourceAmount" size="10" value="${((cost.outsourceAmount)!0)?string("0.00")}"/>
             <input type="submit" value="保存外协费"/>
-            <span class="hint">SMT 加工费、模具费、外发组装费记这里；它不计入单台标准成本，但计入工单实际成本与差异。</span>
         </p>
     </form>
 
