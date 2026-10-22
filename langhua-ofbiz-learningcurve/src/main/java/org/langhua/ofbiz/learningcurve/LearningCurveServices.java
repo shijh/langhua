@@ -971,7 +971,9 @@ public final class LearningCurveServices {
     public static Map<String, Object> softwareQuote(DispatchContext dctx, Map<String, ? extends Object> context) {
         Map<String, Object> estimate;
         try {
-            estimate = dctx.getDispatcher().runSync("mfgSoftwareEstimate", softwareParams(context));
+            Map<String, Object> estimateParams = softwareParams(context);
+            estimateParams.put("userLogin", context.get("userLogin"));
+            estimate = dctx.getDispatcher().runSync("mfgSoftwareEstimate", estimateParams);
         } catch (GenericServiceException e) {
             return ServiceUtil.returnError("MES 组件未部署或服务不可用（mfgSoftwareEstimate）：" + e.getMessage());
         }
@@ -1200,6 +1202,8 @@ public final class LearningCurveServices {
             }
             params.put("quotedAmount", quote.get("totalAmount"));
             params.put("note", "来自报价 " + quoteId);
+            // the appliance component checks the area permissions, so it needs the account
+            params.put("userLogin", context.get("userLogin"));
             Map<String, Object> saved = dctx.getDispatcher().runSync("mfgSoftwareProjectSave", params);
             if (ServiceUtil.isError(saved)) {
                 return ServiceUtil.returnError(ServiceUtil.getErrorMessage(saved));

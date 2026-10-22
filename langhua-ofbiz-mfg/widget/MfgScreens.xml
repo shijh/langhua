@@ -55,6 +55,7 @@
                 <service service-name="mfgProductCost" result-map="costResult" auto-field-map="false">
                     <field-map field-name="productCode" from-field="parameters.productCode"/>
                     <field-map field-name="qty" from-field="parameters.costQty"/>
+                    <field-map field-name="userLogin" from-field="userLogin"/>
                 </service>
             </actions>
             <widgets>
@@ -438,6 +439,7 @@
                         </service>
                         <service service-name="mfgWorkOrderCost" result-map="costResult" auto-field-map="false">
                             <field-map field-name="workOrderId" from-field="parameters.workOrderId"/>
+                            <field-map field-name="userLogin" from-field="userLogin"/>
                         </service>
                         <service service-name="mfgOutsourceFeeList" result-map="outsourceResult" auto-field-map="false">
                             <field-map field-name="workOrderId" from-field="parameters.workOrderId"/>
@@ -491,7 +493,9 @@
                 <set field="title" value="Dashboard"/>
                 <set field="pageTitle" value="看板"/>
                 <set field="activeMenu" value="dashboard"/>
-                <service service-name="mfgDashboard" result-map="board" auto-field-map="false"/>
+                    <service service-name="mfgDashboard" result-map="board" auto-field-map="false">
+                        <field-map field-name="userLogin" from-field="userLogin"/>
+                    </service>
                 <service service-name="mfgDashboardTrends" result-map="trends" auto-field-map="false">
                     <field-map field-name="dayCount" from-field="parameters.days"/>
                 </service>
@@ -702,6 +706,7 @@
                 <service service-name="mfgQualityReport" result-map="quality" auto-field-map="false">
                     <field-map field-name="fromDate" from-field="parameters.fromDate"/>
                     <field-map field-name="toDate" from-field="parameters.toDate"/>
+                    <field-map field-name="userLogin" from-field="userLogin"/>
                 </service>
             </actions>
             <widgets>

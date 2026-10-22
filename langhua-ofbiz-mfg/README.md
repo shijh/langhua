@@ -265,6 +265,54 @@ https://localhost:8443/mfg/control/main
 - 安全组本身（及其权限）仍要在 OFBiz 里维护：`/webtools` 的 Entity/Service 工具，或者
   `/partymgr/control/ProfileEditUserLoginSecurityGroups`。
 
+### 角色与权限
+
+页面上只出现**与本系统有关**的账号：安全组带 `MFG_*` / `LEARNINGCURVE_*` 权限的，
+或者能管账号的管理员组（`PARTYMGR_ADMIN`）。电商、财务等其它应用的账号、
+以及框架自己用的系统账号（`isSystem=Y`，如 `system`）都不显示。`admin` 这类系统管理员始终显示。
+
+#### 权限点
+
+| 权限 | 管什么 |
+| --- | --- |
+| `MFG_VIEW` | 进入本组件的页面、看数据（各角色组都有） |
+| `MFG_PRODUCTION` | 建工单、报工、生成 SN、登记不良、外协收发/换件、齐套预留与释放、完工入库、外协费 |
+| `MFG_STOCK` | 收货批次、来料检验、发料、库存流水、盘点、库位与移库、料号安全库存 |
+| `MFG_ENG` | 型号、BOM（含导入/版本）、工序、开发项目与步骤、问题清单、变更单、软件项目 |
+| `MFG_SALES` | 销售订单、出货单、售后单、买家名单 |
+| `MFG_COST` | 成本、单价、毛利、售后成本率、看板的责任方成本 |
+| `MFG_ADMIN` | 以上全部（写服务里的兜底） |
+
+#### 角色组（`data/MfgSecurityPermissionSeedData.xml`）
+
+| 组 | 给谁 | 权限 |
+| --- | --- | --- |
+| `MFG_BOSS` | 老板 / 全能 | 全部 + `MFG_COST` |
+| `MFG_FOREMAN` | 车间主管 | `MFG_VIEW` + `MFG_PRODUCTION` |
+| `MFG_WAREHOUSE` | 仓管 | `MFG_VIEW` + `MFG_STOCK` |
+| `MFG_ENGINEER` | 工程 / BOM | `MFG_VIEW` + `MFG_ENG` |
+| `MFG_SALES` | 销售 / 售后 | `MFG_VIEW` + `MFG_SALES` + `MFG_STOCK`（要能出货） |
+| `SUPER` | 系统管理员 | 全部（`loadAll` 建的新库里 `admin` 在 `SUPER`；演示库/老库里 `admin` 通常在 `FULLADMIN`，同样能过所有检查） |
+
+各组同时拿到 `OFBTOOLS_VIEW`，否则进不了 webapp。**学习曲线的页面还要 `LEARNINGCURVE_VIEW`**；
+这行权限不写进本组件的种子文件（没装学习曲线组件时外键会失败），需要时在 `/webtools`
+给对应组补一条 `SecurityGroupPermission`。
+
+#### 实际拦在哪儿
+
+- **写操作**：每个改数据/发料的写服务开头都查区域权限，没有就返回
+  「没有权限做这个操作（需要 MFG_xxx）；请管理员在「用户账号」里调整你的角色」，页面上的红框就是它；
+- **成本**：`mfgProductCost` / `mfgWorkOrderCost` 没有 `MFG_COST` 时返回 `denied=Y`（不报错），
+  型号页/工单页把成本块、BOM 单价列、外协费金额整块换成一句提示；看板的责任方成本、
+  售后成本卡片同样隐藏；质量指标页整页要 `MFG_COST`；
+- **导航**：装饰器调 `mfgPermissions` 拿到当前账号的区域开关，没有的区域不显示菜单项；
+- **读**：列表/详情不按区域拦（同一个人能看，只是改不了），靠「能进系统」这一层就够——账号只能由管理员从
+  「用户账号」页建，可选的安全组也只有上面这些。
+
+> 只有 `SUPER` / `MFG_ADMIN` / OFBiz 管理员（`PARTYMGR_UPDATE`）能过所有检查。判断写在
+> `MfgServices.can()` 里，所以演示库（`admin` 在 `FULLADMIN`）和全新库（`admin` 在 `SUPER`）行为一致。
+
+
 ## 数据模型
 
 | 实体 | 说明 |
@@ -312,6 +360,7 @@ https://localhost:8443/mfg/control/main
 | `mfgUserList` | 账号清单：姓名（来自 `Person`）、安全组、启用状态、是否出厂密码、能否管理账号（`canManage`）；可选的组只列能进本组件的（有 `OFBTOOLS_VIEW` 或 `MFG_*` / `LEARNINGCURVE_*` 权限） |
 | `mfgUserSave` | 建账号（`createPersonAndUserLogin` 建人与登录，再写安全组）或改姓名/组/状态；不改密码 |
 | `mfgUserResetPassword` | 把账号密码重置回 `ofbiz`（走 OFBiz 的 `updatePassword`），下次登录被门禁拦住要求改 |
+| `mfgPermissions` | 当前账号能进哪些区域（`canView` / `canProduce` / `canStock` / `canEng` / `canSales` / `canCost` / `isAdmin` / `manager`），装饰器用它隐藏菜单，页面用它隐藏成本块 |
 | `mfgProductSave` / `mfgProductList` / `mfgProductDetail` | 型号维护与查询（含当前 BOM 版本的行、工艺路线、版本数）；工时改了就把 `standardHoursSource` 退回 `MANUAL`；`snPrefix` 超 10 字符直接报错（不填时默认取型号编码） |
 | `mfgBomImport` | 从 CSV 导入 BOM 到指定版本（缺省为当前版本），`replace=N` 时追加而不清空；第 6 列单价可空；**型号还没有版本时，导入的这个版本直接成为当前版本** |
 | `mfgBomVersionCreate` / `mfgBomVersionActivate` / `mfgBomVersionList` | 新建下一版（可复制当前行）、启用某版（旧版转废止、型号指向新版）、列出各版本 |
@@ -439,7 +488,7 @@ csv         = R0402-10K,10K 0402 resistor,4,R1-R4,N,0.05
 | `/mfg/control/claims` | 售后单：登记（类型/订单号/买家/签收日）、按 SN/类型/状态过滤、7 天与 15 天窗口倒计时、处理（检测结论、退款、运费、索赔）、换货与开返修工单、**照片与检测报告附件** |
 | `/mfg/control/buyers` | 买家名单：登记/解除、发货前查询命中、售后历史汇总与建议等级 |
 | `/mfg/control/quality` | 质量指标：四率 + 成本率、钱花在哪、按型号/责任方/批次/失效时间/检测结论分解、红线告警 |
-| `/mfg/control/users` | **用户账号**：账号清单（姓名 / 安全组 / 启用状态 / 是否还在用出厂密码 / 建立日期），新建账号、改组、停用/启用、重置密码；只有能管账号的人（OFBiz 的 `PARTYMGR_UPDATE` / `PARTYMGR_ADMIN`）看得到表单，其他人只能看 |
+| `/mfg/control/users` | **用户账号**：账号清单（姓名 / 安全组 / 启用状态 / 是否还在用出厂密码 / 建立日期），新建账号、改组、停用/启用、重置密码；**只列与本系统有关的账号**（`MFG_*`／`LEARNINGCURVE_*` 组或管理员组），系统账号与其它应用的账号不显示；只有能管账号的人（OFBiz 的 `PARTYMGR_UPDATE` / `PARTYMGR_ADMIN`）看得到表单，其他人只能看提示 |
 | `/mfg/control/userSave` | POST 建账号或改姓名/安全组/启用状态（`userLoginId` + 可选 `personName` / `groupId` / `enabled` / `password` / `passwordHint`） |
 | `/mfg/control/userResetPassword` | POST 把某个账号的密码重置回出厂密码 `ofbiz`，该账号下次登录会被强制改密码 |
 

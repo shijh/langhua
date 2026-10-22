@@ -31,6 +31,8 @@
                 <set field="activeApp" value="mfg"/>
                 <!-- every page asks whether the account may be used at all (default password gate) -->
                 <service service-name="mfgPasswordStatus" result-map="pwdStatus" auto-field-map="true"/>
+                <!-- and which areas the account may work in, so the navigation can hide the rest -->
+                <service service-name="mfgPermissions" result-map="permMap" auto-field-map="true"/>
             </actions>
             <widgets>
                 <platform-specific>

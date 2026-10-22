@@ -1,8 +1,20 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-  Permissions of the components, granted to the SUPER group (which every OFBiz admin account has).
-  Only groups that exist in a fresh OFBiz database may be referenced here: a grant to a missing
-  group breaks the foreign key SEC_GRP_PERM_GRP and aborts the whole load-data run.
+  Permissions and role groups of the component.
+
+  Only groups that exist in a fresh OFBiz database may be referenced by a grant to a *framework*
+  group: a grant to a missing group breaks the foreign key SEC_GRP_PERM_GRP and aborts the whole
+  load-data run. The role groups below are created by this file, so they can be granted freely.
+
+  Roles:
+    MFG_BOSS       everything, including cost and margin
+    MFG_FOREMAN    work orders, work reports, serial numbers, dashboard, shortage
+    MFG_WAREHOUSE  material lots, issuing, inventory, counting, locations, delivery
+    MFG_ENGINEER   product models, BOM, routing, development, ECO, software projects
+    MFG_SALES      sales orders, deliveries, warranty claims, buyer list
+
+  The LEARNINGCURVE_* permissions live in the sibling component; they are not granted here because
+  a database without that component would reject the grant (see the note above).
 -->
 <entity-engine-xml>
 
@@ -10,8 +22,56 @@
             permissionId="MFG_VIEW"/>
     <SecurityPermission description="Full access to product models, BOM, routing and work orders"
             permissionId="MFG_ADMIN"/>
+    <SecurityPermission description="Create work orders, report work, register serial numbers, record defects"
+            permissionId="MFG_PRODUCTION"/>
+    <SecurityPermission description="Receive, inspect and issue material, inventory, counting, locations"
+            permissionId="MFG_STOCK"/>
+    <SecurityPermission description="Product models, BOM, routing, development projects, ECO, software"
+            permissionId="MFG_ENG"/>
+    <SecurityPermission description="Sales orders, deliveries, warranty claims, buyer risk list"
+            permissionId="MFG_SALES"/>
+    <SecurityPermission description="See cost, price and margin figures"
+            permissionId="MFG_COST"/>
 
+    <!-- the administrator of a fresh database keeps full access -->
     <SecurityGroupPermission groupId="SUPER" permissionId="MFG_VIEW" fromDate="2010-01-01 00:00:00.000"/>
     <SecurityGroupPermission groupId="SUPER" permissionId="MFG_ADMIN" fromDate="2010-01-01 00:00:00.000"/>
+
+    <!-- role groups -->
+    <SecurityGroup groupId="MFG_BOSS" groupName="老板 / 全权"
+            description="All areas of the shop, including cost and margin"/>
+    <SecurityGroup groupId="MFG_FOREMAN" groupName="车间主管"
+            description="Work orders, work reports, serial numbers, dashboard and shortage"/>
+    <SecurityGroup groupId="MFG_WAREHOUSE" groupName="仓管"
+            description="Material lots, issuing, inventory, counting, locations and delivery"/>
+    <SecurityGroup groupId="MFG_ENGINEER" groupName="工程 / BOM"
+            description="Product models, BOM, routing, development projects and ECO"/>
+    <SecurityGroup groupId="MFG_SALES" groupName="销售 / 售后"
+            description="Sales orders, deliveries, warranty claims and the buyer list"/>
+
+    <!-- every role may open the webapp and see the data -->
+    <SecurityGroupPermission groupId="MFG_BOSS" permissionId="OFBTOOLS_VIEW" fromDate="2026-10-20 00:00:00.0"/>
+    <SecurityGroupPermission groupId="MFG_BOSS" permissionId="MFG_VIEW" fromDate="2026-10-20 00:00:00.0"/>
+    <SecurityGroupPermission groupId="MFG_FOREMAN" permissionId="OFBTOOLS_VIEW" fromDate="2026-10-20 00:00:00.0"/>
+    <SecurityGroupPermission groupId="MFG_FOREMAN" permissionId="MFG_VIEW" fromDate="2026-10-20 00:00:00.0"/>
+    <SecurityGroupPermission groupId="MFG_WAREHOUSE" permissionId="OFBTOOLS_VIEW" fromDate="2026-10-20 00:00:00.0"/>
+    <SecurityGroupPermission groupId="MFG_WAREHOUSE" permissionId="MFG_VIEW" fromDate="2026-10-20 00:00:00.0"/>
+    <SecurityGroupPermission groupId="MFG_ENGINEER" permissionId="OFBTOOLS_VIEW" fromDate="2026-10-20 00:00:00.0"/>
+    <SecurityGroupPermission groupId="MFG_ENGINEER" permissionId="MFG_VIEW" fromDate="2026-10-20 00:00:00.0"/>
+    <SecurityGroupPermission groupId="MFG_SALES" permissionId="OFBTOOLS_VIEW" fromDate="2026-10-20 00:00:00.0"/>
+    <SecurityGroupPermission groupId="MFG_SALES" permissionId="MFG_VIEW" fromDate="2026-10-20 00:00:00.0"/>
+
+    <!-- the areas each role works in -->
+    <SecurityGroupPermission groupId="MFG_BOSS" permissionId="MFG_PRODUCTION" fromDate="2026-10-20 00:00:00.0"/>
+    <SecurityGroupPermission groupId="MFG_BOSS" permissionId="MFG_STOCK" fromDate="2026-10-20 00:00:00.0"/>
+    <SecurityGroupPermission groupId="MFG_BOSS" permissionId="MFG_ENG" fromDate="2026-10-20 00:00:00.0"/>
+    <SecurityGroupPermission groupId="MFG_BOSS" permissionId="MFG_SALES" fromDate="2026-10-20 00:00:00.0"/>
+    <SecurityGroupPermission groupId="MFG_BOSS" permissionId="MFG_COST" fromDate="2026-10-20 00:00:00.0"/>
+    <SecurityGroupPermission groupId="MFG_FOREMAN" permissionId="MFG_PRODUCTION" fromDate="2026-10-20 00:00:00.0"/>
+    <SecurityGroupPermission groupId="MFG_WAREHOUSE" permissionId="MFG_STOCK" fromDate="2026-10-20 00:00:00.0"/>
+    <SecurityGroupPermission groupId="MFG_ENGINEER" permissionId="MFG_ENG" fromDate="2026-10-20 00:00:00.0"/>
+    <!-- shipping a sales order needs the stock area as well, so sales may pick and pack -->
+    <SecurityGroupPermission groupId="MFG_SALES" permissionId="MFG_SALES" fromDate="2026-10-20 00:00:00.0"/>
+    <SecurityGroupPermission groupId="MFG_SALES" permissionId="MFG_STOCK" fromDate="2026-10-20 00:00:00.0"/>
 </entity-engine-xml>
 

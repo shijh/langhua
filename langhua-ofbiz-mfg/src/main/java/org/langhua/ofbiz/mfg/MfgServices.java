@@ -37,6 +37,7 @@ import org.apache.ofbiz.entity.condition.EntityOperator;
 import org.apache.ofbiz.entity.util.EntityQuery;
 import org.apache.ofbiz.entity.util.EntityUtil;
 import org.apache.ofbiz.entity.util.EntityUtilProperties;
+import org.apache.ofbiz.security.Security;
 import org.apache.ofbiz.service.DispatchContext;
 import org.apache.ofbiz.service.GenericServiceException;
 import org.apache.ofbiz.service.ServiceUtil;
@@ -458,6 +459,118 @@ public final class MfgServices {
     /** The {@code UserLogin.userLoginId} field is {@code id-ne}, so an account name cannot be longer. */
     private static final int MAX_ACCOUNT_NAME = 20;
 
+    /** Permission of the component, see {@code data/MfgSecurityPermissionSeedData.xml} for the roles. */
+    public static final String PERM_VIEW = "MFG_VIEW";
+    public static final String PERM_ADMIN = "MFG_ADMIN";
+    public static final String PERM_PRODUCTION = "MFG_PRODUCTION";
+    public static final String PERM_STOCK = "MFG_STOCK";
+    public static final String PERM_ENG = "MFG_ENG";
+    public static final String PERM_SALES = "MFG_SALES";
+    public static final String PERM_COST = "MFG_COST";
+
+    /** Every area permission, in the order the account page describes them. */
+    public static final String[] AREA_PERMISSIONS = {PERM_PRODUCTION, PERM_STOCK, PERM_ENG, PERM_SALES, PERM_COST};
+
+    /**
+     * Tells the decorator which areas the logged in account may work in, so the navigation and the
+     * cost blocks are hidden instead of failing with a permission error. Never fails.
+     *
+     * @param dctx the dispatch context
+     * @param context service context, see {@code servicedef/services.xml#mfgPermissions}
+     * @return the service result with {@code canView} / {@code canProduce} / {@code canStock} /
+     *         {@code canEng} / {@code canSales} / {@code canCost} / {@code isAdmin} ({@code Y} / {@code N})
+     */
+    public static Map<String, Object> permissions(DispatchContext dctx, Map<String, ? extends Object> context) {
+        GenericValue userLogin = (GenericValue) context.get("userLogin");
+        Map<String, Object> result = ServiceUtil.returnSuccess();
+        result.put("canView", yesNo(can(dctx, userLogin, PERM_VIEW)));
+        result.put("canProduce", yesNo(can(dctx, userLogin, PERM_PRODUCTION)));
+        result.put("canStock", yesNo(can(dctx, userLogin, PERM_STOCK)));
+        result.put("canEng", yesNo(can(dctx, userLogin, PERM_ENG)));
+        result.put("canSales", yesNo(can(dctx, userLogin, PERM_SALES)));
+        result.put("canCost", yesNo(can(dctx, userLogin, PERM_COST)));
+        result.put("isAdmin", yesNo(can(dctx, userLogin, PERM_ADMIN)));
+        result.put("manager", yesNo(accountAdminProblem(dctx, userLogin) == null));
+        result.put("userLoginId", userLogin == null ? "" : userLogin.getString("userLoginId"));
+        return result;
+    }
+
+    /**
+     * Says whether the account holds one permission. {@code MFG_ADMIN} and the OFBiz administrator
+     * permission pass every check, so a database whose administrator sits in {@code FULLADMIN}
+     * (a demo database) behaves like a fresh one where it sits in {@code SUPER}.
+     *
+     * @param dctx the dispatch context
+     * @param userLogin the logged in account, may be {@code null}
+     * @param permission the permission to look for
+     * @return {@code true} when the account may do it
+     */
+    private static boolean can(DispatchContext dctx, GenericValue userLogin, String permission) {
+        if (userLogin == null) {
+            return false;
+        }
+        Security security = dctx.getSecurity();
+        if (security == null) {
+            // no security implementation configured: never lock the shop out of its own data
+            return true;
+        }
+        if (security.hasPermission(permission, userLogin) || security.hasPermission(PERM_ADMIN, userLogin)) {
+            return true;
+        }
+        return security.hasEntityPermission("PARTYMGR", "_UPDATE", userLogin);
+    }
+
+    /**
+     * Checks the area permissions of an operation.
+     *
+     * @param dctx the dispatch context
+     * @param context service context, must carry the logged in {@code userLogin}
+     * @param permissions the permissions of which the account needs at least one
+     * @return the message to show, or {@code null} when the account may do it
+     */
+    private static String permissionProblem(DispatchContext dctx, Map<String, ? extends Object> context,
+            String... permissions) {
+        GenericValue userLogin = (GenericValue) context.get("userLogin");
+        if (userLogin == null) {
+            return "请先登录";
+        }
+        for (String permission : permissions) {
+            if (can(dctx, userLogin, permission)) {
+                return null;
+            }
+        }
+        return "没有权限做这个操作（需要 " + String.join(" 或 ", permissions)
+                + "）；请管理员在「用户账号」里调整你的角色";
+    }
+
+    /**
+     * Turns a flag into the {@code Y} / {@code N} the templates compare against.
+     *
+     * @param value the flag
+     * @return {@code Y} when true, {@code N} otherwise
+     */
+    private static String yesNo(boolean value) {
+        return value ? "Y" : "N";
+    }
+
+    /**
+     * Says "you may not see the cost" without failing the page.
+     *
+     * @param dctx the dispatch context
+     * @param context service context, must carry the logged in {@code userLogin}
+     * @return a result carrying {@code denied=Y}, or {@code null} when the account may see cost
+     */
+    private static Map<String, Object> costDenied(DispatchContext dctx, Map<String, ? extends Object> context) {
+        GenericValue userLogin = (GenericValue) context.get("userLogin");
+        if (can(dctx, userLogin, PERM_COST)) {
+            return null;
+        }
+        Map<String, Object> result = ServiceUtil.returnSuccess();
+        result.put("denied", "Y");
+        result.put("message", "无权查看成本与毛利（需要 MFG_COST）；找管理员在「用户账号」里给你加角色");
+        return result;
+    }
+
     /**
      * Lists the accounts with the person behind each one, its security group and whether it still
      * uses the default password.
@@ -493,9 +606,10 @@ public final class MfgServices {
                 // the account names are not shown to somebody who may not manage them
                 return result;
             }
+            Set<String> shopGroups = shopGroupIds(delegator);
             for (GenericValue group : EntityQuery.use(delegator).from("SecurityGroup").orderBy("groupId").queryList()) {
                 String groupId = group.getString("groupId");
-                if (!usableGroups(delegator).contains(groupId)) {
+                if (!shopGroups.contains(groupId)) {
                     continue;
                 }
                 Map<String, Object> option = new LinkedHashMap<>();
@@ -518,12 +632,20 @@ public final class MfgServices {
             });
             for (GenericValue login : EntityQuery.use(delegator).from("UserLogin").orderBy("userLoginId").queryList()) {
                 String userLoginId = login.getString("userLoginId");
+                if ("Y".equals(login.getString("isSystem"))) {
+                    // accounts the framework runs under are not people and cannot log in
+                    continue;
+                }
+                List<String> groupIds = groupIdsOf(delegator, userLoginId);
+                if (!belongsToShop(groupIds, shopGroups)) {
+                    // a user of some other application of the installation is none of our business
+                    continue;
+                }
                 Map<String, Object> row = new LinkedHashMap<>();
                 row.put("userLoginId", userLoginId);
                 row.put("partyId", toText(login.getString("partyId")));
                 row.put("personName", personNameOf(delegator, login.getString("partyId")));
                 row.put("enabled", "N".equals(login.getString("enabled")) ? "N" : "Y");
-                List<String> groupIds = groupIdsOf(delegator, userLoginId);
                 row.put("groups", groupIds.isEmpty() ? "" : String.join(" / ", groupIds));
                 row.put("groupIds", groupIds);
                 row.put("defaultPassword", isDefaultPassword(delegator, login.getString("currentPassword")) ? "Y" : "N");
@@ -580,8 +702,8 @@ public final class MfgServices {
                 if (groupId == null) {
                     groupId = ACCOUNT_ADMIN_GROUP;
                 }
-                if (!securityGroupExists(delegator, groupId)) {
-                    return ServiceUtil.returnError("安全组不存在：" + groupId);
+                if (!shopGroupIds(delegator).contains(groupId)) {
+                    return ServiceUtil.returnError("安全组不属于本系统：" + groupId);
                 }
                 Map<String, Object> createContext = new HashMap<>();
                 createContext.put("userLogin", userLogin);
@@ -628,8 +750,8 @@ public final class MfgServices {
                     }
                 }
                 if (groupId != null) {
-                    if (!securityGroupExists(delegator, groupId)) {
-                        return ServiceUtil.returnError("安全组不存在：" + groupId);
+                    if (!shopGroupIds(delegator).contains(groupId)) {
+                        return ServiceUtil.returnError("安全组不属于本系统：" + groupId);
                     }
                     replaceSecurityGroup(delegator, actualId, groupId);
                 }
@@ -768,25 +890,31 @@ public final class MfgServices {
     }
 
     /**
-     * Returns the security groups that can open this component at all, so the page does not
-     * offer every framework group of the installation.
-     *
-     * <p>A group qualifies when it carries one of the permissions of the two components
-     * ({@code OFBTOOLS_VIEW} to enter a webapp, or one of the {@code MFG_*} /
-     * {@code LEARNINGCURVE_*} permissions). The administrator group is always included.
+     * Returns the security groups that belong to this installation of the shop: the groups holding
+     * one of the component permissions, the groups that may manage accounts and the administrator
+     * group. Accounts of any other group (a web shop, the accounting module, …) are not shown on
+     * the account page.
      *
      * @param delegator the delegator
-     * @return the usable group ids
+     * @return the group ids
      * @throws GenericEntityException when the permissions cannot be read
      */
-    private static Set<String> usableGroups(Delegator delegator) throws GenericEntityException {
+    private static Set<String> shopGroupIds(Delegator delegator) throws GenericEntityException {
         Set<String> groupIds = new LinkedHashSet<>();
         groupIds.add(ACCOUNT_ADMIN_GROUP);
-        EntityCondition permissionFilter = EntityCondition.makeCondition("permissionId", EntityOperator.IN,
-                java.util.Arrays.asList("OFBTOOLS_VIEW", "MFG_VIEW", "MFG_ADMIN", "LEARNINGCURVE_VIEW",
-                        "LEARNINGCURVE_ADMIN"));
+        List<Object> permissions = new ArrayList<>();
+        permissions.add(PERM_VIEW);
+        permissions.add(PERM_ADMIN);
+        for (String permission : AREA_PERMISSIONS) {
+            permissions.add(permission);
+        }
+        permissions.add("LEARNINGCURVE_VIEW");
+        permissions.add("LEARNINGCURVE_ADMIN");
+        // an account that may manage accounts is an administrator of the shop as well
+        // (only _ADMIN: a group that may merely create parties belongs to another application)
+        permissions.add("PARTYMGR_ADMIN");
         List<GenericValue> grants = EntityQuery.use(delegator).from("SecurityGroupPermission")
-                .where(permissionFilter).queryList();
+                .where(EntityCondition.makeCondition("permissionId", EntityOperator.IN, permissions)).queryList();
         for (GenericValue grant : EntityUtil.filterByDate(grants)) {
             String groupId = grant.getString("groupId");
             if (groupId != null) {
@@ -794,6 +922,22 @@ public final class MfgServices {
             }
         }
         return groupIds;
+    }
+
+    /**
+     * Says whether one of the groups of an account is a group of the shop.
+     *
+     * @param groupIds the groups of the account
+     * @param shopGroups the groups that belong to the shop
+     * @return {@code true} when the account should be listed
+     */
+    private static boolean belongsToShop(List<String> groupIds, Set<String> shopGroups) {
+        for (String groupId : groupIds) {
+            if (shopGroups.contains(groupId)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
@@ -836,18 +980,6 @@ public final class MfgServices {
             }
         }
         return null;
-    }
-
-    /**
-     * Says whether a security group exists, so a typo does not end up as a foreign key error.
-     *
-     * @param delegator the delegator
-     * @param groupId the group id
-     * @return {@code true} when the group exists
-     * @throws GenericEntityException when the group cannot be read
-     */
-    private static boolean securityGroupExists(Delegator delegator, String groupId) throws GenericEntityException {
-        return EntityQuery.use(delegator).from("SecurityGroup").where("groupId", groupId).queryOne() != null;
     }
 
     /**
@@ -971,6 +1103,10 @@ public final class MfgServices {
      * @return the service result containing {@code productCode}
      */
     public static Map<String, Object> productSave(DispatchContext dctx, Map<String, ? extends Object> context) {
+        String denied = permissionProblem(dctx, context, PERM_ENG);
+        if (denied != null) {
+            return ServiceUtil.returnError(denied);
+        }
         Delegator delegator = dctx.getDelegator();
         String productCode = toText(context.get("productCode"));
         if (productCode == null) {
@@ -1036,6 +1172,10 @@ public final class MfgServices {
      * @return the service result containing {@code bomVersionId} and {@code importedCount}
      */
     public static Map<String, Object> bomImport(DispatchContext dctx, Map<String, ? extends Object> context) {
+        String denied = permissionProblem(dctx, context, PERM_ENG);
+        if (denied != null) {
+            return ServiceUtil.returnError(denied);
+        }
         Delegator delegator = dctx.getDelegator();
         String productCode = toText(context.get("productCode"));
         String csv = toText(context.get("csv"));
@@ -1115,6 +1255,10 @@ public final class MfgServices {
      * @return the service result containing {@code productCode} and {@code opSeq}
      */
     public static Map<String, Object> routingSave(DispatchContext dctx, Map<String, ? extends Object> context) {
+        String denied = permissionProblem(dctx, context, PERM_ENG);
+        if (denied != null) {
+            return ServiceUtil.returnError(denied);
+        }
         Delegator delegator = dctx.getDelegator();
         String productCode = toText(context.get("productCode"));
         long opSeq = toLong(context.get("opSeq"), 0);
@@ -1155,6 +1299,11 @@ public final class MfgServices {
      * @return the service result containing {@code workOrderId}
      */
     public static Map<String, Object> workOrderCreate(DispatchContext dctx, Map<String, ? extends Object> context) {
+        // sales planning creates work orders too, so the sales area is accepted here
+        String denied = permissionProblem(dctx, context, PERM_PRODUCTION, PERM_SALES);
+        if (denied != null) {
+            return ServiceUtil.returnError(denied);
+        }
         Delegator delegator = dctx.getDelegator();
         String productCode = toText(context.get("productCode"));
         if (productCode == null) {
@@ -1186,6 +1335,7 @@ public final class MfgServices {
             Map<String, Object> reserveContext = new HashMap<>();
             reserveContext.put("workOrderId", workOrderId);
             reserveContext.put("operatorName", toText(context.get("customerName")));
+            reserveContext.put("userLogin", context.get("userLogin"));
             Map<String, Object> reservation = reserveMaterial(dctx, reserveContext);
 
             Map<String, Object> result = ServiceUtil.returnSuccess();
@@ -1335,6 +1485,10 @@ public final class MfgServices {
      * @return the service result containing {@code reportId}
      */
     public static Map<String, Object> reportCreate(DispatchContext dctx, Map<String, ? extends Object> context) {
+        String denied = permissionProblem(dctx, context, PERM_PRODUCTION);
+        if (denied != null) {
+            return ServiceUtil.returnError(denied);
+        }
         Delegator delegator = dctx.getDelegator();
         String workOrderId = toText(context.get("workOrderId"));
         long opSeq = toLong(context.get("opSeq"), 0);
@@ -1394,6 +1548,10 @@ public final class MfgServices {
      * @return the service result containing {@code sns}, {@code firstSn} and {@code lastSn}
      */
     public static Map<String, Object> snRegister(DispatchContext dctx, Map<String, ? extends Object> context) {
+        String denied = permissionProblem(dctx, context, PERM_PRODUCTION);
+        if (denied != null) {
+            return ServiceUtil.returnError(denied);
+        }
         Delegator delegator = dctx.getDelegator();
         String workOrderId = toText(context.get("workOrderId"));
         long qty = toLong(context.get("qty"), 0);
@@ -1542,6 +1700,10 @@ public final class MfgServices {
      * @return the service result containing {@code defectId}
      */
     public static Map<String, Object> defectCreate(DispatchContext dctx, Map<String, ? extends Object> context) {
+        String denied = permissionProblem(dctx, context, PERM_PRODUCTION);
+        if (denied != null) {
+            return ServiceUtil.returnError(denied);
+        }
         Delegator delegator = dctx.getDelegator();
         String workOrderId = toText(context.get("workOrderId"));
         String defectCode = toText(context.get("defectCode"));
@@ -1586,6 +1748,7 @@ public final class MfgServices {
      */
     public static Map<String, Object> dashboard(DispatchContext dctx, Map<String, ? extends Object> context) {
         Delegator delegator = dctx.getDelegator();
+        boolean costDenied = !can(dctx, (GenericValue) context.get("userLogin"), PERM_COST);
         Timestamp todayStart = Timestamp.valueOf(LocalDate.now().atStartOfDay());
         try {
             List<GenericValue> orders = EntityQuery.use(delegator).from("MfgWorkOrder").queryList();
@@ -1629,6 +1792,8 @@ public final class MfgServices {
             result.put("todayQtyNg", Long.valueOf(todayNg));
             result.put("todayYield", Double.valueOf(yieldRate));
             result.put("recentReports", recent);
+            // the responsibility cost block is a cost view, not everybody may see it
+            result.put("costDenied", costDenied ? "Y" : "N");
             return result;
         } catch (GenericEntityException e) {
             return ServiceUtil.returnError("Could not build the dashboard: " + e.getMessage());
@@ -1647,6 +1812,11 @@ public final class MfgServices {
      * @return the service result containing the costs, the lines and the margin
      */
     public static Map<String, Object> productCost(DispatchContext dctx, Map<String, ? extends Object> context) {
+        // the page cannot fail for a role without the cost area: it renders a hint instead
+        Map<String, Object> denied = costDenied(dctx, context);
+        if (denied != null) {
+            return denied;
+        }
         Delegator delegator = dctx.getDelegator();
         String productCode = toText(context.get("productCode"));
         Map<String, Object> empty = costSummary(0.0, 0.0, 1.0, null, null);
@@ -1760,6 +1930,24 @@ public final class MfgServices {
      * @return the service result with the standard and actual costs and their difference
      */
     public static Map<String, Object> workOrderCost(DispatchContext dctx, Map<String, ? extends Object> context) {
+        // the page cannot fail for a role without the cost area: it renders a hint instead
+        Map<String, Object> denied = costDenied(dctx, context);
+        if (denied != null) {
+            return denied;
+        }
+        return workOrderCostOf(dctx, context);
+    }
+
+    /**
+     * Costs a work order without asking for the cost permission: completing a work order stores the
+     * unit cost of the finished goods, so that number is needed even when the operator may not look
+     * at cost figures.
+     *
+     * @param dctx the dispatch context
+     * @param context service context with the {@code workOrderId}
+     * @return the same structure as {@code mfgWorkOrderCost}
+     */
+    private static Map<String, Object> workOrderCostOf(DispatchContext dctx, Map<String, ? extends Object> context) {
         Delegator delegator = dctx.getDelegator();
         String workOrderId = toText(context.get("workOrderId"));
         Map<String, Object> result = ServiceUtil.returnSuccess();
@@ -2179,6 +2367,10 @@ public final class MfgServices {
      * @return the service result containing {@code lotId}
      */
     public static Map<String, Object> lotSave(DispatchContext dctx, Map<String, ? extends Object> context) {
+        String denied = permissionProblem(dctx, context, PERM_STOCK);
+        if (denied != null) {
+            return ServiceUtil.returnError(denied);
+        }
         Delegator delegator = dctx.getDelegator();
         String componentCode = toText(context.get("componentCode"));
         if (componentCode == null) {
@@ -2251,6 +2443,10 @@ public final class MfgServices {
      * @return the service result containing {@code lotId} and the stored status
      */
     public static Map<String, Object> lotInspect(DispatchContext dctx, Map<String, ? extends Object> context) {
+        String denied = permissionProblem(dctx, context, PERM_STOCK);
+        if (denied != null) {
+            return ServiceUtil.returnError(denied);
+        }
         Delegator delegator = dctx.getDelegator();
         String lotId = toText(context.get("lotId"));
         if (lotId == null) {
@@ -2352,6 +2548,10 @@ public final class MfgServices {
      * @return the service result containing {@code issueId}
      */
     public static Map<String, Object> issueSave(DispatchContext dctx, Map<String, ? extends Object> context) {
+        String denied = permissionProblem(dctx, context, PERM_STOCK);
+        if (denied != null) {
+            return ServiceUtil.returnError(denied);
+        }
         Delegator delegator = dctx.getDelegator();
         String workOrderId = toText(context.get("workOrderId"));
         String componentCode = toText(context.get("componentCode"));
@@ -2519,6 +2719,10 @@ public final class MfgServices {
      * @return the service result containing {@code shipmentId}
      */
     public static Map<String, Object> shipmentSave(DispatchContext dctx, Map<String, ? extends Object> context) {
+        String denied = permissionProblem(dctx, context, PERM_PRODUCTION);
+        if (denied != null) {
+            return ServiceUtil.returnError(denied);
+        }
         Delegator delegator = dctx.getDelegator();
         String workOrderId = toText(context.get("workOrderId"));
         String directionId = toText(context.get("directionId"));
@@ -2884,6 +3088,10 @@ public final class MfgServices {
      * @return the service result containing {@code importedCount}
      */
     public static Map<String, Object> lotImportCsv(DispatchContext dctx, Map<String, ? extends Object> context) {
+        String denied = permissionProblem(dctx, context, PERM_STOCK);
+        if (denied != null) {
+            return ServiceUtil.returnError(denied);
+        }
         Delegator delegator = dctx.getDelegator();
         String csv = toText(context.get("csv"));
         if (csv == null) {
@@ -2994,6 +3202,10 @@ public final class MfgServices {
      * @return the service result containing {@code replacementId}
      */
     public static Map<String, Object> replacementSave(DispatchContext dctx, Map<String, ? extends Object> context) {
+        String denied = permissionProblem(dctx, context, PERM_PRODUCTION);
+        if (denied != null) {
+            return ServiceUtil.returnError(denied);
+        }
         Delegator delegator = dctx.getDelegator();
         String sn = toText(context.get("sn"));
         String componentCode = toText(context.get("componentCode"));
@@ -3192,6 +3404,11 @@ public final class MfgServices {
      * @return the service result containing {@code deliveryId} and {@code snCount}
      */
     public static Map<String, Object> deliverySave(DispatchContext dctx, Map<String, ? extends Object> context) {
+        // shipping is done by the warehouse, and sales may send the goods themselves
+        String denied = permissionProblem(dctx, context, PERM_SALES, PERM_STOCK);
+        if (denied != null) {
+            return ServiceUtil.returnError(denied);
+        }
         Delegator delegator = dctx.getDelegator();
         String customerName = toText(context.get("customerName"));
         String salesOrderId = toText(context.get("salesOrderId"));
@@ -3458,6 +3675,10 @@ public final class MfgServices {
      * @return the service result containing {@code importedCount} and {@code skippedCount}
      */
     public static Map<String, Object> testImportCsv(DispatchContext dctx, Map<String, ? extends Object> context) {
+        String denied = permissionProblem(dctx, context, PERM_PRODUCTION);
+        if (denied != null) {
+            return ServiceUtil.returnError(denied);
+        }
         Delegator delegator = dctx.getDelegator();
         String csv = toText(context.get("csv"));
         if (csv == null) {
@@ -3646,6 +3867,10 @@ public final class MfgServices {
      * @return the service result containing {@code vendorId}
      */
     public static Map<String, Object> vendorSave(DispatchContext dctx, Map<String, ? extends Object> context) {
+        String denied = permissionProblem(dctx, context, PERM_PRODUCTION);
+        if (denied != null) {
+            return ServiceUtil.returnError(denied);
+        }
         Delegator delegator = dctx.getDelegator();
         String vendorName = toText(context.get("vendorName"));
         if (vendorName == null) {
@@ -3717,6 +3942,10 @@ public final class MfgServices {
      * @return the service result containing {@code workOrderId} and {@code vendorId}
      */
     public static Map<String, Object> workOrderVendor(DispatchContext dctx, Map<String, ? extends Object> context) {
+        String denied = permissionProblem(dctx, context, PERM_PRODUCTION);
+        if (denied != null) {
+            return ServiceUtil.returnError(denied);
+        }
         Delegator delegator = dctx.getDelegator();
         String workOrderId = toText(context.get("workOrderId"));
         String vendorId = toText(context.get("vendorId"));
@@ -3823,6 +4052,10 @@ public final class MfgServices {
      * @return the service result containing {@code claimId} and {@code inWarranty}
      */
     public static Map<String, Object> claimCreate(DispatchContext dctx, Map<String, ? extends Object> context) {
+        String denied = permissionProblem(dctx, context, PERM_SALES);
+        if (denied != null) {
+            return ServiceUtil.returnError(denied);
+        }
         Delegator delegator = dctx.getDelegator();
         String sn = toText(context.get("sn"));
         String issueDesc = toText(context.get("issueDesc"));
@@ -3932,6 +4165,10 @@ public final class MfgServices {
      * @return the service result containing {@code claimId} and {@code statusId}
      */
     public static Map<String, Object> claimUpdate(DispatchContext dctx, Map<String, ? extends Object> context) {
+        String denied = permissionProblem(dctx, context, PERM_SALES);
+        if (denied != null) {
+            return ServiceUtil.returnError(denied);
+        }
         Delegator delegator = dctx.getDelegator();
         String claimId = toText(context.get("claimId"));
         if (claimId == null) {
@@ -4169,6 +4406,10 @@ public final class MfgServices {
      * @return the service result containing {@code claimId}, {@code deliveryId} and {@code newSn}
      */
     public static Map<String, Object> claimExchange(DispatchContext dctx, Map<String, ? extends Object> context) {
+        String denied = permissionProblem(dctx, context, PERM_SALES, PERM_PRODUCTION);
+        if (denied != null) {
+            return ServiceUtil.returnError(denied);
+        }
         Delegator delegator = dctx.getDelegator();
         String claimId = toText(context.get("claimId"));
         if (claimId == null) {
@@ -4273,6 +4514,10 @@ public final class MfgServices {
      * @return the service result containing {@code claimId} and {@code workOrderId}
      */
     public static Map<String, Object> claimRepair(DispatchContext dctx, Map<String, ? extends Object> context) {
+        String denied = permissionProblem(dctx, context, PERM_SALES, PERM_PRODUCTION);
+        if (denied != null) {
+            return ServiceUtil.returnError(denied);
+        }
         Delegator delegator = dctx.getDelegator();
         String claimId = toText(context.get("claimId"));
         if (claimId == null) {
@@ -4518,6 +4763,10 @@ public final class MfgServices {
      * @return the service result containing {@code buyerKey}, {@code riskLevel} and {@code statusId}
      */
     public static Map<String, Object> buyerFlagSave(DispatchContext dctx, Map<String, ? extends Object> context) {
+        String denied = permissionProblem(dctx, context, PERM_SALES);
+        if (denied != null) {
+            return ServiceUtil.returnError(denied);
+        }
         Delegator delegator = dctx.getDelegator();
         String channelId = toText(context.get("channelId"));
         if (channelId == null) {
@@ -5788,6 +6037,10 @@ always
      * @return the service result with what was reserved and what is still missing
      */
     public static Map<String, Object> reserveMaterial(DispatchContext dctx, Map<String, ? extends Object> context) {
+        String denied = permissionProblem(dctx, context, PERM_PRODUCTION, PERM_SALES);
+        if (denied != null) {
+            return ServiceUtil.returnError(denied);
+        }
         Delegator delegator = dctx.getDelegator();
         String workOrderId = toText(context.get("workOrderId"));
         Map<String, Object> result = ServiceUtil.returnSuccess();
@@ -5857,6 +6110,10 @@ always
      */
     public static Map<String, Object> releaseMaterialReservation(DispatchContext dctx,
             Map<String, ? extends Object> context) {
+        String denied = permissionProblem(dctx, context, PERM_PRODUCTION, PERM_SALES);
+        if (denied != null) {
+            return ServiceUtil.returnError(denied);
+        }
         Delegator delegator = dctx.getDelegator();
         String workOrderId = toText(context.get("workOrderId"));
         Map<String, Object> result = ServiceUtil.returnSuccess();
@@ -5908,6 +6165,10 @@ always
      * @return the service result with the lot and its quantity
      */
     public static Map<String, Object> workOrderComplete(DispatchContext dctx, Map<String, ? extends Object> context) {
+        String denied = permissionProblem(dctx, context, PERM_PRODUCTION);
+        if (denied != null) {
+            return ServiceUtil.returnError(denied);
+        }
         Delegator delegator = dctx.getDelegator();
         String workOrderId = toText(context.get("workOrderId"));
         if (workOrderId == null) {
@@ -5935,7 +6196,7 @@ always
 
             Map<String, Object> productCodeContext = new LinkedHashMap<>();
             productCodeContext.put("workOrderId", workOrderId);
-            double unitCost = productUnitCost(numberOrZero(workOrderCost(dctx, productCodeContext)
+            double unitCost = productUnitCost(numberOrZero(workOrderCostOf(dctx, productCodeContext)
                     .get("actualTotal")), qtyOk);
 
             String lotId = productLotId(workOrderId);
@@ -6229,6 +6490,10 @@ always
      * @return the service result with the order number
      */
     public static Map<String, Object> salesOrderSave(DispatchContext dctx, Map<String, ? extends Object> context) {
+        String denied = permissionProblem(dctx, context, PERM_SALES);
+        if (denied != null) {
+            return ServiceUtil.returnError(denied);
+        }
         Delegator delegator = dctx.getDelegator();
         String salesOrderId = toText(context.get("salesOrderId"));
         String customerName = toText(context.get("customerName"));
@@ -6339,6 +6604,10 @@ always
      * @return the service result with what was reserved and what is still owed
      */
     public static Map<String, Object> salesOrderReserve(DispatchContext dctx, Map<String, ? extends Object> context) {
+        String denied = permissionProblem(dctx, context, PERM_SALES);
+        if (denied != null) {
+            return ServiceUtil.returnError(denied);
+        }
         Delegator delegator = dctx.getDelegator();
         String salesOrderId = toText(context.get("salesOrderId"));
         if (salesOrderId == null) {
@@ -6432,6 +6701,10 @@ always
      * @return the service result with the planned quantity
      */
     public static Map<String, Object> salesOrderPlan(DispatchContext dctx, Map<String, ? extends Object> context) {
+        String denied = permissionProblem(dctx, context, PERM_SALES);
+        if (denied != null) {
+            return ServiceUtil.returnError(denied);
+        }
         Delegator delegator = dctx.getDelegator();
         String salesOrderId = toText(context.get("salesOrderId"));
         if (salesOrderId == null) {
@@ -6481,6 +6754,7 @@ always
                             + order.getString("customerName"));
                     createContext.put("note", "由销售订单 " + salesOrderId + " 第 "
                             + item.getLong("lineSeq") + " 行自动排产");
+                    createContext.put("userLogin", context.get("userLogin"));
                     Map<String, Object> created = workOrderCreate(dctx, createContext);
                     if (ServiceUtil.isError(created)) {
                         return created;
@@ -6520,6 +6794,10 @@ always
      * @return the service result with the released quantity
      */
     public static Map<String, Object> salesOrderClose(DispatchContext dctx, Map<String, ? extends Object> context) {
+        String denied = permissionProblem(dctx, context, PERM_SALES);
+        if (denied != null) {
+            return ServiceUtil.returnError(denied);
+        }
         Delegator delegator = dctx.getDelegator();
         String salesOrderId = toText(context.get("salesOrderId"));
         if (salesOrderId == null) {
@@ -7003,6 +7281,10 @@ always
      * @return the service result containing {@code locationId}
      */
     public static Map<String, Object> locationSave(DispatchContext dctx, Map<String, ? extends Object> context) {
+        String denied = permissionProblem(dctx, context, PERM_STOCK);
+        if (denied != null) {
+            return ServiceUtil.returnError(denied);
+        }
         Delegator delegator = dctx.getDelegator();
         String locationId = toText(context.get("locationId"));
         String locationTypeId = toText(context.get("locationTypeId"));
@@ -7168,6 +7450,10 @@ always
      * @return the service result with the transfer number
      */
     public static Map<String, Object> stockTransfer(DispatchContext dctx, Map<String, ? extends Object> context) {
+        String denied = permissionProblem(dctx, context, PERM_STOCK);
+        if (denied != null) {
+            return ServiceUtil.returnError(denied);
+        }
         Delegator delegator = dctx.getDelegator();
         String lotId = toText(context.get("lotId"));
         String fromLocationId = toText(context.get("fromLocationId"));
@@ -7283,6 +7569,10 @@ always
      * @return the service result containing the new totals of the lot
      */
     public static Map<String, Object> inventoryMove(DispatchContext dctx, Map<String, ? extends Object> context) {
+        String denied = permissionProblem(dctx, context, PERM_STOCK);
+        if (denied != null) {
+            return ServiceUtil.returnError(denied);
+        }
         Delegator delegator = dctx.getDelegator();
         String lotId = toText(context.get("lotId"));
         String movementTypeId = toText(context.get("movementTypeId"));
@@ -7596,6 +7886,10 @@ always
      * @return the service result containing {@code componentCode}
      */
     public static Map<String, Object> stockSettingSave(DispatchContext dctx, Map<String, ? extends Object> context) {
+        String denied = permissionProblem(dctx, context, PERM_STOCK);
+        if (denied != null) {
+            return ServiceUtil.returnError(denied);
+        }
         Delegator delegator = dctx.getDelegator();
         String componentCode = toText(context.get("componentCode"));
         if (componentCode == null) {
@@ -7647,6 +7941,10 @@ always
      * @return the service result containing the count number and the variance
      */
     public static Map<String, Object> stockCount(DispatchContext dctx, Map<String, ? extends Object> context) {
+        String denied = permissionProblem(dctx, context, PERM_STOCK);
+        if (denied != null) {
+            return ServiceUtil.returnError(denied);
+        }
         Delegator delegator = dctx.getDelegator();
         String lotId = toText(context.get("lotId"));
         Object countedInput = context.get("countedQty");
@@ -7918,6 +8216,10 @@ always
      * @return the service result containing {@code projectCode} and the estimate values
      */
     public static Map<String, Object> softwareProjectSave(DispatchContext dctx, Map<String, ? extends Object> context) {
+        String denied = permissionProblem(dctx, context, PERM_ENG);
+        if (denied != null) {
+            return ServiceUtil.returnError(denied);
+        }
         Delegator delegator = dctx.getDelegator();
         String projectCode = toText(context.get("projectCode"));
         String projectName = toText(context.get("projectName"));
@@ -8210,6 +8512,11 @@ always
      * @return the service result with the rates, the totals and the breakdown lists
      */
     public static Map<String, Object> qualityReport(DispatchContext dctx, Map<String, ? extends Object> context) {
+        // the report is built around the after sales cost rate, so it belongs to the cost area
+        String denied = permissionProblem(dctx, context, PERM_COST);
+        if (denied != null) {
+            return ServiceUtil.returnError(denied);
+        }
         Delegator delegator = dctx.getDelegator();
         java.sql.Date toDate = (java.sql.Date) parseDate(context.get("toDate"));
         if (toDate == null) {
@@ -9409,6 +9716,10 @@ always
      * @return the service result containing {@code seq}
      */
     public static Map<String, Object> attachmentSave(DispatchContext dctx, Map<String, ? extends Object> context) {
+        String denied = permissionProblem(dctx, context, PERM_ENG, PERM_STOCK, PERM_PRODUCTION, PERM_SALES);
+        if (denied != null) {
+            return ServiceUtil.returnError(denied);
+        }
         String base64 = toText(context.get("base64Data"));
         if (base64 == null) {
             return ServiceUtil.returnError("base64Data is required");
@@ -9504,6 +9815,10 @@ always
      * @return the service result containing the owner keys and {@code seq}
      */
     public static Map<String, Object> attachmentDelete(DispatchContext dctx, Map<String, ? extends Object> context) {
+        String denied = permissionProblem(dctx, context, PERM_ENG, PERM_STOCK, PERM_PRODUCTION, PERM_SALES);
+        if (denied != null) {
+            return ServiceUtil.returnError(denied);
+        }
         String ownerTypeId = toText(context.get("ownerTypeId"));
         String ownerId = toText(context.get("ownerId"));
         long seq = toLong(context.get("seq"), 0);
@@ -9806,6 +10121,10 @@ always
      * @return the service result containing {@code bomVersionId}
      */
     public static Map<String, Object> bomVersionCreate(DispatchContext dctx, Map<String, ? extends Object> context) {
+        String denied = permissionProblem(dctx, context, PERM_ENG);
+        if (denied != null) {
+            return ServiceUtil.returnError(denied);
+        }
         Delegator delegator = dctx.getDelegator();
         String productCode = toText(context.get("productCode"));
         if (productCode == null) {
@@ -9839,6 +10158,10 @@ always
      * @return the service result containing {@code bomVersionId} and {@code replacedVersionId}
      */
     public static Map<String, Object> bomVersionActivate(DispatchContext dctx, Map<String, ? extends Object> context) {
+        String denied = permissionProblem(dctx, context, PERM_ENG);
+        if (denied != null) {
+            return ServiceUtil.returnError(denied);
+        }
         Delegator delegator = dctx.getDelegator();
         String bomVersionId = toText(context.get("bomVersionId"));
         if (bomVersionId == null) {
@@ -9916,6 +10239,10 @@ always
      * @return the service result containing the migrated model codes
      */
     public static Map<String, Object> bomMigrateLegacy(DispatchContext dctx, Map<String, ? extends Object> context) {
+        String denied = permissionProblem(dctx, context, PERM_ENG);
+        if (denied != null) {
+            return ServiceUtil.returnError(denied);
+        }
         Delegator delegator = dctx.getDelegator();
         String productCode = toText(context.get("productCode"));
         List<String> migrated = new ArrayList<>();
@@ -10341,6 +10668,10 @@ always
      * @return the service result containing {@code projectCode}
      */
     public static Map<String, Object> devProjectSave(DispatchContext dctx, Map<String, ? extends Object> context) {
+        String denied = permissionProblem(dctx, context, PERM_ENG);
+        if (denied != null) {
+            return ServiceUtil.returnError(denied);
+        }
         Delegator delegator = dctx.getDelegator();
         String projectCode = toText(context.get("projectCode"));
         String projectName = toText(context.get("projectName"));
@@ -10593,6 +10924,10 @@ always
      * @return the service result containing {@code stageId} and the new {@code projectStageId}
      */
     public static Map<String, Object> devStageSave(DispatchContext dctx, Map<String, ? extends Object> context) {
+        String denied = permissionProblem(dctx, context, PERM_ENG);
+        if (denied != null) {
+            return ServiceUtil.returnError(denied);
+        }
         Delegator delegator = dctx.getDelegator();
         String projectCode = toText(context.get("projectCode"));
         String stageId = toText(context.get("stageId"));
@@ -10719,6 +11054,10 @@ always
      * @return the service result containing {@code stepId} and the {@code lotId} when one was created
      */
     public static Map<String, Object> devStepSave(DispatchContext dctx, Map<String, ? extends Object> context) {
+        String denied = permissionProblem(dctx, context, PERM_ENG);
+        if (denied != null) {
+            return ServiceUtil.returnError(denied);
+        }
         Delegator delegator = dctx.getDelegator();
         String projectCode = toText(context.get("projectCode"));
         String stepId = toText(context.get("stepId"));
@@ -10780,6 +11119,10 @@ always
      * @return the service result containing {@code stepId} and the {@code lotId} when one was created
      */
     public static Map<String, Object> devStepStatus(DispatchContext dctx, Map<String, ? extends Object> context) {
+        String denied = permissionProblem(dctx, context, PERM_ENG);
+        if (denied != null) {
+            return ServiceUtil.returnError(denied);
+        }
         Delegator delegator = dctx.getDelegator();
         String projectCode = toText(context.get("projectCode"));
         String stepId = toText(context.get("stepId"));
@@ -10833,6 +11176,10 @@ always
      * @return the service result containing {@code issueId} and {@code statusId}
      */
     public static Map<String, Object> devStepIssueSave(DispatchContext dctx, Map<String, ? extends Object> context) {
+        String denied = permissionProblem(dctx, context, PERM_ENG);
+        if (denied != null) {
+            return ServiceUtil.returnError(denied);
+        }
         Delegator delegator = dctx.getDelegator();
         String issueId = toText(context.get("issueId"));
         String projectCode = toText(context.get("projectCode"));
@@ -10944,6 +11291,10 @@ always
      * @return the service result containing {@code issueId} and the new {@code statusId}
      */
     public static Map<String, Object> devStepIssueStatus(DispatchContext dctx, Map<String, ? extends Object> context) {
+        String denied = permissionProblem(dctx, context, PERM_ENG);
+        if (denied != null) {
+            return ServiceUtil.returnError(denied);
+        }
         Delegator delegator = dctx.getDelegator();
         String issueId = toText(context.get("issueId"));
         String statusId = toText(context.get("statusId"));
@@ -11066,6 +11417,10 @@ always
      * @return the service result containing {@code workOrderId} and the stored amount
      */
     public static Map<String, Object> workOrderOutsourceSave(DispatchContext dctx, Map<String, ? extends Object> context) {
+        String denied = permissionProblem(dctx, context, PERM_PRODUCTION, PERM_COST);
+        if (denied != null) {
+            return ServiceUtil.returnError(denied);
+        }
         Delegator delegator = dctx.getDelegator();
         String workOrderId = toText(context.get("workOrderId"));
         if (workOrderId == null) {
@@ -11174,6 +11529,10 @@ always
      * @return the service result with the line amount and the new totals
      */
     public static Map<String, Object> outsourceFeeSave(DispatchContext dctx, Map<String, ? extends Object> context) {
+        String denied = permissionProblem(dctx, context, PERM_PRODUCTION, PERM_COST);
+        if (denied != null) {
+            return ServiceUtil.returnError(denied);
+        }
         Delegator delegator = dctx.getDelegator();
         String workOrderId = toText(context.get("workOrderId"));
         String feeTypeId = toText(context.get("feeTypeId"));
@@ -11270,6 +11629,10 @@ always
      * @return the service result with the new total
      */
     public static Map<String, Object> outsourceFeeDelete(DispatchContext dctx, Map<String, ? extends Object> context) {
+        String denied = permissionProblem(dctx, context, PERM_PRODUCTION, PERM_COST);
+        if (denied != null) {
+            return ServiceUtil.returnError(denied);
+        }
         Delegator delegator = dctx.getDelegator();
         String workOrderId = toText(context.get("workOrderId"));
         long seq = toLong(context.get("seqId"), 0);
@@ -11390,6 +11753,10 @@ always
      * @return the service result containing {@code ecoId}
      */
     public static Map<String, Object> devEcoSave(DispatchContext dctx, Map<String, ? extends Object> context) {
+        String denied = permissionProblem(dctx, context, PERM_ENG);
+        if (denied != null) {
+            return ServiceUtil.returnError(denied);
+        }
         Delegator delegator = dctx.getDelegator();
         String ecoId = toText(context.get("ecoId"));
         String productCode = toText(context.get("productCode"));
@@ -11586,6 +11953,10 @@ always
      * @return the service result containing the new {@code statusId}
      */
     public static Map<String, Object> devEcoApprove(DispatchContext dctx, Map<String, ? extends Object> context) {
+        String denied = permissionProblem(dctx, context, PERM_ENG);
+        if (denied != null) {
+            return ServiceUtil.returnError(denied);
+        }
         Delegator delegator = dctx.getDelegator();
         String ecoId = toText(context.get("ecoId"));
         if (ecoId == null) {
@@ -11621,6 +11992,10 @@ always
      * @return the service result containing the new {@code statusId}
      */
     public static Map<String, Object> devEcoApply(DispatchContext dctx, Map<String, ? extends Object> context) {
+        String denied = permissionProblem(dctx, context, PERM_ENG);
+        if (denied != null) {
+            return ServiceUtil.returnError(denied);
+        }
         Delegator delegator = dctx.getDelegator();
         String ecoId = toText(context.get("ecoId"));
         if (ecoId == null) {
@@ -11682,6 +12057,10 @@ always
      * @return the service result containing the new {@code statusId}
      */
     public static Map<String, Object> devEcoCancel(DispatchContext dctx, Map<String, ? extends Object> context) {
+        String denied = permissionProblem(dctx, context, PERM_ENG);
+        if (denied != null) {
+            return ServiceUtil.returnError(denied);
+        }
         Delegator delegator = dctx.getDelegator();
         String ecoId = toText(context.get("ecoId"));
         if (ecoId == null) {

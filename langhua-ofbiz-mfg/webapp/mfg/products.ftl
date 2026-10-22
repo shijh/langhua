@@ -16,6 +16,8 @@
 <#assign versions = (vr.bomVersions)![]>
 <#assign ir = (imageResult)!{}>
 <#assign images = (ir.attachments)![]>
+<#assign c = (costResult)!{}>
+<#assign costDenied = ((c.denied)!'N') == 'Y'>
 <#assign errList = (errorMessageList)![]>
 
 <#function stageLabel stageId>
@@ -185,7 +187,7 @@ BAT-18650,18650 电池,1,BT1,Y,12</textarea></p>
     <#if bomItems?has_content>
         <table id="bomLines">
             <tr><th class="num">行号</th><th>料号</th><th>名称</th><th class="num">用量</th><th>位号</th><th>关键料</th>
-                <th class="num">单价</th><th class="num">金额</th></tr>
+                <#if !costDenied><th class="num">单价</th><th class="num">金额</th></#if></tr>
             <#list bomItems as item>
                 <tr>
                     <td class="num">${(item.lineSeq)?string("0")}</td>
@@ -194,8 +196,10 @@ BAT-18650,18650 电池,1,BT1,Y,12</textarea></p>
                     <td class="num">${(item.qty)?string("0.##")}</td>
                     <td>${item.designators!}</td>
                     <td>${item.isKeyPart!}</td>
+                    <#if !costDenied>
                     <td class="num"><#if item.unitPrice??>${item.unitPrice?string("0.000")}<#else><span class="hint">—</span></#if></td>
                     <td class="num"><#if item.unitPrice??>${(((item.qty)!0) * item.unitPrice)?string("0.00")}<#else><span class="hint">—</span></#if></td>
+                    </#if>
                 </tr>
             </#list>
         </table>
@@ -204,7 +208,9 @@ BAT-18650,18650 电池,1,BT1,Y,12</textarea></p>
     </#if>
 
     <h2>成本（单台 / 批量）</h2>
-    <#assign c = (costResult)!{}>
+    <#if costDenied>
+        <p class="warn">${(c.message)!'无权查看成本与毛利'}</p>
+    <#else>
     <form method="get" action="/mfg/control/products" class="inline">
         <input type="hidden" name="productCode" value="${product.productCode}"/>
         批量 <input type="text" name="costQty" size="6" value="${(parameters.costQty)!1}"/>
@@ -235,6 +241,7 @@ BAT-18650,18650 电池,1,BT1,Y,12</textarea></p>
     </#if>
     <#if ((c.missingPriceCount)!0) gt 0>
         <p class="warn">有 ${c.missingPriceCount} 行 BOM 没填单价，材料成本被低估；在 BOM 导入里补第 6 列单价。</p>
+    </#if>
     </#if>
 
     <h2>工序模板（${routings?size} 个）</h2>

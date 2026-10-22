@@ -21,6 +21,7 @@
 <#assign atts = ((attachmentResult).attachments)![]>
 <#assign cost = (costResult)!{}>
 <#assign costOps = ((costResult).operations)![]>
+<#assign costDenied = ((cost.denied)!'N') == 'Y'>
 <#assign prodLot = (d.productLot)!{}>
 <#assign os = (outsourceResult)!{}>
 <#assign fees = (os.fees)![]>
@@ -69,6 +70,9 @@
     </#if>
 
     <h2>成本</h2>
+    <#if costDenied>
+        <p class="warn">${(cost.message)!'无权查看成本与毛利'}</p>
+    <#else>
     <table id="workOrderCost">
         <tr><th>项目</th><th class="num">单台</th><th class="num">合计</th></tr>
         <tr><td>标准：材料（BOM 单价）</td>
@@ -125,6 +129,7 @@
             </#list>
         </table>
         <p class="hint">标准工时来自该型号的工序模板（按良品数折算），实际工时来自报工；标了「工艺外工序」的是报工时填了模板里没有的工序号。</p>
+    </#if>
     </#if>
 
     <h2>工序进度</h2>    <#if operations?has_content>
@@ -270,6 +275,9 @@
         </p>
     </form>
     <h2>外协加工费（按单分摊）</h2>
+    <#if costDenied>
+        <p class="warn">${(cost.message)!'无权查看成本与毛利'}</p>
+    <#else>
     <p>
         合计 <b>${((os.outsourceAmount)!0)?string("0.00")}</b> 元
         <span class="hint">（按良品 ${((os.qtyOk)!0)?string("0.##")} 台分摊 = ${((os.outsourcePerUnit)!0)?string("0.00")} 元/台；
@@ -341,6 +349,7 @@
             <input type="submit" value="保存外协费"/>
         </p>
     </form>
+    </#if>
 
     <h2>物料齐套（BOM 需求 vs 已发料）</h2>
     <p>
@@ -395,14 +404,14 @@
     <#if prodLot.lotId??>
         <table id="productLot">
             <tr><th>成品批次</th><th class="num">入库</th><th class="num">在库</th>
-                <th class="num">已预留</th><th class="num">可发</th><th class="num">单位成本</th><th>入库日</th></tr>
+                <th class="num">已预留</th><th class="num">可发</th><#if !costDenied><th class="num">单位成本</th></#if><th>入库日</th></tr>
             <tr>
                 <td><a href="/mfg/control/stockMoves?lotId=${prodLot.lotId}">${prodLot.lotId}</a></td>
                 <td class="num">${(prodLot.receivedQty!0)?string("0.##")}</td>
                 <td class="num">${(prodLot.onHandQty!0)?string("0.##")}</td>
                 <td class="num">${(prodLot.reservedQty!0)?string("0.##")}</td>
                 <td class="num">${(prodLot.availableQty!0)?string("0.##")}</td>
-                <td class="num"><#if prodLot.unitPrice??>${prodLot.unitPrice?string("0.00")}<#else><span class="hint">—</span></#if></td>
+                <#if !costDenied><td class="num"><#if prodLot.unitPrice??>${prodLot.unitPrice?string("0.00")}<#else><span class="hint">—</span></#if></td></#if>
                 <td><#if prodLot.receivedDate??>${prodLot.receivedDate?string("yyyy-MM-dd")}</#if></td>
             </tr>
         </table>

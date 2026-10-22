@@ -33,6 +33,25 @@
     <!-- ==================== accounts ==================== -->
 
     <!--
+        The areas the logged in account may work in. Loaded by the decorator, so the navigation and
+        the cost blocks are hidden instead of showing a permission error.
+    -->
+    <service name="mfgPermissions" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgServices" invoke="permissions"
+            auth="true" use-transaction="false">
+        <description>Areas the logged in account may work in</description>
+        <attribute name="canView" type="String" mode="OUT" optional="true"/>
+        <attribute name="canProduce" type="String" mode="OUT" optional="true"/>
+        <attribute name="canStock" type="String" mode="OUT" optional="true"/>
+        <attribute name="canEng" type="String" mode="OUT" optional="true"/>
+        <attribute name="canSales" type="String" mode="OUT" optional="true"/>
+        <attribute name="canCost" type="String" mode="OUT" optional="true"/>
+        <attribute name="isAdmin" type="String" mode="OUT" optional="true"/>
+        <attribute name="manager" type="String" mode="OUT" optional="true"/>
+        <attribute name="userLoginId" type="String" mode="OUT" optional="true"/>
+    </service>
+
+    <!--
         Account management for the user management page. Only members of the SUPER security group
         may write; the list is readable by everybody so the page can explain why it is read only.
     -->
@@ -224,6 +243,7 @@
         <attribute name="routingHours" type="Double" mode="OUT" optional="true"/>
         <attribute name="routingLines" type="java.util.List" mode="OUT" optional="true"/>
         <attribute name="productStandardHours" type="Double" mode="OUT" optional="true"/>
+        <attribute name="denied" type="String" mode="OUT" optional="true"/>
         <attribute name="message" type="String" mode="OUT" optional="true"/>
     </service>
 
@@ -258,6 +278,7 @@
         <attribute name="outsourcePerPlannedUnit" type="Double" mode="OUT" optional="true"/>
         <attribute name="differenceExOutsource" type="Double" mode="OUT" optional="true"/>
         <attribute name="operations" type="java.util.List" mode="OUT" optional="true"/>
+        <attribute name="denied" type="String" mode="OUT" optional="true"/>
         <attribute name="message" type="String" mode="OUT" optional="true"/>
     </service>
 
@@ -423,6 +444,7 @@
         <attribute name="todayQtyNg" type="Long" mode="OUT" optional="true"/>
         <attribute name="todayYield" type="Double" mode="OUT" optional="true"/>
         <attribute name="recentReports" type="java.util.List" mode="OUT" optional="true"/>
+        <attribute name="costDenied" type="String" mode="OUT" optional="true"/>
     </service>
 
     <!-- ==================== material and outsourcing ==================== -->

@@ -14,6 +14,7 @@
 <#assign resp = (t.responsibilities)![]>
 <#assign ar = (alertResult)!{}>
 <#assign alerts = (ar.alerts)![]>
+<#assign costDenied = ((b.costDenied)!'N') == 'Y'>
 <#macro respLabel code>
     <#if (code!'') == 'HOUSE'>自制
     <#elseif (code!'') == 'SMT'>SMT 外协
@@ -108,6 +109,7 @@
         <div class="label">未结售后单</div>
         <div class="value">${(kpi.openClaims)?string("0")}</div>
     </div>
+    <#if !costDenied>
     <div class="card">
         <div class="label">售后成本</div>
         <div class="value">${((kpi.costTotal)!0)?string("0.00")}</div>
@@ -116,6 +118,7 @@
         <div class="label">单台售后成本</div>
         <div class="value">${((kpi.costPerUnit)!0)?string("0.00")}</div>
     </div>
+    </#if>
 </div>
 
 <h2>每日出货 / 售后</h2>
@@ -143,7 +146,9 @@
 </#if>
 
 <h2>售后成本按责任方（近 30 天）</h2>
-<#if resp?has_content>
+<#if costDenied>
+    <p class="hint">你的角色没有成本权限，这一块不显示。</p>
+<#elseif resp?has_content>
     <div class="hbars">
         <#list resp as r>
             <div class="hbar">

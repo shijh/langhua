@@ -10,6 +10,13 @@
 <#assign menu = (activeMenu)!''>
 <#assign pwd = (pwdStatus)!{}>
 <#assign mustChange = ((pwd.mustChange)!'') == 'Y'>
+<#assign perm = (permMap)!{}>
+<#assign canEng = ((perm.canEng)!'N') == 'Y'>
+<#assign canStock = ((perm.canStock)!'N') == 'Y'>
+<#assign canSales = ((perm.canSales)!'N') == 'Y'>
+<#assign canProduce = ((perm.canProduce)!'N') == 'Y'>
+<#assign canCost = ((perm.canCost)!'N') == 'Y'>
+<#assign canManageAccounts = ((perm.manager)!'N') == 'Y'>
 <#assign errList = (errorMessageList)![]>
 <#macro navItem key href label>
     <#if menu == key><a href="${href}" class="active"><b>${label}</b></a><#else><a href="${href}">${label}</a></#if>
@@ -55,24 +62,34 @@
 <p class="nav">
     <img class="brand" src="/mfg/images/logo-64.png" alt="" width="26" height="26"/>
     <@navItem 'main' '/mfg/control/main' '工单'/>
-    <@navItem 'products' '/mfg/control/products' '产品与 BOM'/>
-    <@navItem 'dev' '/mfg/control/dev' '产品开发'/>
-    <@navItem 'software' '/mfg/control/software' '软件项目'/>
-    <@navItem 'eco' '/mfg/control/eco' '设计变更'/>
-    <@navItem 'materials' '/mfg/control/materials' '物料批次'/>
-    <@navItem 'stock' '/mfg/control/stock' '库存'/>
-    <@navItem 'locations' '/mfg/control/locations' '库位'/>
-    <@navItem 'shortage' '/mfg/control/shortage' '齐套预警'/>
-    <@navItem 'salesOrders' '/mfg/control/salesOrders' '销售订单'/>
-    <@navItem 'delivery' '/mfg/control/delivery' '出货单'/>
-    <@navItem 'vendors' '/mfg/control/vendors' '外协厂家'/>
-    <@navItem 'claims' '/mfg/control/claims' '售后单'/>
-    <@navItem 'buyers' '/mfg/control/buyers' '买家名单'/>
-    <@navItem 'quality' '/mfg/control/quality' '质量指标'/>
-    <@navItem 'dashboard' '/mfg/control/dashboard' '看板'/>
-    <@navItem 'reports' '/mfg/control/reports' '报表'/>
-    <@navItem 'sn' '/mfg/control/sn' 'SN 查询'/>
-    <@navItem 'users' '/mfg/control/users' '用户账号'/>
+    <#if canEng>
+        <@navItem 'products' '/mfg/control/products' '产品与 BOM'/>
+        <@navItem 'dev' '/mfg/control/dev' '产品开发'/>
+        <@navItem 'software' '/mfg/control/software' '软件项目'/>
+        <@navItem 'eco' '/mfg/control/eco' '设计变更'/>
+    </#if>
+    <#if canStock>
+        <@navItem 'materials' '/mfg/control/materials' '物料批次'/>
+        <@navItem 'stock' '/mfg/control/stock' '库存'/>
+        <@navItem 'locations' '/mfg/control/locations' '库位'/>
+    </#if>
+    <#if canProduce><@navItem 'shortage' '/mfg/control/shortage' '齐套预警'/></#if>
+    <#if canSales>
+        <@navItem 'salesOrders' '/mfg/control/salesOrders' '销售订单'/>
+        <@navItem 'delivery' '/mfg/control/delivery' '出货单'/>
+    </#if>
+    <#if canProduce><@navItem 'vendors' '/mfg/control/vendors' '外协厂家'/></#if>
+    <#if canSales>
+        <@navItem 'claims' '/mfg/control/claims' '售后单'/>
+        <@navItem 'buyers' '/mfg/control/buyers' '买家名单'/>
+    </#if>
+    <#if canProduce>
+        <@navItem 'dashboard' '/mfg/control/dashboard' '看板'/>
+        <@navItem 'reports' '/mfg/control/reports' '报表'/>
+        <@navItem 'sn' '/mfg/control/sn' 'SN 查询'/>
+    </#if>
+    <#if canCost><@navItem 'quality' '/mfg/control/quality' '质量指标'/></#if>
+    <#if canManageAccounts><@navItem 'users' '/mfg/control/users' '用户账号'/></#if>
 </p>
 
 <#if sections??>${sections.render("body")}</#if>

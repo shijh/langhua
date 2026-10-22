@@ -96,14 +96,28 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
 | `verify-m33.ps1` | 看板告警与 CSV 导出（告警区、三个导出链接、`text/csv` + 下载头、表头列数、行内容） | 30 |
 | `verify-m34.ps1` | 软件项目：估算试算、保存与编号、台账计划 vs 实际、实测耗时率、超期进告警 | 30 |
 | `verify-m35.ps1` | 报表与成本细化：报表页（卡片/趋势表/日周月切换/未知口径回落/喂进学习曲线的链接）、两份趋势 CSV（BOM + 列数 + 合计行）、产品页按工序分摊、工单页工序成本与外协费、开发页问题清单登记→关闭→重开 | 57 |
-| `verify-m36.ps1` | 库存：结存页与卡片、流水页与余额、报废入账与超量被拒、盘点单号与差异、安全库存低于阈值标红与建议采购、告警 CSV、工单预留按钮与两次 POST、成品链路（完工入库 → 成品批次 → 出货扣减 → 重复发货被拒） | 63 |
+| `verify-m36.ps1` | 库存：结存页与卡片、流水页与余额、报废入账与超量被拒、盘点单号与差异、安全库存低于阈值标红与建议采购、告警 CSV、工单预留按钮与两次 POST、成品链路（完工入库 → 成品批次 → 出货扣减 → 重复发货被拒） | 62 |
 | `verify-m37.ps1` | 销售订单：列表与新建表单、详情（行明细/三个按钮/出货表单）、先锁在库、排产生工单、关单转 CLOSED | 26 |
 | `verify-m38.ps1` | 库位与移库：库位页与两个表单、建库位、到货指定库位、按库位看结存、移库两边余额、流水同单号、超量被拒 | 24 |
 | `verify-m39.ps1` | 外协费按单分摊：工单页三个表单、加一条按台明细、金额与对账单号、删除后消失、非法计价方式被拒 | 16 |
 | `verify-m40.ps1` | 用户账号页：渲染与高亮、建账号（行上的 `data-account` / `data-enabled` / `data-default-password` / `data-groups`）、非法名校验、大小写重名不新增行、重置密码、停用/启用、不能停用自己 | 24 |
+| `verify-m41.ps1` | 角色权限：用 `MFG_WAREHOUSE` 账号登进来看菜单/成本/BOM 单价是否隐藏、BOM 导入与销售订单写入被拒、账号页只读；管理员仍看到全部 | 22 |
 
 ## 设计决策
 
+- **角色权限（Step 51）**：权限点 `MFG_VIEW` / `MFG_PRODUCTION` / `MFG_STOCK` / `MFG_ENG` / `MFG_SALES` / `MFG_COST` /
+  `MFG_ADMIN`，角色组 `MFG_BOSS` / `MFG_FOREMAN` / `MFG_WAREHOUSE` / `MFG_ENGINEER` / `MFG_SALES`（种子文件里建组 + 授权，
+  每组都带 `OFBTOOLS_VIEW`；**不要**给框架组如 `FULLADMIN` 授权，新库没有它）。
+  **写服务开头一律 `permissionProblem(dctx, context, PERM_X)`**（返回中文错误 → 页面上红框），
+  `can()` 里 `MFG_ADMIN` 与 OFBiz 管理员（`PARTYMGR_UPDATE`）兜底，所以演示库/新库的 admin 都通；
+  **成本是「软拦截」**：`mfgProductCost` / `mfgWorkOrderCost` 没有 `MFG_COST` 时返回 `denied=Y`（不报错），
+  模板用 `<#if costDenied>` 把成本块/单价列/外协费金额换成提示；质量指标整页要 `MFG_COST`；
+  导航由装饰器调 `mfgPermissions` 按区域隐藏；**内部直接调用（`workOrderCreate`→`reserveMaterial`、
+  `salesOrderPlan`→`workOrderCreate`、`workOrderComplete`→`workOrderCost`）必须把 `userLogin` 传进子 context**，
+  否则子服务一律「请先登录」（踩过：完工单价变 0；学习曲线 `learningCurveQuoteToProject` 调 MES 也要带 userLogin）
+- **屏幕里调的服务要显式传 `userLogin`**：`auto-field-map="false"` 时只有 `field-map` 里的东西进 context，
+  `mfgProductCost` / `mfgWorkOrderCost` / `mfgQualityReport` / `mfgDashboard` 都因此加了一行
+  `<field-map field-name="userLogin" from-field="userLogin"/>`（不加 → 成本显示成「无权查看」、质量页 500）
 - **用户账号页（Step 50）**：`/mfg/control/users` 是插件自己的账号维护（不用 OFBiz 原生的 Party Manager）。
   服务 `mfgUserList`（清单 + 可选组 + `canManage`）、`mfgUserSave`（建/改）、`mfgUserResetPassword`（回到 `ofbiz`）；
   建账号**调 OFBiz 的 `createPersonAndUserLogin`**（内部以 `system` 身份跑，绕开 `PARTYMGR_CREATE`，密码哈希由框架做），
