@@ -2499,7 +2499,7 @@ public final class MfgServices {
         if (csv == null) {
             return rows;
         }
-        for (String line : csv.replace("\r\n", "\n").replace('\r', '\n').split("\n")) {
+        for (String line : csv.replace("\uFEFF", "").replace("\r\n", "\n").replace('\r', '\n').split("\n")) {
             String trimmed = line.trim();
             if (trimmed.isEmpty() || trimmed.startsWith("#")) {
                 continue;
@@ -8094,7 +8094,7 @@ always
         if (csv == null) {
             return rows;
         }
-        for (String line : csv.replace("\r\n", "\n").replace('\r', '\n').split("\n")) {
+        for (String line : csv.replace("\uFEFF", "").replace("\r\n", "\n").replace('\r', '\n').split("\n")) {
             String trimmed = line.trim();
             if (trimmed.isEmpty() || trimmed.startsWith("#")) {
                 continue;
@@ -8118,6 +8118,8 @@ always
 
     /**
      * Splits one CSV line into cells, honouring double quoted cells which may contain commas.
+     * Both a comma and a tab separate cells, so a range copied out of a spreadsheet can be pasted
+     * straight into the import box.
      *
      * @param line the raw line
      * @return the cells, never {@code null}
@@ -8141,7 +8143,7 @@ always
                 }
             } else if (c == '"') {
                 quoted = true;
-            } else if (c == ',') {
+            } else if (c == ',' || c == '\t') {
                 cells.add(cell.toString());
                 cell.setLength(0);
             } else {

@@ -104,6 +104,39 @@ public class MfgServicesTest {
     }
 
     @Test
+    public void acceptsTabsSoASpreadsheetRangeCanBePasted() {
+        // a range copied out of Excel is tab separated; both import boxes take it as it comes
+        List<String[]> bom = MfgServices.parseBomCsv("R0402-10K\t10K 电阻\t4\tR1-R4\tN\t0.05");
+        assertEquals(1, bom.size());
+        assertEquals("R0402-10K", bom.get(0)[0]);
+        assertEquals("10K 电阻", bom.get(0)[1]);
+        assertEquals("4", bom.get(0)[2]);
+        assertEquals("0.05", bom.get(0)[5]);
+
+        List<String[]> lots = MfgServices.parseLotCsv("U1-BT5-SOC\t主控 SoC\t立创商城\tDC2410A\t120\t2026-10-20");
+        assertEquals(1, lots.size());
+        assertEquals("U1-BT5-SOC", lots.get(0)[0]);
+        assertEquals("120", lots.get(0)[4]);
+        assertEquals("2026-10-20", lots.get(0)[5]);
+
+        String[] cells = MfgServices.splitCsvLine("a\t\"b,c\"\td");
+        assertEquals(3, cells.length);
+        assertEquals("b,c", cells[1]);
+    }
+
+    @Test
+    public void ignoresTheByteOrderMarkOfAnExcelUtf8File() {
+        // "CSV UTF-8" saves a BOM in front of the first cell, which must not end up in the part number
+        List<String[]> bom = MfgServices.parseBomCsv("\uFEFFR0402-10K,10K 电阻,4,R1-R4,N,0.05");
+        assertEquals(1, bom.size());
+        assertEquals("R0402-10K", bom.get(0)[0]);
+
+        List<String[]> lots = MfgServices.parseLotCsv("\uFEFFU1-BT5-SOC,主控 SoC,立创商城,DC2410A,120,2026-10-20");
+        assertEquals(1, lots.size());
+        assertEquals("U1-BT5-SOC", lots.get(0)[0]);
+    }
+
+    @Test
     public void parsesCrlfAndUppercasesComponentCode() {
         List<String[]> rows = MfgServices.parseBomCsv(
                 "r0402-10k,10K 电阻,4,\"R1,R2\",y\r\nb-conn,电池座,1,BAT1,n\r\n");
