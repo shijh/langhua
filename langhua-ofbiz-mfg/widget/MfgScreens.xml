@@ -200,6 +200,57 @@
         </section>
     </screen>
 
+    <!-- Sales orders: reserve from the shelf first, then plan the rest into production -->
+    <screen name="salesOrders">
+        <section>
+            <actions>
+                <set field="title" value="Sales Orders"/>
+                <set field="pageTitle" value="销售订单"/>
+                <set field="activeMenu" value="salesOrders"/>
+                <service service-name="mfgSalesOrderList" result-map="orderResult" auto-field-map="false">
+                    <field-map field-name="search" from-field="parameters.search"/>
+                    <field-map field-name="statusId" from-field="parameters.statusId"/>
+                    <field-map field-name="page" from-field="parameters.page"/>
+                </service>
+            </actions>
+            <widgets>
+                <decorator-screen name="mfg-decorator" location="component://mfg/widget/MfgCommonScreens.xml">
+                    <decorator-section name="body">
+                        <platform-specific>
+                            <html>
+                                <html-template location="component://mfg/webapp/mfg/salesOrders.ftl"/>
+                            </html>
+                        </platform-specific>
+                    </decorator-section>
+                </decorator-screen>
+            </widgets>
+        </section>
+    </screen>
+
+    <screen name="salesOrder">
+        <section>
+            <actions>
+                <set field="title" value="Sales Order"/>
+                <set field="pageTitle" value="销售订单详情"/>
+                <set field="activeMenu" value="salesOrders"/>
+                <service service-name="mfgSalesOrderDetail" result-map="orderDetail" auto-field-map="false">
+                    <field-map field-name="salesOrderId" from-field="parameters.salesOrderId"/>
+                </service>
+            </actions>
+            <widgets>
+                <decorator-screen name="mfg-decorator" location="component://mfg/widget/MfgCommonScreens.xml">
+                    <decorator-section name="body">
+                        <platform-specific>
+                            <html>
+                                <html-template location="component://mfg/webapp/mfg/salesOrder.ftl"/>
+                            </html>
+                        </platform-specific>
+                    </decorator-section>
+                </decorator-screen>
+            </widgets>
+        </section>
+    </screen>
+
     <!-- Yield and labour hour trend, with the two CSV exports -->
     <screen name="reports">
         <section>

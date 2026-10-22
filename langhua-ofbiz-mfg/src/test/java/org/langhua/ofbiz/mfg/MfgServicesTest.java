@@ -18,6 +18,7 @@ import static org.junit.Assert.assertTrue;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 
 import org.junit.Test;
 
@@ -881,5 +882,47 @@ public class MfgServicesTest {
         assertEquals(0.0, MfgServices.productUnitCost(300.0, 0.0), 1e-9);
         // two decimals, because it is money
         assertEquals(10.01, MfgServices.productUnitCost(30.02, 3.0), 1e-9);
+    }
+
+    @Test
+    public void keepsOnlyWhatTheOrderStillOwes() {
+        assertEquals(10.0, MfgServices.openQtyOf(10.0, 0.0, 0.0), 1e-9);
+        // 10 ordered, 4 on the shelf, 2 already out of the door
+        assertEquals(4.0, MfgServices.openQtyOf(10.0, 4.0, 2.0), 1e-9);
+        // over reserved or over shipped never gives a negative
+        assertEquals(0.0, MfgServices.openQtyOf(5.0, 6.0, 0.0), 1e-9);
+        assertEquals(0.0, MfgServices.openQtyOf(5.0, 0.0, 6.0), 1e-9);
+    }
+
+    @Test
+    public void plansOnlyTheUnitsProductionWillNotCover() {
+        // 10 ordered, 4 locked from the shelf, 3 more coming: 3 have to be planned
+        assertEquals(3.0, MfgServices.productionQtyOf(10.0, 4.0, 0.0, 3.0), 1e-9);
+        // production already covers what is still owed
+        assertEquals(0.0, MfgServices.productionQtyOf(10.0, 4.0, 0.0, 9.0), 1e-9);
+        // what is already shipped is not planned again
+        assertEquals(2.0, MfgServices.productionQtyOf(10.0, 4.0, 4.0, 0.0), 1e-9);
+    }
+
+    @Test
+    public void readsTheOrderLinesOfTheForm() {
+        List<Map<String, Object>> lines = MfgServices.parseOrderLines(
+                "# 型号,数量\r\nBT5-PRO,20,2026-11-30\n\n  BT5-LITE , 5 \nbadline,0\n");
+        assertEquals(3, lines.size());
+        assertEquals("BT5-PRO", lines.get(0).get("productCode"));
+        assertEquals(20.0, ((Double) lines.get(0).get("qty")).doubleValue(), 1e-9);
+        assertEquals(java.sql.Date.valueOf("2026-11-30"), lines.get(0).get("lineDueDate"));
+        // spaces around the cells are trimmed and a missing due date stays empty
+        assertEquals("BT5-LITE", lines.get(1).get("productCode"));
+        assertFalse(lines.get(1).containsKey("lineDueDate"));
+        // a zero quantity is kept here, the service refuses it with a clear message
+        assertEquals(0.0, ((Double) lines.get(2).get("qty")).doubleValue(), 1e-9);
+    }
+
+    @Test
+    public void knowsTheSalesOrderStatuses() {
+        assertTrue(MfgServices.isKnownSoStatus(MfgServices.SO_PLANNED));
+        assertFalse(MfgServices.isKnownSoStatus("MFG_SO_BOGUS"));
+        assertFalse(MfgServices.isKnownSoStatus(null));
     }
 }

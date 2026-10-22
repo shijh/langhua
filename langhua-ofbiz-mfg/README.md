@@ -53,6 +53,8 @@ flowchart LR
         DO["MfgDelivery<br/>出货即保修起算"]
         RMA["MfgWarrantyClaim<br/>7 天 / 15 天窗口"]
         FIX["返修工单 · 换货出货<br/>MfgReplacement"]
+        SO["MfgSalesOrder<br/>两级：先锁在库 → 排产"]
+        SO --> DO
         DO --> RMA --> FIX
     end
 
@@ -73,6 +75,8 @@ flowchart LR
     WO -. "开工单按 BOM 预留 · 发料后自动释放" .-> LOT
     WO -. "完工入库 → 成品批次" .-> FG
     FG -. "出货自动扣减" .-> DO
+    SO -. "下单先锁在库" .-> FG
+    SO -. "不够的部分排产" .-> WO
 
     BI -. "单价" .-> COST
     P -. "工时费率" .-> COST
@@ -119,6 +123,7 @@ flowchart LR
 | **盘点** | 逐批填实盘数，系统算盘盈亏并写成一条流水（不直接改数），盘点单号 `CNT-yyMMdd-NN`，历史可查 |
 | **工单预留** | 开工单时按 BOM **自动把齐套料预留出来**（先到先得的批次顺序），其他工单就发不走这批料；发料时自动释放自己预留的那部分，也能一键释放；齐套表多了「已预留」列，欠料按「需求 − 已发 − 已预留」算 |
 | **成品库存** | 工单页一键**完工入库**：按已报工的良品数建成品批次 `FG-<工单号>`，单位成本 = 该工单实际成本 ÷ 良品数，重复点只补差额；结存页多一块「成品库存」（按型号看在库 / 已预留 / 可发 / 累计出货 / 金额），出货自动扣、报废与盘点也走同一套流水 |
+| **销售订单** | 下单（客户 + 多行型号/数量/交期）→ **先把库里已有的成品锁给这张单**（不足的部分记欠货）→ 一键**排产**：只给差的数量开工单（已有工单就加量）→ 工单完工入库后**自动把新成品锁回这张单** → 出货按订单核销并释放预留 → 关单把剩余预留还给库存 |
 | **成本核算** | 型号层：BOM 单价 × 用量 + **工时（按工序模板分摊，没有模板时取型号标准工时）** × 工时费率 = 单台成本，可乘批量算总额，并与开发项目的目标成本 / 目标售价对比（超了、亏了分色标出）；工单层：标准成本 vs 实际成本（已发料按批次采购单价 + 报工工时 × 费率 + **外协加工费**），逐工序列出标准/实际/差异，差异同时给含外协与不含外协两个口径 |
 | **软件项目** | 固件 / 外壳设计 / 上位机 / 平台的开发台账：按功能点口径估规模与工作量（内部/外部接口文件数、功能点耗时率、两个调整因子），算工期、人天、含税报价；同时记实际工时与成本，算出偏差与实测耗时率，为下一个项目做依据 |
 | **齐套** | BOM 需求（用量 × 计划数）vs 已发料 + 已预留，自动算出欠料行 |
@@ -196,9 +201,11 @@ https://localhost:8443/mfg/control/main
 | `MfgReport` | 报工：`reportId`、`workOrderId`、`opSeq`、`sn`（可选）、`operatorName`、`workHours`、`qtyOk`、`qtyNg` || `MfgDefect` | 不良：`defectId`、`workOrderId`、`sn`、`opSeq`、`defectCode`、`qty`、`responsibility`、`repairHours` |
 | `MfgMaterialLot` | 物料批次（元件与成品共用一张表）：`lotId`（元件 `LOT-yyMMdd-NN` / 成品 `FG-WO-…`）、**`lotKindId`**（`MFG_LOT_COMPONENT` / `MFG_LOT_PRODUCT`，空值当元件）、`workOrderId`（成品批次来自哪张工单）、`componentCode`（成品批次里就是型号）、`supplierName`、`supplierLot`（DateCode）、`receivedQty`（到货量）、**`onHandQty` / `reservedQty` / `availableQty`（都由流水求和得出）**、`receivedDate`、`unitPrice`（采购单价，成品则是单位成本）；来料检验：`inspectStatusId`（MFG_IQC_PENDING/PASS/CONCESSION/FAIL）、`rejectedQty`、`inspectDate`、`inspector`、`inspectNote` |
 | `MfgMaterialIssue` | 发料：`issueId`、`workOrderId`、`componentCode`、`lotId`、`qty`、`directionId`（发料 / 退料）、`issuedDate`、可选 `designators` / `snFrom` / `snTo` |
-| `MfgInventoryDetail` | **库存流水（只增不改）**：`lotId` + `seqId` 主键、`movementTypeId`（RECEIPT/ISSUE/RETURN/SCRAP/COUNT/ADJUST/**RESERVE/RELEASE**）、`quantityDiff`（带符号）、`reservedDiff`（预留增减，不动在库）、`unitCost`、`workOrderId`、`physicalInventoryId`、`referenceNo`、`operatorName`、`effectiveDate` |
+| `MfgInventoryDetail` | **库存流水（只增不改）**：`lotId` + `seqId` 主键、`movementTypeId`（RECEIPT/ISSUE/RETURN/SCRAP/COUNT/ADJUST/**RESERVE/RELEASE**）、`quantityDiff`（带符号）、`reservedDiff`（预留增减，不动在库）、`salesOrderId` + `salesOrderItemSeq`（订单预留归属哪一行）、`unitCost`、`workOrderId`、`physicalInventoryId`、`referenceNo`、`operatorName`、`effectiveDate` |
 | `MfgStockSetting` | 料号主档与安全库存：`componentCode` 主键、`componentName`、`unitOfMeasure`、`minimumStock`、`reorderQty`、`supplierName` |
 | `MfgStockCount` | 盘点记录：`physicalInventoryId`（CNT-yyMMdd-NN）、`countDate`、`counterName`、`lotId`、`bookQty`、`countedQty`、`varianceQty` |
+| `MfgSalesOrder` | 销售订单：`salesOrderId`（SO-yyMMdd-NN）、`customerName`、`customerPo`、`orderDate`、`dueDate`、`statusId`（MFG_SO_OPEN / PLANNED / SHIPPED / CLOSED / CANCELLED） |
+| `MfgSalesOrderItem` | 订单行：`salesOrderId` + `lineSeq` 主键、`productCode`、`qty`、`shippedQty`、`workOrderId`（排产生的工单）、`lineDueDate` |
 | `MfgShipment` | 外协收发：`shipmentId`、`workOrderId`、`directionId`（`MFG_SHIP_OUT` / `MFG_SHIP_IN`）、`qty`、`defectQty`、`carrier`、`trackingNo` |
 | `MfgReplacement` | 返修换件：`replacementId`、`sn`、`componentCode`、`oldLotId` → `newLotId`、`qty`、`reason`、`hours` |
 | `MfgDelivery` | 出货单：`deliveryId`（DO-yyMMdd-NN）、`customerName`、`customerPo`、`deliveryDate`、`carrier`、`trackingNo`、`workOrderId` |
@@ -263,6 +270,11 @@ https://localhost:8443/mfg/control/main
 | `mfgWorkOrderRelease` | 释放该工单的全部预留（写反向的 `MFG_MOVE_RELEASE` 流水），已发料的部分不受影响 |
 | `mfgWorkOrderComplete` | 完工入库：按已报工的良品数建成品批次 `FG-<工单号>` 并写 `MFG_MOVE_RECEIPT`，单位成本 = 实际成本 ÷ 良品数；工单置 MFG_COMPLETED、SN 置 MFG_COMPLETED；重复调用只补差额 |
 | `mfgProductStock` | 成品库存（按型号）：在库 / 已预留 / 可发 / 累计出货 / 金额 / 批次数 / 最新入库日 |
+| `mfgSalesOrderSave` | 存销售订单与明细行（`lines` 文本：`型号,数量[,交期]`；行号即顺序），新增或修改后**自动先锁在库** |
+| `mfgSalesOrderReserve` | 给订单的未完成行预留成品：按批次先后在可发量里挑，写 `MFG_MOVE_RESERVE`（带订单号与行号） |
+| `mfgSalesOrderPlan` | 把还差的数量排产：每个欠货行建一张工单（或给已有工单加量），把工单号回写到行上，订单转 MFG_SO_PLANNED |
+| `mfgSalesOrderClose` | 关单并释放该订单全部预留，状态转 MFG_SO_CLOSED |
+| `mfgSalesOrderList` / `mfgSalesOrderDetail` | 订单列表（行数 / 数量 / 已预留 / 已出货 / 欠货）与详情（行明细 / 预留流水） |
 | `mfgWorkOrderOutsourceSave` | 登记工单的外协加工费（整单金额，负数被拒绝） |
 | `mfgDevProjectSave` / `mfgDevProjectList` / `mfgDevProjectDetail` | 开发项目立项与查询（列表带阶段、关卡进度、未结变更数） |
 | `mfgDevStageSave` | 登记关卡评审；通过/有条件通过时项目自动进入下一阶段，进到量产时填实际上市日并转为已量产 |
@@ -323,6 +335,9 @@ csv         = R0402-10K,10K 0402 resistor,4,R1-R4,N,0.05
 | `/mfg/control/stockCountSave` | POST 登记盘点（`lotId` + `countedQty` + `counterName`） |
 | `/mfg/control/workOrderReserve` / `/mfg/control/workOrderRelease` | POST 按 BOM 预留齐套料 / 释放该工单的预留（`workOrderId`），完成后回工单详情页 |
 | `/mfg/control/workOrderComplete` | POST 完工入库（`workOrderId` + 可选 `completeDate`），回工单详情页 |
+| `/mfg/control/salesOrders` | **销售订单**：列表 + 新建（客户、客户订单号、日期、多行 `型号,数量[,交期]`）、状态过滤 |
+| `/mfg/control/salesOrder` | **订单详情**：行明细（数量/已预留/已出货/欠货/派生工单）、预留流水、按订单出货表单、改明细 |
+| `/mfg/control/salesOrderReserve` / `.../salesOrderPlan` / `.../salesOrderClose` | POST 先锁在库 / 排产 / 关单释放预留 |
 | `/mfg/control/shortage` | 齐套预警：按交期列出欠料工单与明细 |
 | `/mfg/control/delivery` | 出货单：新建、列表、明细（**签收单 / 快递面单附件**）；出货后 SN 变为 `MFG_SHIPPED` |
 | `/mfg/control/vendors` | 外协厂家：档案维护 + 可复制的邮寄标签（收件人/手机/地址/客户编号） |
@@ -506,9 +521,10 @@ productSave → bomImport → routingSave → productDetail
            → 发 2 个 → 留下的预留跟着减到 4（发的是自己预留的那部分）→ 释放剩余 4 → 可发回到 8
            → 成品：报工 1 台 → 完工入库（批次 FG-WO-…，单位成本含外协费）→ 重复完工不再入库
            → 出货 1 台 → 成品在库减 1、成品流水出现该出货单号；同一台不能发两次
+           → 销售订单：下单 = 在库 + 2 台 → 先锁在库（可发清零、欠 2）→ 排产开出工单 → 完工后自动回锁 → 出货 2 台核销 → 关单把剩余预留还给库存
 ```
 
-共 336 项断言，全部通过时退出码为 0。文件的字节输出（含缩略图、CSV 下载）用页面脚本验证（见下方“页面巡检”），
+共 353 项断言，全部通过时退出码为 0。文件的字节输出（含缩略图、CSV 下载）用页面脚本验证（见下方“页面巡检”），
 因为它需要一个真正的浏览器会话。测试是**可重复执行**的：每次创建/更新产品型号 `ITMFG`、替换其 BOM、
 新建一张工单、物料批次与出货单，以及相应的报工、不良、发料、收发、换件与测试数据；
 BOM 版本与变更单会每次新增一版，所以编号会一直往上走，不影响断言。
@@ -535,7 +551,7 @@ java -cp "build/test-classes:ofbiz.jar:junit-4.13.2.jar:hamcrest-core-1.3.jar" \
 覆盖 BOM / 批次 / 测试结果 CSV 解析（引号、缺列、CRLF、注释行、大小写归一）、SN 列表拆分、FIFO 推定切片、
 邮寄标签格式、SN / 工单编号格式，保修到期日、7 天 / 15 天窗口、剩余小时与运费承担，
 以及买家匹配键、手机号归一化与打码、风险等级建议、名单到期判定，还有百分比、日期差与失效分档、售后成本计算、红线判定、看板坐标轴与柱高缩放、关键词过滤与分页切片，
-以及 BOM 版本号生成与下一版号推导、开发阶段阶梯与关卡推进规则、变更单状态与类型校验、三条线路的步骤目录与首个未完成步骤推导、附件类型白名单（含 PDF）与 owner 类型白名单、文件名清洗、成本合计与目标差 / 毛利换算（含两位小数取整、目标售价为空时的处理）、CSV 单元格转义与数量格式化、软件报价四步公式与耗时率中位数、趋势期间的日/周/月标签与良率/单台工时、库存流水符号与不合格批次可用量为 0、预留怎么占掉可发量、成品批次命名与单位成本分摊、问题排序与校验（共 72 个用例）。
+以及 BOM 版本号生成与下一版号推导、开发阶段阶梯与关卡推进规则、变更单状态与类型校验、三条线路的步骤目录与首个未完成步骤推导、附件类型白名单（含 PDF）与 owner 类型白名单、文件名清洗、成本合计与目标差 / 毛利换算（含两位小数取整、目标售价为空时的处理）、CSV 单元格转义与数量格式化、软件报价四步公式与耗时率中位数、趋势期间的日/周/月标签与良率/单台工时、库存流水符号与不合格批次可用量为 0、预留怎么占掉可发量、成品批次命名与单位成本分摊、订单行欠货与待排产量、订单行文本解析、问题排序与校验（共 76 个用例）。
 
 ## 页面巡检（PowerShell）
 
@@ -555,6 +571,7 @@ java -cp "build/test-classes:ofbiz.jar:junit-4.13.2.jar:hamcrest-core-1.3.jar" \
 | `verify-m34.ps1` | 软件项目：导航项、估算试算（10 功能点 → 400 人时 / 50 人天 / 1.78 人月 / 44000 / 46640 / 48972）、保存与编号、台账的计划 vs 实际与实测耗时率、超期项目进看板告警 | 30 |
 | `verify-m35.ps1` | 报表与成本细化：报表页（导航、六个卡片、趋势表、日/周/月切换、未知口径回落）、两份 CSV（BOM + 表头列数 + 合计行 + 周标签）、产品页按工序分摊工时、工单页工序成本表与外协费表单与登记、开发页问题清单（登记 → 列表 → 关闭 → 重开） | 54 |
 | `verify-m36.ps1` | 库存：结存页（导航、卡片、13 列表头、安全库存表单）、流水页（表头、余额、报废入账、超量被拒）、盘点（表单、盘点单号、差异、备注）、安全库存低于阈值标红与建议采购、告警 CSV 里出现该料号、工单预留（齐套表七列、预留/释放按钮、两次 POST 都正常渲染）、**成品链路**（完工按钮 → 重复完工不入库 → 成品批次块与流水 → 成品结存表 → 出货扣减到 0 → 重复发货被拒） | 63 |
+| `verify-m37.ps1` | 销售订单：列表（导航、新建表单、状态过滤）、下单后详情（行明细、三个按钮、出货表单）、先锁在库、排产（生工单）、关单（状态转 CLOSED） | 26 |
 
 > 这些脚本在断言页面内容，不只是看 HTTP 200：OFBiz 的模板错误也是 200 + 一页堆栈，
 > 所以每个页面都要扫 `FTL stack trace` / `FreeMarker template error`。
@@ -950,6 +967,21 @@ $R^2$ 低于期望值（默认 0.95）时逐点剔除误差最大的批次重拟
 | 成品可发 | 与元件同一式：$\max(0, \text{成品在库} - \text{已为订单预留})$ |
 | 旧批次补账 | 批次没有流水时，按 `receivedQty` 补一条到货、按已有发料记录逐条补 `MFG_MOVE_ISSUE`（幂等） |
 
+### 12. 销售订单：两级预留（`salesOrderSave` / `salesOrderReserve` / `salesOrderPlan`）
+
+一张订单分两步兑现：**能锁的先锁，锁不到的去造**。预留和排产都是同一个问句的两种答法：
+
+| 项 | 公式 |
+| --- | --- |
+| 行还欠多少 | $\text{欠货} = \max(0,\ \text{订单数量} - \text{已预留} - \text{已出货})$ |
+| 先锁在库 | 按成品批次先后，每次 $\text{take} = \min(\text{欠货}, \text{该批次可发})$，直到欠货为 $0$ 或批次用尽 |
+| 还差多少要造 | $\text{待排产} = \max(0,\ \text{欠货} - \text{在制余量})$，在制余量 = 该行工单计划数 − 该工单已入库量 |
+| 可出货台数 | $\text{可发} = \text{该行的已预留} + \text{欠货}$（已锁给自己的货当然能发） |
+| 出货核销 | 出 $n$ 台 → 先减该行的已预留、再减欠货；行已出货 $\mathrel{+}= n$；全部行出完 → MFG_SO_SHIPPED |
+| 完工回锁 | 工单完工入库后，属于该订单行的数量自动再锁一次（同一套预留流水） |
+| 关单释放 | 该订单所有行的预留全部写反向 `MFG_MOVE_RELEASE`，可用量回到货架 |
+| 订单状态 | MFG_SO_OPEN（待料/待排）→ PLANNED（有工单在做）→ SHIPPED（全出完）→ CLOSED / CANCELLED |
+
 ## 前端选型：为什么看板不上框架
 
 看板一律用**服务端渲染 + 原生 CSS/JS**，不引入 React/Vue，也不引图表库：
@@ -1008,8 +1040,8 @@ PDA/手机扫码作业、车间大屏、对外客户门户。
 
 ## 后续想法
 
-- 库存已经补齐（结存 / 流水 / 退料 / 报废 / 盘点 / 安全库存告警），工单接上了自动预留与释放，
-  **成品也有了台账**（完工入库 / 出货自动扣减 / 盘点）；下一步是**销售订单层预留**：下单先锁在库成品，不够的部分排进生产计划。
+- 订单–库存–生产这条线已经闭环（下单锁库 → 排产 → 完工回锁 → 出货核销 → 关单释放）；
+  下一步可选：库位（仓/区/架）与移库、外协费按单分摊、学习曲线回接。
 - 库位（仓 / 区 / 架）与移库：现在批次就是颗粒度，多地存放时只能靠备注；要细分就再加 `locationSeqId` 与移库单。
 - 外协费的按单/按批分摊（现在是整单一个数），SMT 按板计价时更准。
 - 学习曲线回接：把报表里的单台工时直接喂进曲线（现在要在学习曲线页手填 `数量:工时`）。

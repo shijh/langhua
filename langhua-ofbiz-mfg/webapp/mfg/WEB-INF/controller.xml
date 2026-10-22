@@ -322,6 +322,52 @@
         <response name="error" type="view" value="workOrder"/>
     </request-map>
 
+    <request-map uri="salesOrders">
+        <security https="true" auth="true"/>
+        <response name="success" type="view" value="salesOrders"/>
+    </request-map>
+
+    <request-map uri="salesOrder">
+        <security https="true" auth="true"/>
+        <response name="success" type="view" value="salesOrder"/>
+    </request-map>
+
+    <request-map uri="salesOrderSave">
+        <security https="true" auth="true"/>
+        <event type="service" invoke="mfgSalesOrderSave"/>
+        <response name="success" type="request-redirect" value="salesOrder">
+            <redirect-parameter name="salesOrderId"/>
+        </response>
+        <response name="error" type="view" value="salesOrders"/>
+    </request-map>
+
+    <request-map uri="salesOrderReserve">
+        <security https="true" auth="true"/>
+        <event type="service" invoke="mfgSalesOrderReserve"/>
+        <response name="success" type="request-redirect" value="salesOrder">
+            <redirect-parameter name="salesOrderId"/>
+        </response>
+        <response name="error" type="view" value="salesOrder"/>
+    </request-map>
+
+    <request-map uri="salesOrderPlan">
+        <security https="true" auth="true"/>
+        <event type="service" invoke="mfgSalesOrderPlan"/>
+        <response name="success" type="request-redirect" value="salesOrder">
+            <redirect-parameter name="salesOrderId"/>
+        </response>
+        <response name="error" type="view" value="salesOrder"/>
+    </request-map>
+
+    <request-map uri="salesOrderClose">
+        <security https="true" auth="true"/>
+        <event type="service" invoke="mfgSalesOrderClose"/>
+        <response name="success" type="request-redirect" value="salesOrder">
+            <redirect-parameter name="salesOrderId"/>
+        </response>
+        <response name="error" type="view" value="salesOrder"/>
+    </request-map>
+
     <request-map uri="vendors">
         <security https="true" auth="true"/>
         <response name="success" type="view" value="vendors"/>
@@ -563,6 +609,8 @@
     <view-map name="materials" type="screen" page="component://mfg/widget/MfgScreens.xml#materials"/>
     <view-map name="shortage" type="screen" page="component://mfg/widget/MfgScreens.xml#shortage"/>
     <view-map name="delivery" type="screen" page="component://mfg/widget/MfgScreens.xml#delivery"/>
+    <view-map name="salesOrders" type="screen" page="component://mfg/widget/MfgScreens.xml#salesOrders"/>
+    <view-map name="salesOrder" type="screen" page="component://mfg/widget/MfgScreens.xml#salesOrder"/>
     <view-map name="vendors" type="screen" page="component://mfg/widget/MfgScreens.xml#vendors"/>
     <view-map name="claims" type="screen" page="component://mfg/widget/MfgScreens.xml#claims"/>
     <view-map name="buyers" type="screen" page="component://mfg/widget/MfgScreens.xml#buyers"/>

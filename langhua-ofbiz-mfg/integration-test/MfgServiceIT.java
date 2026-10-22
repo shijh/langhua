@@ -24,7 +24,9 @@ import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.security.SecureRandom;
 import java.security.cert.X509Certificate;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -75,7 +77,8 @@ public final class MfgServiceIT {
             + "C0402-100N,100nF 0402 capacitor,6,C1-C6,N,0.02\n"
             + "U1-BT5-SOC,Main SoC,1,U1,Y,3.00";
 
-    private static final Pattern WORK_ORDER_ID = Pattern.compile("WO-\\d{6}-\\d{3}");
+    private static final Pattern WORK_ORDER_ID = Pattern.compile("WO-\\d{6}-\\d+");
+    private static final Pattern SALES_ORDER_ID = Pattern.compile("SO-\\d{6}-\\d+");
     private static final Pattern SERIAL_NUMBER = Pattern.compile(SN_PREFIX + "-\\d{6}-\\d{4}");
     private static final Pattern LOT_ID = Pattern.compile("LOT-\\d{6}-\\d+");
     private static final Pattern DELIVERY_ID = Pattern.compile("DO-\\d{6}-\\d+");
@@ -197,6 +200,7 @@ public final class MfgServiceIT {
             it.readsTrendReport();
             it.listsTheDashboardAlerts();
             it.quotesAndTracksSoftware();
+            it.runsSalesOrders();
         } finally {
             it.tearDown();
         }
@@ -208,6 +212,120 @@ public final class MfgServiceIT {
         }
         System.out.println("INTEGRATION TEST FAILED (" + it.failures + " check(s))");
         System.exit(1);
+    }
+
+    /**
+     * Runs a sales order end to end: the shelf stock is locked first, the missing units are planned
+     * into a work order, its completion locks the fresh units, a delivery writes them off the order
+     * and closing gives the rest back.
+     *
+     * @throws IOException when a service call fails
+     */
+    private void runsSalesOrders() throws IOException {
+        double onHand = productOnHand();
+        int ordered = (int) Math.round(onHand) + 2;
+
+        Map<String, String> form = new LinkedHashMap<>();
+        form.put("customerName", "IT sales customer");
+        form.put("customerPo", "PO-SO-1");
+        form.put("orderDate", "2026-10-22");
+        form.put("dueDate", "2026-12-31");
+        form.put("lines", PRODUCT_CODE + "," + ordered + ",2026-12-31");
+        Response saved = invoke("mfgSalesOrderSave", form);
+        String salesOrderId = firstMatch(SALES_ORDER_ID, saved.body);
+        check("sales order: created with a number", saved.status == 200 && salesOrderId != null,
+                "no SO- number in response");
+        check("sales order: the shelf stock is locked for it",
+                near(fieldValue(saved.body, "reservedQty"), onHand),
+                "reservedQty is not the stock on hand " + onHand);
+        check("sales order: the units the shelf cannot cover stay owed",
+                near(fieldValue(saved.body, "shortQty"), 2.0), "shortQty is not 2");
+
+        Map<String, String> idForm = new LinkedHashMap<>();
+        idForm.put("salesOrderId", salesOrderId == null ? "" : salesOrderId);
+        Response detail = invoke("mfgSalesOrderDetail", idForm);
+        check("sales order: the line shows the reservation",
+                detail.body.contains("MFG_MOVE_RESERVE"), "no reservation movement");
+        check("sales order: the order is still open", detail.body.contains("MFG_SO_OPEN"),
+                "status is not MFG_SO_OPEN");
+        check("sales order: the list shows it", invoke("mfgSalesOrderList",
+                new LinkedHashMap<String, String>()).body.contains(salesOrderId == null ? "SO-" : salesOrderId),
+                "the order is missing from the list");
+
+        Response planned = invoke("mfgSalesOrderPlan", idForm);
+        check("sales order: the missing units go into production",
+                near(fieldValue(planned.body, "plannedQty"), 2.0), "plannedQty is not 2");
+        check("sales order: the order is planned", planned.body.contains("MFG_SO_PLANNED"),
+                "status is not MFG_SO_PLANNED");
+
+        Response plannedDetail = invoke("mfgSalesOrderDetail", idForm);
+        String plannedWorkOrder = firstGroup(Pattern.compile("workOrderId:(WO-\\d{6}-\\d+)"),
+                plannedDetail.body);
+        check("sales order: the line carries its work order", plannedWorkOrder != null,
+                excerpt(plannedDetail.body, "workOrderId"));
+
+        List<String> shippedSns = new ArrayList<>();
+        if (plannedWorkOrder != null) {
+            Map<String, String> reportForm = new LinkedHashMap<>();
+            reportForm.put("workOrderId", plannedWorkOrder);
+            reportForm.put("opSeq", "1");
+            reportForm.put("workHours", "1");
+            reportForm.put("qtyOk", "2");
+            reportForm.put("operatorName", "IT worker");
+            invoke("mfgReportCreate", reportForm);
+
+            Map<String, String> snForm = new LinkedHashMap<>();
+            snForm.put("workOrderId", plannedWorkOrder);
+            snForm.put("qty", "2");
+            Response sns = invoke("mfgSnRegister", snForm);
+            Matcher matcher = SERIAL_NUMBER.matcher(sns.body);
+            java.util.Set<String> found = new java.util.LinkedHashSet<>();
+            while (matcher.find()) {
+                found.add(matcher.group());
+            }
+            shippedSns.addAll(found);
+            check("sales order: two serial numbers for the planned units", shippedSns.size() == 2,
+                    "found " + shippedSns.size() + " serial numbers");
+
+            Map<String, String> completeForm = new LinkedHashMap<>();
+            completeForm.put("workOrderId", plannedWorkOrder);
+            Response completed = invoke("mfgWorkOrderComplete", completeForm);
+            check("sales order: the planned units are booked into stock",
+                    near(fieldValue(completed.body, "completedQty"), 2.0),
+                    "completedQty is not 2");
+
+            Response afterComplete = invoke("mfgSalesOrderDetail", idForm);
+            check("sales order: the fresh units are locked for the order too",
+                    afterComplete.body.contains("openQty:0.0"),
+                    excerpt(afterComplete.body, "openQty") + " || " + excerpt(completed.body, "lotId"));
+        }
+
+        if (shippedSns.size() == 2) {
+            Map<String, String> shipForm = new LinkedHashMap<>();
+            shipForm.put("customerName", "IT sales customer");
+            shipForm.put("salesOrderId", salesOrderId == null ? "" : salesOrderId);
+            shipForm.put("sns", shippedSns.get(0) + " " + shippedSns.get(1));
+            shipForm.put("carrier", "SF");
+            shipForm.put("trackingNo", "SF-IT-SO");
+            Response shipped = invoke("mfgDeliverySave", shipForm);
+            check("sales order: the units ship against the order",
+                    shipped.body.contains("DO-"), "no delivery created");
+            Response afterShip = invoke("mfgSalesOrderDetail", idForm);
+            check("sales order: two units are written off the order",
+                    afterShip.body.contains("shippedTotal:2.0"), "shippedTotal is not 2");
+        }
+
+        Response closed = invoke("mfgSalesOrderClose", idForm);
+        check("sales order: closing gives the rest back",
+                near(fieldValue(closed.body, "releasedQty"), onHand),
+                "releasedQty is not the reserved quantity " + onHand);
+        check("sales order: the order is closed", closed.body.contains("MFG_SO_CLOSED"),
+                "status is not MFG_SO_CLOSED");
+
+        Response stock = invoke("mfgProductStock", new LinkedHashMap<String, String>());
+        check("sales order: the shelf is free again",
+                value(fieldValue(stock.body, "onHandTotal")) >= onHand,
+                "on hand dropped below the starting quantity");
     }
 
     private void setUp() throws Exception {
@@ -2388,6 +2506,23 @@ public final class MfgServiceIT {
     private static String firstGroup(Pattern pattern, String text) {
         Matcher matcher = pattern.matcher(text);
         return matcher.find() ? matcher.group(1) : null;
+    }
+
+    /**
+     * A short piece of the response around a needle, for a failure message.
+     *
+     * @param body the response body
+     * @param needle the text of interest
+     * @return a snippet, or the first characters of the body when the needle is missing
+     */
+    private static String excerpt(String body, String needle) {
+        int at = body.indexOf(needle);
+        if (at < 0) {
+            return body.length() <= 300 ? body : body.substring(0, 300);
+        }
+        int from = Math.max(0, at - 60);
+        int to = Math.min(body.length(), at + 120);
+        return body.substring(from, to);
     }
 
     private static String firstMatch(Pattern pattern, String text) {

@@ -169,6 +169,17 @@ public final class MfgServices {
     /** Prefix of the finished goods lot of a work order: {@code FG-WO-yyMMdd-NN}. */
     public static final String PRODUCT_LOT_PREFIX = "FG-";
 
+    /** Sales order: taken, waiting for production, shipped, closed or cancelled. */
+    public static final String SO_OPEN = "MFG_SO_OPEN";
+    public static final String SO_PLANNED = "MFG_SO_PLANNED";
+    public static final String SO_SHIPPED = "MFG_SO_SHIPPED";
+    public static final String SO_CLOSED = "MFG_SO_CLOSED";
+    public static final String SO_CANCELLED = "MFG_SO_CANCELLED";
+    /** Every sales order status, in the order the lists show them. */
+    public static final String[] SO_STATUSES = {SO_OPEN, SO_PLANNED, SO_SHIPPED, SO_CLOSED, SO_CANCELLED};
+    /** Prefix of a sales order number, followed by {@code yyMMdd-NN}. */
+    public static final String SO_PREFIX = "SO-";
+
     public static final String SW_PLANNED = "MFG_SW_PLANNED";
     public static final String SW_DOING = "MFG_SW_DOING";
     public static final String SW_DONE = "MFG_SW_DONE";
@@ -2470,6 +2481,7 @@ public final class MfgServices {
     public static Map<String, Object> deliverySave(DispatchContext dctx, Map<String, ? extends Object> context) {
         Delegator delegator = dctx.getDelegator();
         String customerName = toText(context.get("customerName"));
+        String salesOrderId = toText(context.get("salesOrderId"));
         if (customerName == null) {
             return ServiceUtil.returnError("customerName is required");
         }
@@ -2526,10 +2538,57 @@ public final class MfgServices {
                 GenericValue unitLot = EntityQuery.use(delegator).from("MfgMaterialLot")
                         .where("lotId", productLotId(entry.getKey())).queryOne();
                 double available = unitLot == null ? 0.0 : numberOrZero(unitLot.get("availableQty"));
+                // what this very order reserved on the lot is not somebody else taking it
+                if (salesOrderId != null) {
+                    available += orderReservedOnLot(delegator, productLotId(entry.getKey()), salesOrderId);
+                }
                 if (available + 0.0001 < entry.getValue().intValue()) {
                     return ServiceUtil.returnError("Only " + formatQty(available) + " unit(s) left in the finished"
                             + " goods lot [" + productLotId(entry.getKey()) + "], cannot ship "
                             + entry.getValue().intValue());
+                }
+            }
+            Map<String, Integer> shipByModel = new LinkedHashMap<>();
+            for (Map.Entry<String, Integer> entry : toShip.entrySet()) {
+                GenericValue unitOrder = EntityQuery.use(delegator).from("MfgWorkOrder")
+                        .where("workOrderId", entry.getKey()).queryOne();
+                String model = unitOrder == null ? null : unitOrder.getString("productCode");
+                if (model == null) {
+                    continue;
+                }
+                Integer current = shipByModel.get(model);
+                shipByModel.put(model, Integer.valueOf((current == null ? 0 : current.intValue())
+                        + entry.getValue().intValue()));
+            }
+            if (salesOrderId != null) {
+                GenericValue salesOrder = EntityQuery.use(delegator).from("MfgSalesOrder")
+                        .where("salesOrderId", salesOrderId).queryOne();
+                if (salesOrder == null) {
+                    return ServiceUtil.returnError("Unknown sales order [" + salesOrderId + "]");
+                }
+                if (SO_CLOSED.equals(salesOrder.getString("statusId"))
+                        || SO_CANCELLED.equals(salesOrder.getString("statusId"))) {
+                    return ServiceUtil.returnError("Sales order [" + salesOrderId + "] is "
+                            + salesOrder.getString("statusId"));
+                }
+                for (Map.Entry<String, Integer> entry : shipByModel.entrySet()) {
+                    double shippable = 0.0;
+                    for (GenericValue item : EntityQuery.use(delegator).from("MfgSalesOrderItem")
+                            .where("salesOrderId", salesOrderId).queryList()) {
+                        if (!entry.getKey().equals(item.getString("productCode"))) {
+                            continue;
+                        }
+                        long lineSeq = item.getLong("lineSeq").longValue();
+                        double lineReserved = orderLineReserved(delegator, salesOrderId, lineSeq);
+                        // what the order already locked counts as shippable, its open quantity too
+                        shippable += lineReserved + openQtyOf(numberOrZero(item.get("qty")), lineReserved,
+                                numberOrZero(item.get("shippedQty")));
+                    }
+                    if (shippable + 0.0001 < entry.getValue().intValue()) {
+                        return ServiceUtil.returnError("Sales order [" + salesOrderId + "] only has "
+                                + formatQty(shippable) + " unit(s) of [" + entry.getKey() + "], cannot ship "
+                                + entry.getValue().intValue());
+                    }
                 }
             }
 
@@ -2579,11 +2638,19 @@ public final class MfgServices {
                 issuedQty += units;
             }
 
+            // an order delivery writes the units off its lines and gives their reservations back
+            if (salesOrderId != null) {
+                shipAgainstSalesOrder(delegator, salesOrderId, shipByModel, operator, deliveryId);
+            }
+
             Map<String, Object> result = ServiceUtil.returnSuccess();
             result.put("deliveryId", deliveryId);
             result.put("snCount", String.valueOf(sns.size()));
             result.put("issuedQty", Double.valueOf(round2(issuedQty)));
             result.put("productLotCount", Integer.valueOf(toShip.size()));
+            if (salesOrderId != null) {
+                result.put("salesOrderId", salesOrderId);
+            }
             return result;
         } catch (GenericEntityException e) {
             return ServiceUtil.returnError("Could not create the delivery: " + e.getMessage());
@@ -5193,6 +5260,19 @@ always
             delegator.store(lot);
             recalcLotStock(delegator, lot);
 
+            // a work order started by a sales order locks the fresh units for that line right away
+            for (GenericValue item : EntityQuery.use(delegator).from("MfgSalesOrderItem")
+                    .where("workOrderId", workOrderId).queryList()) {
+                long lineSeq = item.getLong("lineSeq").longValue();
+                double need = openQtyOf(numberOrZero(item.get("qty")),
+                        orderLineReserved(delegator, item.getString("salesOrderId"), lineSeq),
+                        numberOrZero(item.get("shippedQty")));
+                if (need > 0.0001) {
+                    reserveOrderLine(delegator, item.getString("salesOrderId"), item, need,
+                            toText(context.get("operatorName")));
+                }
+            }
+
             order.set("statusId", WO_COMPLETED);
             if (order.get("completeDate") == null) {
                 order.set("completeDate", day);
@@ -5328,6 +5408,848 @@ always
         } catch (GenericEntityException e) {
             return ServiceUtil.returnError("Could not read the finished goods: " + e.getMessage());
         }
+    }
+
+    /**
+     * What is still owed on an order line: what was ordered, minus what is reserved from stock and
+     * what was already shipped.
+     *
+     * @param qty the ordered quantity
+     * @param reserved the quantity reserved from stock
+     * @param shipped the quantity already shipped
+     * @return the open quantity, never negative
+     */
+    static double openQtyOf(double qty, double reserved, double shipped) {
+        double open = qty - reserved - shipped;
+        return open <= 0.0001 ? 0.0 : round2(open);
+    }
+
+    /**
+     * How much of an order line still has to be produced: the open quantity minus what the work
+     * orders of that line will still deliver.
+     *
+     * @param qty the ordered quantity
+     * @param reserved the quantity reserved from stock
+     * @param shipped the quantity already shipped
+     * @param inProduction what the line work orders will still deliver
+     * @return the quantity to plan, never negative
+     */
+    static double productionQtyOf(double qty, double reserved, double shipped, double inProduction) {
+        double missing = openQtyOf(qty, reserved, shipped) - Math.max(0.0, inProduction);
+        return missing <= 0.0001 ? 0.0 : round2(missing);
+    }
+
+    /**
+     * Reads the order lines of the order form: one line per model, {@code 型号,数量} or
+     * {@code 型号,数量,交期}, blank lines and {@code #} comments are skipped.
+     *
+     * @param text the text of the form field
+     * @return one map per line with {@code productCode}, {@code qty} and an optional {@code lineDueDate}
+     */
+    static List<Map<String, Object>> parseOrderLines(String text) {
+        List<Map<String, Object>> lines = new ArrayList<>();
+        if (text == null) {
+            return lines;
+        }
+        for (String raw : text.split("\\r?\\n")) {
+            String line = raw.trim();
+            if (line.isEmpty() || line.startsWith("#")) {
+                continue;
+            }
+            String[] cells = line.split("[,，\\t;；]");
+            String productCode = cells.length == 0 ? "" : cells[0].trim();
+            if (productCode.isEmpty()) {
+                continue;
+            }
+            double qty = cells.length > 1 ? toDouble(cells[1].trim(), 0.0) : 0.0;
+            Map<String, Object> map = new LinkedHashMap<>();
+            map.put("productCode", productCode);
+            map.put("qty", Double.valueOf(round2(qty)));
+            Object lineDueDate = cells.length > 2 ? parseDate(cells[2].trim()) : null;
+            if (lineDueDate != null) {
+                map.put("lineDueDate", lineDueDate);
+            }
+            lines.add(map);
+        }
+        return lines;
+    }
+
+    /**
+     * Tells whether a status is one of the sales order statuses.
+     *
+     * @param statusId the status to test
+     * @return {@code true} when it is known
+     */
+    static boolean isKnownSoStatus(String statusId) {
+        for (String status : SO_STATUSES) {
+            if (status.equals(statusId)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Safely writes a sales order with its lines, then locks what the shelf can already cover.
+     *
+     * <p>The lines are given as text, one model per line: {@code 型号,数量} or
+     * {@code 型号,数量,交期}. Saving an existing order keeps the line numbers, so the reservations
+     * that already belong to a line survive an edit.
+     *
+     * @param dctx the dispatch context
+     * @param context service context, see {@code servicedef/services.xml#mfgSalesOrderSave}
+     * @return the service result with the order number
+     */
+    public static Map<String, Object> salesOrderSave(DispatchContext dctx, Map<String, ? extends Object> context) {
+        Delegator delegator = dctx.getDelegator();
+        String salesOrderId = toText(context.get("salesOrderId"));
+        String customerName = toText(context.get("customerName"));
+        if (customerName == null) {
+            return ServiceUtil.returnError("customerName is required");
+        }
+        List<Map<String, Object>> lines = parseOrderLines(toText(context.get("lines")));
+        if (lines.isEmpty()) {
+            return ServiceUtil.returnError("Give at least one line as 型号,数量");
+        }
+        for (Map<String, Object> line : lines) {
+            if (numberOrZero(line.get("qty")) <= 0.0) {
+                return ServiceUtil.returnError("Line [" + line.get("productCode")
+                        + "] needs a positive quantity");
+            }
+        }
+        try {
+            for (Map<String, Object> line : lines) {
+                String checkedCode = (String) line.get("productCode");
+                if (EntityQuery.use(delegator).from("MfgProduct")
+                        .where("productCode", checkedCode).queryOne() == null) {
+                    return ServiceUtil.returnError("Unknown product model [" + checkedCode
+                            + "], create it first");
+                }
+            }
+            GenericValue order;
+            if (salesOrderId == null) {
+                salesOrderId = nextSalesOrderId(delegator, LocalDate.now());
+                order = delegator.makeValue("MfgSalesOrder");
+                order.set("salesOrderId", salesOrderId);
+                order.set("statusId", SO_OPEN);
+                delegator.create(order);
+            } else {
+                order = EntityQuery.use(delegator).from("MfgSalesOrder")
+                        .where("salesOrderId", salesOrderId).queryOne();
+                if (order == null) {
+                    return ServiceUtil.returnError("Unknown sales order [" + salesOrderId + "]");
+                }
+                if (SO_CLOSED.equals(order.getString("statusId"))
+                        || SO_CANCELLED.equals(order.getString("statusId"))) {
+                    return ServiceUtil.returnError("Sales order [" + salesOrderId + "] is "
+                            + order.getString("statusId"));
+                }
+            }
+            order.set("customerName", customerName);
+            if (context.containsKey("customerPo")) {
+                order.set("customerPo", toText(context.get("customerPo")));
+            }
+            Object orderDate = parseDate(context.get("orderDate"));
+            order.set("orderDate", orderDate == null ? java.sql.Date.valueOf(LocalDate.now()) : orderDate);
+            if (context.containsKey("dueDate")) {
+                order.set("dueDate", parseDate(context.get("dueDate")));
+            }
+            if (context.containsKey("note")) {
+                order.set("note", toText(context.get("note")));
+            }
+            delegator.store(order);
+
+            Map<Long, GenericValue> existing = new LinkedHashMap<>();
+            for (GenericValue item : EntityQuery.use(delegator).from("MfgSalesOrderItem")
+                    .where("salesOrderId", salesOrderId).orderBy("lineSeq").queryList()) {
+                existing.put(item.getLong("lineSeq"), item);
+            }
+            long lineSeq = 0;
+            for (Map<String, Object> line : lines) {
+                lineSeq++;
+                GenericValue item = existing.remove(Long.valueOf(lineSeq));
+                if (item == null) {
+                    item = delegator.makeValue("MfgSalesOrderItem");
+                    item.set("salesOrderId", salesOrderId);
+                    item.set("lineSeq", Long.valueOf(lineSeq));
+                    item.set("shippedQty", Double.valueOf(0.0));
+                }
+                item.set("productCode", line.get("productCode"));
+                item.set("qty", line.get("qty"));
+                Object lineDue = line.get("lineDueDate");
+                item.set("lineDueDate", lineDue == null ? order.get("dueDate") : lineDue);
+                delegator.createOrStore(item);
+            }
+            // the lines that are gone take their reservations with them
+            for (GenericValue removedItem : existing.values()) {
+                releaseOrderLine(delegator, salesOrderId, removedItem.getLong("lineSeq").longValue(),
+                        toText(context.get("operatorName")), "订单行被删除，释放预留");
+                delegator.removeValue(removedItem);
+            }
+
+            Map<String, Object> reservation = reserveSalesOrder(dctx, context, salesOrderId, order);
+            Map<String, Object> result = ServiceUtil.returnSuccess();
+            result.put("salesOrderId", salesOrderId);
+            result.put("lineCount", Integer.valueOf(lines.size()));
+            result.put("statusId", order.getString("statusId"));
+            if (!ServiceUtil.isError(reservation)) {
+                result.put("reservedQty", reservation.get("reservedQty"));
+                result.put("shortQty", reservation.get("shortQty"));
+            }
+            return result;
+        } catch (GenericEntityException e) {
+            return ServiceUtil.returnError("Could not save the sales order: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Locks what the shelf can cover for one sales order: for every open line it reserves finished
+     * goods, oldest lot first. What is still missing stays open for the planning step.
+     *
+     * @param dctx the dispatch context
+     * @param context service context, see {@code servicedef/services.xml#mfgSalesOrderReserve}
+     * @return the service result with what was reserved and what is still owed
+     */
+    public static Map<String, Object> salesOrderReserve(DispatchContext dctx, Map<String, ? extends Object> context) {
+        Delegator delegator = dctx.getDelegator();
+        String salesOrderId = toText(context.get("salesOrderId"));
+        if (salesOrderId == null) {
+            return ServiceUtil.returnError("salesOrderId is required");
+        }
+        try {
+            GenericValue order = EntityQuery.use(delegator).from("MfgSalesOrder")
+                    .where("salesOrderId", salesOrderId).queryOne();
+            if (order == null) {
+                return ServiceUtil.returnError("Unknown sales order [" + salesOrderId + "]");
+            }
+            Map<String, Object> result = reserveSalesOrder(dctx, context, salesOrderId, order);
+            if (ServiceUtil.isError(result)) {
+                return result;
+            }
+            result.put("salesOrderId", salesOrderId);
+            return result;
+        } catch (GenericEntityException e) {
+            return ServiceUtil.returnError("Could not reserve the finished goods: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Reserves the open quantity of every line of one order, oldest finished goods lot first.
+     *
+     * @return the result with {@code reservedQty} and {@code shortQty}
+     */
+    private static Map<String, Object> reserveSalesOrder(DispatchContext dctx, Map<String, ? extends Object> context,
+            String salesOrderId, GenericValue order) throws GenericEntityException {
+        Delegator delegator = dctx.getDelegator();
+        String operator = toText(context.get("operatorName"));
+        double reservedTotal = 0.0;
+        double shortTotal = 0.0;
+        for (GenericValue item : EntityQuery.use(delegator).from("MfgSalesOrderItem")
+                .where("salesOrderId", salesOrderId).orderBy("lineSeq").queryList()) {
+            double need = openQtyOf(numberOrZero(item.get("qty")),
+                    orderLineReserved(delegator, salesOrderId, item.getLong("lineSeq").longValue()),
+                    numberOrZero(item.get("shippedQty")));
+            if (need <= 0.0001) {
+                continue;
+            }
+            double taken = reserveOrderLine(delegator, salesOrderId, item, need, operator);
+            reservedTotal += taken;
+            shortTotal += round2(need - taken);
+        }
+        Map<String, Object> result = ServiceUtil.returnSuccess();
+        result.put("reservedQty", Double.valueOf(round2(reservedTotal)));
+        result.put("shortQty", Double.valueOf(round2(shortTotal)));
+        result.put("salesOrderId", salesOrderId);
+        result.put("statusId", order.getString("statusId"));
+        return result;
+    }
+
+    /**
+     * Reserves up to {@code need} units of one order line out of the finished goods lots of its
+     * model.
+     *
+     * @return how much was reserved
+     */
+    private static double reserveOrderLine(Delegator delegator, String salesOrderId, GenericValue item,
+            double need, String operator) throws GenericEntityException {
+        double remaining = need;
+        double taken = 0.0;
+        long lineSeq = item.getLong("lineSeq").longValue();
+        String productCode = item.getString("productCode");
+        for (GenericValue lot : productLotsOf(delegator, productCode)) {
+            if (remaining <= 0.0001) {
+                break;
+            }
+            ensureLotLedger(delegator, lot);
+            double free = numberOrZero(lot.get("availableQty"));
+            if (free <= 0.0001) {
+                continue;
+            }
+            double take = Math.min(remaining, free);
+            recordOrderReservation(delegator, lot, MOVE_RESERVE, take, salesOrderId, lineSeq, operator,
+                    "订单 " + salesOrderId + " 第 " + lineSeq + " 行预留");
+            recalcLotStock(delegator, lot);
+            remaining = round2(remaining - take);
+            taken += take;
+        }
+        return taken;
+    }
+
+    /**
+     * Puts the units that the shelf cannot cover into production: every line that is still open
+     * gets a work order, or has the planned quantity of its work order raised.
+     *
+     * @param dctx the dispatch context
+     * @param context service context, see {@code servicedef/services.xml#mfgSalesOrderPlan}
+     * @return the service result with the planned quantity
+     */
+    public static Map<String, Object> salesOrderPlan(DispatchContext dctx, Map<String, ? extends Object> context) {
+        Delegator delegator = dctx.getDelegator();
+        String salesOrderId = toText(context.get("salesOrderId"));
+        if (salesOrderId == null) {
+            return ServiceUtil.returnError("salesOrderId is required");
+        }
+        try {
+            GenericValue order = EntityQuery.use(delegator).from("MfgSalesOrder")
+                    .where("salesOrderId", salesOrderId).queryOne();
+            if (order == null) {
+                return ServiceUtil.returnError("Unknown sales order [" + salesOrderId + "]");
+            }
+            if (SO_CLOSED.equals(order.getString("statusId"))
+                    || SO_CANCELLED.equals(order.getString("statusId"))) {
+                return ServiceUtil.returnError("Sales order [" + salesOrderId + "] is "
+                        + order.getString("statusId"));
+            }
+            double plannedTotal = 0.0;
+            int plannedLines = 0;
+            for (GenericValue item : EntityQuery.use(delegator).from("MfgSalesOrderItem")
+                    .where("salesOrderId", salesOrderId).orderBy("lineSeq").queryList()) {
+                double need = productionQtyOf(numberOrZero(item.get("qty")),
+                        orderLineReserved(delegator, salesOrderId, item.getLong("lineSeq").longValue()),
+                        numberOrZero(item.get("shippedQty")),
+                        inProductionOf(delegator, item.getString("workOrderId")));
+                if (need <= 0.0001) {
+                    continue;
+                }
+                String productCode = item.getString("productCode");
+                Object lineDue = item.get("lineDueDate") == null ? order.get("dueDate") : item.get("lineDueDate");
+                String workOrderId = item.getString("workOrderId");
+                GenericValue workOrder = workOrderId == null ? null
+                        : EntityQuery.use(delegator).from("MfgWorkOrder")
+                                .where("workOrderId", workOrderId).queryOne();
+                if (workOrder != null && (WO_CLOSED.equals(workOrder.getString("statusId"))
+                        || WO_COMPLETED.equals(workOrder.getString("statusId")))) {
+                    // the order of that line is finished, so a new one has to make the rest
+                    workOrder = null;
+                }
+                if (workOrder == null) {
+                    Map<String, Object> createContext = new LinkedHashMap<>();
+                    createContext.put("productCode", productCode);
+                    createContext.put("plannedQty", Long.valueOf(Math.round(need)));
+                    if (lineDue != null) {
+                        createContext.put("dueDate", lineDue.toString());
+                    }
+                    createContext.put("customerName", "订单 " + salesOrderId + " / "
+                            + order.getString("customerName"));
+                    createContext.put("note", "由销售订单 " + salesOrderId + " 第 "
+                            + item.getLong("lineSeq") + " 行自动排产");
+                    Map<String, Object> created = workOrderCreate(dctx, createContext);
+                    if (ServiceUtil.isError(created)) {
+                        return created;
+                    }
+                    workOrderId = (String) created.get("workOrderId");
+                    item.set("workOrderId", workOrderId);
+                } else {
+                    long raised = workOrder.getLong("plannedQty") == null ? 0L
+                            : workOrder.getLong("plannedQty").longValue();
+                    workOrder.set("plannedQty", Long.valueOf(raised + Math.round(need)));
+                    delegator.store(workOrder);
+                }
+                delegator.store(item);
+                plannedTotal += Math.round(need);
+                plannedLines++;
+            }
+            if (plannedLines > 0 && !SO_SHIPPED.equals(order.getString("statusId"))) {
+                order.set("statusId", SO_PLANNED);
+                delegator.store(order);
+            }
+            Map<String, Object> result = ServiceUtil.returnSuccess();
+            result.put("salesOrderId", salesOrderId);
+            result.put("plannedQty", Double.valueOf(round2(plannedTotal)));
+            result.put("plannedLines", Integer.valueOf(plannedLines));
+            result.put("statusId", order.getString("statusId"));
+            return result;
+        } catch (GenericEntityException e) {
+            return ServiceUtil.returnError("Could not plan the sales order: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Closes a sales order: every reservation it holds goes back to the shelf.
+     *
+     * @param dctx the dispatch context
+     * @param context service context, see {@code servicedef/services.xml#mfgSalesOrderClose}
+     * @return the service result with the released quantity
+     */
+    public static Map<String, Object> salesOrderClose(DispatchContext dctx, Map<String, ? extends Object> context) {
+        Delegator delegator = dctx.getDelegator();
+        String salesOrderId = toText(context.get("salesOrderId"));
+        if (salesOrderId == null) {
+            return ServiceUtil.returnError("salesOrderId is required");
+        }
+        try {
+            GenericValue order = EntityQuery.use(delegator).from("MfgSalesOrder")
+                    .where("salesOrderId", salesOrderId).queryOne();
+            if (order == null) {
+                return ServiceUtil.returnError("Unknown sales order [" + salesOrderId + "]");
+            }
+            double released = releaseSalesOrder(delegator, salesOrderId, toText(context.get("operatorName")),
+                    "订单 " + salesOrderId + " 关闭，释放预留");
+            order.set("statusId", SO_CLOSED);
+            delegator.store(order);
+            Map<String, Object> result = ServiceUtil.returnSuccess();
+            result.put("salesOrderId", salesOrderId);
+            result.put("releasedQty", Double.valueOf(round2(released)));
+            result.put("statusId", SO_CLOSED);
+            return result;
+        } catch (GenericEntityException e) {
+            return ServiceUtil.returnError("Could not close the sales order: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Lists the sales orders, newest first, with what each one still owes.
+     *
+     * @param dctx the dispatch context
+     * @param context service context, see {@code servicedef/services.xml#mfgSalesOrderList}
+     * @return the service result containing {@code orders}
+     */
+    public static Map<String, Object> salesOrderList(DispatchContext dctx, Map<String, ? extends Object> context) {
+        Delegator delegator = dctx.getDelegator();
+        String statusId = toText(context.get("statusId"));
+        try {
+            List<Map<String, Object>> list = new ArrayList<>();
+            for (GenericValue order : EntityQuery.use(delegator).from("MfgSalesOrder")
+                    .orderBy("-createdStamp").queryList()) {
+                if (statusId != null && !statusId.equals(order.getString("statusId"))) {
+                    continue;
+                }
+                Map<String, Object> map = toSalesOrderMap(delegator, order);
+                list.add(map);
+            }
+            Map<String, Object> result = ServiceUtil.returnSuccess();
+            putPage(result, "orders",
+                    filterByKeyword(list, toText(context.get("search")), "salesOrderId", "customerName",
+                            "customerPo"),
+                    pageOf(context), pageSizeOf(context), toText(context.get("search")));
+            result.put("statusId", statusId);
+            result.put("statuses", SO_STATUSES);
+            return result;
+        } catch (GenericEntityException e) {
+            return ServiceUtil.returnError("Could not read the sales orders: " + e.getMessage());
+        }
+    }
+
+    /**
+     * One sales order with its lines, what it reserved and the work orders it started.
+     *
+     * @param dctx the dispatch context
+     * @param context service context, see {@code servicedef/services.xml#mfgSalesOrderDetail}
+     * @return the service result containing {@code order}, {@code items} and {@code reservations}
+     */
+    public static Map<String, Object> salesOrderDetail(DispatchContext dctx, Map<String, ? extends Object> context) {
+        Delegator delegator = dctx.getDelegator();
+        String salesOrderId = toText(context.get("salesOrderId"));
+        Map<String, Object> empty = ServiceUtil.returnSuccess();
+        empty.put("items", new ArrayList<Map<String, Object>>());
+        empty.put("reservations", new ArrayList<Map<String, Object>>());
+        if (salesOrderId == null) {
+            return empty;
+        }
+        try {
+            GenericValue order = EntityQuery.use(delegator).from("MfgSalesOrder")
+                    .where("salesOrderId", salesOrderId).queryOne();
+            if (order == null) {
+                return empty;
+            }
+            Map<String, Object> result = ServiceUtil.returnSuccess();
+            result.put("order", toSalesOrderMap(delegator, order));
+
+            List<Map<String, Object>> items = new ArrayList<>();
+            for (GenericValue item : EntityQuery.use(delegator).from("MfgSalesOrderItem")
+                    .where("salesOrderId", salesOrderId).orderBy("lineSeq").queryList()) {
+                long lineSeq = item.getLong("lineSeq").longValue();
+                double reserved = orderLineReserved(delegator, salesOrderId, lineSeq);
+                Map<String, Object> map = new LinkedHashMap<>();
+                map.put("lineSeq", Long.valueOf(lineSeq));
+                map.put("productCode", item.getString("productCode"));
+                map.put("qty", item.get("qty"));
+                map.put("reservedQty", Double.valueOf(round2(reserved)));
+                map.put("shippedQty", item.get("shippedQty"));
+                map.put("openQty", Double.valueOf(openQtyOf(numberOrZero(item.get("qty")), reserved,
+                        numberOrZero(item.get("shippedQty")))));
+                map.put("workOrderId", item.getString("workOrderId"));
+                map.put("lineDueDate", item.get("lineDueDate"));
+                map.put("note", item.getString("note"));
+                items.add(map);
+            }
+            result.put("items", items);
+
+            List<Map<String, Object>> reservations = new ArrayList<>();
+            Map<String, GenericValue> lots = new LinkedHashMap<>();
+            for (GenericValue movement : EntityQuery.use(delegator).from("MfgInventoryDetail")
+                    .where("salesOrderId", salesOrderId).queryList()) {
+                double reserved = numberOrZero(movement.get("reservedDiff"));
+                if (reserved == 0.0) {
+                    continue;
+                }
+                String lotId = movement.getString("lotId");
+                GenericValue lot = lots.get(lotId);
+                if (lot == null) {
+                    lot = EntityQuery.use(delegator).from("MfgMaterialLot").where("lotId", lotId).queryOne();
+                    if (lot != null) {
+                        lots.put(lotId, lot);
+                    }
+                }
+                Map<String, Object> map = new LinkedHashMap<>();
+                map.put("lotId", lotId);
+                map.put("lineSeq", movement.get("salesOrderItemSeq"));
+                map.put("productCode", lot == null ? null : lot.getString("componentCode"));
+                map.put("reservedDiff", Double.valueOf(round2(reserved)));
+                map.put("movementTypeId", movement.getString("movementTypeId"));
+                map.put("effectiveDate", movement.get("effectiveDate"));
+                map.put("note", movement.getString("note"));
+                reservations.add(map);
+            }
+            result.put("reservations", reservations);
+            return result;
+        } catch (GenericEntityException e) {
+            return ServiceUtil.returnError("Could not read the sales order: " + e.getMessage());
+        }
+    }
+
+    private static Map<String, Object> toSalesOrderMap(Delegator delegator, GenericValue order)
+            throws GenericEntityException {
+        String salesOrderId = order.getString("salesOrderId");
+        Map<String, Object> map = new LinkedHashMap<>();
+        map.put("salesOrderId", salesOrderId);
+        map.put("customerName", order.getString("customerName"));
+        map.put("customerPo", order.getString("customerPo"));
+        map.put("orderDate", order.get("orderDate"));
+        map.put("dueDate", order.get("dueDate"));
+        map.put("statusId", order.getString("statusId"));
+        map.put("note", order.getString("note"));
+        double qty = 0.0;
+        double reserved = 0.0;
+        double shipped = 0.0;
+        double open = 0.0;
+        int lines = 0;
+        for (GenericValue item : EntityQuery.use(delegator).from("MfgSalesOrderItem")
+                .where("salesOrderId", salesOrderId).orderBy("lineSeq").queryList()) {
+            lines++;
+            double lineReserved = orderLineReserved(delegator, salesOrderId, item.getLong("lineSeq").longValue());
+            qty += numberOrZero(item.get("qty"));
+            reserved += lineReserved;
+            shipped += numberOrZero(item.get("shippedQty"));
+            open += openQtyOf(numberOrZero(item.get("qty")), lineReserved,
+                    numberOrZero(item.get("shippedQty")));
+        }
+        map.put("lineCount", Integer.valueOf(lines));
+        map.put("qtyTotal", Double.valueOf(round2(qty)));
+        map.put("reservedTotal", Double.valueOf(round2(reserved)));
+        map.put("shippedTotal", Double.valueOf(round2(shipped)));
+        map.put("openTotal", Double.valueOf(round2(open)));
+        return map;
+    }
+
+    /**
+     * What one sales order has reserved on one lot right now.
+     *
+     * @param delegator the delegator
+     * @param lotId the finished goods lot
+     * @param salesOrderId the order
+     * @return the reserved quantity, {@code 0} when nothing is reserved
+     * @throws GenericEntityException when the ledger cannot be read
+     */
+    static double orderReservedOnLot(Delegator delegator, String lotId, String salesOrderId)
+            throws GenericEntityException {
+        double reserved = 0.0;
+        for (GenericValue movement : movementsOf(delegator, lotId)) {
+            if (!salesOrderId.equals(movement.getString("salesOrderId"))) {
+                continue;
+            }
+            reserved += numberOrZero(movement.get("reservedDiff"));
+        }
+        return reserved <= 0.0 ? 0.0 : round2(reserved);
+    }
+
+    /**
+     * What one order line has reserved from stock right now.
+     *
+     * @param delegator the delegator
+     * @param salesOrderId the order
+     * @param lineSeq the line
+     * @return the reserved quantity, {@code 0} when nothing is reserved
+     * @throws GenericEntityException when the ledger cannot be read
+     */
+    static double orderLineReserved(Delegator delegator, String salesOrderId, long lineSeq)
+            throws GenericEntityException {
+        double reserved = 0.0;
+        for (GenericValue movement : EntityQuery.use(delegator).from("MfgInventoryDetail")
+                .where("salesOrderId", salesOrderId).queryList()) {
+            Long movementLine = movement.getLong("salesOrderItemSeq");
+            if (movementLine == null || movementLine.longValue() != lineSeq) {
+                continue;
+            }
+            reserved += numberOrZero(movement.get("reservedDiff"));
+        }
+        return reserved <= 0.0 ? 0.0 : round2(reserved);
+    }
+
+    /**
+     * Appends a reservation that belongs to a sales order line.
+     *
+     * @param delegator the delegator
+     * @param lot the finished goods lot
+     * @param movementTypeId {@link #MOVE_RESERVE} or {@link #MOVE_RELEASE}
+     * @param diff the signed change of the reserved quantity
+     * @param salesOrderId the order
+     * @param lineSeq the line of the order
+     * @param operatorName who did it
+     * @param note a remark
+     * @throws GenericEntityException when it cannot be stored
+     */
+    static void recordOrderReservation(Delegator delegator, GenericValue lot, String movementTypeId,
+            double diff, String salesOrderId, long lineSeq, String operatorName, String note)
+            throws GenericEntityException {
+        GenericValue movement = delegator.makeValue("MfgInventoryDetail");
+        movement.set("lotId", lot.getString("lotId"));
+        movement.set("seqId", Long.valueOf(nextMovementSeq(delegator, lot.getString("lotId"))));
+        movement.set("movementTypeId", movementTypeId);
+        movement.set("quantityDiff", Double.valueOf(0.0));
+        movement.set("reservedDiff", Double.valueOf(round2(diff)));
+        movement.set("salesOrderId", salesOrderId);
+        movement.set("salesOrderItemSeq", Long.valueOf(lineSeq));
+        movement.set("operatorName", operatorName);
+        movement.set("effectiveDate", new Timestamp(System.currentTimeMillis()));
+        movement.set("note", note);
+        delegator.create(movement);
+    }
+
+    /**
+     * Gives back what the lots still hold for one order line.
+     *
+     * @param delegator the delegator
+     * @param salesOrderId the order
+     * @param lineSeq the line
+     * @param operatorName who did it
+     * @param note a remark
+     * @return the released quantity
+     * @throws GenericEntityException when the ledger cannot be written
+     */
+    private static double releaseOrderLine(Delegator delegator, String salesOrderId, long lineSeq,
+            String operatorName, String note) throws GenericEntityException {
+        double released = 0.0;
+        for (GenericValue lot : productLots(delegator)) {
+            double reserved = 0.0;
+            for (GenericValue movement : movementsOf(delegator, lot.getString("lotId"))) {
+                Long movementLine = movement.getLong("salesOrderItemSeq");
+                if (!salesOrderId.equals(movement.getString("salesOrderId")) || movementLine == null
+                        || movementLine.longValue() != lineSeq) {
+                    continue;
+                }
+                reserved += numberOrZero(movement.get("reservedDiff"));
+            }
+            if (reserved <= 0.0001) {
+                continue;
+            }
+            recordOrderReservation(delegator, lot, MOVE_RELEASE, -reserved, salesOrderId, lineSeq,
+                    operatorName, note);
+            recalcLotStock(delegator, lot);
+            released += reserved;
+        }
+        return released;
+    }
+
+    /**
+     * Gives back every reservation of one sales order.
+     *
+     * @return the released quantity
+     */
+    private static double releaseSalesOrder(Delegator delegator, String salesOrderId, String operatorName,
+            String note) throws GenericEntityException {
+        double released = 0.0;
+        for (GenericValue item : EntityQuery.use(delegator).from("MfgSalesOrderItem")
+                .where("salesOrderId", salesOrderId).queryList()) {
+            released += releaseOrderLine(delegator, salesOrderId, item.getLong("lineSeq").longValue(),
+                    operatorName, note);
+        }
+        return released;
+    }
+
+    /**
+     * The finished goods lots of one model, oldest first.
+     *
+     * @param delegator the delegator
+     * @param productCode the model
+     * @return the lots that hold that model
+     * @throws GenericEntityException when they cannot be read
+     */
+    private static List<GenericValue> productLotsOf(Delegator delegator, String productCode)
+            throws GenericEntityException {
+        List<GenericValue> lots = new ArrayList<>();
+        for (GenericValue lot : EntityQuery.use(delegator).from("MfgMaterialLot")
+                .where("componentCode", productCode)
+                .orderBy("receivedDate", "lotId").queryList()) {
+            if (isProductLot(lot)) {
+                lots.add(lot);
+            }
+        }
+        return lots;
+    }
+
+    /**
+     * Writes units off the lines of a sales order and gives their reservations back, one model at a
+     * time; the order flips to shipped once nothing is owed any more.
+     *
+     * @param delegator the delegator
+     * @param salesOrderId the order the goods were sold on
+     * @param byModel how many units of each model the delivery takes
+     * @param operatorName who did it
+     * @param deliveryId the delivery that was just created
+     * @throws GenericEntityException when the order cannot be written
+     */
+    private static void shipAgainstSalesOrder(Delegator delegator, String salesOrderId,
+            Map<String, Integer> byModel, String operatorName, String deliveryId)
+            throws GenericEntityException {
+        for (Map.Entry<String, Integer> entry : byModel.entrySet()) {
+            String model = entry.getKey();
+            double remaining = entry.getValue().intValue();
+            for (GenericValue item : EntityQuery.use(delegator).from("MfgSalesOrderItem")
+                    .where("salesOrderId", salesOrderId).orderBy("lineSeq").queryList()) {
+                if (remaining <= 0.0001) {
+                    break;
+                }
+                if (!model.equals(item.getString("productCode"))) {
+                    continue;
+                }
+                long lineSeq = item.getLong("lineSeq").longValue();
+                double reserved = orderLineReserved(delegator, salesOrderId, lineSeq);
+                double shippable = reserved + openQtyOf(numberOrZero(item.get("qty")), reserved,
+                        numberOrZero(item.get("shippedQty")));
+                if (shippable <= 0.0001) {
+                    continue;
+                }
+                double take = Math.min(shippable, remaining);
+                item.set("shippedQty", Double.valueOf(round2(numberOrZero(item.get("shippedQty")) + take)));
+                delegator.store(item);
+                releaseOrderLineUnit(delegator, salesOrderId, lineSeq, model, take, operatorName,
+                        "出货 " + deliveryId + " 释放预留");
+                remaining = round2(remaining - take);
+            }
+        }
+        boolean done = true;
+        for (GenericValue item : EntityQuery.use(delegator).from("MfgSalesOrderItem")
+                .where("salesOrderId", salesOrderId).queryList()) {
+            if (numberOrZero(item.get("shippedQty")) + 0.0001 < numberOrZero(item.get("qty"))) {
+                done = false;
+                break;
+            }
+        }
+        GenericValue order = EntityQuery.use(delegator).from("MfgSalesOrder")
+                .where("salesOrderId", salesOrderId).queryOne();
+        if (order != null && done) {
+            order.set("statusId", SO_SHIPPED);
+            delegator.store(order);
+        }
+    }
+
+    /**
+     * Gives back at most {@code qty} reserved units of one order line, taken from the finished goods
+     * lots that hold that reservation.
+     *
+     * @return how much was released
+     */
+    private static double releaseOrderLineUnit(Delegator delegator, String salesOrderId, long lineSeq,
+            String productCode, double qty, String operatorName, String note) throws GenericEntityException {
+        double remaining = qty;
+        for (GenericValue lot : productLotsOf(delegator, productCode)) {
+            if (remaining <= 0.0001) {
+                break;
+            }
+            double reserved = 0.0;
+            for (GenericValue movement : movementsOf(delegator, lot.getString("lotId"))) {
+                Long movementLine = movement.getLong("salesOrderItemSeq");
+                if (!salesOrderId.equals(movement.getString("salesOrderId")) || movementLine == null
+                        || movementLine.longValue() != lineSeq) {
+                    continue;
+                }
+                reserved += numberOrZero(movement.get("reservedDiff"));
+            }
+            if (reserved <= 0.0001) {
+                continue;
+            }
+            double release = Math.min(remaining, reserved);
+            recordOrderReservation(delegator, lot, MOVE_RELEASE, -release, salesOrderId, lineSeq,
+                    operatorName, note);
+            recalcLotStock(delegator, lot);
+            remaining = round2(remaining - release);
+        }
+        return round2(qty - remaining);
+    }
+
+    /**
+     * Every finished goods lot, in no particular order.
+     */
+    private static List<GenericValue> productLots(Delegator delegator) throws GenericEntityException {
+        List<GenericValue> lots = new ArrayList<>();
+        for (GenericValue lot : EntityQuery.use(delegator).from("MfgMaterialLot").queryList()) {
+            if (isProductLot(lot)) {
+                lots.add(lot);
+            }
+        }
+        return lots;
+    }
+
+    /**
+     * What one work order will still deliver: its planned quantity minus the units already booked
+     * into stock.
+     *
+     * @param delegator the delegator
+     * @param workOrderId the work order, may be {@code null}
+     * @return the quantity still to come, {@code 0} without a work order
+     * @throws GenericEntityException when it cannot be read
+     */
+    static double inProductionOf(Delegator delegator, String workOrderId) throws GenericEntityException {
+        if (workOrderId == null) {
+            return 0.0;
+        }
+        GenericValue workOrder = EntityQuery.use(delegator).from("MfgWorkOrder")
+                .where("workOrderId", workOrderId).queryOne();
+        if (workOrder == null) {
+            return 0.0;
+        }
+        double planned = numberOrZero(workOrder.get("plannedQty"));
+        double booked = 0.0;
+        for (GenericValue movement : movementsOf(delegator, productLotId(workOrderId))) {
+            if (MOVE_RECEIPT.equals(movement.getString("movementTypeId"))) {
+                booked += numberOrZero(movement.get("quantityDiff"));
+            }
+        }
+        double left = planned - booked;
+        return left <= 0.0 ? 0.0 : round2(left);
+    }
+
+    private static String nextSalesOrderId(Delegator delegator, LocalDate today) throws GenericEntityException {
+        String prefix = SO_PREFIX + today.format(DAY) + "-";
+        int max = 0;
+        for (GenericValue order : EntityQuery.use(delegator).from("MfgSalesOrder").queryList()) {
+            String id = order.getString("salesOrderId");
+            if (id != null && id.startsWith(prefix)) {
+                max = Math.max(max, parseTrailingNumber(id.substring(prefix.length())));
+            }
+        }
+        return prefix + String.format(Locale.ROOT, "%02d", Integer.valueOf(max + 1));
     }
 
     /**

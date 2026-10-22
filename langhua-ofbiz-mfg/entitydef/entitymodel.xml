@@ -778,6 +778,8 @@
         <field name="reservedDiff" type="floating-point"><description>Change of the quantity reserved for work orders; only reserve and release movements use it</description></field>
         <field name="unitCost" type="currency-amount"><description>Unit cost of this movement</description></field>
         <field name="workOrderId" type="id"><description>Work order the material was issued to or returned from</description></field>
+        <field name="salesOrderId" type="id"><description>Sales order the goods are reserved for, empty for a work order reservation</description></field>
+        <field name="salesOrderItemSeq" type="numeric"><description>Line of the sales order the reservation belongs to</description></field>
         <field name="physicalInventoryId" type="id"><description>Stock count that produced the movement</description></field>
         <field name="referenceNo" type="short-varchar"><description>Voucher, tracking number or count sheet</description></field>
         <field name="operatorName" type="name"><description>Who did it</description></field>
@@ -838,6 +840,50 @@
         <prim-key field="physicalInventoryId"/>
         <relation type="one" fk-name="MFG_COUNT_LOT" rel-entity-name="MfgMaterialLot">
             <key-map field-name="lotId"/>
+        </relation>
+    </entity>
+
+    <entity entity-name="MfgSalesOrder"
+            package-name="org.langhua.ofbiz.mfg"
+            title="Sales order">
+        <description>A customer order for finished goods: reserve what is on the shelf first, then the missing units go into production</description>
+        <field name="salesOrderId" type="id"><description>Order number, SO-yyMMdd-NN</description></field>
+        <field name="customerName" type="name"><description>Customer</description></field>
+        <field name="customerPo" type="short-varchar"><description>Customer purchase order, optional</description></field>
+        <field name="orderDate" type="date"><description>Day the order was taken</description></field>
+        <field name="dueDate" type="date"><description>Day the customer wants the goods</description></field>
+        <field name="statusId" type="id"><description>MFG_SO_OPEN, MFG_SO_PLANNED (the missing units are in production), MFG_SO_SHIPPED, MFG_SO_CLOSED or MFG_SO_CANCELLED</description></field>
+        <field name="note" type="description"/>
+        <field name="createdStamp" type="date-time"/>
+        <field name="createdTxStamp" type="date-time"/>
+        <field name="lastUpdatedStamp" type="date-time"/>
+        <field name="lastUpdatedTxStamp" type="date-time"/>
+        <prim-key field="salesOrderId"/>
+    </entity>
+
+    <entity entity-name="MfgSalesOrderItem"
+            package-name="org.langhua.ofbiz.mfg"
+            title="Sales order line">
+        <description>One model on a sales order, with what was reserved from stock, what went into production and what was shipped</description>
+        <field name="salesOrderId" type="id"><description>Order number</description></field>
+        <field name="lineSeq" type="numeric"><description>Line number, starting at 1</description></field>
+        <field name="productCode" type="id"><description>Model ordered</description></field>
+        <field name="qty" type="floating-point"><description>Ordered quantity</description></field>
+        <field name="shippedQty" type="floating-point"><description>Quantity already shipped</description></field>
+        <field name="workOrderId" type="id"><description>Work order that makes the units missing from stock, empty until the line is planned</description></field>
+        <field name="lineDueDate" type="date"><description>Day this line is due, defaults to the order date</description></field>
+        <field name="note" type="description"/>
+        <field name="createdStamp" type="date-time"/>
+        <field name="createdTxStamp" type="date-time"/>
+        <field name="lastUpdatedStamp" type="date-time"/>
+        <field name="lastUpdatedTxStamp" type="date-time"/>
+        <prim-key field="salesOrderId"/>
+        <prim-key field="lineSeq"/>
+        <relation type="one" fk-name="MFG_SOITEM_ORDER" rel-entity-name="MfgSalesOrder">
+            <key-map field-name="salesOrderId"/>
+        </relation>
+        <relation type="one" fk-name="MFG_SOITEM_PRODUCT" rel-entity-name="MfgProduct">
+            <key-map field-name="productCode"/>
         </relation>
     </entity>
 </entitymodel>
