@@ -195,13 +195,21 @@ https://localhost:8443/mfg/control/main
 | --- | --- | --- |
 | 安装目录 | `F:\build-ofbiz\apache-ofbiz-24.09.07` | `F:\build-ofbiz\ofbiz-prod` |
 | 访问 | `https://localhost:8443/mfg` | `https://localhost:8453/mfg` |
-| 端口 | https 8443 / http 8080 / ajp 8009 / naming 1099 | https 8453 / http 8090 / ajp 8109 / naming 1199 |
+| 端口 | https 8443 / http 8080 / ajp 8009 / naming 1099 / admin 10523 | https 8453 / http 8090 / ajp 8109 / naming 1199 / admin 10623 |
 | 数据库 | 自己 `runtime/data/derby`（测试数据，可随时清空重来） | 自己 `runtime/data/derby`（真实数据，`loadAll` 建库） |
 | 启停脚本（`…\Temp\jup`） | `deploy-mfg.bat` / `deploy-lc.bat` / `stop-ofbiz.bat` | `deploy-prod.bat` / `start-prod.bat` / `stop-prod.bat` |
 
 做两份安装的原因：OFBiz 用**内嵌 Derby**（库文件被进程独占，两个进程不能共用一个库），端口又写死在
 `framework/base/ofbiz-component.xml`（naming 1099）和 `framework/catalina/ofbiz-component.xml`（8080 / 8443 / 8009）里；
 复制一份改端口最省事。每套各占约 1 GB 左右内存。
+
+**容易漏的一个端口：管理套接字**（`org.apache.ofbiz.base.container.AdminServerContainer`，默认 `127.0.0.1:10523`）。
+它不在上面两个文件里，而是读系统属性 `ofbiz.admin.port`；两个实例同时跑时必须给生产换一个，
+否则第二个实例启动到 `admin-container` 就报 `Couldn't create server socket(/127.0.0.1:10523)` 并退出。
+`start-prod.bat` 里已经用 `set JAVA_TOOL_OPTIONS=-Dofbiz.admin.port=10623` 处理。
+
+`stop-ofbiz.bat` 只停**开发**实例（按命令行里的 `apache-ofbiz-24.09.07` 匹配），`stop-prod.bat` 只停生产
+（匹配 `ofbiz-prod`）——之前 `stop-ofbiz.bat` 会把两套一起杀掉，踩过一次。
 
 上线节奏：分支上改 → `deploy-mfg.bat` / `deploy-lc.bat` 到 **dev** → 跑单元测试、集成测试与巡检 →
 确认后再 `deploy-prod.bat` 到 **prod**。**别在生产实例上跑 `mfg-it.bat` / `verify-*.ps1`**（它们会写测试数据）。

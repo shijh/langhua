@@ -14,7 +14,7 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
 | --- | --- |
 | `deploy-mfg.bat` | **开发实例（8443）**：停 OFBiz → robocopy 到 `plugins/mfg` → `gradle jar` → 启动（日志 `F:\build-ofbiz\mfg-deploy.txt`） |
 | `deploy-lc.bat` | 同上，学习曲线插件（日志 `lc-deploy.txt`） |
-| `stop-ofbiz.bat` | 停所有 `org.apache.ofbiz.base.start.Start`（会把两套都停掉） |
+| `stop-ofbiz.bat` | 只停**开发**实例（按命令行里的 `apache-ofbiz-24.09.07` 匹配）；生产有 `stop-prod.bat` |
 | `deploy-prod.bat` | **生产实例（8453）**：停生产 → robocopy 两个插件到 `ofbiz-prod\plugins` → `gradle jar` → 启动（日志 `prod-deploy.txt`） |
 | `start-prod.bat` / `stop-prod.bat` | 只启/停生产实例（按命令行里的 `ofbiz-prod` 匹配进程） |
 | `mfg-tests.bat` | 单元测试（JUnit 4，离线，依赖 `F:\build-ofbiz\lib` 的 jar） |
@@ -228,6 +228,12 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
 - **`snPrefix` 是 `very-short`（10 字符）且默认取型号编码**：型号编码超过 10 位又不给 `snPrefix` 时，
   过去是 Derby 报错→错误页（HTTP 200，巡检看不出来），现在 `productSave` 直接返回中文错误；
   巡检脚本建型号用 `PSLC<HHmmss>` 这种 10 位码
+- **两套实例并存要改的不只是 web 端口**：管理套接字（`AdminServerContainer`，默认 `127.0.0.1:10523`）不在
+  `framework/*/ofbiz-component.xml` 里，而是系统属性 `ofbiz.admin.port`；没改的话第二个实例启动到
+  `admin-container` 就 `Couldn't create server socket` 退出。`start-prod.bat` 用 `JAVA_TOOL_OPTIONS=-Dofbiz.admin.port=10623`
+- **`<ofbiz-component>` 没有 `title` 属性**：24.09 的 XSD 不认，启动/`loadAll` 会报 `cvc-complex-type.3.2.2`（只是 warning 级别，但污染日志）
+- **权限种子只能引用全新库里存在的组**：授给 `FULLADMIN`（新建库里不存在）会违反外键 `SEC_GRP_PERM_GRP`，
+  让 `--load-data` 整个回滚、`loadAll` 失败——踩过；只授 `SUPER`
 - 两个组件的关系图画在 `langhua-ofbiz-mfg/README.md` 的「与学习曲线组件的关系」（mermaid，
   两组件结构一致时的单一出处；孪生份在学习曲线 README 的「与 MES 联动」）
 - 屏幕 `main` / `records` / `recordDetail`，模板 `estimation.ftl` / `records.ftl` / `recordDetail.ftl`
