@@ -110,6 +110,7 @@ public final class MfgServiceIT {
     private String serialNumber;
     private String lotId;
     private String deliveryId;
+    private double finishedGoodsOnHand;
     private String vendorId;
     private String claimId;
     private String exchangeSn;
@@ -166,6 +167,7 @@ public final class MfgServiceIT {
             it.estimatesSnRangeByFifo();
             it.recordsReplacement();
             it.importsTestResults();
+            it.completesTheWorkOrder();
             it.createsDelivery();
             it.rejectsDuplicateDelivery();
             it.savesVendor();
@@ -188,6 +190,7 @@ public final class MfgServiceIT {
             it.storesProductPhotos();
             it.costsTheModel();
             it.addsCostDetailToTheWorkOrder();
+            it.pricesTheFinishedGoods();
             it.tracksInventory();
             it.reservesMaterialForAWorkOrder();
             it.raisesDevelopmentIssues();
@@ -777,6 +780,52 @@ public final class MfgServiceIT {
         }
     }
 
+    /**
+     * Books the good units into finished goods stock, which is what a delivery then ships.
+     */
+    private void completesTheWorkOrder() throws IOException {
+        if (workOrderId == null) {
+            return;
+        }
+        Map<String, String> form = new LinkedHashMap<>();
+        form.put("workOrderId", workOrderId);
+        Response response = invoke("mfgWorkOrderComplete", form);
+        check("completion: service call returns HTTP 200", response.status == 200,
+                "HTTP " + response.status);
+        String lotId = "FG-" + workOrderId;
+        check("completion: the finished goods lot is named after the work order",
+                response.body.contains(lotId), "no [" + lotId + "] in response");
+        String completedQty = attribute(response.body, "completedQty");
+        check("completion: the good units are booked", completedQty != null && value(
+                Double.valueOf(completedQty)) > 0.0, "completedQty=" + completedQty);
+        String unitCost = attribute(response.body, "unitCost");
+        check("completion: the lot carries a unit cost",
+                unitCost != null, "no unitCost in response");
+
+        Map<String, String> detail = new LinkedHashMap<>();
+        detail.put("workOrderId", workOrderId);
+        response = invoke("mfgWorkOrderDetail", detail);
+        check("completion: the work order is completed",
+                response.body.contains("MFG_COMPLETED"), "status not reported as completed");
+        check("completion: the page gets the finished goods lot",
+                response.body.contains("productLot"), "no 'productLot' in the detail");
+        check("completion: the serial numbers are completed",
+                !response.body.contains("MFG_IN_PROGRESS"), "a unit is still in progress");
+
+        finishedGoodsOnHand = productOnHand();
+        check("completion: the model shows up in the finished goods stock",
+                finishedGoodsOnHand > 0.0, "on hand " + finishedGoodsOnHand);
+    }
+
+    /**
+     * Finished goods on hand over every model.
+     */
+    private double productOnHand() throws IOException {
+        Response response = invoke("mfgProductStock", new LinkedHashMap<String, String>());
+        String total = attribute(response.body, "onHandTotal");
+        return total == null ? 0.0 : Double.parseDouble(total);
+    }
+
     private void createsDelivery() throws IOException {
         if (serialNumber == null || workOrderId == null) {
             return;
@@ -808,6 +857,17 @@ public final class MfgServiceIT {
         response = invoke("mfgSnDetail", snDetail);
         check("delivery: visible on the serial number history",
                 response.body.contains("IT customer"), "customer missing on the unit");
+
+        double afterShipping = productOnHand();
+        check("delivery: the finished goods stock went down by one unit",
+                near(Double.valueOf(afterShipping), finishedGoodsOnHand - 1.0),
+                "on hand " + finishedGoodsOnHand + " -> " + afterShipping);
+
+        Map<String, String> ledger = new LinkedHashMap<>();
+        ledger.put("lotId", "FG-" + workOrderId);
+        response = invoke("mfgInventoryLedger", ledger);
+        check("delivery: the issue is on the finished goods ledger",
+                response.body.contains(deliveryId), "no movement for the delivery");
     }
 
     private void rejectsDuplicateDelivery() throws IOException {
@@ -1808,6 +1868,65 @@ public final class MfgServiceIT {
         check("cost detail: every operation is costed",
                 orderCost.body.contains("opName:Testing") && orderCost.body.contains("opName:Packing"),
                 "no operation rows in the cost result");
+    }
+
+    /**
+     * Prices a finished goods lot with the actual cost of its work order, and checks that pressing
+     * the completion twice tops the lot up instead of booking the units twice.
+     *
+     * @throws IOException when a service call fails
+     */
+    private void pricesTheFinishedGoods() throws IOException {
+        Map<String, String> orderForm = new LinkedHashMap<>();
+        orderForm.put("productCode", PRODUCT_CODE);
+        orderForm.put("plannedQty", "1");
+        orderForm.put("dueDate", "2026-12-31");
+        orderForm.put("customerName", "Finished goods test");
+        Response order = invoke("mfgWorkOrderCreate", orderForm);
+        String fgOrderId = firstMatch(WORK_ORDER_ID, order.body);
+        check("finished goods: work order created", fgOrderId != null, "no work order id");
+
+        Map<String, String> reportForm = new LinkedHashMap<>();
+        reportForm.put("workOrderId", fgOrderId == null ? "" : fgOrderId);
+        reportForm.put("opSeq", "1");
+        reportForm.put("workHours", "2");
+        reportForm.put("qtyOk", "1");
+        reportForm.put("operatorName", "IT worker");
+        Response report = invoke("mfgReportCreate", reportForm);
+        check("finished goods: one good unit reported", report.status == 200, "HTTP " + report.status);
+
+        Map<String, String> feeForm = new LinkedHashMap<>();
+        feeForm.put("workOrderId", fgOrderId == null ? "" : fgOrderId);
+        feeForm.put("outsourceAmount", "100");
+        invoke("mfgWorkOrderOutsourceSave", feeForm);
+
+        Map<String, String> completeForm = new LinkedHashMap<>();
+        completeForm.put("workOrderId", fgOrderId == null ? "" : fgOrderId);
+        Response complete = invoke("mfgWorkOrderComplete", completeForm);
+        check("finished goods: one unit booked into stock",
+                near(fieldValue(complete.body, "completedQty"), 1.0),
+                "completedQty is not 1");
+        double unitCost = value(fieldValue(complete.body, "unitCost"));
+        check("finished goods: the unit cost carries the outsourced fee",
+                unitCost >= 100.0, "unitCost is " + unitCost);
+
+        Map<String, String> againForm = new LinkedHashMap<>();
+        againForm.put("workOrderId", fgOrderId == null ? "" : fgOrderId);
+        Response again = invoke("mfgWorkOrderComplete", againForm);
+        check("finished goods: completing twice books nothing new",
+                near(fieldValue(again.body, "completedQty"), 0.0),
+                "completedQty is not 0 on the second completion");
+        check("finished goods: the lot still holds one unit",
+                near(fieldValue(again.body, "onHandQty"), 1.0), "onHandQty is not 1");
+
+        Map<String, String> stockForm = new LinkedHashMap<>();
+        stockForm.put("search", PRODUCT_CODE);
+        Response stock = invoke("mfgProductStock", stockForm);
+        check("finished goods: the stock page lists the model",
+                stock.body.contains(PRODUCT_CODE), "the model is missing from the finished goods");
+        check("finished goods: the model has stock on hand",
+                value(fieldValue(stock.body, "onHandTotal")) >= 1.0,
+                "onHandTotal is below one for this model");
     }
 
     /**

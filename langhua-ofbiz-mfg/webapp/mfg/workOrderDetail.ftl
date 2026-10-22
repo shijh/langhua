@@ -21,6 +21,7 @@
 <#assign atts = ((attachmentResult).attachments)![]>
 <#assign cost = (costResult)!{}>
 <#assign costOps = ((costResult).operations)![]>
+<#assign prodLot = (d.productLot)!{}>
 <#assign errList = (errorMessageList)![]>
 
 <#if !wo.workOrderId??>
@@ -298,6 +299,35 @@
         </table>
     <#else>
         <p class="hint">该型号还没有 BOM，先去「产品与 BOM」导入。</p>
+    </#if>
+
+    <#-- 完工入库：把报工的合格数记成该工单自己的成品批次 FG-WO-… -->
+    <h2>完工入库（成品）</h2>
+    <p>
+        <form method="post" action="/mfg/control/workOrderComplete" class="inline">
+            <input type="hidden" name="workOrderId" value="${wo.workOrderId}"/>
+            完工日 <input type="text" name="completeDate" size="10" placeholder="yyyy-mm-dd"/>
+            <input type="submit" value="完工入库"/>
+        </form>
+        <span class="hint">按已报工的良品数入库，单位成本 = 实际成本 ÷ 良品数；重复点只补差额，不会重复入库。</span>
+    </p>
+    <#if prodLot.lotId??>
+        <table id="productLot">
+            <tr><th>成品批次</th><th class="num">入库</th><th class="num">在库</th>
+                <th class="num">已预留</th><th class="num">可发</th><th class="num">单位成本</th><th>入库日</th></tr>
+            <tr>
+                <td><a href="/mfg/control/stockMoves?lotId=${prodLot.lotId}">${prodLot.lotId}</a></td>
+                <td class="num">${(prodLot.receivedQty!0)?string("0.##")}</td>
+                <td class="num">${(prodLot.onHandQty!0)?string("0.##")}</td>
+                <td class="num">${(prodLot.reservedQty!0)?string("0.##")}</td>
+                <td class="num">${(prodLot.availableQty!0)?string("0.##")}</td>
+                <td class="num"><#if prodLot.unitPrice??>${prodLot.unitPrice?string("0.00")}<#else><span class="hint">—</span></#if></td>
+                <td><#if prodLot.receivedDate??>${prodLot.receivedDate?string("yyyy-MM-dd")}</#if></td>
+            </tr>
+        </table>
+        <p class="hint">出货时按台从该批次自动扣减；点击「完工入库」可把新增的报工再补进这批货。</p>
+    <#else>
+        <p class="hint">还没完工入库：先报工，再点上面的按钮，成品就会进库存，随后才能开出货单。</p>
     </#if>
 
     <h2>发料记录（批次）</h2>

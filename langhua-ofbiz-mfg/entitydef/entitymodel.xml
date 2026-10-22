@@ -180,6 +180,7 @@
         <field name="smtVendorId" type="id"><description>Vendor master record used for shipping material</description></field>
         <field name="outsourceAmount" type="currency-amount"><description>Outsourced processing fee of the whole order (SMT, tooling), kept apart from material and labour</description></field>
         <field name="bomVersionId" type="id"><description>BOM version the order is built with, empty to follow the product current version</description></field>
+        <field name="completeDate" type="date"><description>Day the goods were booked into stock, set by the completion step</description></field>
         <field name="note" type="description"/>
         <field name="createdStamp" type="date-time"/>
         <field name="createdTxStamp" type="date-time"/>
@@ -276,8 +277,10 @@
             package-name="org.langhua.ofbiz.mfg"
             title="Material lot">
         <description>One purchased lot / reel of a component: supplier lot or date code and quantity received</description>
-        <field name="lotId" type="id"><description>Internal lot id, LOT-yyMMdd-NN</description></field>
-        <field name="componentCode" type="id"><description>Component part number</description></field>
+        <field name="lotId" type="id"><description>Internal lot id: LOT-yyMMdd-NN for a purchase lot, FG-WO-… for the goods of one work order</description></field>
+        <field name="lotKindId" type="id"><description>MFG_LOT_COMPONENT (purchased part, empty means this) or MFG_LOT_PRODUCT (finished goods of a work order)</description></field>
+        <field name="workOrderId" type="id"><description>Work order the finished goods came from, empty for a purchase lot</description></field>
+        <field name="componentCode" type="id"><description>Component part number, or the model for a finished goods lot</description></field>
         <field name="componentName" type="name"><description>Component description</description></field>
         <field name="supplierName" type="name"><description>Where the lot was bought</description></field>
         <field name="supplierLot" type="short-varchar"><description>Supplier lot / reel / date code printed on the label</description></field>
@@ -300,6 +303,9 @@
         <prim-key field="lotId"/>
         <index name="MFG_LOT_COMPONENT" unique="false">
             <index-field name="componentCode"/>
+        </index>
+        <index name="MFG_LOT_KIND" unique="false">
+            <index-field name="lotKindId"/>
         </index>
         <index name="MFG_LOT_SUPPLIER" unique="false">
             <index-field name="supplierLot"/>

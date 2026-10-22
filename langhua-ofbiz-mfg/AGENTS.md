@@ -69,13 +69,17 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   `FreeMarker template error`、`Error rendering`，否则错误页会被当成通过
 - **FreeMarker 默认值运算符 `!` 的优先级低于比较**：`<#if (x)!0 gt 0>` 会解析成 `x!(0 gt 0)` 而报
   `Expected a boolean, but this has evaluated to a number+extended_hash`；要写 `<#if ((x)!0) gt 0>`
+- **`${x?url}` 要求同一模板里有 `<#setting url_escaping_charset="UTF-8">`**，否则渲染抛
+  `To do URL encoding, the framework that encloses FreeMarker must specify the "output_encoding" setting ...`；
+  `workOrderDetail.ftl` 没有这个 setting，所以在那里用 `?url` 会让整页报错，而且 POST 后的 302 目标页报错时
+  巡检看到的是「200 + template error」；批次号这类安全字符直接拼，不要 `?url`
 
 ## 测试与巡检
 
 | 脚本 | 覆盖 | 断言数 |
 | --- | --- | --- |
-| `MfgServicesTest` | 解析/规则/格式化（CSV、SN、FIFO、窗口、编号、附件类型、来料检验规则、成本取整与毛利、CSV 单元格转义、软件报价公式与耗时率中位数、趋势期间标签与良率/单台工时、库存流水符号与不合格批次可用量、预留对可发量的影响、问题清单排序与校验…） | 70 |
-| `MfgServiceIT` | 全链路服务调用（含 BOM 版本、三条开发线、ECO、附件、来料检验、成本、告警、软件报价与台账、成本细化与外协费、步骤问题清单、良率/工时趋势、库存流水与盘点、工单预留/发料释放） | 318 |
+| `MfgServicesTest` | 解析/规则/格式化（CSV、SN、FIFO、窗口、编号、附件类型、来料检验规则、成本取整与毛利、CSV 单元格转义、软件报价公式与耗时率中位数、趋势期间标签与良率/单台工时、库存流水符号与不合格批次可用量、预留对可发量的影响、成品批次命名与单位成本分摊、问题清单排序与校验…） | 72 |
+| `MfgServiceIT` | 全链路服务调用（含 BOM 版本、三条开发线、ECO、附件、来料检验、成本、告警、软件报价与台账、成本细化与外协费、步骤问题清单、良率/工时趋势、库存流水与盘点、工单预留/发料释放、完工入库与出货扣减） | 336 |
 | `verify-m11.ps1` | 列表页搜索/过滤/翻页/编码 | 55 |
 | `verify-m12.ps1` | 装饰器布局（1 个 html、1 条导航、1 个高亮、样式表、无内联 style、无 FTL 报错） | 102 |
 | `verify-m13.ps1` | 产品开发 + BOM 版本 + 三条线路 | 49 |
@@ -86,7 +90,7 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
 | `verify-m33.ps1` | 看板告警与 CSV 导出（告警区、三个导出链接、`text/csv` + 下载头、表头列数、行内容） | 30 |
 | `verify-m34.ps1` | 软件项目：估算试算、保存与编号、台账计划 vs 实际、实测耗时率、超期进告警 | 30 |
 | `verify-m35.ps1` | 报表与成本细化：报表页（卡片/趋势表/日周月切换/未知口径回落）、两份趋势 CSV（BOM + 列数 + 合计行）、产品页按工序分摊、工单页工序成本与外协费、开发页问题清单登记→关闭→重开 | 54 |
-| `verify-m36.ps1` | 库存：结存页与卡片、流水页与余额、报废入账与超量被拒、盘点单号与差异、安全库存低于阈值标红与建议采购、告警 CSV、工单预留按钮与两次 POST | 44 |
+| `verify-m36.ps1` | 库存：结存页与卡片、流水页与余额、报废入账与超量被拒、盘点单号与差异、安全库存低于阈值标红与建议采购、告警 CSV、工单预留按钮与两次 POST、成品链路（完工入库 → 成品批次 → 出货扣减 → 重复发货被拒） | 63 |
 
 ## 设计决策
 
@@ -117,6 +121,13 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   一次能占多少占多少（`min(欠料, 该批次可发)`），写一条 `MFG_MOVE_RESERVE`；`mfgWorkOrderRelease` 把该工单的预留整体释放（反向 RESERVE–RELEASE 之和）；
   齐套欠料改为 `max(0, 需求 − 已发 − 已预留)`，所以“开工单不占料”会让两张工单都以为料是自己的；
   IT 里库存/预留那几项要用**每次唯一的料号与型号**（否则结存会在多次运行之间累计）
+- **成品库存（Step 42，与元件共用批次表）**：`MfgMaterialLot.lotKindId` = `MFG_LOT_COMPONENT`（空值等同）/ `MFG_LOT_PRODUCT`，
+  成品批次 `lotId = FG-<工单号>`、`componentCode` = 型号、`workOrderId` 记来源工单、`unitPrice` = 成品单位成本；
+  `mfgWorkOrderComplete` 按「已报工良品数 − 已入库量」补 `MFG_MOVE_RECEIPT`（幂等），成本 = `workOrderCost().actualTotal ÷ 良品数`，
+  同时把工单置 `MFG_COMPLETED`、SN 置 `MFG_COMPLETED`（**此前 SN 永远停在 IN_PROGRESS**）；
+  `deliverySave` 只收 `MFG_COMPLETED` 的 SN，按工单分组从 `FG-<工单号>` 扣 `MFG_MOVE_ISSUE`（`referenceNo` = 出货单号），不够则拒；
+  `mfgProductStock` 按型号汇总成品；**所有元件视角都要排除成品批次**（`isProductLot` / `componentLots`：结存、安全库存告警、BOM 预留、来料检验、发料），
+  `mfgLotList` 默认只看元件，盘点用 `kind=ALL`
 - **`LOT-yyMMdd-NN` 的序号不一定是两位**：同一天超过 99 个批次后会变成 3 位，巡检脚本里的正则是 `LOT-[0-9]{6}-[0-9]+`（踩过：写成 `{2}` 会截断成别的批次并写到错的批次上）
 - **所有 `XX-yyMMdd-NN` 编号都会越过 99**（`DEV-` / `ECO-` / `ISSUE-` / `DO-` / `V-` / `RMA-` / `CNT-`）：服务端用 `%02d`，到 100 自然变 3 位，
   所以**断言里的正则一律写 `[0-9]+`**。踩过：IT 里 `DEV-\d{6}-\d{2}` 把 `DEV-261021-103` 截成 `DEV-261021-10`（一个不存在的项目）→

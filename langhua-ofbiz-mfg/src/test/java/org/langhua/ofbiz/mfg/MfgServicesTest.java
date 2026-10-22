@@ -866,4 +866,20 @@ public class MfgServicesTest {
         // a failed lot is not available at all
         assertEquals(0.0, MfgServices.availableOf(10.0, 4.0, MfgServices.IQC_FAIL), 1e-9);
     }
+
+    @Test
+    public void namesTheFinishedGoodsLotAfterItsWorkOrder() {
+        assertEquals("FG-WO-261022-01", MfgServices.productLotId("WO-261022-01"));
+        assertNull(MfgServices.productLotId(null));
+    }
+
+    @Test
+    public void spreadsTheActualCostOverTheGoodUnits() {
+        // 300 yuan for 4 good units is 75 each
+        assertEquals(75.0, MfgServices.productUnitCost(300.0, 4.0), 1e-9);
+        // nothing good came out of the order, so there is no unit cost
+        assertEquals(0.0, MfgServices.productUnitCost(300.0, 0.0), 1e-9);
+        // two decimals, because it is money
+        assertEquals(10.01, MfgServices.productUnitCost(30.02, 3.0), 1e-9);
+    }
 }

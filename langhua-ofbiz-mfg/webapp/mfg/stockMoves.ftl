@@ -9,6 +9,7 @@
 <#assign lr = (ledger)!{}>
 <#assign rows = (lr.rows)![]>
 <#assign typeId = (lr.movementTypeId)!''>
+<#assign kindId = (lr.kind)!''>
 <#assign errList = (errorMessageList)![]>
 
 <#function moveLabel id>
@@ -33,6 +34,12 @@
 <form method="get" action="/mfg/control/stockMoves">
     料号 <input type="text" name="componentCode" size="14" value="${(lr.componentCode)!''}"/>
     批次 <input type="text" name="lotId" size="16" value="${(lr.lotId)!''}"/>
+    类别
+    <select name="kind">
+        <option value=""<#if kindId == ''> selected="selected"</#if>>全部</option>
+        <option value="MFG_LOT_COMPONENT"<#if kindId == 'MFG_LOT_COMPONENT'> selected="selected"</#if>>元件</option>
+        <option value="MFG_LOT_PRODUCT"<#if kindId == 'MFG_LOT_PRODUCT'> selected="selected"</#if>>成品</option>
+    </select>
     类型
     <select name="movementTypeId">
         <option value="">全部</option>
@@ -54,7 +61,7 @@
 <#if rows?has_content>
     <table id="ledgerTable">
         <tr>
-            <th>时间</th><th>料号</th><th>批次</th><th class="num">序号</th><th>类型</th>
+            <th>时间</th><th>料号</th><th>批次</th><th>类别</th><th class="num">序号</th><th>类型</th>
             <th class="num">数量</th><th class="num">结存</th><th class="num">单价</th>
             <th>工单 / 单据</th><th>操作人</th><th>备注</th>
         </tr>
@@ -63,6 +70,7 @@
                 <td><#if row.effectiveDate??>${row.effectiveDate?string("MM-dd HH:mm")}</#if></td>
                 <td>${row.componentCode!}</td>
                 <td><a href="/mfg/control/stockMoves?lotId=${row.lotId?url}">${row.lotId}</a></td>
+                <td><#if (row.lotKindId!'') == 'MFG_LOT_PRODUCT'>成品<#else>元件</#if></td>
                 <td class="num">${row.seqId?string("0")}</td>
                 <td><#if (row.movementTypeId!'') == 'MFG_MOVE_ISSUE' || (row.movementTypeId!'') == 'MFG_MOVE_SCRAP'><span class="error">${moveLabel(row.movementTypeId)}</span><#elseif (row.movementTypeId!'') == 'MFG_MOVE_RECEIPT'><span class="ok">${moveLabel(row.movementTypeId)}</span><#else>${moveLabel(row.movementTypeId)}</#if></td>
                 <td class="num"><#if ((row.displayQty)!0) lt 0><span class="error">${row.displayQty?string("0.##")}</span><#else><span class="ok">+${row.displayQty?string("0.##")}</span></#if></td>

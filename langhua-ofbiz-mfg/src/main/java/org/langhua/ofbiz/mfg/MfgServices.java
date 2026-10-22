@@ -161,6 +161,14 @@ public final class MfgServices {
     public static final String[] MOVE_TYPES = {MOVE_RECEIPT, MOVE_ISSUE, MOVE_RETURN, MOVE_SCRAP,
         MOVE_COUNT, MOVE_ADJUST, MOVE_RESERVE, MOVE_RELEASE};
 
+    /** What a stock lot holds: a purchased component, or the finished goods of one work order. */
+    public static final String LOT_COMPONENT = "MFG_LOT_COMPONENT";
+    public static final String LOT_PRODUCT = "MFG_LOT_PRODUCT";
+    /** Every lot kind, in the order the filters list them. */
+    public static final String[] LOT_KINDS = {LOT_COMPONENT, LOT_PRODUCT};
+    /** Prefix of the finished goods lot of a work order: {@code FG-WO-yyMMdd-NN}. */
+    public static final String PRODUCT_LOT_PREFIX = "FG-";
+
     public static final String SW_PLANNED = "MFG_SW_PLANNED";
     public static final String SW_DOING = "MFG_SW_DOING";
     public static final String SW_DONE = "MFG_SW_DONE";
@@ -583,6 +591,14 @@ public final class MfgServices {
             }
             result.put("vendor", vendor == null ? null : toVendorMap(vendor));
             result.put("vendors", vendorMaps(delegator));
+
+            // the finished goods lot of this order, once it was completed
+            GenericValue productLot = EntityQuery.use(delegator).from("MfgMaterialLot")
+                    .where("lotId", productLotId(workOrderId)).queryOne();
+            if (productLot != null) {
+                ensureLotLedger(delegator, productLot);
+            }
+            result.put("productLot", productLot == null ? null : toLotMap(productLot, null));
             return result;
         } catch (GenericEntityException e) {
             return ServiceUtil.returnError("Could not read the work order: " + e.getMessage());
@@ -1530,6 +1546,10 @@ public final class MfgServices {
             if (lot == null) {
                 return ServiceUtil.returnError("Unknown material lot [" + lotId + "]");
             }
+            if (isProductLot(lot)) {
+                return ServiceUtil.returnError("Lot [" + lotId + "] holds finished goods, ship them through a"
+                        + " delivery order instead of issuing them to a work order");
+            }
             double received = toDouble(lot.get("receivedQty"), 0.0);
             if (rejectedQty > received) {
                 return ServiceUtil.returnError("rejectedQty [" + rejectedQty
@@ -1562,12 +1582,25 @@ public final class MfgServices {
     public static Map<String, Object> lotList(DispatchContext dctx, Map<String, ? extends Object> context) {
         Delegator delegator = dctx.getDelegator();
         String componentCode = toText(context.get("componentCode"));
+        String kind = toText(context.get("kind"));
+        if (kind == null) {
+            // the material page lists the purchased parts; the finished goods have their own page
+            kind = LOT_COMPONENT;
+        } else if ("ALL".equalsIgnoreCase(kind)) {
+            // the count screen inspects every lot, purchased or finished
+            kind = null;
+        }
         try {
             EntityQuery query = EntityQuery.use(delegator).from("MfgMaterialLot");
             if (componentCode != null) {
                 query = query.where("componentCode", componentCode);
             }
-            List<GenericValue> lots = query.orderBy("-createdStamp").queryList();
+            List<GenericValue> lots = new ArrayList<>();
+            for (GenericValue lot : query.orderBy("-createdStamp").queryList()) {
+                if (matchesLotKind(lot, kind)) {
+                    lots.add(lot);
+                }
+            }
             Map<String, Double> issued = issuedQtyByLot(delegator);
             List<Map<String, Object>> list = new ArrayList<>(lots.size());
             for (GenericValue lot : lots) {
@@ -1579,6 +1612,7 @@ public final class MfgServices {
                             "componentName", "supplierName", "supplierLot"),
                     pageOf(context), pageSizeOf(context), toText(context.get("search")));
             result.put("componentCode", componentCode);
+            result.put("kind", kind);
             return result;
         } catch (GenericEntityException e) {
             return ServiceUtil.returnError("Could not read the material lots: " + e.getMessage());
@@ -1618,6 +1652,10 @@ public final class MfgServices {
             GenericValue lot = EntityQuery.use(delegator).from("MfgMaterialLot").where("lotId", lotId).queryOne();
             if (lot == null) {
                 return ServiceUtil.returnError("Unknown material lot [" + lotId + "]");
+            }
+            if (isProductLot(lot)) {
+                return ServiceUtil.returnError("Lot [" + lotId + "] holds finished goods, ship them through a"
+                        + " delivery order instead of issuing them to a work order");
             }
             String lotComponent = lot.getString("componentCode");
             if (lotComponent != null && !lotComponent.equals(componentCode)) {
@@ -2010,6 +2048,8 @@ public final class MfgServices {
     private static Map<String, Object> toLotMap(GenericValue lot, Double issuedQty) {
         Map<String, Object> map = new LinkedHashMap<>();
         map.put("lotId", lot.getString("lotId"));
+        map.put("lotKindId", lotKindOf(lot));
+        map.put("workOrderId", lot.getString("workOrderId"));
         map.put("componentCode", lot.getString("componentCode"));
         map.put("componentName", lot.getString("componentName"));
         map.put("supplierName", lot.getString("supplierName"));
@@ -2459,12 +2499,37 @@ public final class MfgServices {
                     return ServiceUtil.returnError("No undelivered serial number left on [" + workOrderId + "]");
                 }
             }
+            Map<String, Integer> toShip = new LinkedHashMap<>();
             for (String sn : sns) {
-                if (EntityQuery.use(delegator).from("MfgSn").where("sn", sn).queryOne() == null) {
+                GenericValue unit = EntityQuery.use(delegator).from("MfgSn").where("sn", sn).queryOne();
+                if (unit == null) {
                     return ServiceUtil.returnError("Unknown serial number [" + sn + "]");
                 }
                 if (isDelivered(delegator, sn)) {
                     return ServiceUtil.returnError("Serial number [" + sn + "] has already been delivered");
+                }
+                if (!SN_COMPLETED.equals(unit.getString("statusId"))) {
+                    return ServiceUtil.returnError("Serial number [" + sn + "] is not in the finished goods stock yet,"
+                            + " complete work order [" + unit.getString("workOrderId") + "] first");
+                }
+                String unitOrder = unit.getString("workOrderId");
+                GenericValue unitLot = EntityQuery.use(delegator).from("MfgMaterialLot")
+                        .where("lotId", productLotId(unitOrder)).queryOne();
+                if (unitLot == null) {
+                    return ServiceUtil.returnError("Work order [" + unitOrder + "] has no finished goods lot yet,"
+                            + " complete it first");
+                }
+                Integer pending = toShip.get(unitOrder);
+                toShip.put(unitOrder, Integer.valueOf(pending == null ? 1 : pending.intValue() + 1));
+            }
+            for (Map.Entry<String, Integer> entry : toShip.entrySet()) {
+                GenericValue unitLot = EntityQuery.use(delegator).from("MfgMaterialLot")
+                        .where("lotId", productLotId(entry.getKey())).queryOne();
+                double available = unitLot == null ? 0.0 : numberOrZero(unitLot.get("availableQty"));
+                if (available + 0.0001 < entry.getValue().intValue()) {
+                    return ServiceUtil.returnError("Only " + formatQty(available) + " unit(s) left in the finished"
+                            + " goods lot [" + productLotId(entry.getKey()) + "], cannot ship "
+                            + entry.getValue().intValue());
                 }
             }
 
@@ -2494,9 +2559,31 @@ public final class MfgServices {
                 }
             }
 
+            // the goods leave the finished stock of the work order that built them
+            String operator = toText(context.get("operatorName"));
+            java.sql.Date shippedDay = delivery.getDate("deliveryDate");
+            double issuedQty = 0.0;
+            for (Map.Entry<String, Integer> entry : toShip.entrySet()) {
+                GenericValue unitLot = EntityQuery.use(delegator).from("MfgMaterialLot")
+                        .where("lotId", productLotId(entry.getKey())).queryOne();
+                if (unitLot == null) {
+                    continue;
+                }
+                double units = entry.getValue().intValue();
+                recordMovement(delegator, unitLot, MOVE_ISSUE, -units, unitLot.get("unitPrice"),
+                        entry.getKey(), null, deliveryId, operator,
+                        shippedDay == null ? null
+                                : Timestamp.valueOf(shippedDay.toLocalDate().atStartOfDay()),
+                        "出货 " + deliveryId);
+                recalcLotStock(delegator, unitLot);
+                issuedQty += units;
+            }
+
             Map<String, Object> result = ServiceUtil.returnSuccess();
             result.put("deliveryId", deliveryId);
             result.put("snCount", String.valueOf(sns.size()));
+            result.put("issuedQty", Double.valueOf(round2(issuedQty)));
+            result.put("productLotCount", Integer.valueOf(toShip.size()));
             return result;
         } catch (GenericEntityException e) {
             return ServiceUtil.returnError("Could not create the delivery: " + e.getMessage());
@@ -4604,6 +4691,77 @@ always
     }
 
     /**
+     * Tells whether a lot holds finished goods instead of a purchased component.
+     *
+     * @param lot the lot, may be {@code null}
+     * @return {@code true} for the goods of a work order
+     */
+    static boolean isProductLot(GenericValue lot) {
+        return lot != null && LOT_PRODUCT.equals(lot.getString("lotKindId"));
+    }
+
+    /**
+     * The kind of a lot, with the empty value of the rows written before the split read as a
+     * purchased component.
+     *
+     * @param lot the lot, may be {@code null}
+     * @return {@link #LOT_COMPONENT} or {@link #LOT_PRODUCT}
+     */
+    static String lotKindOf(GenericValue lot) {
+        return isProductLot(lot) ? LOT_PRODUCT : LOT_COMPONENT;
+    }
+
+    /**
+     * Whether a lot passes a kind filter; an empty filter accepts everything.
+     *
+     * @param lot the lot
+     * @param kind the filter, may be {@code null}
+     * @return {@code true} when the lot belongs to the filter
+     */
+    static boolean matchesLotKind(GenericValue lot, String kind) {
+        return kind == null || kind.equals(lotKindOf(lot));
+    }
+
+    /**
+     * Identifier of the finished goods lot of a work order.
+     *
+     * @param workOrderId the work order
+     * @return {@code FG-WO-yyMMdd-NN}, or {@code null} without a work order
+     */
+    static String productLotId(String workOrderId) {
+        return workOrderId == null ? null : PRODUCT_LOT_PREFIX + workOrderId;
+    }
+
+    /**
+     * Cost of one finished unit: the actual cost of the work order spread over its good units. The
+     * cost of a model is never stored on the model, so a second batch may cost something else.
+     *
+     * @param actualTotal the actual cost of the work order
+     * @param qtyOk the good units it produced
+     * @return the cost per unit, {@code 0} when nothing good came out
+     */
+    static double productUnitCost(double actualTotal, double qtyOk) {
+        return qtyOk <= 0.0 ? 0.0 : round2(actualTotal / qtyOk);
+    }
+
+    /**
+     * The purchased component lots, so the part oriented views never count finished goods.
+     *
+     * @param delegator the delegator
+     * @return the component lots
+     * @throws GenericEntityException when they cannot be read
+     */
+    private static List<GenericValue> componentLots(Delegator delegator) throws GenericEntityException {
+        List<GenericValue> lots = new ArrayList<>();
+        for (GenericValue lot : EntityQuery.use(delegator).from("MfgMaterialLot").queryList()) {
+            if (!isProductLot(lot)) {
+                lots.add(lot);
+            }
+        }
+        return lots;
+    }
+
+    /**
      * Everything that happened to one lot, oldest first.
      *
      * @param delegator the delegator
@@ -4805,7 +4963,7 @@ always
             return byComponent;
         }
         Map<String, GenericValue> lots = new LinkedHashMap<>();
-        for (GenericValue lot : EntityQuery.use(delegator).from("MfgMaterialLot").queryList()) {
+        for (GenericValue lot : componentLots(delegator)) {
             lots.put(lot.getString("lotId"), lot);
         }
         for (GenericValue movement : EntityQuery.use(delegator).from("MfgInventoryDetail")
@@ -4867,6 +5025,9 @@ always
                 for (GenericValue lot : lots) {
                     if (missing <= 0.0001) {
                         break;
+                    }
+                    if (isProductLot(lot)) {
+                        continue;
                     }
                     ensureLotLedger(delegator, lot);
                     double free = numberOrZero(lot.get("availableQty"));
@@ -4936,6 +5097,236 @@ always
             return result;
         } catch (GenericEntityException e) {
             return ServiceUtil.returnError("Could not release the reservation: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Books the good units of a work order into stock as its own finished goods lot
+     * {@code FG-WO-yyMMdd-NN}, prices that lot with the actual cost of the order and marks the order
+     * and its serial numbers as completed.
+     *
+     * <p>It can be pressed twice: only the difference between what the reports say and what is
+     * already in stock is booked, so extra reports top the lot up instead of doubling it.
+     *
+     * @param dctx the dispatch context
+     * @param context service context, see {@code servicedef/services.xml#mfgWorkOrderComplete}
+     * @return the service result with the lot and its quantity
+     */
+    public static Map<String, Object> workOrderComplete(DispatchContext dctx, Map<String, ? extends Object> context) {
+        Delegator delegator = dctx.getDelegator();
+        String workOrderId = toText(context.get("workOrderId"));
+        if (workOrderId == null) {
+            return ServiceUtil.returnError("workOrderId is required");
+        }
+        try {
+            GenericValue order = EntityQuery.use(delegator).from("MfgWorkOrder")
+                    .where("workOrderId", workOrderId).queryOne();
+            if (order == null) {
+                return ServiceUtil.returnError("Unknown work order [" + workOrderId + "]");
+            }
+            if (WO_CLOSED.equals(order.getString("statusId"))) {
+                return ServiceUtil.returnError("Work order [" + workOrderId + "] is already closed");
+            }
+            double qtyOk = 0.0;
+            for (GenericValue report : EntityQuery.use(delegator).from("MfgReport")
+                    .where("workOrderId", workOrderId).queryList()) {
+                qtyOk += numberOrZero(report.get("qtyOk"));
+            }
+            qtyOk = round2(qtyOk);
+            if (qtyOk <= 0.0001) {
+                return ServiceUtil.returnError("Report the good units before completing work order ["
+                        + workOrderId + "]");
+            }
+
+            Map<String, Object> productCodeContext = new LinkedHashMap<>();
+            productCodeContext.put("workOrderId", workOrderId);
+            double unitCost = productUnitCost(numberOrZero(workOrderCost(dctx, productCodeContext)
+                    .get("actualTotal")), qtyOk);
+
+            String lotId = productLotId(workOrderId);
+            Object dateInput = parseDate(context.get("completeDate"));
+            java.sql.Date day = dateInput == null ? java.sql.Date.valueOf(LocalDate.now())
+                    : (java.sql.Date) dateInput;
+            String productCode = order.getString("productCode");
+            GenericValue product = EntityQuery.use(delegator).from("MfgProduct")
+                    .where("productCode", productCode).queryOne();
+            GenericValue lot = EntityQuery.use(delegator).from("MfgMaterialLot")
+                    .where("lotId", lotId).queryOne();
+            if (lot == null) {
+                lot = delegator.makeValue("MfgMaterialLot");
+                lot.set("lotId", lotId);
+                lot.set("lotKindId", LOT_PRODUCT);
+                lot.set("workOrderId", workOrderId);
+                lot.set("componentCode", productCode);
+                lot.set("componentName", product == null ? null : product.getString("productName"));
+                lot.set("receivedQty", Double.valueOf(0.0));
+                lot.set("receivedDate", day);
+                lot.set("inspectStatusId", IQC_PASS);
+                lot.set("note", "工单 " + workOrderId + " 的成品");
+                delegator.create(lot);
+            }
+
+            double booked = 0.0;
+            for (GenericValue movement : movementsOf(delegator, lotId)) {
+                if (MOVE_RECEIPT.equals(movement.getString("movementTypeId"))) {
+                    booked += numberOrZero(movement.get("quantityDiff"));
+                }
+            }
+            booked = round2(booked);
+            double added = round2(qtyOk - booked);
+            String message = null;
+            if (added > 0.0001) {
+                String operator = toText(context.get("operatorName"));
+                recordMovement(delegator, lot, MOVE_RECEIPT, added, Double.valueOf(unitCost), workOrderId,
+                        null, workOrderId, operator,
+                        Timestamp.valueOf(day.toLocalDate().atStartOfDay()),
+                        "完工入库：" + formatQty(added) + " 台");
+            } else if (added < -0.0001) {
+                message = "The reports now say " + formatQty(qtyOk) + " good units but " + formatQty(booked)
+                        + " are already in stock, so nothing was booked; book a stock count to correct it";
+            }
+            lot.set("receivedQty", Double.valueOf(round2(Math.max(booked, qtyOk))));
+            lot.set("unitPrice", Double.valueOf(unitCost));
+            if (lot.get("inspectStatusId") == null) {
+                lot.set("inspectStatusId", IQC_PASS);
+            }
+            delegator.store(lot);
+            recalcLotStock(delegator, lot);
+
+            order.set("statusId", WO_COMPLETED);
+            if (order.get("completeDate") == null) {
+                order.set("completeDate", day);
+            }
+            delegator.store(order);
+            for (GenericValue unit : EntityQuery.use(delegator).from("MfgSn")
+                    .where("workOrderId", workOrderId).queryList()) {
+                if (SN_IN_PROGRESS.equals(unit.getString("statusId"))) {
+                    unit.set("statusId", SN_COMPLETED);
+                    delegator.store(unit);
+                }
+            }
+
+            Map<String, Object> result = ServiceUtil.returnSuccess();
+            result.put("workOrderId", workOrderId);
+            result.put("lotId", lotId);
+            result.put("qtyOk", Double.valueOf(qtyOk));
+            result.put("completedQty", Double.valueOf(added));
+            result.put("onHandQty", lot.get("onHandQty"));
+            result.put("unitCost", Double.valueOf(unitCost));
+            if (message != null) {
+                result.put("message", message);
+            }
+            return result;
+        } catch (GenericEntityException e) {
+            return ServiceUtil.returnError("Could not complete the work order: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Finished goods on hand per model: what the completions put into stock, minus what the
+     * deliveries took out, with what is reserved for a sales order and what it is worth.
+     *
+     * @param dctx the dispatch context
+     * @param context service context, see {@code servicedef/services.xml#mfgProductStock}
+     * @return the service result containing {@code rows} and the totals
+     */
+    public static Map<String, Object> productStock(DispatchContext dctx, Map<String, ? extends Object> context) {
+        Delegator delegator = dctx.getDelegator();
+        Map<String, Object> result = ServiceUtil.returnSuccess();
+        result.put("rows", new ArrayList<Map<String, Object>>());
+        result.put("productCount", Integer.valueOf(0));
+        result.put("onHandTotal", Double.valueOf(0.0));
+        result.put("shippedTotal", Double.valueOf(0.0));
+        result.put("valueTotal", Double.valueOf(0.0));
+        try {
+            Map<String, Map<String, Object>> byModel = new LinkedHashMap<>();
+            for (GenericValue lot : EntityQuery.use(delegator).from("MfgMaterialLot")
+                    .orderBy("componentCode", "lotId").queryList()) {
+                if (!isProductLot(lot)) {
+                    continue;
+                }
+                ensureLotLedger(delegator, lot);
+                String productCode = lot.getString("componentCode");
+                if (productCode == null) {
+                    continue;
+                }
+                Map<String, Object> row = byModel.get(productCode);
+                if (row == null) {
+                    row = new LinkedHashMap<>();
+                    row.put("productCode", productCode);
+                    row.put("productName", lot.getString("componentName"));
+                    row.put("onHandQty", Double.valueOf(0.0));
+                    row.put("reservedQty", Double.valueOf(0.0));
+                    row.put("availableQty", Double.valueOf(0.0));
+                    row.put("shippedQty", Double.valueOf(0.0));
+                    row.put("value", Double.valueOf(0.0));
+                    row.put("lotCount", Integer.valueOf(0));
+                    row.put("lastCompletedDate", null);
+                    byModel.put(productCode, row);
+                }
+                double onHand = numberOrZero(lot.get("onHandQty"));
+                row.put("onHandQty", Double.valueOf(numberOrZero(row.get("onHandQty")) + onHand));
+                row.put("reservedQty", Double.valueOf(numberOrZero(row.get("reservedQty"))
+                        + numberOrZero(lot.get("reservedQty"))));
+                row.put("availableQty", Double.valueOf(numberOrZero(row.get("availableQty"))
+                        + numberOrZero(lot.get("availableQty"))));
+                row.put("lotCount", Integer.valueOf(((Integer) row.get("lotCount")).intValue() + 1));
+                Object price = lot.get("unitPrice");
+                if (price instanceof Number) {
+                    row.put("value", Double.valueOf(numberOrZero(row.get("value"))
+                            + onHand * ((Number) price).doubleValue()));
+                }
+                java.sql.Date receivedDate = lot.getDate("receivedDate");
+                Object last = row.get("lastCompletedDate");
+                if (receivedDate != null && (last == null || receivedDate.after((java.util.Date) last))) {
+                    row.put("lastCompletedDate", receivedDate);
+                }
+                double shipped = 0.0;
+                for (GenericValue movement : movementsOf(delegator, lot.getString("lotId"))) {
+                    if (MOVE_ISSUE.equals(movement.getString("movementTypeId"))) {
+                        shipped += -numberOrZero(movement.get("quantityDiff"));
+                    }
+                }
+                row.put("shippedQty", Double.valueOf(numberOrZero(row.get("shippedQty")) + shipped));
+            }
+            List<Map<String, Object>> rows = new ArrayList<>(byModel.size());
+            double onHandTotal = 0.0;
+            double shippedTotal = 0.0;
+            double valueTotal = 0.0;
+            for (Map<String, Object> row : byModel.values()) {
+                row.put("onHandQty", Double.valueOf(round2(numberOrZero(row.get("onHandQty")))));
+                row.put("reservedQty", Double.valueOf(round2(numberOrZero(row.get("reservedQty")))));
+                row.put("availableQty", Double.valueOf(round2(numberOrZero(row.get("availableQty")))));
+                row.put("shippedQty", Double.valueOf(round2(numberOrZero(row.get("shippedQty")))));
+                row.put("value", Double.valueOf(round2(numberOrZero(row.get("value")))));
+                onHandTotal += numberOrZero(row.get("onHandQty"));
+                shippedTotal += numberOrZero(row.get("shippedQty"));
+                valueTotal += numberOrZero(row.get("value"));
+                rows.add(row);
+            }
+            String search = toText(context.get("search"));
+            if (search != null) {
+                String needle = search.toLowerCase(Locale.ROOT);
+                List<Map<String, Object>> matched = new ArrayList<>();
+                for (Map<String, Object> row : rows) {
+                    String code = String.valueOf(row.get("productCode")).toLowerCase(Locale.ROOT);
+                    String name = row.get("productName") == null ? ""
+                            : String.valueOf(row.get("productName")).toLowerCase(Locale.ROOT);
+                    if (code.contains(needle) || name.contains(needle)) {
+                        matched.add(row);
+                    }
+                }
+                rows = matched;
+            }
+            putPage(result, "rows", rows, pageOf(context), pageSizeOf(context), search);
+            result.put("productCount", Integer.valueOf(rows.size()));
+            result.put("onHandTotal", Double.valueOf(round2(onHandTotal)));
+            result.put("shippedTotal", Double.valueOf(round2(shippedTotal)));
+            result.put("valueTotal", Double.valueOf(round2(valueTotal)));
+            result.put("search", search);
+            return result;
+        } catch (GenericEntityException e) {
+            return ServiceUtil.returnError("Could not read the finished goods: " + e.getMessage());
         }
     }
 
@@ -5050,6 +5441,9 @@ always
             Map<String, Map<String, Object>> byComponent = new LinkedHashMap<>();
             for (GenericValue lot : EntityQuery.use(delegator).from("MfgMaterialLot")
                     .orderBy("componentCode", "lotId").queryList()) {
+                if (isProductLot(lot)) {
+                    continue;
+                }
                 ensureLotLedger(delegator, lot);
                 String componentCode = lot.getString("componentCode");
                 if (componentCode == null) {
@@ -5169,6 +5563,7 @@ always
         String lotId = toText(context.get("lotId"));
         String componentCode = toText(context.get("componentCode"));
         String movementTypeId = toText(context.get("movementTypeId"));
+        String kind = toText(context.get("kind"));
         java.sql.Date fromDate = (java.sql.Date) parseDate(context.get("fromDate"));
         java.sql.Date toDate = (java.sql.Date) parseDate(context.get("toDate"));
         Map<String, Object> result = ServiceUtil.returnSuccess();
@@ -5198,6 +5593,9 @@ always
                         && (lot == null || !componentCode.equals(lot.getString("componentCode")))) {
                     continue;
                 }
+                if (lot != null && !matchesLotKind(lot, kind)) {
+                    continue;
+                }
                 Timestamp effective = movement.getTimestamp("effectiveDate");
                 if (effective != null) {
                     java.sql.Date day = new java.sql.Date(effective.getTime());
@@ -5211,6 +5609,7 @@ always
                 Map<String, Object> row = new LinkedHashMap<>();
                 row.put("lotId", movementLot);
                 row.put("seqId", movement.get("seqId"));
+                row.put("lotKindId", lot == null ? LOT_COMPONENT : lotKindOf(lot));
                 row.put("componentCode", lot == null ? null : lot.getString("componentCode"));
                 row.put("componentName", lot == null ? null : lot.getString("componentName"));
                 row.put("movementTypeId", movement.getString("movementTypeId"));
@@ -5235,6 +5634,7 @@ always
             result.put("lotId", lotId);
             result.put("componentCode", componentCode);
             result.put("movementTypeId", movementTypeId);
+            result.put("kind", kind);
             result.put("fromDate", fromDate);
             result.put("toDate", toDate);
             return result;
@@ -5393,6 +5793,7 @@ always
                 map.put("countDate", count.get("countDate"));
                 map.put("counterName", count.getString("counterName"));
                 map.put("lotId", count.getString("lotId"));
+                map.put("lotKindId", lot == null ? LOT_COMPONENT : lotKindOf(lot));
                 map.put("componentCode", lot == null ? null : lot.getString("componentCode"));
                 map.put("componentName", lot == null ? null : lot.getString("componentName"));
                 map.put("bookQty", count.get("bookQty"));
@@ -5445,7 +5846,7 @@ always
             return;
         }
         Map<String, Double> onHand = new LinkedHashMap<>();
-        for (GenericValue lot : EntityQuery.use(delegator).from("MfgMaterialLot").queryList()) {
+        for (GenericValue lot : componentLots(delegator)) {
             ensureLotLedger(delegator, lot);
             String componentCode = lot.getString("componentCode");
             if (componentCode == null) {

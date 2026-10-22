@@ -92,3 +92,49 @@
             可发 = 在库 − 已预留（不合格批次为 0）；预留由工单开工时自动做，也可在工单页手动预留/释放。</p>
     </form>
 </fieldset>
+
+<#--
+  成品库存：工单完工入库的成品批次 FG-WO-…，按型号汇总。
+  数据：productStock.rows（productCode / productName / onHandQty / reservedQty / availableQty /
+        shippedQty / value / lotCount / lastCompletedDate）
+-->
+<#assign ps = (productStock)!{}>
+<#assign prow = (ps.rows)![]>
+
+<h2>成品库存</h2>
+<p class="cards">
+    <span class="card"><span class="label">型号</span><span class="value">${(ps.productCount)!0}</span></span>
+    <span class="card"><span class="label">成品在库</span><span class="value">${((ps.onHandTotal)!0)?string("0.##")}</span></span>
+    <span class="card"><span class="label">累计出货</span><span class="value">${((ps.shippedTotal)!0)?string("0.##")}</span></span>
+    <span class="card"><span class="label">成品金额</span><span class="value">${((ps.valueTotal)!0)?string("0.00")}</span></span>
+</p>
+<#if prow?has_content>
+    <table id="productStockTable">
+        <tr>
+            <th>型号</th><th>名称</th><th class="num">在库</th><th class="num">已预留</th>
+            <th class="num">可发</th><th class="num">累计出货</th><th class="num">批次</th>
+            <th class="num">金额</th><th>最近入库</th><th>操作</th>
+        </tr>
+        <#list prow as row>
+            <tr>
+                <td>${row.productCode}</td>
+                <td>${row.productName!}</td>
+                <td class="num">${(row.onHandQty!0)?string("0.##")}</td>
+                <td class="num"><#if (row.reservedQty!0) gt 0><span class="warn">${row.reservedQty?string("0.##")}</span><#else><span class="hint">—</span></#if></td>
+                <td class="num">${(row.availableQty!0)?string("0.##")}</td>
+                <td class="num">${(row.shippedQty!0)?string("0.##")}</td>
+                <td class="num">${row.lotCount}</td>
+                <td class="num"><#if (row.value!0) gt 0>${row.value?string("0.00")}<#else><span class="hint">—</span></#if></td>
+                <td>${(row.lastCompletedDate?string("yyyy-MM-dd"))!}</td>
+                <td>
+                    <a href="/mfg/control/stockMoves?componentCode=${row.productCode?url}&kind=MFG_LOT_PRODUCT">流水</a>
+                    <a href="/mfg/control/main?search=${row.productCode?url}">工单</a>
+                </td>
+            </tr>
+        </#list>
+    </table>
+    <p class="hint">成品在完工入库时按工单建批次 <code>FG-WO-…</code>，单位成本 = 该工单实际成本 ÷ 合格数；
+        出货时自动从该批次扣减，所以「在库」= 完工未出货。</p>
+<#else>
+    <p class="hint">还没有成品入库。到工单页点「完工入库」，报工过的合格数就会进成品库存。</p>
+</#if>

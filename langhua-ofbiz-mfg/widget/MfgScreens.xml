@@ -122,6 +122,9 @@
                     <field-map field-name="belowOnly" from-field="parameters.belowOnly"/>
                     <field-map field-name="page" from-field="parameters.page"/>
                 </service>
+                <service service-name="mfgProductStock" result-map="productStock" auto-field-map="false">
+                    <field-map field-name="search" from-field="parameters.search"/>
+                </service>
             </actions>
             <widgets>
                 <decorator-screen name="mfg-decorator" location="component://mfg/widget/MfgCommonScreens.xml">
@@ -147,6 +150,7 @@
                     <field-map field-name="lotId" from-field="parameters.lotId"/>
                     <field-map field-name="componentCode" from-field="parameters.componentCode"/>
                     <field-map field-name="movementTypeId" from-field="parameters.movementTypeId"/>
+                    <field-map field-name="kind" from-field="parameters.kind"/>
                     <field-map field-name="fromDate" from-field="parameters.fromDate"/>
                     <field-map field-name="toDate" from-field="parameters.toDate"/>
                     <field-map field-name="page" from-field="parameters.page"/>
@@ -172,9 +176,11 @@
                 <set field="title" value="Stock Count"/>
                 <set field="pageTitle" value="盘点"/>
                 <set field="activeMenu" value="stock"/>
+                <set field="countKind" value="ALL"/>
                 <service service-name="mfgLotList" result-map="lotResult" auto-field-map="false">
                     <field-map field-name="search" from-field="parameters.search"/>
                     <field-map field-name="page" from-field="parameters.page"/>
+                    <field-map field-name="kind" from-field="countKind"/>
                 </service>
                 <service service-name="mfgStockCountList" result-map="countResult" auto-field-map="false">
                     <field-map field-name="lotId" from-field="parameters.lotId"/>

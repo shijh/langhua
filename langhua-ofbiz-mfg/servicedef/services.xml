@@ -280,6 +280,7 @@
         <attribute name="testYield" type="Double" mode="OUT" optional="true"/>
         <attribute name="vendor" type="java.util.Map" mode="OUT" optional="true"/>
         <attribute name="vendors" type="java.util.List" mode="OUT" optional="true"/>
+        <attribute name="productLot" type="java.util.Map" mode="OUT" optional="true"/>
     </service>
 
     <!-- ==================== shop floor ==================== -->
@@ -395,10 +396,12 @@
             auth="false" use-transaction="false">
         <description>List material lots with received, issued and remaining quantities</description>
         <attribute name="componentCode" type="String" mode="IN" optional="true"/>
+        <attribute name="kind" type="String" mode="IN" optional="true"/>
         <attribute name="search" type="String" mode="IN" optional="true"/>
         <attribute name="page" type="Long" mode="IN" optional="true"/>
         <attribute name="pageSize" type="Long" mode="IN" optional="true"/>
         <attribute name="componentCode" type="String" mode="OUT" optional="true"/>
+        <attribute name="kind" type="String" mode="OUT" optional="true"/>
         <attribute name="lots" type="java.util.List" mode="OUT" optional="true"/>
         <attribute name="totalCount" type="Integer" mode="OUT" optional="true"/>
         <attribute name="page" type="Long" mode="OUT" optional="true"/>
@@ -526,8 +529,11 @@
         <attribute name="qty" type="Long" mode="IN" optional="true"/>
         <attribute name="sns" type="String" mode="IN" optional="true"/>
         <attribute name="note" type="String" mode="IN" optional="true"/>
+        <attribute name="operatorName" type="String" mode="IN" optional="true"/>
         <attribute name="deliveryId" type="String" mode="OUT" optional="true"/>
         <attribute name="snCount" type="String" mode="OUT" optional="true"/>
+        <attribute name="issuedQty" type="Double" mode="OUT" optional="true"/>
+        <attribute name="productLotCount" type="Integer" mode="OUT" optional="true"/>
     </service>
 
     <service name="mfgDeliveryList" engine="java"
@@ -651,6 +657,22 @@
         <attribute name="outsourceAmount" type="Double" mode="OUT" optional="true"/>
     </service>
 
+    <service name="mfgWorkOrderComplete" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgServices" invoke="workOrderComplete"
+            auth="false" use-transaction="false">
+        <description>Book the good units of a work order into stock as its own finished goods lot, priced at the actual cost per unit</description>
+        <attribute name="workOrderId" type="String" mode="IN" optional="false"/>
+        <attribute name="completeDate" type="String" mode="IN" optional="true"/>
+        <attribute name="operatorName" type="String" mode="IN" optional="true"/>
+        <attribute name="workOrderId" type="String" mode="OUT" optional="true"/>
+        <attribute name="lotId" type="String" mode="OUT" optional="true"/>
+        <attribute name="qtyOk" type="Double" mode="OUT" optional="true"/>
+        <attribute name="completedQty" type="Double" mode="OUT" optional="true"/>
+        <attribute name="onHandQty" type="Double" mode="OUT" optional="true"/>
+        <attribute name="unitCost" type="Double" mode="OUT" optional="true"/>
+        <attribute name="message" type="String" mode="OUT" optional="true"/>
+    </service>
+
     <!-- ==================== inventory: movements, stock, counts ==================== -->
 
     <service name="mfgInventoryMove" engine="java"
@@ -694,6 +716,24 @@
         <attribute name="message" type="String" mode="OUT" optional="true"/>
     </service>
 
+    <service name="mfgProductStock" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgServices" invoke="productStock"
+            auth="false" use-transaction="false">
+        <description>Finished goods on hand per model: what the completions booked in, what the deliveries took out</description>
+        <attribute name="search" type="String" mode="IN" optional="true"/>
+        <attribute name="page" type="String" mode="IN" optional="true"/>
+        <attribute name="rows" type="java.util.List" mode="OUT" optional="true"/>
+        <attribute name="productCount" type="Integer" mode="OUT" optional="true"/>
+        <attribute name="onHandTotal" type="Double" mode="OUT" optional="true"/>
+        <attribute name="shippedTotal" type="Double" mode="OUT" optional="true"/>
+        <attribute name="valueTotal" type="Double" mode="OUT" optional="true"/>
+        <attribute name="search" type="String" mode="OUT" optional="true"/>
+        <attribute name="totalCount" type="Integer" mode="OUT" optional="true"/>
+        <attribute name="page" type="Long" mode="OUT" optional="true"/>
+        <attribute name="pageCount" type="Long" mode="OUT" optional="true"/>
+        <attribute name="pageSize" type="Long" mode="OUT" optional="true"/>
+    </service>
+
     <service name="mfgInventoryLedger" engine="java"
             location="org.langhua.ofbiz.mfg.MfgServices" invoke="inventoryLedger"
             auth="false" use-transaction="false">
@@ -701,6 +741,7 @@
         <attribute name="lotId" type="String" mode="IN" optional="true"/>
         <attribute name="componentCode" type="String" mode="IN" optional="true"/>
         <attribute name="movementTypeId" type="String" mode="IN" optional="true"/>
+        <attribute name="kind" type="String" mode="IN" optional="true"/>
         <attribute name="fromDate" type="String" mode="IN" optional="true"/>
         <attribute name="toDate" type="String" mode="IN" optional="true"/>
         <attribute name="page" type="String" mode="IN" optional="true"/>
@@ -708,6 +749,7 @@
         <attribute name="lotId" type="String" mode="OUT" optional="true"/>
         <attribute name="componentCode" type="String" mode="OUT" optional="true"/>
         <attribute name="movementTypeId" type="String" mode="OUT" optional="true"/>
+        <attribute name="kind" type="String" mode="OUT" optional="true"/>
         <attribute name="fromDate" type="java.sql.Date" mode="OUT" optional="true"/>
         <attribute name="toDate" type="java.sql.Date" mode="OUT" optional="true"/>
         <attribute name="totalCount" type="Integer" mode="OUT" optional="true"/>

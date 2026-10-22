@@ -28,12 +28,13 @@
 <#if lots?has_content>
     <table id="countTable">
         <tr>
-            <th>批次</th><th>料号</th><th>供应商批号</th><th>到货</th><th class="num">在库</th>
+            <th>批次</th><th>类别</th><th>料号</th><th>供应商批号</th><th>到货</th><th class="num">在库</th>
             <th class="num">可发</th><th>来料检验</th><th>实盘数</th>
         </tr>
         <#list lots as lot>
             <tr>
                 <td>${lot.lotId}</td>
+                <td><#if (lot.lotKindId!'') == 'MFG_LOT_PRODUCT'>成品<#else>元件</#if></td>
                 <td>${lot.componentCode!}</td>
                 <td>${lot.supplierLot!}</td>
                 <td><#if lot.receivedDate??>${lot.receivedDate?string("MM-dd")}</#if></td>
@@ -59,7 +60,7 @@
 <#if counts?has_content>
     <table id="countList">
         <tr>
-            <th>盘点单</th><th>日期</th><th>批次</th><th>料号</th>
+            <th>盘点单</th><th>日期</th><th>批次</th><th>类别</th><th>料号</th>
             <th class="num">账面</th><th class="num">实盘</th><th class="num">差异</th><th>盘点人</th><th>备注</th>
         </tr>
         <#list counts as count>
@@ -67,6 +68,7 @@
                 <td>${count.physicalInventoryId}</td>
                 <td><#if count.countDate??>${count.countDate?string("yyyy-MM-dd")}</#if></td>
                 <td>${count.lotId}</td>
+                <td><#if (count.lotKindId!'') == 'MFG_LOT_PRODUCT'>成品<#else>元件</#if></td>
                 <td>${count.componentCode!}</td>
                 <td class="num">${(count.bookQty!0)?string("0.##")}</td>
                 <td class="num">${(count.countedQty!0)?string("0.##")}</td>
