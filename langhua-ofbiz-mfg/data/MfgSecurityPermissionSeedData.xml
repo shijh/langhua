@@ -1,4 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Permissions of the components, granted to the SUPER group (which every OFBiz admin account has).
+  Only groups that exist in a fresh OFBiz database may be referenced here: a grant to a missing
+  group breaks the foreign key SEC_GRP_PERM_GRP and aborts the whole load-data run.
+-->
 <entity-engine-xml>
 
     <SecurityPermission description="View work orders, serial numbers and the dashboard"
@@ -8,6 +13,5 @@
 
     <SecurityGroupPermission groupId="SUPER" permissionId="MFG_VIEW" fromDate="2010-01-01 00:00:00.000"/>
     <SecurityGroupPermission groupId="SUPER" permissionId="MFG_ADMIN" fromDate="2010-01-01 00:00:00.000"/>
-    <SecurityGroupPermission groupId="FULLADMIN" permissionId="MFG_VIEW" fromDate="2010-01-01 00:00:00.000"/>
-    <SecurityGroupPermission groupId="FULLADMIN" permissionId="MFG_ADMIN" fromDate="2010-01-01 00:00:00.000"/>
 </entity-engine-xml>
+

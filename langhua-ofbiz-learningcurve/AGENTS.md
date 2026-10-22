@@ -4,7 +4,8 @@ OFBiz **学习曲线**插件：按历史批次（数量 + 总额/工时）拟合
 待投产批次估算与 CSV 导出；另有一支**软件报价**（功能点口径，参数可调，调 MES 的估算服务）。
 
 - 仓库根 `F:\git\langhua`，本组件 `langhua-ofbiz-learningcurve`，兄弟组件 `langhua-ofbiz-mfg`（硬件组装 MES）
-- 运行环境：OFBiz **24.09.07**（`F:\build-ofbiz\apache-ofbiz-24.09.07`，Derby，HTTPS 8443，admin/ofbiz），
+- 运行环境：OFBiz **24.09.07**（开发 `F:\build-ofbiz\apache-ofbiz-24.09.07`，HTTPS 8443；
+  生产 `F:\build-ofbiz\ofbiz-prod`，HTTPS 8453，各自一个 Derby 库，可同时跑），
   Java 17 corretto，Gradle 8.6；服务端渲染 FTL + Screen widget，无前端框架
 - 两个组件的通用约定（OFBiz 踩坑、装饰器、配色、图标、PowerShell 脚本坑）写在
   **`../langhua-ofbiz-mfg/AGENTS.md`**，动手前先看那一份，这里只记本组件特有的部分
@@ -14,6 +15,7 @@ OFBiz **学习曲线**插件：按历史批次（数量 + 总额/工时）拟合
 | 脚本 | 作用 |
 | --- | --- |
 | `deploy-lc.bat` | 停 OFBiz → robocopy 到 `plugins/learningcurve` → `gradle jar` → 启动（日志 `F:\build-ofbiz\lc-deploy.txt`） |
+| `deploy-prod.bat` | 把两个插件同步到生产实例 `F:\build-ofbiz\ofbiz-prod`（https 8453）并重启（日志 `prod-deploy.txt`） |
 | `run-tests.bat` | 单元测试 40 个（需要 jama：`C:\Users\shi.jinghai-honor\.m2\repository\gov\nist\math\jama\1.0.3\jama-1.0.3.jar`） |
 | `lc-it.bat` | 集成测试 52 项（日志 `lc-it.txt`） |
 | `verify-lc.ps1` | 页面巡检 87 项（日志 `lc-verify.txt`） |
