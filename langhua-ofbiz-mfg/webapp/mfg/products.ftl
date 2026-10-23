@@ -200,6 +200,8 @@ BAT-18650,18650 电池,1,BT1,Y,12</textarea></p>
         </form>
     </fieldset>
 
+    <#-- the block is replaced in place after a save, so the page keeps its scroll position -->
+    <div id="bomBlock">
     <h2 id="bomHeading" data-version="${currentVersionId!''}">当前 BOM（<#if currentVersionId?has_content>${currentVersionId}<#else>还没有版本</#if>，${bomItems?size} 行）</h2>
     <#if bomItems?has_content>
         <table id="bomLines">
@@ -274,6 +276,62 @@ BAT-18650,18650 电池,1,BT1,Y,12</textarea></p>
             </form>
         </fieldset>
     </#if>
+    </div>
+    <p id="bomToast" class="ok" hidden="hidden"></p>
+
+    <script>
+    /* Saving a BOM line must not throw the page away: post it, then refresh only #bomBlock.
+       Without JavaScript the same buttons still work as plain form posts. */
+    (function () {
+        var block = document.getElementById('bomBlock');
+        var toast = document.getElementById('bomToast');
+        if (!block || !toast || !window.fetch || !window.URLSearchParams || !window.DOMParser) {
+            return;
+        }
+        function say(text, good) {
+            toast.className = good ? 'ok' : 'error';
+            toast.textContent = text;
+            toast.removeAttribute('hidden');
+        }
+        function refreshBlock(message) {
+            return fetch(location.href, { credentials: 'same-origin' }).then(function (answer) {
+                return answer.text();
+            }).then(function (html) {
+                var fresh = new DOMParser().parseFromString(html, 'text/html').getElementById('bomBlock');
+                if (!fresh) {
+                    location.reload();
+                    return;
+                }
+                block.innerHTML = fresh.innerHTML;
+                say(message, true);
+            });
+        }
+        document.addEventListener('submit', function (event) {
+            var form = event.target;
+            var action = form && form.getAttribute('action');
+            if (!action || action.indexOf('/mfg/control/bomItemSave') !== 0) {
+                return;
+            }
+            event.preventDefault();
+            fetch('/mfg/control/bomItemSaveJson', {
+                method: 'POST',
+                body: new URLSearchParams(new FormData(form)),
+                credentials: 'same-origin',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' }
+            }).then(function (answer) {
+                return answer.json();
+            }).then(function (data) {
+                if (!data.ok) {
+                    say(data.message || '保存失败', false);
+                    return;
+                }
+                return refreshBlock(data.message);
+            }).catch(function () {
+                form.submit();
+            });
+        });
+    }());
+    </script>
 
     <h2>成本（单台 / 批量）</h2>
     <#if costDenied>

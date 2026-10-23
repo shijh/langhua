@@ -475,6 +475,12 @@ csv         = R0402-10K,10K 0402 resistor,4,R1-R4,N,0.05
 清掉单价），改完页面会提示「已保存 BOM 行 N」。单价是成本核算的输入，所以没有 `MFG_COST` 权限的人看不到
 单价列（与成本块同一套软拦截）。
 
+**保存不刷新整页**：页面里有一小段脚本，把这几个按钮的提交改成 POST 到
+`/mfg/control/bomItemSaveJson`（同一服务的 JSON 出口，`MfgBomEvents.saveLine`，回
+`{"ok":true,"message":"已保存 BOM 行 10"}`），成功后只重新取一次页面并把 `#bomBlock` 的内容换掉，
+所以滚动位置、表单里没保存的输入都还在，行尾只多一句「已保存 / 失败原因」。浏览器不支持 `fetch`
+或脚本被禁用时，表单照旧提交 `/mfg/control/bomItemSave` 走 302 回本页——两条路的校验与提示完全一样。
+
 **加一种新格式**（嘉立创、KiCad、Altium…）：在 `MfgServices.BomFormat` 里加一个常量、
 在 `detectBomFormat()` 里识别它的表头/分隔符、写一个返回同样六列的解析方法，然后在
 `parseBom()` 里分发即可——页面的下拉选项也跟着加一行。单测在 `MfgServicesTest` 的

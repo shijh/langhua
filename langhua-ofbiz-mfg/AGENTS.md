@@ -106,10 +106,17 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
 | `verify-m42.ps1` | Fritzing BOM 导入：格式下拉、粘贴导出后 9 种料合并、`Amount` 给用量、`Label` 给位号、无物料号用名称、本系统格式仍可强制导入、料号超长被拒 | 18 |
 | `verify-m43.ps1` | 改密码与退出：新建账号登录、导航有 logout、错当前密码/新旧相同/两次不一致/太短都被拒、改成功落到登录页且会话关闭、旧密码失效新密码可用、logout 结束会话 | 15 |
 | `verify-m44.ps1` | BOM 导入选文件（Step 54）：表单是 multipart、有 `file` 字段、上传 Fritzing 文件后合并 9 种料、**文件优先于文本框**、GBK 文件能解码、料号超长被拒、空提交有提示、20 位型号编码也能导入（日志 `mfg-m43b.txt`） | 31 |
-| `verify-m45.ps1` | BOM 行就地编辑（Step 56）：标题带版本号、每行有自己的表单（`form="bomLine<n>"` 的 qty/designators/isKeyPart/unitPrice）、保存后数量与金额重算、手加一行、删除一行、用量 0 被拒（日志 `mfg-m45.txt`） | 27 |
+| `verify-m45.ps1` | BOM 行就地编辑（Step 56/57）：标题带版本号、每行有自己的表单（`form="bomLine<n>"` 的 qty/designators/isKeyPart/unitPrice）、保存后数量与金额重算、手加一行、删除一行、用量 0 被拒、`#bomBlock` 与 JSON 出口（保存/拒绝/删除三种回答）（日志 `mfg-m45.txt`） | 34 |
 
 ## 设计决策
 
+- **不刷新整页的保存（Step 57）**：BOM 行编辑器保留了普通表单提交（`/mfg/control/bomItemSave`，302 回本页），
+  另外加了一个只给脚本用的 JSON 出口 `/mfg/control/bomItemSaveJson`（`MfgBomEvents.saveLine`，手写
+  `{"ok":true,"message":…}`，`<response type="none"/>`）。页面底部一小段脚本用**委托的 `submit` 监听**接住
+  这些表单，`new URLSearchParams(new FormData(form))` POST 过去，成功后 `fetch(location.href)` 取回页面、
+  用 `DOMParser` 只把 `#bomBlock` 的 `innerHTML` 换掉——所以不用把行的 HTML 在 JS 里重写一遍，也就不会
+  和服务端渲染的结果打架；`fetch` 不可用或失败时退回 `form.submit()`。要加新的“就地保存”照这个模式：
+  块包一层 `id`、下拉/输入框不变、事件里跑服务再把结果写成 JSON
 - **BOM 行就地编辑（Step 56）**：服务 `mfgBomItemSave`（`/mfg/control/bomItemSave`）一条龙：不给 `lineSeq`
   就新增（行号 `nextBomLineSeq`，型号没版本时 `currentOrNewBomVersion` 顺手建一个并设为当前版本）、
   给 `lineSeq` 就改、`delete=Y` 就删；用量必须 > 0，单价留空即清空（**先取 `currentBomVersionId` 再找行**，
