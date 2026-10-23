@@ -106,9 +106,11 @@ public final class MfgOrderScan {
             String reply = askVision(endpoint, model, key, image, contentType);
             Map<String, String> fields = MfgServices.orderFieldsFrom(reply);
             if (fields == null) {
-                return answer(response, false, "识图服务没有返回能用的明细：模型可能不支持看图"
-                        + "（换成 qwen-vl-max、glm-4v-plus、gpt-4o-mini 这类能看图的模型），"
-                        + "或者截图里没有订单信息；也可以手工填", null);
+                // quoting the answer tells apart "not an order" from "the model cannot see images"
+                Debug.logInfo("The vision answer carried no lines: " + reply, MODULE);
+                return answer(response, false, "识图服务返回的内容里没有订单明细。模型的原话："
+                        + MfgServices.visionReplyExcerpt(reply, 160)
+                        + "。换一张订单/商品明细的截图再试，也可以手工填", null);
             }
             return answer(response, true, "已识别，核对后再提交", fields);
         } catch (IOException e) {

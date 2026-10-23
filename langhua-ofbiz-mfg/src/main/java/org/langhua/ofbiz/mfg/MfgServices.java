@@ -8138,6 +8138,32 @@ always
     }
 
     /**
+     * Makes a short readable quote of what the model answered, so a scan that finds no fields can
+     * say why: "this is not an order" and "I cannot see images" look the same without it.
+     *
+     * @param reply the answer text of the vision service
+     * @param max length the quote is cut to
+     * @return one line, never empty
+     */
+    static String visionReplyExcerpt(String reply, int max) {
+        if (reply == null) {
+            return "（空回答）";
+        }
+        String text = jsonStringField(reply, "content");
+        if (text == null || text.trim().isEmpty()) {
+            text = jsonStringField(reply, "reasoning_content");
+        }
+        if (text == null || text.trim().isEmpty()) {
+            text = reply;
+        }
+        text = text.replaceAll("\\s+", " ").trim();
+        if (text.isEmpty()) {
+            return "（空回答）";
+        }
+        return text.length() <= max ? text : text.substring(0, max) + "…";
+    }
+
+    /**
      * Reads the value of one JSON string field, whatever surrounds it.
      *
      * @param text the JSON like text
@@ -8154,9 +8180,64 @@ always
         if (!matcher.find()) {
             return null;
         }
-        String value = matcher.group(1);
-        return value.replace("\\n", "\n").replace("\\r", "").replace("\\t", "\t")
-                .replace("\\\"", "\"").replace("\\\\", "\\").trim();
+        return jsonUnescape(matcher.group(1)).trim();
+    }
+
+    /**
+     * Resolves the escapes of a JSON string in one pass. Chained replaces are not enough: a model
+     * that escapes a newline twice answers {@code \\n}, which a {@code replace("\\n", "\n")}
+     * turns into a lone backslash plus a real newline, and the field pattern then stops matching.
+     *
+     * @param raw the escaped text
+     * @return the text with its escapes resolved
+     */
+    static String jsonUnescape(String raw) {
+        if (raw == null) {
+            return null;
+        }
+        StringBuilder out = new StringBuilder(raw.length());
+        for (int i = 0; i < raw.length(); i++) {
+            char c = raw.charAt(i);
+            if (c != '\\' || i + 1 >= raw.length()) {
+                out.append(c);
+                continue;
+            }
+            char next = raw.charAt(++i);
+            switch (next) {
+                case 'n':
+                    out.append('\n');
+                    break;
+                case 'r':
+                    out.append('\r');
+                    break;
+                case 't':
+                    out.append('\t');
+                    break;
+                case 'b':
+                    out.append('\b');
+                    break;
+                case 'f':
+                    out.append('\f');
+                    break;
+                case 'u':
+                    if (i + 4 < raw.length()) {
+                        try {
+                            out.append((char) Integer.parseInt(raw.substring(i + 1, i + 5), 16));
+                            i += 4;
+                            break;
+                        } catch (NumberFormatException e) {
+                            // a broken escape is kept as it is rather than losing the whole answer
+                        }
+                    }
+                    out.append('u');
+                    break;
+                default:
+                    // \\, \" and \/ all stand for the character itself
+                    out.append(next);
+                    break;
+            }
+        }
+        return out.toString();
     }
 
     private static String nextReceiptId(Delegator delegator, LocalDate today) throws GenericEntityException {

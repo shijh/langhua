@@ -123,10 +123,16 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   地址不写全很常见：`MfgServices.normalizeVisionEndpoint` 在**保存时和调用时**各补一次
   （只写域名 → `/v1/chat/completions`，已到 `/v4` 这类版本号 → `/chat/completions`），
   `describeVisionError` 把 404/401/400/429/5xx 翻成人话（404 = 地址没写全）
-- **识图返回空明细的三个原因（Step 63 都修了）**：① 地址只写域名（靠上面那个 normalize 补）；
+- **识图返回空明细的四个原因（Step 63/64 都修了）**：① 地址只写域名（靠上面那个 normalize 补）；
   ② **thinking 模型把 token 全用在思考上**——请求现在带 `max_tokens: 4000`；
-  ③ 明细可能在 `reasoning_content` 而不是 `content`——`orderFieldsFrom` 两处都读，
-  并且**在原始回复上抓 `content`**（先把 `\"` unescape 再抓会把字符串截断，单测的 envelope 用例就是为此加的）。
+  ③ 明细可能在 `reasoning_content` 而不是 `content`——`orderFieldsFrom` 两处都读；
+  ④ **模型把换行转义了两次（`\\n`）**——旧的链式 replace 会先把它变成「反斜杠 + 真换行」，
+  而 `jsonStringField` 的 `\\.` 匹配不到「反斜杠+换行」→ 整条 `lines` 变 null（**真凶就是这条**，
+  真实 DeepSeek 回答里就是 `2.91\\n1/4W10K`）。现在用一遍扫的 `jsonUnescape`（支持 `\uXXXX`）代替链式 replace；
+  并且**在原始回复上抓 `content`**（先 unescape 再抓会截断字符串）。
+  空明细时的提示会**引用模型的原话**（`MfgServices.visionReplyExcerpt`，160 字），
+  否则「这不是订单」「模型看不见图」在页面上长得一模一样
+- **别拿本系统页面的截图当订单截图**：用户两次都把带报错的自家页面截下来发进来，模型只能回空
   **`deepseek-flash` 是支持看图的**（官方文档 Vision ✓），`deepseek-v4-pro` 不支持——别把"DeepSeek 没有视觉模型"写进文档；
   设置页的例子列表与 m48 的断言按 `deepseek-flash` / `deepseek-v4-pro` 写
 - **单价只能存 2 位小数，所以按“实付金额”记（Step 60）**：`currency-amount` 在 Derby 上是 `NUMERIC(18,2)`，

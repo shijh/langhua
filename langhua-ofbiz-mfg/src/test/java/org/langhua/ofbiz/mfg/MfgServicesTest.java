@@ -619,9 +619,28 @@ public class MfgServicesTest {
         assertEquals("43", thinking.get("orderNo"));
         assertEquals("Y,part,5,9.90", thinking.get("lines"));
 
+        // a model that escapes the newline twice must still give two rows
+        Map<String, String> twiceEscaped = MfgServices.orderFieldsFrom(
+                "{\"choices\":[{\"message\":{\"content\":"
+                + "\"{\\\"orderNo\\\":\\\"44\\\",\\\"lines\\\":\\\"A,part,100,2.91\\\\nB,other,100,1.50\\\"}\"}}]}");
+        assertEquals("44", twiceEscaped.get("orderNo"));
+        assertEquals("A,part,100,2.91\nB,other,100,1.50", twiceEscaped.get("lines"));
+
         // an answer without lines is not usable, the person fills the form by hand
         assertNull(MfgServices.orderFieldsFrom("{\"orderNo\":\"42\"}"));
         assertNull(MfgServices.orderFieldsFrom(null));
+    }
+
+    @Test
+    public void quotesWhatTheVisionModelAnswered() {
+        // the quote is what tells "this is not an order" from "the model cannot see images"
+        assertEquals("（空回答）", MfgServices.visionReplyExcerpt(null, 40));
+        assertEquals("This is a web page not an order", MfgServices.visionReplyExcerpt(
+                "{\"choices\":[{\"message\":{\"content\":\"This is a web page\\nnot an order\"}}]}", 40));
+        assertEquals("cannot see the image", MfgServices.visionReplyExcerpt(
+                "{\"choices\":[{\"message\":{\"content\":\"\","
+                + "\"reasoning_content\":\"cannot see the image\"}}]}", 40));
+        assertEquals("abcd…", MfgServices.visionReplyExcerpt("abcdefgh", 4));
     }
 
     @Test
