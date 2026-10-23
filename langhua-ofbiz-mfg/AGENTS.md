@@ -141,6 +141,10 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   工单实际材料成本用它；到货单行同样 `unitPriceExact = goodsAmount ÷ qty` 给页面显示 4 位。要改列精度得手工 ALTER，先不动
 - **订单日期不是到货日（Step 68）**：`MfgOrderScan` 把截图上那个日期叫 `orderDate`（旧回答里的 `date` 也读），
   **不填到货日**（`dateField` 留空 = 今天），提示里写“截图上的 X 是下单日，到货日请自己选”
+- **运费要跟实付对账（Step 69）**：模型现在还要给 `paidTotal`（实付款），`MfgServices.checkOrderTotals`
+  用「货款合计 + 运费 = 实付」校一遍：对不上就把运费改成 `实付 − 货款` 并在 message 里说清楚，
+  没给运费也这么补；实付缺失或明细比实付还大就不碰（让人看）。提示词里把“含运费: ￥2.00 = 2.00，
+  免运费/包邮才写 0”和“行金额 = 实付 − 运费”写明白了——之前模型把 2.00 报成 4.00 就是这句话含混
 - **截图可以 Ctrl+V / 拖进来（Step 67）**：`receipts.ftl` 的 `#orderBlock` 脚本在 `document` 上挂 `paste`，
   从 `clipboardData.items` 里取 `image/*` 的 `getAsFile()`，再用 `new DataTransfer()` 把它塞回
   `input.files`（老浏览器不行就只用内部变量 `chosen`，按钮发 `chosen || file.files[0]`）；

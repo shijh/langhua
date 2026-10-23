@@ -17,6 +17,7 @@ import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 import java.time.LocalDate;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -661,6 +662,39 @@ public class MfgServicesTest {
         assertEquals("转接板 2.54mm", cells[1]);
         assertEquals("2", cells[2]);
         assertEquals("12.60", cells[3]);
+    }
+
+    @Test
+    public void correctsAFreightThatDoesNotAddUp() {
+        // the page says 实付款 3.50 and 含运费 2.00, so the goods are 1.50 and the freight 2.00
+        Map<String, String> wrong = new HashMap<>();
+        wrong.put("paidTotal", "3.50");
+        wrong.put("freight", "4.00");
+        wrong.put("lines", "SK-12D02,switch,10,1.50");
+        String said = MfgServices.checkOrderTotals(wrong);
+        assertEquals("2.00", wrong.get("freight"));
+        assertTrue(said.contains("3.50") && said.contains("4.00") && said.contains("2.00"));
+
+        // without a freight the difference is used
+        Map<String, String> missing = new HashMap<>();
+        missing.put("paidTotal", "3.50");
+        missing.put("lines", "SK-12D02,switch,10,1.50");
+        assertTrue(MfgServices.checkOrderTotals(missing) != null);
+        assertEquals("2.00", missing.get("freight"));
+
+        // a freight that adds up is left alone, and so is an order without a paid total
+        Map<String, String> fine = new HashMap<>();
+        fine.put("paidTotal", "3.50");
+        fine.put("freight", "2.00");
+        fine.put("lines", "SK-12D02,switch,10,1.50");
+        assertNull(MfgServices.checkOrderTotals(fine));
+        assertEquals("2.00", fine.get("freight"));
+
+        Map<String, String> unknown = new HashMap<>();
+        unknown.put("freight", "4.00");
+        unknown.put("lines", "SK-12D02,switch,10,1.50");
+        assertNull(MfgServices.checkOrderTotals(unknown));
+        assertEquals("4.00", unknown.get("freight"));
     }
 
     @Test

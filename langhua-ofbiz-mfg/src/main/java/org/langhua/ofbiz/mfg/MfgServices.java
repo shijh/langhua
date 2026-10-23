@@ -8207,12 +8207,55 @@ always
         String orderDate = jsonStringField(text, "orderDate");
         fields.put("orderDate", orderDate != null ? orderDate : jsonStringField(text, "date"));
         fields.put("freight", jsonStringField(text, "freight"));
+        fields.put("paidTotal", jsonStringField(text, "paidTotal"));
         String lines = jsonStringField(text, "lines");
         if (lines == null || lines.trim().isEmpty()) {
             return null;
         }
         fields.put("lines", lines.trim());
         return fields;
+    }
+
+    /**
+     * Checks the numbers of a recognised order against the amount paid: freight is what the page
+     * says, and the goods plus the freight must come to the paid total. A model that invents a
+     * freight figure is caught here instead of being booked in.
+     *
+     * @param fields the recognised fields, {@code paidTotal}, {@code freight} and {@code lines}
+     * @return a sentence to show the person, {@code null} when the numbers agree or cannot be checked
+     */
+    static String checkOrderTotals(Map<String, String> fields) {
+        Double paid = optionalAmount(fields.get("paidTotal"));
+        if (paid == null) {
+            return null;
+        }
+        Double freight = optionalAmount(fields.get("freight"));
+        double goods = 0.0;
+        for (String[] row : parseOrderArticleLines(fields.get("lines"))) {
+            goods += toDouble(row[3], 0.0);
+        }
+        goods = round2(goods);
+        double expected = round2(paid.doubleValue() - goods);
+        if (expected < 0.0) {
+            // the lines are more than what was paid: the lines are the wrong part, leave them alone
+            return null;
+        }
+        String expectedText = String.format(Locale.ROOT, "%.2f", expected);
+        if (freight == null) {
+            fields.put("freight", expectedText);
+            return "运费按 实付 " + money(paid) + " − 货款 " + money(Double.valueOf(goods)) + " 补成 " + expectedText;
+        }
+        if (Math.abs(freight.doubleValue() - expected) >= 0.005) {
+            fields.put("freight", expectedText);
+            return "截图实付 " + money(paid) + "，但货款 " + money(Double.valueOf(goods)) + " + 运费 "
+                    + money(freight) + " 对不上，运费已改成 " + expectedText + "（= 实付 − 货款），请核对";
+        }
+        return null;
+    }
+
+    /** @return the amount with two decimals, for a sentence */
+    private static String money(Double value) {
+        return value == null ? "" : String.format(Locale.ROOT, "%.2f", value.doubleValue());
     }
 
     /**

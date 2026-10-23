@@ -64,15 +64,15 @@ public final class MfgOrderScan {
     /** What the model is asked for: one JSON object, nothing else. */
     static final String PROMPT = "This is a screenshot of an online shop order (Taobao / Tmall)."
             + " Read the order number, the shop name, the order date the page shows (yyyy-MM-dd), the"
-            + " freight paid (0 when it says the freight is included) and the article lines."
+            + " money really paid for the whole order (paidTotal), the freight (shipping fee) and the"
+            + " article lines. Copy the numbers, do not invent them: \"含运费: ￥2.00\" means the"
+            + " freight is 2.00, a freight of 0 is only right when the page says 免运费 or 包邮."
             + " Answer with one JSON object only, no prose:"
-            + " {\"orderNo\":\"\",\"shop\":\"\",\"orderDate\":\"\",\"freight\":\"\","
-            + "\"lines\":\"code,name,quantity,amount\"} where lines has one row per article,"
-            + " quantity is the number of pieces (a lot of 100 pieces is 100, not 1) and amount is"
-            + " the money really paid for that row without freight. For the code use the article code"
-            + " printed in the order when there is one, otherwise the part number or package"
-            + " description of the article as it is (for example QFN16-0.65-QFN20-0.4-2.54); up to 100"
-            + " characters are fine.";
+            + " {\"orderNo\":\"\",\"shop\":\"\",\"orderDate\":\"\",\"paidTotal\":\"\","
+            + "\"freight\":\"\",\"lines\":\"code,name,quantity,amount\"} where lines has one row"
+            + " per article, quantity is the number of pieces (a lot of 100 pieces is 100, not 1) and"
+            + " amount is the goods money of that row without freight: when 实付款 is 3.50 and"
+            + " 含运费 is 2.00, the row amount is 3.50 minus 2.00.";
 
     private MfgOrderScan() {
     }
@@ -117,7 +117,9 @@ public final class MfgOrderScan {
             // a package description as the part number does not fit the code field: short it here
             // so the form already shows the code that will be stored
             fields.put("lines", MfgServices.fitOrderLines(fields.get("lines")));
-            return answer(response, true, "已识别，核对后再提交", fields);
+            // freight is what the page says, but goods plus freight must come to what was paid
+            String totals = MfgServices.checkOrderTotals(fields);
+            return answer(response, true, totals == null ? "已识别，核对后再提交" : "已识别。" + totals, fields);
         } catch (IOException e) {
             Debug.logError(e, "Could not ask the vision service", MODULE);
             return answer(response, false, "识图服务调用失败：" + e.getMessage(), null);

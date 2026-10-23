@@ -194,11 +194,12 @@
                     if (data.lines) { fill('linesField', data.lines); }
                     /* the date on a shop order is the day it was placed; the arrival day is a few
                        days later and the person picks it, so the field is left alone */
+                    var text = data.message || '已识别，核对后点“建单并入库”';
+                    text += data.orderDate
+                        ? '。截图上的 ' + data.orderDate + ' 是下单日，到货日请自己选（一般下单后 3~4 天）'
+                        : '。到货日请自己选';
                     hint.className = 'ok';
-                    hint.textContent = data.orderDate
-                        ? '已识别，核对后点“建单并入库”。截图上的 ' + data.orderDate
-                            + ' 是下单日，到货日请自己选（一般下单后 3~4 天）'
-                        : '已识别，核对后点“建单并入库”。到货日请自己选';
+                    hint.textContent = text;
                 })
                 .catch(function () {
                     hint.className = 'error';
