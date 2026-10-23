@@ -142,6 +142,31 @@
         </section>
     </screen>
 
+    <!-- System settings kept in the database, so the start script stays as it is -->
+    <screen name="settings">
+        <section>
+            <actions>
+                <set field="title" value="Settings"/>
+                <set field="pageTitle" value="系统设置"/>
+                <set field="activeMenu" value="settings"/>
+                <service service-name="mfgSettingsView" result-map="settings" auto-field-map="false">
+                    <field-map field-name="userLogin" from-field="userLogin"/>
+                </service>
+            </actions>
+            <widgets>
+                <decorator-screen name="mfg-decorator" location="component://mfg/widget/MfgCommonScreens.xml">
+                    <decorator-section name="body">
+                        <platform-specific>
+                            <html>
+                                <html-template location="component://mfg/webapp/mfg/settings.ftl"/>
+                            </html>
+                        </platform-specific>
+                    </decorator-section>
+                </decorator-screen>
+            </widgets>
+        </section>
+    </screen>
+
     <!-- Stock on hand per component, safety stock, movements and counts -->
     <screen name="stock">
         <section>

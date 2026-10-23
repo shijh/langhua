@@ -419,6 +419,7 @@ https://localhost:8443/mfg/control/main
 | `mfgPurchaseReceiptDetail` | 一张单的行明细与合计，加上“还没挂在任何单上的元件批次”供下拉选择 |
 | `mfgPurchaseFreightTrend` | 采购支出按期间（日 / ISO 周 / 月）汇总：单据数、货款、运费、采购支出、运费占货款；报表页与 `freightCsv` 共用这个服务 |
 | `mfgReceiptFromOrder` | 照一张店铺订单（淘宝）一行一个料建单并入库：`料号,名称,数量,实付金额`，后端一次完成**建批次 + 到货流水 + 到货单行**；单价 = 金额 ÷ 数量（0.0291 不会被舍成 0.03）；**同一订单号再来一次只复用单据、跳过已有行** |
+| `mfgSettingsView` / `mfgSettingsSave` | 系统设置（存在 `SystemProperty`，资源 `mfg`）：识图接口地址 / 模型名 / 密钥。**密钥只存不回显**，留空表示不修改，`clear=Y` 清除；接口地址必须是 http(s)。只有管理员可用 |
 | `mfgWorkOrderReserve` | 按工单 BOM 自动预留齐套料：按批次先后在「可发」里挑，能挑多少挑多少，写 `MFG_MOVE_RESERVE` 流水（不动在库），返回预留总数与还差多少 |
 | `mfgWorkOrderRelease` | 释放该工单的全部预留（写反向的 `MFG_MOVE_RELEASE` 流水），已发料的部分不受影响 |
 | `mfgWorkOrderComplete` | 完工入库：按已报工的良品数建成品批次 `FG-<工单号>` 并写 `MFG_MOVE_RECEIPT`，单位成本 = 实际成本 ÷ 良品数；工单置 MFG_COMPLETED、SN 置 MFG_COMPLETED；重复调用只补差额 |
@@ -535,6 +536,7 @@ csv         = R0402-10K,10K 0402 resistor,4,R1-R4,N,0.05
 | `/mfg/control/salesOrders` | **销售订单**：列表 + 新建（客户、客户订单号、日期、多行 `型号,数量[,交期]`）、状态过滤 |
 | `/mfg/control/salesOrder` | **订单详情**：行明细（数量/已预留/已出货/欠货/派生工单）、预留流水、按订单出货表单、改明细 |
 | `/mfg/control/salesOrderReserve` / `.../salesOrderPlan` / `.../salesOrderClose` | POST 先锁在库 / 排产 / 关单释放预留 |
+| `/mfg/control/settings` | **系统设置**（管理员）：识图接口地址 / 模型名 / 密钥（密钥只存不回显，留空不修改，可一键清除）、已配置状态与来源（本页保存 / 启动参数 -D） |
 | `/mfg/control/locations` | **库位与移库**：库位列表（在库量 / 批次数）、新建库位、移库表单、批次 × 库位结存、最近移库 |
 | `/mfg/control/receipts` | **采购到货单**：采购支出汇总（货款 / 运费 / 合计 / 运费占比）、单据列表与搜索、建单与改单、把到货批次挂到单上、移出、行金额 |
 | `/mfg/control/locationSave` / `/mfg/control/stockTransfer` | POST 保存库位 / 移库（`lotId` + `fromLocationId`（可空 = 未分配）+ `toLocationId` + `qty`） |
@@ -1017,9 +1019,9 @@ CAP-104-50V,瓷片电容器 104 0.1uF 100NF 50V,100,2.91
 截图里的字本质上是一次 OCR + 结构化：**谁识别都行，必须人工核对后再入库**。现在常见的两种用法：
 
 1. **聊天里识别（无需配置）**：把截图发给编辑器里的助手，让它输出上面的四列，粘进框里核对；
-2. **页面内识别（需要配置）**：给实例配上兼容 OpenAI 的视觉模型接口
-   （系统属性 `org.langhua.mfg.vision.endpoint` / `org.langhua.mfg.vision.model` / `org.langhua.mfg.vision.key`），
-   页面上的「识别截图」按钮就会把图发过去、把结果填进框里；没配时按钮会提示而不报错。
+2. **页面内识别（需要配置）**：在「系统设置」页（`/mfg/control/settings`，管理员可见）填上识图接口地址、模型名与密钥，
+   保存即生效——不用再改启动脚本；也可以继续用系统属性 `org.langhua.mfg.vision.endpoint` / `.model` / `.key`，
+   数据库里的值优先。页面上的「识别并填入」会把图发过去、把结果填进框里；没配时按钮会提示而不报错。
    识别结果一律先填进可编辑的框，**人能改**，提交才写库。
 
 ## 看板告警与 CSV 导出

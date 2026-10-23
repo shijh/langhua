@@ -91,7 +91,8 @@
         <@navItem 'sn' '/mfg/control/sn' 'SN 查询'/>
     </#if>
     <#if canCost><@navItem 'quality' '/mfg/control/quality' '质量指标'/></#if>
-    <#if canManageAccounts><@navItem 'users' '/mfg/control/users' '用户账号'/></#if>
+    <#if canManageAccounts><@navItem 'users' '/mfg/control/users' '用户账号'/>
+<@navItem 'settings' '/mfg/control/settings' '系统设置'/></#if>
     <a href="/mfg/control/logout" class="logout">退出登录</a>
 </p>
 

@@ -109,9 +109,16 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
 | `verify-m45.ps1` | BOM 行就地编辑（Step 56/57）：标题带版本号、每行有自己的表单（`form="bomLine<n>"` 的 qty/designators/isKeyPart/unitPrice）、保存后数量与金额重算、手加一行、删除一行、用量 0 被拒、`#bomBlock` 与 JSON 出口（保存/拒绝/删除三种回答）（日志 `mfg-m45.txt`） | 34 |
 | `verify-m46.ps1` | 采购到货单（Step 58）：汇总表与 `data-allocation`、建单与运费、批次下拉、挂批次后的行与金额、合计含运费、同一批次不能挂两张单、负运费被拒、行可以移出（日志 `mfg-m46.txt`） | 26 |
 | `verify-m47.ps1` | 照淘宝订单一步入库（Step 60）：订单表单、两行明细 → 建单+入库、订单号已存、货款 4.41、便宜料单价 0.0291、重复提交不重复入库、补运费累加、不满四列/数量 0 被拒、识图按钮与 `/mfg/control/orderImage` 降级回答（日志 `mfg-m47.txt`） | 23 |
+| `verify-m48.ps1` | 系统设置页（Step 61）：识图配置块与状态、密钥不回显、接口必须 http(s)、空密钥保留旧的、保存后状态变 DATABASE、`clear=Y` 恢复未配置、没配/配了两种 scan 回答（日志 `mfg-m48.txt`） | 21 |
 
 ## 设计决策
 
+- **系统设置放页面，不靠 -D（Step 61）**：`/mfg/control/settings`（导航在「用户账号」后面，`canManageAccounts` 才看得到）
+  用 `mfgSettingsView` / `mfgSettingsSave` 读写 `SystemProperty`（`systemResourceId = "mfg"`，propertyId 就是原来的
+  `org.langhua.mfg.vision.*`）；`MfgServices.setting()` **先读库、再退回 `System.getProperty`**，所以老启动脚本照旧有效。
+  密钥只存不回显（表单 `value=""`，留空=不修改），`clear=Y` 删掉三行；管理员判定复用 `accountAdminProblem`。
+  页面靠 `data-configured` / `data-source`（DATABASE / JVM）两个属性给巡检断言；m48 结束时必须 `clear=Y`，
+  否则 m47 的“未配置时的回答”会挂
 - **单价只能存 2 位小数，所以按“实付金额”记（Step 60）**：`currency-amount` 在 Derby 上是 `NUMERIC(18,2)`，
   淘宝一百个电容实付 2.91 的单价是 0.0291，存进去变 0.03（一百个多算 9 分）。所以 `MfgMaterialLot.receivedAmount`
   存实付总额（2 位、精确），单价由 `lotUnitCost()` = 金额 ÷ 数量 算（无金额时回退 `unitPrice`），
