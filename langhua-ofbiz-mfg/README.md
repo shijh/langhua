@@ -461,6 +461,12 @@ csv         = R0402-10K,10K 0402 resistor,4,R1-R4,N,0.05
 - Fritzing 里没有物料号的元件（电阻电容常见），导入后用名称当料号，建议在页面上改成实际采购料号；
 - 服务结果带 `bomFormat`（`MFG` / `FRITZING`），页面上也会显示识别到的格式。
 
+**导入可以直接选文件**：BOM 导入那一栏是 multipart 表单，`<input type="file" name="file">` 选中一个
+`.csv` / `.txt` 就按文件内容导入（同时填了文本框时**以文件为准**）；文件按 UTF-8 解码，出现非法字节时
+退回 GBK（中文 Windows 里 Excel 另存的 CSV 就是 GBK），文件上限 2 MB。浏览器这一侧只做转发：
+`MfgImportEvents.bomImport`（`/mfg/control/bomImport`）把文件或文本读出来交给 `mfgBomImport`，
+解析、格式识别与校验仍然全在那个服务里，所以无文件、文件太大、料号太长这些错都是同一套提示。
+
 **加一种新格式**（嘉立创、KiCad、Altium…）：在 `MfgServices.BomFormat` 里加一个常量、
 在 `detectBomFormat()` 里识别它的表头/分隔符、写一个返回同样六列的解析方法，然后在
 `parseBom()` 里分发即可——页面的下拉选项也跟着加一行。单测在 `MfgServicesTest` 的
@@ -475,7 +481,7 @@ csv         = R0402-10K,10K 0402 resistor,4,R1-R4,N,0.05
 | 路径 | 说明 |
 | --- | --- |
 | `/mfg/control/main` | 工单列表 + 新建工单（含产品型号下拉） |
-| `/mfg/control/products?productCode=...` | 产品型号、**照片上传与删改**、**BOM 版本（查看/新建下一版/启用）**、BOM 导入（带单价，**可按本系统 CSV 或 Fritzing 导出导入**）与工艺路线维护、**成本（单台 / 批量）**——材料/工时/合计、目标成本对比与毛利，缺单价会提示；标准工时旁边注明来源（手工填写 / 学习曲线回填 + 基准台数 + 估算号） |
+| `/mfg/control/products?productCode=...` | 产品型号、**照片上传与删改**、**BOM 版本（查看/新建下一版/启用）**、BOM 导入（带单价，**可按本系统 CSV 或 Fritzing 导出导入，选文件或直接粘贴**）与工艺路线维护、**成本（单台 / 批量）**——材料/工时/合计、目标成本对比与毛利，缺单价会提示；标准工时旁边注明来源（手工填写 / 学习曲线回填 + 基准台数 + 估算号） |
 | `/mfg/control/attachmentUpload` | POST multipart，字段 `file` + `ownerTypeId` + `ownerId` + `back`（回跳页面）+ 可选 `note` |
 | `/mfg/control/attachment?ownerTypeId=...&ownerId=...&seq=...` | 输出文件字节；`seq` 缺省取最新一件，`thumb=1` 对图片输出最长边 200px 的 JPEG 缩略图；PDF 直出 |
 | `/mfg/control/attachmentDelete` | POST `ownerTypeId` + `ownerId` + `seq` + `back`，删除后回跳 |

@@ -48,7 +48,8 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   widget 传下来的字段是 `StringHtmlWrapperForFtl`，后面跟 `(` 被当成方法调用；先 `<#assign back = ...>` 再传
 - **文件上传**：multipart 表单的 Java 事件要先 `UtilHttp.getParameterMap(request)`（或读
   `request.getAttribute("multiPartMap")`）；文件字段是 `ByteBuffer`，另有 `_<字段>_fileName` / `_contentType` / `_size`；
-  输出二进制用 `<response name="success" type="none"/>`
+  输出二进制用 `<response name="success" type="none"/>`；事件里要跑服务用 `(LocalDispatcher) request.getAttribute("dispatcher")`，
+  用户从 `request.getSession().getAttribute("userLogin")` 取（`auth="true"` 的 request-map 一定有）
 - **服务的 OUT 属性必须在 services.xml 里声明**，否则 Java 返回的键会被静默丢弃（`mfgDevProjectDetail` 的 `steps` 曾中招）；
   **屏幕里无条件调用的服务，OUT 还要 `optional="true"`**，否则「没有记录」的分支会整页 500（学习曲线 `/recordDetail` 不带 id 曾中招）
 - 屏幕里**无条件调用**的服务，所有 IN 参数要 `optional="true"`，否则不带参数打开列表页会抛
@@ -104,9 +105,16 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
 | `verify-m41.ps1` | 角色权限：用 `MFG_WAREHOUSE` 账号登进来看菜单/成本/BOM 单价是否隐藏、BOM 导入与销售订单写入被拒、账号页只读；管理员仍看到全部 | 22 |
 | `verify-m42.ps1` | Fritzing BOM 导入：格式下拉、粘贴导出后 9 种料合并、`Amount` 给用量、`Label` 给位号、无物料号用名称、本系统格式仍可强制导入、料号超长被拒 | 18 |
 | `verify-m43.ps1` | 改密码与退出：新建账号登录、导航有 logout、错当前密码/新旧相同/两次不一致/太短都被拒、改成功落到登录页且会话关闭、旧密码失效新密码可用、logout 结束会话 | 15 |
+| `verify-m44.ps1` | BOM 导入选文件（Step 54）：表单是 multipart、有 `file` 字段、上传 Fritzing 文件后合并 9 种料、**文件优先于文本框**、GBK 文件能解码、料号超长被拒、空提交有提示（日志 `mfg-m43b.txt`） | 26 |
 
 ## 设计决策
 
+- **BOM 导入也能选文件（Step 54）**：`/mfg/control/bomImport` 现在是 **Java 事件** `MfgImportEvents.bomImport`
+  （`<response name="success" type="request-redirect" value="products">`，成功靠事件里 `request.setAttribute(productCode/importedCount/bomFormat)`，
+  失败把消息放进 `errorMessageList` 再 `return "error"` 渲染 products 视图）——它只转成 `mfgBomImport` 的 context，
+  解析/校验仍全在服务里。表单 `enctype="multipart/form-data"`，**选了文件就以文件为准**（同时粘了文本也忽略），
+  字节按 UTF-8 解码、出现 `\uFFFD` 退回 GBK（Excel 另存的 CSV），上限 `MAX_BOM_BYTES` = 2 MB；
+  URL 编码的表单（巡检 m42 走的就是这条）仍旧可用，因为 `parametersOf` 找不到 `multiPartMap` 时退回 `UtilHttp.getParameterMap`
 - **BOM 导入的格式层（Step 52）**：`BomFormat` 枚举（`MFG` / `FRITZING`）+ `detectBomFormat()` + `parseBom(csv, format)`
   分发；`splitCsvLine(line, separator)` 支持任意分隔符（逗号仍兼收 Tab）。
   Fritzing 导出是「`Label` 段一件一行 + `Amount` 段给数量」，解析成 `Map<料号, 行>` 后合并：

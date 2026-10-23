@@ -144,12 +144,14 @@
         <response name="error" type="view" value="main"/>
     </request-map>
 
+    <!-- Takes the pasted text or an uploaded file (multipart form) and hands it to mfgBomImport. -->
     <request-map uri="bomImport">
         <security https="true" auth="true"/>
-        <event type="service" invoke="mfgBomImport"/>
+        <event type="java" path="org.langhua.ofbiz.mfg.MfgImportEvents" invoke="bomImport"/>
         <response name="success" type="request-redirect" value="products">
             <redirect-parameter name="productCode"/>
             <redirect-parameter name="importedCount"/>
+            <redirect-parameter name="bomFormat"/>
         </response>
         <response name="error" type="view" value="products"/>
     </request-map>
