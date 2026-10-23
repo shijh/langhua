@@ -284,6 +284,17 @@
         <response name="error" type="view" value="materials"/>
     </request-map>
 
+    <!-- renames a part number everywhere it is stored (Step 74) -->
+    <request-map uri="partCodeRename">
+        <security https="true" auth="true"/>
+        <event type="service" invoke="mfgPartCodeRename"/>
+        <response name="success" type="request-redirect" value="materials">
+            <redirect-parameter name="search"/>
+            <redirect-parameter name="renamed"/>
+        </response>
+        <response name="error" type="view" value="materials"/>
+    </request-map>
+
     <request-map uri="issueSave">
         <security https="true" auth="true"/>
         <event type="service" invoke="mfgIssueSave"/>        <response name="success" type="request-redirect" value="workOrder">
@@ -390,8 +401,7 @@
     </request-map>
 
     <request-map uri="receiptLineSave">
-        <security https="true" auth="true"/>
-        <event type="service" invoke="mfgPurchaseReceiptLineSave"/>
+        <security https="true" auth="true"/>        <event type="service" invoke="mfgPurchaseReceiptLineSave"/>
         <response name="success" type="request-redirect" value="receipts">
             <redirect-parameter name="receiptId"/>
         </response>

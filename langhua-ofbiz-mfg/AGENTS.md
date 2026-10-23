@@ -141,6 +141,12 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   工单实际材料成本用它；到货单行同样 `unitPriceExact = goodsAmount ÷ qty` 给页面显示 4 位。要改列精度得手工 ALTER，先不动
 - **订单日期不是到货日（Step 68）**：`MfgOrderScan` 把截图上那个日期叫 `orderDate`（旧回答里的 `date` 也读），
   **不填到货日**（`dateField` 留空 = 今天），提示里写“截图上的 X 是下单日，到货日请自己选”
+- **料号可以重命名（Step 74）**：`mfgPartCodeRename`（IN `oldCode`/`newCode`，OUT 各类行数 + `renamed`/`search`）
+  一次改全：`MfgMaterialLot` / `MfgMaterialIssue` / `MfgPurchaseReceiptLine` / `MfgBomItem` /
+  `MfgBomVersionItem` / `MfgReplacement` / `MfgStockSetting`（后者是主键：新号不存在就复制一行再删旧的，
+  已存在就直接删旧的，等于合并）。页面在「物料批次」页的「料号重命名」框（POST `partCodeRename` →
+  redirect `materials?search=<新号>&renamed=<行数>`，模板用 `${(parameters.renamed)!}` 显示成功行——
+  OFBiz 的 FTL `parameters` 可以直接取值，不必 `?first`）。没有找到旧料号时返回错误而不是默默不改
 - **料号里的空格要留着（Step 73）**：`fittingComponentCode` 只压缩连续空白、**不删词间空格**——
   `5.5V1.5F C型 21*7.5` 以前会被挤成 `5.5V1.5FC217.5`（F / C型 / 21*7.5 连在一起看不出），
   现在原样保留；`codeFromName` 也直接拿名称（含中文与空格）当料号，只有 >100 字符才截前 ~93 位 + hash。

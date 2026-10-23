@@ -2627,6 +2627,96 @@ public final class MfgServices {
 
     // ------------------------------------------------------------ material and outsourcing
     /**
+     * Renames a part number everywhere it is stored: the lots, the issues, the receipt lines, the
+     * BOM lines of every version, the replaced parts of a repair and the stock setting of that part.
+     * A code built from the name of an article is only a guess, so it has to be correctable without
+     * breaking the traceability.
+     *
+     * @param dctx the dispatch context
+     * @param context service context, see {@code servicedef/services.xml#mfgPartCodeRename}
+     * @return the service result containing the counts, {@code search} and {@code renamed}
+     */
+    public static Map<String, Object> partCodeRename(DispatchContext dctx, Map<String, ? extends Object> context) {
+        String denied = permissionProblem(dctx, context, PERM_STOCK);
+        if (denied != null) {
+            return ServiceUtil.returnError(denied);
+        }
+        Delegator delegator = dctx.getDelegator();
+        String oldCode = toText(context.get("oldCode"));
+        String newCode = toText(context.get("newCode"));
+        if (oldCode == null || newCode == null) {
+            return ServiceUtil.returnError("旧料号与新料号都要填");
+        }
+        if (oldCode.equals(newCode)) {
+            return ServiceUtil.returnError("新旧料号一样，没有可改的");
+        }
+        if (newCode.length() > MAX_COMPONENT_CODE) {
+            return ServiceUtil.returnError("新料号太长（最多 " + MAX_COMPONENT_CODE + " 个字符）：" + newCode);
+        }
+        try {
+            int lots = renameWhere(delegator, "MfgMaterialLot", oldCode, newCode);
+            int issues = renameWhere(delegator, "MfgMaterialIssue", oldCode, newCode);
+            int receiptLines = renameWhere(delegator, "MfgPurchaseReceiptLine", oldCode, newCode);
+            int bomLines = renameWhere(delegator, "MfgBomItem", oldCode, newCode)
+                    + renameWhere(delegator, "MfgBomVersionItem", oldCode, newCode);
+            int replacements = renameWhere(delegator, "MfgReplacement", oldCode, newCode);
+            // the stock setting keeps the code as its key, so it is copied when the new one is free
+            boolean setting = false;
+            GenericValue oldSetting = EntityQuery.use(delegator).from("MfgStockSetting")
+                    .where("componentCode", oldCode).queryFirst();
+            if (oldSetting != null) {
+                GenericValue newSetting = EntityQuery.use(delegator).from("MfgStockSetting")
+                        .where("componentCode", newCode).queryFirst();
+                if (newSetting == null) {
+                    GenericValue copy = delegator.makeValue("MfgStockSetting");
+                    copy.setNonPKFields(oldSetting.getAllFields());
+                    copy.set("componentCode", newCode);
+                    delegator.create(copy);
+                }
+                oldSetting.remove();
+                setting = true;
+            }
+            int total = lots + issues + receiptLines + bomLines + replacements;
+            Map<String, Object> result = ServiceUtil.returnSuccess();
+            if (total == 0 && !setting) {
+                return ServiceUtil.returnError("没有找到料号 " + oldCode + "，没有改动");
+            }
+            result.put("lotsUpdated", Long.valueOf(lots));
+            result.put("issuesUpdated", Long.valueOf(issues));
+            result.put("receiptLinesUpdated", Long.valueOf(receiptLines));
+            result.put("bomLinesUpdated", Long.valueOf(bomLines));
+            result.put("replacementsUpdated", Long.valueOf(replacements));
+            result.put("renamed", String.valueOf(total));
+            result.put("search", newCode);
+            return result;
+        } catch (GenericEntityException e) {
+            return ServiceUtil.returnError("重命名失败：" + e.getMessage());
+        }
+    }
+
+    /**
+     * Points every row of one entity from the old part number to the new one.
+     *
+     * @param delegator the delegator
+     * @param entity the entity holding a {@code componentCode} field
+     * @param oldCode the code to replace
+     * @param newCode the new code
+     * @return how many rows were changed
+     * @throws GenericEntityException when the rows could not be read or stored
+     */
+    private static int renameWhere(Delegator delegator, String entity, String oldCode, String newCode)
+            throws GenericEntityException {
+        int changed = 0;
+        for (GenericValue row : EntityQuery.use(delegator).from(entity)
+                .where("componentCode", oldCode).queryList()) {
+            row.set("componentCode", newCode);
+            row.store();
+            changed++;
+        }
+        return changed;
+    }
+
+    /**
      * Creates or updates one material lot. When {@code lotId} is empty a new identifier
      * {@code LOT-yyMMdd-NN} is generated.
      *

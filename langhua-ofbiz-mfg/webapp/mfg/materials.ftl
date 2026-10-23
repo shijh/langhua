@@ -34,8 +34,23 @@
 </fieldset>
 
 <fieldset>
-    <legend>批量导入到货（CSV）</legend>
-    <form method="post" action="/mfg/control/lotImportCsv">
+    <legend>料号重命名（批次 / 发料 / 到货单行 / BOM / 售后换件 / 安全库存一起改）</legend>
+    <form method="post" action="/mfg/control/partCodeRename">
+        <p>
+            旧料号 <input type="text" name="oldCode" size="42" value="${(lr.search)!''}"/>
+            新料号 <input type="text" name="newCode" size="42" placeholder="5.5V1.5F C型 21*7.5"/>
+            <input type="submit" value="重命名"/>
+            <span class="hint">识别时用商品名当的料号、或者之前被拼在一起的老料号，都可以在这里改；
+                料号是各表之间的键，重命名会一次改全。</span>
+        </p>
+    </form>
+    <#if (parameters.renamed)??>
+        <p class="ok">已把 ${parameters.renamed} 行料号改成 <code>${(lr.search)!''}</code>。</p>
+    </#if>
+</fieldset>
+
+<fieldset>
+    <legend>批量导入到货（CSV）</legend>    <form method="post" action="/mfg/control/lotImportCsv">
         <textarea name="csv" rows="6" cols="90">U1-BT5-SOC,主控 SoC,立创商城,DC2410A,120,2026-10-20
 C0402-100N,100nF 0402 电容,立创商城,DC2409B,500,2026-10-19</textarea>
         <p class="hint">每行：料号,名称,供应商,供应商批号/DateCode,数量,到货日期(yyyy-MM-dd，可空)</p>

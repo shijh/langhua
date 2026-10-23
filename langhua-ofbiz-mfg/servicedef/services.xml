@@ -470,9 +470,23 @@
 
     <!-- ==================== material and outsourcing ==================== -->
 
+    <service name="mfgPartCodeRename" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgServices" invoke="partCodeRename"
+            auth="false" use-transaction="true">
+        <description>Rename a part number where it is stored: lots, issues, receipt lines, BOM lines of every version, replaced parts and the stock setting</description>
+        <attribute name="oldCode" type="String" mode="IN" optional="false"/>
+        <attribute name="newCode" type="String" mode="IN" optional="false"/>
+        <attribute name="lotsUpdated" type="Long" mode="OUT" optional="true"/>
+        <attribute name="issuesUpdated" type="Long" mode="OUT" optional="true"/>
+        <attribute name="receiptLinesUpdated" type="Long" mode="OUT" optional="true"/>
+        <attribute name="bomLinesUpdated" type="Long" mode="OUT" optional="true"/>
+        <attribute name="replacementsUpdated" type="Long" mode="OUT" optional="true"/>
+        <attribute name="renamed" type="String" mode="OUT" optional="true"/>
+        <attribute name="search" type="String" mode="OUT" optional="true"/>
+    </service>
+
     <service name="mfgLotSave" engine="java"
-            location="org.langhua.ofbiz.mfg.MfgServices" invoke="lotSave"
-            auth="false" use-transaction="false">
+            location="org.langhua.ofbiz.mfg.MfgServices" invoke="lotSave"            auth="false" use-transaction="false">
         <description>Create or update a material lot; lotId LOT-yyMMdd-NN is generated when omitted</description>
         <attribute name="lotId" type="String" mode="IN" optional="true"/>
         <attribute name="componentCode" type="String" mode="IN" optional="false"/>
