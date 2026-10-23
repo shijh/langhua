@@ -306,3 +306,6 @@ td.lines td, td.lines th { vertical-align: middle; }
 tr[data-lines] { display: none; }
 tr[data-lines].open { display: table-row; }
 a[data-toggle-lines] { text-decoration: none; white-space: nowrap; }
+
+/* a button that already took the click stays dimmed until its request is done (once.js) */
+.busy { opacity: .55; pointer-events: none; }

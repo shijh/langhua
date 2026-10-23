@@ -98,6 +98,7 @@
 
 <#if sections??>${sections.render("body")}</#if>
 </#if>
+<script src="/mfg/js/once.js"></script>
 <script src="/mfg/js/expand.js"></script>
 </body>
 </html>

@@ -260,6 +260,15 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   （单引号字面量里不插值，所以不能直接塞 `${…}`），并**必须给默认值加括号** `((x)!'')?url`，
   否则 `!` 的优先级低于 `+`，整句会解析成 `(a + b)!c`；
   `mfgPurchaseReceiptList` 补了 `pageSize` IN，否则换每页条数被静默丢弃
+- **防连点（Step 83）**：`webapp/mfg/js/once.js`（装饰器 `</body>` 前加载，在 expand.js 之前）用捕获阶段的
+  submit 监听给每张表单记 `data-last-action`，**同一个表单 1.2 秒内的第二次提交直接**
+  `preventDefault + stopImmediatePropagation`（页面自己的 submit 处理器也就跑一次），同时把表单里的按钮加上
+  `.busy`（`opacity .55` + `pointer-events: none`）；`[data-once]` 按钮（截图识别）与
+  `data-toggle-lines` / `data-toggle-receipt` 链接走 0.6 秒的窗口——双击「3 ▸」以前会开了又关。
+  `form.submit()` 不触发 submit 事件，但那些调用点（BOM 行/到货单/销售订单的 fetch 兜底）都只在
+  **第一次提交之后**才跑，所以仍然只发一次；识别按钮在 fetch 期间自己 dim 到底（once.js 只挡双击，
+  挡不住 3 秒后的第二下）。在测试实例上用 Playwright `page.dblclick` 验过：双击「建单并入库」只发 1 个 POST、
+  只建 1 个批次；双击「4 道工序 ▸」展开后不会被关掉
 - **列表行就地展开（Step 80）**：工单 / 产品 / 出货单 / 销售订单四页也学采购到货那样，点行上的「3 ▸」展开明细。
   共用 `webapp/mfg/js/expand.js`（装饰器里 `</body>` 前统一加载）：链接上写 `data-toggle-lines="<key>"`，
   明细行写 `data-lines="<key>"`，折叠靠 **CSS**（`tr[data-lines] { display: none }` + `.open`），

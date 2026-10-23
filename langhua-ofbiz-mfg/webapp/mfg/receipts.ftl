@@ -247,7 +247,7 @@
     <p>
         截图识别
         <input type="file" id="orderImage" name="image" accept="image/png,image/jpeg"/>
-        <button type="button" id="scanOrder">识别并填入</button>
+        <button type="button" id="scanOrder" data-once="Y">识别并填入</button>
         <span id="scanHint" class="hint">选文件后点按钮，或者直接 <kbd>Ctrl+V</kbd> 粘贴截图（也可以把图拖进来）；
             没配识图服务就把明细粘到下面。</span>
     </p>
@@ -352,6 +352,10 @@
             body.append('image', image);
             hint.className = 'hint';
             hint.textContent = '正在识别…';
+            /* recognition takes a few seconds, so the button stays dimmed (and unclickable) until
+               the answer is in: once.js only covers the double click itself */
+            var release = function () { button.className = button.className.replace(/\s*\bbusy\b/g, ''); };
+            button.className = (button.className + ' busy').replace(/^\s+/, '');
             fetch('/mfg/control/orderImage', { method: 'POST', body: body, credentials: 'same-origin' })
                 .then(function (answer) { return answer.json(); })
                 .then(function (data) {
@@ -376,7 +380,8 @@
                 .catch(function () {
                     hint.className = 'error';
                     hint.textContent = '识别请求失败，手工填也可以';
-                });
+                })
+                .then(release, release);
         });
         function fill(id, value) {
             if (!value) { return; }
