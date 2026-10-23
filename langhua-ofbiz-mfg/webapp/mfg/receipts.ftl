@@ -77,7 +77,8 @@
         截图识别
         <input type="file" id="orderImage" name="image" accept="image/png,image/jpeg"/>
         <button type="button" id="scanOrder">识别并填入</button>
-        <span id="scanHint" class="hint">需要先在实例上配置识图服务；没配就把明细粘到下面。</span>
+        <span id="scanHint" class="hint">选文件后点按钮，或者直接 <kbd>Ctrl+V</kbd> 粘贴截图（也可以把图拖进来）；
+            没配识图服务就把明细粘到下面。</span>
     </p>
     <form method="post" action="/mfg/control/receiptFromOrder">
         <p>
@@ -103,17 +104,80 @@
         var button = document.getElementById('scanOrder');
         var file = document.getElementById('orderImage');
         var hint = document.getElementById('scanHint');
+        var block = document.getElementById('orderBlock');
         if (!button || !file || !hint || !window.fetch || !window.FormData) {
             return;
         }
+        /* the screenshot may come from the picker, from Ctrl+V or from a drop; all three end up
+           as the file of the input, which the button then sends as before */
+        var chosen = null;
+        function take(fileLike, source) {
+            if (!fileLike || !/^image\//.test(fileLike.type)) {
+                return false;
+            }
+            chosen = fileLike;
+            try {
+                var carrier = new DataTransfer();
+                carrier.items.add(fileLike);
+                file.files = carrier.files;
+            } catch (e) {
+                // an older browser refuses a scripted FileList, the button uses `chosen` anyway
+            }
+            hint.className = 'ok';
+            hint.textContent = source + '：' + (fileLike.name || '截图') + '，点“识别并填入”';
+            return true;
+        }
+        function pasted(event) {
+            var items = (event.clipboardData && event.clipboardData.items) || [];
+            for (var i = 0; i < items.length; i++) {
+                if (items[i].kind === 'file' && /^image\//.test(items[i].type)) {
+                    return items[i].getAsFile();
+                }
+            }
+            return null;
+        }
+        /* a paste that carries text belongs to the box the person is typing in, only an image
+           alone is taken as the screenshot */
+        function carriesText(event) {
+            var data = event.clipboardData;
+            return !!(data && data.getData && data.types
+                && Array.prototype.indexOf.call(data.types, 'text/plain') >= 0
+                && data.getData('text/plain'));
+        }
+        document.addEventListener('paste', function (event) {
+            var image = pasted(event);
+            if (!image || carriesText(event)) {
+                return;
+            }
+            event.preventDefault();
+            take(image, '已粘贴截图');
+            if (block && block.scrollIntoView) { block.scrollIntoView({ block: 'center' }); }
+        });
+        file.addEventListener('change', function () {
+            if (file.files && file.files.length) { take(file.files[0], '已选文件'); }
+        });
+        if (block) {
+            block.addEventListener('dragover', function (event) {
+                event.preventDefault();
+                block.classList.add('drop');
+            });
+            block.addEventListener('dragleave', function () { block.classList.remove('drop'); });
+            block.addEventListener('drop', function (event) {
+                event.preventDefault();
+                block.classList.remove('drop');
+                var dropped = event.dataTransfer && event.dataTransfer.files;
+                if (dropped && dropped.length) { take(dropped[0], '已拖入截图'); }
+            });
+        }
         button.addEventListener('click', function () {
-            if (!file.files || file.files.length === 0) {
+            var image = chosen || (file.files && file.files[0]);
+            if (!image) {
                 hint.className = 'error';
-                hint.textContent = '先选一张订单截图';
+                hint.textContent = '先选一张截图、Ctrl+V 粘贴，或把图拖进来';
                 return;
             }
             var body = new FormData();
-            body.append('image', file.files[0]);
+            body.append('image', image);
             hint.className = 'hint';
             hint.textContent = '正在识别…';
             fetch('/mfg/control/orderImage', { method: 'POST', body: body, credentials: 'same-origin' })

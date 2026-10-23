@@ -139,6 +139,13 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   淘宝一百个电容实付 2.91 的单价是 0.0291，存进去变 0.03（一百个多算 9 分）。所以 `MfgMaterialLot.receivedAmount`
   存实付总额（2 位、精确），单价由 `lotUnitCost()` = 金额 ÷ 数量 算（无金额时回退 `unitPrice`），
   工单实际材料成本用它；到货单行同样 `unitPriceExact = goodsAmount ÷ qty` 给页面显示 4 位。要改列精度得手工 ALTER，先不动
+- **截图可以 Ctrl+V / 拖进来（Step 67）**：`receipts.ftl` 的 `#orderBlock` 脚本在 `document` 上挂 `paste`，
+  从 `clipboardData.items` 里取 `image/*` 的 `getAsFile()`，再用 `new DataTransfer()` 把它塞回
+  `input.files`（老浏览器不行就只用内部变量 `chosen`，按钮发 `chosen || file.files[0]`）；
+  **带了 `text/plain` 的粘贴不动**（人是在往明细框里贴文字），只有纯图才拦；`drop`/`dragover` 同理，
+  拖动时给 `#orderBlock.drop` 加虚线框（样式在 `mfg.css`）。
+  页面脚本可以用 node 离线验：`check-page-js.js`（语法 + 引用的 id 都存在）与 `paste-test.js`
+  （假 DOM 跑一遍：粘贴 → input.files → 按钮 → fetch）。**自签证书下 Playwright 打不开 8443**，所以只能这样测
 - **照订单一步入库（Step 60）**：`mfgReceiptFromOrder`（IN `lines`：`料号,名称,数量,实付金额`，逗号或 Tab）
   一次完成建批次 + RECEIPT 流水 + 到货单行；**订单号做幂等键**（同号复用单据、重复行跳过、后来补的运费累加到单上）；
   页面上是到货单页的 `#orderBlock`，提示“数量按个填、金额填实付”
