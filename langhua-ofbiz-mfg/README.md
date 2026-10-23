@@ -258,6 +258,9 @@ https://localhost:8443/mfg/control/main
 - **谁能管账号**沿用 OFBiz 自己的规矩：有 `PARTYMGR_UPDATE` 或 `PARTYMGR_ADMIN` 的人（`admin` 在两套库里都有）。
   没这个权限的人打开页面只能看清单，服务里也会拒绝写入；
 - **防锁死**：不能停用自己、不能改自己的安全组；
+- **连续输错密码会被 OFBiz 锁住**：`security.properties` 的 `max.failed.logins`（默认 3）次错密码后账号被禁用，
+  `login.disable.minutes`（默认 30）分钟后自动恢复；等不了就由另一个管理员在账号页点一次「启用」——
+  **启用同时会把失败次数清零**，不用改密码；
 - 安全组下拉只列**能进本组件**的组（有 `OFBTOOLS_VIEW`、`MFG_VIEW`/`MFG_ADMIN`、`LEARNINGCURVE_VIEW`/`LEARNINGCURVE_ADMIN`
   之一的组），默认 `SUPER`——全新库里只有 `SUPER` 有这些权限，所以新账号也放进 `SUPER`；
 - 还没有细粒度角色控制：登录进来的账号在插件里能做所有事（服务只校验 `auth`，没有按 `MFG_VIEW`/`MFG_ADMIN` 拦）。

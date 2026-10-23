@@ -738,16 +738,18 @@ public final class MfgServices {
                     renamePerson(delegator, existing.getString("partyId"), personName);
                 }
                 String currentEnabled = "N".equals(existing.getString("enabled")) ? "N" : "Y";
-                if (!enabled.equals(currentEnabled)) {
-                    Map<String, Object> securityContext = new HashMap<>();
-                    securityContext.put("userLogin", userLogin);
-                    securityContext.put("userLoginId", actualId);
-                    securityContext.put("enabled", enabled);
-                    Map<String, Object> changed =
-                            dctx.getDispatcher().runSync("updateUserLoginSecurity", securityContext, -1, true);
-                    if (ServiceUtil.isError(changed)) {
-                        return copyErrors(changed);
+                if (!enabled.equals(currentEnabled) || "Y".equals(enabled)) {
+                    // switching an account on also unlocks it: OFBiz disables an account by itself
+                    // after a few wrong passwords (security.properties max.failed.logins)
+                    existing.set("enabled", enabled);
+                    if ("Y".equals(enabled)) {
+                        existing.set("disabledDateTime", null);
+                        existing.set("disabledBy", null);
+                        existing.set("successiveFailedLogins", Long.valueOf(0));
+                    } else {
+                        existing.set("disabledBy", caller);
                     }
+                    existing.store();
                 }
                 if (groupId != null) {
                     if (!shopGroupIds(delegator).contains(groupId)) {

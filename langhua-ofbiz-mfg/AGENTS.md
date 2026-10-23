@@ -128,6 +128,11 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   `<field-map field-name="userLogin" from-field="userLogin"/>`（不加 → 成本显示成「无权查看」、质量页 500）
 - **用户账号页（Step 50）**：`/mfg/control/users` 是插件自己的账号维护（不用 OFBiz 原生的 Party Manager）。
   服务 `mfgUserList`（清单 + 可选组 + `canManage`）、`mfgUserSave`（建/改）、`mfgUserResetPassword`（回到 `ofbiz`）；
+  **连续输错密码会被框架锁号**：`security.properties` 的 `max.failed.logins`（默认 3）次错密码就写
+  `disabledDateTime` 把账号停掉，`login.disable.minutes`（默认 30）分钟后自动恢复；`mfgUserSave` 传
+  `enabled=Y` 时直接清 `disabledDateTime`/`disabledBy`/`successiveFailedLogins`，所以「启用」就是解锁。
+  **巡检脚本别对生产用 `admin`/`ofbiz`**：用户改过密码后每跑一次就多一次失败，跑三遍就把号锁了（踩过）
+  服务 `mfgUserList`（清单 + 可选组 + `canManage`）、`mfgUserSave`（建/改）、`mfgUserResetPassword`（回到 `ofbiz`）；
   建账号**调 OFBiz 的 `createPersonAndUserLogin`**（内部以 `system` 身份跑，绕开 `PARTYMGR_CREATE`，密码哈希由框架做），
   再直接写 `UserLoginSecurityGroup`；**一个账号只一个组**，换组就把旧行 `thruDate` 置为当前时间；
   **能管账号的判定跟 OFBiz 一致**：`Security.hasEntityPermission("PARTYMGR", "_UPDATE", userLogin)`（含 `_ADMIN` 兜底），
