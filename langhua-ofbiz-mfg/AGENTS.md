@@ -184,6 +184,13 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   `allocationId` 先只接受 `MFG_ALLOC_NONE`，`BY_AMOUNT` / `BY_QTY` 两个值先占位，以后打开不用改表。
   页面 `/mfg/control/receipts`（导航在「物料批次」后面），服务 `mfgPurchaseReceiptSave` / `LineSave` / `List` / `Detail`，
   列表与详情共用纯函数 `receiptSummary`（`lineCount` / `goodsTotal` / `freightTotal` / `spendTotal` / `freightShare`，货款为 0 不算除法）
+- **列表翻页统一用 `pager.ftl` 宏（Step 71）**：`webapp/mfg/pager.ftl` 的 `<@pg.pager action query page pageCount total unit pageSize/>`
+  出「第 x / y 页，共 n 条」+ 首页/上一页/页码窗口（当前页 ±2，带 …）/下一页/末页 + 每页 20/50/100，
+  当前页高亮、不可用的按钮变灰 span。`query` 是**已经 `?url` 过的筛选串**（不带 page/pageSize，可空），
+  调用方用 `<#assign pagerQuery = ''><#if (x.search)?has_content><#assign pagerQuery = 'search=' + x.search?url></#if>` 拼，
+  空筛选不会产生 `?search=&page=2`。靠 `data-page` / `data-pages` / `data-page-link` / `data-page-size` 给巡检断言。
+  目前只有到货单列表用了它（**其它列表还是旧的两行版本，要改照着 receipts.ftl 换掉那段即可**）；
+  `mfgPurchaseReceiptList` 补了 `pageSize` IN，否则换每页条数被静默丢弃
 - **到货单头就地保存（Step 70）**：`receipts.ftl` 的 `#receiptSaveForm` 用委托的 `submit` 拦下，
   POST 到 `/mfg/control/receiptSaveJson`（事件 `MfgReceiptEvents.saveJson`，跑 `mfgPurchaseReceiptSave`，
   手写 `{"ok":…,"message":…}`，`<response type="none"/>`），结果写在 `#saveHint`（绿=成功、红=失败原因）；

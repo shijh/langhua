@@ -271,3 +271,15 @@ kbd {
     border: 1px solid var(--border); border-bottom-width: 2px; border-radius: 3px;
     background: var(--bg-input); color: var(--fg);
 }
+
+/* list pager: where you are, the pages around it, and the page size */
+.pager { display: flex; flex-wrap: wrap; align-items: baseline; gap: .5em; }
+.pager a, .pager strong { padding: .1em .45em; border-radius: 3px; text-decoration: none; }
+.pager a { color: var(--link); }
+.pager a:hover { background: var(--bg-input); }
+.pager strong.current { background: var(--accent); color: #fff; }
+.pager .disabled { color: var(--fg-muted); opacity: .55; padding: .1em .45em; }
+.pager .gap { color: var(--fg-muted); }
+.pager .pager-info, .pager .pager-size { color: var(--fg-muted); font-size: .85em; }
+.pager .pager-size { margin-left: auto; }
+.pager .pager-size a, .pager .pager-size strong { margin-left: .35em; }

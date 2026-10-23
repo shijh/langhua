@@ -1,5 +1,6 @@
 <#ftl encoding="UTF-8">
 <#setting url_escaping_charset="UTF-8">
+<#import "pager.ftl" as pg>
 <#--
   Purchase receipts: one purchase (a Taobao order, a supplier invoice) with the lots it brought in
   and the freight paid for it. The freight stays a period cost, so the part price is the price
@@ -59,17 +60,9 @@
 <#else>
     <p class="hint">还没有采购到货单。建一张单，把这次买到的批次挂上去，运费的账就有地方记了。</p>
 </#if>
-<#if (rl.pageCount?default(1)) gt 1>
-    <p class="pager">
-        第 ${(rl.page)!1} / ${(rl.pageCount)!1} 页（共 ${(rl.totalCount)!0} 张）
-        <#if (rl.page?default(1)) gt 1>
-            <a href="/mfg/control/receipts?search=${(rl.search)!''?url}&page=${(rl.page)-1}">上一页</a>
-        </#if>
-        <#if (rl.page?default(1)) lt (rl.pageCount?default(1))>
-            <a href="/mfg/control/receipts?search=${(rl.search)!''?url}&page=${(rl.page)+1}">下一页</a>
-        </#if>
-    </p>
-</#if>
+<#assign pagerQuery = ''><#if (rl.search)?has_content><#assign pagerQuery = 'search=' + rl.search?url></#if>
+<@pg.pager action="/mfg/control/receipts" query=pagerQuery
+    page=(rl.page)!1 pageCount=(rl.pageCount)!1 total=(rl.totalCount)!0 unit="张" pageSize=(rl.pageSize)!20/>
 
 <fieldset id="orderBlock">
     <legend>从淘宝订单建单并入库（一行一个料，人工核对后提交）</legend>
