@@ -19,6 +19,9 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
 | `start-prod.bat` / `stop-prod.bat` | 只启/停生产实例（按命令行里的 `ofbiz-prod` 匹配进程） |
 | `mfg-tests.bat` | 单元测试（JUnit 4，离线，依赖 `F:\build-ofbiz\lib` 的 jar） |
 | `mfg-it.bat` | 集成测试 `integration-test/MfgServiceIT.java`，走 `/webtools/control/scheduleServiceSync` + `_RUN_SYNC_=Y`（日志 `mfg-it.txt`） |
+| `deploy-test.bat` | **测试实例（http 8095）**：停 → robocopy 两个插件 → 把部署副本的 `https="true"` 改成 `false` → `gradle jar` → 启动（日志 `test-deploy.txt`） |
+| `start-test.bat` / `stop-test.bat` | 只启/停**测试**实例（按命令行里的 `ofbiz-test` 匹配，admin 端口 10723） |
+| `make-test-instance.ps1` / `relax-test-https.ps1` | 一次性从开发实例复制出 `F:\build-ofbiz\ofbiz-test` 并改端口；后者把测试实例里 37 个 controller 的 `https="true"` 改 `false`（每次 deploy-test 都会重跑） |
 | `verify-m*.ps1` | 页面巡检（真实登录会话），日志 `F:\build-ofbiz\mfg-m*.txt` |
 
 只改 `webapp/` 下的静态文件（css / 图片 / js）时，直接 `Copy-Item` 到 `plugins/mfg/...` 就能生效；
@@ -83,9 +86,13 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
 
 ## 测试与巡检
 
+**要点死按钮的地方用测试实例（http 8095）**：`deploy-test.bat` 部署一份把 `https` 关掉的副本，
+浏览器（含编辑器的内置浏览器 / Playwright）用 `admin` / `ofbiz` 登录后可以直接点、可以截图，
+不碰自签证书。`verify-m*.ps1` 仍旧打开发实例的 8443。
+
 | 脚本 | 覆盖 | 断言数 |
 | --- | --- | --- |
-| `MfgServicesTest` | 解析/规则/格式化（CSV、SN、FIFO、窗口、编号、附件类型、来料检验规则、成本取整与毛利、CSV 单元格转义、软件报价公式与耗时率中位数、趋势期间标签与良率/单台工时、库存流水符号与不合格批次可用量、预留对可发量的影响、成品批次命名与单位成本分摊、订单行欠货与待排产量、订单行文本解析、库位类型、外协费计价与单台分摊、问题清单排序与校验、账号名规范与姓名拼接、BOM 格式识别与 Fritzing 解析…） | 89 |
+| `MfgServicesTest` | 解析/规则/格式化（CSV、SN、FIFO、窗口、编号、附件类型、来料检验规则、成本取整与毛利、CSV 单元格转义、软件报价公式与耗时率中位数、趋势期间标签与良率/单台工时、库存流水符号与不合格批次可用量、预留对可发量的影响、成品批次命名与单位成本分摊、订单行欠货与待排产量、订单行文本解析、库位类型、外协费计价与单台分摊、问题清单排序与校验、账号名规范与姓名拼接、BOM 格式识别与 Fritzing 解析…） | 102 |
 | `MfgServiceIT` | 全链路服务调用（含 BOM 版本、Fritzing BOM 导入、三条开发线、ECO、附件、来料检验、成本、告警、软件报价与台账、成本细化与外协费明细、步骤问题清单、良率/工时趋势、库存流水与盘点、工单预留/发料释放、完工入库与出货扣减、销售订单两级预留与核销、库位与移库、用户账号） | 398 |
 | `verify-m11.ps1` | 列表页搜索/过滤/翻页/编码 | 55 |
 | `verify-m12.ps1` | 装饰器布局（1 个 html、1 条导航、1 个高亮、样式表、无内联 style、无 FTL 报错） | 102 |
@@ -112,6 +119,22 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
 | `verify-m48.ps1` | 系统设置页（Step 61）：识图配置块与状态、密钥不回显、接口必须 http(s)、空密钥保留旧的、保存后状态变 DATABASE、`clear=Y` 恢复未配置、没配/配了两种 scan 回答（日志 `mfg-m48.txt`） | 26 |
 
 ## 设计决策
+
+- **三个实例：开发 8443 / 生产 8453 / 测试 8095（只有 http）**：`verify-m*.ps1` 用 `Invoke-WebRequest` +
+  `ServerCertificateValidationCallback` 能过自签证书，但**浏览器自动化不行**，所以另起一个不用 TLS 的测试实例。
+  端口：开发 http 8080 + https 8443（admin 10523）、生产 http 8090 + https 8453（admin 10623）、
+  测试 http **8095** + https 8444（admin 10723），AJP 也错开（测试 8139/8140）。
+  **光把 connector 改成 http 不够**：`ConfigXMLReader.RequestMap` 的 `securityHttps` 字段默认 `true`，
+  而 `no.http=Y` 时只有 `http.request-map.list` 里的 uri 才重新赋值，所以 `https="true"` 的请求一律被
+  `RequestHandler` 302 到 https（Location 里的端口来自 `WebSite.httpsPort`，看着像“莫名其妙回到 8443”）。
+  测试实例要**两处一起改**：`framework/webapp/config/url.properties` 的 `no.http=N` + `port.http=8095`，
+  再把**所有** controller（含 `framework/common/webcommon/WEB-INF/common-controller.xml`，`logout` 在那里）的
+  `https="true"` 改成 `false` —— 仓库里保持 `https="true"` 不变，只有部署副本被改，所以 `deploy-test.bat`
+  每次 robocopy 之后都要重跑 `relax-test-https.ps1`
+- **浏览器能点了（Step 81）**：`http://localhost:8095/mfg/control/{main,products,delivery,salesOrders}` 用
+  `admin`/`ofbiz` 登录后可以真的点开「3 ▸」、改销售订单行的数量；销售订单那条链路的三个风险点
+  （`form="soLine_…"` 绑定的输入框会被 `new FormData(form)` 带上、fetch 成功后只换 `#orderListBlock`、
+  被拒时提示变红且不动块）都是这样在真浏览器里确认的
 
 - **系统设置放页面，不靠 -D（Step 61）**：`/mfg/control/settings`（导航在「用户账号」后面，`canManageAccounts` 才看得到）
   用 `mfgSettingsView` / `mfgSettingsSave` 读写 `SystemProperty`（`systemResourceId = "mfg"`，propertyId 就是原来的

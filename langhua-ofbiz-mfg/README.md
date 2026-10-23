@@ -187,31 +187,42 @@ https://localhost:8443/mfg/control/main
 `AFTER_SALE_DEADLINE`、`REFUND_AMOUNT`、`DEDUCT_AMOUNT`、`FREIGHT_PAYER`、`RETURN_TRACKING_NO`、
 `RECEIVED_BACK_DATE`、`INSPECT_RESULT`、`VENDOR_CLAIM_STATUS`、`REPAIR_WORK_ORDER_ID`、`EXCHANGE_DELIVERY_ID`、`BUYER_RISK_LEVEL`）。
 
-### 开发环境与生产环境并存（同一台机器）
+### 开发 / 生产 / 测试三套并存（同一台机器）
 
-开发时改代码、测试时跑脚本都会往库里写测试数据，所以生产另起一套，互不干扰：
+开发时改代码、测试时跑脚本都会往库里写测试数据，所以生产另起一套，互不干扰；
+另外还有一套**只用 HTTP 的测试实例**，给浏览器自动化用——自签证书下 Playwright / 内置浏览器
+打不开 https 页面，去掉 TLS 就什么都能点、能截图：
 
-| | 开发（dev） | 生产（prod） |
-| --- | --- | --- |
-| 安装目录 | `F:\build-ofbiz\apache-ofbiz-24.09.07` | `F:\build-ofbiz\ofbiz-prod` |
-| 访问 | `https://localhost:8443/mfg` | `https://localhost:8453/mfg` |
-| 端口 | https 8443 / http 8080 / ajp 8009 / naming 1099 / admin 10523 | https 8453 / http 8090 / ajp 8109 / naming 1199 / admin 10623 |
-| 数据库 | 自己 `runtime/data/derby`（测试数据，可随时清空重来） | 自己 `runtime/data/derby`（真实数据，`loadAll` 建库） |
-| 启停脚本（`…\Temp\jup`） | `deploy-mfg.bat` / `deploy-lc.bat` / `stop-ofbiz.bat` | `deploy-prod.bat` / `start-prod.bat` / `stop-prod.bat` |
+| | 开发（dev） | 生产（prod） | 测试（test） |
+| --- | --- | --- | --- |
+| 安装目录 | `F:\build-ofbiz\apache-ofbiz-24.09.07` | `F:\build-ofbiz\ofbiz-prod` | `F:\build-ofbiz\ofbiz-test` |
+| 访问 | `https://localhost:8443/mfg` | `https://localhost:8453/mfg` | `http://localhost:8095/mfg`（只有 http） |
+| 端口 | https 8443 / http 8080 / ajp 8009 / naming 1099 / admin 10523 | https 8453 / http 8090 / ajp 8109 / naming 1199 / admin 10623 | http 8095 / https 8444（不用）/ ajp 8139 / admin 10723 |
+| 数据库 | 自己 `runtime/data/derby`（测试数据，可随时清空重来） | 自己 `runtime/data/derby`（真实数据，`loadAll` 建库） | 从开发实例复制的一份（可以随便造数据） |
+| 启停脚本（`…\Temp\jup`） | `deploy-mfg.bat` / `deploy-lc.bat` / `stop-ofbiz.bat` | `deploy-prod.bat` / `start-prod.bat` / `stop-prod.bat` | `deploy-test.bat` / `start-test.bat` / `stop-test.bat` |
 
-做两份安装的原因：OFBiz 用**内嵌 Derby**（库文件被进程独占，两个进程不能共用一个库），端口又写死在
-`framework/base/ofbiz-component.xml`（naming 1099）和 `framework/catalina/ofbiz-component.xml`（8080 / 8443 / 8009）里；
+做多份安装的原因：OFBiz 用**内嵌 Derby**（库文件被进程独占，两个进程不能共用一个库），端口又写死在
+`framework/base/ofbiz-component.xml`（naming 1099）和 `framework/catalina/ofbiz-component.xml`（http / https / ajp）里；
 复制一份改端口最省事。每套各占约 1 GB 左右内存。
 
-**容易漏的一个端口：管理套接字**（`org.apache.ofbiz.base.container.AdminServerContainer`，默认 `127.0.0.1:10523`）。
-它不在上面两个文件里，而是读系统属性 `ofbiz.admin.port`；两个实例同时跑时必须给生产换一个，
-否则第二个实例启动到 `admin-container` 就报 `Couldn't create server socket(/127.0.0.1:10523)` 并退出。
-`start-prod.bat` 里已经用 `set JAVA_TOOL_OPTIONS=-Dofbiz.admin.port=10623` 处理。
+**测试实例要改的不只是端口**：`controller.xml` 里 `<security https="true"/>` 的请求会被
+`RequestHandler` 302 到 https（那个端口取自 `WebSite.httpsPort`，看着像「莫名回到 8443」）。
+仓库里保持 `https="true"` 不变，只改**部署副本**——`deploy-test.bat` 每次 robocopy 之后重跑
+`relax-test-https.ps1`（37 个 controller、约 3900 个 request-map，含
+`framework/common/webcommon/WEB-INF/common-controller.xml` 里的 `logout`），
+并把测试实例的 `framework/webapp/config/url.properties` 改成 `no.http=N` + `port.http=8095`。
+`make-test-instance.ps1` 是从开发实例复制出测试实例的一次性脚本。
 
-`stop-ofbiz.bat` 只停**开发**实例（按命令行里的 `apache-ofbiz-24.09.07` 匹配），`stop-prod.bat` 只停生产
-（匹配 `ofbiz-prod`）——之前 `stop-ofbiz.bat` 会把两套一起杀掉，踩过一次。
+**容易漏的一个端口：管理套接字**（`org.apache.ofbiz.base.container.AdminServerContainer`，默认 `127.0.0.1:10523`）。
+它不在上面两个文件里，而是读系统属性 `ofbiz.admin.port`；多套同时跑时必须各给一个，
+否则后启动的那个到 `admin-container` 就报 `Couldn't create server socket(/127.0.0.1:10523)` 并退出。
+`start-prod.bat` 用 `-Dofbiz.admin.port=10623`、`start-test.bat` 用 `10723` 处理。
+
+`stop-ofbiz.bat` 只停**开发**实例（按命令行里的 `apache-ofbiz-24.09.07` 匹配），`stop-prod.bat` 停生产
+（匹配 `ofbiz-prod`），`stop-test.bat` 停测试（匹配 `ofbiz-test`）——之前 `stop-ofbiz.bat` 会把多套一起杀掉，踩过一次。
 
 上线节奏：分支上改 → `deploy-mfg.bat` / `deploy-lc.bat` 到 **dev** → 跑单元测试、集成测试与巡检 →
+需要点按钮验证时再 `deploy-test.bat`，用 `http://localhost:8095/mfg` 在浏览器里点 →
 确认后再 `deploy-prod.bat` 到 **prod**。**别在生产实例上跑 `mfg-it.bat` / `verify-*.ps1`**（它们会写测试数据）。
 
 生产实例首次登录 `admin` / `ofbiz`（`loadAll` 建的），**登录后被强制改密码**（见下一节）。
