@@ -2369,6 +2369,108 @@ public final class MfgServices {
     }
 
     /**
+     * Purchase spend per period: how much goods were bought, how much freight was paid and what
+     * share the freight has of the goods value. The freight is a period cost, so it is reported
+     * next to the goods value and never inside it.
+     *
+     * @param dctx the dispatch context
+     * @param context service context, see {@code servicedef/services.xml#mfgPurchaseFreightTrend}
+     * @return the service result containing {@code rows} and the totals of the period
+     */
+    public static Map<String, Object> purchaseFreightTrend(DispatchContext dctx, Map<String, ? extends Object> context) {
+        Delegator delegator = dctx.getDelegator();
+        java.sql.Date toDate = (java.sql.Date) parseDate(context.get("toDate"));
+        if (toDate == null) {
+            toDate = java.sql.Date.valueOf(LocalDate.now());
+        }
+        java.sql.Date fromDate = (java.sql.Date) parseDate(context.get("fromDate"));
+        if (fromDate == null) {
+            fromDate = java.sql.Date.valueOf(toDate.toLocalDate().minusDays(179));
+        }
+        String groupBy = toText(context.get("groupBy"));
+        groupBy = groupBy == null ? "MONTH" : groupBy.toUpperCase(Locale.ROOT);
+        if (!"DAY".equals(groupBy) && !"WEEK".equals(groupBy) && !"MONTH".equals(groupBy)) {
+            groupBy = "MONTH";
+        }
+        Map<String, Object> result = ServiceUtil.returnSuccess();
+        result.put("fromDate", fromDate);
+        result.put("toDate", toDate);
+        result.put("groupBy", groupBy);
+        result.put("rows", new ArrayList<Map<String, Object>>());
+        result.put("receiptCount", Integer.valueOf(0));
+        result.put("goodsTotal", Double.valueOf(0.0));
+        result.put("freightTotal", Double.valueOf(0.0));
+        result.put("spendTotal", Double.valueOf(0.0));
+        result.put("freightShare", Double.valueOf(0.0));
+        result.put("rowCount", Integer.valueOf(0));
+        try {
+            Map<String, List<Map<String, Object>>> linesOf = new LinkedHashMap<>();
+            for (GenericValue line : EntityQuery.use(delegator).from("MfgPurchaseReceiptLine").queryList()) {
+                String id = line.getString("receiptId");
+                List<Map<String, Object>> lines = linesOf.get(id);
+                if (lines == null) {
+                    lines = new ArrayList<>();
+                    linesOf.put(id, lines);
+                }
+                lines.add(toReceiptLineMap(line));
+            }
+            Map<String, double[]> buckets = new java.util.TreeMap<>();
+            for (GenericValue receipt : EntityQuery.use(delegator).from("MfgPurchaseReceipt")
+                    .orderBy("receiptDate").queryList()) {
+                java.sql.Date day = receipt.getDate("receiptDate");
+                if (day == null && receipt.getTimestamp("createdStamp") != null) {
+                    day = new java.sql.Date(receipt.getTimestamp("createdStamp").getTime());
+                }
+                if (day == null || day.before(fromDate) || day.after(toDate)) {
+                    continue;
+                }
+                List<Map<String, Object>> lines = linesOf.get(receipt.getString("receiptId"));
+                Map<String, Object> summary = receiptSummary(
+                        lines == null ? new ArrayList<Map<String, Object>>() : lines,
+                        numberOrZero(receipt.get("freightAmount")));
+                String key = periodKey(day, groupBy);
+                double[] bucket = buckets.get(key);
+                if (bucket == null) {
+                    bucket = new double[3];
+                    buckets.put(key, bucket);
+                }
+                bucket[0] += 1.0;
+                bucket[1] += numberOrZero(summary.get("goodsTotal"));
+                bucket[2] += numberOrZero(summary.get("freightTotal"));
+            }
+            List<Map<String, Object>> rows = new ArrayList<>(buckets.size());
+            double receipts = 0.0;
+            double goods = 0.0;
+            double freight = 0.0;
+            for (Map.Entry<String, double[]> entry : buckets.entrySet()) {
+                double[] bucket = entry.getValue();
+                Map<String, Object> row = new LinkedHashMap<>();
+                row.put("period", entry.getKey());
+                row.put("receiptCount", Integer.valueOf((int) Math.round(bucket[0])));
+                row.put("goodsTotal", Double.valueOf(round2(bucket[1])));
+                row.put("freightTotal", Double.valueOf(round2(bucket[2])));
+                row.put("spendTotal", Double.valueOf(round2(bucket[1] + bucket[2])));
+                row.put("freightShare", Double.valueOf(bucket[1] <= 0.0
+                        ? 0.0 : round2(bucket[2] / bucket[1] * 100.0)));
+                rows.add(row);
+                receipts += bucket[0];
+                goods += bucket[1];
+                freight += bucket[2];
+            }
+            result.put("rows", rows);
+            result.put("receiptCount", Integer.valueOf((int) Math.round(receipts)));
+            result.put("goodsTotal", Double.valueOf(round2(goods)));
+            result.put("freightTotal", Double.valueOf(round2(freight)));
+            result.put("spendTotal", Double.valueOf(round2(goods + freight)));
+            result.put("freightShare", Double.valueOf(goods <= 0.0 ? 0.0 : round2(freight / goods * 100.0)));
+            result.put("rowCount", Integer.valueOf(rows.size()));
+            return result;
+        } catch (GenericEntityException e) {
+            return ServiceUtil.returnError("Could not build the freight report: " + e.getMessage());
+        }
+    }
+
+    /**
      * Reads the operations of a model in sequence order.
      *
      * @param delegator the delegator

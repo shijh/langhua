@@ -327,6 +327,11 @@
                     <field-map field-name="toDate" from-field="parameters.toDate"/>
                     <field-map field-name="groupBy" from-field="parameters.groupBy"/>
                 </service>
+                <service service-name="mfgPurchaseFreightTrend" result-map="freight" auto-field-map="false">
+                    <field-map field-name="fromDate" from-field="parameters.fromDate"/>
+                    <field-map field-name="toDate" from-field="parameters.toDate"/>
+                    <field-map field-name="groupBy" from-field="parameters.groupBy"/>
+                </service>
             </actions>
             <widgets>
                 <decorator-screen name="mfg-decorator" location="component://mfg/widget/MfgCommonScreens.xml">

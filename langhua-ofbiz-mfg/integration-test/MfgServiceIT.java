@@ -151,6 +151,7 @@ public final class MfgServiceIT {
             it.importsAFritzingBom();
             it.editsBomLines();
             it.createsPurchaseReceipt();
+            it.readsPurchaseFreightReport();
             it.savesRouting();
             it.readsProductDetail();
             it.createsWorkOrder();
@@ -758,6 +759,34 @@ public final class MfgServiceIT {
         Response negative = invoke("mfgPurchaseReceiptSave", negativeForm);
         check("receipt: a negative freight is refused", negative.body.contains("freightAmount")
                 || negative.body.contains("error"), "negative freight accepted");
+    }
+
+    /**
+     * The purchase freight report: goods value, freight and the share per period.
+     *
+     * @throws IOException when a service call fails
+     */
+    private void readsPurchaseFreightReport() throws IOException {
+        Map<String, String> form = new LinkedHashMap<>();
+        form.put("groupBy", "MONTH");
+        Response report = invoke("mfgPurchaseFreightTrend", form);
+        check("freight report: service call returns HTTP 200", report.status == 200,
+                "HTTP " + report.status);
+        check("freight report: rows are returned", report.body.contains("rows"), "no rows");
+        check("freight report: the goods total is reported", report.body.contains("goodsTotal"),
+                "no goodsTotal");
+        check("freight report: the freight total is reported", report.body.contains("freightTotal"),
+                "no freightTotal");
+        check("freight report: the spend total is reported", report.body.contains("spendTotal"),
+                "no spendTotal");
+        check("freight report: the share is reported", report.body.contains("freightShare"),
+                "no freightShare");
+
+        Map<String, String> weekly = new LinkedHashMap<>();
+        weekly.put("groupBy", "WEEK");
+        Response weekReport = invoke("mfgPurchaseFreightTrend", weekly);
+        check("freight report: weekly periods are labelled", weekReport.body.contains("-W")
+                || weekReport.body.contains("rowCount"), "no weekly label");
     }
 
     private void savesRouting() throws IOException {

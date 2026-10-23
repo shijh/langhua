@@ -10,6 +10,8 @@
 <#assign rows = (t.rows)![]>
 <#assign groupBy = (t.groupBy)!'MONTH'>
 <#assign worst = (t.worstRow)!{}>
+<#assign f = (freight)!{}>
+<#assign freightRows = (f.rows)![]>
 <#assign errList = (errorMessageList)![]>
 
 <#function groupLabel key>
@@ -82,4 +84,48 @@
     <p class="hint">良率 = 良品 ÷（良品 + 不良）；单台工时 = 报工工时 ÷ 良品，可以拿去和学习曲线组件的实测点对照。</p>
 <#else>
     <p class="hint">这段时间没有报工记录。先到工单详情页「报工」，报表才有数。</p>
+</#if>
+
+<h2>采购与运费</h2>
+<p class="cards" id="freightCards">
+    <span class="card"><span class="label">到货单</span>
+        <span class="value">${(f.receiptCount)!0} 张</span></span>
+    <span class="card"><span class="label">货款</span>
+        <span class="value">${((f.goodsTotal)!0)?string("0.00")}</span></span>
+    <span class="card"><span class="label">运费</span>
+        <span class="value">${((f.freightTotal)!0)?string("0.00")}</span></span>
+    <span class="card"><span class="label">采购支出</span>
+        <span class="value">${((f.spendTotal)!0)?string("0.00")}</span></span>
+    <span class="card"><span class="label">运费占货款</span>
+        <span class="value"><#if ((f.freightTotal)!0) gt 0>${((f.freightShare)!0)?string("0.0")}%<#else>—</#if></span></span>
+</p>
+<p>
+    <a class="download" href="/mfg/control/freightCsv?fromDate=<#if t.fromDate??>${t.fromDate?string("yyyy-MM-dd")}</#if>&amp;toDate=<#if t.toDate??>${t.toDate?string("yyyy-MM-dd")}</#if>&amp;groupBy=${groupBy}">导出采购运费 CSV</a>
+    <span class="hint">运费是整单的期间费用，不进料价；这里的合计按月（或周/日）汇总，比例可以拿去给材料成本整体加成。</span>
+</p>
+<#if freightRows?has_content>
+    <table id="freightTable">
+        <tr><th>期间（${groupLabel(groupBy)}）</th><th class="num">单据数</th><th class="num">货款</th>
+            <th class="num">运费</th><th class="num">采购支出</th><th class="num">运费占货款</th></tr>
+        <#list freightRows as row>
+            <tr data-period="${row.period}">
+                <td>${row.period}</td>
+                <td class="num">${row.receiptCount}</td>
+                <td class="num">${row.goodsTotal?string("0.00")}</td>
+                <td class="num">${row.freightTotal?string("0.00")}</td>
+                <td class="num">${row.spendTotal?string("0.00")}</td>
+                <td class="num"><#if (row.freightShare!0) gt 0>${row.freightShare?string("0.0")}%<#else><span class="hint">—</span></#if></td>
+            </tr>
+        </#list>
+        <tr id="freightTotalRow">
+            <td><b>合计</b></td>
+            <td class="num"><b>${(f.receiptCount)!0}</b></td>
+            <td class="num"><b>${((f.goodsTotal)!0)?string("0.00")}</b></td>
+            <td class="num"><b>${((f.freightTotal)!0)?string("0.00")}</b></td>
+            <td class="num"><b>${((f.spendTotal)!0)?string("0.00")}</b></td>
+            <td class="num"><b>${((f.freightShare)!0)?string("0.0")}%</b></td>
+        </tr>
+    </table>
+<#else>
+    <p class="hint">这段时间没有采购到货单。在「采购到货」页建单、挂批次并把运费填上，这里就有合计。</p>
 </#if>

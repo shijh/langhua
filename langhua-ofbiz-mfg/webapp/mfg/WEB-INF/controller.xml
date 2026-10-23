@@ -88,6 +88,13 @@
         <response name="error" type="none"/>
     </request-map>
 
+    <request-map uri="freightCsv">
+        <security https="true" auth="true"/>
+        <event type="java" path="org.langhua.ofbiz.mfg.MfgExportEvents" invoke="freightCsv"/>
+        <response name="success" type="none"/>
+        <response name="error" type="none"/>
+    </request-map>
+
     <request-map uri="hoursCsv">
         <security https="true" auth="true"/>
         <event type="java" path="org.langhua.ofbiz.mfg.MfgExportEvents" invoke="hoursCsv"/>

@@ -1363,6 +1363,25 @@
         <attribute name="rowCount" type="Integer" mode="OUT" optional="true"/>
     </service>
 
+    <service name="mfgPurchaseFreightTrend" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgServices" invoke="purchaseFreightTrend"
+            auth="false" use-transaction="false">
+        <description>Purchase spend per period (day, week or month): goods value, freight and the freight as a share of the goods value</description>
+        <attribute name="fromDate" type="String" mode="IN" optional="true"/>
+        <attribute name="toDate" type="String" mode="IN" optional="true"/>
+        <attribute name="groupBy" type="String" mode="IN" optional="true"/>
+        <attribute name="rows" type="java.util.List" mode="OUT" optional="true"/>
+        <attribute name="fromDate" type="java.sql.Date" mode="OUT" optional="true"/>
+        <attribute name="toDate" type="java.sql.Date" mode="OUT" optional="true"/>
+        <attribute name="groupBy" type="String" mode="OUT" optional="true"/>
+        <attribute name="receiptCount" type="Integer" mode="OUT" optional="true"/>
+        <attribute name="goodsTotal" type="Double" mode="OUT" optional="true"/>
+        <attribute name="freightTotal" type="Double" mode="OUT" optional="true"/>
+        <attribute name="spendTotal" type="Double" mode="OUT" optional="true"/>
+        <attribute name="freightShare" type="Double" mode="OUT" optional="true"/>
+        <attribute name="rowCount" type="Integer" mode="OUT" optional="true"/>
+    </service>
+
     <service name="mfgAlerts" engine="java"
             location="org.langhua.ofbiz.mfg.MfgServices" invoke="alerts"
             auth="false" use-transaction="false">

@@ -417,6 +417,7 @@ https://localhost:8443/mfg/control/main
 | `mfgPurchaseReceiptLineSave` | 把一个到货批次挂到单上（数量/单价默认取批次，事后可改；一个批次只能挂一张单）、改行、`delete=Y` 差行；发成品批次会被拒 |
 | `mfgPurchaseReceiptList` | 到货单列表（行数 / 货款 / 运费 / 合计）+ 本页的货款合计、运费合计、采购支出合计、运费占货款比例 |
 | `mfgPurchaseReceiptDetail` | 一张单的行明细与合计，加上“还没挂在任何单上的元件批次”供下拉选择 |
+| `mfgPurchaseFreightTrend` | 采购支出按期间（日 / ISO 周 / 月）汇总：单据数、货款、运费、采购支出、运费占货款；报表页与 `freightCsv` 共用这个服务 |
 | `mfgWorkOrderReserve` | 按工单 BOM 自动预留齐套料：按批次先后在「可发」里挑，能挑多少挑多少，写 `MFG_MOVE_RESERVE` 流水（不动在库），返回预留总数与还差多少 |
 | `mfgWorkOrderRelease` | 释放该工单的全部预留（写反向的 `MFG_MOVE_RELEASE` 流水），已发料的部分不受影响 |
 | `mfgWorkOrderComplete` | 完工入库：按已报工的良品数建成品批次 `FG-<工单号>` 并写 `MFG_MOVE_RECEIPT`，单位成本 = 实际成本 ÷ 良品数；工单置 MFG_COMPLETED、SN 置 MFG_COMPLETED；重复调用只补差额 |
@@ -512,7 +513,7 @@ csv         = R0402-10K,10K 0402 resistor,4,R1-R4,N,0.05
 | `/mfg/control/dashboard` | 车间看板：生产卡片 + **告警（欠料 / 售后窗口 / 软件项目）** + 售后 KPI + 每日柱图 + 责任方成本 + 最近报工，60 秒自动刷新 |
 | `/mfg/control/software` | 软件项目：功能点估算试算（内部/外部接口文件数或直接填功能点 + 两个调整因子 + 耗时率 + 费率/税率）、估算结果表、项目台账（计划 vs 实际人天、偏差、实测耗时率、超期标记） |
 | `/mfg/control/softwareProjectSave` | POST 保存/更新软件项目（编号留空自动生成） |
-| `/mfg/control/reports` | 报表：良率与工时趋势（按日 / 周 / 月，可定区间），六个汇总卡片 + 最差期间 + 趋势表；页尾「喂进学习曲线」把区间与口径带到 `/learningcurve/control/main` |
+| `/mfg/control/reports` | 报表：良率与工时趋势（按日 / 周 / 月，可定区间），六个汇总卡片 + 最差期间 + 趋势表；**采购与运费块**（到货单数 / 货款 / 运费 / 采购支出 / 运费占货款 + 按期间的表与合计行 + CSV）；页尾「喂进学习曲线」把区间与口径带到 `/learningcurve/control/main` |
 | `/mfg/control/yieldCsv` | 良率趋势 CSV：`期间,汇总方式,良品,不良,良率%,工单数` + 合计行 |
 | `/mfg/control/hoursCsv` | 工时趋势 CSV：`期间,汇总方式,工时,良品,单台工时,工单数` + 合计行 |
 | `/mfg/control/devIssueSave` / `/mfg/control/devIssueStatus` | POST 登记问题 / 只改问题状态（关闭时写关闭日） |
@@ -984,6 +985,13 @@ SMT 为外协，且对方**不提供上料 / 换料记录**，因此追溯精度
   `MFG_ALLOC_BY_QTY`（按数量）两个值，现在只接受 `MFG_ALLOC_NONE`，打开时分摊额写到行上即可，
   不需要改表结构。
 
+### 按月看运费
+
+报表页（`/mfg/control/reports`）下半部分是「采购与运费」：卡片给出区间的到货单数、货款、运费、
+采购支出与运费占货款，表里一个期间一行（跟着报表上方的按日 / 按周 / 按月切换），最后一行是合计；
+右上「导出采购运费 CSV」下载同一张表（七列 + 合计行 + UTF-8 BOM，Excel 双击直接开）。
+数据来自服务 `mfgPurchaseFreightTrend`，与到货单页共用 `receiptSummary` 的口径，所以两处数字不会打架。
+
 ## 看板告警与 CSV 导出
 
 看板顶部只回答一个问题：**今天必须处理什么**。所以告警集中在一处，口径固定：
@@ -1153,6 +1161,7 @@ $$
 | 单张采购支出 | $\text{支出} = \text{货款合计} + \text{整单运费}$（运费**不摊进任何一行**） |
 | 运费占货款 | $\text{运费} \div \text{货款合计} \times 100\%$（货款为 0 时记 0，不做除法） |
 | 列表合计 | 对筛选后的单据分别汇总货款、运费与支出，比例同上一行 |
+| 按期间汇总 | 同一个口径按 `periodKey`（日 / ISO 周 / 月）分桶：单据数、货款、运费、支出、比例的合计行都是分桶后相加再 `round2` |
 
 ### 8. 软件项目与报价（`softwareCost`，见上文「软件项目」）
 

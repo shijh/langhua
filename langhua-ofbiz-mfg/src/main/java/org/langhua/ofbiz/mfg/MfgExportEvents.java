@@ -262,6 +262,66 @@ public final class MfgExportEvents {
     }
 
     /**
+     * Runs the freight service with the filters of the request.
+     *
+     * @param request the request
+     * @return the service result, {@code null} when it did not run
+     */
+    private static Map<String, Object> freightOf(HttpServletRequest request) {
+        LocalDispatcher dispatcher = (LocalDispatcher) request.getAttribute("dispatcher");
+        if (dispatcher == null) {
+            return null;
+        }
+        Map<String, Object> context = new java.util.HashMap<>();
+        context.put("fromDate", request.getParameter("fromDate"));
+        context.put("toDate", request.getParameter("toDate"));
+        context.put("groupBy", request.getParameter("groupBy"));
+        try {
+            return dispatcher.runSync("mfgPurchaseFreightTrend", context);
+        } catch (GenericServiceException e) {
+            Debug.logError(e, "Could not read the freight report for the CSV export", MODULE);
+            return null;
+        }
+    }
+
+    /**
+     * Exports the purchase freight per period: goods value, freight, total spent and the share the
+     * freight has of the goods value.
+     *
+     * @param request the request, carries the period filters
+     * @param response the response, receives the CSV
+     * @return {@code success}, {@code error} when the report could not be read
+     */
+    public static String freightCsv(HttpServletRequest request, HttpServletResponse response) {
+        Map<String, Object> report = freightOf(request);
+        if (report == null) {
+            return "error";
+        }
+        List<Map<String, Object>> rows = UtilGenerics.cast(report.get("rows"));
+        List<String> lines = new ArrayList<>();
+        lines.add(MfgServices.csvLine(Arrays.asList("期间", "汇总方式", "单据数",
+                "货款", "运费", "采购支出", "运费占货款%")));
+        if (rows != null) {
+            for (Map<String, Object> row : rows) {
+                lines.add(MfgServices.csvLine(Arrays.asList(
+                        text(row.get("period")),
+                        text(report.get("groupBy")),
+                        text(row.get("receiptCount")),
+                        text(row.get("goodsTotal")),
+                        text(row.get("freightTotal")),
+                        text(row.get("spendTotal")),
+                        text(row.get("freightShare")))));
+            }
+        }
+        lines.add(MfgServices.csvLine(Arrays.asList("合计", text(report.get("groupBy")),
+                text(report.get("receiptCount")), text(report.get("goodsTotal")),
+                text(report.get("freightTotal")), text(report.get("spendTotal")),
+                text(report.get("freightShare")))));
+        writeCsv(response, "mfg-purchase-freight", lines);
+        return "success";
+    }
+
+    /**
      * Runs the trend service with the filters of the request.
      *
      * @param request the request
