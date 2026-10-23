@@ -407,6 +407,13 @@
         <response name="error" type="none"/>
     </request-map>
 
+    <request-map uri="visionTest">
+        <security https="true" auth="true"/>
+        <event type="java" path="org.langhua.ofbiz.mfg.MfgOrderScan" invoke="test"/>
+        <response name="success" type="none"/>
+        <response name="error" type="none"/>
+    </request-map>
+
     <request-map uri="locationSave">
         <security https="true" auth="true"/>
         <event type="service" invoke="mfgLocationSave"/>

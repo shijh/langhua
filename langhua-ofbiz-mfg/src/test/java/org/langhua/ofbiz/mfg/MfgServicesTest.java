@@ -618,6 +618,33 @@ public class MfgServicesTest {
     }
 
     @Test
+    public void completesTheVisionEndpoint() {
+        // people type only the host, or stop at the version: the API answers those with 404
+        assertEquals("https://api.deepseek.com/v1/chat/completions",
+                MfgServices.normalizeVisionEndpoint("https://api.deepseek.com"));
+        assertEquals("https://api.deepseek.com/v1/chat/completions",
+                MfgServices.normalizeVisionEndpoint("https://api.deepseek.com/"));
+        assertEquals("https://open.bigmodel.cn/api/paas/v4/chat/completions",
+                MfgServices.normalizeVisionEndpoint("https://open.bigmodel.cn/api/paas/v4"));
+        // a complete address is left alone
+        assertEquals("https://api.openai.com/v1/chat/completions",
+                MfgServices.normalizeVisionEndpoint("https://api.openai.com/v1/chat/completions"));
+        assertNull(MfgServices.normalizeVisionEndpoint(null));
+    }
+
+    @Test
+    public void explainsAFailedVisionCall() {
+        assertTrue(MfgServices.describeVisionError(404, "").contains("chat/completions"));
+        assertTrue(MfgServices.describeVisionError(401, "{\"error\":\"bad key\"}").contains("密钥"));
+        assertTrue(MfgServices.describeVisionError(400, "").contains("不支持看图"));
+        // the body is quoted but kept short
+        String longBody = MfgServices.describeVisionError(400,
+                "{\"error\":\"" + "x".repeat(500) + "\"}");
+        assertTrue(longBody.contains("…"));
+        assertTrue(longBody.length() < 380);
+    }
+
+    @Test
     public void numbersTheNextBomVersion() {
         List<String> none = new java.util.ArrayList<>();
         assertEquals(1L, MfgServices.nextBomVersionNo(none, "BT5"));

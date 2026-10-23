@@ -1023,6 +1023,15 @@ CAP-104-50V,瓷片电容器 104 0.1uF 100NF 50V,100,2.91
    保存即生效——不用再改启动脚本；也可以继续用系统属性 `org.langhua.mfg.vision.endpoint` / `.model` / `.key`，
    数据库里的值优先。页面上的「识别并填入」会把图发过去、把结果填进框里；没配时按钮会提示而不报错。
    识别结果一律先填进可编辑的框，**人能改**，提交才写库。
+3. **保存后先点「测试连接」**：它拿一张 1 像素的图去调接口，当场告诉你地址 / 模型 / 密钥哪一项不对：
+   - `HTTP 404` → 地址没写全：只填域名时会自动补成 `/v1/chat/completions`，已经带 `/v4` 这类版本号的会补 `/chat/completions`；
+   - `HTTP 401/403` → 密钥不对；`HTTP 400` → 模型名不对，或者这个模型不支持看图；
+   - 返回「没有返回能用的明细」→ 模型是纯文本的，看不见图。
+
+地址与模型要配对，现成能用的几组：阿里云百炼 `https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions` +
+`qwen-vl-max`；智谱 `https://open.bigmodel.cn/api/paas/v4/chat/completions` + `glm-4v-plus`；
+OpenAI `https://api.openai.com/v1/chat/completions` + `gpt-4o-mini`；本地 ollama
+`http://127.0.0.1:11434/v1/chat/completions` + `qwen2-vl`（密钥随便填）。**纯文本模型（deepseek-chat 之类）看不了图**。
 
 ## 看板告警与 CSV 导出
 

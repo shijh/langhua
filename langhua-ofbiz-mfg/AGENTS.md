@@ -118,7 +118,11 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   `org.langhua.mfg.vision.*`）；`MfgServices.setting()` **先读库、再退回 `System.getProperty`**，所以老启动脚本照旧有效。
   密钥只存不回显（表单 `value=""`，留空=不修改），`clear=Y` 删掉三行；管理员判定复用 `accountAdminProblem`。
   页面靠 `data-configured` / `data-source`（DATABASE / JVM）两个属性给巡检断言；m48 结束时必须 `clear=Y`，
-  否则 m47 的“未配置时的回答”会挂
+  否则 m47 的“未配置时的回答”会挂。**m48 会清空识图配置（包括密钥，密钥不回显也读不回来），
+  所以跑完 suite 要重新填**；正式入口是页面上的「测试连接」（`/mfg/control/visionTest`，拿 1 像素图调一次）。
+  地址不写全很常见：`MfgServices.normalizeVisionEndpoint` 在**保存时和调用时**各补一次
+  （只写域名 → `/v1/chat/completions`，已到 `/v4` 这类版本号 → `/chat/completions`），
+  `describeVisionError` 把 404/401/400/429/5xx 翻成人话（404 = 地址没写全）
 - **单价只能存 2 位小数，所以按“实付金额”记（Step 60）**：`currency-amount` 在 Derby 上是 `NUMERIC(18,2)`，
   淘宝一百个电容实付 2.91 的单价是 0.0291，存进去变 0.03（一百个多算 9 分）。所以 `MfgMaterialLot.receivedAmount`
   存实付总额（2 位、精确），单价由 `lotUnitCost()` = 金额 ÷ 数量 算（无金额时回退 `unitPrice`），

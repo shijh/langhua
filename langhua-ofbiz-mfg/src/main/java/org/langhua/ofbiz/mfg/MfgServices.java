@@ -8323,7 +8323,7 @@ always
             if (endpoint != null && !endpoint.startsWith("http://") && !endpoint.startsWith("https://")) {
                 return ServiceUtil.returnError("识图接口要以 http:// 或 https:// 开头：" + endpoint);
             }
-            storeSetting(delegator, "org.langhua.mfg.vision.endpoint", endpoint);
+            storeSetting(delegator, "org.langhua.mfg.vision.endpoint", normalizeVisionEndpoint(endpoint));
             storeSetting(delegator, "org.langhua.mfg.vision.model", toText(context.get("visionModel")));
             String key = toText(context.get("visionKey"));
             if (key != null) {
@@ -8342,6 +8342,62 @@ always
         } catch (GenericEntityException e) {
             return false;
         }
+    }
+
+    /**
+     * Turns a partly typed endpoint into the URL the API expects: many people type only the host or
+     * stop at the version, and the API answers those with 404.
+     *
+     * @param endpoint what the settings hold
+     * @return the chat completions URL, {@code null} for a null input
+     */
+    static String normalizeVisionEndpoint(String endpoint) {
+        if (endpoint == null) {
+            return null;
+        }
+        String url = endpoint.trim();
+        while (url.endsWith("/")) {
+            url = url.substring(0, url.length() - 1);
+        }
+        if (url.endsWith("/chat/completions")) {
+            return url;
+        }
+        int slash = url.lastIndexOf('/');
+        String last = slash < 0 ? url : url.substring(slash + 1);
+        if (last.matches("v\\d+") || last.matches("\\d.*")) {
+            // already at /v1, /v4 ...
+            return url + "/chat/completions";
+        }
+        return url + "/v1/chat/completions";
+    }
+
+    /**
+     * Says in plain words what a failed vision call means, with a short piece of the API answer.
+     *
+     * @param status the HTTP status
+     * @param body the answer body, may be {@code null}
+     * @return the message shown to the person
+     */
+    static String describeVisionError(int status, String body) {
+        String hint;
+        if (status == 401 || status == 403) {
+            hint = "密钥不对或没有权限";
+        } else if (status == 404) {
+            hint = "接口地址不对，要填完整的 chat/completions 地址，例如 https://api.deepseek.com/v1/chat/completions";
+        } else if (status == 400) {
+            hint = "请求被拒：模型名可能不对，或者这个模型不支持看图（换一个能看图的模型）";
+        } else if (status == 429) {
+            hint = "调用太频繁，稍后再试";
+        } else if (status >= 500) {
+            hint = "识图服务自己出错，稍后再试";
+        } else {
+            hint = "调用失败";
+        }
+        String detail = body == null ? "" : body.replaceAll("\\s+", " ").trim();
+        if (detail.length() > 300) {
+            detail = detail.substring(0, 300) + "…";
+        }
+        return "HTTP " + status + "：" + hint + (detail.isEmpty() ? "" : "（" + detail + "）");
     }
 
     /**

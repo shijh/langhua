@@ -57,6 +57,10 @@ public final class MfgOrderScan {
     /** Largest screenshot accepted, phone screenshots are well below. */
     static final int MAX_IMAGE_BYTES = 8 * 1024 * 1024;
 
+    /** A 1x1 png, used by the connection test so a vision endpoint has something to look at. */
+    private static final String TINY_PNG =
+            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
+
     /** What the model is asked for: one JSON object, nothing else. */
     static final String PROMPT = "This is a screenshot of an online shop order (Taobao / Tmall)."
             + " Read the order number, the shop name, the order date (yyyy-MM-dd), the freight paid"
@@ -91,9 +95,9 @@ public final class MfgOrderScan {
         String model = text(MfgServices.setting(delegatorOf(request), VISION_MODEL));
         String key = text(MfgServices.setting(delegatorOf(request), VISION_KEY));
         if (endpoint == null || model == null || key == null) {
-            return answer(response, false, "还没有配置识图服务（在「系统设置」页填：" + VISION_ENDPOINT
-                    + " / " + VISION_MODEL + " / " + VISION_KEY + "），请把明细粘进框里", null);
+            return answer(response, false, missingSetting(), null);
         }
+        endpoint = MfgServices.normalizeVisionEndpoint(endpoint);
         String contentType = text(parameters.get("_image_contentType"));
         if (contentType == null) {
             contentType = "image/png";
@@ -102,13 +106,55 @@ public final class MfgOrderScan {
             String reply = askVision(endpoint, model, key, image, contentType);
             Map<String, String> fields = MfgServices.orderFieldsFrom(reply);
             if (fields == null) {
-                return answer(response, false, "识图服务没有返回可用的明细，请手工填", null);
+                return answer(response, false, "识图服务没有返回能用的明细：模型可能不支持看图"
+                        + "（换成 qwen-vl-max、glm-4v-plus、gpt-4o-mini 这类能看图的模型），"
+                        + "或者截图里没有订单信息；也可以手工填", null);
             }
             return answer(response, true, "已识别，核对后再提交", fields);
         } catch (IOException e) {
             Debug.logError(e, "Could not ask the vision service", MODULE);
             return answer(response, false, "识图服务调用失败：" + e.getMessage(), null);
         }
+    }
+
+    /**
+     * Tries the configured endpoint with a one pixel picture, so a wrong address, key or model is
+     * found on the settings page instead of in the middle of booking an order in.
+     *
+     * @param request the request
+     * @param response the response, receives a small JSON document
+     * @return {@code success}, {@code error} when the answer could not be written
+     */
+    public static String test(HttpServletRequest request, HttpServletResponse response) {
+        String endpoint = text(MfgServices.setting(delegatorOf(request), VISION_ENDPOINT));
+        String model = text(MfgServices.setting(delegatorOf(request), VISION_MODEL));
+        String key = text(MfgServices.setting(delegatorOf(request), VISION_KEY));
+        if (endpoint == null || model == null || key == null) {
+            return answer(response, false, missingSetting(), null);
+        }
+        try {
+            String reply = askVision(MfgServices.normalizeVisionEndpoint(endpoint), model, key,
+                    Base64.getDecoder().decode(TINY_PNG), "image/png");
+            String content = MfgServices.jsonStringField(reply, "content");
+            if (content == null) {
+                content = reply;
+            }
+            if (content.length() > 200) {
+                content = content.substring(0, 200) + "…";
+            }
+            return answer(response, true, "连接成功，模型回答：" + content, null);
+        } catch (IOException e) {
+            Debug.logError(e, "Could not test the vision service", MODULE);
+            return answer(response, false, "识图服务调用失败：" + e.getMessage(), null);
+        }
+    }
+
+    /**
+     * @return the message shown when one of the three settings is missing
+     */
+    static String missingSetting() {
+        return "还没有配置识图服务（在「系统设置」页填：" + VISION_ENDPOINT + " / " + VISION_MODEL
+                + " / " + VISION_KEY + "），请把明细粘进框里";
     }
 
     /**
@@ -147,7 +193,7 @@ public final class MfgOrderScan {
             InputStream stream = status >= 400 ? connection.getErrorStream() : connection.getInputStream();
             String text = stream == null ? "" : readAll(stream);
             if (status >= 400) {
-                throw new IOException("HTTP " + status + " " + text);
+                throw new IOException(MfgServices.describeVisionError(status, text));
             }
             return text;
         } finally {
