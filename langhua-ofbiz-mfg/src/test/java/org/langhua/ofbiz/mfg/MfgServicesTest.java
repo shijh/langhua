@@ -632,6 +632,30 @@ public class MfgServicesTest {
     }
 
     @Test
+    public void fitsALongPartNumberIntoTheCodeField() {
+        // a code that fits is kept, spaces are not
+        assertEquals("CAP-104-50V", MfgServices.fittingComponentCode(" CAP-104-50V "));
+
+        // a package description as the part number is shortened, the same way every time
+        String long1 = "QFN16-0.65-QFN20-0.4-2.54";
+        String short1 = MfgServices.fittingComponentCode(long1);
+        assertTrue(short1.length() <= 20);
+        assertTrue(short1.startsWith("QFN16-0.65"));
+        assertEquals(short1, MfgServices.fittingComponentCode(long1));
+
+        // two similar parts must not end up with the same code
+        assertFalse(short1.equals(MfgServices.fittingComponentCode("QFN16-0.65-QFN20-0.4-3.2")));
+
+        // the lines of an order are rewritten with the short code and the full number in the name
+        String lines = MfgServices.fitOrderLines(long1 + ",转接板 2.54mm,2,12.60");
+        String[] cells = lines.split("\t");
+        assertEquals(short1, cells[0]);
+        assertTrue(cells[1].contains(long1));
+        assertEquals("2", cells[2]);
+        assertEquals("12.60", cells[3]);
+    }
+
+    @Test
     public void quotesWhatTheVisionModelAnswered() {
         // the quote is what tells "this is not an order" from "the model cannot see images"
         assertEquals("（空回答）", MfgServices.visionReplyExcerpt(null, 40));

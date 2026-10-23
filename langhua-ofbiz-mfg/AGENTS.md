@@ -108,7 +108,7 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
 | `verify-m44.ps1` | BOM 导入选文件（Step 54）：表单是 multipart、有 `file` 字段、上传 Fritzing 文件后合并 9 种料、**文件优先于文本框**、GBK 文件能解码、料号超长被拒、空提交有提示、20 位型号编码也能导入（日志 `mfg-m43b.txt`） | 31 |
 | `verify-m45.ps1` | BOM 行就地编辑（Step 56/57）：标题带版本号、每行有自己的表单（`form="bomLine<n>"` 的 qty/designators/isKeyPart/unitPrice）、保存后数量与金额重算、手加一行、删除一行、用量 0 被拒、`#bomBlock` 与 JSON 出口（保存/拒绝/删除三种回答）（日志 `mfg-m45.txt`） | 34 |
 | `verify-m46.ps1` | 采购到货单（Step 58）：汇总表与 `data-allocation`、建单与运费、批次下拉、挂批次后的行与金额、合计含运费、同一批次不能挂两张单、负运费被拒、行可以移出（日志 `mfg-m46.txt`） | 26 |
-| `verify-m47.ps1` | 照淘宝订单一步入库（Step 60）：订单表单、两行明细 → 建单+入库、订单号已存、货款 4.41、便宜料单价 0.0291、重复提交不重复入库、补运费累加、不满四列/数量 0 被拒、识图按钮与 `/mfg/control/orderImage` 降级回答（日志 `mfg-m47.txt`） | 23 |
+| `verify-m47.ps1` | 照淘宝订单一步入库（Step 60/65）：订单表单、两行明细 → 建单+入库、订单号已存、货款 4.41、便宜料单价 0.0291、重复提交不重复入库、补运费累加、不满四列/数量 0 被拒、**长料号被缩短且全称留在名称里**、识图按钮与 `/mfg/control/orderImage` 降级回答（日志 `mfg-m47.txt`；最后一项要求实例上没配识图，跑完 m48 会清掉） | 26 |
 | `verify-m48.ps1` | 系统设置页（Step 61）：识图配置块与状态、密钥不回显、接口必须 http(s)、空密钥保留旧的、保存后状态变 DATABASE、`clear=Y` 恢复未配置、没配/配了两种 scan 回答（日志 `mfg-m48.txt`） | 26 |
 
 ## 设计决策
@@ -142,6 +142,12 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
 - **照订单一步入库（Step 60）**：`mfgReceiptFromOrder`（IN `lines`：`料号,名称,数量,实付金额`，逗号或 Tab）
   一次完成建批次 + RECEIPT 流水 + 到货单行；**订单号做幂等键**（同号复用单据、重复行跳过、后来补的运费累加到单上）；
   页面上是到货单页的 `#orderBlock`，提示“数量按个填、金额填实付”
+- **长料号自动缩短（Step 65）**：`componentCode` 是 `id`（20 字符），淘宝常把封装写成料号
+  （`QFN16-0.65-QFN20-0.4-2.54`）。`MfgServices.fittingComponentCode` 超出就截前 ~13 位 + 整串的
+  6 位 hash（固定规则、同一个料号每次同结果，第二次到货落到同批次），`nameWithFullCode` 把全称补进名称
+  （`name` 100 字符，超了截断）；到货单/截图识别路径**不再报错**（`fitOrderLines` 在识别时就把 code 改短，
+  表单里看到的就是入库的），BOM 导入与 BOM 行手工添加仍是报错但**会给出建议的短料号**。
+  注意 `fitOrderLines` 用 **Tab** 重新拼行（名称里可能有逗号）
 - **截图识别（Step 60）**：`MfgOrderScan.scan`（`/mfg/control/orderImage`，multipart `image`）把图发给兼容 OpenAI 的
   视觉接口，配置项是系统属性 `org.langhua.mfg.vision.endpoint` / `.model` / `.key`；没配时返回 `{"ok":false,"message":…}`
   提示手工填（**绝不报错页**），识别结果只**填入可编辑表单**、人不提交不写库。回答解析在 `MfgServices.orderFieldsFrom`

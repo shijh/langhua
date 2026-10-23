@@ -1238,7 +1238,7 @@ public final class MfgServices {
             }
             if (row[0].length() > MAX_COMPONENT_CODE) {
                 return ServiceUtil.returnError("料号太长（最多 " + MAX_COMPONENT_CODE + " 个字符）：" + row[0]
-                        + "；请在源文件里改用物料号，或直接改成短料号");
+                        + "；请在源文件里改用物料号，或改成短料号（例如 " + fittingComponentCode(row[0]) + "）");
             }
         }
         try {
@@ -1359,7 +1359,8 @@ public final class MfgServices {
                     return ServiceUtil.returnError("料号不能为空");
                 }
                 if (componentCode.length() > MAX_COMPONENT_CODE) {
-                    return ServiceUtil.returnError("料号太长（最多 " + MAX_COMPONENT_CODE + " 个字符）：" + componentCode);
+                    return ServiceUtil.returnError("料号太长（最多 " + MAX_COMPONENT_CODE + " 个字符）：" + componentCode
+                            + "，可以改成 " + fittingComponentCode(componentCode));
                 }
                 lineSeq = nextBomLineSeq(delegator, versionId);
                 item = delegator.makeValue("MfgBomVersionItem");
@@ -7958,9 +7959,15 @@ always
         if (rows.isEmpty()) {
             return ServiceUtil.returnError("没有解析出明细，一行一个料：料号,名称,数量,实付金额");
         }
+        int shortened = 0;
         for (String[] row : rows) {
             if (row[0].length() > MAX_COMPONENT_CODE) {
-                return ServiceUtil.returnError("料号太长（最多 " + MAX_COMPONENT_CODE + " 个字符）：" + row[0]);
+                // a shop order often carries a package description as the part number, which is
+                // longer than the code field; short it instead of refusing the whole order
+                String fullCode = row[0];
+                row[0] = fittingComponentCode(fullCode);
+                row[1] = nameWithFullCode(row[1], fullCode);
+                shortened++;
             }
             if (toDouble(row[2], 0.0) <= 0.0) {
                 return ServiceUtil.returnError("数量要大于 0：" + row[0]);
@@ -8054,6 +8061,7 @@ always
             result.put("receiptId", receiptId);
             result.put("importedCount", String.valueOf(imported));
             result.put("skippedCount", String.valueOf(skipped));
+            result.put("shortenedCount", String.valueOf(shortened));
             result.putAll(summary);
             return result;
         } catch (GenericEntityException e) {
@@ -8093,6 +8101,70 @@ always
 
     private static char cellsSeparator(String line) {
         return line.indexOf('\t') >= 0 ? '\t' : ',';
+    }
+
+    /**
+     * Fits a part number into the 20 characters the code fields allow. A shop order often carries a
+     * package description as the part number ({@code QFN16-0.65-QFN20-0.4-2.54}); cutting only the
+     * tail would merge two similar parts, so a short hash of the whole text is appended:
+     * {@code QFN16-0.65-6f1a2b}. The same text always gives the same code, so a second delivery of
+     * the same order still lands on the same lots.
+     *
+     * @param code the part number as typed or recognised
+     * @return the code itself when it fits, otherwise a shorter but stable one
+     */
+    static String fittingComponentCode(String code) {
+        String trimmed = code == null ? "" : code.replaceAll("\\s+", "");
+        if (trimmed.length() <= MAX_COMPONENT_CODE) {
+            return trimmed;
+        }
+        String hash = String.format(Locale.ROOT, "%06x", ((long) trimmed.hashCode()) & 0xffffffL);
+        int keep = MAX_COMPONENT_CODE - hash.length() - 1;
+        String head = trimmed.substring(0, keep);
+        int cut = head.lastIndexOf('-');
+        if (cut >= keep - 4) {
+            head = head.substring(0, cut);
+        }
+        return head + "-" + hash;
+    }
+
+    /**
+     * Rewrites the code column of pasted order lines so every code fits the code field. A name may
+     * hold commas, so the rows are joined with tabs, which the parser accepts too.
+     *
+     * @param lines the pasted or recognised lines
+     * @return the same lines with fitting codes
+     */
+    static String fitOrderLines(String lines) {
+        List<String[]> rows = parseOrderArticleLines(lines);
+        if (rows.isEmpty()) {
+            return lines;
+        }
+        StringBuilder out = new StringBuilder();
+        for (String[] row : rows) {
+            if (out.length() > 0) {
+                out.append('\n');
+            }
+            out.append(fittingComponentCode(row[0])).append('\t').append(nameWithFullCode(row[1], row[0]))
+                    .append('\t').append(row[2]).append('\t').append(row[3]);
+        }
+        return out.toString();
+    }
+
+    /**
+     * Keeps the full part number searchable when the code had to be shortened.
+     *
+     * @param name the name of the article
+     * @param fullCode the part number as it came in
+     * @return the name, with the full part number appended when it is not already there
+     */
+    private static String nameWithFullCode(String name, String fullCode) {
+        String base = name == null ? "" : name.trim();
+        if (fullCode == null || fullCode.isEmpty() || base.contains(fullCode)) {
+            return base;
+        }
+        String combined = base.isEmpty() ? fullCode : base + ' ' + fullCode;
+        return combined.length() <= 100 ? combined : combined.substring(0, 100);
     }
 
     private static String lotLineKey(String componentCode, Object qty, Object amount) {

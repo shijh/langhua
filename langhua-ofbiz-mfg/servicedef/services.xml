@@ -1105,6 +1105,7 @@
         <attribute name="receiptId" type="String" mode="OUT" optional="true"/>
         <attribute name="importedCount" type="String" mode="OUT" optional="true"/>
         <attribute name="skippedCount" type="String" mode="OUT" optional="true"/>
+        <attribute name="shortenedCount" type="String" mode="OUT" optional="true"/>
         <attribute name="lineCount" type="Integer" mode="OUT" optional="true"/>
         <attribute name="goodsTotal" type="Double" mode="OUT" optional="true"/>
         <attribute name="freightTotal" type="Double" mode="OUT" optional="true"/>

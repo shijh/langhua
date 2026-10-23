@@ -70,7 +70,8 @@ public final class MfgOrderScan {
             + "\"lines\":\"code,name,quantity,amount\"} where lines has one row per article,"
             + " quantity is the number of pieces (a lot of 100 pieces is 100, not 1) and amount is"
             + " the money really paid for that row without freight. Use a code the shop can"
-            + " recognise from the article name.";
+            + " recognise from the article name, at most 20 characters long: shorten a long package"
+            + " description, e.g. QFN16-0.65-QFN20-0.4-2.54 becomes QFN20-0.4-2.54.";
 
     private MfgOrderScan() {
     }
@@ -112,6 +113,9 @@ public final class MfgOrderScan {
                         + MfgServices.visionReplyExcerpt(reply, 160)
                         + "。换一张订单/商品明细的截图再试，也可以手工填", null);
             }
+            // a package description as the part number does not fit the code field: short it here
+            // so the form already shows the code that will be stored
+            fields.put("lines", MfgServices.fitOrderLines(fields.get("lines")));
             return answer(response, true, "已识别，核对后再提交", fields);
         } catch (IOException e) {
             Debug.logError(e, "Could not ask the vision service", MODULE);
