@@ -1098,4 +1098,16 @@ public class MfgServicesTest {
         assertEquals(1, forced.size());
         assertEquals("U9-CHIP", forced.get(0)[0]);
     }
+
+    @Test
+    public void checksTheNewPassword() {
+        // too short, typed twice differently, or the same as the current one
+        assertEquals("新密码至少 5 个字符", MfgServices.passwordProblem("ofbiz", "abcd", "abcd"));
+        assertEquals("新密码至少 5 个字符", MfgServices.passwordProblem("ofbiz", null, "abcd1234"));
+        assertEquals("两次输入的新密码不一致", MfgServices.passwordProblem("ofbiz", "abcde", "abcdef"));
+        assertEquals("两次输入的新密码不一致", MfgServices.passwordProblem("ofbiz", "abcde", null));
+        assertEquals("新密码不能和当前密码相同", MfgServices.passwordProblem("ofbiz", "ofbiz", "ofbiz"));
+        assertNull(MfgServices.passwordProblem("ofbiz", "Mfg2026", "Mfg2026"));
+        assertNull(MfgServices.passwordProblem(null, "Mfg2026", "Mfg2026"));
+    }
 }

@@ -28,6 +28,7 @@
 <p class="nav">
     <img class="brand" src="/learningcurve/images/logo-64.png" alt="" width="26" height="26"/>
     <b>修改密码</b>
+    <a href="/learningcurve/control/logout" class="logout">退出登录</a>
 </p>
 <h1>请先修改默认密码</h1>
 <p class="error">${(pwd.message)!'当前账号还在用出厂密码，请先改成自己的密码再继续使用'}</p>
@@ -46,7 +47,7 @@
             密码提示（可选）<input type="text" name="passwordHint" size="30"/>
             <input type="submit" class="secondary" value="修改密码"/>
         </p>
-        <p class="hint">至少 5 个字符，不能和当前密码相同；改完自动回到估算页。</p>
+        <p class="hint">至少 5 个字符，不能和当前密码相同；改完会自动退出，请用新密码重新登录。</p>
     </fieldset>
 </form>
 <#else>
@@ -55,6 +56,7 @@
     <@navItem 'estimate' '/learningcurve/control/main' '新建估算'/>
     <@navItem 'records' '/learningcurve/control/records' '估算记录'/>
     <@navItem 'quote' '/learningcurve/control/quote' '软件报价'/>
+    <a href="/learningcurve/control/logout" class="logout">退出登录</a>
 </p>
 
 <#if sections??>${sections.render("body")}</#if>

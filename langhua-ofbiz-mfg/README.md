@@ -224,6 +224,11 @@ https://localhost:8443/mfg/control/main
 `admin` 还是出厂密码 `ofbiz` 时，`/mfg` 与 `/learningcurve` **都不渲染页面内容**，只显示一张
 「请先修改默认密码」的表单（当前密码 / 新密码 / 确认新密码 / 密码提示，新密码至少 5 位）：
 
+- **改密码的规则**：≥ 5 个字符、两次输入一致、**不能和当前密码相同**（OFBiz 自带的
+  `updatePassword` 对管理员会跳过「新旧不同」这条，所以 `mfgChangePassword` 自己先查一遍）；
+- **改成功后自动退出登录**（`changePasswordSave` → `logout`），请用新密码重新登录；
+- 导航条最后一项是 **「退出登录」**（`/mfg/control/logout`，两个 webapp 都有），门禁页上也有；
+
 - 门禁做在装饰器上：`widget/MfgCommonScreens.xml` 的 `mfg-decorator` 调 `mfgPasswordStatus`（`result-map="pwdStatus"`），
   `decorator.ftl` 里 `mustChange` 为真时只输出表单，导航和 `sections.render("body")` 都跳过；
   学习曲线组件在 `lc-decorator` 里调**同一个服务**（`ignore-error="true"`，MES 没部署时不影响它自己的页面）；

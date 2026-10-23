@@ -103,6 +103,7 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
 | `verify-m40.ps1` | 用户账号页：渲染与高亮、建账号（行上的 `data-account` / `data-enabled` / `data-default-password` / `data-groups`）、非法名校验、大小写重名不新增行、重置密码、停用/启用、不能停用自己 | 24 |
 | `verify-m41.ps1` | 角色权限：用 `MFG_WAREHOUSE` 账号登进来看菜单/成本/BOM 单价是否隐藏、BOM 导入与销售订单写入被拒、账号页只读；管理员仍看到全部 | 22 |
 | `verify-m42.ps1` | Fritzing BOM 导入：格式下拉、粘贴导出后 9 种料合并、`Amount` 给用量、`Label` 给位号、无物料号用名称、本系统格式仍可强制导入、料号超长被拒 | 18 |
+| `verify-m43.ps1` | 改密码与退出：新建账号登录、导航有 logout、错当前密码/新旧相同/两次不一致/太短都被拒、改成功落到登录页且会话关闭、旧密码失效新密码可用、logout 结束会话 | 15 |
 
 ## 设计决策
 
@@ -238,11 +239,15 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   `plannedDays` 在保存时冻结成快照（改参数不改历史），实测耗时率 = actualHours/功能点，列表返回中位数做基准；
   项目超人天/超期进 `mfgAlerts`（`MFG_ALERT_SOFTWARE`）。**40 人时/功能点与明细功能点的 6~7 人时/功能点 差约六倍，不能混用**；
   页面上一律用中文术语（内部逻辑文件 / 外部接口文件 / 未调整功能点 / 功能点耗时率 / 软件因素调整因子 / 开发因素调整因子），不写英文缩写
-- **首次登录强制改密码（Step 49）**：出厂密码 `ofbiz` 未改时 `/mfg` 与 `/learningcurve` 只渲染一张改密表单——
-  门禁在**装饰器**里（`mfg-decorator` 调 `mfgPasswordStatus` → `result-map="pwdStatus"`，`decorator.ftl` 里
+- **首次登录强制改密码（Step 49）**：出厂密码 `ofbiz` 未改时 `/mfg` 与 `/learningcurve` 只渲染一张改密表单——  门禁在**装饰器**里（`mfg-decorator` 调 `mfgPasswordStatus` → `result-map="pwdStatus"`，`decorator.ftl` 里
   `mustChange` 为真就只输出表单，导航与 `sections.render("body")` 都跳过），不是每个屏幕各写一遍；
   服务 `mfgPasswordStatus` 用 `isDefaultPassword()` 比对 `currentPassword`（按 `security` 的 `password.encrypt`
   决定要不要走 `LoginServices.checkPassword`），`mfgChangePassword` 核对完当前密码后**转调 OFBiz 的 `updatePassword`**，不自己写库；
+  **新密码规则自己先查一遍**（`passwordProblem()`：≥5 位、两次一致、不能和旧密码相同）——OFBiz 的
+  `updatePassword` 对管理员会跳过「新旧不同」；
+  **改成功就退出登录**：`changePasswordSave` 的 success 改成 `request-redirect value="logout"`（两个 webapp 各一份），
+  退出后落到登录页（`main` 未登录时是 401 + 登录页，巡检要读异常里的响应体才能断言登录页）；
+  导航条最后一项是「退出登录」（`/mfg/control/logout`，`.nav a.logout` 样式，两个装饰器都有，门禁页也有）；
   表单 POST `changePasswordSave`（两个 webapp 各一个 request-map，落到同一个服务）；
   **开关是系统属性 `org.langhua.mfg.requirePasswordChange`，只有 `Y` 才启用**：`start-prod.bat` 设 `Y`，
   开发实例 `ofbiz-server.bat` 显式设 `N`（否则巡检/集成测试用 `admin`/`ofbiz` 登录会整片红），

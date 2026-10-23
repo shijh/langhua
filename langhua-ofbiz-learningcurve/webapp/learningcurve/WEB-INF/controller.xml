@@ -58,11 +58,12 @@
         <response name="success" type="view" value="recordDetail"/>
     </request-map>
 
-    <!-- the password gate posts here (the service lives in the MES component) -->
+    <!-- the password gate posts here (the service lives in the MES component); a changed password
+         sends the user back to the login screen so the new one is used right away -->
     <request-map uri="changePasswordSave">
         <security https="true" auth="true"/>
         <event type="service" invoke="mfgChangePassword"/>
-        <response name="success" type="request-redirect" value="main"/>
+        <response name="success" type="request-redirect" value="logout"/>
         <response name="error" type="view" value="main"/>
     </request-map>
 

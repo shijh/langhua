@@ -374,12 +374,19 @@ public final class MfgServices {
         if (currentPassword == null || !matchesStoredPassword(delegator, userLoginId, currentPassword)) {
             return ServiceUtil.returnError("当前密码不对");
         }
+        String newPassword = toText(context.get("newPassword"));
+        String newPasswordVerify = toText(context.get("newPasswordVerify"));
+        // checked here as well: OFBiz skips the "must differ" rule for an administrator
+        String problem = passwordProblem(currentPassword, newPassword, newPasswordVerify);
+        if (problem != null) {
+            return ServiceUtil.returnError(problem);
+        }
         Map<String, Object> updateContext = new HashMap<>();
         updateContext.put("userLogin", userLogin);
         updateContext.put("userLoginId", userLoginId);
         updateContext.put("currentPassword", currentPassword);
-        updateContext.put("newPassword", toText(context.get("newPassword")));
-        updateContext.put("newPasswordVerify", toText(context.get("newPasswordVerify")));
+        updateContext.put("newPassword", newPassword);
+        updateContext.put("newPasswordVerify", newPasswordVerify);
         updateContext.put("passwordHint", toText(context.get("passwordHint")));
         try {
             Map<String, Object> updated = dctx.getDispatcher().runSync("updatePassword", updateContext, -1, true);
@@ -404,6 +411,28 @@ public final class MfgServices {
     }
 
     /**
+     * Applies the rules of a new password: at least five characters, typed twice the same way, and
+     * different from the current password.
+     *
+     * @param currentPassword the password in use, may be {@code null}
+     * @param newPassword the new password as typed in
+     * @param newPasswordVerify the new password typed in a second time
+     * @return the message to show, or {@code null} when the new password is acceptable
+     */
+    static String passwordProblem(String currentPassword, String newPassword, String newPasswordVerify) {
+        if (newPassword == null || newPassword.length() < 5) {
+            return "新密码至少 5 个字符";
+        }
+        if (newPasswordVerify == null || !newPassword.equals(newPasswordVerify)) {
+            return "两次输入的新密码不一致";
+        }
+        if (newPassword.equals(currentPassword)) {
+            return "新密码不能和当前密码相同";
+        }
+        return null;
+    }
+
+    /**
      * Checks the password of one account against the value the user typed in.
      *
      * @param delegator the delegator
@@ -411,8 +440,7 @@ public final class MfgServices {
      * @param password the password as typed in
      * @return {@code true} when it matches
      */
-    private static boolean matchesStoredPassword(Delegator delegator, String userLoginId, String password) {
-        try {
+    private static boolean matchesStoredPassword(Delegator delegator, String userLoginId, String password) {        try {
             GenericValue stored = EntityQuery.use(delegator).from("UserLogin")
                     .where("userLoginId", userLoginId).queryOne();
             return stored != null && matchesPassword(delegator, stored.getString("currentPassword"), password);

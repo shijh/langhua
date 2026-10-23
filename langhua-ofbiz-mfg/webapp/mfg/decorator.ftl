@@ -36,6 +36,7 @@
 <p class="nav">
     <img class="brand" src="/mfg/images/logo-64.png" alt="" width="26" height="26"/>
     <b>修改密码</b>
+    <a href="/mfg/control/logout" class="logout">退出登录</a>
 </p>
 <h1>请先修改默认密码</h1>
 <p class="error">${(pwd.message)!'当前账号还在用出厂密码，请先改成自己的密码再继续使用'}</p>
@@ -54,7 +55,7 @@
             密码提示（可选）<input type="text" name="passwordHint" size="30"/>
             <input type="submit" value="修改密码"/>
         </p>
-        <p class="hint">至少 5 个字符，不能和当前密码相同；改完自动回到工单页。忘记密码时看
+        <p class="hint">至少 5 个字符，不能和当前密码相同；改完会自动退出，请用新密码重新登录。忘记密码时看
             <code>partymgr</code> 的 Profile 页，或让管理员重置。</p>
     </fieldset>
 </form>
@@ -90,6 +91,7 @@
     </#if>
     <#if canCost><@navItem 'quality' '/mfg/control/quality' '质量指标'/></#if>
     <#if canManageAccounts><@navItem 'users' '/mfg/control/users' '用户账号'/></#if>
+    <a href="/mfg/control/logout" class="logout">退出登录</a>
 </p>
 
 <#if sections??>${sections.render("body")}</#if>
