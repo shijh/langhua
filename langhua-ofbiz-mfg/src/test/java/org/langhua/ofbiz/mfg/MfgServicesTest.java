@@ -534,6 +534,32 @@ public class MfgServicesTest {
     }
 
     @Test
+    public void sumsAPurchaseReceipt() {
+        List<Map<String, Object>> lines = new java.util.ArrayList<>();
+        lines.add(receiptLine(2.0));
+        lines.add(receiptLine(60.0));
+
+        Map<String, Object> summary = MfgServices.receiptSummary(lines, 8.0);
+        assertEquals(2, summary.get("lineCount"));
+        assertEquals(62.0, ((Double) summary.get("goodsTotal")).doubleValue(), 0.001);
+        assertEquals(8.0, ((Double) summary.get("freightTotal")).doubleValue(), 0.001);
+        // the freight is a period cost: it is added to the order, never to a line
+        assertEquals(70.0, ((Double) summary.get("spendTotal")).doubleValue(), 0.001);
+        assertEquals(12.9, ((Double) summary.get("freightShare")).doubleValue(), 0.001);
+
+        // a receipt without lines must not divide by zero
+        Map<String, Object> empty = MfgServices.receiptSummary(new java.util.ArrayList<Map<String, Object>>(), 8.0);
+        assertEquals(0.0, ((Double) empty.get("freightShare")).doubleValue(), 0.001);
+        assertEquals(8.0, ((Double) empty.get("spendTotal")).doubleValue(), 0.001);
+    }
+
+    private static Map<String, Object> receiptLine(double goodsAmount) {
+        Map<String, Object> line = new java.util.LinkedHashMap<>();
+        line.put("goodsAmount", Double.valueOf(goodsAmount));
+        return line;
+    }
+
+    @Test
     public void numbersTheNextBomVersion() {
         List<String> none = new java.util.ArrayList<>();
         assertEquals(1L, MfgServices.nextBomVersionNo(none, "BT5"));

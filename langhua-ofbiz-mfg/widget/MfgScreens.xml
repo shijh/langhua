@@ -111,6 +111,37 @@
         </section>
     </screen>
 
+    <!-- Purchase receipts: what one purchase brought in and the freight that belongs to it -->
+    <screen name="receipts">
+        <section>
+            <actions>
+                <set field="title" value="Purchase Receipts"/>
+                <set field="pageTitle" value="采购到货单"/>
+                <set field="activeMenu" value="receipts"/>
+                <service service-name="mfgPurchaseReceiptList" result-map="receiptList"
+                         auto-field-map="false">
+                    <field-map field-name="search" from-field="parameters.search"/>
+                    <field-map field-name="page" from-field="parameters.page"/>
+                </service>
+                <service service-name="mfgPurchaseReceiptDetail" result-map="receiptDetail"
+                         auto-field-map="false">
+                    <field-map field-name="receiptId" from-field="parameters.receiptId"/>
+                </service>
+            </actions>
+            <widgets>
+                <decorator-screen name="mfg-decorator" location="component://mfg/widget/MfgCommonScreens.xml">
+                    <decorator-section name="body">
+                        <platform-specific>
+                            <html>
+                                <html-template location="component://mfg/webapp/mfg/receipts.ftl"/>
+                            </html>
+                        </platform-specific>
+                    </decorator-section>
+                </decorator-screen>
+            </widgets>
+        </section>
+    </screen>
+
     <!-- Stock on hand per component, safety stock, movements and counts -->
     <screen name="stock">
         <section>

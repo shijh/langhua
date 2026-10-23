@@ -71,6 +71,7 @@
     </#if>
     <#if canStock>
         <@navItem 'materials' '/mfg/control/materials' '物料批次'/>
+        <@navItem 'receipts' '/mfg/control/receipts' '采购到货'/>
         <@navItem 'stock' '/mfg/control/stock' '库存'/>
         <@navItem 'locations' '/mfg/control/locations' '库位'/>
     </#if>

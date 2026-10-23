@@ -846,6 +846,50 @@
         <field name="lastUpdatedTxStamp" type="date-time"/>
         <prim-key field="locationId"/>
     </entity>
+    <entity entity-name="MfgPurchaseReceipt"
+            package-name="org.langhua.ofbiz.mfg"
+            title="Purchase receipt">
+        <description>One purchase, e.g. one Taobao order: which lots it brought in and the freight paid for it. The freight is a period cost, so it is not spread over the part prices</description>
+        <field name="receiptId" type="id"><description>Receipt number, PR-yyMMdd-NN</description></field>
+        <field name="supplierName" type="name"><description>Supplier, e.g. the Taobao shop</description></field>
+        <field name="supplierOrderNo" type="short-varchar"><description>Order number of the shop (the Taobao order number)</description></field>
+        <field name="receiptDate" type="date"><description>Day the goods arrived</description></field>
+        <field name="freightAmount" type="currency-amount"><description>Freight paid for the whole receipt, booked as a period cost</description></field>
+        <field name="allocationId" type="id"><description>MFG_ALLOC_NONE (default: freight stays a period cost); MFG_ALLOC_BY_AMOUNT and MFG_ALLOC_BY_QTY are kept for spreading it over the lines later</description></field>
+        <field name="note" type="description"/>
+        <field name="createdStamp" type="date-time"/>
+        <field name="createdTxStamp" type="date-time"/>
+        <field name="lastUpdatedStamp" type="date-time"/>
+        <field name="lastUpdatedTxStamp" type="date-time"/>
+        <prim-key field="receiptId"/>
+    </entity>
+
+    <entity entity-name="MfgPurchaseReceiptLine"
+            package-name="org.langhua.ofbiz.mfg"
+            title="Purchase receipt line">
+        <description>One received lot on a receipt, with the goods value of that line. Quantity and price are a snapshot of the lot when it was added</description>
+        <field name="receiptId" type="id"><description>Receipt the line belongs to</description></field>
+        <field name="lineSeq" type="numeric"><description>Line number inside the receipt</description></field>
+        <field name="lotId" type="id"><description>Material lot received with this line</description></field>
+        <field name="componentCode" type="id"><description>Part number</description></field>
+        <field name="componentName" type="name"><description>Description</description></field>
+        <field name="qty" type="floating-point"><description>Quantity received on the line</description></field>
+        <field name="unitPrice" type="currency-amount"><description>Purchase price per unit, without freight</description></field>
+        <field name="goodsAmount" type="currency-amount"><description>Quantity times price</description></field>
+        <field name="note" type="description"/>
+        <prim-key field="receiptId"/>
+        <prim-key field="lineSeq"/>
+        <relation type="one" fk-name="MFG_PRLINE_RECEIPT" rel-entity-name="MfgPurchaseReceipt">
+            <key-map field-name="receiptId"/>
+        </relation>
+        <relation type="one" fk-name="MFG_PRLINE_LOT" rel-entity-name="MfgMaterialLot">
+            <key-map field-name="lotId"/>
+        </relation>
+        <index name="MFG_PRLINE_LOT_IDX" unique="true">
+            <index-field name="lotId"/>
+        </index>
+    </entity>
+
     <entity entity-name="MfgStockSetting"
             package-name="org.langhua.ofbiz.mfg"
             title="Stock setting per component">

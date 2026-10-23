@@ -107,9 +107,17 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
 | `verify-m43.ps1` | 改密码与退出：新建账号登录、导航有 logout、错当前密码/新旧相同/两次不一致/太短都被拒、改成功落到登录页且会话关闭、旧密码失效新密码可用、logout 结束会话 | 15 |
 | `verify-m44.ps1` | BOM 导入选文件（Step 54）：表单是 multipart、有 `file` 字段、上传 Fritzing 文件后合并 9 种料、**文件优先于文本框**、GBK 文件能解码、料号超长被拒、空提交有提示、20 位型号编码也能导入（日志 `mfg-m43b.txt`） | 31 |
 | `verify-m45.ps1` | BOM 行就地编辑（Step 56/57）：标题带版本号、每行有自己的表单（`form="bomLine<n>"` 的 qty/designators/isKeyPart/unitPrice）、保存后数量与金额重算、手加一行、删除一行、用量 0 被拒、`#bomBlock` 与 JSON 出口（保存/拒绝/删除三种回答）（日志 `mfg-m45.txt`） | 34 |
+| `verify-m46.ps1` | 采购到货单（Step 58）：汇总表与 `data-allocation`、建单与运费、批次下拉、挂批次后的行与金额、合计含运费、同一批次不能挂两张单、负运费被拒、行可以移出（日志 `mfg-m46.txt`） | 26 |
 
 ## 设计决策
 
+- **采购运费是整单的期间费用，不摊进料价（Step 58）**：淘宝一个单混着买电阻和芯片，运费按数量摊会把小件单价抬高几倍，
+  按金额摊又让贵料背运费，都会失真。所以新增 `MfgPurchaseReceipt`（`PR-yyMMdd-NN`，供应商/店铺订单号/到货日/`freightAmount`/`allocationId`）
+  + `MfgPurchaseReceiptLine`（`receiptId` + `lineSeq`，`lotId` 上有 **unique 索引**，一个批次只能挂一张单）：
+  批次单价、BOM 单价、工单实际材料成本全部保持**实付价**，运费在单上合计并给出“运费占货款”比例。
+  `allocationId` 先只接受 `MFG_ALLOC_NONE`，`BY_AMOUNT` / `BY_QTY` 两个值先占位，以后打开不用改表。
+  页面 `/mfg/control/receipts`（导航在「物料批次」后面），服务 `mfgPurchaseReceiptSave` / `LineSave` / `List` / `Detail`，
+  列表与详情共用纯函数 `receiptSummary`（`lineCount` / `goodsTotal` / `freightTotal` / `spendTotal` / `freightShare`，货款为 0 不算除法）
 - **不刷新整页的保存（Step 57）**：BOM 行编辑器保留了普通表单提交（`/mfg/control/bomItemSave`，302 回本页），
   另外加了一个只给脚本用的 JSON 出口 `/mfg/control/bomItemSaveJson`（`MfgBomEvents.saveLine`，手写
   `{"ok":true,"message":…}`，`<response type="none"/>`）。页面底部一小段脚本用**委托的 `submit` 监听**接住

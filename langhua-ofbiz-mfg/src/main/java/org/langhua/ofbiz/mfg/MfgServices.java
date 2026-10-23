@@ -7437,6 +7437,401 @@ always
         return false;
     }
 
+    // ==================================================================
+    // Purchase receipts: the freight of one order belongs to the whole order
+    // ==================================================================
+
+    /** Freight stays a period cost: the default of a receipt, the price of a part stays the price paid for it. */
+    public static final String ALLOC_NONE = "MFG_ALLOC_NONE";
+    /** Freight spread over the lines in proportion to the goods value, kept for a later release. */
+    public static final String ALLOC_BY_AMOUNT = "MFG_ALLOC_BY_AMOUNT";
+    /** Freight spread over the lines in proportion to the quantity, kept for a later release. */
+    public static final String ALLOC_BY_QTY = "MFG_ALLOC_BY_QTY";
+
+    /** Ways a receipt may treat its freight; only {@link #ALLOC_NONE} is open for now. */
+    public static final String[] ALLOCATIONS = {ALLOC_NONE, ALLOC_BY_AMOUNT, ALLOC_BY_QTY};
+
+    /**
+     * Adds up one receipt: the goods value of its lines, the freight and what the order cost in
+     * total. Because the freight is a period cost it is reported next to the goods value, not
+     * inside the unit prices.
+     *
+     * @param lines the lines of the receipt, each carrying {@code goodsAmount}
+     * @param freight the freight paid for the whole order
+     * @return {@code lineCount}, {@code goodsTotal}, {@code freightTotal}, {@code spendTotal} and
+     *         {@code freightShare} (freight as a percentage of the goods value)
+     */
+    static Map<String, Object> receiptSummary(List<Map<String, Object>> lines, double freight) {
+        double goods = 0.0;
+        for (Map<String, Object> line : lines) {
+            Object amount = line.get("goodsAmount");
+            if (amount instanceof Number) {
+                goods += ((Number) amount).doubleValue();
+            }
+        }
+        double goodsTotal = round2(goods);
+        double freightTotal = round2(freight);
+        Map<String, Object> summary = new LinkedHashMap<>();
+        summary.put("lineCount", Integer.valueOf(lines.size()));
+        summary.put("goodsTotal", Double.valueOf(goodsTotal));
+        summary.put("freightTotal", Double.valueOf(freightTotal));
+        summary.put("spendTotal", Double.valueOf(round2(goodsTotal + freightTotal)));
+        summary.put("freightShare", Double.valueOf(goodsTotal <= 0.0
+                ? 0.0 : round2(freightTotal / goodsTotal * 100.0)));
+        return summary;
+    }
+
+    /**
+     * Saves the head of a purchase receipt (supplier, shop order number, arrival day, freight).
+     *
+     * <p>The freight is kept on the receipt and booked as a period cost: spreading it over the part
+     * prices would inflate the cheap parts of a mixed order and leave the expensive ones almost
+     * untouched, so the unit price stays the price really paid for the part.
+     *
+     * @param dctx the dispatch context
+     * @param context service context, see {@code servicedef/services.xml#mfgPurchaseReceiptSave}
+     * @return the service result containing {@code receiptId}
+     */
+    public static Map<String, Object> purchaseReceiptSave(DispatchContext dctx, Map<String, ? extends Object> context) {
+        String denied = permissionProblem(dctx, context, PERM_STOCK);
+        if (denied != null) {
+            return ServiceUtil.returnError(denied);
+        }
+        Delegator delegator = dctx.getDelegator();
+        String receiptId = toText(context.get("receiptId"));
+        String allocationId = toText(context.get("allocationId"));
+        if (allocationId == null) {
+            allocationId = ALLOC_NONE;
+        }
+        if (!ALLOC_NONE.equals(allocationId)) {
+            return ServiceUtil.returnError("运费暂时只记期间费用（" + ALLOC_NONE + "），按比例分摊还没有打开");
+        }
+        String freightText = toText(context.get("freightAmount"));
+        Double freight = optionalAmount(freightText);
+        if (freightText != null && freight == null) {
+            return ServiceUtil.returnError("运费要填非负数字，或留空：" + freightText);
+        }
+        try {
+            GenericValue receipt = receiptId == null ? null
+                    : EntityQuery.use(delegator).from("MfgPurchaseReceipt")
+                            .where("receiptId", receiptId).queryOne();
+            if (receipt == null) {
+                receiptId = nextReceiptId(delegator, LocalDate.now());
+                receipt = delegator.makeValue("MfgPurchaseReceipt");
+                receipt.set("receiptId", receiptId);
+                receipt.set("freightAmount", Double.valueOf(0.0));
+                receipt.set("allocationId", ALLOC_NONE);
+                receipt.set("receiptDate", java.sql.Date.valueOf(LocalDate.now()));
+            }
+            if (context.containsKey("supplierName")) {
+                receipt.set("supplierName", toText(context.get("supplierName")));
+            }
+            if (context.containsKey("supplierOrderNo")) {
+                receipt.set("supplierOrderNo", toText(context.get("supplierOrderNo")));
+            }
+            if (context.containsKey("receiptDate")) {
+                Object date = parseDate(toText(context.get("receiptDate")));
+                receipt.set("receiptDate", date == null
+                        ? java.sql.Date.valueOf(LocalDate.now()) : date);
+            }
+            if (context.containsKey("freightAmount")) {
+                receipt.set("freightAmount", Double.valueOf(freight == null ? 0.0 : freight.doubleValue()));
+            }
+            if (context.containsKey("note")) {
+                receipt.set("note", toText(context.get("note")));
+            }
+            delegator.createOrStore(receipt);
+            Map<String, Object> result = ServiceUtil.returnSuccess();
+            result.put("receiptId", receiptId);
+            result.put("freightAmount", receipt.get("freightAmount"));
+            return result;
+        } catch (GenericEntityException e) {
+            return ServiceUtil.returnError("Could not save the receipt: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Puts one received lot on a receipt, changes a line, or removes it.
+     *
+     * <p>Quantity and price are copied from the lot when the line is added; they can be corrected
+     * afterwards without touching the lot, so the receipt stays a document of what was bought.
+     *
+     * @param dctx the dispatch context
+     * @param context service context, see {@code servicedef/services.xml#mfgPurchaseReceiptLineSave}
+     * @return the service result containing {@code receiptId}, {@code lineSeq} and {@code goodsAmount}
+     */
+    public static Map<String, Object> purchaseReceiptLineSave(DispatchContext dctx, Map<String, ? extends Object> context) {
+        String denied = permissionProblem(dctx, context, PERM_STOCK);
+        if (denied != null) {
+            return ServiceUtil.returnError(denied);
+        }
+        Delegator delegator = dctx.getDelegator();
+        String receiptId = toText(context.get("receiptId"));
+        if (receiptId == null) {
+            return ServiceUtil.returnError("receiptId is required");
+        }
+        boolean removing = "Y".equals(toText(context.get("delete")));
+        long lineSeq = toLong(context.get("lineSeq"), 0L);
+        try {
+            if (EntityQuery.use(delegator).from("MfgPurchaseReceipt")
+                    .where("receiptId", receiptId).queryOne() == null) {
+                return ServiceUtil.returnError("Unknown receipt [" + receiptId + "]");
+            }
+            GenericValue line = lineSeq > 0L ? EntityQuery.use(delegator).from("MfgPurchaseReceiptLine")
+                    .where("receiptId", receiptId, "lineSeq", Long.valueOf(lineSeq)).queryOne() : null;
+            if (removing) {
+                if (line == null) {
+                    return ServiceUtil.returnError("要删除的行不在这个到货单里，刷新后再试");
+                }
+                line.remove();
+                Map<String, Object> result = ServiceUtil.returnSuccess();
+                result.put("receiptId", receiptId);
+                result.put("lineSeq", String.valueOf(lineSeq));
+                return result;
+            }
+            boolean created = line == null;
+            if (created) {
+                String lotId = toText(context.get("lotId"));
+                if (lotId == null) {
+                    return ServiceUtil.returnError("请选择要挂到这个到货单上的批次");
+                }
+                GenericValue lot = EntityQuery.use(delegator).from("MfgMaterialLot")
+                        .where("lotId", lotId).queryOne();
+                if (lot == null) {
+                    return ServiceUtil.returnError("Unknown material lot [" + lotId + "]");
+                }
+                if (isProductLot(lot)) {
+                    return ServiceUtil.returnError("批次 [" + lotId + "] 是成品，采购到货单只记买来的元件");
+                }
+                GenericValue other = EntityQuery.use(delegator).from("MfgPurchaseReceiptLine")
+                        .where("lotId", lotId).queryOne();
+                if (other != null) {
+                    return ServiceUtil.returnError("批次 [" + lotId + "] 已经在到货单 ["
+                            + other.getString("receiptId") + "] 上");
+                }
+                lineSeq = nextReceiptLineSeq(delegator, receiptId);
+                line = delegator.makeValue("MfgPurchaseReceiptLine");
+                line.set("receiptId", receiptId);
+                line.set("lineSeq", Long.valueOf(lineSeq));
+                line.set("lotId", lotId);
+                line.set("componentCode", lot.getString("componentCode"));
+                line.set("componentName", lot.getString("componentName"));
+                line.set("qty", lot.get("receivedQty"));
+                line.set("unitPrice", lot.get("unitPrice"));
+            }
+            double qty = toDouble(context.get("qty"), toDouble(line.get("qty"), 0.0));
+            if (qty <= 0.0) {
+                return ServiceUtil.returnError("数量要大于 0");
+            }
+            double unitPrice = toDouble(line.get("unitPrice"), 0.0);
+            if (context.containsKey("unitPrice")) {
+                String priceText = toText(context.get("unitPrice"));
+                Double price = optionalAmount(priceText);
+                if (priceText != null && price == null) {
+                    return ServiceUtil.returnError("单价要填非负数字，或留空：" + priceText);
+                }
+                unitPrice = price == null ? 0.0 : price.doubleValue();
+            }
+            line.set("qty", Double.valueOf(qty));
+            line.set("unitPrice", Double.valueOf(unitPrice));
+            line.set("goodsAmount", Double.valueOf(round2(qty * unitPrice)));
+            if (context.containsKey("note")) {
+                line.set("note", toText(context.get("note")));
+            }
+            if (created) {
+                delegator.create(line);
+            } else {
+                line.store();
+            }
+            Map<String, Object> result = ServiceUtil.returnSuccess();
+            result.put("receiptId", receiptId);
+            result.put("lineSeq", String.valueOf(lineSeq));
+            result.put("goodsAmount", line.get("goodsAmount"));
+            return result;
+        } catch (GenericEntityException e) {
+            return ServiceUtil.returnError("Could not save the receipt line: " + e.getMessage());
+        }
+    }
+
+    /**
+     * The purchase receipts with what each order cost: goods value, freight and the sum of both.
+     *
+     * @param dctx the dispatch context
+     * @param context service context, see {@code servicedef/services.xml#mfgPurchaseReceiptList}
+     * @return the service result containing {@code receipts} and the totals of the listed rows
+     */
+    public static Map<String, Object> purchaseReceiptList(DispatchContext dctx, Map<String, ? extends Object> context) {
+        Delegator delegator = dctx.getDelegator();
+        Map<String, Object> result = ServiceUtil.returnSuccess();
+        result.put("receipts", new ArrayList<Map<String, Object>>());
+        result.put("totalCount", Integer.valueOf(0));
+        result.put("goodsTotal", Double.valueOf(0.0));
+        result.put("freightTotal", Double.valueOf(0.0));
+        result.put("spendTotal", Double.valueOf(0.0));
+        result.put("freightShare", Double.valueOf(0.0));
+        try {
+            Map<String, List<Map<String, Object>>> linesOf = new LinkedHashMap<>();
+            for (GenericValue line : EntityQuery.use(delegator).from("MfgPurchaseReceiptLine").queryList()) {
+                String id = line.getString("receiptId");
+                List<Map<String, Object>> lines = linesOf.get(id);
+                if (lines == null) {
+                    lines = new ArrayList<>();
+                    linesOf.put(id, lines);
+                }
+                lines.add(toReceiptLineMap(line));
+            }
+            List<Map<String, Object>> rows = new ArrayList<>();
+            for (GenericValue receipt : EntityQuery.use(delegator).from("MfgPurchaseReceipt")
+                    .orderBy("-receiptDate", "-createdStamp").queryList()) {
+                Map<String, Object> row = toReceiptMap(receipt);
+                List<Map<String, Object>> lines = linesOf.get(receipt.getString("receiptId"));
+                row.putAll(receiptSummary(lines == null ? new ArrayList<Map<String, Object>>() : lines,
+                        numberOrZero(receipt.get("freightAmount"))));
+                rows.add(row);
+            }
+            String keyword = toText(context.get("search"));
+            List<Map<String, Object>> filtered = filterByKeyword(rows, keyword, "receiptId",
+                    "supplierName", "supplierOrderNo");
+            double goods = 0.0;
+            double freight = 0.0;
+            for (Map<String, Object> row : filtered) {
+                goods += numberOrZero(row.get("goodsTotal"));
+                freight += numberOrZero(row.get("freightTotal"));
+            }
+            result.put("goodsTotal", Double.valueOf(round2(goods)));
+            result.put("freightTotal", Double.valueOf(round2(freight)));
+            result.put("spendTotal", Double.valueOf(round2(goods + freight)));
+            result.put("freightShare", Double.valueOf(goods <= 0.0 ? 0.0 : round2(freight / goods * 100.0)));
+            putPage(result, "receipts", filtered, pageOf(context), pageSizeOf(context), keyword);
+            return result;
+        } catch (GenericEntityException e) {
+            return ServiceUtil.returnError("Could not read the receipts: " + e.getMessage());
+        }
+    }
+
+    /**
+     * One receipt with its lines, plus the lots that are not on a receipt yet.
+     *
+     * @param dctx the dispatch context
+     * @param context service context, see {@code servicedef/services.xml#mfgPurchaseReceiptDetail}
+     * @return the service result containing {@code receipt}, {@code lines}, {@code freeLots} and the totals
+     */
+    public static Map<String, Object> purchaseReceiptDetail(DispatchContext dctx, Map<String, ? extends Object> context) {
+        Delegator delegator = dctx.getDelegator();
+        Map<String, Object> result = ServiceUtil.returnSuccess();
+        result.put("receipt", null);
+        result.put("lines", new ArrayList<Map<String, Object>>());
+        result.put("freeLots", new ArrayList<Map<String, Object>>());
+        result.put("lineCount", Integer.valueOf(0));
+        result.put("goodsTotal", Double.valueOf(0.0));
+        result.put("freightTotal", Double.valueOf(0.0));
+        result.put("spendTotal", Double.valueOf(0.0));
+        result.put("freightShare", Double.valueOf(0.0));
+        Map<String, String> onReceipt = new LinkedHashMap<>();
+        try {
+            for (GenericValue line : EntityQuery.use(delegator).from("MfgPurchaseReceiptLine").queryList()) {
+                onReceipt.put(line.getString("lotId"), line.getString("receiptId"));
+            }
+            List<Map<String, Object>> freeLots = new ArrayList<>();
+            for (GenericValue lot : EntityQuery.use(delegator).from("MfgMaterialLot")
+                    .orderBy("-createdStamp").queryList()) {
+                if (isProductLot(lot) || onReceipt.containsKey(lot.getString("lotId"))) {
+                    continue;
+                }
+                if (!matchesLotKind(lot, LOT_COMPONENT)) {
+                    continue;
+                }
+                Map<String, Object> map = new LinkedHashMap<>();
+                map.put("lotId", lot.getString("lotId"));
+                map.put("componentCode", lot.getString("componentCode"));
+                map.put("componentName", lot.getString("componentName"));
+                map.put("supplierName", lot.getString("supplierName"));
+                map.put("receivedQty", lot.get("receivedQty"));
+                map.put("unitPrice", lot.get("unitPrice"));
+                map.put("receivedDate", lot.get("receivedDate"));
+                freeLots.add(map);
+                if (freeLots.size() >= MAX_FREE_LOTS) {
+                    break;
+                }
+            }
+            result.put("freeLots", freeLots);
+
+            String receiptId = toText(context.get("receiptId"));
+            if (receiptId == null) {
+                return result;
+            }
+            GenericValue receipt = EntityQuery.use(delegator).from("MfgPurchaseReceipt")
+                    .where("receiptId", receiptId).queryOne();
+            if (receipt == null) {
+                return result;
+            }
+            List<Map<String, Object>> lines = new ArrayList<>();
+            for (GenericValue line : EntityQuery.use(delegator).from("MfgPurchaseReceiptLine")
+                    .where("receiptId", receiptId).orderBy("lineSeq").queryList()) {
+                lines.add(toReceiptLineMap(line));
+            }
+            result.put("receipt", toReceiptMap(receipt));
+            result.put("lines", lines);
+            result.putAll(receiptSummary(lines, numberOrZero(receipt.get("freightAmount"))));
+            return result;
+        } catch (GenericEntityException e) {
+            return ServiceUtil.returnError("Could not read the receipt: " + e.getMessage());
+        }
+    }
+
+    /** How many unassigned lots the receipt page offers in its picker. */
+    private static final int MAX_FREE_LOTS = 200;
+
+    private static String nextReceiptId(Delegator delegator, LocalDate today) throws GenericEntityException {
+        String prefix = "PR-" + today.format(DAY) + "-";
+        int max = 0;
+        for (GenericValue receipt : EntityQuery.use(delegator).from("MfgPurchaseReceipt").queryList()) {
+            String id = receipt.getString("receiptId");
+            if (id != null && id.startsWith(prefix)) {
+                max = Math.max(max, parseTrailingNumber(id.substring(prefix.length())));
+            }
+        }
+        return prefix + String.format(Locale.ROOT, "%02d", max + 1);
+    }
+
+    private static long nextReceiptLineSeq(Delegator delegator, String receiptId) throws GenericEntityException {
+        long max = 0L;
+        for (GenericValue line : EntityQuery.use(delegator).from("MfgPurchaseReceiptLine")
+                .where("receiptId", receiptId).queryList()) {
+            Long seq = line.getLong("lineSeq");
+            if (seq != null) {
+                max = Math.max(max, seq.longValue());
+            }
+        }
+        return max + 10L;
+    }
+
+    private static Map<String, Object> toReceiptMap(GenericValue receipt) {
+        Map<String, Object> map = new LinkedHashMap<>();
+        map.put("receiptId", receipt.getString("receiptId"));
+        map.put("supplierName", receipt.getString("supplierName"));
+        map.put("supplierOrderNo", receipt.getString("supplierOrderNo"));
+        map.put("receiptDate", receipt.get("receiptDate"));
+        map.put("freightAmount", receipt.get("freightAmount"));
+        map.put("allocationId", receipt.getString("allocationId"));
+        map.put("note", receipt.getString("note"));
+        return map;
+    }
+
+    private static Map<String, Object> toReceiptLineMap(GenericValue line) {
+        Map<String, Object> map = new LinkedHashMap<>();
+        map.put("receiptId", line.getString("receiptId"));
+        map.put("lineSeq", line.getLong("lineSeq"));
+        map.put("lotId", line.getString("lotId"));
+        map.put("componentCode", line.getString("componentCode"));
+        map.put("componentName", line.getString("componentName"));
+        map.put("qty", line.get("qty"));
+        map.put("unitPrice", line.get("unitPrice"));
+        map.put("goodsAmount", line.get("goodsAmount"));
+        map.put("note", line.getString("note"));
+        return map;
+    }
+
     /**
      * Writes one stock location: a warehouse, a zone or a shelf.
      *

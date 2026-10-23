@@ -150,6 +150,7 @@ public final class MfgServiceIT {
             it.importsBom();
             it.importsAFritzingBom();
             it.editsBomLines();
+            it.createsPurchaseReceipt();
             it.savesRouting();
             it.readsProductDetail();
             it.createsWorkOrder();
@@ -699,6 +700,64 @@ public final class MfgServiceIT {
         Response afterDelete = invoke("mfgProductDetail", detailForm);
         check("bom line: the deleted line is gone", !afterDelete.body.contains("MANUAL-1"),
                 "line still there");
+    }
+
+    /**
+     * One purchase receipt: the freight of a Taobao order is booked on the receipt, the part price
+     * stays the price paid, and a lot cannot sit on two receipts.
+     *
+     * @throws IOException when a service call fails
+     */
+    private void createsPurchaseReceipt() throws IOException {
+        String stamp = new java.text.SimpleDateFormat("HHmmss").format(new java.util.Date());
+        Map<String, String> headForm = new LinkedHashMap<>();
+        headForm.put("supplierName", "IT taobao shop");
+        headForm.put("supplierOrderNo", "TB-IT-" + stamp);
+        headForm.put("freightAmount", "8");
+        Response created = invoke("mfgPurchaseReceiptSave", headForm);
+        check("receipt: the order is created", created.status == 200
+                && !created.body.contains("responseMessage=error"), "HTTP " + created.status);
+        String receiptId = firstMatch(Pattern.compile("PR-\\d{6}-\\d+"), created.body);
+        check("receipt: identifier returned", receiptId != null, "no PR- id in response");
+
+        String component = "ITRC" + stamp;
+        Map<String, String> lotForm = new LinkedHashMap<>();
+        lotForm.put("componentCode", component);
+        lotForm.put("componentName", "IT receipt part");
+        lotForm.put("receivedQty", "10");
+        lotForm.put("unitPrice", "1.5");
+        Response lot = invoke("mfgLotSave", lotForm);
+        String lotId = firstMatch(Pattern.compile("LOT-\\d{6}-\\d+"), lot.body);
+        check("receipt: a lot is created for it", lotId != null, "no lot id");
+
+        Map<String, String> lineForm = new LinkedHashMap<>();
+        lineForm.put("receiptId", receiptId == null ? "" : receiptId);
+        lineForm.put("lotId", lotId == null ? "" : lotId);
+        Response line = invoke("mfgPurchaseReceiptLineSave", lineForm);
+        check("receipt: the lot is put on the receipt", line.status == 200
+                && !line.body.contains("responseMessage=error"), "HTTP " + line.status);
+
+        Map<String, String> detailForm = new LinkedHashMap<>();
+        detailForm.put("receiptId", receiptId == null ? "" : receiptId);
+        Response detail = invoke("mfgPurchaseReceiptDetail", detailForm);
+        check("receipt: the line is on the detail", detail.body.contains(component), "no component");
+        check("receipt: the goods value is quantity times price", detail.body.contains("15"),
+                "no goods amount");
+
+        Map<String, String> againForm = new LinkedHashMap<>();
+        againForm.put("receiptId", receiptId == null ? "" : receiptId);
+        againForm.put("lotId", lotId == null ? "" : lotId);
+        Response again = invoke("mfgPurchaseReceiptLineSave", againForm);
+        check("receipt: the same lot is not accepted twice",
+                again.body.contains(receiptId == null ? "PR-" : receiptId)
+                        || again.body.contains("error"), "lot taken twice");
+
+        Map<String, String> negativeForm = new LinkedHashMap<>();
+        negativeForm.put("receiptId", receiptId == null ? "" : receiptId);
+        negativeForm.put("freightAmount", "-1");
+        Response negative = invoke("mfgPurchaseReceiptSave", negativeForm);
+        check("receipt: a negative freight is refused", negative.body.contains("freightAmount")
+                || negative.body.contains("error"), "negative freight accepted");
     }
 
     private void savesRouting() throws IOException {

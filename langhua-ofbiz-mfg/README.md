@@ -339,6 +339,8 @@ https://localhost:8443/mfg/control/main
 | `MfgMaterialIssue` | 发料：`issueId`、`workOrderId`、`componentCode`、`lotId`、`qty`、`directionId`（发料 / 退料）、`issuedDate`、可选 `designators` / `snFrom` / `snTo` |
 | `MfgInventoryDetail` | **库存流水（只增不改）**：`lotId` + `seqId` 主键、`movementTypeId`（RECEIPT/ISSUE/RETURN/SCRAP/COUNT/ADJUST/**TRANSFER**/**RESERVE/RELEASE**）、`quantityDiff`（带符号）、`reservedDiff`（预留增减，不动在库）、`salesOrderId` + `salesOrderItemSeq`（订单预留归属哪一行）、`locationId`（发生在哪个库位）、`unitCost`、`workOrderId`、`physicalInventoryId`、`referenceNo`、`operatorName`、`effectiveDate` |
 | `MfgStockLocation` | 库位：`locationId`（贴在货架上的编码）、`locationName`、`locationTypeId`（MFG_LOC_WAREHOUSE / ZONE / BIN）、`parentLocationId`、`note` |
+| `MfgPurchaseReceipt` | 采购到货单（一次淘宝订单/一张送货单）：`receiptId`（PR-yyMMdd-NN）、`supplierName`、`supplierOrderNo`（店铺订单号）、`receiptDate`、`freightAmount`（整单运费，**记期间费用**）、`allocationId`（MFG_ALLOC_NONE，预留 BY_AMOUNT / BY_QTY）、`note` |
+| `MfgPurchaseReceiptLine` | 到货单行：`receiptId` + `lineSeq`、`lotId`（一个批次只能挂在一张单上）、`componentCode`、`qty`、`unitPrice`、`goodsAmount` |
 | `MfgOutsourceFee` | 外协费明细：`workOrderId` + `seqId` 主键、`feeTypeId`（SMT/模具/外发组装/外协测试/其他）、`basisId`（按台/按点/整单）、`rate`、`qty`、`amount`、`vendorName`、`referenceNo`、`feeDate`、`note` |
 | `MfgStockSetting` | 料号主档与安全库存：`componentCode` 主键、`componentName`、`unitOfMeasure`、`minimumStock`、`reorderQty`、`supplierName` |
 | `MfgStockCount` | 盘点记录：`physicalInventoryId`（CNT-yyMMdd-NN）、`countDate`、`counterName`、`lotId`、`bookQty`、`countedQty`、`varianceQty` |
@@ -411,6 +413,10 @@ https://localhost:8443/mfg/control/main
 | `mfgInventoryLedger` | 流水查询：按料号 / 批次 / 类型 / 日期过滤，带每笔之后的**批次余额** |
 | `mfgStockSettingSave` | 维护料号主档与安全库存（阈值、补货量、供应商） |
 | `mfgStockCount` / `mfgStockCountList` | 盘点：记录账面数与实盘数，**差异写成一条盘盈亏流水**并重算结存；历史盘点单可查 |
+| `mfgPurchaseReceiptSave` | 存到货单的头：供应商 / 店铺订单号 / 到货日 / **整单运费**（可改）；运费只接受非负数，`allocationId` 现在只允许 `MFG_ALLOC_NONE` |
+| `mfgPurchaseReceiptLineSave` | 把一个到货批次挂到单上（数量/单价默认取批次，事后可改；一个批次只能挂一张单）、改行、`delete=Y` 差行；发成品批次会被拒 |
+| `mfgPurchaseReceiptList` | 到货单列表（行数 / 货款 / 运费 / 合计）+ 本页的货款合计、运费合计、采购支出合计、运费占货款比例 |
+| `mfgPurchaseReceiptDetail` | 一张单的行明细与合计，加上“还没挂在任何单上的元件批次”供下拉选择 |
 | `mfgWorkOrderReserve` | 按工单 BOM 自动预留齐套料：按批次先后在「可发」里挑，能挑多少挑多少，写 `MFG_MOVE_RESERVE` 流水（不动在库），返回预留总数与还差多少 |
 | `mfgWorkOrderRelease` | 释放该工单的全部预留（写反向的 `MFG_MOVE_RELEASE` 流水），已发料的部分不受影响 |
 | `mfgWorkOrderComplete` | 完工入库：按已报工的良品数建成品批次 `FG-<工单号>` 并写 `MFG_MOVE_RECEIPT`，单位成本 = 实际成本 ÷ 良品数；工单置 MFG_COMPLETED、SN 置 MFG_COMPLETED；重复调用只补差额 |
@@ -528,6 +534,7 @@ csv         = R0402-10K,10K 0402 resistor,4,R1-R4,N,0.05
 | `/mfg/control/salesOrder` | **订单详情**：行明细（数量/已预留/已出货/欠货/派生工单）、预留流水、按订单出货表单、改明细 |
 | `/mfg/control/salesOrderReserve` / `.../salesOrderPlan` / `.../salesOrderClose` | POST 先锁在库 / 排产 / 关单释放预留 |
 | `/mfg/control/locations` | **库位与移库**：库位列表（在库量 / 批次数）、新建库位、移库表单、批次 × 库位结存、最近移库 |
+| `/mfg/control/receipts` | **采购到货单**：采购支出汇总（货款 / 运费 / 合计 / 运费占比）、单据列表与搜索、建单与改单、把到货批次挂到单上、移出、行金额 |
 | `/mfg/control/locationSave` / `/mfg/control/stockTransfer` | POST 保存库位 / 移库（`lotId` + `fromLocationId`（可空 = 未分配）+ `toLocationId` + `qty`） |
 | `/mfg/control/shortage` | 齐套预警：按交期列出欠料工单与明细 |
 | `/mfg/control/delivery` | 出货单：新建、列表、明细（**签收单 / 快递面单附件**）；出货后 SN 变为 `MFG_SHIPPED` |
@@ -933,6 +940,11 @@ SMT 为外协，且对方**不提供上料 / 换料记录**，因此追溯精度
 
 规则：
 
+- **采购运费不进料价**：淘宝上一个订单常常混着买电阻和芯片，运费也是整单一次。分摊到单价上怎么算都会失真
+  （按数量摊会把小件的单价抬高几倍，按金额摊又让贵料的成本跟着运费走），所以系统把运费记在
+  [采购到货单](#采购到货单运费是整单的) 上当**期间费用**：批次单价仍是你实付的单价，
+  工单的实际材料成本也只含货款，运费在到货单页单独合计，并给出“运费占货款”的比例供结算参考。
+  将来真要分摊，`MfgPurchaseReceipt.allocationId` 已经留了 `MFG_ALLOC_BY_AMOUNT` / `MFG_ALLOC_BY_QTY` 两个值；
 - **标准工时优先看工序模板**：有工序就按工序工时合计（页面注明“按工序分摊”），没有才退回型号上的 `standardHours`；
   两者不一致时页面上会提醒，避免“改了工序但成本没变”；
 - **型号的标准工时能由学习曲线写回**：`standardHours` 旁边注明来源（`standardHoursSource`：学习曲线回填写
@@ -951,6 +963,26 @@ SMT 为外协，且对方**不提供上料 / 换料记录**，因此追溯精度
   两张表分别带 `id="productCost"` / `id="workOrderCost"`，页面巡检按 id 切片断言，不依赖中文；
 - 服务 `mfgProductCost` / `mfgWorkOrderCost` 都是只读的（`use-transaction="false"`），
   也可以在 Web Tools → Run Service 里直接查。
+
+## 采购到货单：运费是整单的
+
+淘宝上买元件，一个订单里常混着好几样，运费也是整单一次付的。**直接把运费平均到单价上是错的**：
+
+- 按数量平均：100 个电阻和 2 颗芯片一起摊，电阻的单价会被抬高好几倍，芯片几乎不承担；
+- 按金额平均：运费跟着贵料走，但小件的真实成本又被低估；
+- 干脆不算：工单实际材料成本系统性偏低，看板上的“材料差异”失真。
+
+所以这个系统把运费记在**采购到货单**（`/mfg/control/receipts`）这一层，当作**期间费用**处理：
+
+- 一张单 = 一次采购：供应商、店铺订单号（淘宝订单号）、到货日、**整单运费**、备注；
+- 把这次到货的**物料批次挂到单上**（一个批次只能挂一张单，成品批次不能挂），每行记录数量、单价与货款；
+- 页面顶部汇总**货款合计 / 运费 / 采购支出合计 / 运费占货款**，运费单独可见、可对比；
+- **批次单价与 BOM 单价都保持实付价**，工单实际材料成本只含货款——运费不会悄悄改变某个料的单价；
+- 想让“含运成本”进成本，用页面上的比例整体估算（例如运费占货款 4.5%，就在毛利测算里给材料加 4.5%），
+  而不是改料价；
+- 将来要真的分摊：`MfgPurchaseReceipt.allocationId` 已经留了 `MFG_ALLOC_BY_AMOUNT`（按金额）与
+  `MFG_ALLOC_BY_QTY`（按数量）两个值，现在只接受 `MFG_ALLOC_NONE`，打开时分摊额写到行上即可，
+  不需要改表结构。
 
 ## 看板告警与 CSV 导出
 
@@ -1109,6 +1141,18 @@ $$
 | 差异（不含外协） | 上式 − 外协（和往期可比） |
 | 逐工序 | 标准 = `stdHours` × 费率 × 良品数；实际 = 该工序报工工时 × 费率；差异 = 实际 − 标准 |
 | 取整 | 一律 `round2`（乘法先算后舍入，避免逐行误差累积） |
+
+**采购运费不进这道算式**（见下一节）：实际材料只用批次单价，运费在到货单上单独合计。
+
+### 7b. 采购到货与运费（`purchaseReceiptList` / `purchaseReceiptDetail`，见上文「采购到货单」）
+
+| 项 | 公式 |
+| --- | --- |
+| 行货款 | $\text{货款} = \text{数量} \times \text{单价}$，`round2` |
+| 单张货款合计 | $\text{货款合计} = \sum \text{行货款}$ |
+| 单张采购支出 | $\text{支出} = \text{货款合计} + \text{整单运费}$（运费**不摊进任何一行**） |
+| 运费占货款 | $\text{运费} \div \text{货款合计} \times 100\%$（货款为 0 时记 0，不做除法） |
+| 列表合计 | 对筛选后的单据分别汇总货款、运费与支出，比例同上一行 |
 
 ### 8. 软件项目与报价（`softwareCost`，见上文「软件项目」）
 

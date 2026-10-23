@@ -1002,6 +1002,70 @@
         <attribute name="pageSize" type="Long" mode="OUT" optional="true"/>
     </service>
 
+    <service name="mfgPurchaseReceiptSave" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgServices" invoke="purchaseReceiptSave"
+            auth="false" use-transaction="false">
+        <description>Save the head of a purchase receipt: supplier, shop order number, arrival day and freight. The freight is a period cost, it is not spread over the part prices</description>
+        <attribute name="receiptId" type="String" mode="IN" optional="true"/>
+        <attribute name="supplierName" type="String" mode="IN" optional="true"/>
+        <attribute name="supplierOrderNo" type="String" mode="IN" optional="true"/>
+        <attribute name="receiptDate" type="String" mode="IN" optional="true"/>
+        <attribute name="freightAmount" type="String" mode="IN" optional="true"/>
+        <attribute name="allocationId" type="String" mode="IN" optional="true"/>
+        <attribute name="note" type="String" mode="IN" optional="true"/>
+        <attribute name="receiptId" type="String" mode="OUT" optional="true"/>
+        <attribute name="freightAmount" type="Double" mode="OUT" optional="true"/>
+    </service>
+
+    <service name="mfgPurchaseReceiptLineSave" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgServices" invoke="purchaseReceiptLineSave"
+            auth="false" use-transaction="false">
+        <description>Put a received lot on a receipt, correct a line, or delete it (delete=Y)</description>
+        <attribute name="receiptId" type="String" mode="IN" optional="false"/>
+        <attribute name="lineSeq" type="String" mode="IN" optional="true"/>
+        <attribute name="lotId" type="String" mode="IN" optional="true"/>
+        <attribute name="qty" type="String" mode="IN" optional="true"/>
+        <attribute name="unitPrice" type="String" mode="IN" optional="true"/>
+        <attribute name="note" type="String" mode="IN" optional="true"/>
+        <attribute name="delete" type="String" mode="IN" optional="true"/>
+        <attribute name="receiptId" type="String" mode="OUT" optional="true"/>
+        <attribute name="lineSeq" type="String" mode="OUT" optional="true"/>
+        <attribute name="goodsAmount" type="Double" mode="OUT" optional="true"/>
+    </service>
+
+    <service name="mfgPurchaseReceiptList" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgServices" invoke="purchaseReceiptList"
+            auth="false" use-transaction="false">
+        <description>The purchase receipts with goods value, freight and the total spent</description>
+        <attribute name="search" type="String" mode="IN" optional="true"/>
+        <attribute name="page" type="String" mode="IN" optional="true"/>
+        <attribute name="receipts" type="java.util.List" mode="OUT" optional="true"/>
+        <attribute name="goodsTotal" type="Double" mode="OUT" optional="true"/>
+        <attribute name="freightTotal" type="Double" mode="OUT" optional="true"/>
+        <attribute name="spendTotal" type="Double" mode="OUT" optional="true"/>
+        <attribute name="freightShare" type="Double" mode="OUT" optional="true"/>
+        <attribute name="totalCount" type="Integer" mode="OUT" optional="true"/>
+        <attribute name="page" type="Long" mode="OUT" optional="true"/>
+        <attribute name="pageCount" type="Long" mode="OUT" optional="true"/>
+        <attribute name="pageSize" type="Long" mode="OUT" optional="true"/>
+        <attribute name="search" type="String" mode="OUT" optional="true"/>
+    </service>
+
+    <service name="mfgPurchaseReceiptDetail" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgServices" invoke="purchaseReceiptDetail"
+            auth="false" use-transaction="false">
+        <description>One receipt with its lines, the totals and the lots that are not on a receipt yet</description>
+        <attribute name="receiptId" type="String" mode="IN" optional="true"/>
+        <attribute name="receipt" type="java.util.Map" mode="OUT" optional="true"/>
+        <attribute name="lines" type="java.util.List" mode="OUT" optional="true"/>
+        <attribute name="freeLots" type="java.util.List" mode="OUT" optional="true"/>
+        <attribute name="lineCount" type="Integer" mode="OUT" optional="true"/>
+        <attribute name="goodsTotal" type="Double" mode="OUT" optional="true"/>
+        <attribute name="freightTotal" type="Double" mode="OUT" optional="true"/>
+        <attribute name="spendTotal" type="Double" mode="OUT" optional="true"/>
+        <attribute name="freightShare" type="Double" mode="OUT" optional="true"/>
+    </service>
+
     <service name="mfgLocationSave" engine="java"
             location="org.langhua.ofbiz.mfg.MfgServices" invoke="locationSave"
             auth="false" use-transaction="false">
