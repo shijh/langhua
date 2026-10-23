@@ -97,7 +97,7 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
 | `verify-m33.ps1` | 看板告警与 CSV 导出（告警区、三个导出链接、`text/csv` + 下载头、表头列数、行内容） | 30 |
 | `verify-m34.ps1` | 软件项目：估算试算、保存与编号、台账计划 vs 实际、实测耗时率、超期进告警 | 30 |
 | `verify-m35.ps1` | 报表与成本细化：报表页（卡片/趋势表/日周月切换/未知口径回落/喂进学习曲线的链接）、三份 CSV（良率/工时/采购运费，BOM + 列数 + 合计行）、采购运费块（卡片/表/合计行/周标签）、产品页按工序分摊、工单页工序成本与外协费、开发页问题清单登记→关闭→重开 | 57 |
-| `verify-m36.ps1` | 库存：结存页与卡片、流水页与余额、报废入账与超量被拒、盘点单号与差异、安全库存低于阈值标红与建议采购、告警 CSV、工单预留按钮与两次 POST、成品链路（完工入库 → 成品批次 → 出货扣减 → 重复发货被拒） | 62 |
+| `verify-m36.ps1` | 库存：结存页与卡片、流水页与余额、报废入账与超量被拒、盘点单号与差异、安全库存低于阈值标红与建议采购、告警 CSV、工单预留按钮与两次 POST、成品链路（完工入库 → 成品批次 → 出货扣减 → 重复发货被拒，出货单号从成品流水里读，别按「当天最大号」猜） | 63 |
 | `verify-m37.ps1` | 销售订单：列表与新建表单、详情（行明细/三个按钮/出货表单）、先锁在库、排产生工单、关单转 CLOSED | 26 |
 | `verify-m38.ps1` | 库位与移库：库位页与两个表单、建库位、到货指定库位、按库位看结存、移库两边余额、流水同单号、超量被拒 | 24 |
 | `verify-m39.ps1` | 外协费按单分摊：工单页三个表单、加一条按台明细、金额与对账单号、删除后消失、非法计价方式被拒 | 16 |
@@ -228,6 +228,19 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   （单引号字面量里不插值，所以不能直接塞 `${…}`），并**必须给默认值加括号** `((x)!'')?url`，
   否则 `!` 的优先级低于 `+`，整句会解析成 `(a + b)!c`；
   `mfgPurchaseReceiptList` 补了 `pageSize` IN，否则换每页条数被静默丢弃
+- **列表行就地展开（Step 80）**：工单 / 产品 / 出货单 / 销售订单四页也学采购到货那样，点行上的「3 ▸」展开明细。
+  共用 `webapp/mfg/js/expand.js`（装饰器里 `</body>` 前统一加载）：链接上写 `data-toggle-lines="<key>"`，
+  明细行写 `data-lines="<key>"`，折叠靠 **CSS**（`tr[data-lines] { display: none }` + `.open`），
+  所以 fetch 换回来的块天然是收起的，脚本不必初始化；点击是**委托在 document 上**的，因为 innerHTML 里的 `<script>` 不会执行。
+  列表服务把明细放进**当前页每一行自己的 map**（`items` / `shortages` + `operations` / `snList` / `bomItems`），
+  用 `rowsOf(result, key)` 取回 `putPage` 刚塞进去的那一页再补，别在分页前给全表算明细（20 条 × N 次查询）；
+- **销售订单行就地改数量（Step 80）**：`salesOrderLineQty`（IN `salesOrderId`/`lineSeq`/`qty`）+ 只给脚本用的
+  `/mfg/control/salesOrderLineJson`（`MfgSalesEvents.lineQtyJson`）。规则：数量 > 0、不能小于已出货、CLOSED/CANCELLED 拒改；
+  预留不动（加量只是欠货变大，靠「预留」「排产」按钮去补）。页面成功后 `fetch(location.href)` 只换 `#orderListBlock` 的
+  innerHTML，提示写在外面的 `#listHint`，并把之前展开的行重新点开；fetch 挂了退回 `form.submit()`。
+  行上的输入框用 `form="soLine_<单号>_<行号>"` 绑到表外的隐藏表单（跟到货单行编辑器一个路子）。
+  **巡检脚本里给 `salesOrderLineJson` 写数据一定要先读原值再改回**，而且**别拿列表页第一行当试验品**
+  （第一页常常全是已关闭的单，改了会被拒，看着像功能没生效）
 - **到货单头就地保存（Step 70）**：`receipts.ftl` 的 `#receiptSaveForm` 用委托的 `submit` 拦下，
   POST 到 `/mfg/control/receiptSaveJson`（事件 `MfgReceiptEvents.saveJson`，跑 `mfgPurchaseReceiptSave`，
   手写 `{"ok":…,"message":…}`，`<response type="none"/>`），结果写在 `#saveHint`（绿=成功、红=失败原因）；

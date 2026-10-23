@@ -293,3 +293,16 @@ kbd {
 #receiptTable .receiptLines input.narrow { width: 5.5em; text-align: right; }
 #receiptTable .receiptLines button { padding: .1em .7em; }
 #receiptTable .receiptLines td, #receiptTable .receiptLines th { vertical-align: middle; }
+
+/* a list row that unfolds its lines in place (work orders, products, deliveries, sales orders) */
+td.lines { background: var(--bg-widget); padding: .3em .5em; }
+td.lines table.inner { margin: .2em 0 .2em 1.4em; width: auto; }
+td.lines table.inner th { color: var(--fg-muted); font-weight: normal; border-bottom: 1px solid var(--border); }
+td.lines table.inner td { background: transparent; }
+td.lines input.narrow { width: 5.5em; text-align: right; }
+td.lines button { padding: .1em .7em; }
+td.lines td, td.lines th { vertical-align: middle; }
+/** folded until somebody asks: expand.js puts "open" on the rows it unfolds */
+tr[data-lines] { display: none; }
+tr[data-lines].open { display: table-row; }
+a[data-toggle-lines] { text-decoration: none; white-space: nowrap; }

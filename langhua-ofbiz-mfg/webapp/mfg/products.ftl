@@ -94,6 +94,7 @@
             <th>状态</th>
         </tr>
         <#list products as p>
+            <#assign bomLines = (p.bomItems)![]>
             <tr>
                 <td><#if p.latestImageSeq??><img src="/mfg/control/productImage?productCode=${p.productCode}&seq=${p.latestImageSeq}&thumb=1" alt="${p.productCode}" width="44" height="44" style="object-fit: cover; border: 1px solid #3c3c3c;"/><#else><span class="hint">-</span></#if></td>
                 <td><a href="/mfg/control/products?productCode=${p.productCode}">${p.productCode}</a></td>
@@ -101,12 +102,33 @@
                 <td>${p.snPrefix!}</td>
                 <td>${stageLabel(p.devStageId!'')}</td>
                 <td><#if (p.currentBomVersionId!'') != ''>${p.currentBomVersionId}<#else><span class="hint">未建 BOM</span></#if></td>
-                <td class="num">${p.bomCount}</td>
+                <td class="num"><#if bomLines?has_content><a href="#" data-toggle-lines="pc-${p.productCode}" data-open="N">${bomLines?size} <span>▸</span></a><#else>0</#if></td>
                 <td class="num">${p.versionCount}</td>
                 <td class="num">${p.imageCount}</td>
                 <td class="num">${p.routingCount}</td>
                 <td>${p.statusId!}</td>
             </tr>
+            <#if bomLines?has_content>
+                <tr data-lines="pc-${p.productCode}"><td colspan="11" class="lines">
+                    <table class="inner" data-product-bom="${p.productCode}">
+                        <tr><th>行</th><th>料号</th><th>名称</th><th class="num">用量</th>
+                            <th class="num">单价</th><th class="num">金额</th><th>位号</th><th>关键件</th></tr>
+                        <#list bomLines as item>
+                            <tr data-line-seq="${item.lineSeq}">
+                                <td>${item.lineSeq}</td>
+                                <td>${item.componentCode!}</td>
+                                <td>${item.componentName!}</td>
+                                <td class="num">${(item.qty!0)?string("0.##")}</td>
+                                <td class="num"><#if item.unitPrice??>${item.unitPrice?string("0.0000")}<#else><span class="hint">-</span></#if></td>
+                                <td class="num"><#if item.unitPrice??>${((item.unitPrice) * (item.qty!0))?string("0.00")}<#else><span class="hint">-</span></#if></td>
+                                <td>${item.designators!}</td>
+                                <td><#if (item.isKeyPart!'') == 'Y'><span class="warn">关键</span></#if></td>
+                            </tr>
+                        </#list>
+                    </table>
+                    <p class="hint">这是当前版本的 BOM；要改行、切版本或看历史，点上面的型号进详情页。</p>
+                </td></tr>
+            </#if>
         </#list>
     </table>
 <#else>

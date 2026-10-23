@@ -1533,16 +1533,42 @@ public final class MfgServices {
             }
             List<GenericValue> orders = query.orderBy("-createdStamp").queryList();
             List<Map<String, Object>> list = new ArrayList<>(orders.size());
+            Map<String, GenericValue> ordersById = new LinkedHashMap<>();
             for (GenericValue order : orders) {
                 Map<String, Object> map = toWorkOrderMap(order);
                 map.put("reportedHours", Double.valueOf(sumHours(delegator, order.getString("workOrderId"))));
                 list.add(map);
+                ordersById.put(order.getString("workOrderId"), order);
             }
             Map<String, Object> result = ServiceUtil.returnSuccess();
             putPage(result, "workOrders",
                     filterByKeyword(list, toText(context.get("search")), "workOrderId", "productCode",
                             "customerName", "smtVendor", "statusId"),
                     pageOf(context), pageSizeOf(context), toText(context.get("search")));
+            // the list unfolds its rows in place: the kitting gaps and the progress of the visible
+            // page only, so a long list does not cost a query per order
+            boolean showCost = can(dctx, (GenericValue) context.get("userLogin"), PERM_COST);
+            for (Map<String, Object> row : rowsOf(result, "workOrders")) {
+                String workOrderId = (String) row.get("workOrderId");
+                GenericValue order = ordersById.get(workOrderId);
+                if (order == null) {
+                    continue;
+                }
+                List<Map<String, Object>> shortages = new ArrayList<>();
+                for (Map<String, Object> line : kittingLines(delegator, order)) {
+                    Object shortage = line.get("shortage");
+                    if (shortage instanceof Number && ((Number) shortage).doubleValue() > 0.0) {
+                        shortages.add(line);
+                    }
+                }
+                row.put("shortages", shortages);
+                row.put("showCost", Boolean.valueOf(showCost));
+                List<GenericValue> routings = EntityQuery.use(delegator).from("MfgRouting")
+                        .where("productCode", order.getString("productCode")).orderBy("opSeq").queryList();
+                List<GenericValue> reports = EntityQuery.use(delegator).from("MfgReport")
+                        .where("workOrderId", workOrderId).queryList();
+                row.put("operations", toOperationMaps(routings, reports));
+            }
             return result;
         } catch (GenericEntityException e) {
             return ServiceUtil.returnError("Could not read the work orders: " + e.getMessage());
@@ -4002,11 +4028,17 @@ public final class MfgServices {
             }
             List<GenericValue> deliveries = query.orderBy("-deliveryDate").queryList();
             List<Map<String, Object>> list = new ArrayList<>(deliveries.size());
+            Map<String, List<String>> serials = new LinkedHashMap<>();
             for (GenericValue delivery : deliveries) {
                 Map<String, Object> map = toDeliveryMap(delivery);
                 List<GenericValue> items = EntityQuery.use(delegator).from("MfgDeliverySn")
-                        .where("deliveryId", delivery.getString("deliveryId")).queryList();
+                        .where("deliveryId", delivery.getString("deliveryId")).orderBy("sn").queryList();
                 map.put("snCount", Integer.valueOf(items.size()));
+                List<String> sns = new ArrayList<>(items.size());
+                for (GenericValue item : items) {
+                    sns.add(item.getString("sn"));
+                }
+                serials.put(delivery.getString("deliveryId"), sns);
                 list.add(map);
             }
             Map<String, Object> result = ServiceUtil.returnSuccess();
@@ -4014,6 +4046,11 @@ public final class MfgServices {
                     filterByKeyword(list, toText(context.get("search")), "deliveryId", "customerName",
                             "customerPo", "carrier", "trackingNo"),
                     pageOf(context), pageSizeOf(context), toText(context.get("search")));
+            // the list unfolds the shipped serial numbers of the visible page in place
+            for (Map<String, Object> row : rowsOf(result, "deliveries")) {
+                List<String> sns = serials.get((String) row.get("deliveryId"));
+                row.put("snList", sns == null ? new ArrayList<String>() : sns);
+            }
             result.put("customerName", customerName);
             return result;
         } catch (GenericEntityException e) {
@@ -7246,6 +7283,10 @@ always
                     filterByKeyword(list, toText(context.get("search")), "salesOrderId", "customerName",
                             "customerPo"),
                     pageOf(context), pageSizeOf(context), toText(context.get("search")));
+            // the list unfolds its lines in place, and the quantity of a line can be corrected there
+            for (Map<String, Object> row : rowsOf(result, "orders")) {
+                row.put("items", orderLineMaps(delegator, (String) row.get("salesOrderId")));
+            }
             result.put("statusId", statusId);
             result.put("statuses", SO_STATUSES);
             return result;
@@ -7278,26 +7319,7 @@ always
             }
             Map<String, Object> result = ServiceUtil.returnSuccess();
             result.put("order", toSalesOrderMap(delegator, order));
-
-            List<Map<String, Object>> items = new ArrayList<>();
-            for (GenericValue item : EntityQuery.use(delegator).from("MfgSalesOrderItem")
-                    .where("salesOrderId", salesOrderId).orderBy("lineSeq").queryList()) {
-                long lineSeq = item.getLong("lineSeq").longValue();
-                double reserved = orderLineReserved(delegator, salesOrderId, lineSeq);
-                Map<String, Object> map = new LinkedHashMap<>();
-                map.put("lineSeq", Long.valueOf(lineSeq));
-                map.put("productCode", item.getString("productCode"));
-                map.put("qty", item.get("qty"));
-                map.put("reservedQty", Double.valueOf(round2(reserved)));
-                map.put("shippedQty", item.get("shippedQty"));
-                map.put("openQty", Double.valueOf(openQtyOf(numberOrZero(item.get("qty")), reserved,
-                        numberOrZero(item.get("shippedQty")))));
-                map.put("workOrderId", item.getString("workOrderId"));
-                map.put("lineDueDate", item.get("lineDueDate"));
-                map.put("note", item.getString("note"));
-                items.add(map);
-            }
-            result.put("items", items);
+            result.put("items", orderLineMaps(delegator, salesOrderId));
 
             List<Map<String, Object>> reservations = new ArrayList<>();
             Map<String, GenericValue> lots = new LinkedHashMap<>();
@@ -7329,6 +7351,106 @@ always
             return result;
         } catch (GenericEntityException e) {
             return ServiceUtil.returnError("Could not read the sales order: " + e.getMessage());
+        }
+    }
+
+    /**
+     * The lines of one sales order with what each one still owes, in line order.
+     *
+     * @param delegator the delegator
+     * @param salesOrderId the order
+     * @return one map per line, empty when the order has no line
+     * @throws GenericEntityException when the lines or the reservations cannot be read
+     */
+    private static List<Map<String, Object>> orderLineMaps(Delegator delegator, String salesOrderId)
+            throws GenericEntityException {
+        List<Map<String, Object>> items = new ArrayList<>();
+        for (GenericValue item : EntityQuery.use(delegator).from("MfgSalesOrderItem")
+                .where("salesOrderId", salesOrderId).orderBy("lineSeq").queryList()) {
+            long lineSeq = item.getLong("lineSeq").longValue();
+            double reserved = orderLineReserved(delegator, salesOrderId, lineSeq);
+            Map<String, Object> map = new LinkedHashMap<>();
+            map.put("lineSeq", Long.valueOf(lineSeq));
+            map.put("productCode", item.getString("productCode"));
+            map.put("qty", item.get("qty"));
+            map.put("reservedQty", Double.valueOf(round2(reserved)));
+            map.put("shippedQty", item.get("shippedQty"));
+            map.put("openQty", Double.valueOf(openQtyOf(numberOrZero(item.get("qty")), reserved,
+                    numberOrZero(item.get("shippedQty")))));
+            map.put("workOrderId", item.getString("workOrderId"));
+            map.put("lineDueDate", item.get("lineDueDate"));
+            map.put("note", item.getString("note"));
+            items.add(map);
+        }
+        return items;
+    }
+
+    /**
+     * Changes the quantity of one order line from the list page, so a mistyped order does not have
+     * to be cancelled and entered again.
+     *
+     * <p>The reservations already taken stay as they are: raising the quantity leaves a bigger gap
+     * for {@code mfgSalesOrderReserve} / {@code mfgSalesOrderPlan} to fill, lowering it below what
+     * is reserved only lowers the gap. The quantity can never drop under what has shipped.
+     *
+     * @param dctx the dispatch context
+     * @param context service context, see {@code servicedef/services.xml#mfgSalesOrderLineQty}
+     * @return the service result with the numbers of the line and of the whole order
+     */
+    public static Map<String, Object> salesOrderLineQty(DispatchContext dctx, Map<String, ? extends Object> context) {
+        String denied = permissionProblem(dctx, context, PERM_SALES, PERM_ADMIN);
+        if (denied != null) {
+            return ServiceUtil.returnError(denied);
+        }
+        Delegator delegator = dctx.getDelegator();
+        String salesOrderId = toText(context.get("salesOrderId"));
+        long lineSeq = toLong(context.get("lineSeq"), -1);
+        Double qty = optionalAmount(context.get("qty"));
+        if (salesOrderId == null || lineSeq < 0) {
+            return ServiceUtil.returnError("缺少订单号或行号");
+        }
+        if (qty == null || qty.doubleValue() <= 0.0) {
+            return ServiceUtil.returnError("数量要大于 0");
+        }
+        try {
+            GenericValue order = EntityQuery.use(delegator).from("MfgSalesOrder")
+                    .where("salesOrderId", salesOrderId).queryOne();
+            if (order == null) {
+                return ServiceUtil.returnError("Unknown sales order [" + salesOrderId + "]");
+            }
+            String statusId = order.getString("statusId");
+            if (SO_CLOSED.equals(statusId) || SO_CANCELLED.equals(statusId)) {
+                return ServiceUtil.returnError("订单已" + (SO_CLOSED.equals(statusId) ? "关闭" : "取消")
+                        + "，不能再改数量");
+            }
+            GenericValue item = EntityQuery.use(delegator).from("MfgSalesOrderItem")
+                    .where("salesOrderId", salesOrderId, "lineSeq", Long.valueOf(lineSeq)).queryOne();
+            if (item == null) {
+                return ServiceUtil.returnError("订单 " + salesOrderId + " 没有第 " + lineSeq + " 行");
+            }
+            double newQty = round2(qty.doubleValue());
+            double shipped = numberOrZero(item.get("shippedQty"));
+            if (newQty < shipped) {
+                return ServiceUtil.returnError("第 " + lineSeq + " 行已经出货 " + formatQty(shipped)
+                        + "，数量不能小于这个数");
+            }
+            item.set("qty", Double.valueOf(newQty));
+            delegator.store(item);
+
+            Map<String, Object> result = ServiceUtil.returnSuccess();
+            result.put("salesOrderId", salesOrderId);
+            result.put("lineSeq", Long.valueOf(lineSeq));
+            double reserved = orderLineReserved(delegator, salesOrderId, lineSeq);
+            result.put("qty", Double.valueOf(newQty));
+            result.put("reservedQty", Double.valueOf(reserved));
+            result.put("openQty", Double.valueOf(openQtyOf(newQty, reserved, shipped)));
+            Map<String, Object> orderMap = toSalesOrderMap(delegator, order);
+            result.put("openTotal", orderMap.get("openTotal"));
+            result.put("qtyTotal", orderMap.get("qtyTotal"));
+            result.put("statusId", order.getString("statusId"));
+            return result;
+        } catch (GenericEntityException e) {
+            return ServiceUtil.returnError("Could not change the line: " + e.getMessage());
         }
     }
 
@@ -10601,6 +10723,21 @@ always
     }
 
     /**
+     * Reads back the rows {@link #putPage} just put in the result, so the caller can add the lines
+     * of the visible page only.
+     *
+     * @param result the service result on its way out
+     * @param key the key the rows were stored under
+     * @return the rows of the current page, never {@code null}
+     */
+    @SuppressWarnings("unchecked")
+    static List<Map<String, Object>> rowsOf(Map<String, Object> result, String key) {
+        Object rows = result.get(key);
+        return rows instanceof List ? (List<Map<String, Object>>) rows
+                : new ArrayList<Map<String, Object>>();
+    }
+
+    /**
      * Reads the requested page from the service context.
      *
      * @param context the service context
@@ -11193,6 +11330,12 @@ always
                     filterByKeyword(list, toText(context.get("search")), "productCode", "productName",
                             "snPrefix", "statusId"),
                     pageOf(context), pageSizeOf(context), toText(context.get("search")));
+            // the list unfolds its rows in place, so the BOM lines of the visible page come along
+            for (Map<String, Object> row : rowsOf(result, "products")) {
+                String version = (String) row.get("currentBomVersionId");
+                row.put("bomItems", version == null ? new ArrayList<Map<String, Object>>()
+                        : bomItemMaps(bomItemsOfVersion(delegator, version)));
+            }
             return result;
         } catch (GenericEntityException e) {
             return ServiceUtil.returnError("Could not read the product models: " + e.getMessage());
@@ -11608,18 +11751,6 @@ always
             List<GenericValue> routings = EntityQuery.use(delegator).from("MfgRouting")
                     .where("productCode", productCode).orderBy("opSeq").queryList();
 
-            List<Map<String, Object>> bomMaps = new ArrayList<>(bomItems.size());
-            for (GenericValue item : bomItems) {
-                Map<String, Object> map = new LinkedHashMap<>();
-                map.put("lineSeq", item.getLong("lineSeq"));
-                map.put("componentCode", item.getString("componentCode"));
-                map.put("componentName", item.getString("componentName"));
-                map.put("qty", item.getDouble("qty"));
-                map.put("designators", item.getString("designators"));
-                map.put("isKeyPart", item.getString("isKeyPart"));
-                map.put("unitPrice", item.get("unitPrice"));
-                bomMaps.add(map);
-            }
             List<Map<String, Object>> routingMaps = new ArrayList<>(routings.size());
             for (GenericValue operation : routings) {
                 Map<String, Object> map = new LinkedHashMap<>();
@@ -11634,12 +11765,34 @@ always
                 result.put("product", newMapWithProduct(product));
             }
             result.put("bomVersionId", currentVersion);
-            result.put("bomItems", bomMaps);
+            result.put("bomItems", bomItemMaps(bomItems));
             result.put("routings", routingMaps);
             return result;
         } catch (GenericEntityException e) {
             return ServiceUtil.returnError("Could not read the product model: " + e.getMessage());
         }
+    }
+
+    /**
+     * Turns BOM lines into the maps the pages show.
+     *
+     * @param bomItems the BOM lines of one version
+     * @return one map per line, in line order
+     */
+    private static List<Map<String, Object>> bomItemMaps(List<GenericValue> bomItems) {
+        List<Map<String, Object>> bomMaps = new ArrayList<>(bomItems.size());
+        for (GenericValue item : bomItems) {
+            Map<String, Object> map = new LinkedHashMap<>();
+            map.put("lineSeq", item.getLong("lineSeq"));
+            map.put("componentCode", item.getString("componentCode"));
+            map.put("componentName", item.getString("componentName"));
+            map.put("qty", item.getDouble("qty"));
+            map.put("designators", item.getString("designators"));
+            map.put("isKeyPart", item.getString("isKeyPart"));
+            map.put("unitPrice", item.get("unitPrice"));
+            bomMaps.add(map);
+        }
+        return bomMaps;
     }
 
     private static Map<String, Object> newMapWithProduct(GenericValue product) {

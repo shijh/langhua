@@ -51,20 +51,31 @@
 </form>
 
 <#if deliveries?has_content>
-    <table>
+    <table id="deliveryTable">
         <tr><th>出货单号</th><th>日期</th><th>客户</th><th>客户订单号</th>
             <th class="num">数量</th><th>快递</th><th>单号</th><th>明细</th></tr>
         <#list deliveries as d>
+            <#assign snList = (d.snList)![]>
             <tr>
                 <td>${d.deliveryId!}</td>
                 <td><#if d.deliveryDate??>${d.deliveryDate?string("yyyy-MM-dd")}</#if></td>
                 <td>${d.customerName!}</td>
                 <td>${d.customerPo!}</td>
-                <td class="num">${(d.snCount)?string("0")}</td>
+                <td class="num"><#if snList?has_content><a href="#" data-toggle-lines="do-${d.deliveryId!}" data-open="N">${snList?size} <span>▸</span></a><#else>0</#if></td>
                 <td>${d.carrier!}</td>
                 <td>${d.trackingNo!}</td>
                 <td><a href="/mfg/control/delivery?deliveryId=${d.deliveryId}">查看</a></td>
             </tr>
+            <#if snList?has_content>
+                <tr data-lines="do-${d.deliveryId!}"><td colspan="8" class="lines">
+                    <table class="inner" data-delivery-sns="${d.deliveryId!}">
+                        <tr><th>#</th><th>SN</th></tr>
+                        <#list snList as sn>
+                            <tr data-sn="${sn}"><td>${sn_index + 1}</td><td>${sn}</td></tr>
+                        </#list>
+                    </table>
+                </td></tr>
+            </#if>
         </#list>
     </table>
 <#else>

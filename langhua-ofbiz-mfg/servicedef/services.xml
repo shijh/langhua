@@ -964,6 +964,24 @@
         <attribute name="statusId" type="String" mode="OUT" optional="true"/>
     </service>
 
+    <service name="mfgSalesOrderLineQty" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgServices" invoke="salesOrderLineQty"
+            auth="false" use-transaction="false">
+        <description>Change the quantity of one order line from the list page</description>
+        <attribute name="salesOrderId" type="String" mode="IN" optional="false"/>
+        <attribute name="lineSeq" type="Long" mode="IN" optional="false"/>
+        <attribute name="qty" type="Double" mode="IN" optional="false"/>
+        <attribute name="userLogin" type="GenericValue" mode="IN" optional="true"/>
+        <attribute name="salesOrderId" type="String" mode="OUT" optional="true"/>
+        <attribute name="lineSeq" type="Long" mode="OUT" optional="true"/>
+        <attribute name="qty" type="Double" mode="OUT" optional="true"/>
+        <attribute name="reservedQty" type="Double" mode="OUT" optional="true"/>
+        <attribute name="openQty" type="Double" mode="OUT" optional="true"/>
+        <attribute name="openTotal" type="Double" mode="OUT" optional="true"/>
+        <attribute name="qtyTotal" type="Double" mode="OUT" optional="true"/>
+        <attribute name="statusId" type="String" mode="OUT" optional="true"/>
+    </service>
+
     <service name="mfgSalesOrderList" engine="java"
             location="org.langhua.ofbiz.mfg.MfgServices" invoke="salesOrderList"
             auth="false" use-transaction="false">
