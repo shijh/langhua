@@ -1360,4 +1360,33 @@ public class MfgServicesTest {
         assertNull(MfgServices.passwordProblem("ofbiz", "Mfg2026", "Mfg2026"));
         assertNull(MfgServices.passwordProblem(null, "Mfg2026", "Mfg2026"));
     }
+
+    @Test
+    public void explainsAnOrderImportThatClashed() throws Exception {
+        // a second import of the same order, or a second click while the first is still running
+        String clashed = MfgServices.receiptImportFailure(new org.apache.ofbiz.entity.GenericEntityException(
+                "Error while inserting: [GenericEntity:MfgPurchaseReceiptLine] (SQL Exception while executing the"
+                        + " following:INSERT INTO OFBIZ.MFG_PURCHASE_RECEIPT_LINE ... duplicate key value in a"
+                        + " unique or primary key constraint)"));
+        assertTrue(clashed.contains("正在入库"));
+        assertFalse(clashed.contains("SQL Exception"));
+        assertFalse(clashed.contains("MFG_PURCHASE_RECEIPT_LINE"));
+    }
+
+    @Test
+    public void explainsAnOrderImportThatWasTooLong() throws Exception {
+        String tooLong = MfgServices.receiptImportFailure(new org.apache.ofbiz.entity.GenericEntityException(
+                "A truncation error was encountered trying to shrink VARCHAR 'x' to length 100"));
+        assertTrue(tooLong.contains("100"));
+        assertTrue(tooLong.contains("料号"));
+    }
+
+    @Test
+    public void keepsOnlyTheReasonOfAnotherImportFailure() throws Exception {
+        String other = MfgServices.receiptImportFailure(new org.apache.ofbiz.entity.GenericEntityException(
+                "Something odd happened. (SQL Exception while executing ...)"));
+        assertTrue(other.startsWith("导入失败"));
+        assertTrue(other.contains("Something odd happened."));
+        assertFalse(other.contains("SQL Exception"));
+    }
 }

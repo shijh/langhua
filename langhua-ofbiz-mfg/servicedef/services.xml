@@ -1127,8 +1127,8 @@
 
     <service name="mfgReceiptFromOrder" engine="java"
             location="org.langhua.ofbiz.mfg.MfgServices" invoke="receiptFromOrder"
-            auth="false" use-transaction="false">
-        <description>Create a receipt from the lines of a shop order and book every line into stock in one go: order number first, then code,name,quantity,amount per line. The order number makes it idempotent</description>
+            auth="false" use-transaction="true">
+        <description>Create a receipt from the lines of a shop order and book every line into stock in one go: order number first, then code,name,quantity,amount per line. The order number makes it idempotent; the whole import is one transaction, so a failure leaves neither a lot nor a movement behind</description>
         <attribute name="supplierOrderNo" type="String" mode="IN" optional="true"/>
         <attribute name="supplierName" type="String" mode="IN" optional="true"/>
         <attribute name="receiptDate" type="String" mode="IN" optional="true"/>

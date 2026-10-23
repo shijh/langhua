@@ -28,6 +28,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
+import org.apache.ofbiz.base.util.Debug;
 import org.apache.ofbiz.base.util.UtilGenerics;
 import org.apache.ofbiz.common.login.LoginServices;
 import org.apache.ofbiz.entity.Delegator;
@@ -8288,6 +8289,9 @@ always
 
                 GenericValue line = delegator.makeValue("MfgPurchaseReceiptLine");
                 line.set("receiptId", receiptId);
+                // two imports of the same order may run at the same time, so a line number is
+                // only used once it is really free on this receipt
+                lineSeq = freeReceiptLineSeq(delegator, receiptId, lineSeq);
                 line.set("lineSeq", Long.valueOf(lineSeq));
                 line.set("lotId", lotId);
                 line.set("componentCode", componentCode);
@@ -8317,8 +8321,47 @@ always
             result.putAll(summary);
             return result;
         } catch (GenericEntityException e) {
-            return ServiceUtil.returnError(bomImportFailure(e));
+            Debug.logError(e, "Could not book the shop order [" + supplierOrderNo + "]", MODULE);
+            return ServiceUtil.returnError(receiptImportFailure(e));
         }
+    }
+
+    /**
+     * Turns the database error of an order import into a message the shop can act on. The raw SQL
+     * of a Derby constraint violation means nothing to the person at the bench.
+     *
+     * @param e the error of the import
+     * @return the message to show on the receipt page
+     */
+    static String receiptImportFailure(GenericEntityException e) {
+        String message = String.valueOf(e.getMessage());
+        if (message.contains("duplicate key") || message.contains("already exists")) {
+            return "这单正在入库（可能重复点了一次）：刷新页面看看是不是已经在里面了；"
+                    + "只是在改数量的话，展开那一行直接改，不用重新导入";
+        }
+        if (message.contains("truncation error")) {
+            return "导入失败：有字段超出长度限制（料号最多 100 个字符），请缩短后再试";
+        }
+        return "导入失败，库里的数据没有变化：" + firstSentence(message);
+    }
+
+    /**
+     * The first sentence of a technical message, so a page keeps the reason without the SQL dump.
+     *
+     * @param message the raw message, may be {@code null}
+     * @return the message up to the first full stop or 160 characters
+     */
+    private static String firstSentence(String message) {
+        String text = message == null ? "" : message.trim();
+        int dot = text.indexOf(". ");
+        if (dot > 0) {
+            text = text.substring(0, dot + 1);
+        }
+        int colon = text.indexOf("(SQL Exception");
+        if (colon > 0) {
+            text = text.substring(0, colon);
+        }
+        return text.length() > 160 ? text.substring(0, 160) + "…" : text;
     }
 
     /**
@@ -8743,6 +8786,37 @@ always
             }
         }
         return max + 10L;
+    }
+
+    /**
+     * The first line number at or above {@code candidate} that the receipt does not use yet.
+     *
+     * <p>Two imports of the same order can run at the same time (the page takes a while and somebody
+     * clicks again): both would read the same maximum and the second insert would die on the primary
+     * key of the line table. Asking the table for a free number right before the insert keeps that
+     * from happening, and the import runs in one transaction, so a real clash rolls everything back.
+     *
+     * @param delegator the delegator
+     * @param receiptId the receipt
+     * @param candidate the line number to start from
+     * @return a line number the receipt does not use
+     * @throws GenericEntityException when the lines cannot be read
+     */
+    private static long freeReceiptLineSeq(Delegator delegator, String receiptId, long candidate)
+            throws GenericEntityException {
+        java.util.Set<Long> used = new java.util.HashSet<>();
+        for (GenericValue line : EntityQuery.use(delegator).from("MfgPurchaseReceiptLine")
+                .where("receiptId", receiptId).queryList()) {
+            Long seq = line.getLong("lineSeq");
+            if (seq != null) {
+                used.add(seq);
+            }
+        }
+        long seq = candidate;
+        while (used.contains(Long.valueOf(seq))) {
+            seq += 10L;
+        }
+        return seq;
     }
 
     private static Map<String, Object> toReceiptMap(GenericValue receipt) {

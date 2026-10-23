@@ -228,6 +228,15 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   （纯函数，单测覆盖裸 JSON / ```json 围栏 / chat envelope / `reasoning_content` 四种形状），所以不联网也能测。
   请求体是 OpenAI 的 content 数组（`text` + `image_url` 的 data URL）+ `max_tokens: 4000`；
   端到端可以不用真密钥验证：起一个 `TcpListener` 假接口回一段固定回答（脚本 `mock-vision.ps1`）
+- **重复导入不能留下孤儿批次（Step 82）**：`mfgReceiptFromOrder` 原来是 `use-transaction="false"`，
+  于是「先建批次 + 流水、再插到货单行」中间一旦失败（比如同一张单被点了两次，两个请求都读到同一个
+  `lineSeq`，第二个撞 `MfgPurchaseReceiptLine` 的主键），**批次与到货流水已经提交，行却没写进去**：
+  库存多出一份、到货单上看不见，页面上还甩出一大段 Derby SQL。
+  现在三件事一起改：① 服务改成 `use-transaction="true"`，失败整单回滚，不留半截数据；
+  ② 插行前用 `freeReceiptLineSeq()` 找**真正空着的**行号（并发下也不会撞主键）；
+  ③ 失败走 `receiptImportFailure(e)`，把 duplicate / truncation 翻成人话（“这单正在入库（可能重复点了一次）…”），
+  其余只留第一句，SQL 用 `Debug.logError` 进日志。单测覆盖这三种形态；
+  线上留过的孤儿批次只能按 Step 78 的办法冲掉（`mfgInventoryMove` + `MFG_MOVE_SCRAP`，备注写清原因）
 - **运费按月看（Step 59）**：`mfgPurchaseFreightTrend`（IN `fromDate`/`toDate`/`groupBy`）复用 `periodKey` 与 `receiptSummary`，
   一个期间一行：单据数 / 货款 / 运费 / 采购支出 / 运费占比，合计行由同一套 `round2` 算；报表页 `#freightCards` +
   `#freightTable`（行上 `data-period`）+ `#freightTotalRow`，CSV 走事件 `MfgExportEvents.freightCsv`
