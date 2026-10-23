@@ -3360,7 +3360,11 @@ public final class MfgServices {
         map.put("issuedQty", issuedQty == null ? Double.valueOf(0.0) : issuedQty);
         double received = lot.getDouble("receivedQty") == null ? 0.0 : lot.getDouble("receivedQty").doubleValue();
         double issued = issuedQty == null ? 0.0 : issuedQty.doubleValue();
-        map.put("remainingQty", Double.valueOf(received - issued));
+        // what is really left comes from the ledger, so a scrap or an adjustment shows up here;
+        // received minus issued only knows about issuing, which made a scrapped lot look full
+        double onHand = lot.getDouble("onHandQty") == null
+                ? round2(received - issued) : lot.getDouble("onHandQty").doubleValue();
+        map.put("remainingQty", Double.valueOf(round2(onHand)));
         String inspectStatus = lot.getString("inspectStatusId");
         map.put("inspectStatusId", inspectStatus == null ? IQC_PENDING : inspectStatus);
         map.put("inspectDate", lot.get("inspectDate"));
