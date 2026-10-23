@@ -141,6 +141,12 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   工单实际材料成本用它；到货单行同样 `unitPriceExact = goodsAmount ÷ qty` 给页面显示 4 位。要改列精度得手工 ALTER，先不动
 - **订单日期不是到货日（Step 68）**：`MfgOrderScan` 把截图上那个日期叫 `orderDate`（旧回答里的 `date` 也读），
   **不填到货日**（`dateField` 留空 = 今天），提示里写“截图上的 X 是下单日，到货日请自己选”
+- **明细里就地改数量/单价（Step 76）**：子表每行一个空 `<form data-receipt-line id="receiptLine_<单号>_<行号>">`
+  （放在 `</table>` 之后，不能放在表里），单元格的 qty/unitPrice 输入框用 `form="…"` 绑定；
+  `submit` 拦截后 POST `/mfg/control/receiptLineJson`（`MfgReceiptEvents.saveLineJson` → `mfgPurchaseReceiptLineSave`），
+  成功后 **重新 fetch 当前 URL**、只把 `#receiptListBlock` 的 innerHTML 换掉（所以合计/页脚都跟着变），
+  再把之前展开的单重新展开；提示放在块外的 `#listHint`（块被替换也不会丢）。
+  **脚本必须放在 `#receiptListBlock` 外面**：innerHTML 插入的 `<script>` 不会执行，toggle 会整个失灵（踩过）
 - **到货单列表可直接展开明细（Step 75）**：一个到货单通常就一两个商品，所以列表里把「行数」做成可点的 `1 ▸`，
   点开就在下面展开一张子表（行号/批次/料号/名称/数量/单价/货款），再点收起。
   服务 `mfgPurchaseReceiptList` 多返回 `linesByReceipt`（map：receiptId → 行，**只带当前页的行**，OUT 已声明）；

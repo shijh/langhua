@@ -40,6 +40,9 @@ public final class MfgReceiptEvents {
     private static final String[] RECEIPT_PARAMETERS = {
         "receiptId", "supplierName", "supplierOrderNo", "receiptDate", "freightAmount", "note"};
 
+    /** The parameters the line editor posts. */
+    private static final String[] LINE_PARAMETERS = {"receiptId", "lineSeq", "qty", "unitPrice"};
+
     private MfgReceiptEvents() {
     }
 
@@ -95,6 +98,60 @@ public final class MfgReceiptEvents {
             response.getWriter().flush();
         } catch (IOException e) {
             Debug.logError(e, "Could not write the answer of the receipt form", MODULE);
+            return "error";
+        }
+        return "success";
+    }
+
+    /**
+     * Saves the quantity and the unit price of one receipt line and answers with a small JSON
+     * document, so the list can update the line and its totals without loading the page again.
+     *
+     * @param request the request, form encoded
+     * @param response the response, receives the JSON
+     * @return {@code success}, {@code error} when the answer could not be written
+     */
+    public static String saveLineJson(HttpServletRequest request, HttpServletResponse response) {
+        Map<String, Object> parameters = UtilHttp.getParameterMap(request);
+        LocalDispatcher dispatcher = (LocalDispatcher) request.getAttribute("dispatcher");
+        GenericValue userLogin = (GenericValue) request.getSession().getAttribute("userLogin");
+        boolean ok;
+        String message;
+        if (dispatcher == null) {
+            ok = false;
+            message = "服务不可用，请刷新页面后重试";
+        } else {
+            Map<String, Object> context = new HashMap<>();
+            context.put("userLogin", userLogin);
+            for (String name : LINE_PARAMETERS) {
+                if (parameters.containsKey(name)) {
+                    context.put(name, parameters.get(name));
+                }
+            }
+            try {
+                Map<String, Object> result = dispatcher.runSync("mfgPurchaseReceiptLineSave", context, -1, true);
+                ok = !ServiceUtil.isError(result);
+                if (ok) {
+                    message = "已保存第 " + String.valueOf(result.get("lineSeq")) + " 行，货款 "
+                            + String.format(java.util.Locale.ROOT, "%.2f",
+                                    Double.parseDouble(String.valueOf(result.get("goodsAmount"))));
+                } else {
+                    message = ServiceUtil.getErrorMessage(result);
+                }
+            } catch (GenericServiceException e) {
+                Debug.logError(e, "Could not save a receipt line", MODULE);
+                ok = false;
+                message = "保存失败：" + e.getMessage();
+            }
+        }
+        try {
+            response.setContentType("application/json; charset=UTF-8");
+            response.setHeader("Cache-Control", "no-store");
+            response.getWriter().write("{\"ok\":" + ok + ",\"message\":"
+                    + MfgBomEvents.jsonString(message) + "}");
+            response.getWriter().flush();
+        } catch (IOException e) {
+            Debug.logError(e, "Could not write the answer of the receipt line editor", MODULE);
             return "error";
         }
         return "success";

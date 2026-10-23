@@ -22,6 +22,8 @@
     <p class="error"><#list errList as msg>${msg}<#if msg_has_next><br/></#if></#list></p>
 </#if>
 
+<p id="listHint" class="hint">展开某张单就能直接改数量与单价，点「保存」立刻生效，页面不刷新。</p>
+<div id="receiptListBlock">
 <h2>采购支出（本页列出的单据）</h2>
 <table id="receiptSummary" data-allocation="MFG_ALLOC_NONE">
     <tr><th>货款合计</th><th>运费（期间费用）</th><th>采购支出合计</th><th>运费占货款</th></tr>
@@ -63,16 +65,21 @@
                     <td colspan="8">
                         <table class="inner">
                             <tr><th>行号</th><th>批次</th><th>料号</th><th>名称</th>
-                                <th class="num">数量</th><th class="num">单价</th><th class="num">货款</th></tr>
+                                <th class="num">数量</th><th class="num">单价</th><th class="num">货款</th><th></th></tr>
                             <#list detail as l>
+                                <#assign lineForm = "receiptLine_" + r.receiptId + "_" + (l.lineSeq)!0>
                                 <tr data-receipt-line-seq="${(l.lineSeq)!0}">
                                     <td class="num">${(l.lineSeq)!0}</td>
                                     <td><a href="/mfg/control/materials?search=${(l.lotId)!''?url}">${l.lotId!}</a></td>
                                     <td>${l.componentCode!}</td>
                                     <td>${l.componentName!}</td>
-                                    <td class="num">${(l.qty)!0}</td>
-                                    <td class="num">${((l.unitPrice)!0)?string("0.0000")}</td>
-                                    <td class="num">${((l.goodsAmount)!0)?string("0.00")}</td>
+                                    <td class="num"><input class="narrow" type="text" name="qty"
+                                            form="${lineForm}" value="${(l.qty)!0}"/></td>
+                                    <td class="num"><input class="narrow" type="text" name="unitPrice"
+                                            form="${lineForm}" value="${((l.unitPrice)!0)?string("0.0000")}"/></td>
+                                    <td class="num" data-goods-amount="${((l.goodsAmount)!0)?string("0.00")}">${((l.goodsAmount)!0)?string("0.00")}</td>
+                                    <td class="num"><button type="submit" form="${lineForm}"
+                                            title="保存这一行的数量与单价">保存</button></td>
                                 </tr>
                             </#list>
                         </table>
@@ -81,33 +88,107 @@
             </#if>
         </#list>
     </table>
-    <script>
-    /* one receipt usually holds one or two articles, so its lines open right under the row */
-    (function () {
-        document.addEventListener('click', function (event) {
-            var link = event.target.closest ? event.target.closest('[data-toggle-receipt]') : null;
-            if (!link) {
-                return;
-            }
-            event.preventDefault();
-            var id = link.getAttribute('data-toggle-receipt');
-            var row = document.querySelector('[data-receipt-lines="' + id + '"]');
-            if (!row) {
-                return;
-            }
-            var open = !row.hidden;
-            row.hidden = open;
-            link.setAttribute('data-expanded', open ? 'N' : 'Y');
-            link.textContent = link.textContent.replace(/[▸▾]/g, open ? '▸' : '▾');
-        });
-    }());
-    </script>
+    <#-- the forms the cells of a line are bound to; a form may not sit inside a table -->
+    <#list receipts as r>
+        <#list (linesByReceipt[r.receiptId])![] as l>
+            <form id="receiptLine_${r.receiptId}_${(l.lineSeq)!0}" method="post"
+                    action="/mfg/control/receiptLineSave" data-receipt-line="${r.receiptId}">
+                <input type="hidden" name="receiptId" value="${r.receiptId}"/>
+                <input type="hidden" name="lineSeq" value="${(l.lineSeq)!0}"/>
+            </form>
+        </#list>
+    </#list>
 <#else>
     <p class="hint">还没有采购到货单。建一张单，把这次买到的批次挂上去，运费的账就有地方记了。</p>
 </#if>
 <#assign pagerQuery = ''><#if (rl.search)?has_content><#assign pagerQuery = 'search=' + rl.search?url></#if>
 <@pg.pager action="/mfg/control/receipts" query=pagerQuery
     page=(rl.page)!1 pageCount=(rl.pageCount)!1 total=(rl.totalCount)!0 unit="张" pageSize=(rl.pageSize)!20/>
+</div>
+
+<script>
+/* the lines of a receipt open under its row, and a line can be corrected in place: the list block
+   is fetched again after a save, so every total follows without a full page load (Step 76) */
+(function () {
+    function openLines(ids) {
+        ids.forEach(function (id) {
+            var row = document.querySelector('[data-receipt-lines="' + id + '"]');
+            var link = document.querySelector('[data-toggle-receipt="' + id + '"]');
+            if (row) { row.hidden = false; }
+            if (link) {
+                link.setAttribute('data-expanded', 'Y');
+                link.textContent = link.textContent.replace(/[▸▾]/g, '▾');
+            }
+        });
+    }
+    function hint(text, kind) {
+        var line = document.getElementById('listHint');
+        if (line) {
+            line.className = kind;
+            line.textContent = text;
+        }
+    }
+    document.addEventListener('click', function (event) {
+        var link = event.target.closest ? event.target.closest('[data-toggle-receipt]') : null;
+        if (!link) {
+            return;
+        }
+        event.preventDefault();
+        var id = link.getAttribute('data-toggle-receipt');
+        var row = document.querySelector('[data-receipt-lines="' + id + '"]');
+        if (!row) {
+            return;
+        }
+        var opened = !row.hidden;
+        row.hidden = opened;
+        link.setAttribute('data-expanded', opened ? 'N' : 'Y');
+        link.textContent = link.textContent.replace(/[▸▾]/g, opened ? '▸' : '▾');
+    });
+    document.addEventListener('submit', function (event) {
+        var form = event.target;
+        if (!form.hasAttribute || !form.hasAttribute('data-receipt-line')) {
+            return;
+        }
+        event.preventDefault();
+        hint('正在保存…', 'hint');
+        fetch('/mfg/control/receiptLineJson', {
+            method: 'POST',
+            body: new URLSearchParams(new FormData(form)),
+            credentials: 'same-origin',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' }
+        })
+            .then(function (answer) { return answer.json(); })
+            .then(function (data) {
+                if (!data.ok) {
+                    hint(data.message || '保存失败', 'error');
+                    return;
+                }
+                var open = [];
+                Array.prototype.forEach.call(document.querySelectorAll('[data-receipt-lines]'), function (row) {
+                    if (!row.hidden) { open.push(row.getAttribute('data-receipt-lines')); }
+                });
+                fetch(location.href, { credentials: 'same-origin' })
+                    .then(function (answer) { return answer.text(); })
+                    .then(function (html) {
+                        var fresh = new DOMParser().parseFromString(html, 'text/html')
+                            .getElementById('receiptListBlock');
+                        var block = document.getElementById('receiptListBlock');
+                        if (!fresh || !block) {
+                            location.reload();
+                            return;
+                        }
+                        block.innerHTML = fresh.innerHTML;
+                        openLines(open);
+                        hint(data.message || '已保存', 'ok');
+                    });
+            })
+            .catch(function () {
+                /* the script route did not answer: send the plain form so nothing is lost */
+                form.submit();
+            });
+    });
+}());
+</script>
 
 <fieldset id="orderBlock">
     <legend>从淘宝订单建单并入库（一行一个料，人工核对后提交）</legend>

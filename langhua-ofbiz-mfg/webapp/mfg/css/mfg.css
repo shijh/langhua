@@ -290,3 +290,6 @@ kbd {
 #receiptTable .receiptLines table.inner { margin: .2em 0 .2em 1.4em; width: auto; }
 #receiptTable .receiptLines table.inner th { color: var(--fg-muted); font-weight: normal; border-bottom: 1px solid var(--border); }
 #receiptTable .receiptLines table.inner td { background: transparent; }
+#receiptTable .receiptLines input.narrow { width: 5.5em; text-align: right; }
+#receiptTable .receiptLines button { padding: .1em .7em; }
+#receiptTable .receiptLines td, #receiptTable .receiptLines th { vertical-align: middle; }
