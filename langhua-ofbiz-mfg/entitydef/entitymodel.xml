@@ -36,7 +36,7 @@
         <description>One component of a product model, including its reference designators</description>
         <field name="productCode" type="id"><description>Parent model</description></field>
         <field name="lineSeq" type="numeric"><description>Line number inside the BOM</description></field>
-        <field name="componentCode" type="id"><description>Component part number</description></field>
+        <field name="componentCode" type="name"><description>Component part number, up to 100 characters</description></field>
         <field name="componentName" type="name"><description>Component description</description></field>
         <field name="qty" type="floating-point"><description>Quantity per unit</description></field>
         <field name="designators" type="very-long"><description>Reference designators, e.g. R1-R12,C3</description></field>
@@ -84,7 +84,7 @@
         <description>One component of one BOM version, including its reference designators</description>
         <field name="bomVersionId" type="id"><description>Parent BOM version</description></field>
         <field name="lineSeq" type="numeric"><description>Line number inside the version</description></field>
-        <field name="componentCode" type="id"><description>Component part number</description></field>
+        <field name="componentCode" type="name"><description>Component part number, up to 100 characters</description></field>
         <field name="componentName" type="name"><description>Component description</description></field>
         <field name="qty" type="floating-point"><description>Quantity per unit</description></field>
         <field name="designators" type="very-long"><description>Reference designators, e.g. R1-R12,C3</description></field>
@@ -283,7 +283,7 @@
         <field name="lotId" type="id"><description>Internal lot id: LOT-yyMMdd-NN for a purchase lot, FG-WO-… for the goods of one work order</description></field>
         <field name="lotKindId" type="id"><description>MFG_LOT_COMPONENT (purchased part, empty means this) or MFG_LOT_PRODUCT (finished goods of a work order)</description></field>
         <field name="workOrderId" type="id"><description>Work order the finished goods came from, empty for a purchase lot</description></field>
-        <field name="componentCode" type="id"><description>Component part number, or the model for a finished goods lot</description></field>
+        <field name="componentCode" type="name"><description>Component part number, or the model for a finished goods lot</description></field>
         <field name="componentName" type="name"><description>Component description</description></field>
         <field name="supplierName" type="name"><description>Where the lot was bought</description></field>
         <field name="supplierLot" type="short-varchar"><description>Supplier lot / reel / date code printed on the label</description></field>
@@ -348,7 +348,7 @@
         <description>Components issued to a work order: which lot went into which build</description>
         <field name="issueId" type="id"><description>Issue number</description></field>
         <field name="workOrderId" type="id"><description>Work order the material was issued to</description></field>
-        <field name="componentCode" type="id"><description>Component part number</description></field>
+        <field name="componentCode" type="name"><description>Component part number, up to 100 characters</description></field>
         <field name="lotId" type="id"><description>Lot that was issued</description></field>
         <field name="qty" type="floating-point"><description>Issued quantity</description></field>
         <field name="directionId" type="id"><description>MFG_MOVE_ISSUE for a normal issue, MFG_MOVE_RETURN for material coming back from the line</description></field>
@@ -409,7 +409,7 @@
         <field name="replacementId" type="id"><description>Replacement number</description></field>
         <field name="sn" type="id"><description>Unit that was repaired</description></field>
         <field name="workOrderId" type="id"><description>Work order of the unit</description></field>
-        <field name="componentCode" type="id"><description>Component that was replaced</description></field>
+        <field name="componentCode" type="name"><description>Component that was replaced</description></field>
         <field name="opSeq" type="numeric"><description>Operation where the replacement happened</description></field>
         <field name="oldLotId" type="id"><description>Lot removed from the unit</description></field>
         <field name="newLotId" type="id"><description>Lot installed on the unit</description></field>
@@ -872,7 +872,7 @@
         <field name="receiptId" type="id"><description>Receipt the line belongs to</description></field>
         <field name="lineSeq" type="numeric"><description>Line number inside the receipt</description></field>
         <field name="lotId" type="id"><description>Material lot received with this line</description></field>
-        <field name="componentCode" type="id"><description>Part number</description></field>
+        <field name="componentCode" type="name"><description>Part number, up to 100 characters</description></field>
         <field name="componentName" type="name"><description>Description</description></field>
         <field name="qty" type="floating-point"><description>Quantity received on the line</description></field>
         <field name="unitPrice" type="currency-amount"><description>Purchase price per unit, without freight</description></field>
@@ -895,7 +895,7 @@
             package-name="org.langhua.ofbiz.mfg"
             title="Stock setting per component">
         <description>Component master record with the safety stock: below it the dashboard raises an alert</description>
-        <field name="componentCode" type="id"><description>Part number</description></field>
+        <field name="componentCode" type="name"><description>Part number, up to 100 characters, the key of this master record</description></field>
         <field name="componentName" type="name"><description>Description</description></field>
         <field name="unitOfMeasure" type="short-varchar"><description>Piece, reel, meter ...</description></field>
         <field name="minimumStock" type="floating-point"><description>Safety stock; below it the component is short</description></field>

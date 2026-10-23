@@ -142,12 +142,17 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
 - **照订单一步入库（Step 60）**：`mfgReceiptFromOrder`（IN `lines`：`料号,名称,数量,实付金额`，逗号或 Tab）
   一次完成建批次 + RECEIPT 流水 + 到货单行；**订单号做幂等键**（同号复用单据、重复行跳过、后来补的运费累加到单上）；
   页面上是到货单页的 `#orderBlock`，提示“数量按个填、金额填实付”
-- **长料号自动缩短（Step 65）**：`componentCode` 是 `id`（20 字符），淘宝常把封装写成料号
-  （`QFN16-0.65-QFN20-0.4-2.54`）。`MfgServices.fittingComponentCode` 超出就截前 ~13 位 + 整串的
-  6 位 hash（固定规则、同一个料号每次同结果，第二次到货落到同批次），`nameWithFullCode` 把全称补进名称
-  （`name` 100 字符，超了截断）；到货单/截图识别路径**不再报错**（`fitOrderLines` 在识别时就把 code 改短，
-  表单里看到的就是入库的），BOM 导入与 BOM 行手工添加仍是报错但**会给出建议的短料号**。
-  注意 `fitOrderLines` 用 **Tab** 重新拼行（名称里可能有逗号）
+- **料号列加宽到 100 字符（Step 66）**：`componentCode` 从 `id`（VARCHAR(20)）改成 `name`（VARCHAR(100)），
+  涉及 `MfgBomItem` / `MfgBomVersionItem` / `MfgMaterialLot` / `MfgMaterialIssue` / `MfgReplacement` /
+  `MfgPurchaseReceiptLine` / `MfgStockSetting`（这张的 `componentCode` 是主键，Derby 也允许 ALTER 加宽）。
+  `MAX_COMPONENT_CODE` 改成 100，`fittingComponentCode` 只对 >100 的保底缩短（规则不变，带 hash）。
+  **旧库要手工加宽**：`tools/part-code-100.sql`，先停实例，再用 ij
+  （`java -cp "derby.jar;derbyshared.jar;derbytools.jar" org.apache.derby.tools.ij 脚本`，jar 在
+  `~/.gradle/caches/modules-2/files-2.1/org.apache.derby/*/10.16.1.1/`）；
+  **`connect` 必须带 `user=ofbiz`**——表在 `OFBIZ` schema 下，ij 默认连 `APP`，否则报
+  “ALTER TABLE cannot be performed on 'MFG_…' because it does not exist”（实际是 schema 不对）。
+  物理表名是 `MFG_MATERIAL_LOT` 这种下划线大写、列名是 `COMPONENT_CODE`。
+  巡检 m47 改成断言“长料号被接受且**不被缩短**”
 - **截图识别（Step 60）**：`MfgOrderScan.scan`（`/mfg/control/orderImage`，multipart `image`）把图发给兼容 OpenAI 的
   视觉接口，配置项是系统属性 `org.langhua.mfg.vision.endpoint` / `.model` / `.key`；没配时返回 `{"ok":false,"message":…}`
   提示手工填（**绝不报错页**），识别结果只**填入可编辑表单**、人不提交不写库。回答解析在 `MfgServices.orderFieldsFrom`

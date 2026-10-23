@@ -94,8 +94,7 @@
             <input type="submit" value="建单并入库"/>
             <span class="hint">数量按<strong>个</strong>填（截图“拍1件=100个”就是 100），金额填这一行的<strong>实付</strong>；
                 单价由 金额 ÷ 数量 自动算（0.0291 这种不会被舍成 0.03）。同一订单号再提交一次不会重复入库。
-                <strong>料号最多 20 个字符</strong>，淘宝那种长包装描述会自动缩短成 <code>QFN16-0.65-6f1a2b</code> 这样（同一个料号每次缩成同一个），
-                全称仍留在名称里。</span>
+                <strong>料号原样保存</strong>（最长 100 个字符，像 <code>QFN16-0.65-QFN20-0.4-2.54</code> 这种也放得下）。</span>
         </p>
     </form>
     <script>

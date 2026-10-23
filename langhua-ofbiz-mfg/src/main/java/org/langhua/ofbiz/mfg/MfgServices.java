@@ -8104,11 +8104,10 @@ always
     }
 
     /**
-     * Fits a part number into the 20 characters the code fields allow. A shop order often carries a
-     * package description as the part number ({@code QFN16-0.65-QFN20-0.4-2.54}); cutting only the
-     * tail would merge two similar parts, so a short hash of the whole text is appended:
-     * {@code QFN16-0.65-6f1a2b}. The same text always gives the same code, so a second delivery of
-     * the same order still lands on the same lots.
+     * Fits a part number into the 100 characters the code fields allow. A shop order can carry a
+     * whole package description as the part number, and a real one fits; anything longer is
+     * shortened with a short hash of the whole text ({@code QFN16-0.65-6f1a2b}) so that two similar
+     * parts never merge and the same text always gives the same code.
      *
      * @param code the part number as typed or recognised
      * @return the code itself when it fits, otherwise a shorter but stable one
@@ -8145,7 +8144,11 @@ always
             if (out.length() > 0) {
                 out.append('\n');
             }
-            out.append(fittingComponentCode(row[0])).append('\t').append(nameWithFullCode(row[1], row[0]))
+            String fitted = fittingComponentCode(row[0]);
+            // only a shortened code needs the full number kept in the name
+            String name = fitted.equals(row[0]) ? (row[1] == null ? "" : row[1])
+                    : nameWithFullCode(row[1], row[0]);
+            out.append(fitted).append('\t').append(name)
                     .append('\t').append(row[2]).append('\t').append(row[3]);
         }
         return out.toString();
@@ -10382,8 +10385,8 @@ always
         }
     }
 
-    /** The {@code componentCode} field is of type {@code id}, so 20 characters are the limit. */
-    private static final int MAX_COMPONENT_CODE = 20;
+    /** The {@code componentCode} fields are of type {@code name}, so 100 characters are the limit. */
+    private static final int MAX_COMPONENT_CODE = 100;
 
     /**
      * Guesses the format of BOM text. Fritzing writes {@code Label;Part Type;mn;mpn;part number;}

@@ -69,9 +69,10 @@ public final class MfgOrderScan {
             + " {\"orderNo\":\"\",\"shop\":\"\",\"date\":\"\",\"freight\":\"\","
             + "\"lines\":\"code,name,quantity,amount\"} where lines has one row per article,"
             + " quantity is the number of pieces (a lot of 100 pieces is 100, not 1) and amount is"
-            + " the money really paid for that row without freight. Use a code the shop can"
-            + " recognise from the article name, at most 20 characters long: shorten a long package"
-            + " description, e.g. QFN16-0.65-QFN20-0.4-2.54 becomes QFN20-0.4-2.54.";
+            + " the money really paid for that row without freight. For the code use the article code"
+            + " printed in the order when there is one, otherwise the part number or package"
+            + " description of the article as it is (for example QFN16-0.65-QFN20-0.4-2.54); up to 100"
+            + " characters are fine.";
 
     private MfgOrderScan() {
     }

@@ -636,21 +636,23 @@ public class MfgServicesTest {
         // a code that fits is kept, spaces are not
         assertEquals("CAP-104-50V", MfgServices.fittingComponentCode(" CAP-104-50V "));
 
-        // a package description as the part number is shortened, the same way every time
+        // the code field holds 100 characters, so a package description is stored as it is
         String long1 = "QFN16-0.65-QFN20-0.4-2.54";
-        String short1 = MfgServices.fittingComponentCode(long1);
-        assertTrue(short1.length() <= 20);
-        assertTrue(short1.startsWith("QFN16-0.65"));
-        assertEquals(short1, MfgServices.fittingComponentCode(long1));
+        assertEquals(long1, MfgServices.fittingComponentCode(long1));
 
-        // two similar parts must not end up with the same code
-        assertFalse(short1.equals(MfgServices.fittingComponentCode("QFN16-0.65-QFN20-0.4-3.2")));
+        // only something longer than the column is shortened, always the same way
+        String tooLong = "QFN16-0.65-QFN20-0.4-2.54-" + "1234567890".repeat(9);
+        String fitted = MfgServices.fittingComponentCode(tooLong);
+        assertTrue(fitted.length() <= 100);
+        assertTrue(fitted.startsWith("QFN16-0.65-QFN20"));
+        assertEquals(fitted, MfgServices.fittingComponentCode(tooLong));
+        assertFalse(fitted.equals(MfgServices.fittingComponentCode(tooLong + "X")));
 
-        // the lines of an order are rewritten with the short code and the full number in the name
+        // the lines of an order keep their codes and their four cells
         String lines = MfgServices.fitOrderLines(long1 + ",转接板 2.54mm,2,12.60");
         String[] cells = lines.split("\t");
-        assertEquals(short1, cells[0]);
-        assertTrue(cells[1].contains(long1));
+        assertEquals(long1, cells[0]);
+        assertEquals("转接板 2.54mm", cells[1]);
         assertEquals("2", cells[2]);
         assertEquals("12.60", cells[3]);
     }
