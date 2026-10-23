@@ -168,7 +168,7 @@
 
     <h2>BOM 导入（${product.productCode}）</h2>
     <fieldset>
-        <legend>粘贴 CSV：元件料号,名称,用量,位号,是否关键料(Y/N),单价(可空)<#if currentVersionId != ''>，导入到 <b>${currentVersionId}</b></#if></legend>
+        <legend>粘贴 BOM：本系统 CSV 或 Fritzing 导出（自动识别）<#if currentVersionId != ''>，导入到 <b>${currentVersionId}</b></#if></legend>
         <form method="post" action="/mfg/control/bomImport">
             <input type="hidden" name="productCode" value="${product.productCode}"/>
             <#if currentVersionId != ''><input type="hidden" name="bomVersionId" value="${currentVersionId}"/></#if>
@@ -177,9 +177,19 @@ C0402-100N,100nF 0402 电容,6,C1-C6,N,0.02
 U1-BT5-SOC,主控 SoC,1,U1,Y,18.5
 BAT-18650,18650 电池,1,BT1,Y,12</textarea></p>
             <p>
+                格式
+                <select name="format" class="compact">
+                    <option value="">自动识别</option>
+                    <option value="MFG">本系统 CSV</option>
+                    <option value="FRITZING">Fritzing 导出</option>
+                </select>
                 <label><input type="checkbox" name="replace" value="N"/> 追加（不勾选则先清空该版本的行）</label>
                 <input type="submit" value="导入 BOM"/>
             </p>
+            <p class="hint">本系统格式：<code>料号,名称,用量,位号,是否关键料(Y/N),单价(可空)</code>，也可以用 Tab（从 Excel 直接粘）。
+                位号里有逗号要加引号，例如 <code>"R1,R2"</code>；料号最多 20 个字符。</p>
+            <p class="hint">Fritzing 导出（<code>Label;Part Type;mn;mpn;part number;</code> 加一段 <code>Amount;</code>）可以直接粘：
+                用量取 <code>Amount</code> 块、位号取 <code>Label</code> 块合成一行，料号用 <code>part number</code>（没有物料号时用名称）。</p>
         </form>
     </fieldset>
 

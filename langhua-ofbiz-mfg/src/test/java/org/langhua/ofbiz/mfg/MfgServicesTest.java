@@ -1028,4 +1028,74 @@ public class MfgServicesTest {
         assertEquals("San Q Zhang", MfgServices.displayNameOf("San", "Q", "Zhang"));
         assertEquals("", MfgServices.displayNameOf(null, "  ", null));
     }
+
+    @Test
+    public void detectsTheBomFormat() {
+        // Fritzing writes a header with a semicolon; everything else stays the component format
+        assertTrue(MfgServices.detectBomFormat("Label;Part Type;mn;mpn;part number;\nBT1;Supercapacitor;;;SE-5R5;\n")
+                == MfgServices.BomFormat.FRITZING);
+        assertTrue(MfgServices.detectBomFormat("\uFEFFAmount;Part Type;mn;mpn;part number;\n1;Resistor;;;;\n")
+                == MfgServices.BomFormat.FRITZING);
+        assertTrue(MfgServices.detectBomFormat("R0402-10K,10K 电阻,4,R1-R4,N,0.01\n")
+                == MfgServices.BomFormat.MFG);
+        assertTrue(MfgServices.detectBomFormat("") == MfgServices.BomFormat.MFG);
+        assertTrue(MfgServices.detectBomFormat(null) == MfgServices.BomFormat.MFG);
+    }
+
+    @Test
+    public void parsesAFritzingBom() {
+        String csv = "Label;Part Type;mn;mpn;part number;\n"
+                + "BT1;Supercapacitor 1.5F 5.5V;;;SE-5R5-D155VYC3G;\n"
+                + "J1;PIN HEADER 1x4;;;PinHeader-1x4;\n"
+                + "J3;PIN HEADER 1x4;;;PinHeader-1x4;\n"
+                + "R1;4.7kΩ Resistor;;;;\n"
+                + "R2;4.7kΩ Resistor;;;;\n"
+                + "\n"
+                + "Amount;Part Type;mn;mpn;part number;\n"
+                + "1;Supercapacitor 1.5F 5.5V;;;SE-5R5-D155VYC3G;\n"
+                + "2;PIN HEADER 1x4;;;PinHeader-1x4;\n"
+                + "2;4.7kΩ Resistor;;;;\n";
+        List<String[]> rows = MfgServices.parseFritzingBom(csv);
+
+        assertEquals(3, rows.size());
+        // the part number becomes the code, the amount block the quantity
+        assertEquals("SE-5R5-D155VYC3G", rows.get(0)[0]);
+        assertEquals("Supercapacitor 1.5F 5.5V", rows.get(0)[1]);
+        assertEquals("1", rows.get(0)[2]);
+        assertEquals("BT1", rows.get(0)[3]);
+        assertEquals("N", rows.get(0)[4]);
+        assertEquals("PINHEADER-1X4", rows.get(1)[0]);
+        assertEquals("2", rows.get(1)[2]);
+        assertEquals("J1,J3", rows.get(1)[3]);
+        // no part number: the name is used as the code, upper cased
+        assertEquals("4.7KΩ RESISTOR", rows.get(2)[0]);
+        assertEquals("2", rows.get(2)[2]);
+        assertEquals("R1,R2", rows.get(2)[3]);
+    }
+
+    @Test
+    public void countsAFritzingBomWithoutTheAmountBlock() {
+        // a schematic export without the amount block: one row per designator
+        String csv = "Label;Part Type;mn;mpn;part number;\n"
+                + "J1;PIN HEADER 1x4;;;PinHeader-1x4;\n"
+                + "J3;PIN HEADER 1x4;;;PinHeader-1x4;\n";
+        List<String[]> rows = MfgServices.parseFritzingBom(csv);
+
+        assertEquals(1, rows.size());
+        assertEquals("2", rows.get(0)[2]);
+        assertEquals("J1,J3", rows.get(0)[3]);
+    }
+
+    @Test
+    public void parsesTheBomAfterDetectingTheFormat() {
+        String fritzing = "Label;Part Type;mn;mpn;part number;\nU1;CH32V203F8U6;;;CH32V203F8U6;\n";
+        List<String[]> detected = MfgServices.parseBom(fritzing, null);
+        assertEquals(1, detected.size());
+        assertEquals("CH32V203F8U6", detected.get(0)[0]);
+
+        // the format can be forced, which also works for text that looks like neither
+        List<String[]> forced = MfgServices.parseBom("U9;SoC;;;U9-CHIP;\n", MfgServices.BomFormat.FRITZING);
+        assertEquals(1, forced.size());
+        assertEquals("U9-CHIP", forced.get(0)[0]);
+    }
 }

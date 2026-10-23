@@ -141,9 +141,11 @@
         <attribute name="csv" type="String" mode="IN" optional="false"/>
         <attribute name="replace" type="String" mode="IN" optional="true"/>
         <attribute name="bomVersionId" type="String" mode="IN" optional="true"/>
+        <attribute name="format" type="String" mode="IN" optional="true"/>
         <attribute name="productCode" type="String" mode="OUT" optional="true"/>
         <attribute name="bomVersionId" type="String" mode="OUT" optional="true"/>
         <attribute name="importedCount" type="String" mode="OUT" optional="true"/>
+        <attribute name="bomFormat" type="String" mode="OUT" optional="true"/>
     </service>
 
     <!-- BOM versions: one product can keep several BOMs, the model points to the one in use -->

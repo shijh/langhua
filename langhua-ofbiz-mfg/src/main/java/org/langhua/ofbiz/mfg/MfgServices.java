@@ -1185,9 +1185,25 @@ public final class MfgServices {
         if (csv == null) {
             return ServiceUtil.returnError("csv is required");
         }
-        List<String[]> rows = parseBomCsv(csv);
+        String requestedFormat = toText(context.get("format"));
+        BomFormat forced = BomFormat.of(requestedFormat);
+        if (requestedFormat != null && forced == null) {
+            return ServiceUtil.returnError("Unknown BOM format [" + requestedFormat
+                    + "], expected MFG or FRITZING");
+        }
+        BomFormat format = forced == null ? detectBomFormat(csv) : forced;
+        List<String[]> rows = parseBom(csv, format);
         if (rows.isEmpty()) {
             return ServiceUtil.returnError("No BOM line could be parsed, expected componentCode,componentName,qty,designators,isKeyPart");
+        }
+        for (String[] row : rows) {
+            if (row[0] == null || row[0].isEmpty()) {
+                return ServiceUtil.returnError("一行没有料号，导入中止");
+            }
+            if (row[0].length() > MAX_COMPONENT_CODE) {
+                return ServiceUtil.returnError("料号太长（最多 " + MAX_COMPONENT_CODE + " 个字符）：" + row[0]
+                        + "；请在源文件里改用物料号，或直接改成短料号");
+            }
         }
         try {
             if (EntityQuery.use(delegator).from("MfgProduct").where("productCode", productCode).queryOne() == null) {
@@ -1241,6 +1257,7 @@ public final class MfgServices {
             result.put("bomVersionId", bomVersionId);
             // String, so that the value can be carried by the redirect to the product page
             result.put("importedCount", String.valueOf(imported));
+            result.put("bomFormat", format.name());
             return result;
         } catch (GenericEntityException e) {
             return ServiceUtil.returnError("Could not import the BOM: " + e.getMessage());
@@ -9048,6 +9065,177 @@ always
     }
 
     /**
+     * The BOM text formats the import understands.
+     *
+     * <p>To support another tool, add a constant here, teach {@link #detectBomFormat(String)} to
+     * recognize it and write a parser that returns the same six columns as
+     * {@link #parseBomCsv(String)}: {@code componentCode, componentName, qty, designators,
+     * isKeyPart, unitPrice}.
+     */
+    enum BomFormat {
+        /** The format of this component: {@code componentCode,componentName,qty,designators,isKeyPart,unitPrice}. */
+        MFG("本系统"),
+        /** The export of Fritzing: {@code Label;Part Type;mn;mpn;part number;} plus an {@code Amount;} block. */
+        FRITZING("Fritzing");
+
+        private final String label;
+
+        BomFormat(String label) {
+            this.label = label;
+        }
+
+        /**
+         * Returns the name shown to the user.
+         *
+         * @return the label
+         */
+        String label() {
+            return label;
+        }
+
+        /**
+         * Looks a format up by its code, ignoring case.
+         *
+         * @param code the code typed in or stored, may be {@code null}
+         * @return the format, {@code null} when the code is unknown or empty
+         */
+        static BomFormat of(String code) {
+            if (code == null) {
+                return null;
+            }
+            for (BomFormat format : values()) {
+                if (format.name().equalsIgnoreCase(code.trim())) {
+                    return format;
+                }
+            }
+            return null;
+        }
+    }
+
+    /** The {@code componentCode} field is of type {@code id}, so 20 characters are the limit. */
+    private static final int MAX_COMPONENT_CODE = 20;
+
+    /**
+     * Guesses the format of BOM text. Fritzing writes {@code Label;Part Type;mn;mpn;part number;}
+     * as a header and separates the cells with a semicolon, which no other supported format does.
+     *
+     * @param csv the text to inspect
+     * @return the detected format, {@link BomFormat#MFG} when nothing else matches
+     */
+    static BomFormat detectBomFormat(String csv) {
+        if (csv == null) {
+            return BomFormat.MFG;
+        }
+        for (String line : csv.replace("\uFEFF", "").replace("\r\n", "\n").replace('\r', '\n').split("\n")) {
+            String trimmed = line.trim();
+            if (trimmed.isEmpty()) {
+                continue;
+            }
+            String lower = trimmed.toLowerCase(Locale.ROOT);
+            if (lower.contains(";") && (lower.startsWith("label;") || lower.startsWith("amount;"))) {
+                return BomFormat.FRITZING;
+            }
+            // only the first meaningful line decides
+            break;
+        }
+        return BomFormat.MFG;
+    }
+
+    /**
+     * Parses BOM text after detecting its format.
+     *
+     * @param csv the text
+     * @param format the format to use, {@code null} to detect it
+     * @return the rows in the shape of {@link #parseBomCsv(String)}
+     */
+    static List<String[]> parseBom(String csv, BomFormat format) {
+        BomFormat used = format == null ? detectBomFormat(csv) : format;
+        if (used == BomFormat.FRITZING) {
+            return parseFritzingBom(csv);
+        }
+        return parseBomCsv(csv);
+    }
+
+    /**
+     * Parses a Fritzing BOM export.
+     *
+     * <p>Fritzing writes two blocks separated by a semicolon:
+     * <pre>
+     * Label;Part Type;mn;mpn;part number;        one row per reference designator
+     * BT1;Supercapacitor 1.5F 5.5V;;;SE-5R5-D155VYC3G;
+     * Amount;Part Type;mn;mpn;part number;       the same parts with their amount
+     * 1;Supercapacitor 1.5F 5.5V;;;SE-5R5-D155VYC3G;
+     * </pre>
+     * The amount block gives the quantity, the label block gives the reference designators, and
+     * both are merged per part. The part number is the component code; a part without one falls
+     * back to its (upper cased) name.
+     *
+     * @param csv the Fritzing export
+     * @return the rows in the shape of {@link #parseBomCsv(String)}
+     */
+    static List<String[]> parseFritzingBom(String csv) {
+        // key -> row being built: code, name, qty, designators
+        Map<String, String[]> byPart = new LinkedHashMap<>();
+        List<String> order = new ArrayList<>();
+        Map<String, Double> amounts = new LinkedHashMap<>();
+        if (csv == null) {
+            return new ArrayList<>();
+        }
+        for (String line : csv.replace("\uFEFF", "").replace("\r\n", "\n").replace('\r', '\n').split("\n")) {
+            String trimmed = line.trim();
+            if (trimmed.isEmpty()) {
+                continue;
+            }
+            String[] cells = splitCsvLine(trimmed, ';');
+            String first = unquote(cells[0]);
+            if (first.equalsIgnoreCase("Label") || first.equalsIgnoreCase("Amount")) {
+                // a header row, the layout is known from the position
+                continue;
+            }
+            boolean amountBlock = first.matches("[0-9]+([.,][0-9]+)?");
+            String name = cells.length > 1 ? unquote(cells[1]) : "";
+            String partNumber = cells.length > 4 ? unquote(cells[4]) : "";
+            if (partNumber.isEmpty() && cells.length > 3) {
+                partNumber = unquote(cells[3]);
+            }
+            String key = partNumber.isEmpty() ? name : partNumber;
+            if (key.isEmpty()) {
+                continue;
+            }
+            if (!byPart.containsKey(key)) {
+                String code = (partNumber.isEmpty() ? name : partNumber).toUpperCase(Locale.ROOT);
+                byPart.put(key, new String[] {code, name, null, null});
+                order.add(key);
+            }
+            String[] row = byPart.get(key);
+            if (amountBlock) {
+                amounts.put(key, Double.valueOf(toDouble(first.replace(',', '.'), 1.0)));
+            } else {
+                // one row per reference designator: the quantity is the number of rows
+                String designator = first;
+                if (row[3] == null) {
+                    row[3] = designator;
+                } else if (!designator.isEmpty()) {
+                    row[3] = row[3] + "," + designator;
+                }
+                row[2] = String.valueOf(toLong(row[2], 0) + 1);
+            }
+        }
+        List<String[]> rows = new ArrayList<>(order.size());
+        for (String key : order) {
+            String[] row = byPart.get(key);
+            Double amount = amounts.get(key);
+            String qty = amount != null ? String.valueOf(amount.longValue()) : row[2];
+            if (qty == null) {
+                qty = "1";
+            }
+            rows.add(new String[] {row[0], row[1] == null || row[1].isEmpty() ? row[0] : row[1],
+                    qty, row[3], "N", null});
+        }
+        return rows;
+    }
+
+    /**
      * Parses BOM CSV text into rows of
      * {@code componentCode, componentName, qty, designators, isKeyPart, unitPrice}.
      * Empty lines and lines starting with {@code #} are ignored; quotes are stripped.
@@ -9055,8 +9243,7 @@ always
      * @param csv the CSV text
      * @return the parsed rows, never {@code null}
      */
-    static List<String[]> parseBomCsv(String csv) {
-        List<String[]> rows = new ArrayList<>();
+    static List<String[]> parseBomCsv(String csv) {        List<String[]> rows = new ArrayList<>();
         if (csv == null) {
             return rows;
         }
@@ -9091,6 +9278,17 @@ always
      * @return the cells, never {@code null}
      */
     static String[] splitCsvLine(String line) {
+        return splitCsvLine(line, ',');
+    }
+
+    /**
+     * Splits one CSV line on a given separator, honouring double quoted cells.
+     *
+     * @param line the raw line
+     * @param separator the cell separator, a comma also accepts a tab
+     * @return the cells, never {@code null}
+     */
+    static String[] splitCsvLine(String line, char separator) {
         List<String> cells = new ArrayList<>();
         StringBuilder cell = new StringBuilder();
         boolean quoted = false;
@@ -9109,7 +9307,7 @@ always
                 }
             } else if (c == '"') {
                 quoted = true;
-            } else if (c == ',' || c == '\t') {
+            } else if (c == separator || (separator == ',' && c == '\t')) {
                 cells.add(cell.toString());
                 cell.setLength(0);
             } else {

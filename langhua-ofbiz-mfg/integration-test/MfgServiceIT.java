@@ -148,6 +148,7 @@ public final class MfgServiceIT {
             it.login();
             it.savesProductModel();
             it.importsBom();
+            it.importsAFritzingBom();
             it.savesRouting();
             it.readsProductDetail();
             it.createsWorkOrder();
@@ -595,6 +596,46 @@ public final class MfgServiceIT {
                 && response.body.contains(">4<"), "expected importedCount = 4");
         check("bom: no service error", !response.body.contains("No BOM line could be parsed"),
                 "unexpected service error");
+    }
+
+    /**
+     * Imports a BOM exported by Fritzing: the format is detected from the {@code Label;} header, the
+     * amount block gives the quantity and the label block the reference designators.
+     *
+     * @throws IOException when a service call fails
+     */
+    private void importsAFritzingBom() throws IOException {
+        String model = "ITFZ" + new java.text.SimpleDateFormat("HHmmss").format(new java.util.Date());
+        Map<String, String> productForm = new LinkedHashMap<>();
+        productForm.put("productCode", model);
+        productForm.put("productName", "IT fritzing model");
+        invoke("mfgProductSave", productForm);
+
+        Map<String, String> importForm = new LinkedHashMap<>();
+        importForm.put("productCode", model);
+        importForm.put("csv", "Label;Part Type;mn;mpn;part number;\n"
+                + "J1;PIN HEADER 1x4;;;PinHeader-1x4;\n"
+                + "J3;PIN HEADER 1x4;;;PinHeader-1x4;\n"
+                + "R1;4.7k Resistor;;;;\n"
+                + "\n"
+                + "Amount;Part Type;mn;mpn;part number;\n"
+                + "2;PIN HEADER 1x4;;;PinHeader-1x4;\n"
+                + "1;4.7k Resistor;;;;\n");
+        Response imported = invoke("mfgBomImport", importForm);
+        check("fritzing: the export imports", imported.status == 200
+                && !imported.body.contains("errorMessage"), "HTTP " + imported.status);
+        check("fritzing: the format is detected", imported.body.contains("FRITZING"),
+                "no format in the result");
+
+        Map<String, String> detailForm = new LinkedHashMap<>();
+        detailForm.put("productCode", model);
+        Response detail = invoke("mfgProductDetail", detailForm);
+        check("fritzing: the part number becomes the code", detail.body.contains("PINHEADER-1X4"),
+                "no merged part");
+        check("fritzing: the designators are merged", detail.body.contains("J1,J3"),
+                "designators missing");
+        check("fritzing: a part without a part number keeps its name", detail.body.contains("4.7K RESISTOR"),
+                "no fallback code");
     }
 
     private void savesRouting() throws IOException {

@@ -362,7 +362,7 @@ https://localhost:8443/mfg/control/main
 | `mfgUserResetPassword` | 把账号密码重置回 `ofbiz`（走 OFBiz 的 `updatePassword`），下次登录被门禁拦住要求改 |
 | `mfgPermissions` | 当前账号能进哪些区域（`canView` / `canProduce` / `canStock` / `canEng` / `canSales` / `canCost` / `isAdmin` / `manager`），装饰器用它隐藏菜单，页面用它隐藏成本块 |
 | `mfgProductSave` / `mfgProductList` / `mfgProductDetail` | 型号维护与查询（含当前 BOM 版本的行、工艺路线、版本数）；工时改了就把 `standardHoursSource` 退回 `MANUAL`；`snPrefix` 超 10 字符直接报错（不填时默认取型号编码） |
-| `mfgBomImport` | 从 CSV 导入 BOM 到指定版本（缺省为当前版本），`replace=N` 时追加而不清空；第 6 列单价可空；**型号还没有版本时，导入的这个版本直接成为当前版本** |
+| `mfgBomImport` | 从 CSV 导入 BOM 到指定版本（缺省为当前版本），`replace=N` 时追加而不清空；第 6 列单价可空；**型号还没有版本时，导入的这个版本直接成为当前版本**；`format` 可指定 `MFG` / `FRITZING`，留空自动识别（见下一节） |
 | `mfgBomVersionCreate` / `mfgBomVersionActivate` / `mfgBomVersionList` | 新建下一版（可复制当前行）、启用某版（旧版转废止、型号指向新版）、列出各版本 |
 | `mfgBomMigrateLegacy` | 把旧单表 BOM 冻结为版本（幂等，可重复调用） |
 | `mfgAttachmentSave` / `mfgAttachmentList` / `mfgAttachmentDelete` | 任意单据的附件：存（base64，供脚本与测试用）、列表（不返回字节）、删除；页面上传走下面的 multipart 事件 |
@@ -439,6 +439,25 @@ csv         = R0402-10K,10K 0402 resistor,4,R1-R4,N,0.05
               BAT-18650,18650 cell,1,BT1,Y,12
 ```
 
+### BOM 导入支持的格式（`BomFormat`）
+
+`mfgBomImport` 先认格式再解析，页面上也可以手动指定（`format=MFG|FRITZING`，留空 = 自动识别）：
+
+| 格式 | 长什么样 | 怎么解析 |
+| --- | --- | --- |
+| `MFG`（本系统） | `料号,名称,用量,位号,关键料,单价`，逗号或 Tab，`#` 开头是注释 | 直接按列取；位号里有逗号要加引号 `"R1,R2"` |
+| `FRITZING` | 首行 `Label;Part Type;mn;mpn;part number;`，中间一段 `Amount;...`，分号分隔 | 用量取 `Amount` 段（没有这段就数 `Label` 行数），位号取 `Label` 段合成 `J1,J3`；**料号用 `part number`，没有就退化成名称（全大写）**；表头行跳过 |
+
+- 两种格式的料号都必须是 **≤ 20 个字符**（`componentCode` 是 `id` 类型），超了会直接报
+  「料号太长（最多 20 个字符）：…」，不会写半截再报数据库错；
+- Fritzing 里没有物料号的元件（电阻电容常见），导入后用名称当料号，建议在页面上改成实际采购料号；
+- 服务结果带 `bomFormat`（`MFG` / `FRITZING`），页面上也会显示识别到的格式。
+
+**加一种新格式**（嘉立创、KiCad、Altium…）：在 `MfgServices.BomFormat` 里加一个常量、
+在 `detectBomFormat()` 里识别它的表头/分隔符、写一个返回同样六列的解析方法，然后在
+`parseBom()` 里分发即可——页面的下拉选项也跟着加一行。单测在 `MfgServicesTest` 的
+`detectsTheBomFormat` / `parsesAFritzingBom` 里，照着加就行。
+
 ## 页面
 
 所有列表页（工单/产品/产品开发/设计变更/物料批次/齐套/出货/厂家/售后单/买家名单）都带 **关键词搜索 + 过滤 + 分页**：
@@ -448,7 +467,7 @@ csv         = R0402-10K,10K 0402 resistor,4,R1-R4,N,0.05
 | 路径 | 说明 |
 | --- | --- |
 | `/mfg/control/main` | 工单列表 + 新建工单（含产品型号下拉） |
-| `/mfg/control/products?productCode=...` | 产品型号、**照片上传与删改**、**BOM 版本（查看/新建下一版/启用）**、BOM 导入（带单价）与工艺路线维护、**成本（单台 / 批量）**——材料/工时/合计、目标成本对比与毛利，缺单价会提示；标准工时旁边注明来源（手工填写 / 学习曲线回填 + 基准台数 + 估算号） |
+| `/mfg/control/products?productCode=...` | 产品型号、**照片上传与删改**、**BOM 版本（查看/新建下一版/启用）**、BOM 导入（带单价，**可按本系统 CSV 或 Fritzing 导出导入**）与工艺路线维护、**成本（单台 / 批量）**——材料/工时/合计、目标成本对比与毛利，缺单价会提示；标准工时旁边注明来源（手工填写 / 学习曲线回填 + 基准台数 + 估算号） |
 | `/mfg/control/attachmentUpload` | POST multipart，字段 `file` + `ownerTypeId` + `ownerId` + `back`（回跳页面）+ 可选 `note` |
 | `/mfg/control/attachment?ownerTypeId=...&ownerId=...&seq=...` | 输出文件字节；`seq` 缺省取最新一件，`thumb=1` 对图片输出最长边 200px 的 JPEG 缩略图；PDF 直出 |
 | `/mfg/control/attachmentDelete` | POST `ownerTypeId` + `ownerId` + `seq` + `back`，删除后回跳 |
