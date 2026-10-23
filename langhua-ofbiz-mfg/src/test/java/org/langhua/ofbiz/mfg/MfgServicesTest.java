@@ -698,6 +698,28 @@ public class MfgServicesTest {
     }
 
     @Test
+    public void keepsAnOrderLineWithoutACode() {
+        // a shop that prints no article code: the model answers with an empty first cell
+        List<String[]> rows = MfgServices.parseOrderArticleLines(
+                ",超级法拉电容器 5.5V1.5F C型 21*7.5,2,9.28");
+        assertEquals(1, rows.size());
+        assertEquals("5.5V1.5FC217.5", rows.get(0)[0]);
+        assertEquals("2", rows.get(0)[2]);
+
+        // a name without any ascii still gives a stable code
+        String chinese = MfgServices.codeFromName("超级法拉电容器");
+        assertTrue(chinese.startsWith("P-"));
+        assertEquals(chinese, MfgServices.codeFromName("超级法拉电容器"));
+        assertFalse(chinese.equals(MfgServices.codeFromName("瓷片电容器")));
+
+        // and nothing is checked against the paid total when no line could be read
+        Map<String, String> unreadable = new HashMap<>();
+        unreadable.put("paidTotal", "9.28");
+        unreadable.put("lines", ",,,");
+        assertNull(MfgServices.checkOrderTotals(unreadable));
+    }
+
+    @Test
     public void quotesWhatTheVisionModelAnswered() {
         // the quote is what tells "this is not an order" from "the model cannot see images"
         assertEquals("（空回答）", MfgServices.visionReplyExcerpt(null, 40));

@@ -72,7 +72,9 @@ public final class MfgOrderScan {
             + "\"freight\":\"\",\"lines\":\"code,name,quantity,amount\"} where lines has one row"
             + " per article, quantity is the number of pieces (a lot of 100 pieces is 100, not 1) and"
             + " amount is the goods money of that row without freight: when 实付款 is 3.50 and"
-            + " 含运费 is 2.00, the row amount is 3.50 minus 2.00.";
+            + " 含运费 is 2.00, the row amount is 3.50 minus 2.00. When the order prints no article"
+            + " code, put the model number of the article (for example 5.5V1.5F C型 21*7.5) in the"
+            + " code column; never leave it empty.";
 
     private MfgOrderScan() {
     }

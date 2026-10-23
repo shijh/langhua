@@ -8091,8 +8091,13 @@ always
                 continue;
             }
             String code = cells[0] == null ? "" : cells[0].trim();
-            if (code.isEmpty() || "料号".equals(code)) {
+            if ("料号".equals(code)) {
                 continue;
+            }
+            if (code.isEmpty()) {
+                // a shop often prints no article code at all, and a model then answers with an
+                // empty first cell; the line is still worth keeping, so the code comes from the name
+                code = codeFromName(cells[1]);
             }
             rows.add(new String[] {code, cells[1], cells[2], cells[3]});
         }
@@ -8101,6 +8106,31 @@ always
 
     private static char cellsSeparator(String line) {
         return line.indexOf('\t') >= 0 ? '\t' : ',';
+    }
+
+    /**
+     * Builds a part number from the name of an article, for an order that prints no code: the
+     * printable ASCII of the name (5.5V1.5F C型 21*7.5 gives 5.5V1.5FC217.5), or a short stable code
+     * of the whole name when it holds no ASCII at all. The same name always gives the same code, so
+     * a second delivery still lands on the same lots.
+     *
+     * @param name the article name
+     * @return a code that fits the code fields, never empty
+     */
+    static String codeFromName(String name) {
+        String text = name == null ? "" : name.trim();
+        StringBuilder ascii = new StringBuilder();
+        for (int i = 0; i < text.length(); i++) {
+            char c = text.charAt(i);
+            if (c > 32 && c < 127) {
+                ascii.append(c);
+            }
+        }
+        String compact = ascii.toString().replaceAll("[^A-Za-z0-9._-]", "");
+        if (compact.length() >= 3) {
+            return fittingComponentCode(compact);
+        }
+        return "P-" + String.format(Locale.ROOT, "%06x", ((long) text.hashCode()) & 0xffffffL);
     }
 
     /**
@@ -8235,6 +8265,10 @@ always
             goods += toDouble(row[3], 0.0);
         }
         goods = round2(goods);
+        if (goods <= 0.0) {
+            // no line could be read: there is nothing to check the freight against
+            return null;
+        }
         double expected = round2(paid.doubleValue() - goods);
         if (expected < 0.0) {
             // the lines are more than what was paid: the lines are the wrong part, leave them alone
