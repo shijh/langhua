@@ -421,8 +421,17 @@
         <event type="service" invoke="mfgReceiptFromOrder"/>
         <response name="success" type="request-redirect" value="receipts">
             <redirect-parameter name="receiptId"/>
+            <redirect-parameter name="updatedCount"/>
         </response>
         <response name="error" type="view" value="receipts"/>
+    </request-map>
+
+    <!-- tells the page which parts of an order are already in, so it can ask before overwriting -->
+    <request-map uri="orderPeek">
+        <security https="true" auth="true"/>
+        <event type="java" path="org.langhua.ofbiz.mfg.MfgReceiptEvents" invoke="orderPeekJson"/>
+        <response name="success" type="none"/>
+        <response name="error" type="none"/>
     </request-map>
 
     <!-- reads a shop order screenshot with the configured vision model, answers with the form fields -->

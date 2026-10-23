@@ -8105,13 +8105,20 @@ always
                 receipt.store();
             }
             String receiptId = receipt.getString("receiptId");
+            boolean overwrite = "Y".equalsIgnoreCase(toText(context.get("overwrite")));
             Map<String, String> existing = new LinkedHashMap<>();
+            Map<String, GenericValue> existingByCode = new LinkedHashMap<>();
             for (GenericValue line : EntityQuery.use(delegator).from("MfgPurchaseReceiptLine")
-                    .where("receiptId", receiptId).queryList()) {
+                    .where("receiptId", receiptId).orderBy("lineSeq").queryList()) {
                 existing.put(lotLineKey(line.getString("componentCode"), line.get("qty"), line.get("goodsAmount")), "Y");
+                String code = line.getString("componentCode");
+                if (code != null && !existingByCode.containsKey(code)) {
+                    existingByCode.put(code, line);
+                }
             }
             int imported = 0;
             int skipped = 0;
+            int updated = 0;
             long lineSeq = nextReceiptLineSeq(delegator, receiptId);
             for (String[] row : rows) {
                 String componentCode = row[0];
@@ -8120,6 +8127,18 @@ always
                 if (existing.containsKey(lotLineKey(componentCode, Double.valueOf(qty),
                         Double.valueOf(round2(amount))))) {
                     skipped++;
+                    continue;
+                }
+                GenericValue samePart = existingByCode.get(componentCode);
+                if (samePart != null) {
+                    // the order is already in: the same part is never added twice; the person has
+                    // to say that the new numbers should replace the old ones
+                    if (!overwrite) {
+                        skipped++;
+                        continue;
+                    }
+                    mergeOrderLine(delegator, samePart, receiptDate, qty, amount);
+                    updated++;
                     continue;
                 }
                 String lotId = nextLotId(delegator, LocalDate.now());
@@ -8154,7 +8173,7 @@ always
                 lineSeq += 10L;
                 imported++;
             }
-            if (imported == 0 && skipped == 0) {
+            if (imported == 0 && skipped == 0 && updated == 0) {
                 return ServiceUtil.returnError("没有可入库的明细");
             }
             List<Map<String, Object>> lineMaps = new ArrayList<>();
@@ -8168,10 +8187,89 @@ always
             result.put("importedCount", String.valueOf(imported));
             result.put("skippedCount", String.valueOf(skipped));
             result.put("shortenedCount", String.valueOf(shortened));
+            result.put("updatedCount", String.valueOf(updated));
             result.putAll(summary);
             return result;
         } catch (GenericEntityException e) {
             return ServiceUtil.returnError(bomImportFailure(e));
+        }
+    }
+
+    /**
+     * Writes new numbers into a line that is already on the receipt, and brings its lot and the
+     * receipt movement along, so the stock and the traceability keep saying the same thing.
+     *
+     * @param delegator the delegator
+     * @param line the receipt line of the same part
+     * @param receiptDate the arrival day of the order
+     * @param qty the new quantity
+     * @param amount the new goods value
+     * @throws GenericEntityException when a row could not be stored
+     */
+    static void mergeOrderLine(Delegator delegator, GenericValue line, java.sql.Date receiptDate,
+            double qty, double amount) throws GenericEntityException {
+        double unitPrice = round2(amount / qty);
+        String lotId = line.getString("lotId");
+        if (lotId != null) {
+            GenericValue lot = EntityQuery.use(delegator).from("MfgMaterialLot")
+                    .where("lotId", lotId).queryFirst();
+            if (lot != null) {
+                lot.set("receivedQty", Double.valueOf(qty));
+                lot.set("receivedAmount", Double.valueOf(round2(amount)));
+                lot.set("unitPrice", Double.valueOf(unitPrice));
+                lot.set("receivedDate", receiptDate);
+                lot.store();
+                GenericValue movement = EntityQuery.use(delegator).from("MfgInventoryDetail")
+                        .where("lotId", lotId, "movementTypeId", MOVE_RECEIPT).queryFirst();
+                if (movement != null) {
+                    movement.set("quantityDiff", Double.valueOf(qty));
+                    movement.store();
+                }
+                recalcLotStock(delegator, lot);
+            }
+        }
+        line.set("qty", Double.valueOf(qty));
+        line.set("unitPrice", Double.valueOf(unitPrice));
+        line.set("goodsAmount", Double.valueOf(round2(amount)));
+        line.store();
+    }
+
+    /**
+     * Reads the lines of the receipt of one shop order, so the page can ask before an order that
+     * is already in is booked a second time.
+     *
+     * @param dctx the dispatch context
+     * @param context service context, see {@code servicedef/services.xml#mfgReceiptLinesOfOrder}
+     * @return the service result containing {@code receiptId} and {@code lines}
+     */
+    public static Map<String, Object> receiptLinesOfOrder(DispatchContext dctx, Map<String, ? extends Object> context) {
+        Delegator delegator = dctx.getDelegator();
+        Map<String, Object> result = ServiceUtil.returnSuccess();
+        result.put("lines", new ArrayList<Map<String, Object>>());
+        String supplierOrderNo = toText(context.get("supplierOrderNo"));
+        if (supplierOrderNo == null) {
+            return result;
+        }
+        try {
+            GenericValue receipt = EntityQuery.use(delegator).from("MfgPurchaseReceipt")
+                    .where("supplierOrderNo", supplierOrderNo).queryFirst();
+            if (receipt == null) {
+                return result;
+            }
+            List<Map<String, Object>> lines = new ArrayList<>();
+            for (GenericValue line : EntityQuery.use(delegator).from("MfgPurchaseReceiptLine")
+                    .where("receiptId", receipt.getString("receiptId")).orderBy("lineSeq").queryList()) {
+                Map<String, Object> map = new LinkedHashMap<>();
+                map.put("componentCode", line.getString("componentCode"));
+                map.put("qty", line.get("qty"));
+                map.put("goodsAmount", line.get("goodsAmount"));
+                lines.add(map);
+            }
+            result.put("receiptId", receipt.getString("receiptId"));
+            result.put("lines", lines);
+            return result;
+        } catch (GenericEntityException e) {
+            return ServiceUtil.returnError("Could not read the receipt of that order: " + e.getMessage());
         }
     }
 

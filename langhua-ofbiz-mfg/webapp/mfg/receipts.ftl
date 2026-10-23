@@ -18,6 +18,10 @@
 
 <h1>采购到货单</h1>
 
+<#if (parameters.updatedCount)??>
+    <p class="ok">本次导入更新了 ${parameters.updatedCount} 行原有明细（数量与金额按这次的数字）。</p>
+</#if>
+
 <#if errList?has_content>
     <p class="error"><#list errList as msg>${msg}<#if msg_has_next><br/></#if></#list></p>
 </#if>
@@ -187,6 +191,54 @@
                 form.submit();
             });
     });
+
+    /* an order that is already in must not be booked a second time without a word: the page asks
+       before the same parts are overwritten (Step 77) */
+    var orderForm = document.getElementById('orderForm');
+    if (orderForm && window.fetch && window.FormData) {
+        orderForm.addEventListener('submit', function (event) {
+            var orderNo = document.getElementById('orderNoField');
+            var linesField = document.getElementById('linesField');
+            if (!orderNo || !linesField || !orderNo.value.trim() || !linesField.value.trim()) {
+                return;
+            }
+            event.preventDefault();
+            var codes = linesField.value.split(/\r?\n/).map(function (row) {
+                var cells = row.split(/\t|,/);
+                return cells.length >= 4 ? cells[0].trim() : '';
+            }).filter(function (code) {
+                return code.length > 0;
+            });
+            fetch('/mfg/control/orderPeek?supplierOrderNo=' + encodeURIComponent(orderNo.value.trim()),
+                { credentials: 'same-origin' })
+                .then(function (answer) { return answer.json(); })
+                .then(function (data) {
+                    var already = (data.lines || []).filter(function (line) {
+                        return codes.indexOf(line.componentCode) >= 0;
+                    });
+                    if (!already.length) {
+                        orderForm.submit();
+                        return;
+                    }
+                    var text = '这张单（' + orderNo.value.trim() + '）已经在库里了，其中有 '
+                        + already.length + ' 个同样的料号：\n';
+                    already.forEach(function (line) {
+                        text += '  ' + line.componentCode + '：现有数量 ' + line.qty
+                            + '，货款 ' + line.goodsAmount + '\n';
+                    });
+                    text += '\n要用这次明细里的数量与金额覆盖原有数据吗？（点“取消”就什么都不改）';
+                    if (window.confirm(text)) {
+                        document.getElementById('overwriteField').value = 'Y';
+                        orderForm.submit();
+                    } else {
+                        hint('没有改动。核对数字后再点“建单并入库”，届时选“确定”即可覆盖原有明细。', 'hint');
+                    }
+                })
+                .catch(function () {
+                    orderForm.submit();
+                });
+        });
+    }
 }());
 </script>
 
@@ -199,7 +251,8 @@
         <span id="scanHint" class="hint">选文件后点按钮，或者直接 <kbd>Ctrl+V</kbd> 粘贴截图（也可以把图拖进来）；
             没配识图服务就把明细粘到下面。</span>
     </p>
-    <form method="post" action="/mfg/control/receiptFromOrder">
+    <form method="post" action="/mfg/control/receiptFromOrder" id="orderForm">
+        <input type="hidden" name="overwrite" id="overwriteField" value="N"/>
         <p>
             订单号 <input type="text" id="orderNoField" name="supplierOrderNo" size="22" placeholder="淘宝订单号"/>
             店铺 <input type="text" id="shopField" name="supplierName" size="18" placeholder="天猫 risym旗舰店"/>
@@ -212,7 +265,7 @@
         </p>
         <p>
             <input type="submit" value="建单并入库"/>
-            <span class="hint">数量按<strong>个</strong>填（截图“拍1件=100个”就是 100），金额填这一行的<strong>实付</strong>；
+            <span id="orderHint" class="hint">数量按<strong>个</strong>填（截图“拍1件=100个”就是 100），金额填这一行的<strong>实付</strong>；
                 单价由 金额 ÷ 数量 自动算（0.0291 这种不会被舍成 0.03）。同一订单号再提交一次不会重复入库。
                 <strong>料号原样保存</strong>（最长 100 个字符，像 <code>QFN16-0.65-QFN20-0.4-2.54</code> 这种也放得下）。</span>
         </p>

@@ -141,6 +141,12 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   工单实际材料成本用它；到货单行同样 `unitPriceExact = goodsAmount ÷ qty` 给页面显示 4 位。要改列精度得手工 ALTER，先不动
 - **订单日期不是到货日（Step 68）**：`MfgOrderScan` 把截图上那个日期叫 `orderDate`（旧回答里的 `date` 也读），
   **不填到货日**（`dateField` 留空 = 今天），提示里写“截图上的 X 是下单日，到货日请自己选”
+- **同一订单再次导入会先问（Step 77）**：`receiptFromOrder` 对**同料号**不再新增行（以前只跳过完全相同的
+  qty+金额，改过数字就会加成两行）；新增 IN `overwrite`：`Y` 时走 `mergeOrderLine` ——
+  改单行 qty/unitPrice/goodsAmount **以及那个批次的 receivedQty/receivedAmount/unitPrice 和它的 RECEIPT 流水**
+  （再 `recalcLotStock`），所以库存与可追溯性不会跟单据脱节；不是 `Y` 就只 skip。
+  页面在提交前先打 `/mfg/control/orderPeek?supplierOrderNo=…`（服务 `mfgReceiptLinesOfOrder`）拿“这单已有哪些料”，
+  有重叠就 `confirm()`：确定 → 填 `#overwriteField=Y` 再 `form.submit()`；取消 → 什么都不改
 - **明细里就地改数量/单价（Step 76）**：子表每行一个空 `<form data-receipt-line id="receiptLine_<单号>_<行号>">`
   （放在 `</table>` 之后，不能放在表里），单元格的 qty/unitPrice 输入框用 `form="…"` 绑定；
   `submit` 拦截后 POST `/mfg/control/receiptLineJson`（`MfgReceiptEvents.saveLineJson` → `mfgPurchaseReceiptLineSave`），

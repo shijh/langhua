@@ -1116,10 +1116,12 @@
         <attribute name="receiptDate" type="String" mode="IN" optional="true"/>
         <attribute name="freightAmount" type="String" mode="IN" optional="true"/>
         <attribute name="lines" type="String" mode="IN" optional="false"/>
+        <attribute name="overwrite" type="String" mode="IN" optional="true"/>
         <attribute name="locationId" type="String" mode="IN" optional="true"/>
         <attribute name="note" type="String" mode="IN" optional="true"/>
         <attribute name="receiptId" type="String" mode="OUT" optional="true"/>
         <attribute name="importedCount" type="String" mode="OUT" optional="true"/>
+        <attribute name="updatedCount" type="String" mode="OUT" optional="true"/>
         <attribute name="skippedCount" type="String" mode="OUT" optional="true"/>
         <attribute name="shortenedCount" type="String" mode="OUT" optional="true"/>
         <attribute name="lineCount" type="Integer" mode="OUT" optional="true"/>
@@ -1127,6 +1129,15 @@
         <attribute name="freightTotal" type="Double" mode="OUT" optional="true"/>
         <attribute name="spendTotal" type="Double" mode="OUT" optional="true"/>
         <attribute name="freightShare" type="Double" mode="OUT" optional="true"/>
+    </service>
+
+    <service name="mfgReceiptLinesOfOrder" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgServices" invoke="receiptLinesOfOrder"
+            auth="false" use-transaction="false">
+        <description>The lines of the receipt of one shop order, so the page can ask before an order that is already in is booked a second time</description>
+        <attribute name="supplierOrderNo" type="String" mode="IN" optional="true"/>
+        <attribute name="receiptId" type="String" mode="OUT" optional="true"/>
+        <attribute name="lines" type="java.util.List" mode="OUT" optional="true"/>
     </service>
 
     <service name="mfgLocationSave" engine="java"

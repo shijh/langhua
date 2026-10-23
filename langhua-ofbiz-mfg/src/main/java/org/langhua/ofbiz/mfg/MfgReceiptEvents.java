@@ -13,6 +13,7 @@ package org.langhua.ofbiz.mfg;
 
 import java.io.IOException;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import javax.servlet.http.HttpServletRequest;
@@ -98,6 +99,59 @@ public final class MfgReceiptEvents {
             response.getWriter().flush();
         } catch (IOException e) {
             Debug.logError(e, "Could not write the answer of the receipt form", MODULE);
+            return "error";
+        }
+        return "success";
+    }
+
+    /**
+     * Answers which parts of one shop order are already booked in, so the page can ask before the
+     * same order is imported a second time.
+     *
+     * @param request the request, with {@code supplierOrderNo}
+     * @param response the response, receives the JSON
+     * @return {@code success}, {@code error} when the answer could not be written
+     */
+    public static String orderPeekJson(HttpServletRequest request, HttpServletResponse response) {
+        Map<String, Object> parameters = UtilHttp.getParameterMap(request);
+        LocalDispatcher dispatcher = (LocalDispatcher) request.getAttribute("dispatcher");
+        StringBuilder json = new StringBuilder();
+        try {
+            Map<String, Object> result = dispatcher == null ? null
+                    : dispatcher.runSync("mfgReceiptLinesOfOrder", parameters, -1, true);
+            if (result == null || ServiceUtil.isError(result)) {
+                json.append("{\"ok\":false,\"lines\":[]}");
+            } else {
+                json.append("{\"ok\":true,\"receiptId\":")
+                        .append(MfgBomEvents.jsonString((String) result.get("receiptId")))
+                        .append(",\"lines\":[");
+                List<?> lines = (List<?>) result.get("lines");
+                if (lines != null) {
+                    boolean first = true;
+                    for (Object row : lines) {
+                        Map<String, Object> line = org.apache.ofbiz.base.util.UtilGenerics.cast(row);
+                        if (!first) {
+                            json.append(',');
+                        }
+                        first = false;
+                        json.append("{\"componentCode\":")
+                                .append(MfgBomEvents.jsonString((String) line.get("componentCode")))
+                                .append(",\"qty\":").append(line.get("qty"))
+                                .append(",\"goodsAmount\":").append(line.get("goodsAmount"))
+                                .append('}');
+                    }
+                }
+                json.append("]}");
+            }
+            response.setContentType("application/json; charset=UTF-8");
+            response.setHeader("Cache-Control", "no-store");
+            response.getWriter().write(json.toString());
+            response.getWriter().flush();
+        } catch (IOException e) {
+            Debug.logError(e, "Could not write the peek answer", MODULE);
+            return "error";
+        } catch (GenericServiceException e) {
+            Debug.logError(e, "Could not look up the order", MODULE);
             return "error";
         }
         return "success";
