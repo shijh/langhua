@@ -156,6 +156,16 @@
         <response name="error" type="view" value="products"/>
     </request-map>
 
+    <request-map uri="bomItemSave">
+        <security https="true" auth="true"/>
+        <event type="service" invoke="mfgBomItemSave"/>
+        <response name="success" type="request-redirect" value="products">
+            <redirect-parameter name="productCode"/>
+            <redirect-parameter name="lineSeq"/>
+        </response>
+        <response name="error" type="view" value="products"/>
+    </request-map>
+
     <request-map uri="attachmentUpload">
         <security https="true" auth="true"/>
         <event type="java" path="org.langhua.ofbiz.mfg.MfgAttachmentEvents" invoke="upload"/>

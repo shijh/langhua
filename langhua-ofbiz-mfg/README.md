@@ -371,6 +371,7 @@ https://localhost:8443/mfg/control/main
 | `mfgPermissions` | 当前账号能进哪些区域（`canView` / `canProduce` / `canStock` / `canEng` / `canSales` / `canCost` / `isAdmin` / `manager`），装饰器用它隐藏菜单，页面用它隐藏成本块 |
 | `mfgProductSave` / `mfgProductList` / `mfgProductDetail` | 型号维护与查询（含当前 BOM 版本的行、工艺路线、版本数）；工时改了就把 `standardHoursSource` 退回 `MANUAL`；`snPrefix` 超 10 字符直接报错（不填时默认取型号编码） |
 | `mfgBomImport` | 从 CSV 导入 BOM 到指定版本（缺省为当前版本），`replace=N` 时追加而不清空；第 6 列单价可空；**型号还没有版本时，导入的这个版本直接成为当前版本**；`format` 可指定 `MFG` / `FRITZING`，留空自动识别（见下一节） |
+| `mfgBomItemSave` | 改一行 BOM：不给 `lineSeq` 新增（行号取下一个可用值，型号没版本时自动建一个），给 `lineSeq` 修改，`delete=Y` 删除；可改用量/位号/关键料/单价，用量必须 > 0，单价留空即清掉 |
 | `mfgBomVersionCreate` / `mfgBomVersionActivate` / `mfgBomVersionList` | 新建下一版（可复制当前行）、启用某版（旧版转废止、型号指向新版）、列出各版本 |
 | `mfgBomMigrateLegacy` | 把旧单表 BOM 冻结为版本（幂等，可重复调用） |
 | `mfgAttachmentSave` / `mfgAttachmentList` / `mfgAttachmentDelete` | 任意单据的附件：存（base64，供脚本与测试用）、列表（不返回字节）、删除；页面上传走下面的 multipart 事件 |
@@ -467,6 +468,13 @@ csv         = R0402-10K,10K 0402 resistor,4,R1-R4,N,0.05
 `MfgImportEvents.bomImport`（`/mfg/control/bomImport`）把文件或文本读出来交给 `mfgBomImport`，
 解析、格式识别与校验仍然全在那个服务里，所以无文件、文件太大、料号太长这些错都是同一套提示。
 
+**BOM 行可以直接改**（「当前 BOM」表里的每个单元格就是输入框）：用量、位号、关键料、单价改完点该行的
+「保存」，点「删除」就删掉这一行；表下面的「新增 BOM 行」可以手加一行。都走服务 `mfgBomItemSave`
+（`/mfg/control/bomItemSave`）：不给 `lineSeq` 就是新增（行号取 `nextBomLineSeq`，型号还没有版本时
+顺手建一个并设为当前版本），给 `lineSeq` 就是改，`delete=Y` 就是删；用量必须 > 0，单价可以留空（留空即
+清掉单价），改完页面会提示「已保存 BOM 行 N」。单价是成本核算的输入，所以没有 `MFG_COST` 权限的人看不到
+单价列（与成本块同一套软拦截）。
+
 **加一种新格式**（嘉立创、KiCad、Altium…）：在 `MfgServices.BomFormat` 里加一个常量、
 在 `detectBomFormat()` 里识别它的表头/分隔符、写一个返回同样六列的解析方法，然后在
 `parseBom()` 里分发即可——页面的下拉选项也跟着加一行。单测在 `MfgServicesTest` 的
@@ -481,7 +489,7 @@ csv         = R0402-10K,10K 0402 resistor,4,R1-R4,N,0.05
 | 路径 | 说明 |
 | --- | --- |
 | `/mfg/control/main` | 工单列表 + 新建工单（含产品型号下拉） |
-| `/mfg/control/products?productCode=...` | 产品型号、**照片上传与删改**、**BOM 版本（查看/新建下一版/启用）**、BOM 导入（带单价，**可按本系统 CSV 或 Fritzing 导出导入，选文件或直接粘贴**）与工艺路线维护、**成本（单台 / 批量）**——材料/工时/合计、目标成本对比与毛利，缺单价会提示；标准工时旁边注明来源（手工填写 / 学习曲线回填 + 基准台数 + 估算号） |
+| `/mfg/control/products?productCode=...` | 产品型号、**照片上传与删改**、**BOM 版本（查看/新建下一版/启用）**、BOM 导入（带单价，**可按本系统 CSV 或 Fritzing 导出导入，选文件或直接粘贴**）与**逐行修改（用量/位号/关键料/单价，可增删行）**、工艺路线维护、**成本（单台 / 批量）**——材料/工时/合计、目标成本对比与毛利，缺单价会提示；标准工时旁边注明来源（手工填写 / 学习曲线回填 + 基准台数 + 估算号） |
 | `/mfg/control/attachmentUpload` | POST multipart，字段 `file` + `ownerTypeId` + `ownerId` + `back`（回跳页面）+ 可选 `note` |
 | `/mfg/control/attachment?ownerTypeId=...&ownerId=...&seq=...` | 输出文件字节；`seq` 缺省取最新一件，`thumb=1` 对图片输出最长边 200px 的 JPEG 缩略图；PDF 直出 |
 | `/mfg/control/attachmentDelete` | POST `ownerTypeId` + `ownerId` + `seq` + `back`，删除后回跳 |

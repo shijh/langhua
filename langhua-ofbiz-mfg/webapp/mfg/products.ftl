@@ -45,6 +45,9 @@
 <#if parameters.importedCount??>
     <p class="ok">已导入 ${parameters.importedCount} 行 BOM<#if (parameters.bomFormat!'') != ''>（${parameters.bomFormat}）</#if>。</p>
 </#if>
+<#if parameters.lineSeq??>
+    <p class="ok">已保存 BOM 行 ${parameters.lineSeq}。</p>
+</#if>
 
 <fieldset>
     <legend>新建 / 更新型号</legend>
@@ -134,7 +137,7 @@
         <table>
             <tr><th>版本</th><th>状态</th><th>行数</th><th>生效日</th><th>来源</th><th>变更单</th><th>操作</th></tr>
             <#list versions as v>
-                <tr>
+                <tr<#if v.bomVersionId == currentVersionId> data-current="Y"</#if>>
                     <td><#if v.bomVersionId == currentVersionId><b>${v.bomVersionId}</b><#else>${v.bomVersionId}</#if></td>
                     <td><#if v.statusId == 'MFG_BOM_RELEASED'><span class="ok">${versionLabel(v.statusId)}</span><#else>${versionLabel(v.statusId)}</#if></td>
                     <td class="num">${v.itemCount}</td>
@@ -197,28 +200,79 @@ BAT-18650,18650 电池,1,BT1,Y,12</textarea></p>
         </form>
     </fieldset>
 
-    <h2>当前 BOM（${currentVersionId!'未建'}，${bomItems?size} 行）</h2>
+    <h2 id="bomHeading" data-version="${currentVersionId!''}">当前 BOM（<#if currentVersionId?has_content>${currentVersionId}<#else>还没有版本</#if>，${bomItems?size} 行）</h2>
     <#if bomItems?has_content>
         <table id="bomLines">
             <tr><th class="num">行号</th><th>料号</th><th>名称</th><th class="num">用量</th><th>位号</th><th>关键料</th>
-                <#if !costDenied><th class="num">单价</th><th class="num">金额</th></#if></tr>
+                <#if !costDenied><th class="num">单价</th><th class="num">金额</th></#if><th>操作</th></tr>
             <#list bomItems as item>
-                <tr>
+                <#assign formId = 'bomLine' + item.lineSeq>
+                <tr data-line-seq="${item.lineSeq}">
                     <td class="num">${(item.lineSeq)?string("0")}</td>
                     <td>${item.componentCode!}</td>
                     <td>${item.componentName!}</td>
-                    <td class="num">${(item.qty)?string("0.##")}</td>
-                    <td>${item.designators!}</td>
-                    <td>${item.isKeyPart!}</td>
+                    <td class="num"><input class="narrow" type="text" form="${formId}" name="qty" value="${(item.qty)?string("0.###")}" title="每台用量"/></td>
+                    <td><input type="text" form="${formId}" name="designators" size="12" value="${item.designators!''}"/></td>
+                    <td>
+                        <select form="${formId}" name="isKeyPart">
+                            <option value="N"<#if (item.isKeyPart!'N') != 'Y'> selected="selected"</#if>>N</option>
+                            <option value="Y"<#if (item.isKeyPart!'N') == 'Y'> selected="selected"</#if>>Y</option>
+                        </select>
+                    </td>
                     <#if !costDenied>
-                    <td class="num"><#if item.unitPrice??>${item.unitPrice?string("0.000")}<#else><span class="hint">—</span></#if></td>
-                    <td class="num"><#if item.unitPrice??>${(((item.qty)!0) * item.unitPrice)?string("0.00")}<#else><span class="hint">—</span></#if></td>
+                    <td class="num"><input class="narrow" type="text" form="${formId}" name="unitPrice" value="<#if item.unitPrice??>${item.unitPrice?string("0.000")}</#if>" title="采购单价，成本核算用"/></td>
+                    <td class="num" data-amount="${((item.qty)!0) * ((item.unitPrice)!0)}"><#if item.unitPrice??>${(((item.qty)!0) * item.unitPrice)?string("0.00")}<#else><span class="hint">—</span></#if></td>
                     </#if>
+                    <td class="nowrap">
+                        <button type="submit" form="${formId}">保存</button>
+                        <button type="submit" form="${formId}" name="delete" value="Y" class="secondary">删除</button>
+                    </td>
                 </tr>
             </#list>
         </table>
+        <#-- the inputs of a row belong to the form of that row; the forms themselves stay empty -->
+        <#list bomItems as item>
+            <form id="bomLine${item.lineSeq}" method="post" action="/mfg/control/bomItemSave">
+                <input type="hidden" name="productCode" value="${product.productCode}"/>
+                <input type="hidden" name="bomVersionId" value="${currentVersionId}"/>
+                <input type="hidden" name="lineSeq" value="${item.lineSeq}"/>
+            </form>
+        </#list>
+        <fieldset>
+            <legend>新增 BOM 行（${currentVersionId!''}）</legend>
+            <form method="post" action="/mfg/control/bomItemSave">
+                <input type="hidden" name="productCode" value="${product.productCode}"/>
+                <input type="hidden" name="bomVersionId" value="${currentVersionId}"/>
+                <p>
+                    料号 <input type="text" name="componentCode" size="18" required="required"/>
+                    名称 <input type="text" name="componentName" size="22"/>
+                    用量 <input class="narrow" type="text" name="qty" value="1"/>
+                    位号 <input type="text" name="designators" size="12"/>
+                    关键料
+                    <select name="isKeyPart"><option value="N">N</option><option value="Y">Y</option></select>
+                    <#if !costDenied>单价 <input class="narrow" type="text" name="unitPrice"/></#if>
+                    <input type="submit" value="添加"/>
+                </p>
+            </form>
+        </fieldset>
     <#else>
-        <p class="hint">该型号还没有 BOM。</p>
+        <p class="hint">该型号还没有 BOM，可以用上面的导入框粘贴 / 选文件，或者在下面的表单里一行一行加。</p>
+        <fieldset>
+            <legend>新增 BOM 行</legend>
+            <form method="post" action="/mfg/control/bomItemSave">
+                <input type="hidden" name="productCode" value="${product.productCode}"/>
+                <p>
+                    料号 <input type="text" name="componentCode" size="18" required="required"/>
+                    名称 <input type="text" name="componentName" size="22"/>
+                    用量 <input class="narrow" type="text" name="qty" value="1"/>
+                    位号 <input type="text" name="designators" size="12"/>
+                    关键料
+                    <select name="isKeyPart"><option value="N">N</option><option value="Y">Y</option></select>
+                    <#if !costDenied>单价 <input class="narrow" type="text" name="unitPrice"/></#if>
+                    <input type="submit" value="添加"/>
+                </p>
+            </form>
+        </fieldset>
     </#if>
 
     <h2>成本（单台 / 批量）</h2>
@@ -254,7 +308,7 @@ BAT-18650,18650 电池,1,BT1,Y,12</textarea></p>
         <p class="hint">该型号还没有工序模板，工时就取型号上的标准工时 ${((c.productStandardHours)!0)?string("0.##")} h；想按工序核算，在下面把工序加全。</p>
     </#if>
     <#if ((c.missingPriceCount)!0) gt 0>
-        <p class="warn">有 ${c.missingPriceCount} 行 BOM 没填单价，材料成本被低估；在 BOM 导入里补第 6 列单价。</p>
+        <p class="warn">有 ${c.missingPriceCount} 行 BOM 没填单价，材料成本被低估；在上面的 BOM 行里补单价（或导入时给第 6 列）。</p>
     </#if>
     </#if>
 

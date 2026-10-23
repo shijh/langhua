@@ -149,6 +149,7 @@ public final class MfgServiceIT {
             it.savesProductModel();
             it.importsBom();
             it.importsAFritzingBom();
+            it.editsBomLines();
             it.savesRouting();
             it.readsProductDetail();
             it.createsWorkOrder();
@@ -636,6 +637,68 @@ public final class MfgServiceIT {
                 "designators missing");
         check("fritzing: a part without a part number keeps its name", detail.body.contains("4.7K RESISTOR"),
                 "no fallback code");
+    }
+
+    /**
+     * Edits a BOM line by hand: appends one to a model that has no BOM yet, changes the quantity,
+     * the designators and the price, then removes it again.
+     *
+     * @throws IOException when a service call fails
+     */
+    private void editsBomLines() throws IOException {
+        String model = "ITBL" + new java.text.SimpleDateFormat("HHmmss").format(new java.util.Date());
+        Map<String, String> productForm = new LinkedHashMap<>();
+        productForm.put("productCode", model);
+        productForm.put("productName", "IT bom line model");
+        invoke("mfgProductSave", productForm);
+
+        Map<String, String> addForm = new LinkedHashMap<>();
+        addForm.put("productCode", model);
+        addForm.put("componentCode", "MANUAL-1");
+        addForm.put("componentName", "Manual line");
+        addForm.put("qty", "2");
+        addForm.put("designators", "R9,R10");
+        addForm.put("isKeyPart", "Y");
+        addForm.put("unitPrice", "0.35");
+        Response added = invoke("mfgBomItemSave", addForm);
+        check("bom line: a line is added to a model without BOM", added.status == 200
+                && !added.body.contains("responseMessage=error"), "HTTP " + added.status);
+        check("bom line: the line number is returned", added.body.contains("lineSeq"), "no lineSeq in result");
+
+        Map<String, String> detailForm = new LinkedHashMap<>();
+        detailForm.put("productCode", model);
+        Response detail = invoke("mfgProductDetail", detailForm);
+        check("bom line: the model now has a BOM version", detail.body.contains("-V1"), "no version id");
+        check("bom line: the component is on the BOM", detail.body.contains("MANUAL-1"), "no component");
+        check("bom line: the designators are stored", detail.body.contains("R9,R10"), "no designators");
+        check("bom line: the price is stored", detail.body.contains("0.35"), "no price");
+
+        Map<String, String> editForm = new LinkedHashMap<>();
+        editForm.put("productCode", model);
+        editForm.put("lineSeq", "10");
+        editForm.put("qty", "7");
+        editForm.put("designators", "");
+        editForm.put("unitPrice", "1.23");
+        Response edited = invoke("mfgBomItemSave", editForm);
+        check("bom line: an existing line is updated", edited.status == 200
+                && !edited.body.contains("responseMessage=error"), "HTTP " + edited.status);
+        Response afterEdit = invoke("mfgProductDetail", detailForm);
+        check("bom line: the new price is stored", afterEdit.body.contains("1.23"), "price not updated");
+        check("bom line: cleared designators are gone", !afterEdit.body.contains("R9,R10"),
+                "designators not cleared");
+        check("bom line: the component code is unchanged", afterEdit.body.contains("MANUAL-1"),
+                "component lost");
+
+        Map<String, String> deleteForm = new LinkedHashMap<>();
+        deleteForm.put("productCode", model);
+        deleteForm.put("lineSeq", "10");
+        deleteForm.put("delete", "Y");
+        Response deleted = invoke("mfgBomItemSave", deleteForm);
+        check("bom line: a line is deleted", deleted.status == 200
+                && !deleted.body.contains("responseMessage=error"), "HTTP " + deleted.status);
+        Response afterDelete = invoke("mfgProductDetail", detailForm);
+        check("bom line: the deleted line is gone", !afterDelete.body.contains("MANUAL-1"),
+                "line still there");
     }
 
     private void savesRouting() throws IOException {

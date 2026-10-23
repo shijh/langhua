@@ -106,9 +106,21 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
 | `verify-m42.ps1` | Fritzing BOM 导入：格式下拉、粘贴导出后 9 种料合并、`Amount` 给用量、`Label` 给位号、无物料号用名称、本系统格式仍可强制导入、料号超长被拒 | 18 |
 | `verify-m43.ps1` | 改密码与退出：新建账号登录、导航有 logout、错当前密码/新旧相同/两次不一致/太短都被拒、改成功落到登录页且会话关闭、旧密码失效新密码可用、logout 结束会话 | 15 |
 | `verify-m44.ps1` | BOM 导入选文件（Step 54）：表单是 multipart、有 `file` 字段、上传 Fritzing 文件后合并 9 种料、**文件优先于文本框**、GBK 文件能解码、料号超长被拒、空提交有提示、20 位型号编码也能导入（日志 `mfg-m43b.txt`） | 31 |
+| `verify-m45.ps1` | BOM 行就地编辑（Step 56）：标题带版本号、每行有自己的表单（`form="bomLine<n>"` 的 qty/designators/isKeyPart/unitPrice）、保存后数量与金额重算、手加一行、删除一行、用量 0 被拒（日志 `mfg-m45.txt`） | 27 |
 
 ## 设计决策
 
+- **BOM 行就地编辑（Step 56）**：服务 `mfgBomItemSave`（`/mfg/control/bomItemSave`）一条龙：不给 `lineSeq`
+  就新增（行号 `nextBomLineSeq`，型号没版本时 `currentOrNewBomVersion` 顺手建一个并设为当前版本）、
+  给 `lineSeq` 就改、`delete=Y` 就删；用量必须 > 0，单价留空即清空（**先取 `currentBomVersionId` 再找行**，
+  否则不带 `bomVersionId` 的表单会被当成新增，踩过）。模板：表格里每行一个「看不见的」
+  `<form id="bomLine<n>">`（只有隐藏字段），单元格里的 input/select 用 HTML5 的 `form="bomLine<n>"` 绑定，
+  所以整行可改又不嵌套表单；行上 `data-line-seq`、当前版本行 `data-current="Y"`、金额格 `data-amount`，
+  巡检靠这三个属性断言（不碰中文）。**改了这个表以后 m13 / m32 / m42 / m44 的断言都要跟着看**
+  （它们原本读的是只读单元格的文本）
+- **屏幕里无条件调用的服务，OUT 漏一个就会在页面留下窟窿**：`mfgProductDetail` 没声明 `bomVersionId` 的 OUT，
+  结果标题变成「当前 BOM（，9 行）」而且版本表里的「当前使用」永远不出现（`currentVersionId` 一直是空串）；
+  模板里 `${x!'默认'}` 对**空串**不生效，要判 `?has_content`
 - **BOM 导入也能选文件（Step 54）**：`/mfg/control/bomImport` 现在是 **Java 事件** `MfgImportEvents.bomImport`
   （`<response name="success" type="request-redirect" value="products">`，成功靠事件里 `request.setAttribute(productCode/importedCount/bomFormat)`，
   失败把消息放进 `errorMessageList` 再 `return "error"` 渲染 products 视图）——它只转成 `mfgBomImport` 的 context，

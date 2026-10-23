@@ -1252,22 +1252,7 @@ public final class MfgServices {
                     return ServiceUtil.returnError("Unknown BOM version [" + bomVersionId + "]");
                 }
             } else {
-                bomVersionId = currentBomVersionId(delegator, productCode);
-                if (bomVersionId == null) {
-                    bomVersionId = createBomVersion(delegator, productCode, null, "Y", "Imported BOM");
-                    // the first BOM of a model is the one in use, otherwise the import looks lost
-                    GenericValue version = EntityQuery.use(delegator).from("MfgBomVersion")
-                            .where("bomVersionId", bomVersionId).queryOne();
-                    GenericValue product = EntityQuery.use(delegator).from("MfgProduct")
-                            .where("productCode", productCode).queryOne();
-                    if (version != null && product != null) {
-                        version.set("statusId", BOM_RELEASED);
-                        version.set("effectiveDate", java.sql.Date.valueOf(LocalDate.now()));
-                        version.store();
-                        product.set("currentBomVersionId", bomVersionId);
-                        product.store();
-                    }
-                }
+                bomVersionId = currentOrNewBomVersion(delegator, productCode, "Imported BOM");
             }
             if (!"N".equals(toText(context.get("replace")))) {
                 delegator.removeByAnd("MfgBomVersionItem", "bomVersionId", bomVersionId);
@@ -1312,6 +1297,118 @@ public final class MfgServices {
             return "导入失败：有字段超出长度限制（型号编码与料号都最多 20 个字符），请缩短后再试";
         }
         return "Could not import the BOM: " + message;
+    }
+
+    /**
+     * Saves one BOM line: appends a new line when no line number is given, updates the line with
+     * that number otherwise, or removes it when {@code delete} is {@code Y}. Quantity, designators
+     * and unit price are what a BOM gets wrong first, so they can be corrected here instead of
+     * importing the whole file again.
+     *
+     * @param dctx the dispatch context
+     * @param context service context, see {@code servicedef/services.xml#mfgBomItemSave}
+     * @return the service result containing {@code bomVersionId} and {@code lineSeq}
+     */
+    public static Map<String, Object> bomItemSave(DispatchContext dctx, Map<String, ? extends Object> context) {
+        String denied = permissionProblem(dctx, context, PERM_ENG);
+        if (denied != null) {
+            return ServiceUtil.returnError(denied);
+        }
+        Delegator delegator = dctx.getDelegator();
+        String productCode = toText(context.get("productCode"));
+        if (productCode == null) {
+            return ServiceUtil.returnError("productCode is required");
+        }
+        boolean removing = "Y".equals(toText(context.get("delete")));
+        long lineSeq = toLong(context.get("lineSeq"), 0L);
+        try {
+            if (EntityQuery.use(delegator).from("MfgProduct").where("productCode", productCode).queryOne() == null) {
+                return ServiceUtil.returnError("Unknown product model [" + productCode + "], create it first");
+            }
+            String versionId = toText(context.get("bomVersionId"));
+            if (versionId != null && EntityQuery.use(delegator).from("MfgBomVersion")
+                    .where("bomVersionId", versionId).queryOne() == null) {
+                versionId = null;
+            }
+            if (versionId == null) {
+                // a line sent without a version edits the one in use
+                versionId = currentBomVersionId(delegator, productCode);
+            }
+            GenericValue item = null;
+            if (versionId != null && lineSeq > 0L) {
+                item = EntityQuery.use(delegator).from("MfgBomVersionItem")
+                        .where("bomVersionId", versionId, "lineSeq", Long.valueOf(lineSeq)).queryOne();
+            }
+            if (removing) {
+                if (item == null) {
+                    return ServiceUtil.returnError("要删除的 BOM 行不在当前版本里，刷新页面后再试");
+                }
+                item.remove();
+                Map<String, Object> result = ServiceUtil.returnSuccess();
+                result.put("bomVersionId", versionId);
+                result.put("lineSeq", String.valueOf(lineSeq));
+                return result;
+            }
+            if (versionId == null) {
+                versionId = currentOrNewBomVersion(delegator, productCode, "BOM maintained by hand");
+            }
+            String componentCode = toText(context.get("componentCode"));
+            boolean created = item == null;
+            if (created) {
+                if (componentCode == null) {
+                    return ServiceUtil.returnError("料号不能为空");
+                }
+                if (componentCode.length() > MAX_COMPONENT_CODE) {
+                    return ServiceUtil.returnError("料号太长（最多 " + MAX_COMPONENT_CODE + " 个字符）：" + componentCode);
+                }
+                lineSeq = nextBomLineSeq(delegator, versionId);
+                item = delegator.makeValue("MfgBomVersionItem");
+                item.set("bomVersionId", versionId);
+                item.set("lineSeq", Long.valueOf(lineSeq));
+                item.set("componentCode", componentCode);
+                String name = toText(context.get("componentName"));
+                item.set("componentName", name == null ? componentCode : name);
+                item.set("isKeyPart", "N");
+            } else if (componentCode != null && componentCode.length() <= MAX_COMPONENT_CODE) {
+                item.set("componentCode", componentCode);
+                item.set("componentName", toText(context.get("componentName")) == null
+                        ? componentCode : toText(context.get("componentName")));
+            }
+            double qty = toDouble(context.get("qty"), created ? 1.0 : toDouble(item.get("qty"), 1.0));
+            if (qty <= 0.0) {
+                return ServiceUtil.returnError("用量要大于 0");
+            }
+            String keyPart = toText(context.get("isKeyPart"));
+            if (keyPart != null) {
+                item.set("isKeyPart", "Y".equalsIgnoreCase(keyPart) ? "Y" : "N");
+            }
+            item.set("qty", Double.valueOf(qty));
+            item.set("designators", toText(context.get("designators")));
+            // an empty price box clears the price, a missing one leaves it alone
+            if (context.containsKey("unitPrice")) {
+                String priceText = toText(context.get("unitPrice"));
+                Double price = optionalAmount(priceText);
+                if (priceText != null && price == null) {
+                    return ServiceUtil.returnError("单价要填非负数字，或留空：" + priceText);
+                }
+                item.set("unitPrice", price);
+            }
+            if (created) {
+                delegator.create(item);
+            } else {
+                item.store();
+            }
+            Map<String, Object> result = ServiceUtil.returnSuccess();
+            result.put("bomVersionId", versionId);
+            result.put("lineSeq", String.valueOf(lineSeq));
+            return result;
+        } catch (GenericEntityException e) {
+            String message = String.valueOf(e.getMessage());
+            if (message.contains("truncation error")) {
+                return ServiceUtil.returnError("保存失败：有字段超出长度限制（料号最多 20 个字符），请缩短后再试");
+            }
+            return ServiceUtil.returnError("Could not save the BOM line: " + message);
+        }
     }
 
     /**
@@ -10358,6 +10455,39 @@ always
             versionId = currentBomVersionId(delegator, order.getString("productCode"));
         }
         return versionId == null ? new ArrayList<GenericValue>() : bomItemsOfVersion(delegator, versionId);
+    }
+
+    /**
+     * Returns the BOM version the model uses, creating a released first version when it has none
+     * yet, so that a line added or imported by hand shows up as the current BOM straight away.
+     *
+     * @param delegator the delegator
+     * @param productCode the model code
+     * @param note the note written on the version created
+     * @return the version identifier
+     * @throws GenericEntityException when the version cannot be written
+     */
+    private static String currentOrNewBomVersion(Delegator delegator, String productCode, String note)
+            throws GenericEntityException {
+        String versionId = currentBomVersionId(delegator, productCode);
+        if (versionId != null) {
+            return versionId;
+        }
+        versionId = createBomVersion(delegator, productCode, null, "N", note);
+        GenericValue version = EntityQuery.use(delegator).from("MfgBomVersion")
+                .where("bomVersionId", versionId).queryOne();
+        if (version != null) {
+            version.set("statusId", BOM_RELEASED);
+            version.set("effectiveDate", java.sql.Date.valueOf(LocalDate.now()));
+            version.store();
+        }
+        GenericValue product = EntityQuery.use(delegator).from("MfgProduct")
+                .where("productCode", productCode).queryOne();
+        if (product != null) {
+            product.set("currentBomVersionId", versionId);
+            product.store();
+        }
+        return versionId;
     }
 
     private static String createBomVersion(Delegator delegator, String productCode, String ecoId,

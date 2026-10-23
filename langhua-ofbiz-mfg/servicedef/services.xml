@@ -129,6 +129,7 @@
         <description>Return one product model with its BOM and routing</description>
         <attribute name="productCode" type="String" mode="IN" optional="true"/>
         <attribute name="product" type="java.util.Map" mode="OUT" optional="true"/>
+        <attribute name="bomVersionId" type="String" mode="OUT" optional="true"/>
         <attribute name="bomItems" type="java.util.List" mode="OUT" optional="true"/>
         <attribute name="routings" type="java.util.List" mode="OUT" optional="true"/>
     </service>
@@ -146,6 +147,24 @@
         <attribute name="bomVersionId" type="String" mode="OUT" optional="true"/>
         <attribute name="importedCount" type="String" mode="OUT" optional="true"/>
         <attribute name="bomFormat" type="String" mode="OUT" optional="true"/>
+    </service>
+
+    <service name="mfgBomItemSave" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgServices" invoke="bomItemSave"
+            auth="false" use-transaction="false">
+        <description>Save, append or delete one BOM line: quantity, designators, key part and unit price</description>
+        <attribute name="productCode" type="String" mode="IN" optional="false"/>
+        <attribute name="bomVersionId" type="String" mode="IN" optional="true"/>
+        <attribute name="lineSeq" type="String" mode="IN" optional="true"/>
+        <attribute name="componentCode" type="String" mode="IN" optional="true"/>
+        <attribute name="componentName" type="String" mode="IN" optional="true"/>
+        <attribute name="qty" type="String" mode="IN" optional="true"/>
+        <attribute name="designators" type="String" mode="IN" optional="true"/>
+        <attribute name="isKeyPart" type="String" mode="IN" optional="true"/>
+        <attribute name="unitPrice" type="String" mode="IN" optional="true"/>
+        <attribute name="delete" type="String" mode="IN" optional="true"/>
+        <attribute name="bomVersionId" type="String" mode="OUT" optional="true"/>
+        <attribute name="lineSeq" type="String" mode="OUT" optional="true"/>
     </service>
 
     <!-- BOM versions: one product can keep several BOMs, the model points to the one in use -->
