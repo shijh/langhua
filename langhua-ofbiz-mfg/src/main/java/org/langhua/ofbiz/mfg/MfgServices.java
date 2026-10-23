@@ -8118,19 +8118,13 @@ always
      * @return a code that fits the code fields, never empty
      */
     static String codeFromName(String name) {
-        String text = name == null ? "" : name.trim();
-        StringBuilder ascii = new StringBuilder();
-        for (int i = 0; i < text.length(); i++) {
-            char c = text.charAt(i);
-            if (c > 32 && c < 127) {
-                ascii.append(c);
-            }
+        String text = name == null ? "" : name.trim().replaceAll("\\s+", " ");
+        if (text.isEmpty()) {
+            return "P-000000";
         }
-        String compact = ascii.toString().replaceAll("[^A-Za-z0-9._-]", "");
-        if (compact.length() >= 3) {
-            return fittingComponentCode(compact);
-        }
-        return "P-" + String.format(Locale.ROOT, "%06x", ((long) text.hashCode()) & 0xffffffL);
+        // the name itself is the clearest code a shop has: 5.5V1.5F C型 21*7.5 stays readable,
+        // joining the words would give 5.5V1.5FC217.5 where F, C型 and 21*7.5 run together
+        return fittingComponentCode(text);
     }
 
     /**
@@ -8143,15 +8137,17 @@ always
      * @return the code itself when it fits, otherwise a shorter but stable one
      */
     static String fittingComponentCode(String code) {
-        String trimmed = code == null ? "" : code.replaceAll("\\s+", "");
+        // the spaces between the words are part of the number (5.5V1.5F C型 21*7.5); only runs of
+        // blanks are squeezed, so F, C型 and 21*7.5 do not run together
+        String trimmed = code == null ? "" : code.trim().replaceAll("\\s+", " ");
         if (trimmed.length() <= MAX_COMPONENT_CODE) {
             return trimmed;
         }
         String hash = String.format(Locale.ROOT, "%06x", ((long) trimmed.hashCode()) & 0xffffffL);
         int keep = MAX_COMPONENT_CODE - hash.length() - 1;
-        String head = trimmed.substring(0, keep);
-        int cut = head.lastIndexOf('-');
-        if (cut >= keep - 4) {
+        String head = trimmed.substring(0, keep).trim();
+        int cut = head.lastIndexOf(' ');
+        if (cut >= keep - 8) {
             head = head.substring(0, cut);
         }
         return head + "-" + hash;

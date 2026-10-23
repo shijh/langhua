@@ -640,8 +640,11 @@ public class MfgServicesTest {
 
     @Test
     public void fitsALongPartNumberIntoTheCodeField() {
-        // a code that fits is kept, spaces are not
+        // a code that fits is kept, the blanks around it are not
         assertEquals("CAP-104-50V", MfgServices.fittingComponentCode(" CAP-104-50V "));
+
+        // the blanks inside the number stay: 5.5V1.5F C型 21*7.5 must not become 5.5V1.5FC217.5
+        assertEquals("5.5V1.5F C型 21*7.5", MfgServices.fittingComponentCode("5.5V1.5F  C型   21*7.5"));
 
         // the code field holds 100 characters, so a package description is stored as it is
         String long1 = "QFN16-0.65-QFN20-0.4-2.54";
@@ -703,14 +706,14 @@ public class MfgServicesTest {
         List<String[]> rows = MfgServices.parseOrderArticleLines(
                 ",超级法拉电容器 5.5V1.5F C型 21*7.5,2,9.28");
         assertEquals(1, rows.size());
-        assertEquals("5.5V1.5FC217.5", rows.get(0)[0]);
+        assertEquals("超级法拉电容器 5.5V1.5F C型 21*7.5", rows.get(0)[0]);
         assertEquals("2", rows.get(0)[2]);
 
-        // a name without any ascii still gives a stable code
-        String chinese = MfgServices.codeFromName("超级法拉电容器");
-        assertTrue(chinese.startsWith("P-"));
-        assertEquals(chinese, MfgServices.codeFromName("超级法拉电容器"));
-        assertFalse(chinese.equals(MfgServices.codeFromName("瓷片电容器")));
+        // a name without any numbers is still a code of its own, and the same every time
+        assertEquals("超级法拉电容器", MfgServices.codeFromName("超级法拉电容器"));
+        assertFalse(MfgServices.codeFromName("超级法拉电容器")
+                .equals(MfgServices.codeFromName("瓷片电容器")));
+        assertEquals("P-000000", MfgServices.codeFromName("  "));
 
         // and nothing is checked against the paid total when no line could be read
         Map<String, String> unreadable = new HashMap<>();
