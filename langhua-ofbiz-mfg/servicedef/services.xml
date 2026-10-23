@@ -1054,6 +1054,7 @@
         <attribute name="search" type="String" mode="IN" optional="true"/>
         <attribute name="page" type="String" mode="IN" optional="true"/>
         <attribute name="pageSize" type="Long" mode="IN" optional="true"/>
+        <attribute name="linesByReceipt" type="java.util.Map" mode="OUT" optional="true"/>
         <attribute name="receipts" type="java.util.List" mode="OUT" optional="true"/>
         <attribute name="goodsTotal" type="Double" mode="OUT" optional="true"/>
         <attribute name="freightTotal" type="Double" mode="OUT" optional="true"/>

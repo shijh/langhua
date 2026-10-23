@@ -141,6 +141,12 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   工单实际材料成本用它；到货单行同样 `unitPriceExact = goodsAmount ÷ qty` 给页面显示 4 位。要改列精度得手工 ALTER，先不动
 - **订单日期不是到货日（Step 68）**：`MfgOrderScan` 把截图上那个日期叫 `orderDate`（旧回答里的 `date` 也读），
   **不填到货日**（`dateField` 留空 = 今天），提示里写“截图上的 X 是下单日，到货日请自己选”
+- **到货单列表可直接展开明细（Step 75）**：一个到货单通常就一两个商品，所以列表里把「行数」做成可点的 `1 ▸`，
+  点开就在下面展开一张子表（行号/批次/料号/名称/数量/单价/货款），再点收起。
+  服务 `mfgPurchaseReceiptList` 多返回 `linesByReceipt`（map：receiptId → 行，**只带当前页的行**，OUT 已声明）；
+  模板里**要从 `rl.linesByReceipt` 取**（屏幕把服务结果放在 `receiptList` 下，写成 `linesByReceipt[...]` 会永远取不到，踩过）。
+  子表的行用 `data-receipt-line-seq`（不能用 `data-line-seq`，否则详情页的“两行明细”断言会被列表的子表干扰）。
+  翻页对断言的提醒：列表按 `-receiptDate, -createdStamp` 排，**新建的单不一定在第一页**，巡检要按 `search=<单号>` 找
 - **料号可以重命名（Step 74）**：`mfgPartCodeRename`（IN `oldCode`/`newCode`，OUT 各类行数 + `renamed`/`search`）
   一次改全：`MfgMaterialLot` / `MfgMaterialIssue` / `MfgPurchaseReceiptLine` / `MfgBomItem` /
   `MfgBomVersionItem` / `MfgReplacement` / `MfgStockSetting`（后者是主键：新号不存在就复制一行再删旧的，

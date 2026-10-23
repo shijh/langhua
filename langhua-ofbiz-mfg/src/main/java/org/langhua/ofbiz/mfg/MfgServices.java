@@ -28,6 +28,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
+import org.apache.ofbiz.base.util.UtilGenerics;
 import org.apache.ofbiz.common.login.LoginServices;
 import org.apache.ofbiz.entity.Delegator;
 import org.apache.ofbiz.entity.GenericEntityException;
@@ -7932,6 +7933,21 @@ always
             result.put("spendTotal", Double.valueOf(round2(goods + freight)));
             result.put("freightShare", Double.valueOf(goods <= 0.0 ? 0.0 : round2(freight / goods * 100.0)));
             putPage(result, "receipts", filtered, pageOf(context), pageSizeOf(context), keyword);
+            // a receipt holds one or two articles, so the list shows its lines when the row is
+            // opened; only the rows of this page are carried along
+            Map<String, List<Map<String, Object>>> linesByReceipt = new LinkedHashMap<>();
+            List<?> paged = (List<?>) result.get("receipts");
+            if (paged != null) {
+                for (Object row : paged) {
+                    Map<String, Object> map = UtilGenerics.cast(row);
+                    String id = toText(map.get("receiptId"));
+                    List<Map<String, Object>> lines = linesOf.get(id);
+                    if (lines != null && !lines.isEmpty()) {
+                        linesByReceipt.put(id, lines);
+                    }
+                }
+            }
+            result.put("linesByReceipt", linesByReceipt);
             return result;
         } catch (GenericEntityException e) {
             return ServiceUtil.returnError("Could not read the receipts: " + e.getMessage());

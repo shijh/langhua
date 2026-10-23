@@ -283,3 +283,10 @@ kbd {
 .pager .pager-info, .pager .pager-size { color: var(--fg-muted); font-size: .85em; }
 .pager .pager-size { margin-left: auto; }
 .pager .pager-size a, .pager .pager-size strong { margin-left: .35em; }
+
+/* the lines of a receipt open under its row in the list */
+#receiptTable .toggle { cursor: pointer; }
+#receiptTable .receiptLines td { background: var(--bg-widget); padding: .3em .5em; }
+#receiptTable .receiptLines table.inner { margin: .2em 0 .2em 1.4em; width: auto; }
+#receiptTable .receiptLines table.inner th { color: var(--fg-muted); font-weight: normal; border-bottom: 1px solid var(--border); }
+#receiptTable .receiptLines table.inner td { background: transparent; }

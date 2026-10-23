@@ -9,6 +9,7 @@
 -->
 <#assign rl = (receiptList)!{}>
 <#assign receipts = (rl.receipts)![]>
+<#assign linesByReceipt = (rl.linesByReceipt)!{}>
 <#assign rd = (receiptDetail)!{}>
 <#assign receipt = (rd.receipt)!{}>
 <#assign lines = (rd.lines)![]>
@@ -50,13 +51,57 @@
                 <td>${r.supplierName!}</td>
                 <td>${r.supplierOrderNo!}</td>
                 <td><#if r.receiptDate??>${r.receiptDate?string("yyyy-MM-dd")}</#if></td>
-                <td class="num">${(r.lineCount)!0}</td>
+                <#assign detail = (linesByReceipt[r.receiptId])![]>                <td class="num"><#if detail?has_content><a href="#" class="toggle"
+                        data-toggle-receipt="${r.receiptId}" data-expanded="N"
+                        title="展开这张单的明细">${(r.lineCount)!0} ▸</a><#else>${(r.lineCount)!0}</#if></td>
                 <td class="num">${((r.goodsTotal)!0)?string("0.00")}</td>
                 <td class="num">${((r.freightTotal)!0)?string("0.00")}</td>
                 <td class="num">${((r.spendTotal)!0)?string("0.00")}</td>
             </tr>
+            <#if detail?has_content>
+                <tr class="receiptLines" data-receipt-lines="${r.receiptId}" hidden>
+                    <td colspan="8">
+                        <table class="inner">
+                            <tr><th>行号</th><th>批次</th><th>料号</th><th>名称</th>
+                                <th class="num">数量</th><th class="num">单价</th><th class="num">货款</th></tr>
+                            <#list detail as l>
+                                <tr data-receipt-line-seq="${(l.lineSeq)!0}">
+                                    <td class="num">${(l.lineSeq)!0}</td>
+                                    <td><a href="/mfg/control/materials?search=${(l.lotId)!''?url}">${l.lotId!}</a></td>
+                                    <td>${l.componentCode!}</td>
+                                    <td>${l.componentName!}</td>
+                                    <td class="num">${(l.qty)!0}</td>
+                                    <td class="num">${((l.unitPrice)!0)?string("0.0000")}</td>
+                                    <td class="num">${((l.goodsAmount)!0)?string("0.00")}</td>
+                                </tr>
+                            </#list>
+                        </table>
+                    </td>
+                </tr>
+            </#if>
         </#list>
     </table>
+    <script>
+    /* one receipt usually holds one or two articles, so its lines open right under the row */
+    (function () {
+        document.addEventListener('click', function (event) {
+            var link = event.target.closest ? event.target.closest('[data-toggle-receipt]') : null;
+            if (!link) {
+                return;
+            }
+            event.preventDefault();
+            var id = link.getAttribute('data-toggle-receipt');
+            var row = document.querySelector('[data-receipt-lines="' + id + '"]');
+            if (!row) {
+                return;
+            }
+            var open = !row.hidden;
+            row.hidden = open;
+            link.setAttribute('data-expanded', open ? 'N' : 'Y');
+            link.textContent = link.textContent.replace(/[▸▾]/g, open ? '▸' : '▾');
+        });
+    }());
+    </script>
 <#else>
     <p class="hint">还没有采购到货单。建一张单，把这次买到的批次挂上去，运费的账就有地方记了。</p>
 </#if>
