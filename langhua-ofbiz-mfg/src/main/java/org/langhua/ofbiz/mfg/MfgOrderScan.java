@@ -63,10 +63,10 @@ public final class MfgOrderScan {
 
     /** What the model is asked for: one JSON object, nothing else. */
     static final String PROMPT = "This is a screenshot of an online shop order (Taobao / Tmall)."
-            + " Read the order number, the shop name, the order date (yyyy-MM-dd), the freight paid"
-            + " (0 when it says the freight is included) and the article lines."
+            + " Read the order number, the shop name, the order date the page shows (yyyy-MM-dd), the"
+            + " freight paid (0 when it says the freight is included) and the article lines."
             + " Answer with one JSON object only, no prose:"
-            + " {\"orderNo\":\"\",\"shop\":\"\",\"date\":\"\",\"freight\":\"\","
+            + " {\"orderNo\":\"\",\"shop\":\"\",\"orderDate\":\"\",\"freight\":\"\","
             + "\"lines\":\"code,name,quantity,amount\"} where lines has one row per article,"
             + " quantity is the number of pieces (a lot of 100 pieces is 100, not 1) and amount is"
             + " the money really paid for that row without freight. For the code use the article code"

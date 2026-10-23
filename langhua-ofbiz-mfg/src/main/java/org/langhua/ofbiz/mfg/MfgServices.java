@@ -1294,7 +1294,7 @@ public final class MfgServices {
     static String bomImportFailure(GenericEntityException e) {
         String message = String.valueOf(e.getMessage());
         if (message.contains("truncation error")) {
-            return "导入失败：有字段超出长度限制（型号编码与料号都最多 20 个字符），请缩短后再试";
+            return "导入失败：有字段超出长度限制（型号编码最多 20 个字符，料号最多 100 个字符），请缩短后再试";
         }
         return "Could not import the BOM: " + message;
     }
@@ -1406,7 +1406,7 @@ public final class MfgServices {
         } catch (GenericEntityException e) {
             String message = String.valueOf(e.getMessage());
             if (message.contains("truncation error")) {
-                return ServiceUtil.returnError("保存失败：有字段超出长度限制（料号最多 20 个字符），请缩短后再试");
+                return ServiceUtil.returnError("保存失败：有字段超出长度限制（料号最多 100 个字符），请缩短后再试");
             }
             return ServiceUtil.returnError("Could not save the BOM line: " + message);
         }
@@ -8179,7 +8179,7 @@ always
      * fenced code block or a chat envelope, so the fields are read by name instead of by position.
      *
      * @param reply the answer text
-     * @return {@code orderNo}, {@code shop}, {@code date}, {@code freight} and {@code lines},
+     * @return {@code orderNo}, {@code shop}, {@code orderDate}, {@code freight} and {@code lines},
      *         {@code null} when the answer carries no usable lines
      */
     static Map<String, String> orderFieldsFrom(String reply) {
@@ -8202,7 +8202,10 @@ always
         Map<String, String> fields = new LinkedHashMap<>();
         fields.put("orderNo", jsonStringField(text, "orderNo"));
         fields.put("shop", jsonStringField(text, "shop"));
-        fields.put("date", jsonStringField(text, "date"));
+        // the date printed on a shop order is the day it was placed, not the day the parts arrive;
+        // older answers used the bare name date, so both are read
+        String orderDate = jsonStringField(text, "orderDate");
+        fields.put("orderDate", orderDate != null ? orderDate : jsonStringField(text, "date"));
         fields.put("freight", jsonStringField(text, "freight"));
         String lines = jsonStringField(text, "lines");
         if (lines == null || lines.trim().isEmpty()) {

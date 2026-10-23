@@ -596,11 +596,17 @@ public class MfgServicesTest {
         // the model may answer plain, fenced, or inside a chat envelope
         Map<String, String> plain = MfgServices.orderFieldsFrom(
                 "{\"orderNo\":\"3316517475066009372\",\"shop\":\"天猫 risym旗舰店\","
-                + "\"date\":\"2026-10-19\",\"freight\":\"0\","
+                + "\"orderDate\":\"2026-10-18\",\"freight\":\"0\","
                 + "\"lines\":\"CAP-104-50V,瓷片电容器 104,100,2.91\"}");
         assertEquals("3316517475066009372", plain.get("orderNo"));
         assertEquals("0", plain.get("freight"));
         assertEquals("CAP-104-50V,瓷片电容器 104,100,2.91", plain.get("lines"));
+        // the date of an order is the day it was placed, not the day the parts arrived
+        assertEquals("2026-10-18", plain.get("orderDate"));
+
+        // an answer that still calls it date is read as well
+        assertEquals("2026-10-19", MfgServices.orderFieldsFrom(
+                "{\"date\":\"2026-10-19\",\"lines\":\"X,part,1,1.00\"}").get("orderDate"));
 
         Map<String, String> fenced = MfgServices.orderFieldsFrom(
                 "```json\n{\"lines\":\"A,part,100,2.91\\nB,other,50,1.50\"}\n```");

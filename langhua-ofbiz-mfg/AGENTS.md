@@ -139,6 +139,8 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   淘宝一百个电容实付 2.91 的单价是 0.0291，存进去变 0.03（一百个多算 9 分）。所以 `MfgMaterialLot.receivedAmount`
   存实付总额（2 位、精确），单价由 `lotUnitCost()` = 金额 ÷ 数量 算（无金额时回退 `unitPrice`），
   工单实际材料成本用它；到货单行同样 `unitPriceExact = goodsAmount ÷ qty` 给页面显示 4 位。要改列精度得手工 ALTER，先不动
+- **订单日期不是到货日（Step 68）**：`MfgOrderScan` 把截图上那个日期叫 `orderDate`（旧回答里的 `date` 也读），
+  **不填到货日**（`dateField` 留空 = 今天），提示里写“截图上的 X 是下单日，到货日请自己选”
 - **截图可以 Ctrl+V / 拖进来（Step 67）**：`receipts.ftl` 的 `#orderBlock` 脚本在 `document` 上挂 `paste`，
   从 `clipboardData.items` 里取 `image/*` 的 `getAsFile()`，再用 `new DataTransfer()` 把它塞回
   `input.files`（老浏览器不行就只用内部变量 `chosen`，按钮发 `chosen || file.files[0]`）；

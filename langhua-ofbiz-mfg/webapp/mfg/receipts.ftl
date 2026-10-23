@@ -84,7 +84,7 @@
         <p>
             订单号 <input type="text" id="orderNoField" name="supplierOrderNo" size="22" placeholder="淘宝订单号"/>
             店铺 <input type="text" id="shopField" name="supplierName" size="18" placeholder="天猫 risym旗舰店"/>
-            到货日 <input type="date" id="dateField" name="receiptDate" title="留空就是今天"/>
+            到货日 <input type="date" id="dateField" name="receiptDate" title="收货那天，不是下单日；留空就是今天"/>
             运费 <input class="narrow" type="text" id="freightField" name="freightAmount" value="0" title="整单运费；截图上写“含运费 ¥0.00”就填 0"/>
         </p>
         <p>
@@ -190,11 +190,15 @@
                     }
                     fill('orderNoField', data.orderNo);
                     fill('shopField', data.shop);
-                    fill('dateField', data.date);
                     if (data.freight) { fill('freightField', data.freight); }
                     if (data.lines) { fill('linesField', data.lines); }
+                    /* the date on a shop order is the day it was placed; the arrival day is a few
+                       days later and the person picks it, so the field is left alone */
                     hint.className = 'ok';
-                    hint.textContent = '已识别，核对后点“建单并入库”';
+                    hint.textContent = data.orderDate
+                        ? '已识别，核对后点“建单并入库”。截图上的 ' + data.orderDate
+                            + ' 是下单日，到货日请自己选（一般下单后 3~4 天）'
+                        : '已识别，核对后点“建单并入库”。到货日请自己选';
                 })
                 .catch(function () {
                     hint.className = 'error';
