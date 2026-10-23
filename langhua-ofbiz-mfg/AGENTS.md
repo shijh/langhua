@@ -108,9 +108,21 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
 | `verify-m44.ps1` | BOM 导入选文件（Step 54）：表单是 multipart、有 `file` 字段、上传 Fritzing 文件后合并 9 种料、**文件优先于文本框**、GBK 文件能解码、料号超长被拒、空提交有提示、20 位型号编码也能导入（日志 `mfg-m43b.txt`） | 31 |
 | `verify-m45.ps1` | BOM 行就地编辑（Step 56/57）：标题带版本号、每行有自己的表单（`form="bomLine<n>"` 的 qty/designators/isKeyPart/unitPrice）、保存后数量与金额重算、手加一行、删除一行、用量 0 被拒、`#bomBlock` 与 JSON 出口（保存/拒绝/删除三种回答）（日志 `mfg-m45.txt`） | 34 |
 | `verify-m46.ps1` | 采购到货单（Step 58）：汇总表与 `data-allocation`、建单与运费、批次下拉、挂批次后的行与金额、合计含运费、同一批次不能挂两张单、负运费被拒、行可以移出（日志 `mfg-m46.txt`） | 26 |
+| `verify-m47.ps1` | 照淘宝订单一步入库（Step 60）：订单表单、两行明细 → 建单+入库、订单号已存、货款 4.41、便宜料单价 0.0291、重复提交不重复入库、补运费累加、不满四列/数量 0 被拒、识图按钮与 `/mfg/control/orderImage` 降级回答（日志 `mfg-m47.txt`） | 23 |
 
 ## 设计决策
 
+- **单价只能存 2 位小数，所以按“实付金额”记（Step 60）**：`currency-amount` 在 Derby 上是 `NUMERIC(18,2)`，
+  淘宝一百个电容实付 2.91 的单价是 0.0291，存进去变 0.03（一百个多算 9 分）。所以 `MfgMaterialLot.receivedAmount`
+  存实付总额（2 位、精确），单价由 `lotUnitCost()` = 金额 ÷ 数量 算（无金额时回退 `unitPrice`），
+  工单实际材料成本用它；到货单行同样 `unitPriceExact = goodsAmount ÷ qty` 给页面显示 4 位。要改列精度得手工 ALTER，先不动
+- **照订单一步入库（Step 60）**：`mfgReceiptFromOrder`（IN `lines`：`料号,名称,数量,实付金额`，逗号或 Tab）
+  一次完成建批次 + RECEIPT 流水 + 到货单行；**订单号做幂等键**（同号复用单据、重复行跳过、后来补的运费累加到单上）；
+  页面上是到货单页的 `#orderBlock`，提示“数量按个填、金额填实付”
+- **截图识别（Step 60）**：`MfgOrderScan.scan`（`/mfg/control/orderImage`，multipart `image`）把图发给兼容 OpenAI 的
+  视觉接口，配置项是系统属性 `org.langhua.mfg.vision.endpoint` / `.model` / `.key`；没配时返回 `{"ok":false,"message":…}`
+  提示手工填（**绝不报错页**），识别结果只**填入可编辑表单**、人不提交不写库。回答解析在 `MfgServices.orderFieldsFrom`
+  （纯函数，单测覆盖裸 JSON / ```json 围栏 / chat envelope 三种形状），所以不联网也能测
 - **运费按月看（Step 59）**：`mfgPurchaseFreightTrend`（IN `fromDate`/`toDate`/`groupBy`）复用 `periodKey` 与 `receiptSummary`，
   一个期间一行：单据数 / 货款 / 运费 / 采购支出 / 运费占比，合计行由同一套 `round2` 算；报表页 `#freightCards` +
   `#freightTable`（行上 `data-period`）+ `#freightTotalRow`，CSV 走事件 `MfgExportEvents.freightCsv`

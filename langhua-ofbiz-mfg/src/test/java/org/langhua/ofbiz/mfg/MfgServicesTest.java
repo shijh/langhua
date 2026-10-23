@@ -560,6 +560,64 @@ public class MfgServicesTest {
     }
 
     @Test
+    public void parsesTheLinesOfAShopOrder() {
+        List<String[]> rows = MfgServices.parseOrderArticleLines(
+                "料号,名称,数量,实付金额\n"
+                + "CAP-104-50V,瓷片电容器 104 0.1uF 100NF 50V,100,2.91\n"
+                + "\n"
+                + "# 这一行是注释\n"
+                + "R-0402-10K\t10K 电阻 0402\t100\t1.50\n");
+        // the header, the blank line and the comment are skipped, comma and tab both work
+        assertEquals(2, rows.size());
+        assertEquals("CAP-104-50V", rows.get(0)[0]);
+        assertEquals("100", rows.get(0)[2]);
+        assertEquals("2.91", rows.get(0)[3]);
+        assertEquals("R-0402-10K", rows.get(1)[0]);
+        assertEquals("1.50", rows.get(1)[3]);
+
+        // a line that is not four columns is ignored instead of being half imported
+        assertEquals(0, MfgServices.parseOrderArticleLines("ONLY-A-CODE").size());
+        assertEquals(0, MfgServices.parseOrderArticleLines("").size());
+        assertEquals(0, MfgServices.parseOrderArticleLines(null).size());
+    }
+
+    @Test
+    public void costsACheapPartFromTheAmountPaid() {
+        // 100 pieces for 2.91: the unit price column would keep 0.03, the amount keeps the cent
+        assertEquals(0.0291, MfgServices.unitCostOf(100.0, 2.91, 0.03), 0.000001);
+        // without an amount the typed in price is used
+        assertEquals(0.03, MfgServices.unitCostOf(100.0, 0.0, 0.03), 0.000001);
+        // a lot without quantity cannot divide
+        assertEquals(1.25, MfgServices.unitCostOf(0.0, 2.91, 1.25), 0.000001);
+    }
+
+    @Test
+    public void readsTheFieldsOfAVisionAnswer() {
+        // the model may answer plain, fenced, or inside a chat envelope
+        Map<String, String> plain = MfgServices.orderFieldsFrom(
+                "{\"orderNo\":\"3316517475066009372\",\"shop\":\"天猫 risym旗舰店\","
+                + "\"date\":\"2026-10-19\",\"freight\":\"0\","
+                + "\"lines\":\"CAP-104-50V,瓷片电容器 104,100,2.91\"}");
+        assertEquals("3316517475066009372", plain.get("orderNo"));
+        assertEquals("0", plain.get("freight"));
+        assertEquals("CAP-104-50V,瓷片电容器 104,100,2.91", plain.get("lines"));
+
+        Map<String, String> fenced = MfgServices.orderFieldsFrom(
+                "```json\n{\"lines\":\"A,part,100,2.91\\nB,other,50,1.50\"}\n```");
+        assertEquals("A,part,100,2.91\nB,other,50,1.50", fenced.get("lines"));
+
+        Map<String, String> enveloped = MfgServices.orderFieldsFrom(
+                "{\"choices\":[{\"message\":{\"content\":"
+                + "\"{\\\"orderNo\\\":\\\"42\\\",\\\"lines\\\":\\\"X,part,10,1.00\\\"}\"}}]}");
+        assertEquals("42", enveloped.get("orderNo"));
+        assertEquals("X,part,10,1.00", enveloped.get("lines"));
+
+        // an answer without lines is not usable, the person fills the form by hand
+        assertNull(MfgServices.orderFieldsFrom("{\"orderNo\":\"42\"}"));
+        assertNull(MfgServices.orderFieldsFrom(null));
+    }
+
+    @Test
     public void numbersTheNextBomVersion() {
         List<String> none = new java.util.ArrayList<>();
         assertEquals(1L, MfgServices.nextBomVersionNo(none, "BT5"));

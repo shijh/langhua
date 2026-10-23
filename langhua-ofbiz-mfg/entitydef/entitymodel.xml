@@ -293,6 +293,7 @@
         <field name="availableQty" type="floating-point"><description>Quantity that may be issued: on hand minus what is reserved, and zero while the lot failed the incoming inspection</description></field>
         <field name="receivedDate" type="date"><description>Date received from the supplier</description></field>
         <field name="unitPrice" type="currency-amount"><description>Purchase price per unit, used for the actual material cost</description></field>
+        <field name="receivedAmount" type="currency-amount"><description>What the lot really cost, freight excluded. The price per unit is this amount divided by the quantity, which keeps the cent of a cheap part (100 pieces for 2.91) that the two decimals of unitPrice would lose</description></field>
         <field name="inspectStatusId" type="id"><description>Incoming inspection: MFG_IQC_PENDING, MFG_IQC_PASS, MFG_IQC_CONCESSION (use as is) or MFG_IQC_FAIL (cannot be issued)</description></field>
         <field name="rejectedQty" type="floating-point"><description>Quantity rejected by the incoming inspection</description></field>
         <field name="inspectDate" type="date"><description>When the incoming inspection was finished</description></field>

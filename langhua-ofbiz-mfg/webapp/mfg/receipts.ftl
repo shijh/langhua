@@ -71,6 +71,80 @@
     </p>
 </#if>
 
+<fieldset id="orderBlock">
+    <legend>从淘宝订单建单并入库（一行一个料，人工核对后提交）</legend>
+    <p>
+        截图识别
+        <input type="file" id="orderImage" name="image" accept="image/png,image/jpeg"/>
+        <button type="button" id="scanOrder">识别并填入</button>
+        <span id="scanHint" class="hint">需要先在实例上配置识图服务；没配就把明细粘到下面。</span>
+    </p>
+    <form method="post" action="/mfg/control/receiptFromOrder">
+        <p>
+            订单号 <input type="text" id="orderNoField" name="supplierOrderNo" size="22" placeholder="淘宝订单号"/>
+            店铺 <input type="text" id="shopField" name="supplierName" size="18" placeholder="天猫 risym旗舰店"/>
+            到货日 <input type="date" id="dateField" name="receiptDate" title="留空就是今天"/>
+            运费 <input class="narrow" type="text" id="freightField" name="freightAmount" value="0" title="整单运费；截图上写“含运费 ¥0.00”就填 0"/>
+        </p>
+        <p>
+            <textarea id="linesField" name="lines" rows="4" cols="80" placeholder="料号,名称,数量,实付金额&#10;CAP-104-50V,瓷片电容器 104 0.1uF 100NF 50V,100,2.91">料号,名称,数量,实付金额
+</textarea>
+        </p>
+        <p>
+            <input type="submit" value="建单并入库"/>
+            <span class="hint">数量按<strong>个</strong>填（截图“拍1件=100个”就是 100），金额填这一行的<strong>实付</strong>；
+                单价由 金额 ÷ 数量 自动算（0.0291 这种不会被舍成 0.03）。同一订单号再提交一次不会重复入库。</span>
+        </p>
+    </form>
+    <script>
+    /* recognition is a help: it only fills the form, the person still checks and submits */
+    (function () {
+        var button = document.getElementById('scanOrder');
+        var file = document.getElementById('orderImage');
+        var hint = document.getElementById('scanHint');
+        if (!button || !file || !hint || !window.fetch || !window.FormData) {
+            return;
+        }
+        button.addEventListener('click', function () {
+            if (!file.files || file.files.length === 0) {
+                hint.className = 'error';
+                hint.textContent = '先选一张订单截图';
+                return;
+            }
+            var body = new FormData();
+            body.append('image', file.files[0]);
+            hint.className = 'hint';
+            hint.textContent = '正在识别…';
+            fetch('/mfg/control/orderImage', { method: 'POST', body: body, credentials: 'same-origin' })
+                .then(function (answer) { return answer.json(); })
+                .then(function (data) {
+                    if (!data.ok) {
+                        hint.className = 'error';
+                        hint.textContent = data.message || '识别失败';
+                        return;
+                    }
+                    fill('orderNoField', data.orderNo);
+                    fill('shopField', data.shop);
+                    fill('dateField', data.date);
+                    if (data.freight) { fill('freightField', data.freight); }
+                    if (data.lines) { fill('linesField', data.lines); }
+                    hint.className = 'ok';
+                    hint.textContent = '已识别，核对后点“建单并入库”';
+                })
+                .catch(function () {
+                    hint.className = 'error';
+                    hint.textContent = '识别请求失败，手工填也可以';
+                });
+        });
+        function fill(id, value) {
+            if (!value) { return; }
+            var field = document.getElementById(id);
+            if (field) { field.value = value; }
+        }
+    }());
+    </script>
+</fieldset>
+
 <fieldset>
     <legend>新建到货单</legend>
     <form method="post" action="/mfg/control/receiptSave">
@@ -110,7 +184,7 @@
                     <td>${l.componentCode!}</td>
                     <td>${l.componentName!}</td>
                     <td class="num">${((l.qty)!0)?string("0.##")}</td>
-                    <td class="num">${((l.unitPrice)!0)?string("0.000")}</td>
+                    <td class="num" title="单价 = 实付金额 ÷ 数量">${((l.unitPriceExact)!0)?string("0.0000")}</td>
                     <td class="num" data-amount="${((l.goodsAmount)!0)}">${((l.goodsAmount)!0)?string("0.00")}</td>
                     <td>
                         <form method="post" action="/mfg/control/receiptLineSave" class="inline">

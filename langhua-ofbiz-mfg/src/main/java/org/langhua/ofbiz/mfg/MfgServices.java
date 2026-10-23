@@ -2174,7 +2174,8 @@ public final class MfgServices {
                 if (lot == null || !(lot.get("unitPrice") instanceof Number)) {
                     issuesWithoutPrice++;
                 } else {
-                    issuedMaterial += qty * ((Number) lot.get("unitPrice")).doubleValue();
+                    // the amount paid on the lot keeps the cent of a cheap part, see lotUnitCost
+                    issuedMaterial += qty * lotUnitCost(lot);
                 }
             }
 
@@ -2668,7 +2669,14 @@ public final class MfgServices {
             Object receivedDate = parseDate(context.get("receivedDate"));
             lot.set("receivedDate", receivedDate == null
                     ? java.sql.Date.valueOf(LocalDate.now()) : receivedDate);
-            lot.set("unitPrice", optionalAmount(context.get("unitPrice")));
+            Double amount = optionalAmount(context.get("amount"));
+            if (amount != null) {
+                // the amount is exact, the unit price column only keeps two decimals
+                lot.set("receivedAmount", amount);
+                lot.set("unitPrice", Double.valueOf(round2(amount.doubleValue() / receivedQty)));
+            } else {
+                lot.set("unitPrice", optionalAmount(context.get("unitPrice")));
+            }
             String inspectStatus = normalizeInspectStatus(context.get("inspectStatusId"));
             if (inspectStatus == null) {
                 return ServiceUtil.returnError("Unknown inspection status [" + context.get("inspectStatusId")
@@ -3330,6 +3338,34 @@ public final class MfgServices {
 
     private static String formatLotId(LocalDate date, int sequence) {
         return "LOT-" + date.format(DAY) + "-" + String.format(Locale.ROOT, "%02d", sequence);
+    }
+
+    /**
+     * Money per unit of a lot: the amount really paid divided by the quantity received when that
+     * amount is known, otherwise the unit price typed in. Cheap parts (100 resistors for 2.91) need
+     * more than the two decimals of the price column, so the amount is the precise source.
+     *
+     * @param lot the material lot
+     * @return the cost of one unit, {@code 0} when neither is known
+     */
+    static double lotUnitCost(GenericValue lot) {
+        return unitCostOf(numberOrZero(lot.get("receivedQty")), numberOrZero(lot.get("receivedAmount")),
+                numberOrZero(lot.get("unitPrice")));
+    }
+
+    /**
+     * The arithmetic behind {@link #lotUnitCost}.
+     *
+     * @param qty quantity received
+     * @param amount amount really paid, {@code 0} when unknown
+     * @param unitPrice the unit price typed in
+     * @return the amount per unit when the amount is known, otherwise the unit price
+     */
+    static double unitCostOf(double qty, double amount, double unitPrice) {
+        if (qty > 0.0 && amount > 0.0) {
+            return amount / qty;
+        }
+        return unitPrice;
     }
 
     private static String nextLotId(Delegator delegator, LocalDate today) throws GenericEntityException {
@@ -7884,6 +7920,238 @@ always
     /** How many unassigned lots the receipt page offers in its picker. */
     private static final int MAX_FREE_LOTS = 200;
 
+    /**
+     * Creates one receipt from the lines of a shop order (a Taobao order) and books every line into
+     * stock as its own lot, all in one submission: the person copies the article lines out of the
+     * order page, checks them and presses the button once.
+     *
+     * <p>Each line is {@code componentCode,componentName,quantity,amount} — the quantity in pieces
+     * and the amount really paid for that line. The unit price is the amount divided by the
+     * quantity, so a line of 100 pieces for 2.91 keeps its 0.0291 instead of being rounded to 0.03.
+     *
+     * <p>The order number makes it idempotent: an order that already has a receipt is reused and
+     * lines that are already on it are skipped, so a double click does not buy the parts twice.
+     *
+     * @param dctx the dispatch context
+     * @param context service context, see {@code servicedef/services.xml#mfgReceiptFromOrder}
+     * @return the service result containing {@code receiptId}, {@code importedCount},
+     *         {@code skippedCount} and the totals
+     */
+    public static Map<String, Object> receiptFromOrder(DispatchContext dctx, Map<String, ? extends Object> context) {
+        String denied = permissionProblem(dctx, context, PERM_STOCK);
+        if (denied != null) {
+            return ServiceUtil.returnError(denied);
+        }
+        Delegator delegator = dctx.getDelegator();
+        String lines = toText(context.get("lines"));
+        if (lines == null) {
+            return ServiceUtil.returnError("请把订单明细粘进来（一行一个料：料号,名称,数量,实付金额）");
+        }
+        String supplierOrderNo = toText(context.get("supplierOrderNo"));
+        String supplierName = toText(context.get("supplierName"));
+        String freightText = toText(context.get("freightAmount"));
+        Double freight = optionalAmount(freightText);
+        if (freightText != null && freight == null) {
+            return ServiceUtil.returnError("运费要填非负数字，或留空：" + freightText);
+        }
+        List<String[]> rows = parseOrderArticleLines(lines);
+        if (rows.isEmpty()) {
+            return ServiceUtil.returnError("没有解析出明细，一行一个料：料号,名称,数量,实付金额");
+        }
+        for (String[] row : rows) {
+            if (row[0].length() > MAX_COMPONENT_CODE) {
+                return ServiceUtil.returnError("料号太长（最多 " + MAX_COMPONENT_CODE + " 个字符）：" + row[0]);
+            }
+            if (toDouble(row[2], 0.0) <= 0.0) {
+                return ServiceUtil.returnError("数量要大于 0：" + row[0]);
+            }
+        }
+        try {
+            java.sql.Date receiptDate = (java.sql.Date) parseDate(context.get("receiptDate"));
+            if (receiptDate == null) {
+                receiptDate = java.sql.Date.valueOf(LocalDate.now());
+            }
+            GenericValue receipt = supplierOrderNo == null ? null
+                    : EntityQuery.use(delegator).from("MfgPurchaseReceipt")
+                            .where("supplierOrderNo", supplierOrderNo).queryFirst();
+            if (receipt == null) {
+                String receiptId = nextReceiptId(delegator, LocalDate.now());
+                receipt = delegator.makeValue("MfgPurchaseReceipt");
+                receipt.set("receiptId", receiptId);
+                receipt.set("supplierName", supplierName);
+                receipt.set("supplierOrderNo", supplierOrderNo);
+                receipt.set("receiptDate", receiptDate);
+                receipt.set("freightAmount", Double.valueOf(freight == null ? 0.0 : freight.doubleValue()));
+                receipt.set("allocationId", ALLOC_NONE);
+                receipt.set("note", toText(context.get("note")));
+                delegator.create(receipt);
+            } else if (freight != null) {
+                // a second delivery of the same order may add freight
+                receipt.set("freightAmount", Double.valueOf(round2(
+                        numberOrZero(receipt.get("freightAmount")) + freight.doubleValue())));
+                receipt.store();
+            }
+            String receiptId = receipt.getString("receiptId");
+            Map<String, String> existing = new LinkedHashMap<>();
+            for (GenericValue line : EntityQuery.use(delegator).from("MfgPurchaseReceiptLine")
+                    .where("receiptId", receiptId).queryList()) {
+                existing.put(lotLineKey(line.getString("componentCode"), line.get("qty"), line.get("goodsAmount")), "Y");
+            }
+            int imported = 0;
+            int skipped = 0;
+            long lineSeq = nextReceiptLineSeq(delegator, receiptId);
+            for (String[] row : rows) {
+                String componentCode = row[0];
+                double qty = toDouble(row[2], 0.0);
+                double amount = toDouble(row[3], 0.0);
+                if (existing.containsKey(lotLineKey(componentCode, Double.valueOf(qty),
+                        Double.valueOf(round2(amount))))) {
+                    skipped++;
+                    continue;
+                }
+                String lotId = nextLotId(delegator, LocalDate.now());
+                GenericValue lot = delegator.makeValue("MfgMaterialLot");
+                lot.set("lotId", lotId);
+                lot.set("componentCode", componentCode);
+                lot.set("componentName", row[1] == null ? componentCode : row[1]);
+                lot.set("supplierName", supplierName);
+                lot.set("supplierLot", supplierOrderNo);
+                lot.set("receivedQty", Double.valueOf(qty));
+                lot.set("receivedAmount", Double.valueOf(round2(amount)));
+                lot.set("unitPrice", Double.valueOf(round2(amount / qty)));
+                lot.set("receivedDate", receiptDate);
+                lot.set("note", toText(context.get("note")));
+                delegator.create(lot);
+                recordMovement(delegator, lot, MOVE_RECEIPT, qty, lot.get("unitPrice"), null, null,
+                        supplierOrderNo, null,
+                        Timestamp.valueOf(receiptDate.toLocalDate().atStartOfDay()),
+                        "订单到货入库", toText(context.get("locationId")));
+                recalcLotStock(delegator, lot);
+
+                GenericValue line = delegator.makeValue("MfgPurchaseReceiptLine");
+                line.set("receiptId", receiptId);
+                line.set("lineSeq", Long.valueOf(lineSeq));
+                line.set("lotId", lotId);
+                line.set("componentCode", componentCode);
+                line.set("componentName", row[1] == null ? componentCode : row[1]);
+                line.set("qty", Double.valueOf(qty));
+                line.set("unitPrice", lot.get("unitPrice"));
+                line.set("goodsAmount", Double.valueOf(round2(amount)));
+                delegator.create(line);
+                lineSeq += 10L;
+                imported++;
+            }
+            if (imported == 0 && skipped == 0) {
+                return ServiceUtil.returnError("没有可入库的明细");
+            }
+            List<Map<String, Object>> lineMaps = new ArrayList<>();
+            for (GenericValue line : EntityQuery.use(delegator).from("MfgPurchaseReceiptLine")
+                    .where("receiptId", receiptId).orderBy("lineSeq").queryList()) {
+                lineMaps.add(toReceiptLineMap(line));
+            }
+            Map<String, Object> summary = receiptSummary(lineMaps, numberOrZero(receipt.get("freightAmount")));
+            Map<String, Object> result = ServiceUtil.returnSuccess();
+            result.put("receiptId", receiptId);
+            result.put("importedCount", String.valueOf(imported));
+            result.put("skippedCount", String.valueOf(skipped));
+            result.putAll(summary);
+            return result;
+        } catch (GenericEntityException e) {
+            return ServiceUtil.returnError(bomImportFailure(e));
+        }
+    }
+
+    /**
+     * Reads the order lines typed or pasted by the person: {@code code,name,quantity,amount} per
+     * line, separated by comma or tab; blank lines and lines starting with {@code #} are ignored.
+     *
+     * @param text the pasted text
+     * @return one array per line: code, name, quantity, amount (as text)
+     */
+    static List<String[]> parseOrderArticleLines(String text) {
+        List<String[]> rows = new ArrayList<>();
+        if (text == null) {
+            return rows;
+        }
+        for (String raw : text.split("\r?\n")) {
+            String line = raw.trim();
+            if (line.isEmpty() || line.startsWith("#")) {
+                continue;
+            }
+            String[] cells = splitCsvLine(line, cellsSeparator(line));
+            if (cells.length < 4) {
+                continue;
+            }
+            String code = cells[0] == null ? "" : cells[0].trim();
+            if (code.isEmpty() || "料号".equals(code)) {
+                continue;
+            }
+            rows.add(new String[] {code, cells[1], cells[2], cells[3]});
+        }
+        return rows;
+    }
+
+    private static char cellsSeparator(String line) {
+        return line.indexOf('\t') >= 0 ? '\t' : ',';
+    }
+
+    private static String lotLineKey(String componentCode, Object qty, Object amount) {
+        return componentCode + "|" + toDouble(qty, 0.0) + "|" + round2(toDouble(amount, 0.0));
+    }
+
+    /**
+     * Pulls the receipt fields out of the answer of a vision model. The answer may be plain JSON, a
+     * fenced code block or a chat envelope, so the fields are read by name instead of by position.
+     *
+     * @param reply the answer text
+     * @return {@code orderNo}, {@code shop}, {@code date}, {@code freight} and {@code lines},
+     *         {@code null} when the answer carries no usable lines
+     */
+    static Map<String, String> orderFieldsFrom(String reply) {
+        if (reply == null) {
+            return null;
+        }
+        String text = reply.replace("\\\"", "\"");
+        String content = jsonStringField(text, "content");
+        if (content != null && content.contains("lines")) {
+            // the chat envelope: the object sits inside choices[0].message.content
+            text = content;
+        }
+        Map<String, String> fields = new LinkedHashMap<>();
+        fields.put("orderNo", jsonStringField(text, "orderNo"));
+        fields.put("shop", jsonStringField(text, "shop"));
+        fields.put("date", jsonStringField(text, "date"));
+        fields.put("freight", jsonStringField(text, "freight"));
+        String lines = jsonStringField(text, "lines");
+        if (lines == null || lines.trim().isEmpty()) {
+            return null;
+        }
+        fields.put("lines", lines.trim());
+        return fields;
+    }
+
+    /**
+     * Reads the value of one JSON string field, whatever surrounds it.
+     *
+     * @param text the JSON like text
+     * @param name the field name
+     * @return the value with its escapes resolved, {@code null} when the field is missing
+     */
+    static String jsonStringField(String text, String name) {
+        if (text == null) {
+            return null;
+        }
+        java.util.regex.Matcher matcher = java.util.regex.Pattern
+                .compile("\"" + java.util.regex.Pattern.quote(name) + "\"\\s*:\\s*\"((?:[^\"\\\\]|\\\\.)*)\"")
+                .matcher(text);
+        if (!matcher.find()) {
+            return null;
+        }
+        String value = matcher.group(1);
+        return value.replace("\\n", "\n").replace("\\r", "").replace("\\t", "\t")
+                .replace("\\\"", "\"").replace("\\\\", "\\").trim();
+    }
+
     private static String nextReceiptId(Delegator delegator, LocalDate today) throws GenericEntityException {
         String prefix = "PR-" + today.format(DAY) + "-";
         int max = 0;
@@ -7929,6 +8197,10 @@ always
         map.put("componentName", line.getString("componentName"));
         map.put("qty", line.get("qty"));
         map.put("unitPrice", line.get("unitPrice"));
+        // the price with the decimals the column cannot keep: 2.91 for 100 pieces is 0.0291
+        double qty = numberOrZero(line.get("qty"));
+        map.put("unitPriceExact", Double.valueOf(qty > 0.0
+                ? numberOrZero(line.get("goodsAmount")) / qty : numberOrZero(line.get("unitPrice"))));
         map.put("goodsAmount", line.get("goodsAmount"));
         map.put("note", line.getString("note"));
         return map;

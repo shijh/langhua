@@ -335,7 +335,7 @@ https://localhost:8443/mfg/control/main
 | `MfgWorkOrder` | 工单：`workOrderId`、`productCode`、`plannedQty`、`statusId`、`dueDate`、`customerName`、`smtVendor`、`bomVersionId`（建单时冻结的 BOM 版本）、`outsourceAmount`（外协加工费，整单，计入实际成本）、`completeDate`（完工入库日） |
 | `MfgSn` | 单板：`sn`（主键）、`workOrderId`、`productCode`、状态 |
 | `MfgReport` | 报工：`reportId`、`workOrderId`、`opSeq`、`sn`（可选）、`operatorName`、`workHours`、`qtyOk`、`qtyNg` || `MfgDefect` | 不良：`defectId`、`workOrderId`、`sn`、`opSeq`、`defectCode`、`qty`、`responsibility`、`repairHours` |
-| `MfgMaterialLot` | 物料批次（元件与成品共用一张表）：`lotId`（元件 `LOT-yyMMdd-NN` / 成品 `FG-WO-…`）、**`lotKindId`**（`MFG_LOT_COMPONENT` / `MFG_LOT_PRODUCT`，空值当元件）、`workOrderId`（成品批次来自哪张工单）、`componentCode`（成品批次里就是型号）、`supplierName`、`supplierLot`（DateCode）、`receivedQty`（到货量）、**`onHandQty` / `reservedQty` / `availableQty`（都由流水求和得出）**、`receivedDate`、`unitPrice`（采购单价，成品则是单位成本）；来料检验：`inspectStatusId`（MFG_IQC_PENDING/PASS/CONCESSION/FAIL）、`rejectedQty`、`inspectDate`、`inspector`、`inspectNote` |
+| `MfgMaterialLot` | 物料批次（元件与成品共用一张表）：`lotId`（元件 `LOT-yyMMdd-NN` / 成品 `FG-WO-…`）、**`lotKindId`**（`MFG_LOT_COMPONENT` / `MFG_LOT_PRODUCT`，空值当元件）、`workOrderId`（成品批次来自哪张工单）、`componentCode`（成品批次里就是型号）、`supplierName`、`supplierLot`（DateCode）、`receivedQty`（到货量）、**`onHandQty` / `reservedQty` / `availableQty`（都由流水求和得出）**、`receivedDate`、`unitPrice`（采购单价，成品则是单位成本）、**`receivedAmount`（这一批的实付总额；单价由它 ÷ 数量 算，便宜料 0.0291 不会被 2 位小数舍成 0.03）**；来料检验：`inspectStatusId`（MFG_IQC_PENDING/PASS/CONCESSION/FAIL）、`rejectedQty`、`inspectDate`、`inspector`、`inspectNote` |
 | `MfgMaterialIssue` | 发料：`issueId`、`workOrderId`、`componentCode`、`lotId`、`qty`、`directionId`（发料 / 退料）、`issuedDate`、可选 `designators` / `snFrom` / `snTo` |
 | `MfgInventoryDetail` | **库存流水（只增不改）**：`lotId` + `seqId` 主键、`movementTypeId`（RECEIPT/ISSUE/RETURN/SCRAP/COUNT/ADJUST/**TRANSFER**/**RESERVE/RELEASE**）、`quantityDiff`（带符号）、`reservedDiff`（预留增减，不动在库）、`salesOrderId` + `salesOrderItemSeq`（订单预留归属哪一行）、`locationId`（发生在哪个库位）、`unitCost`、`workOrderId`、`physicalInventoryId`、`referenceNo`、`operatorName`、`effectiveDate` |
 | `MfgStockLocation` | 库位：`locationId`（贴在货架上的编码）、`locationName`、`locationTypeId`（MFG_LOC_WAREHOUSE / ZONE / BIN）、`parentLocationId`、`note` |
@@ -418,6 +418,7 @@ https://localhost:8443/mfg/control/main
 | `mfgPurchaseReceiptList` | 到货单列表（行数 / 货款 / 运费 / 合计）+ 本页的货款合计、运费合计、采购支出合计、运费占货款比例 |
 | `mfgPurchaseReceiptDetail` | 一张单的行明细与合计，加上“还没挂在任何单上的元件批次”供下拉选择 |
 | `mfgPurchaseFreightTrend` | 采购支出按期间（日 / ISO 周 / 月）汇总：单据数、货款、运费、采购支出、运费占货款；报表页与 `freightCsv` 共用这个服务 |
+| `mfgReceiptFromOrder` | 照一张店铺订单（淘宝）一行一个料建单并入库：`料号,名称,数量,实付金额`，后端一次完成**建批次 + 到货流水 + 到货单行**；单价 = 金额 ÷ 数量（0.0291 不会被舍成 0.03）；**同一订单号再来一次只复用单据、跳过已有行** |
 | `mfgWorkOrderReserve` | 按工单 BOM 自动预留齐套料：按批次先后在「可发」里挑，能挑多少挑多少，写 `MFG_MOVE_RESERVE` 流水（不动在库），返回预留总数与还差多少 |
 | `mfgWorkOrderRelease` | 释放该工单的全部预留（写反向的 `MFG_MOVE_RELEASE` 流水），已发料的部分不受影响 |
 | `mfgWorkOrderComplete` | 完工入库：按已报工的良品数建成品批次 `FG-<工单号>` 并写 `MFG_MOVE_RECEIPT`，单位成本 = 实际成本 ÷ 良品数；工单置 MFG_COMPLETED、SN 置 MFG_COMPLETED；重复调用只补差额 |
@@ -991,6 +992,35 @@ SMT 为外协，且对方**不提供上料 / 换料记录**，因此追溯精度
 采购支出与运费占货款，表里一个期间一行（跟着报表上方的按日 / 按周 / 按月切换），最后一行是合计；
 右上「导出采购运费 CSV」下载同一张表（七列 + 合计行 + UTF-8 BOM，Excel 双击直接开）。
 数据来自服务 `mfgPurchaseFreightTrend`，与到货单页共用 `receiptSummary` 的口径，所以两处数字不会打架。
+
+### 照着订单截图入库
+
+淘宝/天猫的订单页、结算页都能看到这几项：**订单号、店铺、商品名、拍了几件=多少个、实付金额、含运费**。
+把「一行一个料」的明细填进到货单页的「从淘宝订单建单并入库」框，一次提交就完成入库与单据：
+
+```
+料号,名称,数量,实付金额
+CAP-104-50V,瓷片电容器 104 0.1uF 100NF 50V,100,2.91
+```
+
+- **数量按“个”填**：截图上「拍1件=100个」就是 100，不要填 1；
+- **金额填实付**（优惠后、不含运费的货款）：单价 = 金额 ÷ 数量 = 0.0291，页面显示 4 位小数；
+  单价列只能存 2 位小数，所以**批次上同时存 `receivedAmount`（实付总额，2 位、精确）**，
+  成本计算优先用它 ÷ 数量（`lotUnitCost`），便宜料不会因为 0.03 的舍入每百个多算 9 分；
+- **运费照截图的“含运费”填**：0 就填 0，否则填实付运费；
+- **同一个订单号再提交不会重复入库**（重复行会被跳过，后来补的运费会累加到单上）；
+- 截图里只有一行时，也可以先选文件识别再人工核对（见下面“识别截图”）；
+- 想分两步也可以：先到「物料批次」建批次，再到到货单里挂上去，两条路走同一张表。
+
+### 识别截图
+
+截图里的字本质上是一次 OCR + 结构化：**谁识别都行，必须人工核对后再入库**。现在常见的两种用法：
+
+1. **聊天里识别（无需配置）**：把截图发给编辑器里的助手，让它输出上面的四列，粘进框里核对；
+2. **页面内识别（需要配置）**：给实例配上兼容 OpenAI 的视觉模型接口
+   （系统属性 `org.langhua.mfg.vision.endpoint` / `org.langhua.mfg.vision.model` / `org.langhua.mfg.vision.key`），
+   页面上的「识别截图」按钮就会把图发过去、把结果填进框里；没配时按钮会提示而不报错。
+   识别结果一律先填进可编辑的框，**人能改**，提交才写库。
 
 ## 看板告警与 CSV 导出
 

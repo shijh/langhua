@@ -1066,6 +1066,27 @@
         <attribute name="freightShare" type="Double" mode="OUT" optional="true"/>
     </service>
 
+    <service name="mfgReceiptFromOrder" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgServices" invoke="receiptFromOrder"
+            auth="false" use-transaction="false">
+        <description>Create a receipt from the lines of a shop order and book every line into stock in one go: order number first, then code,name,quantity,amount per line. The order number makes it idempotent</description>
+        <attribute name="supplierOrderNo" type="String" mode="IN" optional="true"/>
+        <attribute name="supplierName" type="String" mode="IN" optional="true"/>
+        <attribute name="receiptDate" type="String" mode="IN" optional="true"/>
+        <attribute name="freightAmount" type="String" mode="IN" optional="true"/>
+        <attribute name="lines" type="String" mode="IN" optional="false"/>
+        <attribute name="locationId" type="String" mode="IN" optional="true"/>
+        <attribute name="note" type="String" mode="IN" optional="true"/>
+        <attribute name="receiptId" type="String" mode="OUT" optional="true"/>
+        <attribute name="importedCount" type="String" mode="OUT" optional="true"/>
+        <attribute name="skippedCount" type="String" mode="OUT" optional="true"/>
+        <attribute name="lineCount" type="Integer" mode="OUT" optional="true"/>
+        <attribute name="goodsTotal" type="Double" mode="OUT" optional="true"/>
+        <attribute name="freightTotal" type="Double" mode="OUT" optional="true"/>
+        <attribute name="spendTotal" type="Double" mode="OUT" optional="true"/>
+        <attribute name="freightShare" type="Double" mode="OUT" optional="true"/>
+    </service>
+
     <service name="mfgLocationSave" engine="java"
             location="org.langhua.ofbiz.mfg.MfgServices" invoke="locationSave"
             auth="false" use-transaction="false">

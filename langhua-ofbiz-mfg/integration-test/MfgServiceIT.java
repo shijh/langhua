@@ -152,6 +152,7 @@ public final class MfgServiceIT {
             it.editsBomLines();
             it.createsPurchaseReceipt();
             it.readsPurchaseFreightReport();
+            it.createsReceiptFromAnOrder();
             it.savesRouting();
             it.readsProductDetail();
             it.createsWorkOrder();
@@ -787,6 +788,42 @@ public final class MfgServiceIT {
         Response weekReport = invoke("mfgPurchaseFreightTrend", weekly);
         check("freight report: weekly periods are labelled", weekReport.body.contains("-W")
                 || weekReport.body.contains("rowCount"), "no weekly label");
+    }
+
+    /**
+     * A receipt straight from the lines of a shop order: lots created, receipt written, and the same
+     * order submitted twice does not buy the parts twice.
+     *
+     * @throws IOException when a service call fails
+     */
+    private void createsReceiptFromAnOrder() throws IOException {
+        String stamp = new java.text.SimpleDateFormat("HHmmss").format(new java.util.Date());
+        String orderNo = "3300" + stamp + "11111";
+        String lines = "CAP-" + stamp + ",Porcelain capacitor 104,100,2.91\n"
+                + "RES-" + stamp + ",10K resistor,100,1.50";
+
+        Map<String, String> form = new LinkedHashMap<>();
+        form.put("supplierOrderNo", orderNo);
+        form.put("supplierName", "IT tmall shop");
+        form.put("receiptDate", "2026-10-19");
+        form.put("freightAmount", "0");
+        form.put("lines", lines);
+        Response created = invoke("mfgReceiptFromOrder", form);
+        check("order receipt: the order is booked", created.status == 200
+                && !created.body.contains("responseMessage=error"), "HTTP " + created.status);
+        String receiptId = firstMatch(Pattern.compile("PR-\\d{6}-\\d+"), created.body);
+        check("order receipt: identifier returned", receiptId != null, "no PR- id");
+        check("order receipt: two lines imported", created.body.contains("2"), "no imported count");
+
+        Map<String, String> detailForm = new LinkedHashMap<>();
+        detailForm.put("receiptId", receiptId == null ? "" : receiptId);
+        Response detail = invoke("mfgPurchaseReceiptDetail", detailForm);
+        check("order receipt: the goods value is the amount paid", detail.body.contains("4.41"),
+                "no 4.41");
+
+        Response again = invoke("mfgReceiptFromOrder", form);
+        check("order receipt: the same order reuses the receipt", again.status == 200
+                && !again.body.contains("responseMessage=error"), "second call failed");
     }
 
     private void savesRouting() throws IOException {
