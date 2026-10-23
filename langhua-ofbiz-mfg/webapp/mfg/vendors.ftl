@@ -1,4 +1,5 @@
 <#ftl encoding="UTF-8">
+<#import "pager.ftl" as pg>
 <#setting url_escaping_charset="UTF-8">
 <#--
   Outsourcing vendors (SMT / PCB) with the shipping details used when material is couriered.
@@ -73,19 +74,8 @@
 <#else>
     <p class="hint">还没有厂家记录。</p>
 </#if>
-<#if (vl.pageCount?default(1)) gt 1>
-    <p class="pager">
-        第 ${(vl.page)!1} / ${(vl.pageCount)!1} 页（共 ${(vl.totalCount)!0} 家）
-        <#if (vl.page?default(1)) gt 1>
-            <a href="/mfg/control/vendors?search=${(vl.search)!''?url}&page=1">首页</a>
-            <a href="/mfg/control/vendors?search=${(vl.search)!''?url}&page=${(vl.page)-1}">上一页</a>
-        </#if>
-        <#if (vl.page?default(1)) lt (vl.pageCount?default(1))>
-            <a href="/mfg/control/vendors?search=${(vl.search)!''?url}&page=${(vl.page)+1}">下一页</a>
-            <a href="/mfg/control/vendors?search=${(vl.search)!''?url}&page=${(vl.pageCount)!1}">末页</a>
-        </#if>
-    </p>
-</#if>
+<@pg.pager action="/mfg/control/vendors" query=('search=' + ((vl.search)!'')?url)
+    page=(vl.page)!1 pageCount=(vl.pageCount)!1 total=(vl.totalCount)!0 unit="家" pageSize=(vl.pageSize)!20/>
 
 <script type="text/javascript" src="/mfg/js/copyLabel.js"></script>
 

@@ -1,4 +1,5 @@
 <#ftl encoding="UTF-8">
+<#import "pager.ftl" as pg>
 <#setting url_escaping_charset="UTF-8">
 <#--
   Product development: project list, the track steps, the issue list, the stage ladder and the
@@ -191,19 +192,8 @@
 <#else>
     <p class="hint">还没有开发项目，先在上面立项。三条线（PCB / 固件 / 外壳）各建一个项目，步骤清单由线路决定。</p>
 </#if>
-<#if (lr.pageCount?default(1)) gt 1>
-    <p class="pager">
-        第 ${(lr.page)!1} / ${(lr.pageCount)!1} 页（共 ${(lr.totalCount)!0} 条）
-        <#if (lr.page?default(1)) gt 1>
-            <a href="/mfg/control/dev?search=${(lr.search)!''?url}&stageId=${(lr.stageId)!''?url}&statusId=${(lr.statusId)!''?url}&page=1">首页</a>
-            <a href="/mfg/control/dev?search=${(lr.search)!''?url}&stageId=${(lr.stageId)!''?url}&statusId=${(lr.statusId)!''?url}&page=${(lr.page)-1}">上一页</a>
-        </#if>
-        <#if (lr.page?default(1)) lt (lr.pageCount?default(1))>
-            <a href="/mfg/control/dev?search=${(lr.search)!''?url}&stageId=${(lr.stageId)!''?url}&statusId=${(lr.statusId)!''?url}&page=${(lr.page)+1}">下一页</a>
-            <a href="/mfg/control/dev?search=${(lr.search)!''?url}&stageId=${(lr.stageId)!''?url}&statusId=${(lr.statusId)!''?url}&page=${(lr.pageCount)!1}">末页</a>
-        </#if>
-    </p>
-</#if>
+<@pg.pager action="/mfg/control/dev" query=('search=' + ((lr.search)!'')?url + '&' + 'stageId=' + ((lr.stageId)!'')?url + '&' + 'statusId=' + ((lr.statusId)!'')?url)
+    page=(lr.page)!1 pageCount=(lr.pageCount)!1 total=(lr.totalCount)!0 unit="条" pageSize=(lr.pageSize)!20/>
 
 <#if project.projectCode??>
     <h2>${project.projectCode} ${project.projectName!}</h2>

@@ -1,4 +1,5 @@
 <#ftl encoding="UTF-8">
+<#import "pager.ftl" as pg>
 <#setting url_escaping_charset="UTF-8">
 <#--
   Engineering change orders: list, raise a change, approve it, apply it (switches the BOM version).
@@ -117,19 +118,8 @@
 <#else>
     <p class="hint">还没有变更单。</p>
 </#if>
-<#if (lr.pageCount?default(1)) gt 1>
-    <p class="pager">
-        第 ${(lr.page)!1} / ${(lr.pageCount)!1} 页（共 ${(lr.totalCount)!0} 条）
-        <#if (lr.page?default(1)) gt 1>
-            <a href="/mfg/control/eco?search=${(lr.search)!''?url}&statusId=${(lr.statusId)!''?url}&page=1">首页</a>
-            <a href="/mfg/control/eco?search=${(lr.search)!''?url}&statusId=${(lr.statusId)!''?url}&page=${(lr.page)-1}">上一页</a>
-        </#if>
-        <#if (lr.page?default(1)) lt (lr.pageCount?default(1))>
-            <a href="/mfg/control/eco?search=${(lr.search)!''?url}&statusId=${(lr.statusId)!''?url}&page=${(lr.page)+1}">下一页</a>
-            <a href="/mfg/control/eco?search=${(lr.search)!''?url}&statusId=${(lr.statusId)!''?url}&page=${(lr.pageCount)!1}">末页</a>
-        </#if>
-    </p>
-</#if>
+<@pg.pager action="/mfg/control/eco" query=('search=' + ((lr.search)!'')?url + '&' + 'statusId=' + ((lr.statusId)!'')?url)
+    page=(lr.page)!1 pageCount=(lr.pageCount)!1 total=(lr.totalCount)!0 unit="条" pageSize=(lr.pageSize)!20/>
 
 <#if eco.ecoId??>
     <h2>${eco.ecoId}（${statusLabel(eco.statusId!'')}）</h2>

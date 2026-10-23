@@ -1,4 +1,5 @@
 <#ftl encoding="UTF-8">
+<#import "pager.ftl" as pg>
 <#setting url_escaping_charset="UTF-8">
 <#--
   出入库流水：一条一笔，带该批次的结存余额；可按料号 / 批次 / 类型 / 日期过滤。
@@ -85,17 +86,8 @@
             </tr>
         </#list>
     </table>
-    <#if ((lr.pageCount)!1) gt 1>
-        <p class="pager">
-            第 ${(lr.page)!1} / ${(lr.pageCount)!1} 页（共 ${(lr.totalCount)!0} 条）
-            <#if ((lr.page)!1) gt 1>
-                <a href="/mfg/control/stockMoves?componentCode=${(lr.componentCode)!''?url}&lotId=${(lr.lotId)!''?url}&movementTypeId=${typeId?url}&page=${(lr.page)-1}">上一页</a>
-            </#if>
-            <#if ((lr.page)!1) lt ((lr.pageCount)!1)>
-                <a href="/mfg/control/stockMoves?componentCode=${(lr.componentCode)!''?url}&lotId=${(lr.lotId)!''?url}&movementTypeId=${typeId?url}&page=${(lr.page)+1}">下一页</a>
-            </#if>
-        </p>
-    </#if>
+    <@pg.pager action="/mfg/control/stockMoves" query=('componentCode=' + ((lr.componentCode)!'')?url + '&' + 'lotId=' + ((lr.lotId)!'')?url + '&' + 'movementTypeId=' + typeId?url)
+    page=(lr.page)!1 pageCount=(lr.pageCount)!1 total=(lr.totalCount)!0 unit="条" pageSize=(lr.pageSize)!20/>
 <#else>
     <p class="hint">没有符合条件的流水。入库（建批次）会自动记一笔到货；发料、退料、报废、盘点各记一笔，结存等于这些数之和。</p>
 </#if>

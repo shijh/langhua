@@ -14,7 +14,15 @@
     pageSize how many rows one page holds
 -->
 <#macro pager action query page pageCount total unit="条" pageSize=20>
-    <#assign sep = '?'><#if (query!'')?has_content><#assign sep = '?' + query + '&'></#if>
+    <#-- the filters come in as name=value pairs; the empty ones are dropped so the links stay short -->
+    <#assign kept = []>
+    <#list (query!'')?split('&') as pair>
+        <#if pair?has_content && pair?contains('=') && (pair?keep_after('='))?has_content>
+            <#assign kept = kept + [pair]>
+        </#if>
+    </#list>
+    <#assign clean = kept?join('&')>
+    <#assign sep = '?'><#if clean?has_content><#assign sep = '?' + clean + '&'></#if>
     <#assign current = (page)!1><#if current lt 1><#assign current = 1></#if>
     <#assign pages = (pageCount)!1><#if pages lt 1><#assign pages = 1></#if>
     <#assign from = current - 2><#if from lt 1><#assign from = 1></#if>

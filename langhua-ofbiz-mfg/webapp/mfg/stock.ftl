@@ -1,4 +1,5 @@
 <#ftl encoding="UTF-8">
+<#import "pager.ftl" as pg>
 <#setting url_escaping_charset="UTF-8">
 <#--
   库存结存：按料号看在库/可发/待检/不合格、金额、安全库存与建议采购。
@@ -61,17 +62,8 @@
             </tr>
         </#list>
     </table>
-    <#if ((s.pageCount)!1) gt 1>
-        <p class="pager">
-            第 ${(s.page)!1} / ${(s.pageCount)!1} 页（共 ${(s.totalCount)!0} 条）
-            <#if ((s.page)!1) gt 1>
-                <a href="/mfg/control/stock?search=${(s.search)!''?url}&belowOnly=${(parameters.belowOnly)!''}&page=${(s.page)-1}">上一页</a>
-            </#if>
-            <#if ((s.page)!1) lt ((s.pageCount)!1)>
-                <a href="/mfg/control/stock?search=${(s.search)!''?url}&belowOnly=${(parameters.belowOnly)!''}&page=${(s.page)+1}">下一页</a>
-            </#if>
-        </p>
-    </#if>
+    <@pg.pager action="/mfg/control/stock" query=('search=' + ((s.search)!'')?url + '&' + 'belowOnly=' + ((parameters.belowOnly)!''))
+    page=(s.page)!1 pageCount=(s.pageCount)!1 total=(s.totalCount)!0 unit="条" pageSize=(s.pageSize)!20/>
 <#else>
     <p class="hint">还没有库存。到「物料批次」登记到货，或从 CSV 批量导入；有到货之后这里按料号汇总。</p>
 </#if>

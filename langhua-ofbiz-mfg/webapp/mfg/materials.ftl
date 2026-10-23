@@ -1,4 +1,5 @@
 <#ftl encoding="UTF-8">
+<#import "pager.ftl" as pg>
 <#setting url_escaping_charset="UTF-8">
 <#--
   Material lot ledger and backward trace.
@@ -112,19 +113,8 @@ C0402-100N,100nF 0402 电容,立创商城,DC2409B,500,2026-10-19</textarea>
 <#else>
     <p class="hint">还没有批次记录。</p>
 </#if>
-<#if (lr.pageCount?default(1)) gt 1>
-    <p class="pager">
-        第 ${(lr.page)!1} / ${(lr.pageCount)!1} 页（共 ${(lr.totalCount)!0} 条）
-        <#if (lr.page?default(1)) gt 1>
-            <a href="/mfg/control/materials?search=${(lr.search)!''?url}&componentCode=${(parameters.componentCode)!''?url}&page=1">首页</a>
-            <a href="/mfg/control/materials?search=${(lr.search)!''?url}&componentCode=${(parameters.componentCode)!''?url}&page=${(lr.page)-1}">上一页</a>
-        </#if>
-        <#if (lr.page?default(1)) lt (lr.pageCount?default(1))>
-            <a href="/mfg/control/materials?search=${(lr.search)!''?url}&componentCode=${(parameters.componentCode)!''?url}&page=${(lr.page)+1}">下一页</a>
-            <a href="/mfg/control/materials?search=${(lr.search)!''?url}&componentCode=${(parameters.componentCode)!''?url}&page=${(lr.pageCount)!1}">末页</a>
-        </#if>
-    </p>
-</#if>
+<@pg.pager action="/mfg/control/materials" query=('search=' + ((lr.search)!'')?url + '&' + 'componentCode=' + ((parameters.componentCode)!'')?url)
+    page=(lr.page)!1 pageCount=(lr.pageCount)!1 total=(lr.totalCount)!0 unit="条" pageSize=(lr.pageSize)!20/>
 
 <h2>批次追溯（反向：批次 → 工单 → SN）</h2>
 <form method="get" action="/mfg/control/materials">

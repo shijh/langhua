@@ -1,4 +1,5 @@
 <#ftl encoding="UTF-8">
+<#import "pager.ftl" as pg>
 <#setting url_escaping_charset="UTF-8">
 <#--
   Work order list and creation form.
@@ -82,17 +83,6 @@
 <#else>
     <p class="hint">还没有工单。</p>
 </#if>
-<#if (lr.pageCount?default(1)) gt 1>
-    <p class="pager">
-        第 ${(lr.page)!1} / ${(lr.pageCount)!1} 页（共 ${(lr.totalCount)!0} 条）
-        <#if (lr.page?default(1)) gt 1>
-            <a href="/mfg/control/main?search=${(lr.search)!''?url}&statusId=${(parameters.statusId)!''?url}&page=1">首页</a>
-            <a href="/mfg/control/main?search=${(lr.search)!''?url}&statusId=${(parameters.statusId)!''?url}&page=${(lr.page)-1}">上一页</a>
-        </#if>
-        <#if (lr.page?default(1)) lt (lr.pageCount?default(1))>
-            <a href="/mfg/control/main?search=${(lr.search)!''?url}&statusId=${(parameters.statusId)!''?url}&page=${(lr.page)+1}">下一页</a>
-            <a href="/mfg/control/main?search=${(lr.search)!''?url}&statusId=${(parameters.statusId)!''?url}&page=${(lr.pageCount)!1}">末页</a>
-        </#if>
-    </p>
-</#if>
+<@pg.pager action="/mfg/control/main" query=('search=' + ((lr.search)!'')?url + '&' + 'statusId=' + ((parameters.statusId)!'')?url)
+    page=(lr.page)!1 pageCount=(lr.pageCount)!1 total=(lr.totalCount)!0 unit="条" pageSize=(lr.pageSize)!20/>
 

@@ -1,4 +1,5 @@
 <#ftl encoding="UTF-8">
+<#import "pager.ftl" as pg>
 <#setting url_escaping_charset="UTF-8">
 <#--
   Delivery orders: shipping units to customers, which also starts the warranty.
@@ -69,19 +70,8 @@
 <#else>
     <p class="hint">还没有出货记录。</p>
 </#if>
-<#if (dl.pageCount?default(1)) gt 1>
-    <p class="pager">
-        第 ${(dl.page)!1} / ${(dl.pageCount)!1} 页（共 ${(dl.totalCount)!0} 条）
-        <#if (dl.page?default(1)) gt 1>
-            <a href="/mfg/control/delivery?search=${(dl.search)!''?url}&customerName=${(parameters.customerName)!''?url}&page=1">首页</a>
-            <a href="/mfg/control/delivery?search=${(dl.search)!''?url}&customerName=${(parameters.customerName)!''?url}&page=${(dl.page)-1}">上一页</a>
-        </#if>
-        <#if (dl.page?default(1)) lt (dl.pageCount?default(1))>
-            <a href="/mfg/control/delivery?search=${(dl.search)!''?url}&customerName=${(parameters.customerName)!''?url}&page=${(dl.page)+1}">下一页</a>
-            <a href="/mfg/control/delivery?search=${(dl.search)!''?url}&customerName=${(parameters.customerName)!''?url}&page=${(dl.pageCount)!1}">末页</a>
-        </#if>
-    </p>
-</#if>
+<@pg.pager action="/mfg/control/delivery" query=('search=' + ((dl.search)!'')?url + '&' + 'customerName=' + ((parameters.customerName)!'')?url)
+    page=(dl.page)!1 pageCount=(dl.pageCount)!1 total=(dl.totalCount)!0 unit="条" pageSize=(dl.pageSize)!20/>
 
 <#if (delivery.deliveryId)??>
     <h2>出货明细 ${delivery.deliveryId}（${delivery.customerName!}）</h2>

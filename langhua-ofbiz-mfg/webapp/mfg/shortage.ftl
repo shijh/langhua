@@ -1,4 +1,5 @@
 <#ftl encoding="UTF-8">
+<#import "pager.ftl" as pg>
 <#setting url_escaping_charset="UTF-8">
 <#--
   Material shortage warning: open work orders ordered by due date with the lines that are short.
@@ -65,17 +66,6 @@
 <#else>
     <p class="hint">没有在制工单。</p>
 </#if>
-<#if (sh.pageCount?default(1)) gt 1>
-    <p class="pager">
-        第 ${(sh.page)!1} / ${(sh.pageCount)!1} 页（共 ${(sh.totalCount)!0} 张）
-        <#if (sh.page?default(1)) gt 1>
-            <a href="/mfg/control/shortage?search=${(sh.search)!''?url}&page=1">首页</a>
-            <a href="/mfg/control/shortage?search=${(sh.search)!''?url}&page=${(sh.page)-1}">上一页</a>
-        </#if>
-        <#if (sh.page?default(1)) lt (sh.pageCount?default(1))>
-            <a href="/mfg/control/shortage?search=${(sh.search)!''?url}&page=${(sh.page)+1}">下一页</a>
-            <a href="/mfg/control/shortage?search=${(sh.search)!''?url}&page=${(sh.pageCount)!1}">末页</a>
-        </#if>
-    </p>
-</#if>
+<@pg.pager action="/mfg/control/shortage" query=('search=' + ((sh.search)!'')?url)
+    page=(sh.page)!1 pageCount=(sh.pageCount)!1 total=(sh.totalCount)!0 unit="张" pageSize=(sh.pageSize)!20/>
 

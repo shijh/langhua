@@ -1,4 +1,5 @@
 <#ftl encoding="UTF-8">
+<#import "pager.ftl" as pg>
 <#setting url_escaping_charset="UTF-8">
 <#--
   Internal buyer risk list. A hit only shows a warning before shipping: the law and the marketplace
@@ -173,19 +174,8 @@
 <#else>
     <p class="hint">名单为空。</p>
 </#if>
-<#if (fl.pageCount?default(1)) gt 1>
-    <p class="pager">
-        第 ${(fl.page)!1} / ${(fl.pageCount)!1} 页（共 ${(fl.totalCount)!0} 条）
-        <#if (fl.page?default(1)) gt 1>
-            <a href="/mfg/control/buyers?keyword=${(fl.keyword)!''?url}&riskLevel=${(parameters.riskLevel)!''?url}&statusId=${(parameters.statusId)!''?url}&page=1">首页</a>
-            <a href="/mfg/control/buyers?keyword=${(fl.keyword)!''?url}&riskLevel=${(parameters.riskLevel)!''?url}&statusId=${(parameters.statusId)!''?url}&page=${(fl.page)-1}">上一页</a>
-        </#if>
-        <#if (fl.page?default(1)) lt (fl.pageCount?default(1))>
-            <a href="/mfg/control/buyers?keyword=${(fl.keyword)!''?url}&riskLevel=${(parameters.riskLevel)!''?url}&statusId=${(parameters.statusId)!''?url}&page=${(fl.page)+1}">下一页</a>
-            <a href="/mfg/control/buyers?keyword=${(fl.keyword)!''?url}&riskLevel=${(parameters.riskLevel)!''?url}&statusId=${(parameters.statusId)!''?url}&page=${(fl.pageCount)!1}">末页</a>
-        </#if>
-    </p>
-</#if>
+<@pg.pager action="/mfg/control/buyers" query=('keyword=' + ((fl.keyword)!'')?url + '&' + 'riskLevel=' + ((parameters.riskLevel)!'')?url + '&' + 'statusId=' + ((parameters.statusId)!'')?url)
+    page=(fl.page)!1 pageCount=(fl.pageCount)!1 total=(fl.totalCount)!0 unit="条" pageSize=(fl.pageSize)!20/>
 
 <h2>售后历史汇总（建议名单用）</h2>
 <p class="hint">

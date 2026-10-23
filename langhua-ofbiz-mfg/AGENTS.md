@@ -222,7 +222,11 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   当前页高亮、不可用的按钮变灰 span。`query` 是**已经 `?url` 过的筛选串**（不带 page/pageSize，可空），
   调用方用 `<#assign pagerQuery = ''><#if (x.search)?has_content><#assign pagerQuery = 'search=' + x.search?url></#if>` 拼，
   空筛选不会产生 `?search=&page=2`。靠 `data-page` / `data-pages` / `data-page-link` / `data-page-size` 给巡检断言。
-  目前只有到货单列表用了它（**其它列表还是旧的两行版本，要改照着 receipts.ftl 换掉那段即可**）；
+  **Step 79 起 14 个列表页全部换成了它**（products / materials / main / claims / dev / eco / vendors / buyers /
+  delivery / shortage / stock / stockMoves / salesOrders / receipts），文件里不再有手写的翻页段；
+  换法：`<#import "pager.ftl" as pg>` + 把筛选拼成 `'search=' + ((lr.search)!'')?url` 这样的**字符串加法**
+  （单引号字面量里不插值，所以不能直接塞 `${…}`），并**必须给默认值加括号** `((x)!'')?url`，
+  否则 `!` 的优先级低于 `+`，整句会解析成 `(a + b)!c`；
   `mfgPurchaseReceiptList` 补了 `pageSize` IN，否则换每页条数被静默丢弃
 - **到货单头就地保存（Step 70）**：`receipts.ftl` 的 `#receiptSaveForm` 用委托的 `submit` 拦下，
   POST 到 `/mfg/control/receiptSaveJson`（事件 `MfgReceiptEvents.saveJson`，跑 `mfgPurchaseReceiptSave`，

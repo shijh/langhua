@@ -1,4 +1,5 @@
 <#ftl encoding="UTF-8">
+<#import "pager.ftl" as pg>
 <#setting url_escaping_charset="UTF-8">
 <#--
   销售订单：列表 + 新建（多行明细），每张单显示下单 / 交期 / 已预留 / 已出货 / 还欠多少。
@@ -81,17 +82,8 @@
             </tr>
         </#list>
     </table>
-    <#if ((or.pageCount)!1) gt 1>
-        <p class="pager">
-            第 ${(or.page)!1} / ${(or.pageCount)!1} 页（共 ${(or.totalCount)!0} 条）
-            <#if ((or.page)!1) gt 1>
-                <a href="/mfg/control/salesOrders?search=${(or.search)!''?url}&statusId=${(or.statusId)!''?url}&page=${(or.page)-1}">上一页</a>
-            </#if>
-            <#if ((or.page)!1) lt ((or.pageCount)!1)>
-                <a href="/mfg/control/salesOrders?search=${(or.search)!''?url}&statusId=${(or.statusId)!''?url}&page=${(or.page)+1}">下一页</a>
-            </#if>
-        </p>
-    </#if>
+    <@pg.pager action="/mfg/control/salesOrders" query=('search=' + ((or.search)!'')?url + '&' + 'statusId=' + ((or.statusId)!'')?url)
+    page=(or.page)!1 pageCount=(or.pageCount)!1 total=(or.totalCount)!0 unit="条" pageSize=(or.pageSize)!20/>
 <#else>
     <p class="hint">还没有销售订单。上面填客户与型号数量就能建一张；下单时先把库里已有的成品锁给客户。</p>
 </#if>
