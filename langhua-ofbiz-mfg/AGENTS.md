@@ -105,7 +105,7 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
 | `verify-m41.ps1` | 角色权限：用 `MFG_WAREHOUSE` 账号登进来看菜单/成本/BOM 单价是否隐藏、BOM 导入与销售订单写入被拒、账号页只读；管理员仍看到全部 | 22 |
 | `verify-m42.ps1` | Fritzing BOM 导入：格式下拉、粘贴导出后 9 种料合并、`Amount` 给用量、`Label` 给位号、无物料号用名称、本系统格式仍可强制导入、料号超长被拒 | 18 |
 | `verify-m43.ps1` | 改密码与退出：新建账号登录、导航有 logout、错当前密码/新旧相同/两次不一致/太短都被拒、改成功落到登录页且会话关闭、旧密码失效新密码可用、logout 结束会话 | 15 |
-| `verify-m44.ps1` | BOM 导入选文件（Step 54）：表单是 multipart、有 `file` 字段、上传 Fritzing 文件后合并 9 种料、**文件优先于文本框**、GBK 文件能解码、料号超长被拒、空提交有提示（日志 `mfg-m43b.txt`） | 26 |
+| `verify-m44.ps1` | BOM 导入选文件（Step 54）：表单是 multipart、有 `file` 字段、上传 Fritzing 文件后合并 9 种料、**文件优先于文本框**、GBK 文件能解码、料号超长被拒、空提交有提示、20 位型号编码也能导入（日志 `mfg-m43b.txt`） | 31 |
 
 ## 设计决策
 
@@ -115,6 +115,12 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   解析/校验仍全在服务里。表单 `enctype="multipart/form-data"`，**选了文件就以文件为准**（同时粘了文本也忽略），
   字节按 UTF-8 解码、出现 `\uFFFD` 退回 GBK（Excel 另存的 CSV），上限 `MAX_BOM_BYTES` = 2 MB；
   URL 编码的表单（巡检 m42 走的就是这条）仍旧可用，因为 `parametersOf` 找不到 `multiPartMap` 时退回 `UtilHttp.getParameterMap`
+- **`bomVersionId` 是 `id`（20 字符），型号编码也是 `id`（20）**：两者一样长，`型号-Vn` 直接拼会超
+  （踩过：型号 `orpah-client-demo-bb` 导入 BOM 报 `A truncation error ... shrink VARCHAR
+  'orpah-client-demo-bb-V1' to length 20`）。`formatBomVersionId` 现在**截短型号部分**（`orpah-client-demo-V1`），
+  `freeBomVersionId` 撞到别的型号同名时再在版本号前加序号；`nextBomVersionNo` 改成用
+  `formatBomVersionId` 反查而不是按前缀匹配（截短后前缀会随位数变）。`bomImport` 的数据库错误经
+  `bomImportFailure` 把 truncation 翻成人话。巡检 m44 用 20 位型号编码跑一遍
 - **BOM 导入的格式层（Step 52）**：`BomFormat` 枚举（`MFG` / `FRITZING`）+ `detectBomFormat()` + `parseBom(csv, format)`
   分发；`splitCsvLine(line, separator)` 支持任意分隔符（逗号仍兼收 Tab）。
   Fritzing 导出是「`Label` 段一件一行 + `Amount` 段给数量」，解析成 `Map<料号, 行>` 后合并：

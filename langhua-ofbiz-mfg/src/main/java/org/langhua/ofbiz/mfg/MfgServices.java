@@ -276,6 +276,12 @@ public final class MfgServices {
     /** Suffix between the model code and the version number of a BOM version identifier. */
     public static final String BOM_VERSION_SEPARATOR = "-V";
 
+    /**
+     * Longest BOM version identifier the {@code id} column holds. A model code may use all of it,
+     * so the version number is what has to fit and a long code gets shortened.
+     */
+    static final int MAX_BOM_VERSION_ID = 20;
+
     public static final String TRACK_PCB = "MFG_TRACK_PCB";
     public static final String TRACK_FIRMWARE = "MFG_TRACK_FIRMWARE";
     public static final String TRACK_ENCLOSURE = "MFG_TRACK_ENCLOSURE";
@@ -1290,8 +1296,22 @@ public final class MfgServices {
             result.put("bomFormat", format.name());
             return result;
         } catch (GenericEntityException e) {
-            return ServiceUtil.returnError("Could not import the BOM: " + e.getMessage());
+            return ServiceUtil.returnError(bomImportFailure(e));
         }
+    }
+
+    /**
+     * Turns the database error of an import into a message the shop can act on.
+     *
+     * @param e the error of the import
+     * @return the message to show on the product page
+     */
+    static String bomImportFailure(GenericEntityException e) {
+        String message = String.valueOf(e.getMessage());
+        if (message.contains("truncation error")) {
+            return "导入失败：有字段超出长度限制（型号编码与料号都最多 20 个字符），请缩短后再试";
+        }
+        return "Could not import the BOM: " + message;
     }
 
     /**
@@ -10143,28 +10163,74 @@ always
     /**
      * Builds the identifier of one BOM version, {@code model-Vnumber}.
      *
+     * <p>The identifier has to fit the {@value #MAX_BOM_VERSION_ID} characters of an {@code id}
+     * column, so a model code that uses the whole column is shortened — the version number is the
+     * part that has to stay readable.
+     *
      * @param productCode the model code
      * @param versionNo the version number, starting at 1
-     * @return the version identifier, e.g. {@code BT5-V2}
+     * @return the version identifier, e.g. {@code BT5-V2}, or {@code orpah-client-demo-V1} for a
+     *         model code that is 20 characters long
      */
     static String formatBomVersionId(String productCode, long versionNo) {
-        return productCode + BOM_VERSION_SEPARATOR + versionNo;
+        String suffix = BOM_VERSION_SEPARATOR + versionNo;
+        String code = productCode == null ? "" : productCode;
+        if (code.length() + suffix.length() <= MAX_BOM_VERSION_ID) {
+            return code + suffix;
+        }
+        return code.substring(0, Math.max(1, MAX_BOM_VERSION_ID - suffix.length())) + suffix;
+    }
+
+    /**
+     * Returns an identifier no other model already uses. {@link #formatBomVersionId} shortens a long
+     * model code, so two long codes that share a prefix can produce the same identifier; the second
+     * one then carries a counter in front of the version number.
+     *
+     * @param delegator the delegator
+     * @param productCode the model code
+     * @param versionNo the version number
+     * @return a free version identifier
+     * @throws GenericEntityException when the versions cannot be read
+     */
+    private static String freeBomVersionId(Delegator delegator, String productCode, long versionNo)
+            throws GenericEntityException {
+        String suffix = BOM_VERSION_SEPARATOR + versionNo;
+        String id = formatBomVersionId(productCode, versionNo);
+        int attempt = 0;
+        while (true) {
+            GenericValue existing = EntityQuery.use(delegator).from("MfgBomVersion")
+                    .where("bomVersionId", id).queryOne();
+            if (existing == null || productCode.equals(existing.getString("productCode"))) {
+                return id;
+            }
+            attempt++;
+            String tag = "-" + attempt;
+            int room = MAX_BOM_VERSION_ID - suffix.length() - tag.length();
+            if (room < 1) {
+                return id;
+            }
+            id = productCode.substring(0, Math.min(productCode.length(), room)) + tag + suffix;
+        }
     }
 
     /**
      * Returns the next version number of a model.
+     *
+     * <p>The number is read back from the identifiers instead of from a fixed prefix, because the
+     * identifiers of a long model code are shortened by {@link #formatBomVersionId}.
      *
      * @param versionIds the identifiers of the versions that already exist
      * @param productCode the model code
      * @return one more than the highest version number found, 1 when there is none
      */
     static long nextBomVersionNo(List<String> versionIds, String productCode) {
-        String prefix = productCode + BOM_VERSION_SEPARATOR;
-        int max = 0;
-        for (String versionId : versionIds) {
-            if (versionId != null && versionId.startsWith(prefix)) {
-                max = Math.max(max, parseTrailingNumber(versionId.substring(prefix.length())));
+        long max = 0;
+        long candidate = 1;
+        while (candidate <= versionIds.size() + 1) {
+            if (versionIds.contains(formatBomVersionId(productCode, candidate))) {
+                max = candidate;
             }
+            candidate++;
         }
         return max + 1L;
     }
@@ -10246,7 +10312,7 @@ always
                 return null;
             }
             long versionNo = nextBomVersionNo(versionIds(delegator, productCode), productCode);
-            String versionId = formatBomVersionId(productCode, versionNo);
+            String versionId = freeBomVersionId(delegator, productCode, versionNo);
             GenericValue version = delegator.makeValue("MfgBomVersion");
             version.set("bomVersionId", versionId);
             version.set("productCode", productCode);
@@ -10297,7 +10363,7 @@ always
     private static String createBomVersion(Delegator delegator, String productCode, String ecoId,
             String copyCurrent, String note) throws GenericEntityException {
         long versionNo = nextBomVersionNo(versionIds(delegator, productCode), productCode);
-        String versionId = formatBomVersionId(productCode, versionNo);
+        String versionId = freeBomVersionId(delegator, productCode, versionNo);
         String basis = currentBomVersionId(delegator, productCode);
         GenericValue version = delegator.makeValue("MfgBomVersion");
         version.set("bomVersionId", versionId);

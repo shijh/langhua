@@ -512,6 +512,28 @@ public class MfgServicesTest {
     }
 
     @Test
+    public void shortensLongModelCodesInTheBomVersionId() {
+        // a model code may use the whole id column, the version number still has to fit
+        String longCode = "orpah-client-demo-bb";
+        assertEquals(20, longCode.length());
+        assertEquals("orpah-client-demo-V1", MfgServices.formatBomVersionId(longCode, 1));
+        assertEquals(20, MfgServices.formatBomVersionId(longCode, 1).length());
+        assertEquals(20, MfgServices.formatBomVersionId(longCode, 123).length());
+        assertTrue(MfgServices.formatBomVersionId(longCode, 123).endsWith("-V123"));
+        // short codes are untouched
+        assertEquals("BT5-V1", MfgServices.formatBomVersionId("BT5", 1));
+    }
+
+    @Test
+    public void numbersTheNextBomVersionOfALongModelCode() {
+        String longCode = "orpah-client-demo-bb";
+        List<String> ids = java.util.Arrays.asList(
+                MfgServices.formatBomVersionId(longCode, 1),
+                MfgServices.formatBomVersionId(longCode, 2));
+        assertEquals(3L, MfgServices.nextBomVersionNo(ids, longCode));
+    }
+
+    @Test
     public void numbersTheNextBomVersion() {
         List<String> none = new java.util.ArrayList<>();
         assertEquals(1L, MfgServices.nextBomVersionNo(none, "BT5"));

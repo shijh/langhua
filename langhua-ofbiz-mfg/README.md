@@ -327,7 +327,7 @@ https://localhost:8443/mfg/control/main
 | --- | --- |
 | `MfgProduct` | 产品型号：`productCode`（主键）、`snPrefix`（**≤ 10 字符**，空时取型号编码）、`standardHours`、`standardHoursSource`（`MANUAL` / `LEARNING_CURVE`）、`standardHoursBaseQty`、`standardHoursEstimateRef`、`laborRate`（工时费率，成本核算用）、`warrantyMonths`（保修月数，默认 12）、`devStageId`（开发阶段）、`currentBomVersionId`（当前 BOM 版本）、状态 |
 | `MfgBomItem` | 旧版单表 BOM 行（`productCode` + `lineSeq`）。**已停用**，首次读取时自动冻结为 `型号-V1` 版本，新代码只用版���表 |
-| `MfgBomVersion` | BOM 版本：`bomVersionId`（主键，`型号-Vn`）、`versionNo`、`statusId`（DRAFT/RELEASED/OBSOLETE）、`effectiveDate`、`basisVersionId`（从哪版复制）、`ecoId`（哪张变更单引入） |
+| `MfgBomVersion` | BOM 版本：`bomVersionId`（主键，`型号-Vn`，**长型号编码会被截短到 20 个字符**）、`versionNo`、`statusId`（DRAFT/RELEASED/OBSOLETE）、`effectiveDate`、`basisVersionId`（从哪版复制）、`ecoId`（哪张变更单引入） |
 | `MfgBomVersionItem` | 版本内 BOM 行：`bomVersionId` + `lineSeq`（联合主键）、`componentCode`、`qty`、`designators`、`isKeyPart`、`unitPrice`（单价，成本核算用，可空） |
 | `MfgAttachment` | 通用附件：`ownerTypeId` + `ownerId` + `seq`（联合主键）、`fileName`、`contentType`、`fileSize`、`fileData`（`byte-array` → BLOB）、`note`；`ownerTypeId` 取值 `MFG_ATT_PRODUCT` / `MFG_ATT_DEV_PROJECT` / `MFG_ATT_WORK_ORDER` / `MFG_ATT_DELIVERY` / `MFG_ATT_CLAIM`，序号从 1 递增 |
 | `MfgProductImage` | 旧版产品照片（`productCode` + `seq`）。**已停用**，首次读取产品时自动复制进 `MfgAttachment` |
@@ -854,6 +854,9 @@ SMT 为外协，且对方**不提供上料 / 换料记录**，因此追溯精度
 **BOM 版本**
 
 - 版本号从 1 开始，版本主键是 `型号-Vn`（如 `BT5-V2`），一个型号可以有多个版本；
+  **主键是 `id` 类型（20 个字符）**，而型号编码本身最多也 20 个字符，所以型号编码长到放不下版本号时
+  会截短型号部分（`orpah-client-demo-bb` 的 V1 是 `orpah-client-demo-V1`，仍是 20 位）；
+  两个长编码截短后撞到一起时，后一个会在版本号前加序号（`…-de-1-V1`），不会写库失败；
 - 新建版本默认**复制当前版本的行**，再在页面上改（改完可以一直保持草稿，不影响生产）；
 - 「启用此版本」会把该版本设为 `MFG_BOM_RELEASED` 并把型号的 `currentBomVersionId` 指过去，
   同一型号之前处于 `RELEASED` 的版本自动转 `MFG_BOM_OBSOLETE`（历史版本仍可查、可再启用）；
