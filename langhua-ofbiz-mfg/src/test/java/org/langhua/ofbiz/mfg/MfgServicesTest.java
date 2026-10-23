@@ -612,6 +612,13 @@ public class MfgServicesTest {
         assertEquals("42", enveloped.get("orderNo"));
         assertEquals("X,part,10,1.00", enveloped.get("lines"));
 
+        // a model that thinks first may leave content empty and put the answer in the reasoning
+        Map<String, String> thinking = MfgServices.orderFieldsFrom(
+                "{\"choices\":[{\"message\":{\"content\":\"\",\"reasoning_content\":"
+                + "\"{\\\"orderNo\\\":\\\"43\\\",\\\"lines\\\":\\\"Y,part,5,9.90\\\"}\"}}]}");
+        assertEquals("43", thinking.get("orderNo"));
+        assertEquals("Y,part,5,9.90", thinking.get("lines"));
+
         // an answer without lines is not usable, the person fills the form by hand
         assertNull(MfgServices.orderFieldsFrom("{\"orderNo\":\"42\"}"));
         assertNull(MfgServices.orderFieldsFrom(null));

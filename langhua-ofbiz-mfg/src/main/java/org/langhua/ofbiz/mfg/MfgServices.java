@@ -8111,11 +8111,18 @@ always
         if (reply == null) {
             return null;
         }
-        String text = reply.replace("\\\"", "\"");
-        String content = jsonStringField(text, "content");
-        if (content != null && content.contains("lines")) {
-            // the chat envelope: the object sits inside choices[0].message.content
-            text = content;
+        String text = reply;
+        // the object may sit inside a chat envelope, as the message or as the reasoning of a model
+        // that thinks before it answers; both are read from the raw reply so the quotes survive
+        String inner = jsonStringField(reply, "content");
+        if (inner == null || !inner.contains("lines")) {
+            String reasoning = jsonStringField(reply, "reasoning_content");
+            if (reasoning != null && reasoning.contains("lines")) {
+                inner = reasoning;
+            }
+        }
+        if (inner != null && inner.contains("lines")) {
+            text = inner;
         }
         Map<String, String> fields = new LinkedHashMap<>();
         fields.put("orderNo", jsonStringField(text, "orderNo"));

@@ -174,6 +174,8 @@ public final class MfgOrderScan {
                 + Base64.getEncoder().encodeToString(image);
         StringBuilder body = new StringBuilder();
         body.append("{\"model\":").append(MfgBomEvents.jsonString(model))
+                // a model that thinks first needs room for the reasoning and the answer
+                .append(",\"max_tokens\":4000")
                 .append(",\"messages\":[{\"role\":\"user\",\"content\":[")
                 .append("{\"type\":\"text\",\"text\":").append(MfgBomEvents.jsonString(PROMPT)).append("},")
                 .append("{\"type\":\"image_url\",\"image_url\":{\"url\":")

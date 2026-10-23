@@ -109,7 +109,7 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
 | `verify-m45.ps1` | BOM 行就地编辑（Step 56/57）：标题带版本号、每行有自己的表单（`form="bomLine<n>"` 的 qty/designators/isKeyPart/unitPrice）、保存后数量与金额重算、手加一行、删除一行、用量 0 被拒、`#bomBlock` 与 JSON 出口（保存/拒绝/删除三种回答）（日志 `mfg-m45.txt`） | 34 |
 | `verify-m46.ps1` | 采购到货单（Step 58）：汇总表与 `data-allocation`、建单与运费、批次下拉、挂批次后的行与金额、合计含运费、同一批次不能挂两张单、负运费被拒、行可以移出（日志 `mfg-m46.txt`） | 26 |
 | `verify-m47.ps1` | 照淘宝订单一步入库（Step 60）：订单表单、两行明细 → 建单+入库、订单号已存、货款 4.41、便宜料单价 0.0291、重复提交不重复入库、补运费累加、不满四列/数量 0 被拒、识图按钮与 `/mfg/control/orderImage` 降级回答（日志 `mfg-m47.txt`） | 23 |
-| `verify-m48.ps1` | 系统设置页（Step 61）：识图配置块与状态、密钥不回显、接口必须 http(s)、空密钥保留旧的、保存后状态变 DATABASE、`clear=Y` 恢复未配置、没配/配了两种 scan 回答（日志 `mfg-m48.txt`） | 21 |
+| `verify-m48.ps1` | 系统设置页（Step 61）：识图配置块与状态、密钥不回显、接口必须 http(s)、空密钥保留旧的、保存后状态变 DATABASE、`clear=Y` 恢复未配置、没配/配了两种 scan 回答（日志 `mfg-m48.txt`） | 26 |
 
 ## 设计决策
 
@@ -123,6 +123,12 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   地址不写全很常见：`MfgServices.normalizeVisionEndpoint` 在**保存时和调用时**各补一次
   （只写域名 → `/v1/chat/completions`，已到 `/v4` 这类版本号 → `/chat/completions`），
   `describeVisionError` 把 404/401/400/429/5xx 翻成人话（404 = 地址没写全）
+- **识图返回空明细的三个原因（Step 63 都修了）**：① 地址只写域名（靠上面那个 normalize 补）；
+  ② **thinking 模型把 token 全用在思考上**——请求现在带 `max_tokens: 4000`；
+  ③ 明细可能在 `reasoning_content` 而不是 `content`——`orderFieldsFrom` 两处都读，
+  并且**在原始回复上抓 `content`**（先把 `\"` unescape 再抓会把字符串截断，单测的 envelope 用例就是为此加的）。
+  **`deepseek-flash` 是支持看图的**（官方文档 Vision ✓），`deepseek-v4-pro` 不支持——别把"DeepSeek 没有视觉模型"写进文档；
+  设置页的例子列表与 m48 的断言按 `deepseek-flash` / `deepseek-v4-pro` 写
 - **单价只能存 2 位小数，所以按“实付金额”记（Step 60）**：`currency-amount` 在 Derby 上是 `NUMERIC(18,2)`，
   淘宝一百个电容实付 2.91 的单价是 0.0291，存进去变 0.03（一百个多算 9 分）。所以 `MfgMaterialLot.receivedAmount`
   存实付总额（2 位、精确），单价由 `lotUnitCost()` = 金额 ÷ 数量 算（无金额时回退 `unitPrice`），
@@ -133,7 +139,9 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
 - **截图识别（Step 60）**：`MfgOrderScan.scan`（`/mfg/control/orderImage`，multipart `image`）把图发给兼容 OpenAI 的
   视觉接口，配置项是系统属性 `org.langhua.mfg.vision.endpoint` / `.model` / `.key`；没配时返回 `{"ok":false,"message":…}`
   提示手工填（**绝不报错页**），识别结果只**填入可编辑表单**、人不提交不写库。回答解析在 `MfgServices.orderFieldsFrom`
-  （纯函数，单测覆盖裸 JSON / ```json 围栏 / chat envelope 三种形状），所以不联网也能测
+  （纯函数，单测覆盖裸 JSON / ```json 围栏 / chat envelope / `reasoning_content` 四种形状），所以不联网也能测。
+  请求体是 OpenAI 的 content 数组（`text` + `image_url` 的 data URL）+ `max_tokens: 4000`；
+  端到端可以不用真密钥验证：起一个 `TcpListener` 假接口回一段固定回答（脚本 `mock-vision.ps1`）
 - **运费按月看（Step 59）**：`mfgPurchaseFreightTrend`（IN `fromDate`/`toDate`/`groupBy`）复用 `periodKey` 与 `receiptSummary`，
   一个期间一行：单据数 / 货款 / 运费 / 采购支出 / 运费占比，合计行由同一套 `round2` 算；报表页 `#freightCards` +
   `#freightTable`（行上 `data-period`）+ `#freightTotalRow`，CSV 走事件 `MfgExportEvents.freightCsv`

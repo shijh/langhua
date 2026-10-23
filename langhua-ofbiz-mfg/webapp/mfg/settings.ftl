@@ -60,9 +60,10 @@
     <p class="hint">地址与模型要配对，几个现成可用的：<br/>
         阿里云百炼 <code>https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions</code> + <code>qwen-vl-max</code>；<br/>
         智谱 <code>https://open.bigmodel.cn/api/paas/v4/chat/completions</code> + <code>glm-4v-plus</code>；<br/>
+        DeepSeek <code>https://api.deepseek.com/v1/chat/completions</code> + <code>deepseek-flash</code>（能看图；<code>deepseek-v4-pro</code> 不看图）；<br/>
         OpenAI <code>https://api.openai.com/v1/chat/completions</code> + <code>gpt-4o-mini</code>；<br/>
         本地 ollama <code>http://127.0.0.1:11434/v1/chat/completions</code> + <code>qwen2-vl</code>（密钥随便填）。<br/>
-        <strong>纯文本模型（如 deepseek-chat）看不了图</strong>，会返回空明细。</p>
+        <strong>模型名要先确认它能看图</strong>，纯文本的模型会返回空明细。</p>
     <script>
     /* a wrong address, key or model should be found here, not in the middle of an order */
     (function () {
