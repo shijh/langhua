@@ -381,6 +381,14 @@
         <response name="error" type="view" value="receipts"/>
     </request-map>
 
+    <!-- saves the receipt head for the page script, so the page keeps what was typed -->
+    <request-map uri="receiptSaveJson">
+        <security https="true" auth="true"/>
+        <event type="java" path="org.langhua.ofbiz.mfg.MfgReceiptEvents" invoke="saveJson"/>
+        <response name="success" type="none"/>
+        <response name="error" type="none"/>
+    </request-map>
+
     <request-map uri="receiptLineSave">
         <security https="true" auth="true"/>
         <event type="service" invoke="mfgPurchaseReceiptLineSave"/>

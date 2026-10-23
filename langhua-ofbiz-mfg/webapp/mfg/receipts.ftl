@@ -231,7 +231,7 @@
 
 <#if receipt.receiptId??>
     <h2>到货单 ${receipt.receiptId}（${(rd.lineCount)!0} 行）</h2>
-    <form method="post" action="/mfg/control/receiptSave">
+    <form method="post" action="/mfg/control/receiptSave" id="receiptSaveForm">
         <input type="hidden" name="receiptId" value="${receipt.receiptId}"/>
         <p>
             供应商 <input type="text" name="supplierName" size="18" value="${receipt.supplierName!''}"/>
@@ -240,8 +240,41 @@
             运费 <input class="narrow" type="text" name="freightAmount" value="${((receipt.freightAmount)!0)?string("0.00")}"/>
             备注 <input type="text" name="note" size="20" value="${receipt.note!''}"/>
             <input type="submit" value="保存单据"/>
+            <span id="saveHint" class="hint">改了哪项就点一下保存，页面不会刷新</span>
         </p>
     </form>
+    <script>
+    /* saves the head of the receipt without reloading the page; the plain form post stays as the
+       fallback for a browser without fetch, and the fields keep what was just typed */
+    (function () {
+        var form = document.getElementById('receiptSaveForm');
+        var hint = document.getElementById('saveHint');
+        if (!form || !hint || !window.fetch || !window.FormData || !window.URLSearchParams) {
+            return;
+        }
+        form.addEventListener('submit', function (event) {
+            event.preventDefault();
+            var body = new URLSearchParams(new FormData(form));
+            hint.className = 'hint';
+            hint.textContent = '正在保存…';
+            fetch('/mfg/control/receiptSaveJson', {
+                method: 'POST',
+                body: body,
+                credentials: 'same-origin',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' }
+            })
+                .then(function (answer) { return answer.json(); })
+                .then(function (data) {
+                    hint.className = data.ok ? 'ok' : 'error';
+                    hint.textContent = data.message || (data.ok ? '已保存' : '保存失败');
+                })
+                .catch(function () {
+                    /* the script route did not answer: send the plain form so nothing is lost */
+                    form.submit();
+                });
+        });
+    }());
+    </script>
 
     <#if lines?has_content>
         <table id="receiptLines">
