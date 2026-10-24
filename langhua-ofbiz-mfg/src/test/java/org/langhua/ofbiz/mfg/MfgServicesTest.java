@@ -1488,6 +1488,11 @@ public class MfgServicesTest {
                 MfgServices.REASON_LOST, 0.0));
         // and no reason at all is still fine
         assertNull(MfgServices.movementReasonProblem(MfgServices.MOVE_COUNT, null, -2.0));
+        // the refusal talks about 盘盈 / 盘亏, not about the bucket it lands in
+        String message = MfgServices.movementReasonProblem(MfgServices.MOVE_COUNT,
+                MfgServices.REASON_LOST, 6.0);
+        assertTrue(message.contains("\u76d8\u76c8"));
+        assertTrue(message.contains("\u4e22\u5931"));
     }
 
     private static boolean present(String message) {

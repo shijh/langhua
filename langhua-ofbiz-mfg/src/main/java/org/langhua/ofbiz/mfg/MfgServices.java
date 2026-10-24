@@ -6288,9 +6288,18 @@ always
         double byType = movementDiff(movementTypeId, qty);
         double byReason = movementDiff(movementTypeOfReason(reasonEnumId), 1.0);
         if (byType != 0.0 && byReason != 0.0 && (byType > 0.0) != (byReason > 0.0)) {
-            return "原因「" + reasonLabel(reasonEnumId) + "」是"
-                    + (byReason > 0.0 ? "入库" : "出库") + "，和类型「" + movementLabel(movementTypeId)
-                    + "」对不上，请核对（同一个原因选上后类型会自动跟着改）";
+            // a count or an adjustment carries its own sign, so the message talks about the sign of
+            // the quantity instead of the bucket it lands in
+            boolean counted = MOVE_COUNT.equals(movementTypeId);
+            String what = counted
+                    ? (byType > 0.0 ? "可这次盘点是盘盈（多了）" : "可这次盘点是盘亏（少了）")
+                    : "可类型「" + movementLabel(movementTypeId) + "」是"
+                            + (byType > 0.0 ? "入库" : "出库");
+            String advice = counted
+                    ? "盘盈一般填「找到」或「供方少发」，盘亏一般填「丢失」「被盗」「损坏」"
+                    : "选了原因后类型会自动跟着改";
+            return "原因「" + reasonLabel(reasonEnumId) + "」是" + (byReason > 0.0 ? "入库" : "出库")
+                    + "的，" + what + "，对不上，请核对（" + advice + "）";
         }
         return null;
     }
