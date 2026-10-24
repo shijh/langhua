@@ -159,8 +159,15 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
 - **别拿本系统页面的截图当订单截图**：用户两次都把带报错的自家页面截下来发进来，模型只能回空
   **`deepseek-flash` 是支持看图的**（官方文档 Vision ✓），`deepseek-v4-pro` 不支持——别把"DeepSeek 没有视觉模型"写进文档；
   设置页的例子列表与 m48 的断言按 `deepseek-flash` / `deepseek-v4-pro` 写；
-  **只实测过 DeepSeek**，所以页面与 README 都写明「其它几家（qwen-vl-max / glm-4v-plus / gpt-4o-mini / ollama）没实测，
-  第一次填完先点「测试连接」」，别再写成“现成可用的”（Step 87）
+  **只实测过 DeepSeek**，所以页面上**只给这一条路**（接口地址 + `deepseek-flash` 默认就填好，用户只需粘密钥），
+  别的服务商（qwen-vl-max / glm-4v-plus / gpt-4o-mini / ollama）**一律不在页面上列**——列一串没验证的候选，
+  用户试错又修不好，比没这个功能更糟（Step 88，用户明确要求）
+- **「测试连接」测的是页面上的值，成功就顺手保存（Step 88）**：`MfgOrderScan.test` 先读表单的
+  `visionEndpoint` / `visionModel` / `visionKey`，空着才回退到库里存的；成功后 `runSync("mfgSettingsSave")`，
+  页面把三张卡片就地翻成“已配置 / 已设置 / 本页保存”（`visionStateCard` / `visionKeyCard` / `visionSourceCard`），
+  不用刷新。以前只读库，于是“填完不保存就点测试”会回“还没配置”，用户完全不知道错在哪
+- **识图未配置的回答带 `"code":"UNCONFIGURED"`**：`answer(...)` 多了个 code 参数，消息里**不出现系统属性名**
+  （以前写 `org.langhua.mfg.vision.endpoint / ...`，给工位上的人看毫无意义）；巡检按 code 断言，不匹配中文
 - **单价只能存 2 位小数，所以按“实付金额”记（Step 60）**：`currency-amount` 在 Derby 上是 `NUMERIC(18,2)`，
   淘宝一百个电容实付 2.91 的单价是 0.0291，存进去变 0.03（一百个多算 9 分）。所以 `MfgMaterialLot.receivedAmount`
   存实付总额（2 位、精确），单价由 `lotUnitCost()` = 金额 ÷ 数量 算（无金额时回退 `unitPrice`），

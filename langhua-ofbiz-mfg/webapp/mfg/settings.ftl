@@ -18,39 +18,43 @@
 <h2 id="visionHeading">采购订单截图识别</h2>
 <p class="cards" id="visionCards" data-configured="${(st.visionConfigured)!'N'}" data-source="${(st.visionSource)!'NONE'}">
     <span class="card"><span class="label">状态</span>
-        <span class="value"><#if ((st.visionConfigured)!'N') == 'Y'><span class="ok">已配置</span><#else><span class="warn">未配置</span></#if></span></span>
+        <span class="value" id="visionStateCard"><#if ((st.visionConfigured)!'N') == 'Y'><span class="ok">已配置</span><#else><span class="warn">未配置</span></#if></span></span>
     <span class="card"><span class="label">识别密钥</span>
-        <span class="value"><#if ((st.visionKeySet)!'N') == 'Y'>已设置<#else><span class="hint">未设置</span></#if></span></span>
+        <span class="value" id="visionKeyCard"><#if ((st.visionKeySet)!'N') == 'Y'>已设置<#else><span class="hint">未设置</span></#if></span></span>
     <span class="card"><span class="label">配置来自</span>
-        <span class="value"><#if ((st.visionSource)!'') == 'DATABASE'>本页保存<#elseif ((st.visionSource)!'') == 'JVM'>启动参数 -D</#if></span></span>
+        <span class="value" id="visionSourceCard"><#if ((st.visionSource)!'') == 'DATABASE'>本页保存<#elseif ((st.visionSource)!'') == 'JVM'>启动参数 -D</#if></span></span>
 </p>
 <#if ((st.visionMessage)!'') != ''>
     <p class="warn">${st.visionMessage}</p>
 </#if>
 
 <#if canManage>
+    <#-- only the pair that has really been tried is offered: a list of other providers the
+         shop has never tested is how people end up with an empty answer and no idea why -->
+    <#assign visionEndpointValue = (st.visionEndpoint)!''>
+    <#if visionEndpointValue == ''><#assign visionEndpointValue = 'https://api.deepseek.com/v1/chat/completions'></#if>
+    <#assign visionModelValue = (st.visionModel)!''>
+    <#if visionModelValue == ''><#assign visionModelValue = 'deepseek-flash'></#if>
     <fieldset>
-        <legend>识图接口（兼容 OpenAI 的 chat/completions）</legend>
-        <form method="post" action="/mfg/control/settingsSave">
+        <legend>识图接口</legend>
+        <form method="post" action="/mfg/control/settingsSave" id="visionForm">
             <p>
-                接口地址 <input type="text" name="visionEndpoint" size="52" value="${(st.visionEndpoint)!''}" placeholder="https://api.deepseek.com/v1/chat/completions"/>
-                <span class="hint">要填到 <code>/chat/completions</code>；只填域名时会自动补成 <code>/v1/chat/completions</code></span>
+                接口地址 <input type="text" name="visionEndpoint" size="52" value="${visionEndpointValue}"/>
+                <span class="hint">已按 DeepSeek 填好，一般不用改</span>
             </p>
             <p>
-                模型名 <input type="text" name="visionModel" size="30" value="${(st.visionModel)!''}" placeholder="能看图的模型名"/>
-                <span class="hint">必须是<strong>能看图</strong>的模型；本系统实测过 <code>deepseek-flash</code>，
-                    <code>qwen-vl-max</code> / <code>glm-4v-plus</code> / <code>gpt-4o-mini</code> 只是参考，
-                    纯文本模型会把图片当没看见</span>
+                模型名 <input type="text" name="visionModel" size="30" value="${visionModelValue}"/>
+                <span class="hint">本系统实测过的就是它（<code>deepseek-flash</code>）</span>
             </p>
             <p>
                 密钥 <input type="password" name="visionKey" size="40" value=""
-                    placeholder="<#if ((st.visionKeySet)!'N') == 'Y'>已设置，留空不修改<#else>填 Bearer Token</#if>"/>
-                <span class="hint">只写库、不回显；留空表示保持原来的密钥</span>
+                    placeholder="<#if ((st.visionKeySet)!'N') == 'Y'>已设置，留空不修改<#else>把 API Key 粘到这里</#if>"/>
+                <span class="hint">在 DeepSeek 控制台生成；只写库、不回显，留空表示不改</span>
             </p>
             <p>
                 <input type="submit" value="保存"/>
                 <button type="button" id="testVision">测试连接</button>
-                <span id="testHint" class="hint">保存后点一下，确认地址 / 模型 / 密钥都对</span>
+                <span id="testHint" class="hint">不用先保存：拿页面上的地址 / 模型 / 密钥直接测，成功会顺手保存</span>
             </p>
         </form>
         <form method="post" action="/mfg/control/settingsSave" class="inline">
@@ -59,42 +63,57 @@
         </form>
     </fieldset>
     <p class="hint">没配置也能用：「从淘宝订单建单并入库」里把明细粘进去就行，识别只是省一次打字。</p>
-    <p class="hint">
-        <strong>本系统只实测过 DeepSeek 一家</strong>：地址 <code>https://api.deepseek.com/v1/chat/completions</code>
-        + 模型 <code>deepseek-flash</code>（能看图；同门的 <code>deepseek-v4-pro</code> 不看图，填它会回空明细）。
-        先按这两项配，保存后点一次「测试连接」，能回一句话就说明地址 / 模型 / 密钥都对。
-    </p>
-    <p class="hint">
-        其它几家照各自文档也能填，但我们<strong>没有实测过</strong>（地址、模型名都可能变），
-        第一次填完请先点「测试连接」再拿去识别订单：
-        阿里云百炼 <code>https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions</code> + <code>qwen-vl-max</code>；
-        智谱 <code>https://open.bigmodel.cn/api/paas/v4/chat/completions</code> + <code>glm-4v-plus</code>；
-        OpenAI <code>https://api.openai.com/v1/chat/completions</code> + <code>gpt-4o-mini</code>；
-        本地 ollama <code>http://127.0.0.1:11434/v1/chat/completions</code> + <code>qwen2-vl</code>（密钥随便填）。<br/>
-        <strong>模型名要先确认它能看图</strong>，纯文本的模型会返回空明细。
+    <p class="hint" id="visionHelp">
+        识图只有一套实测过的组合：DeepSeek + <code>deepseek-flash</code>（上面已填好）。
+        要做的就一件事——把 DeepSeek 控制台里的 API Key 粘进「密钥」，点「测试连接」；
+        能回一句话就说明三项都对，设置同时保存。
     </p>
     <script>
-    /* a wrong address, key or model should be found here, not in the middle of an order */
+    /* a wrong address, key or model should be found here, not in the middle of an order; the form
+       is what gets tested, so nobody has to save first and wonder why the test says "not set" */
     (function () {
         var button = document.getElementById('testVision');
         var hint = document.getElementById('testHint');
-        if (!button || !hint || !window.fetch) {
+        var form = document.getElementById('visionForm');
+        if (!button || !hint || !form || !window.fetch) {
             return;
         }
         button.addEventListener('click', function () {
             hint.className = 'hint';
             hint.textContent = '正在测试…';
-            fetch('/mfg/control/visionTest', { method: 'POST', credentials: 'same-origin' })
+            button.className = 'busy';
+            fetch('/mfg/control/visionTest', {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
+                body: new URLSearchParams(new FormData(form))
+            })
                 .then(function (answer) { return answer.json(); })
                 .then(function (data) {
                     hint.className = data.ok ? 'ok' : 'error';
                     hint.textContent = data.message || (data.ok ? '连接成功' : '连接失败');
+                    if (data.ok) {
+                        markConfigured();
+                    }
+                    button.className = '';
                 })
                 .catch(function () {
                     hint.className = 'error';
                     hint.textContent = '测试请求失败，看看服务是否还在运行';
+                    button.className = '';
                 });
         });
+        /* a successful test saves the settings, so the three cards must not still say 未配置 */
+        function markConfigured() {
+            var state = document.getElementById('visionStateCard');
+            var key = document.getElementById('visionKeyCard');
+            var source = document.getElementById('visionSourceCard');
+            if (state) { state.innerHTML = '<span class="ok">已配置</span>'; }
+            if (key) { key.textContent = '已设置'; }
+            if (source) { source.textContent = '本页保存'; }
+            var field = form.querySelector('input[name="visionKey"]');
+            if (field) { field.value = ''; }
+        }
     }());
     </script>
 <#else>

@@ -61,6 +61,9 @@ public final class MfgOrderScan {
     /** Largest screenshot accepted, phone screenshots are well below. */
     static final int MAX_IMAGE_BYTES = 8 * 1024 * 1024;
 
+    /** Answer code of the events when the vision service is not set up yet. */
+    static final String UNCONFIGURED = "UNCONFIGURED";
+
     /** A 1x1 png, used by the connection test so a vision endpoint has something to look at. */
     private static final String TINY_PNG =
             "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
@@ -111,7 +114,7 @@ public final class MfgOrderScan {
         String model = text(MfgServices.setting(delegatorOf(request), VISION_MODEL));
         String key = text(MfgServices.setting(delegatorOf(request), VISION_KEY));
         if (endpoint == null || model == null || key == null) {
-            return answer(response, false, missingSetting(), null, null);
+            return answer(response, false, missingSetting(), null, null, UNCONFIGURED);
         }
         endpoint = MfgServices.normalizeVisionEndpoint(endpoint);
         String contentType = text(parameters.get("_image_contentType"));
@@ -179,11 +182,18 @@ public final class MfgOrderScan {
      * @return {@code success}, {@code error} when the answer could not be written
      */
     public static String test(HttpServletRequest request, HttpServletResponse response) {
-        String endpoint = text(MfgServices.setting(delegatorOf(request), VISION_ENDPOINT));
-        String model = text(MfgServices.setting(delegatorOf(request), VISION_MODEL));
-        String key = text(MfgServices.setting(delegatorOf(request), VISION_KEY));
+        Map<String, Object> parameters = parametersOf(request);
+        Delegator delegator = delegatorOf(request);
+        // what is on the form wins: the person has just typed it and should not have to save
+        // before the test, which used to answer "not configured" to a filled in form
+        String endpoint = firstOf(text(parameters.get("visionEndpoint")),
+                text(MfgServices.setting(delegator, VISION_ENDPOINT)));
+        String model = firstOf(text(parameters.get("visionModel")),
+                text(MfgServices.setting(delegator, VISION_MODEL)));
+        String key = firstOf(text(parameters.get("visionKey")),
+                text(MfgServices.setting(delegator, VISION_KEY)));
         if (endpoint == null || model == null || key == null) {
-            return answer(response, false, missingSetting(), null, null);
+            return answer(response, false, testMissing(endpoint, model, key), null, null, UNCONFIGURED);
         }
         try {
             String reply = askVision(MfgServices.normalizeVisionEndpoint(endpoint), model, key,
@@ -195,7 +205,8 @@ public final class MfgOrderScan {
             if (content.length() > 200) {
                 content = content.substring(0, 200) + "…";
             }
-            return answer(response, true, "连接成功，模型回答：" + content, null, null);
+            String kept = saveTestedSettings(request, endpoint, model, key);
+            return answer(response, true, "连接成功" + kept + "，模型回答：" + content, null, null);
         } catch (IOException e) {
             Debug.logError(e, "Could not test the vision service", MODULE);
             return answer(response, false, "识图服务调用失败：" + e.getMessage(), null, null);
@@ -203,11 +214,76 @@ public final class MfgOrderScan {
     }
 
     /**
-     * @return the message shown when one of the three settings is missing
+     * Keeps the settings that have just been proven to work, so "test" doubles as "save" for a
+     * person who filled the form in and pressed the test button.
+     *
+     * @param request the request, its dispatcher and login are used
+     * @param endpoint the endpoint that answered
+     * @param model the model that answered
+     * @param key the key that answered
+     * @return the text to add to the answer, empty when nothing had to be stored
+     */
+    private static String saveTestedSettings(HttpServletRequest request, String endpoint, String model,
+            String key) {
+        LocalDispatcher dispatcher = (LocalDispatcher) request.getAttribute("dispatcher");
+        if (dispatcher == null) {
+            return "";
+        }
+        Map<String, Object> context = new LinkedHashMap<>();
+        context.put("userLogin", request.getSession().getAttribute("userLogin"));
+        context.put("visionEndpoint", endpoint);
+        context.put("visionModel", model);
+        context.put("visionKey", key);
+        try {
+            Map<String, Object> result = dispatcher.runSync("mfgSettingsSave", context, -1, true);
+            return org.apache.ofbiz.service.ServiceUtil.isError(result) ? "" : "，设置已保存";
+        } catch (Exception e) {
+            Debug.logError(e, "Could not keep the tested vision settings", MODULE);
+            return "";
+        }
+    }
+
+    /**
+     * Names the field a person still has to fill before the test can run.
+     *
+     * @param endpoint the endpoint on the form or in the settings
+     * @param model the model on the form or in the settings
+     * @param key the key on the form or in the settings
+     * @return the message shown under the test button
+     */
+    static String testMissing(String endpoint, String model, String key) {
+        StringBuilder missing = new StringBuilder();
+        if (endpoint == null) {
+            missing.append("接口地址");
+        }
+        if (model == null) {
+            missing.append(missing.length() == 0 ? "" : "、").append("模型名");
+        }
+        if (key == null) {
+            missing.append(missing.length() == 0 ? "" : "、").append("密钥");
+        }
+        return "还差「" + missing + "」没填，填完再点一次「测试连接」。"
+                + "密钥是识图服务的 API Key（在服务商后台生成），只写库、不回显。";
+    }
+
+    /**
+     * @param first what the form sent
+     * @param second what is stored
+     * @return the first value that is not empty
+     */
+    private static String firstOf(String first, String second) {
+        return first != null ? first : second;
+    }
+
+    /**
+     * The message shown on the receipt page when recognition is not set up yet. Plain words: the
+     * person reading it is at the bench, the names of the system properties mean nothing to them.
+     *
+     * @return the message shown on the receipt page
      */
     static String missingSetting() {
-        return "还没有配置识图服务（在「系统设置」页填：" + VISION_ENDPOINT + " / " + VISION_MODEL
-                + " / " + VISION_KEY + "），请把明细粘进框里";
+        return "识图服务还没配好：到「系统设置」页填上密钥（地址与模型已默认填好），保存后就能识别截图。"
+                + "没配也能用——把订单明细按 料号,名称,数量,实付金额 粘进上面的框里，点「建单并入库」。";
     }
 
     /**
@@ -280,9 +356,29 @@ public final class MfgOrderScan {
      */
     private static String answer(HttpServletResponse response, boolean ok, String message,
             Map<String, String> fields, List<Map<String, String>> orders) {
+        return answer(response, ok, message, fields, orders, null);
+    }
+
+    /**
+     * Writes the answer of the event as JSON, with an optional machine readable code the page can
+     * act on without matching on the wording of the message.
+     *
+     * @param response the response
+     * @param ok whether the scan worked
+     * @param message what to tell the person
+     * @param fields the form fields of one order, may be {@code null}
+     * @param orders the recognised orders when the screenshot showed a list, may be {@code null}
+     * @param code a short code such as {@code UNCONFIGURED}, {@code null} when there is none
+     * @return {@code success}, {@code error} when the answer could not be written
+     */
+    private static String answer(HttpServletResponse response, boolean ok, String message,
+            Map<String, String> fields, List<Map<String, String>> orders, String code) {
         StringBuilder json = new StringBuilder();
         json.append("{\"ok\":").append(ok).append(",\"message\":")
                 .append(MfgBomEvents.jsonString(message));
+        if (code != null) {
+            json.append(",\"code\":").append(MfgBomEvents.jsonString(code));
+        }
         if (fields != null) {
             for (Map.Entry<String, String> entry : fields.entrySet()) {
                 json.append(',').append(MfgBomEvents.jsonString(entry.getKey())).append(':')
@@ -381,7 +477,10 @@ public final class MfgOrderScan {
         if (value == null) {
             return null;
         }
-        String text = value.toString().trim();
+        // a form field sent twice arrives as an array; the first value is the one that counts
+        Object plain = value instanceof String[] && ((String[]) value).length > 0
+                ? ((String[]) value)[0] : value;
+        String text = plain == null ? "" : plain.toString().trim();
         return text.isEmpty() ? null : text;
     }
 }

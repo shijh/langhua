@@ -662,6 +662,23 @@ public class MfgServicesTest {
     }
 
     @Test
+    public void tellsWhichFieldTheVisionTestStillNeeds() {
+        // the person is looking at the form: name the field, never a system property
+        String all = MfgOrderScan.testMissing(null, null, null);
+        assertTrue(all.contains("接口地址"));
+        assertTrue(all.contains("模型名"));
+        assertTrue(all.contains("密钥"));
+        String onlyKey = MfgOrderScan.testMissing("https://api.deepseek.com/v1/chat/completions",
+                "deepseek-flash", null);
+        assertTrue(onlyKey.contains("密钥"));
+        assertFalse(onlyKey.contains("接口地址"));
+        assertFalse(onlyKey.contains("模型名"));
+        // the receipt page must point at the settings page, not at -D options
+        assertFalse(MfgOrderScan.missingSetting().contains("org.langhua"));
+        assertTrue(MfgOrderScan.missingSetting().contains("系统设置"));
+    }
+
+    @Test
     public void readsSeveralOrdersOfOneScreenshot() {
         // the order list of the shop: three orders with their own numbers, shops and money
         String answer = "{\"orders\":["
