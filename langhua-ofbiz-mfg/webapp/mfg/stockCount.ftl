@@ -1,9 +1,10 @@
 <#ftl encoding="UTF-8">
+<#import "reason.ftl" as rs>
 <#setting url_escaping_charset="UTF-8">
 <#--
   盘点：逐批填实盘数，系统算出盘盈/盘亏并记一笔流水；下面列最近盘点记录。
   数据：lotResult.lots（lotId / componentCode / receivedQty / onHandQty / availableQty /
-        inspectStatusId / supplierLot / receivedDate）、countResult.counts
+        inspectStatusId / supplierLot / receivedDate）、countResult.counts（含 reasonEnumId）
 -->
 <#assign ll = (lotResult)!{}>
 <#assign lots = (ll.lots)![]>
@@ -23,7 +24,7 @@
     <a href="/mfg/control/stock">返回结存</a>
     <a href="/mfg/control/stockMoves">出入库流水</a>
 </form>
-<p class="hint">盘盈盘亏会写成一条「盘盈亏」流水，不是把数字直接改掉——账和实物各说各话时，能看出差多少、谁盘的。</p>
+<p class="hint">盘盈盘亏会写成一条「盘盈亏」流水，不是把数字直接改掉——账和实物各说各话时，能看出差多少、谁盘的、为什么差。</p>
 
 <#if lots?has_content>
     <table id="countTable">
@@ -44,8 +45,21 @@
                 <td>
                     <form method="post" action="/mfg/control/stockCountSave" class="inline">
                         <input type="hidden" name="lotId" value="${lot.lotId}"/>
-                        数量 <input type="text" name="countedQty" size="8"/>
-                        盘点人 <input type="text" name="counterName" size="8"/>
+                        数量 <input type="text" name="countedQty" size="6"/>
+                        原因
+                        <select name="reasonEnumId" class="narrow" title="为什么账实不符；留空也行">
+                            <option value="">（不填）</option>
+                            <option value="VAR_LOST">丢失</option>
+                            <option value="VAR_STOLEN">被盗</option>
+                            <option value="VAR_DAMAGED">损坏</option>
+                            <option value="VAR_SAMPLE">样品 / 赠送</option>
+                            <option value="VAR_MISSHIP_SHIPPED">我方多发（已发）</option>
+                            <option value="VAR_INTEGR">生产领用（组装）</option>
+                            <option value="VAR_FOUND">找到（盘盈）</option>
+                            <option value="VAR_MISSHIP_ORDERED">供方少发（应到）</option>
+                        </select>
+                        盘点人 <input type="text" name="counterName" size="6"/>
+                        备注 <input type="text" name="note" size="10"/>
                         <input type="submit" value="登记"/>
                     </form>
                 </td>
@@ -61,7 +75,7 @@
     <table id="countList">
         <tr>
             <th>盘点单</th><th>日期</th><th>批次</th><th>类别</th><th>料号</th>
-            <th class="num">账面</th><th class="num">实盘</th><th class="num">差异</th><th>盘点人</th><th>备注</th>
+            <th class="num">账面</th><th class="num">实盘</th><th class="num">差异</th><th>原因</th><th>盘点人</th><th>备注</th>
         </tr>
         <#list counts as count>
             <tr>
@@ -73,6 +87,7 @@
                 <td class="num">${(count.bookQty!0)?string("0.##")}</td>
                 <td class="num">${(count.countedQty!0)?string("0.##")}</td>
                 <td class="num"><#if (count.varianceQty!0) gt 0><span class="ok">+${count.varianceQty?string("0.##")}</span><#elseif (count.varianceQty!0) lt 0><span class="error">${count.varianceQty?string("0.##")}</span><#else>0</#if></td>
+                <td data-reason="${(count.reasonEnumId)!''}"><#if ((count.reasonEnumId)!'') != ''>${rs.label(count.reasonEnumId)}<#else><span class="hint">—</span></#if></td>
                 <td>${count.counterName!}</td>
                 <td>${count.note!}</td>
             </tr>

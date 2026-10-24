@@ -1272,12 +1272,14 @@
         <attribute name="countedQty" type="Double" mode="IN" optional="false"/>
         <attribute name="counterName" type="String" mode="IN" optional="true"/>
         <attribute name="countDate" type="String" mode="IN" optional="true"/>
+        <attribute name="reasonEnumId" type="String" mode="IN" optional="true"/>
         <attribute name="note" type="String" mode="IN" optional="true"/>
         <attribute name="physicalInventoryId" type="String" mode="OUT" optional="true"/>
         <attribute name="lotId" type="String" mode="OUT" optional="true"/>
         <attribute name="bookQty" type="Double" mode="OUT" optional="true"/>
         <attribute name="countedQty" type="Double" mode="OUT" optional="true"/>
         <attribute name="varianceQty" type="Double" mode="OUT" optional="true"/>
+        <attribute name="reasonEnumId" type="String" mode="OUT" optional="true"/>
         <attribute name="onHandQty" type="Double" mode="OUT" optional="true"/>
     </service>
 

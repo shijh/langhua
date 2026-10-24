@@ -354,7 +354,7 @@ https://localhost:8443/mfg/control/main
 | `MfgPurchaseReceiptLine` | 到货单行：`receiptId` + `lineSeq`、`lotId`（一个批次只能挂在一张单上）、`componentCode`、`qty`、`unitPrice`、`goodsAmount` |
 | `MfgOutsourceFee` | 外协费明细：`workOrderId` + `seqId` 主键、`feeTypeId`（SMT/模具/外发组装/外协测试/其他）、`basisId`（按台/按点/整单）、`rate`、`qty`、`amount`、`vendorName`、`referenceNo`、`feeDate`、`note` |
 | `MfgStockSetting` | 料号主档与安全库存：`componentCode` 主键、`componentName`、`unitOfMeasure`、`minimumStock`、`reorderQty`、`supplierName` |
-| `MfgStockCount` | 盘点记录：`physicalInventoryId`（CNT-yyMMdd-NN）、`countDate`、`counterName`、`lotId`、`bookQty`、`countedQty`、`varianceQty` |
+| `MfgStockCount` | 盘点记录：`physicalInventoryId`（CNT-yyMMdd-NN）、`countDate`、`counterName`、`lotId`、`bookQty`、`countedQty`、`varianceQty`、`varianceReasonId`（差异原因，同 `IID_REASON`）、`note` |
 | `MfgSalesOrder` | 销售订单：`salesOrderId`（SO-yyMMdd-NN）、`customerName`、`customerPo`、`orderDate`、`dueDate`、`statusId`（MFG_SO_OPEN / PLANNED / SHIPPED / CLOSED / CANCELLED） |
 | `MfgSalesOrderItem` | 订单行：`salesOrderId` + `lineSeq` 主键、`productCode`、`qty`、`shippedQty`、`workOrderId`（排产生的工单）、`lineDueDate` |
 | `MfgShipment` | 外协收发：`shipmentId`、`workOrderId`、`directionId`（`MFG_SHIP_OUT` / `MFG_SHIP_IN`）、`qty`、`defectQty`、`carrier`、`trackingNo` |
@@ -423,7 +423,7 @@ https://localhost:8443/mfg/control/main
 | `mfgStockSummary` | 按料号汇总在库 / 可发 / 待检 / 不合格 / 批次 / 金额，带上安全库存与建议采购，标出低于阈值的料号；首次访问会给旧批次补建流水（幂等） |
 | `mfgInventoryLedger` | 流水查询：按料号 / 批次 / 类型 / **原因** / 日期过滤，带每笔之后的**批次余额** |
 | `mfgStockSettingSave` | 维护料号主档与安全库存（阈值、补货量、供应商） |
-| `mfgStockCount` / `mfgStockCountList` | 盘点：记录账面数与实盘数，**差异写成一条盘盈亏流水**并重算结存；历史盘点单可查 |
+| `mfgStockCount` / `mfgStockCountList` | 盘点：记录账面数与实盘数，**差异写成一条盘盈亏流水**并重算结存；可带**差异原因**（`reasonEnumId`，方向要与差异正负一致）；历史盘点单可查 |
 | `mfgPurchaseReceiptSave` | 存到货单的头：供应商 / 店铺订单号 / 到货日 / **整单运费** / **整单优惠**（都可改）；运费与优惠只接受非负数，`allocationId` 现在只允许 `MFG_ALLOC_NONE` |
 | `mfgPurchaseReceiptLineSave` | 把一个到货批次挂到单上（数量/单价默认取批次，事后可改；一个批次只能挂一张单）、改行、`delete=Y` 差行；发成品批次会被拒 |
 | `mfgPurchaseReceiptList` | 到货单列表（行数 / 货款 / 运费 / 优惠 / 合计）+ 本页的货款合计、运费合计、优惠合计、采购支出合计、运费占货款比例 |
@@ -556,10 +556,10 @@ csv         = R0402-10K,10K 0402 resistor,4,R1-R4,N,0.05
 | `/mfg/control/materials` | 物料批次台账、收货登记、CSV 批量导入、按批次反向追溯 |
 | `/mfg/control/stock` | **库存结存**：上半部按料号看在库/可发/待检/不合格/批次/金额，安全库存与建议采购；下半部是**成品库存**（按型号看在库/已预留/可发/累计出货/金额）；可只看低于阈值，带安全库存维护表单 |
 | `/mfg/control/stockMoves` | **出入库流水**：一笔一行，带批次余额与变动原因；按料号/批次/类别（元件/成品）/类型/原因/日期过滤，可手工补登报废/退料/调整 |
-| `/mfg/control/stockCount` | **盘点**：逐批填实盘数 → 盘盈亏入流水；下方列最近盘点记录 |
+| `/mfg/control/stockCount` | **盘点**：逐批填实盘数与差异原因 → 盘盈亏入流水；下方列最近盘点记录（含原因） |
 | `/mfg/control/inventoryMove` | POST 登一笔库存流水（`lotId` + `movementTypeId` + `qty` ± `workOrderId` / `referenceNo` / `operatorName` / `note`） |
 | `/mfg/control/stockSettingSave` | POST 保存料号安全库存（`componentCode` + `minimumStock` + `reorderQty`） |
-| `/mfg/control/stockCountSave` | POST 登记盘点（`lotId` + `countedQty` + `counterName`） |
+| `/mfg/control/stockCountSave` | POST 登记盘点（`lotId` + `countedQty` + `counterName` + 可选 `reasonEnumId` / `note`） |
 | `/mfg/control/workOrderReserve` / `/mfg/control/workOrderRelease` | POST 按 BOM 预留齐套料 / 释放该工单的预留（`workOrderId`），完成后回工单详情页 |
 | `/mfg/control/workOrderComplete` | POST 完工入库（`workOrderId` + 可选 `completeDate`），回工单详情页 |
 | `/mfg/control/salesOrders` | **销售订单**：列表 + 新建（客户、客户订单号、日期、多行 `型号,数量[,交期]`）、状态过滤 |
@@ -1386,7 +1386,7 @@ $R^2$ 低于期望值（默认 0.95）时逐点剔除误差最大的批次重拟
 | 料号在库 | 该料号所有批次 onHand 之和；可发、预留、待检、不合格、金额（$\sum \text{onHand} \times \text{采购单价}$）同理 |
 | 开工单自动预留 | 按批次先后在可发量里挑，一次能占多少占多少：$\text{reserve} = \min(\text{欠料}, \text{该批次可发})$，累到欠料为 0 为止 |
 | 齐套欠料 | $\text{shortage} = \max(0, \text{需求} - \text{已发} - \text{已预留})$ |
-| 盘点差异 | $\text{variance} = \text{实盘} - \text{账面}$，写成一条 `MFG_MOVE_COUNT` 流水 |
+| 盘点差异 | $\text{variance} = \text{实盘} - \text{账面}$，写成一条 `MFG_MOVE_COUNT` 流水（可带原因，见下） |
 | 安全库存告警 | $\text{在库} < \text{minimumStock}$（且阈值 > 0）→ 看板告警（在库为 0 时紧急，否则预警） |
 | 建议采购 | 低于阈值时取 `reorderQty`，没填则取 $\text{minimumStock} - \text{在库}$ |
 | 发料校验 | $qty \le \text{可发} + \text{本工单自己的预留} + 0.0001$，否则报“批次只剩 X”；发完把自己的预留相应减掉（不超过 $qty$） |
@@ -1418,6 +1418,9 @@ $R^2$ 低于期望值（默认 0.95）时逐点剔除误差最大的批次重拟
 | Found | `VAR_FOUND` | 找到（盘盈） | 补入库 | 入 |
 
 - 页面上先选原因，**类型会自动跟过去**（脚本按 `data-type` 拨一下下拉），所以登记“丢失 3 个”只需选原因 + 填数量；
+- **盘点差异也能登记原因**：盘点页每行一个「原因」下拉（见「盘点」），差异的正负决定方向——
+  盘亏（少东西）配 丢失/被盗/损坏/样品/多发，盘盈（多出来）配 找到/供方少发；配反了直接拒，
+  比如“账上 3 个、实盘 9 个”却说丢失；账面与实盘一样时填什么原因都不拦（本来就没差异）；
 - 服务里再兜一次：只给原因不给类型 → 按原因推类型；原因说“出库”却填成补入库（或反之）→ 直接拒，
   免得账面涨了、备注却写着丢了东西；未知原因一律拒；
 - 流水表、流水过滤、单据都能按原因看，所以月底能一眼看出“这个月丢了 40 个、坏了 12 个”；

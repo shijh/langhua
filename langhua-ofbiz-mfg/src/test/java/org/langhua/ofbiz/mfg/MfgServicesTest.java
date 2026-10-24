@@ -1472,6 +1472,24 @@ public class MfgServicesTest {
         assertTrue(present(MfgServices.movementReasonProblem(MfgServices.MOVE_SCRAP, "VAR_WHATEVER", 3.0)));
     }
 
+    @Test
+    public void explainsAStockCountVarianceWithTheReasonItFits() {
+        // a count carries its own sign, so the variance of -2 fits "lost" and clashes with "found"
+        assertNull(MfgServices.movementReasonProblem(MfgServices.MOVE_COUNT,
+                MfgServices.REASON_LOST, -2.0));
+        assertNull(MfgServices.movementReasonProblem(MfgServices.MOVE_COUNT,
+                MfgServices.REASON_FOUND, 2.0));
+        assertTrue(present(MfgServices.movementReasonProblem(MfgServices.MOVE_COUNT,
+                MfgServices.REASON_FOUND, -2.0)));
+        assertTrue(present(MfgServices.movementReasonProblem(MfgServices.MOVE_COUNT,
+                MfgServices.REASON_LOST, 2.0)));
+        // a count that matches the book quantity explains nothing, so any reason goes
+        assertNull(MfgServices.movementReasonProblem(MfgServices.MOVE_COUNT,
+                MfgServices.REASON_LOST, 0.0));
+        // and no reason at all is still fine
+        assertNull(MfgServices.movementReasonProblem(MfgServices.MOVE_COUNT, null, -2.0));
+    }
+
     private static boolean present(String message) {
         return message != null;
     }

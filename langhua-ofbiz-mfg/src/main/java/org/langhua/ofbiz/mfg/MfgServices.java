@@ -10450,6 +10450,13 @@ always
             ensureLotLedger(delegator, lot);
             double bookQty = numberOrZero(lot.get("onHandQty"));
             double variance = round2(countedQty - bookQty);
+            // the reason is optional, but when it is given it has to fit the direction of the variance:
+            // a count that lost material may not be explained with "找到"
+            String reasonEnumId = toText(context.get("reasonEnumId"));
+            String reasonProblem = movementReasonProblem(MOVE_COUNT, reasonEnumId, variance);
+            if (reasonProblem != null) {
+                return ServiceUtil.returnError(reasonProblem);
+            }
             String physicalInventoryId = nextStockCountId(delegator, LocalDate.now());
             String counterName = toText(context.get("counterName"));
             GenericValue count = delegator.makeValue("MfgStockCount");
@@ -10462,13 +10469,14 @@ always
             count.set("bookQty", Double.valueOf(bookQty));
             count.set("countedQty", Double.valueOf(countedQty));
             count.set("varianceQty", Double.valueOf(variance));
-            count.set("varianceReasonId", MOVE_COUNT);
+            count.set("varianceReasonId", reasonEnumId);
             count.set("note", toText(context.get("note")));
             delegator.create(count);
             if (Math.abs(variance) > 0.0001) {
                 recordMovement(delegator, lot, MOVE_COUNT, variance, lot.get("unitPrice"), null,
                         physicalInventoryId, null, counterName, null,
-                        "盘点 " + physicalInventoryId + "：" + formatQty(bookQty) + " → " + formatQty(countedQty));
+                        "盘点 " + physicalInventoryId + "：" + formatQty(bookQty) + " → " + formatQty(countedQty),
+                        null, reasonEnumId);
             }
             recalcLotStock(delegator, lot);
 
@@ -10478,6 +10486,7 @@ always
             result.put("bookQty", Double.valueOf(bookQty));
             result.put("countedQty", Double.valueOf(countedQty));
             result.put("varianceQty", Double.valueOf(variance));
+            result.put("reasonEnumId", reasonEnumId);
             result.put("onHandQty", lot.get("onHandQty"));
             return result;
         } catch (GenericEntityException e) {
@@ -10525,6 +10534,7 @@ always
                 map.put("bookQty", count.get("bookQty"));
                 map.put("countedQty", count.get("countedQty"));
                 map.put("varianceQty", count.get("varianceQty"));
+                map.put("reasonEnumId", count.getString("varianceReasonId"));
                 map.put("note", count.getString("note"));
                 rows.add(map);
             }

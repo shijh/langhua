@@ -1,5 +1,6 @@
 <#ftl encoding="UTF-8">
 <#import "pager.ftl" as pg>
+<#import "reason.ftl" as rs>
 <#setting url_escaping_charset="UTF-8">
 <#--
   出入库流水：一条一笔，带该批次的结存余额；可按料号 / 批次 / 类型 / 原因 / 日期过滤。
@@ -28,19 +29,8 @@
     </#if>
 </#function>
 
-<#-- 原因用的是 OFBiz 自带的 IID_REASON 清单（Inventory Item Detail Reason），id 与 OFBiz 一致 -->
-<#function reasonLabel id>
-    <#if (id!'') == 'VAR_LOST'><#return '丢失'>
-    <#elseif (id!'') == 'VAR_STOLEN'><#return '被盗'>
-    <#elseif (id!'') == 'VAR_FOUND'><#return '找到（盘盈）'>
-    <#elseif (id!'') == 'VAR_DAMAGED'><#return '损坏'>
-    <#elseif (id!'') == 'VAR_SAMPLE'><#return '样品 / 赠送'>
-    <#elseif (id!'') == 'VAR_INTEGR'><#return '生产领用（组装）'>
-    <#elseif (id!'') == 'VAR_MISSHIP_ORDERED'><#return '供方少发（应到）'>
-    <#elseif (id!'') == 'VAR_MISSHIP_SHIPPED'><#return '我方多发（已发）'>
-    <#else><#return '${id!}'>
-    </#if>
-</#function>
+<#-- 原因用的是 OFBiz 自带的 IID_REASON 清单（Inventory Item Detail Reason），id 与 OFBiz 一致；
+     中文名在 reason.ftl 里，盘点页也 import 那一份 -->
 
 <#-- 选了原因就把类型拨过去：出库的那几个是报废，找到 / 供方少发 是补入库（脚本在表单下面同步 data-type） -->
 
@@ -106,7 +96,7 @@
                 <td><#if row.locationId??>${row.locationId}<#else><span class="hint">—</span></#if></td>
                 <td class="num">${row.seqId?string("0")}</td>
                 <td><#if (row.movementTypeId!'') == 'MFG_MOVE_ISSUE' || (row.movementTypeId!'') == 'MFG_MOVE_SCRAP'><span class="error">${moveLabel(row.movementTypeId)}</span><#elseif (row.movementTypeId!'') == 'MFG_MOVE_RECEIPT'><span class="ok">${moveLabel(row.movementTypeId)}</span><#else>${moveLabel(row.movementTypeId)}</#if></td>
-                <td data-reason="${(row.reasonEnumId)!''}"><#if row.reasonEnumId??>${reasonLabel(row.reasonEnumId)}<#else><span class="hint">—</span></#if></td>
+                <td data-reason="${(row.reasonEnumId)!''}"><#if ((row.reasonEnumId)!'') != ''>${rs.label(row.reasonEnumId)}<#else><span class="hint">—</span></#if></td>
                 <td class="num"><#if ((row.displayQty)!0) lt 0><span class="error">${row.displayQty?string("0.##")}</span><#else><span class="ok">+${row.displayQty?string("0.##")}</span></#if></td>
                 <td class="num">${row.balanceQty?string("0.##")}</td>
                 <td class="num"><#if row.unitCost??>${row.unitCost?string("0.0000")}<#else><span class="hint">—</span></#if></td>

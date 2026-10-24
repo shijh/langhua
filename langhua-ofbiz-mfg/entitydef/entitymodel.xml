@@ -937,7 +937,7 @@
         <field name="bookQty" type="floating-point"><description>Quantity the system had before the count</description></field>
         <field name="countedQty" type="floating-point"><description>Quantity really found</description></field>
         <field name="varianceQty" type="floating-point"><description>Counted minus book quantity</description></field>
-        <field name="varianceReasonId" type="id"><description>MFG_MOVE_COUNT for a count, MFG_MOVE_ADJUST for a manual adjustment</description></field>
+        <field name="varianceReasonId" type="id"><description>Why the count came out different, one of OFBiz's inventory item detail reasons (IID_REASON), empty when nobody said</description></field>
         <field name="note" type="description"/>
         <field name="createdStamp" type="date-time"/>
         <field name="createdTxStamp" type="date-time"/>
