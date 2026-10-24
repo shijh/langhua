@@ -101,8 +101,10 @@ public final class MfgOrderScan {
             + " refunded is Y when the block shows 退款成功 / 已退款 / 退款中 / 交易关闭 / 已取消,"
             + " otherwise N."
             + " In lines, quantity is the number after x (x2 means 2, a lot of 100 pieces is 100) and"
-            + " amount is paidTotal minus freight for a block with one article; never use the struck"
-            + " through or unit price. When an article prints no code, put the model number from its"
+            + " amount is that row's money: for a block with one article it is paidTotal minus freight,"
+            + " for a block with two or more articles it is the row price times quantity. One row per"
+            + " article - a block that shows two products gets two rows, never one. Never use the"
+            + " struck through price. When an article prints no code, put the model number from its"
             + " title (for example 5.5V1.5F C型 21*7.5) in code, or the article name when there is no"
             + " model number; never leave it empty."
             + " Take the numbers printed on the page: do not weigh alternatives, do not describe the"
@@ -158,10 +160,12 @@ public final class MfgOrderScan {
             }
             orders = MfgServices.orderListFrom(reply);
             seen = MfgServices.orderCountIn(reply);
-            // fewer orders read than the model says it saw, or an answer that is mostly the answer
-            // format: either way the read is poor and one more send is worth it
+            // fewer orders read than the model says it saw, an answer that is mostly the answer
+            // format, or an order whose goods plus freight is not the paid total (a lost article
+            // looks exactly like that): either way the read is poor and one more send is worth it
             boolean shortRead = seen > 0 && orders.size() < seen;
-            if (!orders.isEmpty() && !shortRead && !MfgServices.echoesTemplate(reply)) {
+            if (!orders.isEmpty() && !shortRead && !MfgServices.echoesTemplate(reply)
+                    && !anyTotalsDisagree(orders)) {
                 break;
             }
             // the answer is kept: its wording tells apart "not an order" from "the model could
@@ -235,6 +239,21 @@ public final class MfgOrderScan {
         return "这次没从截图里读出订单（已自动重试 " + (ATTEMPTS - 1) + " 次）。"
                 + "再点一次「识别并核对」通常就好了；也可以把截图截小一点（只框住订单列表），或者手工填。"
                 + "模型的原话：" + MfgServices.visionReplyExcerpt(reply, 160);
+    }
+
+    /**
+     * Says whether the money of any recognised order does not add up.
+     *
+     * @param orders the recognised orders
+     * @return {@code true} when at least one order looks like it lost an article
+     */
+    private static boolean anyTotalsDisagree(List<Map<String, String>> orders) {
+        for (Map<String, String> order : orders) {
+            if (MfgServices.totalsDisagree(order)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /** Waits a moment before the retry, so a hiccup of the service is not hit twice in a row. */

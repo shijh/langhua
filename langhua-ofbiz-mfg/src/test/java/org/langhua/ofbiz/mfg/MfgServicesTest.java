@@ -674,6 +674,44 @@ public class MfgServicesTest {
     }
 
     @Test
+    public void doesNotTurnALostArticleIntoFreight() {
+        // the shop paid 14.40 for two articles; the model answered only the first one
+        Map<String, String> short_ = new HashMap<>();
+        short_.put("paidTotal", "14.40");
+        short_.put("freight", "0.00");
+        short_.put("lines", "PIN-40,header pin,2,6.40");
+        String note = MfgServices.checkOrderTotals(short_);
+        assertTrue(note != null && note.contains("14.40"));
+        assertTrue(note.contains("8.00"));
+        // the freight stays what the screenshot says: the missing money is not a shipping fee
+        assertEquals("0.00", short_.get("freight"));
+        assertTrue(MfgServices.totalsDisagree(short_));
+
+        // both articles read: the numbers agree and nothing is said
+        Map<String, String> full = new HashMap<>();
+        full.put("paidTotal", "14.40");
+        full.put("freight", "0.00");
+        full.put("lines", "PIN-40,header pin,2,6.40\nSOC-40,socket,2,8.00");
+        assertNull(MfgServices.checkOrderTotals(full));
+        assertFalse(MfgServices.totalsDisagree(full));
+
+        // no freight on the answer at all: it is filled in from the paid total
+        Map<String, String> noFreight = new HashMap<>();
+        noFreight.put("paidTotal", "9.84");
+        noFreight.put("lines", "WIRE,wire,5,9.84");
+        assertEquals("0.00", MfgServices.checkOrderTotals(noFreight) == null ? "0.00" : "0.00");
+        assertEquals("0.00", noFreight.get("freight"));
+
+        // a real freight of 5.00 with matching money is left alone
+        Map<String, String> withFreight = new HashMap<>();
+        withFreight.put("paidTotal", "8.88");
+        withFreight.put("freight", "5.00");
+        withFreight.put("lines", "CHIP,chip,5,3.88");
+        assertNull(MfgServices.checkOrderTotals(withFreight));
+        assertEquals("5.00", withFreight.get("freight"));
+    }
+
+    @Test
     public void keepsTheEchoedTemplateOutOfTheOrders() {
         // a chatty model repeated the answer format: seven placeholder objects around the real order
         String answer = "{\"orders\":["
@@ -853,15 +891,17 @@ public class MfgServicesTest {
     }
 
     @Test
-    public void correctsAFreightThatDoesNotAddUp() {
-        // the page says 实付款 3.50 and 含运费 2.00, so the goods are 1.50 and the freight 2.00
+    public void reportsAFreightThatDoesNotAddUp() {
+        // the page says 实付款 3.50 and 含运费 2.00, the model answered a freight of 4.00: the money
+        // does not add up, so it is reported - the freight is not silently rewritten any more, because
+        // a number like that is just as likely a missing article
         Map<String, String> wrong = new HashMap<>();
         wrong.put("paidTotal", "3.50");
         wrong.put("freight", "4.00");
         wrong.put("lines", "SK-12D02,switch,10,1.50");
         String said = MfgServices.checkOrderTotals(wrong);
-        assertEquals("2.00", wrong.get("freight"));
-        assertTrue(said.contains("3.50") && said.contains("4.00") && said.contains("2.00"));
+        assertTrue(said != null && said.contains("3.50") && said.contains("4.00"));
+        assertEquals("4.00", wrong.get("freight"));
 
         // without a freight the difference is used
         Map<String, String> missing = new HashMap<>();

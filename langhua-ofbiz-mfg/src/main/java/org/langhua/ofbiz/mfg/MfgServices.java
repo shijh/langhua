@@ -8983,9 +8983,13 @@ always
     }
 
     /**
-     * Checks the numbers of a recognised order against the amount paid: freight is what the page
-     * says, and the goods plus the freight must come to the paid total. A model that invents a
-     * freight figure is caught here instead of being booked in.
+     * Checks the numbers of a recognised order against the amount paid: the goods plus the freight
+     * must come to the paid total.
+     *
+     * <p>The freight is only filled in when the answer carries none. A mismatch is reported, never
+     * repaired by inventing a freight: when a model reads one article of an order that holds two, the
+     * missing money looks exactly like a freight, and "helpfully" turning it into one hides the lost
+     * article (14.40 paid, 6.40 of goods, so 8.00 of "freight" that never existed).
      *
      * @param fields the recognised fields, {@code paidTotal}, {@code freight} and {@code lines}
      * @return a sentence to show the person, {@code null} when the numbers agree or cannot be checked
@@ -9005,22 +9009,53 @@ always
             // no line could be read: there is nothing to check the freight against
             return null;
         }
-        double expected = round2(paid.doubleValue() - goods);
-        if (expected < 0.0) {
-            // the lines are more than what was paid: the lines are the wrong part, leave them alone
+        if (freight == null) {
+            double expected = round2(paid.doubleValue() - goods);
+            if (expected < 0.0) {
+                return null;
+            }
+            fields.put("freight", String.format(Locale.ROOT, "%.2f", expected));
+            return "运费按 实付 " + money(paid) + " − 货款 " + money(Double.valueOf(goods)) + " 补成 "
+                    + money(Double.valueOf(expected));
+        }
+        double total = round2(goods + freight.doubleValue());
+        if (Math.abs(total - paid.doubleValue()) < 0.005) {
             return null;
         }
-        String expectedText = String.format(Locale.ROOT, "%.2f", expected);
-        if (freight == null) {
-            fields.put("freight", expectedText);
-            return "运费按 实付 " + money(paid) + " − 货款 " + money(Double.valueOf(goods)) + " 补成 " + expectedText;
+        if (total < paid.doubleValue()) {
+            return "实付 " + money(paid) + "，但明细 " + money(Double.valueOf(goods)) + " + 运费 "
+                    + money(freight) + " 只有 " + money(Double.valueOf(total)) + "（差了 "
+                    + money(Double.valueOf(round2(paid.doubleValue() - total)))
+                    + "），可能漏了一件商品，请对着截图核对";
         }
-        if (Math.abs(freight.doubleValue() - expected) >= 0.005) {
-            fields.put("freight", expectedText);
-            return "截图实付 " + money(paid) + "，但货款 " + money(Double.valueOf(goods)) + " + 运费 "
-                    + money(freight) + " 对不上，运费已改成 " + expectedText + "（= 实付 − 货款），请核对";
+        return "实付 " + money(paid) + "，但明细 " + money(Double.valueOf(goods)) + " + 运费 "
+                + money(freight) + " 是 " + money(Double.valueOf(total)) + "，比实付还多，请核对";
+    }
+
+    /**
+     * Says whether the money of one recognised order does not add up, which is the sign of a missing
+     * article or a misread amount. The scan sends the screenshot once more when this is true.
+     *
+     * @param order the recognised order
+     * @return {@code true} when goods plus freight is not the paid total
+     */
+    static boolean totalsDisagree(Map<String, String> order) {
+        if (order == null) {
+            return false;
         }
-        return null;
+        Double paid = optionalAmount(order.get("paidTotal"));
+        Double freight = optionalAmount(order.get("freight"));
+        if (paid == null || freight == null) {
+            return false;
+        }
+        double goods = 0.0;
+        for (String[] row : parseOrderArticleLines(order.get("lines"))) {
+            goods += toDouble(row[3], 0.0);
+        }
+        if (goods <= 0.0) {
+            return false;
+        }
+        return Math.abs(round2(goods + freight.doubleValue()) - paid.doubleValue()) >= 0.005;
     }
 
     /** @return the amount with two decimals, for a sentence */

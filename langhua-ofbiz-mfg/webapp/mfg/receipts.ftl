@@ -268,7 +268,7 @@
         <table class="inner" id="scanOrderTable">
             <tr>
                 <th>订单号</th><th>店铺</th><th>下单</th><th class="num">运费</th>
-                <th class="num">明细</th><th class="num">货款</th><th>状态</th>
+                <th class="num">明细</th><th class="num">货款</th><th class="num">实付</th><th>状态</th>
             </tr>
             <tbody id="scanOrderRows"></tbody>
         </table>
@@ -458,9 +458,17 @@
                 dateCell.setAttribute('data-scan-date', order.orderDate || '');
                 cell(row, order.freight || '0', 'num');
                 cell(row, linesOf(order).length + ' 行', 'num');
-                cell(row, amountsOf(order).toFixed(2), 'num');
-                var status = cell(row, order.refunded === 'Y' ? '已退款，不入库' : '待导入');
-                if (order.refunded === 'Y') { status.className = 'error'; }
+                var goods = amountsOf(order);
+                cell(row, goods.toFixed(2), 'num');
+                cell(row, order.paidTotal || '', 'num');
+                /* 货款 + 运费 must come to 实付: when it does not, an article is probably missing */
+                var paid = parseFloat(order.paidTotal);
+                var off = !isNaN(paid) && goods > 0
+                    && Math.abs(goods + (parseFloat(order.freight) || 0) - paid) > 0.005;
+                var statusText = order.refunded === 'Y' ? '已退款，不入库'
+                    : (off ? '实付与明细对不上，请核对' : '待导入');
+                var status = cell(row, statusText);
+                if (order.refunded === 'Y' || off) { status.className = 'error'; }
                 orderRows.appendChild(row);
             });
             ordersBox.hidden = false;
