@@ -8760,22 +8760,83 @@ always
      *         {@code null} when the answer carries no usable lines
      */
     static Map<String, String> orderFieldsFrom(String reply) {
+        String text = orderAnswerText(reply);
+        return text == null ? null : fieldsOfOneOrder(text);
+    }
+
+    /**
+     * Turns the answer of a vision model into one field map per order. A screenshot may show a
+     * single order (the detail page) or a list of several orders (the order list of the shop), so
+     * both shapes are read: {@code {"orders":[{…},{…}]}} and the older flat {@code {"lines":"…"}}.
+     *
+     * @param reply the answer text
+     * @return one map per order that carries lines, empty when there is nothing usable
+     */
+    static List<Map<String, String>> orderListFrom(String reply) {
+        List<Map<String, String>> orders = new ArrayList<>();
+        String text = orderAnswerText(reply);
+        if (text == null) {
+            return orders;
+        }
+        // the objects of the "orders" array, or the answer itself when it is one flat object
+        int array = text.indexOf('[');
+        int key = text.indexOf("\"orders\"");
+        int from = key >= 0 && array > key ? array : text.indexOf('{');
+        if (from < 0) {
+            return orders;
+        }
+        for (String object : objectTexts(text, from)) {
+            Map<String, String> fields = fieldsOfOneOrder(object);
+            if (fields != null) {
+                orders.add(fields);
+            }
+        }
+        if (orders.isEmpty()) {
+            // an answer without an object wrapper, e.g. the four values separated by commas
+            Map<String, String> flat = fieldsOfOneOrder(text);
+            if (flat != null) {
+                orders.add(flat);
+            }
+        }
+        return orders;
+    }
+
+    /**
+     * The JSON of the answer itself: a chat envelope may wrap it as the message or as the reasoning
+     * of a model that thinks before it answers. Both are read from the raw reply so quotes survive.
+     *
+     * @param reply the answer text, may be {@code null}
+     * @return the JSON text, {@code null} when there is none
+     */
+    private static String orderAnswerText(String reply) {
         if (reply == null) {
             return null;
         }
-        String text = reply;
-        // the object may sit inside a chat envelope, as the message or as the reasoning of a model
-        // that thinks before it answers; both are read from the raw reply so the quotes survive
         String inner = jsonStringField(reply, "content");
-        if (inner == null || !inner.contains("lines")) {
+        if (!carriesOrders(inner)) {
             String reasoning = jsonStringField(reply, "reasoning_content");
-            if (reasoning != null && reasoning.contains("lines")) {
+            if (carriesOrders(reasoning)) {
                 inner = reasoning;
             }
         }
-        if (inner != null && inner.contains("lines")) {
-            text = inner;
+        if (carriesOrders(inner)) {
+            return inner;
         }
+        return reply;
+    }
+
+    private static boolean carriesOrders(String text) {
+        return text != null && (text.contains("lines") || text.contains("\"orders\""));
+    }
+
+    /**
+     * Reads the fields of one order object.
+     *
+     * @param text the JSON of that one order
+     * @return {@code orderNo}, {@code shop}, {@code orderDate}, {@code freight}, {@code paidTotal},
+     *         {@code refunded} and {@code lines}, {@code null} when the object carries no lines
+     */
+    private static Map<String, String> fieldsOfOneOrder(String text) {
         Map<String, String> fields = new LinkedHashMap<>();
         fields.put("orderNo", jsonStringField(text, "orderNo"));
         fields.put("shop", jsonStringField(text, "shop"));
@@ -8793,6 +8854,58 @@ always
         }
         fields.put("lines", lines.trim());
         return fields;
+    }
+
+    /**
+     * Cuts the objects out of a JSON text, starting at the given offset. Braces inside strings do not
+     * count, so a product name with {@code {}} in it does not break the split.
+     *
+     * @param text the JSON text
+     * @param from the offset to start at
+     * @return the text of every object, in order
+     */
+    static List<String> objectTexts(String text, int from) {
+        List<String> objects = new ArrayList<>();
+        int i = Math.max(0, from);
+        while (i < text.length()) {
+            if (text.charAt(i) == '{') {
+                int end = matchingBrace(text, i);
+                if (end > i) {
+                    objects.add(text.substring(i, end + 1));
+                    i = end + 1;
+                    continue;
+                }
+            }
+            i++;
+        }
+        return objects;
+    }
+
+    private static int matchingBrace(String text, int open) {
+        int depth = 0;
+        boolean inString = false;
+        for (int i = open; i < text.length(); i++) {
+            char c = text.charAt(i);
+            if (inString) {
+                if (c == '\\') {
+                    i++;
+                } else if (c == '"') {
+                    inString = false;
+                }
+                continue;
+            }
+            if (c == '"') {
+                inString = true;
+            } else if (c == '{') {
+                depth++;
+            } else if (c == '}') {
+                depth--;
+                if (depth == 0) {
+                    return i;
+                }
+            }
+        }
+        return -1;
     }
 
     /**
@@ -8879,23 +8992,64 @@ always
     }
 
     /**
-     * Reads the value of one JSON string field, whatever surrounds it.
+     * Reads the value of one JSON string field, whatever surrounds it. Scanned by hand rather than
+     * matched with a pattern: an answer of a thinking model can hold several thousand characters, and
+     * a {@code (?:[^"\\]|\\.)*} of that length blows the stack of the request thread
+     * ({@code StackOverflowError} in {@code Pattern$Loop.match}, which the page shows as an empty
+     * answer).
      *
      * @param text the JSON like text
      * @param name the field name
      * @return the value with its escapes resolved, {@code null} when the field is missing
      */
     static String jsonStringField(String text, String name) {
-        if (text == null) {
+        if (text == null || name == null || name.isEmpty()) {
             return null;
         }
-        java.util.regex.Matcher matcher = java.util.regex.Pattern
-                .compile("\"" + java.util.regex.Pattern.quote(name) + "\"\\s*:\\s*\"((?:[^\"\\\\]|\\\\.)*)\"")
-                .matcher(text);
-        if (!matcher.find()) {
-            return null;
+        String key = "\"" + name + "\"";
+        int at = text.indexOf(key);
+        while (at >= 0) {
+            int i = at + key.length();
+            while (i < text.length() && Character.isWhitespace(text.charAt(i))) {
+                i++;
+            }
+            if (i < text.length() && text.charAt(i) == ':') {
+                i++;
+                while (i < text.length() && Character.isWhitespace(text.charAt(i))) {
+                    i++;
+                }
+                if (i < text.length() && text.charAt(i) == '"') {
+                    int end = closingQuote(text, i + 1);
+                    if (end > i) {
+                        return jsonUnescape(text.substring(i + 1, end)).trim();
+                    }
+                }
+            }
+            at = text.indexOf(key, at + key.length());
         }
-        return jsonUnescape(matcher.group(1)).trim();
+        return null;
+    }
+
+    /**
+     * Finds the quote that closes the string whose body starts at the given offset.
+     *
+     * @param text the text
+     * @param from the offset of the first character of the body
+     * @return the offset of the closing quote, -1 when the string is not closed
+     */
+    private static int closingQuote(String text, int from) {
+        boolean escaped = false;
+        for (int i = Math.max(0, from); i < text.length(); i++) {
+            char c = text.charAt(i);
+            if (escaped) {
+                escaped = false;
+            } else if (c == '\\') {
+                escaped = true;
+            } else if (c == '"') {
+                return i;
+            }
+        }
+        return -1;
     }
 
     /**

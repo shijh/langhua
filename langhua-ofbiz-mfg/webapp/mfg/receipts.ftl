@@ -302,6 +302,21 @@
                 <strong>料号原样保存</strong>（最长 100 个字符，像 <code>QFN16-0.65-QFN20-0.4-2.54</code> 这种也放得下）。</span>
         </p>
     </form>
+    <div id="scanOrders" hidden="hidden">
+        <p id="batchHint" class="hint"></p>
+        <table class="inner" id="scanOrderTable">
+            <tr>
+                <th>订单号</th><th>店铺</th><th>下单</th><th class="num">运费</th>
+                <th class="num">明细</th><th class="num">货款</th><th>状态</th>
+            </tr>
+            <tbody id="scanOrderRows"></tbody>
+        </table>
+        <p>
+            <button type="button" id="importOrders" data-once="Y">导入这些单</button>
+            <span class="hint">一张截图里有几张单就建几张到货单；已退款的单不入库，
+                已经入过库的明细会跳过（不会重复）。</span>
+        </p>
+    </div>
     <script>
     /* recognition is a help: it only fills the form, the person still checks and submits */
     (function () {
@@ -413,6 +428,13 @@
                     if (data.freight) { fill('freightField', data.freight); }
                     if (data.lines) { fill('linesField', data.lines); }
                     showRefund(data.refunded === 'Y');
+                    if (data.orders && data.orders.length > 1) {
+                        showOrders(data.orders);
+                        hint.className = 'ok';
+                        hint.textContent = data.message || ('识别到 ' + data.orders.length + ' 张单');
+                        return;
+                    }
+                    hideOrders();
                     /* the date on a shop order is the day it was placed; the arrival day is a few
                        days later and the person picks it, so the field is left alone */
                     var text = data.message || '已识别，核对后点“建单并入库”';
@@ -428,6 +450,147 @@
                 })
                 .then(release, release);
         });
+
+        /* a screenshot of the order list holds several orders: they are shown first, then booked in
+           with one click (Step 86) */
+        var orders = [];
+        var ordersBox = document.getElementById('scanOrders');
+        var orderRows = document.getElementById('scanOrderRows');
+        var batchHint = document.getElementById('batchHint');
+        var importButton = document.getElementById('importOrders');
+
+        function linesOf(order) {
+            return (order.lines || '').split(/\r?\n/).filter(function (row) {
+                return row.trim().length > 0;
+            });
+        }
+        function cell(row, text, className) {
+            var td = document.createElement('td');
+            if (className) { td.className = className; }
+            td.textContent = text;
+            row.appendChild(td);
+            return td;
+        }
+        function amountsOf(order) {
+            var total = 0;
+            linesOf(order).forEach(function (line) {
+                var cells = line.split(/\t|,/);
+                total += parseFloat(cells[cells.length - 1]) || 0;
+            });
+            return total;
+        }
+        function showOrders(found) {
+            orders = found;
+            if (!ordersBox || !orderRows) { return; }
+            while (orderRows.firstChild) { orderRows.removeChild(orderRows.firstChild); }
+            found.forEach(function (order) {
+                var row = document.createElement('tr');
+                row.setAttribute('data-scan-order', order.orderNo || '');
+                cell(row, order.orderNo || '（没读到单号）');
+                cell(row, order.shop || '');
+                cell(row, order.orderDate || '');
+                cell(row, order.freight || '0', 'num');
+                cell(row, linesOf(order).length + ' 行', 'num');
+                cell(row, amountsOf(order).toFixed(2), 'num');
+                var status = cell(row, order.refunded === 'Y' ? '已退款，不入库' : '待导入');
+                if (order.refunded === 'Y') { status.className = 'error'; }
+                orderRows.appendChild(row);
+            });
+            ordersBox.hidden = false;
+            if (batchHint) {
+                var notes = found.filter(function (order) {
+                    return order.note;
+                }).map(function (order) {
+                    return (order.orderNo || '一张单') + '：' + order.note;
+                });
+                batchHint.className = 'hint';
+                batchHint.textContent = '这张截图里共 ' + found.length + ' 张单，核对后点「导入这些单」。'
+                    + (notes.length ? ' ' + notes.join('；') : '');
+            }
+        }
+        function hideOrders() {
+            orders = [];
+            if (ordersBox) { ordersBox.hidden = true; }
+        }
+        if (importButton) {
+            importButton.addEventListener('click', function () {
+                if (!orders.length) { return; }
+                var params = new URLSearchParams();
+                var wanted = [];
+                orders.forEach(function (order) {
+                    if (order.refunded === 'Y') { return; }
+                    var index = wanted.length;
+                    wanted.push(order);
+                    params.append('o' + index + '.orderNo', order.orderNo || '');
+                    params.append('o' + index + '.shop', order.shop || '');
+                    params.append('o' + index + '.freight', order.freight || '0');
+                    params.append('o' + index + '.lines', order.lines || '');
+                });
+                var skipped = orders.length - wanted.length;
+                if (!wanted.length) {
+                    if (batchHint) {
+                        batchHint.className = 'error';
+                        batchHint.textContent = '这几张单都是退款/关闭的，按规矩不入库。';
+                    }
+                    return;
+                }
+                params.append('count', String(wanted.length));
+                importButton.className = (importButton.className + ' busy').replace(/^\s+/, '');
+                if (batchHint) {
+                    batchHint.className = 'hint';
+                    batchHint.textContent = '正在导入 ' + wanted.length + ' 张单…';
+                }
+                fetch('/mfg/control/receiptFromOrdersJson', {
+                    method: 'POST',
+                    body: params,
+                    credentials: 'same-origin',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' }
+                })
+                    .then(function (answer) { return answer.json(); })
+                    .then(function (data) {
+                        var byOrder = {};
+                        (data.results || []).forEach(function (result) {
+                            byOrder[result.orderNo] = result;
+                        });
+                        var done = 0;
+                        var already = 0;
+                        Array.prototype.forEach.call(orderRows.querySelectorAll('tr'), function (row) {
+                            var key = row.getAttribute('data-scan-order');
+                            var result = byOrder[key];
+                            var status = row.lastChild;
+                            if (!result) { return; }
+                            if (result.ok && result.new > 0) { done++; }
+                            if (result.ok && !(result.new > 0)) { already++; }
+                            status.className = result.ok ? 'ok' : 'error';
+                            status.textContent = result.message || (result.ok ? '已入库' : '未入库');
+                        });
+                        if (batchHint) {
+                            batchHint.className = (done + already) === wanted.length ? 'ok' : 'error';
+                            batchHint.textContent = '导入完成：' + done + ' 张入库'
+                                + (already > 0 ? '，' + already + ' 张之前已入过（这次没新增）' : '')
+                                + (skipped > 0 ? '，' + skipped + ' 张退款单按规矩没入' : '')
+                                + ((done + already) < wanted.length ? '，其余见每行的原因' : '') + '。';
+                        }
+                        importButton.className = importButton.className.replace(/\s*\bbusy\b/g, '');
+                        // the new receipts must show up in the list above
+                        fetch(location.href, { credentials: 'same-origin' })
+                            .then(function (answer) { return answer.text(); })
+                            .then(function (html) {
+                                var fresh = new DOMParser().parseFromString(html, 'text/html')
+                                    .getElementById('receiptListBlock');
+                                var current = document.getElementById('receiptListBlock');
+                                if (fresh && current) { current.innerHTML = fresh.innerHTML; }
+                            });
+                    })
+                    .catch(function () {
+                        importButton.className = importButton.className.replace(/\s*\bbusy\b/g, '');
+                        if (batchHint) {
+                            batchHint.className = 'error';
+                            batchHint.textContent = '导入请求失败了，刷新页面看看已经进去了几张。';
+                        }
+                    });
+            });
+        }
         function fill(id, value) {
             if (!value) { return; }
             var field = document.getElementById(id);

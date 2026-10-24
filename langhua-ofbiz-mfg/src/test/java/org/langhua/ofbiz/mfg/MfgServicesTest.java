@@ -639,8 +639,79 @@ public class MfgServicesTest {
     }
 
     @Test
-    public void keepsARefundedOrderOutOfTheStock() {
-        // "退款成功" on the screenshot: the parts never stayed in the shop
+    public void readsALongAnswerWithoutBlowingTheStack() {
+        // a thinking model can answer with thousands of characters; a pattern based reader
+        // overflowed the stack on this and the page showed an empty answer
+        StringBuilder longLines = new StringBuilder("A1,part");
+        for (int i = 0; i < 4000; i++) {
+            longLines.append(",x\\t").append(i);
+        }
+        String answer = "{\"choices\":[{\"message\":{\"content\":\"{\\\"lines\\\":\\\"" + longLines
+                + "\\\",\\\"orderNo\\\":\\\"123\\\"}\"}}]}";
+        List<Map<String, String>> orders = MfgServices.orderListFrom(answer);
+        assertEquals(1, orders.size());
+        assertEquals("123", orders.get(0).get("orderNo"));
+        assertTrue(orders.get(0).get("lines").startsWith("A1,part,x\t0,x\t1"));
+        assertEquals(4000 + 1, orders.get(0).get("lines").split("\t").length);
+
+        // a value that is not a string is skipped, the next occurrence of the key is read
+        assertEquals("B", MfgServices.jsonStringField("{\"shop\":{\"a\":1},\"name\":\"B\"}", "name"));
+        assertNull(MfgServices.jsonStringField("{\"lines\": 5}", "lines"));
+        assertNull(MfgServices.jsonStringField("{\"lines\":\"open", "lines"));
+        assertEquals("v", MfgServices.jsonStringField("  \"k\" : \"v\" }", "k"));
+    }
+
+    @Test
+    public void readsSeveralOrdersOfOneScreenshot() {
+        // the order list of the shop: three orders with their own numbers, shops and money
+        String answer = "{\"orders\":["
+                + "{\"orderNo\":\"3316822177083054564\",\"shop\":\"佳仕通数码专营店\","
+                + "\"orderDate\":\"2026-08-30\",\"paidTotal\":\"39.50\",\"freight\":\"1.50\","
+                + "\"refunded\":\"N\",\"lines\":\"MB-102,400孔面包板线 830,2,38.00\"},"
+                + "{\"orderNo\":\"3316819945036045382\",\"shop\":\"Muse Lab\","
+                + "\"orderDate\":\"2026-08-29\",\"paidTotal\":\"52.60\",\"freight\":\"3.00\","
+                + "\"refunded\":\"N\",\"lines\":\"NanoDLA,NanoDLA 逻辑分析仪,1,49.60\"},"
+                + "{\"orderNo\":\"3316999260043018554\",\"shop\":\"telesky旗舰店\","
+                + "\"orderDate\":\"2026-08-29\",\"paidTotal\":\"3.87\",\"freight\":\"0.00\","
+                + "\"refunded\":\"Y\",\"lines\":\"SOP16,SSOP16 贴片转直插,2,3.87\"}"
+                + "]}";
+        List<Map<String, String>> orders = MfgServices.orderListFrom(answer);
+        assertEquals(3, orders.size());
+        assertEquals("3316822177083054564", orders.get(0).get("orderNo"));
+        assertEquals("1.50", orders.get(0).get("freight"));
+        assertEquals("MB-102,400孔面包板线 830,2,38.00", orders.get(0).get("lines"));
+        assertEquals("NanoDLA,NanoDLA 逻辑分析仪,1,49.60", orders.get(1).get("lines"));
+        assertEquals("3316999260043018554", orders.get(2).get("orderNo"));
+        assertTrue(MfgServices.isRefunded(orders.get(2)));
+        assertFalse(MfgServices.isRefunded(orders.get(0)));
+
+        // a single order still comes out as one row, whatever shape the model used
+        assertEquals(1, MfgServices.orderListFrom(
+                "{\"orders\":[{\"orderNo\":\"1\",\"lines\":\"A,part,1,1.00\"}]}").size());
+        assertEquals(1, MfgServices.orderListFrom(
+                "{\"orderNo\":\"42\",\"lines\":\"A,part,1,1.00\"}").size());
+
+        // a chat envelope with the array escaped inside the message
+        String enveloped = "{\"choices\":[{\"message\":{\"content\":"
+                + "\"{\\\"orders\\\":[{\\\"orderNo\\\":\\\"7\\\",\\\"lines\\\":\\\"A,part,2,2.00\\\"},"
+                + "{\\\"orderNo\\\":\\\"8\\\",\\\"lines\\\":\\\"B,part,3,3.00\\\"}]}\"}}]}";
+        List<Map<String, String>> fromEnvelope = MfgServices.orderListFrom(enveloped);
+        assertEquals(2, fromEnvelope.size());
+        assertEquals("7", fromEnvelope.get(0).get("orderNo"));
+        assertEquals("B,part,3,3.00", fromEnvelope.get(1).get("lines"));
+
+        // braces inside a product name must not cut the object in half
+        List<Map<String, String>> braces = MfgServices.orderListFrom(
+                "{\"orders\":[{\"orderNo\":\"9\",\"lines\":\"X,板 {带孔} 2个,1,5.00\"}]}");
+        assertEquals(1, braces.size());
+        assertEquals("X,板 {带孔} 2个,1,5.00", braces.get(0).get("lines"));
+
+        assertTrue(MfgServices.orderListFrom(null).isEmpty());
+        assertTrue(MfgServices.orderListFrom("{\"orderNo\":\"42\"}").isEmpty());
+    }
+
+    @Test
+    public void keepsARefundedOrderOutOfTheStock() {        // "退款成功" on the screenshot: the parts never stayed in the shop
         Map<String, String> refunded = MfgServices.orderFieldsFrom(
                 "{\"orderNo\":\"3316900549003018554\",\"refunded\":\"Y\","
                 + "\"lines\":\"CH32V002J4M6,CH32V002J4M6 SOP8,10,6.44\"}");

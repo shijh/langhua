@@ -21,6 +21,7 @@ import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -65,22 +66,27 @@ public final class MfgOrderScan {
             "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
 
     /** What the model is asked for: one JSON object, nothing else. */
-    static final String PROMPT = "This is a screenshot of an online shop order (Taobao / Tmall)."
-            + " Read the order number, the shop name, the order date the page shows (yyyy-MM-dd), the"
-            + " money really paid for the whole order (paidTotal), the freight (shipping fee) and the"
-            + " article lines. Copy the numbers, do not invent them: \"含运费: ￥2.00\" means the"
-            + " freight is 2.00, a freight of 0 is only right when the page says 免运费 or 包邮."
+    static final String PROMPT = "This is a screenshot of an online shop order (Taobao / Tmall). It may"
+            + " show ONE order (the order detail page) or a LIST of several orders (the order list of"
+            + " the shop), each with its own order number, shop, amounts and articles."
+            + " Read, for every order: the order number, the shop name, the order date the page shows"
+            + " (yyyy-MM-dd), the money really paid for that order (paidTotal), the freight (shipping"
+            + " fee) and the article lines of THAT order. Copy the numbers, do not invent them:"
+            + " \"含运费: ￥2.00\" means the freight is 2.00, a freight of 0 is only right when the"
+            + " page says 免运费 or 包邮; when a row of a list only shows 合计, that is the paid total"
+            + " of that order."
             + " When the page shows 退款成功 / 已退款 / 退款中 / 交易关闭 / 已取消 (refunded or"
             + " closed), put Y in refunded, otherwise N: such an order did not stay in the shop and"
             + " must not be booked into stock."
             + " Answer with one JSON object only, no prose:"
-            + " {\"orderNo\":\"\",\"shop\":\"\",\"orderDate\":\"\",\"paidTotal\":\"\","
-            + "\"freight\":\"\",\"refunded\":\"\",\"lines\":\"code,name,quantity,amount\"} where lines"
-            + " has one row per article, quantity is the number of pieces (a lot of 100 pieces is"
-            + " 100, not 1) and amount is the goods money of that row without freight: when 实付款"
-            + " is 3.50 and 含运费 is 2.00, the row amount is 3.50 minus 2.00. When the order prints"
-            + " no article code, put the model number of the article (for example"
-            + " 5.5V1.5F C型 21*7.5) in the code column; never leave it empty.";
+            + " {\"orders\":[{\"orderNo\":\"\",\"shop\":\"\",\"orderDate\":\"\",\"paidTotal\":\"\","
+            + "\"freight\":\"\",\"refunded\":\"\",\"lines\":\"code,name,quantity,amount\"}]}"
+            + " with one element per order, in the order the page shows them; lines has one row per"
+            + " article of that order (x2 in a list means quantity 2, a lot of 100 pieces is 100) and"
+            + " amount is the goods money of that row without freight: when 实付款 is 3.50 and 含运费"
+            + " is 2.00, the row amount is 3.50 minus 2.00. When an order prints no article code, put"
+            + " the model number of the article (for example 5.5V1.5F C型 21*7.5) in the code column;"
+            + " never leave it empty.";
 
     private MfgOrderScan() {
     }
@@ -96,16 +102,16 @@ public final class MfgOrderScan {
         Map<String, Object> parameters = parametersOf(request);
         byte[] image = bytesOf(parameters.get("image"));
         if (image == null || image.length == 0) {
-            return answer(response, false, "没有收到图片，先选一张订单截图", null);
+            return answer(response, false, "没有收到图片，先选一张订单截图", null, null);
         }
         if (image.length > MAX_IMAGE_BYTES) {
-            return answer(response, false, "图片太大（超过 8 MB），截小一点再试", null);
+            return answer(response, false, "图片太大（超过 8 MB），截小一点再试", null, null);
         }
         String endpoint = text(MfgServices.setting(delegatorOf(request), VISION_ENDPOINT));
         String model = text(MfgServices.setting(delegatorOf(request), VISION_MODEL));
         String key = text(MfgServices.setting(delegatorOf(request), VISION_KEY));
         if (endpoint == null || model == null || key == null) {
-            return answer(response, false, missingSetting(), null);
+            return answer(response, false, missingSetting(), null, null);
         }
         endpoint = MfgServices.normalizeVisionEndpoint(endpoint);
         String contentType = text(parameters.get("_image_contentType"));
@@ -114,30 +120,53 @@ public final class MfgOrderScan {
         }
         try {
             String reply = askVision(endpoint, model, key, image, contentType);
-            Map<String, String> fields = MfgServices.orderFieldsFrom(reply);
-            if (fields == null) {
+            List<Map<String, String>> orders = MfgServices.orderListFrom(reply);
+            if (orders.isEmpty()) {
                 // quoting the answer tells apart "not an order" from "the model cannot see images"
                 Debug.logInfo("The vision answer carried no lines: " + reply, MODULE);
                 return answer(response, false, "识图服务返回的内容里没有订单明细。模型的原话："
                         + MfgServices.visionReplyExcerpt(reply, 160)
-                        + "。换一张订单/商品明细的截图再试，也可以手工填", null);
+                        + "。换一张订单/商品明细的截图再试，也可以手工填", null, null);
             }
-            // a package description as the part number does not fit the code field: short it here
-            // so the form already shows the code that will be stored
-            fields.put("lines", MfgServices.fitOrderLines(fields.get("lines")));
-            if (isRefunded(fields)) {
-                // the parts never stayed in the shop; the page keeps the form but blocks the submit
-                // and the order number goes on the list, so a later hand typed import is refused too
-                recordRefund(delegatorOf(request), fields);
-                return answer(response, true, "已识别。这张单显示已退款/已关闭，按规矩不入库，"
-                        + "已经记进「退款 / 关闭的单」；货确实到了就去那儿撤掉标记", fields);
+            int refundedCount = 0;
+            for (Map<String, String> order : orders) {
+                // a package description as the part number does not fit the code field: short it here
+                // so the page already shows the code that will be stored
+                order.put("lines", MfgServices.fitOrderLines(order.get("lines")));
+                if (isRefunded(order)) {
+                    // the parts never stayed in the shop: the number goes on the list, so even a hand
+                    // typed import of it is refused later
+                    recordRefund(delegatorOf(request), order);
+                    order.put("note", "已退款/关闭，不入库");
+                    refundedCount++;
+                } else {
+                    // freight is what the page says, but goods plus freight must come to what was paid
+                    String totals = MfgServices.checkOrderTotals(order);
+                    if (totals != null) {
+                        order.put("note", totals);
+                    }
+                }
             }
-            // freight is what the page says, but goods plus freight must come to what was paid
-            String totals = MfgServices.checkOrderTotals(fields);
-            return answer(response, true, totals == null ? "已识别，核对后再提交" : "已识别。" + totals, fields);
+            if (orders.size() == 1) {
+                Map<String, String> one = orders.get(0);
+                String message;
+                if (isRefunded(one)) {
+                    message = "已识别。这张单显示已退款/已关闭，按规矩不入库，已经记进"
+                            + "「退款 / 关闭的单」；货确实到了就去那儿撤掉标记";
+                } else {
+                    message = one.get("note") == null ? "已识别，核对后再提交" : "已识别。" + one.get("note");
+                }
+                return answer(response, true, message, one, null);
+            }
+            String message = "识别到 " + orders.size() + " 张单";
+            if (refundedCount > 0) {
+                message += "（其中 " + refundedCount + " 张已退款，不会入库）";
+            }
+            message += "，核对后点“导入这些单”";
+            return answer(response, true, message, null, orders);
         } catch (IOException e) {
             Debug.logError(e, "Could not ask the vision service", MODULE);
-            return answer(response, false, "识图服务调用失败：" + e.getMessage(), null);
+            return answer(response, false, "识图服务调用失败：" + e.getMessage(), null, null);
         }
     }
 
@@ -154,7 +183,7 @@ public final class MfgOrderScan {
         String model = text(MfgServices.setting(delegatorOf(request), VISION_MODEL));
         String key = text(MfgServices.setting(delegatorOf(request), VISION_KEY));
         if (endpoint == null || model == null || key == null) {
-            return answer(response, false, missingSetting(), null);
+            return answer(response, false, missingSetting(), null, null);
         }
         try {
             String reply = askVision(MfgServices.normalizeVisionEndpoint(endpoint), model, key,
@@ -166,10 +195,10 @@ public final class MfgOrderScan {
             if (content.length() > 200) {
                 content = content.substring(0, 200) + "…";
             }
-            return answer(response, true, "连接成功，模型回答：" + content, null);
+            return answer(response, true, "连接成功，模型回答：" + content, null, null);
         } catch (IOException e) {
             Debug.logError(e, "Could not test the vision service", MODULE);
-            return answer(response, false, "识图服务调用失败：" + e.getMessage(), null);
+            return answer(response, false, "识图服务调用失败：" + e.getMessage(), null, null);
         }
     }
 
@@ -239,16 +268,18 @@ public final class MfgOrderScan {
     }
 
     /**
-     * Writes the answer of the scan: {@code ok}, a message and, when it worked, the form fields.
+     * Writes the answer of the scan: {@code ok}, a message and, when it worked, the form fields of
+     * one order or the list of recognised orders.
      *
      * @param response the response
      * @param ok whether the scan worked
      * @param message what to tell the person
-     * @param fields the form fields, may be {@code null}
+     * @param fields the form fields of one order, may be {@code null}
+     * @param orders the recognised orders when the screenshot showed a list, may be {@code null}
      * @return {@code success}, {@code error} when the answer could not be written
      */
     private static String answer(HttpServletResponse response, boolean ok, String message,
-            Map<String, String> fields) {
+            Map<String, String> fields, List<Map<String, String>> orders) {
         StringBuilder json = new StringBuilder();
         json.append("{\"ok\":").append(ok).append(",\"message\":")
                 .append(MfgBomEvents.jsonString(message));
@@ -257,6 +288,28 @@ public final class MfgOrderScan {
                 json.append(',').append(MfgBomEvents.jsonString(entry.getKey())).append(':')
                         .append(MfgBomEvents.jsonString(entry.getValue()));
             }
+        }
+        if (orders != null) {
+            json.append(",\"count\":").append(orders.size()).append(",\"orders\":[");
+            boolean first = true;
+            for (Map<String, String> order : orders) {
+                if (!first) {
+                    json.append(',');
+                }
+                first = false;
+                json.append('{');
+                boolean firstField = true;
+                for (Map.Entry<String, String> entry : order.entrySet()) {
+                    if (!firstField) {
+                        json.append(',');
+                    }
+                    firstField = false;
+                    json.append(MfgBomEvents.jsonString(entry.getKey())).append(':')
+                            .append(MfgBomEvents.jsonString(entry.getValue()));
+                }
+                json.append('}');
+            }
+            json.append(']');
         }
         json.append('}');
         try {

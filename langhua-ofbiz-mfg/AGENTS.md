@@ -17,7 +17,8 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
 | `stop-ofbiz.bat` | 只停**开发**实例（按命令行里的 `apache-ofbiz-24.09.07` 匹配）；生产有 `stop-prod.bat` |
 | `deploy-prod.bat` | **生产实例（8453）**：停生产 → robocopy 两个插件到 `ofbiz-prod\plugins` → `gradle jar` → 启动（日志 `prod-deploy.txt`） |
 | `start-prod.bat` / `stop-prod.bat` | 只启/停生产实例（按命令行里的 `ofbiz-prod` 匹配进程） |
-| `mfg-tests.bat` | 单元测试（JUnit 4，离线，依赖 `F:\build-ofbiz\lib` 的 jar） |
+| `mfg-tests.bat` | 单元测试（JUnit 4，离线，依赖 `F:\build-ofbiz\lib` 的 jar）；**只编 `MfgServices.java`** |
+| `mfg-tests-all.bat` | 同上，但先编**全部源码**（别的类改坏会当场报） |
 | `mfg-it.bat` | 集成测试 `integration-test/MfgServiceIT.java`，走 `/webtools/control/scheduleServiceSync` + `_RUN_SYNC_=Y`（日志 `mfg-it.txt`） |
 | `deploy-test.bat` | **测试实例（http 8095）**：停 → robocopy 两个插件 → 把部署副本的 `https="true"` 改成 `false` → `gradle jar` → 启动（日志 `test-deploy.txt`） |
 | `start-test.bat` / `stop-test.bat` | 只启/停**测试**实例（按命令行里的 `ofbiz-test` 匹配，admin 端口 10723） |
@@ -92,7 +93,7 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
 
 | 脚本 | 覆盖 | 断言数 |
 | --- | --- | --- |
-| `MfgServicesTest` | 解析/规则/格式化（CSV、SN、FIFO、窗口、编号、附件类型、来料检验规则、成本取整与毛利、CSV 单元格转义、软件报价公式与耗时率中位数、趋势期间标签与良率/单台工时、库存流水符号与不合格批次可用量、预留对可发量的影响、成品批次命名与单位成本分摊、订单行欠货与待排产量、订单行文本解析、库位类型、外协费计价与单台分摊、问题清单排序与校验、账号名规范与姓名拼接、BOM 格式识别与 Fritzing 解析…） | 102 |
+| `MfgServicesTest` | 解析/规则/格式化（CSV、SN、FIFO、窗口、编号、附件类型、来料检验规则、成本取整与毛利、CSV 单元格转义、软件报价公式与耗时率中位数、趋势期间标签与良率/单台工时、库存流水符号与不合格批次可用量、预留对可发量的影响、成品批次命名与单位成本分摊、订单行欠货与待排产量、订单行文本解析、库位类型、外协费计价与单台分摊、问题清单排序与校验、账号名规范与姓名拼接、BOM 格式识别与 Fritzing 解析、识图回答拆多张单与长回答不爆栈…） | 108 |
 | `MfgServiceIT` | 全链路服务调用（含 BOM 版本、Fritzing BOM 导入、三条开发线、ECO、附件、来料检验、成本、告警、软件报价与台账、成本细化与外协费明细、步骤问题清单、良率/工时趋势、库存流水与盘点、工单预留/发料释放、完工入库与出货扣减、销售订单两级预留与核销、库位与移库、用户账号） | 398 |
 | `verify-m11.ps1` | 列表页搜索/过滤/翻页/编码 | 55 |
 | `verify-m12.ps1` | 装饰器布局（1 个 html、1 条导航、1 个高亮、样式表、无内联 style、无 FTL 报错） | 102 |
@@ -260,6 +261,28 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   （单引号字面量里不插值，所以不能直接塞 `${…}`），并**必须给默认值加括号** `((x)!'')?url`，
   否则 `!` 的优先级低于 `+`，整句会解析成 `(a + b)!c`；
   `mfgPurchaseReceiptList` 补了 `pageSize` IN，否则换每页条数被静默丢弃
+- **一张截图里好几张单（Step 86）**：识图的 prompt 现在要求**永远**回答
+  `{\"orders\":[{orderNo,shop,orderDate,paidTotal,freight,refunded,lines}]}`（列表页 `x2` 是数量、`合计` 是实付）；
+  `MfgServices.orderListFrom(reply)` 拆成 `List<Map>`（`orderAnswerText` 先看 chat envelope 的 `content` /
+  `reasoning_content`，`objectTexts` + `matchingBrace` 手写扫花括号，字符串里的 `{}` 不计数），
+  `orderFieldsFrom` 就是「取第一条」，老形状照旧能用。1 张单走原来的填表流程；>1 张返回
+  `count` + `orders[]`（带每条 `note`），页面渲染 `#scanOrders` 核对表（`data-scan-order`），
+  点「导入这些单」POST `/mfg/control/receiptFromOrdersJson`（`MfgReceiptEvents.ordersJson`，
+  参数 `count` + `o<i>.orderNo/shop/freight/lines/refunded`），服务里**每张单一次 `runSync(..., -1, true)`**，
+  一张失败不影响别的；结果里 `new` = `importedCount + updatedCount`，所以**重复导同一张截图**时
+  `imported=0`、页面显示“之前已入过（这次没新增）”，不会重复建批次。退款单在 `scan` 里就登记进
+  `MfgRefundedOrder`，页面上过滤掉不发（服务端还有 `refunded=Y` 与黑名单两道）
+- **`jsonStringField` 不能用正则（Step 86 踩坑）**：原来是
+  `"name"\s*:\s*"((?:[^"\\]|\\.)*)"`，遇到 thinking 模型那种几千字符的 `content` 会
+  **`StackOverflowError` in `Pattern$Loop.match`**（`OrderImage` 请求 23 秒后 200 + **空 body**，
+  页面上就是“识别请求失败 / 识别不到”，日志里才有 `Request orderImage caused an error ...
+  java.lang.StackOverflowError`）。现在是手写扫描（`indexOf` 找键 → 跳过空白 → `:` → 引号 →
+  `closingQuote` 按转义找收尾引号），O(n)、无递归；单测 `readsALongAnswerWithoutBlowingTheStack` 覆盖 4000 段转义
+- **`mfg-tests-all.bat`**：`mfg-tests.bat` 只编 `MfgServices.java`，所以别的类改坏（少 `import`、private 可见性）
+  要等 `deploy-mfg.bat` 里的 `gradle jar` 才炸，已经两次因此部署失败；新脚本用 `@sources.txt` 编**全部源码**再跑测试。
+  **javac 的 @argfile 把 `\` 当转义**，所以文件清单要用正斜杠（PowerShell 里 `-replace '\\','/'`）
+- **PowerShell 变量名不区分大小写**：画 mock 订单图的脚本里 `$SHOP`/`$shop`、`$PAID`/`$paid` 是同一个变量，
+  于是 `$SHOP + '：' + $shop` 画出来是“ShopA Digital： ShopA Digital”；全局标签用 `$L_SHOP` 这种前缀
 - **退款/关闭的单列表（Step 85）**：新实体 `MfgRefundedOrder`（`orderNo` 主键 / `shop` / `note` / `recordedDate`），
   服务 `mfgRefundedOrderSave` / `Delete` / `List`；页面在「从淘宝订单建单并入库」下面一块（`#refundedBlock`，
   行上 `data-refunded-order`），可以手工登记、也能一键撤掉。识图说退款时 `MfgOrderScan` **自动登记**；

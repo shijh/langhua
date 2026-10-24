@@ -465,6 +465,14 @@
         <response name="error" type="none"/>
     </request-map>
 
+    <!-- books several orders of one screenshot in at once (Step 86) -->
+    <request-map uri="receiptFromOrdersJson">
+        <security https="true" auth="true"/>
+        <event type="java" path="org.langhua.ofbiz.mfg.MfgReceiptEvents" invoke="ordersJson"/>
+        <response name="success" type="none"/>
+        <response name="error" type="none"/>
+    </request-map>
+
     <request-map uri="visionTest">
         <security https="true" auth="true"/>
         <event type="java" path="org.langhua.ofbiz.mfg.MfgOrderScan" invoke="test"/>
