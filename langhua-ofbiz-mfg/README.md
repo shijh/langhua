@@ -1094,10 +1094,14 @@ CAP-104-50V,瓷片电容器 104 0.1uF 100NF 50V,100,2.91
    - 返回「返回的内容里没有订单明细」→ 后半句是**模型的原话**：它可能说这不是订单页（比如截的是别的页面），
      也可能说看不见图（纯文本模型）；换一张订单/商品明细的截图再试，或者手工填。
 
-地址与模型要配对，现成能用的几组：阿里云百炼 `https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions` +
-`qwen-vl-max`；智谱 `https://open.bigmodel.cn/api/paas/v4/chat/completions` + `glm-4v-plus`；
-DeepSeek `https://api.deepseek.com/v1/chat/completions` + **`deepseek-flash`**（官方文档里 Vision 一栏打勾，
-**`deepseek-v4-pro` 不看图**，填它就会回空明细）；OpenAI `https://api.openai.com/v1/chat/completions` + `gpt-4o-mini`；
+地址与模型要配对。**本系统只实测过 DeepSeek 一家**：DeepSeek `https://api.deepseek.com/v1/chat/completions` +
+**`deepseek-flash`**（官方文档里 Vision 一栏打勾，**`deepseek-v4-pro` 不看图**，填它就会回空明细）——
+先按这两项配，保存后点一次「测试连接」，能回一句话就说明通了。
+
+其它几家照各自文档也能填，但**没有实测过**（地址、模型名都可能变），第一次填完请先点「测试连接」再拿去识别订单：
+阿里云百炼 `https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions` + `qwen-vl-max`；
+智谱 `https://open.bigmodel.cn/api/paas/v4/chat/completions` + `glm-4v-plus`；
+OpenAI `https://api.openai.com/v1/chat/completions` + `gpt-4o-mini`；
 本地 ollama `http://127.0.0.1:11434/v1/chat/completions` + `qwen2-vl`（密钥随便填）。**模型名要先确认它能看图**。
 
 ## 看板告警与 CSV 导出

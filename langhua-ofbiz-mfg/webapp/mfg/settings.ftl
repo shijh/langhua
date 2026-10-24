@@ -38,7 +38,9 @@
             </p>
             <p>
                 模型名 <input type="text" name="visionModel" size="30" value="${(st.visionModel)!''}" placeholder="能看图的模型名"/>
-                <span class="hint">必须是<strong>能看图</strong>的模型（例如 qwen-vl-max、glm-4v-plus、gpt-4o-mini）；纯文本模型会把图片当没看见</span>
+                <span class="hint">必须是<strong>能看图</strong>的模型；本系统实测过 <code>deepseek-flash</code>，
+                    <code>qwen-vl-max</code> / <code>glm-4v-plus</code> / <code>gpt-4o-mini</code> 只是参考，
+                    纯文本模型会把图片当没看见</span>
             </p>
             <p>
                 密钥 <input type="password" name="visionKey" size="40" value=""
@@ -57,13 +59,20 @@
         </form>
     </fieldset>
     <p class="hint">没配置也能用：「从淘宝订单建单并入库」里把明细粘进去就行，识别只是省一次打字。</p>
-    <p class="hint">地址与模型要配对，几个现成可用的：<br/>
-        阿里云百炼 <code>https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions</code> + <code>qwen-vl-max</code>；<br/>
-        智谱 <code>https://open.bigmodel.cn/api/paas/v4/chat/completions</code> + <code>glm-4v-plus</code>；<br/>
-        DeepSeek <code>https://api.deepseek.com/v1/chat/completions</code> + <code>deepseek-flash</code>（能看图；<code>deepseek-v4-pro</code> 不看图）；<br/>
-        OpenAI <code>https://api.openai.com/v1/chat/completions</code> + <code>gpt-4o-mini</code>；<br/>
+    <p class="hint">
+        <strong>本系统只实测过 DeepSeek 一家</strong>：地址 <code>https://api.deepseek.com/v1/chat/completions</code>
+        + 模型 <code>deepseek-flash</code>（能看图；同门的 <code>deepseek-v4-pro</code> 不看图，填它会回空明细）。
+        先按这两项配，保存后点一次「测试连接」，能回一句话就说明地址 / 模型 / 密钥都对。
+    </p>
+    <p class="hint">
+        其它几家照各自文档也能填，但我们<strong>没有实测过</strong>（地址、模型名都可能变），
+        第一次填完请先点「测试连接」再拿去识别订单：
+        阿里云百炼 <code>https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions</code> + <code>qwen-vl-max</code>；
+        智谱 <code>https://open.bigmodel.cn/api/paas/v4/chat/completions</code> + <code>glm-4v-plus</code>；
+        OpenAI <code>https://api.openai.com/v1/chat/completions</code> + <code>gpt-4o-mini</code>；
         本地 ollama <code>http://127.0.0.1:11434/v1/chat/completions</code> + <code>qwen2-vl</code>（密钥随便填）。<br/>
-        <strong>模型名要先确认它能看图</strong>，纯文本的模型会返回空明细。</p>
+        <strong>模型名要先确认它能看图</strong>，纯文本的模型会返回空明细。
+    </p>
     <script>
     /* a wrong address, key or model should be found here, not in the middle of an order */
     (function () {

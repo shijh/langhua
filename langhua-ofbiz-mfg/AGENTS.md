@@ -158,7 +158,9 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   否则「这不是订单」「模型看不见图」在页面上长得一模一样
 - **别拿本系统页面的截图当订单截图**：用户两次都把带报错的自家页面截下来发进来，模型只能回空
   **`deepseek-flash` 是支持看图的**（官方文档 Vision ✓），`deepseek-v4-pro` 不支持——别把"DeepSeek 没有视觉模型"写进文档；
-  设置页的例子列表与 m48 的断言按 `deepseek-flash` / `deepseek-v4-pro` 写
+  设置页的例子列表与 m48 的断言按 `deepseek-flash` / `deepseek-v4-pro` 写；
+  **只实测过 DeepSeek**，所以页面与 README 都写明「其它几家（qwen-vl-max / glm-4v-plus / gpt-4o-mini / ollama）没实测，
+  第一次填完先点「测试连接」」，别再写成“现成可用的”（Step 87）
 - **单价只能存 2 位小数，所以按“实付金额”记（Step 60）**：`currency-amount` 在 Derby 上是 `NUMERIC(18,2)`，
   淘宝一百个电容实付 2.91 的单价是 0.0291，存进去变 0.03（一百个多算 9 分）。所以 `MfgMaterialLot.receivedAmount`
   存实付总额（2 位、精确），单价由 `lotUnitCost()` = 金额 ÷ 数量 算（无金额时回退 `unitPrice`），
