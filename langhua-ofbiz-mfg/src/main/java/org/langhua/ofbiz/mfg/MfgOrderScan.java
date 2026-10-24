@@ -169,7 +169,7 @@ public final class MfgOrderScan {
         }
         String shortfall = seen > orders.size()
                 ? "（截图上看上去有 " + seen + " 张单，这次只读出 " + orders.size()
-                        + " 张，可能漏了；核对一下，也可以再点一次「识别并填入」）"
+                        + " 张，可能漏了；核对一下，也可以再点一次「识别并核对」）"
                 : "";
         int refundedCount = 0;
         for (Map<String, String> order : orders) {
@@ -190,23 +190,24 @@ public final class MfgOrderScan {
                 }
             }
         }
-        if (orders.size() == 1) {
-            Map<String, String> one = orders.get(0);
-            String message;
-            if (isRefunded(one)) {
-                message = "已识别。这张单显示已退款/已关闭，按规矩不入库，已经记进"
-                        + "「退款 / 关闭的单」；货确实到了就去那儿撤掉标记";
-            } else {
-                message = one.get("note") == null ? "已识别，核对后再提交" : "已识别。" + one.get("note");
-            }
-            return answer(response, true, message + shortfall, one, null);
-        }
-        String message = "识别到 " + orders.size() + " 张单";
+        // one order is a list of one: the page always gets the array, so there is only one path to walk
+        // (a single order used to fill the form instead, which the shop found confusing)
+        String message = orders.size() == 1
+                ? "识别到 1 张单"
+                : "识别到 " + orders.size() + " 张单";
         if (refundedCount > 0) {
-            message += "（其中 " + refundedCount + " 张已退款，不会入库）";
+            if (refundedCount == orders.size()) {
+                message += orders.size() == 1
+                        ? "，这张单显示已退款/已关闭，按规矩不入库（订单号已经记进「退款 / 关闭的单」）"
+                        : "，都是退款/关闭的，按规矩不入库（订单号已经记进「退款 / 关闭的单」）";
+            } else {
+                message += "（其中 " + refundedCount + " 张已退款，不会入库）";
+            }
         }
-        message += "，核对后点“导入这些单”" + shortfall;
-        return answer(response, true, message, null, orders);
+        if (refundedCount < orders.size()) {
+            message += "，核对后点「" + (orders.size() == 1 ? "导入这张单" : "导入这些单") + "」";
+        }
+        return answer(response, true, message + shortfall, null, orders);
     }
 
     /**
@@ -220,15 +221,15 @@ public final class MfgOrderScan {
     static String scanFailure(String reply, String transportProblem) {
         if (transportProblem != null) {
             return "识图服务连不上（已自动重试 " + (ATTEMPTS - 1) + " 次）：" + transportProblem
-                    + "。过一会儿再点一次「识别并填入」，或者把明细粘进框里。";
+                    + "。过一会儿再点一次「识别并核对」，或者把明细粘进框里。";
         }
         if ("length".equals(MfgServices.jsonStringField(reply, "finish_reason"))) {
             // a thinking model that spends the whole output budget on reasoning answers with nothing
             return "模型这次想得太久、没把结果写完（输出长度到顶了），已经重试过。"
-                    + "把截图截小一点（只框住订单那几行）再点一次「识别并填入」，或者直接把明细粘进框里。";
+                    + "把截图截小一点（只框住订单那几行）再点一次「识别并核对」，或者直接把明细粘进框里。";
         }
         return "这次没从截图里读出订单（已自动重试 " + (ATTEMPTS - 1) + " 次）。"
-                + "再点一次「识别并填入」通常就好了；也可以把截图截小一点（只框住订单列表），或者手工填。"
+                + "再点一次「识别并核对」通常就好了；也可以把截图截小一点（只框住订单列表），或者手工填。"
                 + "模型的原话：" + MfgServices.visionReplyExcerpt(reply, 160);
     }
 

@@ -206,20 +206,6 @@
         orderForm.addEventListener('submit', function (event) {
             var orderNo = document.getElementById('orderNoField');
             var linesField = document.getElementById('linesField');
-            var refundField = document.getElementById('refundField');
-            /* a refunded or closed order never arrived: keep it out of stock unless the person
-               says the goods did arrive after all */
-            if (refundField && refundField.value === 'Y') {
-                event.preventDefault();
-                var refundBlock = document.getElementById('refundBlock');
-                if (refundBlock) {
-                    refundBlock.hidden = false;
-                    refundBlock.className = 'error';
-                }
-                var refundAccept = document.getElementById('refundAccept');
-                if (refundAccept) { refundAccept.focus(); }
-                return;
-            }
             if (!orderNo || !linesField || !orderNo.value.trim() || !linesField.value.trim()) {
                 return;
             }
@@ -273,18 +259,29 @@
     <p>
         截图识别
         <input type="file" id="orderImage" name="image" accept="image/png,image/jpeg"/>
-        <button type="button" id="scanOrder" data-once="Y">识别并填入</button>
+        <button type="button" id="scanOrder" data-once="Y">识别并核对</button>
         <span id="scanHint" class="hint">选文件后点按钮，或者直接 <kbd>Ctrl+V</kbd> 粘贴截图（也可以把图拖进来）；
-            没配识图服务就把明细粘到下面。</span>
+            识别结果先列在下面那张核对表里，确认后再点「导入这些单」。</span>
     </p>
+    <div id="scanOrders" hidden="hidden">
+        <p id="batchHint" class="hint"></p>
+        <table class="inner" id="scanOrderTable">
+            <tr>
+                <th>订单号</th><th>店铺</th><th>下单</th><th class="num">运费</th>
+                <th class="num">明细</th><th class="num">货款</th><th>状态</th>
+            </tr>
+            <tbody id="scanOrderRows"></tbody>
+        </table>
+        <p>
+            <button type="button" id="importOrders" data-once="Y">导入这些单</button>
+            <span class="hint">一张截图里有几张单就建几张到货单（只有一张也一样）；已退款的单不入库，
+                已经入过库的明细会跳过（不会重复）。</span>
+        </p>
+    </div>
+    <p class="hint">识别不了、或者手里没有截图时，下面手工填也一样：一行一个料，提交后才写库。</p>
     <form method="post" action="/mfg/control/receiptFromOrder" id="orderForm">
         <input type="hidden" name="overwrite" id="overwriteField" value="N"/>
         <input type="hidden" name="refunded" id="refundField" value="N"/>
-        <p id="refundBlock" hidden="hidden">
-            这张单显示<strong>已退款 / 已关闭</strong>（截图上的「退款成功」「退款中」「交易关闭」），
-            按规矩<strong>不入库</strong>——钱退回来了，料一般也没留下。这个订单号已经记到下面的
-            「退款 / 关闭的单」里，以后再提交也进不来；真是付了两次或换货，到那里把这条撤掉再提交。
-        </p>
         <p>
             订单号 <input type="text" id="orderNoField" name="supplierOrderNo" size="22" placeholder="淘宝订单号"/>
             店铺 <input type="text" id="shopField" name="supplierName" size="18" placeholder="天猫 risym旗舰店"/>
@@ -302,23 +299,8 @@
                 <strong>料号原样保存</strong>（最长 100 个字符，像 <code>QFN16-0.65-QFN20-0.4-2.54</code> 这种也放得下）。</span>
         </p>
     </form>
-    <div id="scanOrders" hidden="hidden">
-        <p id="batchHint" class="hint"></p>
-        <table class="inner" id="scanOrderTable">
-            <tr>
-                <th>订单号</th><th>店铺</th><th>下单</th><th class="num">运费</th>
-                <th class="num">明细</th><th class="num">货款</th><th>状态</th>
-            </tr>
-            <tbody id="scanOrderRows"></tbody>
-        </table>
-        <p>
-            <button type="button" id="importOrders" data-once="Y">导入这些单</button>
-            <span class="hint">一张截图里有几张单就建几张到货单；已退款的单不入库，
-                已经入过库的明细会跳过（不会重复）。</span>
-        </p>
-    </div>
     <script>
-    /* recognition is a help: it only fills the form, the person still checks and submits */
+    /* recognition is a help: it lists what it read, the person still checks and imports */
     (function () {
         var button = document.getElementById('scanOrder');
         var file = document.getElementById('orderImage');
@@ -326,18 +308,6 @@
         var block = document.getElementById('orderBlock');
         if (!button || !file || !hint || !window.fetch || !window.FormData) {
             return;
-        }
-        /* a refunded or closed order stays out of the stock: the banner under the form says so and
-           the order number has been put on the list below by the recognition service */
-        var refundField = document.getElementById('refundField');
-        var refundBlock = document.getElementById('refundBlock');
-        function showRefund(isRefunded) {
-            if (!refundField || !refundBlock) {
-                return;
-            }
-            refundField.value = isRefunded ? 'Y' : 'N';
-            refundBlock.hidden = !isRefunded;
-            refundBlock.className = isRefunded ? 'error' : '';
         }
         /* the screenshot may come from the picker, from Ctrl+V or from a drop; all three end up
            as the file of the input, which the button then sends as before */
@@ -355,7 +325,7 @@
                 // an older browser refuses a scripted FileList, the button uses `chosen` anyway
             }
             hint.className = 'ok';
-            hint.textContent = source + '：' + (fileLike.name || '截图') + '，点“识别并填入”';
+            hint.textContent = source + '：' + (fileLike.name || '截图') + '，点「识别并核对」';
             return true;
         }
         function pasted(event) {
@@ -425,31 +395,22 @@
                         button.textContent = '再试一次';
                         return;
                     }
-                    button.textContent = '识别并填入';
-                    fill('orderNoField', data.orderNo);
-                    fill('shopField', data.shop);
-                    if (data.freight) { fill('freightField', data.freight); }
-                    if (data.lines) { fill('linesField', data.lines); }
-                    showRefund(data.refunded === 'Y');
-                    if (data.orders && data.orders.length > 1) {
+                    button.textContent = '识别并核对';
+                    /* one order is just a list of one: the table is always what comes back, so there
+                       is only one way to go on (Step 90) */
+                    if (data.orders && data.orders.length) {
                         showOrders(data.orders);
                         hint.className = 'ok';
                         hint.textContent = data.message || ('识别到 ' + data.orders.length + ' 张单');
                         return;
                     }
-                    hideOrders();
-                    /* the date on a shop order is the day it was placed; the arrival day is a few
-                       days later and the person picks it, so the field is left alone */
-                    var text = data.message || '已识别，核对后点“建单并入库”';
-                    text += data.orderDate
-                        ? '。截图上的 ' + data.orderDate + ' 是下单日，到货日请自己选（一般下单后 3~4 天）'
-                        : '。到货日请自己选';
-                    hint.className = 'ok';
-                    hint.textContent = text;
+                    hint.className = 'error';
+                    hint.textContent = data.message || '没有读出订单，再点一次，或者手工填';
                 })
                 .catch(function () {
                     hint.className = 'error';
-                    hint.textContent = '识别请求失败，手工填也可以';
+                    hint.textContent = '识别请求失败，再点一次，或者手工填';
+                    button.textContent = '再试一次';
                 })
                 .then(release, release);
         });
@@ -491,7 +452,10 @@
                 row.setAttribute('data-scan-order', order.orderNo || '');
                 cell(row, order.orderNo || '（没读到单号）');
                 cell(row, order.shop || '');
-                cell(row, order.orderDate || '');
+                /* the date on a shop order is the day it was placed; the arrival day is a few days
+                   later and the person picks it, so it is only shown here */
+                var dateCell = cell(row, order.orderDate || '');
+                dateCell.setAttribute('data-scan-date', order.orderDate || '');
                 cell(row, order.freight || '0', 'num');
                 cell(row, linesOf(order).length + ' 行', 'num');
                 cell(row, amountsOf(order).toFixed(2), 'num');
@@ -500,20 +464,32 @@
                 orderRows.appendChild(row);
             });
             ordersBox.hidden = false;
+            var refundedAll = found.length > 0 && found.every(function (order) {
+                return order.refunded === 'Y';
+            });
+            if (importButton) {
+                /* nothing to import when every block is a refund: say so instead of letting the
+                   person press a button that only answers "not in the stock" */
+                importButton.hidden = refundedAll;
+                importButton.textContent = found.length > 1 ? '导入这些单' : '导入这张单';
+            }
             if (batchHint) {
                 var notes = found.filter(function (order) {
                     return order.note;
                 }).map(function (order) {
                     return (order.orderNo || '一张单') + '：' + order.note;
                 });
-                batchHint.className = 'hint';
-                batchHint.textContent = '这张截图里共 ' + found.length + ' 张单，核对后点「导入这些单」。'
+                batchHint.className = refundedAll ? 'error' : 'hint';
+                if (refundedAll) {
+                    batchHint.textContent = '这张截图里的单都已退款/关闭，按规矩不入库；'
+                        + '订单号已经记进下面的「退款 / 关闭的单」。货确实到了就去那儿撤掉标记再导。';
+                    return;
+                }
+                batchHint.textContent = (found.length > 1
+                        ? '这张截图里共 ' + found.length + ' 张单，核对后点「导入这些单」。'
+                        : '这张截图里就 1 张单，核对后点「导入这张单」。')
                     + (notes.length ? ' ' + notes.join('；') : '');
             }
-        }
-        function hideOrders() {
-            orders = [];
-            if (ordersBox) { ordersBox.hidden = true; }
         }
         if (importButton) {
             importButton.addEventListener('click', function () {
@@ -594,11 +570,7 @@
                     });
             });
         }
-        function fill(id, value) {
-            if (!value) { return; }
-            var field = document.getElementById(id);
-            if (field) { field.value = value; }
-        }
+        /* the table is the only result now, so there is no form filling to clean up */
     }());
     </script>
 </fieldset>
