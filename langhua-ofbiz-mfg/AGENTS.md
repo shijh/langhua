@@ -280,7 +280,10 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   参数 `count` + `o<i>.orderNo/shop/freight/lines/refunded`），服务里**每张单一次 `runSync(..., -1, true)`**，
   一张失败不影响别的；结果里 `new` = `importedCount + updatedCount`，所以**重复导同一张截图**时
   `imported=0`、页面显示“之前已入过（这次没新增）”，不会重复建批次。退款单在 `scan` 里就登记进
-  `MfgRefundedOrder`，页面上过滤掉不发（服务端还有 `refunded=Y` 与黑名单两道）
+  `MfgRefundedOrder`，页面上过滤掉不发（服务端还有 `refunded=Y` 与黑名单两道）。
+  **真实淘宝「我的订单」截图实测通过（2026-10-24，3 单含 1 单退款）**：订单号/店铺/日期/`x5` 数量/
+  `合计` 与 `实付款`、`含运费` 都读对，退款那单 `refunded=Y` 且金额按 实付 − 运费 算；
+  料号列优先取标题里的型号（`ATECC608B-SSHDA-T`），没有型号就用规格行/商品名
 - **`jsonStringField` 不能用正则（Step 86 踩坑）**：原来是
   `"name"\s*:\s*"((?:[^"\\]|\\.)*)"`，遇到 thinking 模型那种几千字符的 `content` 会
   **`StackOverflowError` in `Pattern$Loop.match`**（`OrderImage` 请求 23 秒后 200 + **空 body**，
