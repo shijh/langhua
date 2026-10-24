@@ -69,7 +69,7 @@ public final class MfgOrderScan {
     static final String NO_ORDERS = "NO_ORDERS";
 
     /** How often the screenshot is sent before the person is asked to try again. */
-    static final int ATTEMPTS = 2;
+    static final int ATTEMPTS = 3;
 
     /**
      * Room for the answer. A thinking model spends part of it on its reasoning, so a small budget
@@ -102,13 +102,19 @@ public final class MfgOrderScan {
             + " paidTotal smaller than the articles plus the freight, 0 when there is none."
             + " refunded is Y when the block shows 退款成功 / 已退款 / 退款中 / 交易关闭 / 已取消,"
             + " otherwise N."
-            + " In lines, quantity is the number after x (x2 means 2, a lot of 100 pieces is 100) and"
-            + " amount is that row's money: for a block with one article it is paidTotal minus freight,"
-            + " for a block with two or more articles it is the row price times quantity. One row per"
+            + " In lines, quantity is how many pieces were bought: Taobao sells resistors and"
+            + " capacitors by the pack, and the grey spec line under the title prints the pack size"
+            + " as 一件100只 / （50只） / 100只装 / 1件=100个. quantity = the number after x times that"
+            + " pack size, so x1 with 一件100只 is 100, x4 with (50只) is 200 and an article with no"
+            + " pack size is the number after x itself; amount is that row's money: for a block with one"
+            + " article it is paidTotal minus freight,"
+            + " for a block with two or more articles it is the printed row price times the number of"
+            + " packs after x (1.20 with x2 is 2.40), never the price of a single piece. One row per"
             + " article - a block that shows two products gets two rows, never one. Never use the"
             + " struck through price. When an article prints no code, put the model number from its"
             + " title (for example 5.5V1.5F C型 21*7.5) in code, or the article name when there is no"
-            + " model number; never leave it empty."
+            + " model number; never leave it empty. The pack size is never part of the code: the spec"
+            + " line 30K（一件100只）;1%精度;0603贴片电阻 gives the code 30K, not the whole line."
             + " Take the numbers printed on the page: do not weigh alternatives, do not describe the"
             + " picture.";
 
@@ -125,8 +131,11 @@ public final class MfgOrderScan {
             + " shop without 淘宝 / 天猫. paidTotal = 实付款 (or 合计). freight = the number after 含运费."
             + " discount = the red packet / coupon / 满减 taken off the order, 0 when none."
             + " refunded = Y when it says 退款成功 / 已退款 / 交易关闭. lines = one row per article:"
-            + " quantity after x, amount = the row's own money (paidTotal minus freight for a block with"
-            + " one article, price times quantity for a block with several). No explanation.";
+            + " every product block of the order is one row and their amounts add up to paidTotal minus"
+            + " freight; quantity = the number after x times the pack size printed in the grey spec line"
+            + " (一件100只 → x1 is 100, (50只) → x4 is 200); amount = the row's own money (paidTotal"
+            + " minus freight for a block with one article, printed row price times the packs after x for"
+            + " a block with several). No explanation.";
 
     private MfgOrderScan() {
     }
@@ -180,11 +189,13 @@ public final class MfgOrderScan {
             orders = MfgServices.orderListFrom(reply);
             seen = MfgServices.orderCountIn(reply);
             // fewer orders read than the model says it saw, an answer that is mostly the answer
-            // format, or an order whose goods plus freight is not the paid total (a lost article
-            // looks exactly like that): either way the read is poor and one more send is worth it
+            // format, an order whose goods plus freight is not the paid total (a lost article
+            // looks exactly like that), or a page that prints a pack size while every line came
+            // back as one piece: either way the read is poor and one more send is worth it
             boolean shortRead = seen > 0 && orders.size() < seen;
             if (!orders.isEmpty() && !shortRead && !MfgServices.echoesTemplate(reply)
-                    && !anyTotalsDisagree(orders)) {
+                    && !anyTotalsDisagree(orders)
+                    && !MfgServices.ignoredThePackSize(reply, MfgServices.linesOfOrders(orders))) {
                 break;
             }
             // the answer is kept: its wording tells apart "not an order" from "the model could

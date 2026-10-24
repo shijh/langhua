@@ -17,6 +17,7 @@ import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 import java.time.LocalDate;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -786,6 +787,37 @@ public class MfgServicesTest {
     }
 
     @Test
+    public void catchesAPictureWhosePacksWereCountedAsPieces() {
+        // Taobao prints the pack size in the grey spec line: x1 of 一件100只 is 100 pieces, and an
+        // answer that says 1 for every article read the number of packs, not the number of pieces
+        String packLine = "30K\t0603贴片电阻\t1\t1.20\n1M\t0603贴片电阻\t1\t1.20";
+        String reply = "{\"orders\":[{\"orderNo\":\"1\",\"lines\":\"30K(一件100只)\"}]}";
+        assertTrue(MfgServices.ignoredThePackSize(reply, Arrays.asList(packLine)));
+        // the same answer after the pack size was multiplied reads like a person would write it
+        String counted = "30K\t0603贴片电阻\t100\t1.20\n1M\t0603贴片电阻\t100\t1.20";
+        assertFalse(MfgServices.ignoredThePackSize(reply, Arrays.asList(counted)));
+        // one line with more than one piece is enough to accept the answer
+        String mixed = "30K\t0603贴片电阻\t1\t1.20\n排针\t2.54mm\t5\t9.84";
+        assertFalse(MfgServices.ignoredThePackSize(reply, Arrays.asList(mixed)));
+        // no pack size in the picture: buying one piece of each is a normal order
+        assertFalse(MfgServices.ignoredThePackSize(
+                "{\"orders\":[{\"orderNo\":\"1\",\"lines\":\"A,part,1,1.00\"}]}", Arrays.asList(packLine)));
+        assertFalse(MfgServices.ignoredThePackSize(null, Arrays.asList(packLine)));
+        assertFalse(MfgServices.ignoredThePackSize(reply, Arrays.asList("")));
+        // the other spellings of a pack size are recognised too
+        assertTrue(MfgServices.ignoredThePackSize(
+                "{\"lines\":\"1N5819W (50只)\"}", Arrays.asList(packLine)));
+        assertTrue(MfgServices.ignoredThePackSize(
+                "{\"lines\":\"电容（100只）\"}", Arrays.asList(packLine)));
+        // the lines of every order are looked at, not only the first
+        List<String> lines = MfgServices.linesOfOrders(MfgServices.orderListFrom(
+                "{\"orders\":[{\"orderNo\":\"1\",\"lines\":\"A,part,1,1.00\"},"
+                        + "{\"orderNo\":\"2\",\"lines\":\"B,part,1,1.00\"}]}"));
+        assertEquals(2, lines.size());
+        assertTrue(MfgServices.ignoredThePackSize(reply, lines));
+    }
+
+    @Test
     public void knowsHowManyOrdersThePictureShows() {
         // the model reports the number of blocks it counted, so a skipped one can be caught
         String answer = "{\"orderCount\":\"3\",\"orders\":["
@@ -821,8 +853,8 @@ public class MfgServicesTest {
         String other = MfgOrderScan.scanFailure("{\"orders\":[]}", null);
         assertTrue(other.contains("没从截图里读出订单"));
         assertTrue(other.contains("再点一次"));
-        // one swallowed retry is still part of the message, so nobody wonders why it took longer
-        assertTrue(other.contains("已自动重试 1 次"));
+        // the swallowed retries are still part of the message, so nobody wonders why it took longer
+        assertTrue(other.contains("已自动重试 " + (MfgOrderScan.ATTEMPTS - 1) + " 次"));
 
         // an answer that names a count but holds no usable order was cut off, not "not an order"
         String cutOff = "{\"orderCount\":\"3\",\"orders\":[{\"orderNo\":\"3316358535012009372\",\"shop\":";

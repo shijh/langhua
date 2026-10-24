@@ -9165,6 +9165,57 @@ always
     }
 
     /**
+     * How Taobao prints the pack size of a resistor or a capacitor: {@code 一件100只}, {@code （50只）},
+     * {@code 100只装}, {@code 1件=100个}.
+     */
+    private static final java.util.regex.Pattern PACK_SIZE = java.util.regex.Pattern.compile(
+            "一件\\s*[0-9]+\\s*[只个]|[（(]\\s*[0-9]+\\s*[只个]\\s*[）)]"
+                    + "|[0-9]+\\s*只装|1\\s*件\\s*[=＝]\\s*[0-9]+");
+
+    /**
+     * The {@code lines} text of every order in the answer, in the order the orders were read.
+     *
+     * @param orders the order maps built from one answer
+     * @return one entry per order, the tab separated article rows
+     */
+    static List<String> linesOfOrders(List<Map<String, String>> orders) {
+        List<String> lines = new ArrayList<>();
+        if (orders == null) {
+            return lines;
+        }
+        for (Map<String, String> order : orders) {
+            lines.add(order == null ? null : order.get("lines"));
+        }
+        return lines;
+    }
+
+    /**
+     * Tells whether the answer counted packs instead of pieces: the picture prints a pack size
+     * ({@code 一件100只} and the like) yet every article came back as exactly one piece. That is the
+     * mistake a person notices last, because the money still adds up, so the caller sends the picture
+     * once more with the short request instead of showing a receipt with 1 piece of every part.
+     *
+     * @param reply the answer text, which carries the pack size when the model read it
+     * @param linesByOrder the article rows of the orders that were read
+     * @return {@code true} when a pack size was printed and no line counted more than one piece
+     */
+    static boolean ignoredThePackSize(String reply, List<String> linesByOrder) {
+        if (reply == null || !PACK_SIZE.matcher(reply).find()) {
+            return false;
+        }
+        boolean sawLine = false;
+        for (String lines : linesByOrder) {
+            for (String[] row : parseOrderArticleLines(lines)) {
+                sawLine = true;
+                if (Math.abs(toDouble(row[2], 0.0) - 1.0) > 0.0001) {
+                    return false;
+                }
+            }
+        }
+        return sawLine;
+    }
+
+    /**
      * Cuts the objects out of a JSON text, starting at the given offset. Braces inside strings do not
      * count, so a product name with {@code {}} in it does not break the split.
      *
