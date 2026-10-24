@@ -421,8 +421,11 @@
                     if (!data.ok) {
                         hint.className = 'error';
                         hint.textContent = data.message || '识别失败';
+                        /* the service already retried once; the person's second click is the next try */
+                        button.textContent = '再试一次';
                         return;
                     }
+                    button.textContent = '识别并填入';
                     fill('orderNoField', data.orderNo);
                     fill('shopField', data.shop);
                     if (data.freight) { fill('freightField', data.freight); }

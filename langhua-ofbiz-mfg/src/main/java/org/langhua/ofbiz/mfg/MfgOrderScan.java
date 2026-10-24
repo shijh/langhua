@@ -20,6 +20,7 @@ import java.net.URL;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -64,6 +65,18 @@ public final class MfgOrderScan {
     /** Answer code of the events when the vision service is not set up yet. */
     static final String UNCONFIGURED = "UNCONFIGURED";
 
+    /** Answer code when the service answered but no order could be read out of it. */
+    static final String NO_ORDERS = "NO_ORDERS";
+
+    /** How often the screenshot is sent before the person is asked to try again. */
+    static final int ATTEMPTS = 2;
+
+    /**
+     * Room for the answer. A thinking model spends part of it on its reasoning, so a small budget
+     * ends with an empty answer: 4000 was not enough for a screenshot holding three orders.
+     */
+    static final int MAX_TOKENS = 8000;
+
     /** A 1x1 png, used by the connection test so a vision endpoint has something to look at. */
     private static final String TINY_PNG =
             "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
@@ -82,9 +95,10 @@ public final class MfgOrderScan {
             + " closed), put Y in refunded, otherwise N: such an order did not stay in the shop and"
             + " must not be booked into stock."
             + " Answer with one JSON object only, no prose:"
-            + " {\"orders\":[{\"orderNo\":\"\",\"shop\":\"\",\"orderDate\":\"\",\"paidTotal\":\"\","
+            + " {\"orderCount\":\"1\",\"orders\":[{\"orderNo\":\"\",\"shop\":\"\",\"orderDate\":\"\",\"paidTotal\":\"\","
             + "\"freight\":\"\",\"refunded\":\"\",\"lines\":\"code,name,quantity,amount\"}]}"
-            + " with one element per order, in the order the page shows them; lines has one row per"
+            + " where orderCount is how many order blocks the picture shows (count them first) and"
+            + " orders has one element per block, in the order the page shows them; lines has one row per"
             + " article of that order (x2 in a list means quantity 2, a lot of 100 pieces is 100) and"
             + " amount is the goods money of that row without freight: when 实付款 is 3.50 and 含运费"
             + " is 2.00, the row amount is 3.50 minus 2.00. When an order prints no article code, put"
@@ -121,61 +135,116 @@ public final class MfgOrderScan {
         if (contentType == null) {
             contentType = "image/png";
         }
+        String reply = null;
+        String transportProblem = null;
+        List<Map<String, String>> orders = Collections.emptyList();
+        int seen = 0;
+        // a vision call falls over now and then (a slow answer, a thinking model that runs out of
+        // room, a dropped connection, or one order of a list read and the others skipped). One silent
+        // retry turns most of those into a normal result instead of a red line to react to
+        for (int attempt = 1; attempt <= ATTEMPTS; attempt++) {
+            if (attempt > 1) {
+                pause();
+            }
+            try {
+                reply = askVision(endpoint, model, key, image, contentType);
+                transportProblem = null;
+            } catch (IOException e) {
+                Debug.logError(e, "Could not ask the vision service (attempt " + attempt + ")", MODULE);
+                transportProblem = e.getMessage();
+                continue;
+            }
+            orders = MfgServices.orderListFrom(reply);
+            seen = MfgServices.orderCountIn(reply);
+            // the model says how many order blocks it sees: fewer read than seen means one was skipped
+            if (!orders.isEmpty() && (seen <= 0 || orders.size() >= seen)) {
+                break;
+            }
+            // the answer is kept: its wording tells apart "not an order" from "the model could
+            // not see the picture" from "it thought until the output budget ran out"
+            Debug.logInfo("The vision answer carried no lines: " + reply, MODULE);
+        }
+        if (orders.isEmpty()) {
+            return answer(response, false, scanFailure(reply, transportProblem), null, null, NO_ORDERS);
+        }
+        String shortfall = seen > orders.size()
+                ? "（截图上看上去有 " + seen + " 张单，这次只读出 " + orders.size()
+                        + " 张，可能漏了；核对一下，也可以再点一次「识别并填入」）"
+                : "";
+        int refundedCount = 0;
+        for (Map<String, String> order : orders) {
+            // a package description as the part number does not fit the code field: short it here
+            // so the page already shows the code that will be stored
+            order.put("lines", MfgServices.fitOrderLines(order.get("lines")));
+            if (isRefunded(order)) {
+                // the parts never stayed in the shop: the number goes on the list, so even a hand
+                // typed import of it is refused later
+                recordRefund(delegatorOf(request), order);
+                order.put("note", "已退款/关闭，不入库");
+                refundedCount++;
+            } else {
+                // freight is what the page says, but goods plus freight must come to what was paid
+                String totals = MfgServices.checkOrderTotals(order);
+                if (totals != null) {
+                    order.put("note", totals);
+                }
+            }
+        }
+        if (orders.size() == 1) {
+            Map<String, String> one = orders.get(0);
+            String message;
+            if (isRefunded(one)) {
+                message = "已识别。这张单显示已退款/已关闭，按规矩不入库，已经记进"
+                        + "「退款 / 关闭的单」；货确实到了就去那儿撤掉标记";
+            } else {
+                message = one.get("note") == null ? "已识别，核对后再提交" : "已识别。" + one.get("note");
+            }
+            return answer(response, true, message + shortfall, one, null);
+        }
+        String message = "识别到 " + orders.size() + " 张单";
+        if (refundedCount > 0) {
+            message += "（其中 " + refundedCount + " 张已退款，不会入库）";
+        }
+        message += "，核对后点“导入这些单”" + shortfall;
+        return answer(response, true, message, null, orders);
+    }
+
+    /**
+     * What to tell the person when the screenshot could not be read even after the retry. The message
+     * has to hand them something to do: press the button again, trim the screenshot, or type it in.
+     *
+     * @param reply the last answer of the model, {@code null} when the call itself failed
+     * @param transportProblem the error of the last call, {@code null} when a call did get through
+     * @return the message shown under the scan button
+     */
+    static String scanFailure(String reply, String transportProblem) {
+        if (transportProblem != null) {
+            return "识图服务连不上（已自动重试 " + (ATTEMPTS - 1) + " 次）：" + transportProblem
+                    + "。过一会儿再点一次「识别并填入」，或者把明细粘进框里。";
+        }
+        if ("length".equals(MfgServices.jsonStringField(reply, "finish_reason"))) {
+            // a thinking model that spends the whole output budget on reasoning answers with nothing
+            return "模型这次想得太久、没把结果写完（输出长度到顶了），已经重试过。"
+                    + "把截图截小一点（只框住订单那几行）再点一次「识别并填入」，或者直接把明细粘进框里。";
+        }
+        return "这次没从截图里读出订单（已自动重试 " + (ATTEMPTS - 1) + " 次）。"
+                + "再点一次「识别并填入」通常就好了；也可以把截图截小一点（只框住订单列表），或者手工填。"
+                + "模型的原话：" + MfgServices.visionReplyExcerpt(reply, 160);
+    }
+
+    /** Waits a moment before the retry, so a hiccup of the service is not hit twice in a row. */
+    private static void pause() {
         try {
-            String reply = askVision(endpoint, model, key, image, contentType);
-            List<Map<String, String>> orders = MfgServices.orderListFrom(reply);
-            if (orders.isEmpty()) {
-                // quoting the answer tells apart "not an order" from "the model cannot see images"
-                Debug.logInfo("The vision answer carried no lines: " + reply, MODULE);
-                return answer(response, false, "识图服务返回的内容里没有订单明细。模型的原话："
-                        + MfgServices.visionReplyExcerpt(reply, 160)
-                        + "。换一张订单/商品明细的截图再试，也可以手工填", null, null);
-            }
-            int refundedCount = 0;
-            for (Map<String, String> order : orders) {
-                // a package description as the part number does not fit the code field: short it here
-                // so the page already shows the code that will be stored
-                order.put("lines", MfgServices.fitOrderLines(order.get("lines")));
-                if (isRefunded(order)) {
-                    // the parts never stayed in the shop: the number goes on the list, so even a hand
-                    // typed import of it is refused later
-                    recordRefund(delegatorOf(request), order);
-                    order.put("note", "已退款/关闭，不入库");
-                    refundedCount++;
-                } else {
-                    // freight is what the page says, but goods plus freight must come to what was paid
-                    String totals = MfgServices.checkOrderTotals(order);
-                    if (totals != null) {
-                        order.put("note", totals);
-                    }
-                }
-            }
-            if (orders.size() == 1) {
-                Map<String, String> one = orders.get(0);
-                String message;
-                if (isRefunded(one)) {
-                    message = "已识别。这张单显示已退款/已关闭，按规矩不入库，已经记进"
-                            + "「退款 / 关闭的单」；货确实到了就去那儿撤掉标记";
-                } else {
-                    message = one.get("note") == null ? "已识别，核对后再提交" : "已识别。" + one.get("note");
-                }
-                return answer(response, true, message, one, null);
-            }
-            String message = "识别到 " + orders.size() + " 张单";
-            if (refundedCount > 0) {
-                message += "（其中 " + refundedCount + " 张已退款，不会入库）";
-            }
-            message += "，核对后点“导入这些单”";
-            return answer(response, true, message, null, orders);
-        } catch (IOException e) {
-            Debug.logError(e, "Could not ask the vision service", MODULE);
-            return answer(response, false, "识图服务调用失败：" + e.getMessage(), null, null);
+            Thread.sleep(700L);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
         }
     }
 
     /**
-     * Tries the configured endpoint with a one pixel picture, so a wrong address, key or model is
-     * found on the settings page instead of in the middle of booking an order in.
+     * Tries the settings with a one pixel picture, so a wrong address, key or model is found on the
+     * settings page instead of in the middle of booking an order in. Tests what the form holds, and
+     * keeps it when the call works.
      *
      * @param request the request
      * @param response the response, receives a small JSON document
@@ -304,7 +373,7 @@ public final class MfgOrderScan {
         StringBuilder body = new StringBuilder();
         body.append("{\"model\":").append(MfgBomEvents.jsonString(model))
                 // a model that thinks first needs room for the reasoning and the answer
-                .append(",\"max_tokens\":4000")
+                .append(",\"max_tokens\":").append(MAX_TOKENS)
                 .append(",\"messages\":[{\"role\":\"user\",\"content\":[")
                 .append("{\"type\":\"text\",\"text\":").append(MfgBomEvents.jsonString(PROMPT)).append("},")
                 .append("{\"type\":\"image_url\",\"image_url\":{\"url\":")

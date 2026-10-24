@@ -662,6 +662,46 @@ public class MfgServicesTest {
     }
 
     @Test
+    public void knowsHowManyOrdersThePictureShows() {
+        // the model reports the number of blocks it counted, so a skipped one can be caught
+        String answer = "{\"orderCount\":\"3\",\"orders\":["
+                + "{\"orderNo\":\"1\",\"lines\":\"A,part,1,1.00\"},"
+                + "{\"orderNo\":\"2\",\"lines\":\"B,part,2,2.00\"}]}";
+        assertEquals(3, MfgServices.orderCountIn(answer));
+        assertEquals(2, MfgServices.orderListFrom(answer).size());
+        // an answer without the number is taken as it is
+        assertEquals(0, MfgServices.orderCountIn("{\"orders\":[{\"orderNo\":\"1\",\"lines\":\"A,part,1,1\"}]}"));
+        assertEquals(0, MfgServices.orderCountIn(null));
+        // and it is found through the chat envelope as well
+        String enveloped = "{\"choices\":[{\"message\":{\"content\":"
+                + "\"{\\\"orderCount\\\":\\\"2\\\",\\\"orders\\\":[]}\"}}]}";
+        assertEquals(2, MfgServices.orderCountIn(enveloped));
+    }
+
+    @Test
+    public void saysWhatToDoWhenTheScreenshotCouldNotBeRead() {
+        // a thinking model that ran out of output budget answers with reasoning only
+        String truncated = "{\"choices\":[{\"finish_reason\":\"length\",\"message\":{\"content\":\"\","
+                + "\"reasoning_content\":\"We need answer only JSON object. Need parse image...\"}}]}";
+        String message = MfgOrderScan.scanFailure(truncated, null);
+        assertTrue(message.contains("输出长度"));
+        assertTrue(message.contains("再点一次"));
+        assertFalse(message.contains("org.langhua"));
+
+        // no call got through at all
+        String offline = MfgOrderScan.scanFailure(null, "Connection refused");
+        assertTrue(offline.contains("连不上"));
+        assertTrue(offline.contains("Connection refused"));
+
+        // the model answered something else entirely
+        String other = MfgOrderScan.scanFailure("{\"orders\":[]}", null);
+        assertTrue(other.contains("没从截图里读出订单"));
+        assertTrue(other.contains("再点一次"));
+        // one swallowed retry is still part of the message, so nobody wonders why it took longer
+        assertTrue(other.contains("已自动重试 1 次"));
+    }
+
+    @Test
     public void tellsWhichFieldTheVisionTestStillNeeds() {
         // the person is looking at the form: name the field, never a system property
         String all = MfgOrderScan.testMissing(null, null, null);

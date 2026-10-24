@@ -8802,6 +8802,30 @@ always
     }
 
     /**
+     * How many order blocks the model says the picture shows. The number is asked for because a model
+     * that reads three orders and answers with two would otherwise be taken as a success, and the
+     * person would import what it got without noticing the missing one.
+     *
+     * @param reply the answer text
+     * @return the number it reported, 0 when the answer does not say
+     */
+    static int orderCountIn(String reply) {
+        String text = orderAnswerText(reply);
+        if (text == null) {
+            return 0;
+        }
+        String count = jsonStringField(text, "orderCount");
+        if (count == null) {
+            return 0;
+        }
+        try {
+            return Integer.parseInt(count.trim());
+        } catch (NumberFormatException e) {
+            return 0;
+        }
+    }
+
+    /**
      * The JSON of the answer itself: a chat envelope may wrap it as the message or as the reasoning
      * of a model that thinks before it answers. Both are read from the raw reply so quotes survive.
      *

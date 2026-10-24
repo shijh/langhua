@@ -284,6 +284,16 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   **真实淘宝「我的订单」截图实测通过（2026-10-24，3 单含 1 单退款）**：订单号/店铺/日期/`x5` 数量/
   `合计` 与 `实付款`、`含运费` 都读对，退款那单 `refunded=Y` 且金额按 实付 − 运费 算；
   料号列优先取标题里的型号（`ATECC608B-SSHDA-T`），没有型号就用规格行/商品名
+- **识图失败就自动重试一次（Step 89）**：真人用下来十次里有一两次识别不出来，重试就好。原因查到两个：① thinking 模型把
+  `max_tokens` 全用在 `reasoning_content` 上、`content` 是空串（日志里 `carried no lines` 那条 13 KB 的回答就是这么来的）——
+  **4000 不够，已改成 8000**；② 模型读漏了列表里的一张单却正常返回。所以 `scan` 现在**最多发 2 次**（`ATTEMPTS`，
+  中间 `pause()` 700 ms），条件是「IOException」或「解析出 0 张单」或「模型说看到 N 张、只读出 M 张」——
+  prompt 里因此多了 `"orderCount":"N"`（`MfgServices.orderCountIn`，缺失时按 0 = 不校验）；
+  两次都不行就 `scanFailure(reply, transportProblem)` 分三种情形给话术（连不上 / 输出被截断 / 读不出订单），
+  答案带 `"code":"NO_ORDERS"`；页面上失败后按钮文字变成「再试一次」。
+  **实测**：同一张 3 单截图连跑 11 次，11 次都读出 3 张单（改之前大约十次里会有一两次失败）
+- **`verify-m48` 会清空识图配置**（密钥读不回来），所以它现在**开头先查 `data-configured`，是 Y 就 SKIP 跳过**，
+  除非显式 `-Force`；跑这个巡检请指向测试实例，别在配好密钥的实例上跑
 - **`jsonStringField` 不能用正则（Step 86 踩坑）**：原来是
   `"name"\s*:\s*"((?:[^"\\]|\\.)*)"`，遇到 thinking 模型那种几千字符的 `content` 会
   **`StackOverflowError` in `Pattern$Loop.match`**（`OrderImage` 请求 23 秒后 200 + **空 body**，
