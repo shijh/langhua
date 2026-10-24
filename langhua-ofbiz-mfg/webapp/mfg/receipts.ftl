@@ -74,6 +74,7 @@
                                 <th class="num">数量</th><th class="num">单价</th><th class="num">货款</th><th></th></tr>
                             <#list detail as l>
                                 <#assign lineForm = "receiptLine_" + r.receiptId + "_" + (l.lineSeq)!0>
+                                <#assign deleteForm = "receiptLineDel_" + r.receiptId + "_" + (l.lineSeq)!0>
                                 <tr data-receipt-line-seq="${(l.lineSeq)!0}">
                                     <td class="num">${(l.lineSeq)!0}</td>
                                     <td><a href="/mfg/control/materials?search=${(l.lotId)!''?url}">${l.lotId!}</a></td>
@@ -85,7 +86,10 @@
                                             form="${lineForm}" value="${((l.unitPrice)!0)?string("0.0000")}"/></td>
                                     <td class="num" data-goods-amount="${((l.goodsAmount)!0)?string("0.00")}">${((l.goodsAmount)!0)?string("0.00")}</td>
                                     <td class="num"><button type="submit" form="${lineForm}"
-                                            title="保存这一行的数量与单价">保存</button></td>
+                                            title="保存这一行的数量与单价">保存</button>
+                                        <button type="submit" form="${deleteForm}" class="secondary"
+                                            title="把这一行从这张单上删掉"
+                                            onclick="return confirm('删除第 ${(l.lineSeq)!0} 行？只从这张到货单上删掉，批次和库存不动（要冲库存请到「库存 → 流水」按报废处理）')">删除</button></td>
                                 </tr>
                             </#list>
                         </table>
@@ -101,6 +105,12 @@
                     action="/mfg/control/receiptLineSave" data-receipt-line="${r.receiptId}">
                 <input type="hidden" name="receiptId" value="${r.receiptId}"/>
                 <input type="hidden" name="lineSeq" value="${(l.lineSeq)!0}"/>
+            </form>
+            <form id="receiptLineDel_${r.receiptId}_${(l.lineSeq)!0}" method="post"
+                    action="/mfg/control/receiptLineSave">
+                <input type="hidden" name="receiptId" value="${r.receiptId}"/>
+                <input type="hidden" name="lineSeq" value="${(l.lineSeq)!0}"/>
+                <input type="hidden" name="delete" value="Y"/>
             </form>
         </#list>
     </#list>

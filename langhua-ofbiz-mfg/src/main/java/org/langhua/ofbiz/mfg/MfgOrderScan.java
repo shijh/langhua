@@ -110,6 +110,21 @@ public final class MfgOrderScan {
             + " Take the numbers printed on the page: do not weigh alternatives, do not describe the"
             + " picture.";
 
+    /**
+     * The same request in as few words as possible, used for the retry. A thinking model reasons about
+     * every rule it is given; with the long prompt a picture of three orders sometimes ended with the
+     * output budget spent on the reasoning and a truncated (or empty) answer.
+     */
+    static final String SHORT_PROMPT = "Read the Taobao / Tmall orders in this picture. Answer with one"
+            + " JSON object only, no prose:"
+            + " {\"orderCount\":\"1\",\"orders\":[{\"orderNo\":\"\",\"shop\":\"\",\"orderDate\":\"\","
+            + "\"paidTotal\":\"\",\"freight\":\"\",\"refunded\":\"Y or N\",\"lines\":\"code,name,quantity,amount\"}]}"
+            + " orderCount = how many order blocks you see; one element per block, top to bottom."
+            + " shop without 淘宝 / 天猫. paidTotal = 实付款 (or 合计). freight = the number after 含运费."
+            + " refunded = Y when it says 退款成功 / 已退款 / 交易关闭. lines = one row per article:"
+            + " quantity after x, amount = the row's own money (paidTotal minus freight for a block with"
+            + " one article, price times quantity for a block with several). No explanation.";
+
     private MfgOrderScan() {
     }
 
@@ -151,7 +166,8 @@ public final class MfgOrderScan {
                 pause();
             }
             try {
-                reply = askVision(endpoint, model, key, image, contentType);
+                reply = askVision(endpoint, model, key, image, contentType,
+                        attempt == 1 ? PROMPT : SHORT_PROMPT);
                 transportProblem = null;
             } catch (IOException e) {
                 Debug.logError(e, "Could not ask the vision service (attempt " + attempt + ")", MODULE);
@@ -235,6 +251,12 @@ public final class MfgOrderScan {
             // a thinking model that spends the whole output budget on reasoning answers with nothing
             return "模型这次想得太久、没把结果写完（输出长度到顶了），已经重试过。"
                     + "把截图截小一点（只框住订单那几行）再点一次「识别并核对」，或者直接把明细粘进框里。";
+        }
+        int said = MfgServices.orderCountIn(reply);
+        if (said > 0) {
+            // the answer names a count but no order could be read out of it: it was cut off
+            return "模型说看到 " + said + " 张单，但这次的回答被截断了（只写了一部分），已经重试过。"
+                    + "把截图截小一点（一次只框一两张单）再点一次「识别并核对」，或者直接把明细粘进框里。";
         }
         return "这次没从截图里读出订单（已自动重试 " + (ATTEMPTS - 1) + " 次）。"
                 + "再点一次「识别并核对」通常就好了；也可以把截图截小一点（只框住订单列表），或者手工填。"
@@ -391,6 +413,23 @@ public final class MfgOrderScan {
      */
     static String askVision(String endpoint, String model, String key, byte[] image, String contentType)
             throws IOException {
+        return askVision(endpoint, model, key, image, contentType, PROMPT);
+    }
+
+    /**
+     * Calls an OpenAI compatible chat endpoint with the screenshot as a data URL.
+     *
+     * @param endpoint the chat completions URL
+     * @param model the model name
+     * @param key the bearer token
+     * @param image the picture
+     * @param contentType its content type
+     * @param prompt what the model is asked
+     * @return the answer text of the model
+     * @throws IOException when the call fails
+     */
+    static String askVision(String endpoint, String model, String key, byte[] image, String contentType,
+            String prompt) throws IOException {
         String dataUrl = "data:" + contentType + ";base64,"
                 + Base64.getEncoder().encodeToString(image);
         StringBuilder body = new StringBuilder();
@@ -398,7 +437,7 @@ public final class MfgOrderScan {
                 // a model that thinks first needs room for the reasoning and the answer
                 .append(",\"max_tokens\":").append(MAX_TOKENS)
                 .append(",\"messages\":[{\"role\":\"user\",\"content\":[")
-                .append("{\"type\":\"text\",\"text\":").append(MfgBomEvents.jsonString(PROMPT)).append("},")
+                .append("{\"type\":\"text\",\"text\":").append(MfgBomEvents.jsonString(prompt)).append("},")
                 .append("{\"type\":\"image_url\",\"image_url\":{\"url\":")
                 .append(MfgBomEvents.jsonString(dataUrl)).append("}}]}]}");
         HttpURLConnection connection = (HttpURLConnection) new URL(endpoint).openConnection();

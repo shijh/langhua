@@ -776,6 +776,13 @@ public class MfgServicesTest {
         assertTrue(other.contains("再点一次"));
         // one swallowed retry is still part of the message, so nobody wonders why it took longer
         assertTrue(other.contains("已自动重试 1 次"));
+
+        // an answer that names a count but holds no usable order was cut off, not "not an order"
+        String cutOff = "{\"orderCount\":\"3\",\"orders\":[{\"orderNo\":\"3316358535012009372\",\"shop\":";
+        String cutMessage = MfgOrderScan.scanFailure(cutOff, null);
+        assertTrue(cutMessage.contains("3 张单"));
+        assertTrue(cutMessage.contains("截断"));
+        assertFalse(cutMessage.contains("模型的原话"));
     }
 
     @Test
