@@ -91,9 +91,11 @@ public final class MfgOrderScan {
     static final String PROMPT = "Read this screenshot of Taobao / Tmall orders and answer with one"
             + " JSON object only, no prose, no explanation:"
             + " {\"orderCount\":\"1\",\"orders\":[{\"orderNo\":\"\",\"shop\":\"\",\"orderDate\":\"\","
-            + "\"paidTotal\":\"\",\"freight\":\"\",\"discount\":\"\",\"refunded\":\"\",\"lines\":\"code,name,quantity,amount\"}]}"
+            + "\"paidTotal\":\"\",\"freight\":\"\",\"discount\":\"\",\"refunded\":\"\","
+            + "\"items\":[{\"code\":\"\",\"name\":\"\",\"qty\":\"\",\"amount\":\"\"}]}]}"
             + " orderCount is how many order blocks the picture shows; orders has one element per"
-            + " block, top to bottom, and lines has one row per article of that order."
+            + " block, top to bottom, and items has one element per article of that order - two"
+            + " products are two elements, never one."
             + " orderNo is the number after 订单号. shop is the shop name only, without the platform"
             + " word 淘宝 / 天猫. orderDate is yyyy-MM-dd as printed."
             + " paidTotal is the money really paid for that order (实付款; in a list page the 合计 of the"
@@ -102,18 +104,19 @@ public final class MfgOrderScan {
             + " paidTotal smaller than the articles plus the freight, 0 when there is none."
             + " refunded is Y when the block shows 退款成功 / 已退款 / 退款中 / 交易关闭 / 已取消,"
             + " otherwise N."
-            + " In lines, quantity is how many pieces were bought: Taobao sells resistors and"
+            + " In items, quantity is how many pieces were bought: Taobao sells resistors and"
             + " capacitors by the pack, and the grey spec line under the title prints the pack size"
-            + " as 一件100只 / （50只） / 100只装 / 1件=100个. quantity = the number after x times that"
+            + " as 一件100只 / （50只） / 100只装 / 1件=100个. qty = the number after x times that"
             + " pack size, so x1 with 一件100只 is 100, x4 with (50只) is 200 and an article with no"
             + " pack size is the number after x itself; amount is that row's money: for a block with one"
             + " article it is paidTotal minus freight,"
             + " for a block with two or more articles it is the printed row price times the number of"
-            + " packs after x (1.20 with x2 is 2.40), never the price of a single piece. One row per"
-            + " article - a block that shows two products gets two rows, never one. Never use the"
-            + " struck through price. When an article prints no code, put the model number from its"
-            + " title (for example 5.5V1.5F C型 21*7.5) in code, or the article name when there is no"
-            + " model number; never leave it empty. The pack size is never part of the code: the spec"
+            + " packs after x (1.20 with x2 is 2.40), never the price of a single piece. One element per"
+            + " article - a block that shows two products gets two elements, never one. Never use the"
+            + " struck through price. code is the short model or spec line printed under the title"
+            + " (2.0mm单排8P(共8P), 502035(350mah), 30K) and name is the title itself; when the article"
+            + " prints neither, use the model number of the title, and never leave code empty. The pack"
+            + " size is never part of the code: the spec"
             + " line 30K（一件100只）;1%精度;0603贴片电阻 gives the code 30K, not the whole line."
             + " Take the numbers printed on the page: do not weigh alternatives, do not describe the"
             + " picture.";
@@ -126,13 +129,14 @@ public final class MfgOrderScan {
     static final String SHORT_PROMPT = "Read the Taobao / Tmall orders in this picture. Answer with one"
             + " JSON object only, no prose:"
             + " {\"orderCount\":\"1\",\"orders\":[{\"orderNo\":\"\",\"shop\":\"\",\"orderDate\":\"\","
-            + "\"paidTotal\":\"\",\"freight\":\"\",\"discount\":\"\",\"refunded\":\"Y or N\",\"lines\":\"code,name,quantity,amount\"}]}"
+            + "\"paidTotal\":\"\",\"freight\":\"\",\"discount\":\"\",\"refunded\":\"Y or N\","
+            + "\"items\":[{\"code\":\"\",\"name\":\"\",\"qty\":\"\",\"amount\":\"\"}]}]}"
             + " orderCount = how many order blocks you see; one element per block, top to bottom."
             + " shop without 淘宝 / 天猫. paidTotal = 实付款 (or 合计). freight = the number after 含运费."
             + " discount = the red packet / coupon / 满减 taken off the order, 0 when none."
-            + " refunded = Y when it says 退款成功 / 已退款 / 交易关闭. lines = one row per article:"
-            + " every product block of the order is one row and their amounts add up to paidTotal minus"
-            + " freight; quantity = the number after x times the pack size printed in the grey spec line"
+            + " refunded = Y when it says 退款成功 / 已退款 / 交易关闭. items = one element per article,"
+            + " never two products in one element: their amounts add up to paidTotal minus freight;"
+            + " qty = the number after x times the pack size printed in the grey spec line"
             + " (一件100只 → x1 is 100, (50只) → x4 is 200); amount = the row's own money (paidTotal"
             + " minus freight for a block with one article, printed row price times the packs after x for"
             + " a block with several). No explanation.";
@@ -170,6 +174,12 @@ public final class MfgOrderScan {
         String transportProblem = null;
         List<Map<String, String>> orders = Collections.emptyList();
         int seen = 0;
+        // the best of the sends is kept, not the last: a third attempt can drop a whole order that
+        // the first one had read, and a picture of two blocks does that now and then
+        List<Map<String, String>> bestOrders = Collections.emptyList();
+        String bestReply = null;
+        int bestSeen = 0;
+        int bestScore = -1;
         // a vision call falls over now and then (a slow answer, a thinking model that runs out of
         // room, a dropped connection, or one order of a list read and the others skipped). One silent
         // retry turns most of those into a normal result instead of a red line to react to
@@ -186,22 +196,36 @@ public final class MfgOrderScan {
                 transportProblem = e.getMessage();
                 continue;
             }
-            orders = MfgServices.orderListFrom(reply);
-            seen = MfgServices.orderCountIn(reply);
+            List<Map<String, String>> read = MfgServices.orderListFrom(reply);
+            int counted = MfgServices.orderCountIn(reply);
+            int score = MfgServices.answerScore(read, counted);
+            if (score > bestScore) {
+                bestScore = score;
+                bestOrders = read;
+                bestReply = reply;
+                bestSeen = counted;
+            }
             // fewer orders read than the model says it saw, an answer that is mostly the answer
             // format, an order whose goods plus freight is not the paid total (a lost article
-            // looks exactly like that), or a page that prints a pack size while every line came
-            // back as one piece: either way the read is poor and one more send is worth it
-            boolean shortRead = seen > 0 && orders.size() < seen;
-            if (!orders.isEmpty() && !shortRead && !MfgServices.echoesTemplate(reply)
-                    && !anyTotalsDisagree(orders)
-                    && !MfgServices.ignoredThePackSize(reply, MfgServices.linesOfOrders(orders))) {
+            // looks exactly like that), a row whose quantity or amount cannot be read, or a page
+            // that prints a pack size while every line came back as one piece: either way the read
+            // is poor and one more send is worth it
+            boolean shortRead = counted > 0 && read.size() < counted;
+            if (!read.isEmpty() && !shortRead && !MfgServices.echoesTemplate(reply)
+                    && !anyTotalsDisagree(read) && !MfgServices.anyUnreadable(read)
+                    && !MfgServices.ignoredThePackSize(reply, MfgServices.linesOfOrders(read))) {
+                bestOrders = read;
+                bestReply = reply;
+                bestSeen = counted;
                 break;
             }
             // the answer is kept: its wording tells apart "not an order" from "the model could
             // not see the picture" from "it thought until the output budget ran out"
             Debug.logInfo("The vision answer carried no lines: " + reply, MODULE);
         }
+        orders = bestOrders;
+        reply = bestReply != null ? bestReply : reply;
+        seen = bestSeen;
         if (orders.isEmpty()) {
             return answer(response, false, scanFailure(reply, transportProblem), null, NO_ORDERS);
         }

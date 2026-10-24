@@ -9111,12 +9111,80 @@ always
         fields.put("discount", jsonStringField(text, "discount"));
         // a refunded or closed order must not be booked into stock, so the answer carries that too
         fields.put("refunded", jsonStringField(text, "refunded"));
-        String lines = jsonStringField(text, "lines");
+        String lines = itemsIn(text);
+        if (lines == null) {
+            lines = jsonStringField(text, "lines");
+        }
         if (lines == null || lines.trim().isEmpty() || isLineTemplate(lines.trim())) {
             return null;
         }
         fields.put("lines", lines.trim());
         return fields;
+    }
+
+    /**
+     * Reads the articles of one order out of an answer that carries them as an array of objects,
+     * one object per product, and turns them into the tab separated rows the rest of the code uses.
+     *
+     * <p>This is the shape the prompt asks for: a model writing one long string has to escape tabs
+     * and line breaks itself, and on a page with two similar products it produced a single row whose
+     * amount was {@code 3.24;402530} - the second article swallowed by the first. One object per
+     * product cannot be merged that way.
+     *
+     * @param text the JSON of one order
+     * @return the rows, or {@code null} when the order carries no {@code items} array
+     */
+    private static String itemsIn(String text) {
+        int at = text.indexOf("\"items\"");
+        if (at < 0) {
+            return null;
+        }
+        int arrayStart = text.indexOf('[', at);
+        if (arrayStart < 0) {
+            return null;
+        }
+        int arrayEnd = matchingBracket(text, arrayStart);
+        if (arrayEnd < 0) {
+            return null;
+        }
+        List<String> rows = new ArrayList<>();
+        for (String item : objectTexts(text.substring(arrayStart + 1, arrayEnd), 0)) {
+            String code = jsonStringField(item, "code");
+            String name = jsonStringField(item, "name");
+            String qty = jsonStringField(item, "qty");
+            if (qty == null) {
+                qty = jsonStringField(item, "quantity");
+            }
+            String amount = jsonStringField(item, "amount");
+            if (code == null && name == null && qty == null && amount == null) {
+                continue;
+            }
+            if ((code == null || code.trim().isEmpty()) && name != null && !name.trim().isEmpty()) {
+                // the model left the code out: the import derives it from the name anyway, so the
+                // table shows the code that will really be stored instead of an empty cell
+                code = codeFromName(name);
+            }
+            String row = oneCell(code) + "\t" + oneCell(name) + "\t" + oneCell(qty) + "\t" + oneCell(amount);
+            if (isLineTemplate(row)) {
+                continue;
+            }
+            rows.add(row);
+        }
+        return rows.isEmpty() ? null : String.join("\n", rows);
+    }
+
+    /**
+     * One field of an article row, with tabs and line breaks flattened so they cannot break the row
+     * apart when it is turned back into a line.
+     *
+     * @param value the field, may be {@code null}
+     * @return the value, empty when there is none
+     */
+    private static String oneCell(String value) {
+        if (value == null) {
+            return "";
+        }
+        return value.replace('\t', ' ').replace('\r', ' ').replace('\n', ' ').trim();
     }
 
     /**
@@ -9241,6 +9309,31 @@ always
     }
 
     private static int matchingBrace(String text, int open) {
+        return matchingCloser(text, open, '{', '}');
+    }
+
+    /**
+     * Offset of the square bracket that closes the one at {@code open}. Brackets inside strings do not
+     * count, so a product name with {@code []} in it does not end the array early.
+     *
+     * @param text the JSON text
+     * @param open the offset of the opening bracket
+     * @return the offset of the closing bracket, {@code -1} when it is not closed
+     */
+    private static int matchingBracket(String text, int open) {
+        return matchingCloser(text, open, '[', ']');
+    }
+
+    /**
+     * Offset of the character that closes the bracket at {@code open}.
+     *
+     * @param text the JSON text
+     * @param open the offset of the opening bracket
+     * @param opening the opening character
+     * @param closing the closing character
+     * @return the offset of the closing bracket, {@code -1} when it is not closed
+     */
+    private static int matchingCloser(String text, int open, char opening, char closing) {
         int depth = 0;
         boolean inString = false;
         for (int i = open; i < text.length(); i++) {
@@ -9255,9 +9348,9 @@ always
             }
             if (c == '"') {
                 inString = true;
-            } else if (c == '{') {
+            } else if (c == opening) {
                 depth++;
-            } else if (c == '}') {
+            } else if (c == closing) {
                 depth--;
                 if (depth == 0) {
                     return i;
@@ -9374,6 +9467,60 @@ always
     /** @return the amount with two decimals, for a sentence */
     private static String money(Double value) {
         return value == null ? "" : String.format(Locale.ROOT, "%.2f", value.doubleValue());
+    }
+
+    /**
+     * Tells whether an answer holds a row that cannot be read: the quantity is not a number above
+     * zero, or the amount is not an amount. A model that squeezes two articles into one row leaves
+     * exactly that behind (an amount of {@code 3.24;402530}), and the money check cannot see it
+     * because the unreadable amount counts as zero.
+     *
+     * @param orders the orders of one answer
+     * @return {@code true} when any article row is unusable
+     */
+    static boolean anyUnreadable(List<Map<String, String>> orders) {
+        if (orders == null) {
+            return false;
+        }
+        for (Map<String, String> order : orders) {
+            for (String[] row : parseOrderArticleLines(order == null ? null : order.get("lines"))) {
+                if (toDouble(row[2], 0.0) <= 0.0 || optionalAmount(row[3]) == null) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Grades one answer of the picture, so the best of several sends survives: the last send is not
+     * always the best one (a third attempt dropped a whole order the first one had read). The number
+     * of orders outweighs everything, then the number of article rows, then how many orders agree on
+     * the money.
+     *
+     * @param orders the orders of that answer
+     * @param seen how many orders the model said the picture shows, 0 when it did not say
+     * @return the grade, negative when the answer holds no order at all
+     */
+    static int answerScore(List<Map<String, String>> orders, int seen) {
+        if (orders == null || orders.isEmpty()) {
+            return -1;
+        }
+        int rows = 0;
+        int agree = 0;
+        for (Map<String, String> order : orders) {
+            rows += parseOrderArticleLines(order == null ? null : order.get("lines")).size();
+            boolean readable = order != null && optionalAmount(order.get("paidTotal")) != null
+                    && !totalsDisagree(order);
+            if (readable && !anyUnreadable(java.util.Collections.singletonList(order))) {
+                agree++;
+            }
+        }
+        int score = orders.size() * 1000 + rows * 10 + agree;
+        if (seen > 0 && orders.size() == seen) {
+            score += 500;
+        }
+        return score;
     }
 
     /**

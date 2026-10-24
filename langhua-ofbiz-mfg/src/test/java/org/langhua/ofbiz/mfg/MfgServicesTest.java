@@ -787,6 +787,72 @@ public class MfgServicesTest {
     }
 
     @Test
+    public void readsTheArticlesFromOneObjectEach() {
+        // the answer carries items as objects: two similar products stay two products, which a
+        // tab separated string got wrong (a row ending in "3.24;402530")
+        String answer = "{\"orderCount\":\"1\",\"orders\":[{\"orderNo\":\"3026437575388500570\","
+                + "\"shop\":\"科迪亚新能源科技\",\"orderDate\":\"2025-10-28\",\"paidTotal\":\"8.68\","
+                + "\"freight\":\"2.50\",\"discount\":\"0\",\"refunded\":\"N\",\"items\":["
+                + "{\"code\":\"502035(350mah)\",\"name\":\"3.7v聚合物锂电池\",\"qty\":\"1\",\"amount\":\"3.24\"},"
+                + "{\"code\":\"402530(300mah)\",\"name\":\"3.7v聚合物锂电池\",\"qty\":\"1\",\"amount\":\"2.94\"}]}]}";
+        List<Map<String, String>> orders = MfgServices.orderListFrom(answer);
+        assertEquals(1, orders.size());
+        String lines = orders.get(0).get("lines");
+        String[] rows = lines.split("\n");
+        assertEquals(2, rows.length);
+        assertEquals("502035(350mah)\t3.7v聚合物锂电池\t1\t3.24", rows[0]);
+        assertEquals("402530(300mah)\t3.7v聚合物锂电池\t1\t2.94", rows[1]);
+        // the money of the two rows plus the freight is the paid total
+        assertFalse(MfgServices.totalsDisagree(orders.get(0)));
+
+        // quantity is read from either name, and a tab inside a field cannot break the row
+        String withTabs = "{\"orders\":[{\"orderNo\":\"1\",\"items\":["
+                + "{\"code\":\"A\",\"name\":\"two\\twords\",\"quantity\":\"100\",\"amount\":\"1.20\"}]}]}";
+        List<Map<String, String>> tabbed = MfgServices.orderListFrom(withTabs);
+        assertEquals(1, tabbed.size());
+        assertEquals("A\ttwo words\t100\t1.20", tabbed.get(0).get("lines"));
+
+        // an items array that only repeats the empty format is not an order
+        assertTrue(MfgServices.orderListFrom("{\"orders\":[{\"orderNo\":\"9\",\"items\":["
+                + "{\"code\":\"\",\"name\":\"\",\"qty\":\"\",\"amount\":\"\"}]}]}").isEmpty());
+        // the old shape still reads, so old screenshots and the mock images keep working
+        assertEquals(1, MfgServices.orderListFrom(
+                "{\"orders\":[{\"orderNo\":\"7\",\"lines\":\"A,part,2,4.00\"}]}").size());
+    }
+
+    @Test
+    public void gradesAnAnswerAndSpotsAnUnreadableRow() {
+        // the best of several sends survives: two orders beat one, and more articles beat fewer
+        List<Map<String, String>> two = MfgServices.orderListFrom("{\"orders\":["
+                + "{\"orderNo\":\"1\",\"paidTotal\":\"8.68\",\"freight\":\"2.50\",\"items\":["
+                + "{\"code\":\"A\",\"name\":\"battery\",\"qty\":\"1\",\"amount\":\"3.24\"},"
+                + "{\"code\":\"B\",\"name\":\"battery\",\"qty\":\"1\",\"amount\":\"2.94\"}]},"
+                + "{\"orderNo\":\"2\",\"paidTotal\":\"77.99\",\"freight\":\"0.00\",\"items\":["
+                + "{\"code\":\"C\",\"name\":\"clip\",\"qty\":\"2\",\"amount\":\"77.99\"}]}]}");
+        List<Map<String, String>> one = MfgServices.orderListFrom("{\"orders\":["
+                + "{\"orderNo\":\"1\",\"paidTotal\":\"8.68\",\"freight\":\"2.50\",\"items\":["
+                + "{\"code\":\"A\",\"name\":\"battery\",\"qty\":\"1\",\"amount\":\"3.24\"}]}]}");
+        assertTrue(MfgServices.answerScore(two, 2) > MfgServices.answerScore(one, 2));
+        assertTrue(MfgServices.answerScore(two, 2) > MfgServices.answerScore(two, 1));
+        assertEquals(-1, MfgServices.answerScore(one.subList(0, 0), 2));
+        assertFalse(MfgServices.anyUnreadable(two));
+        // a row whose amount came back as "3.24;402530" is two articles squeezed into one
+        Map<String, String> squeezed = new java.util.LinkedHashMap<>();
+        squeezed.put("orderNo", "1");
+        squeezed.put("paidTotal", "8.68");
+        squeezed.put("freight", "2.50");
+        squeezed.put("lines", "502035\tbattery\t1\t3.24;402530");
+        assertTrue(MfgServices.anyUnreadable(Arrays.asList(squeezed)));
+        // the squeezed answer is worth less than the same order read properly
+        List<Map<String, String>> readProperly = MfgServices.orderListFrom("{\"orders\":["
+                + "{\"orderNo\":\"1\",\"paidTotal\":\"8.68\",\"freight\":\"2.50\",\"items\":["
+                + "{\"code\":\"A\",\"name\":\"battery\",\"qty\":\"1\",\"amount\":\"3.24\"},"
+                + "{\"code\":\"B\",\"name\":\"battery\",\"qty\":\"1\",\"amount\":\"2.94\"}]}]}");
+        assertTrue(MfgServices.answerScore(Arrays.asList(squeezed), 1)
+                < MfgServices.answerScore(readProperly, 1));
+    }
+
+    @Test
     public void catchesAPictureWhosePacksWereCountedAsPieces() {
         // Taobao prints the pack size in the grey spec line: x1 of 一件100只 is 100 pieces, and an
         // answer that says 1 for every article read the number of packs, not the number of pieces
