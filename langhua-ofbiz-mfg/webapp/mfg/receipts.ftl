@@ -428,6 +428,47 @@
                 return row.trim().length > 0;
             });
         }
+        /* the articles of one order, opened under its row: what exactly will be written */
+        function linesRowOf(order, key) {
+            var rows = linesOf(order);
+            var holder = document.createElement('tr');
+            holder.setAttribute('data-lines', key);
+            var cellHolder = document.createElement('td');
+            cellHolder.colSpan = 8;
+            var table = document.createElement('table');
+            table.className = 'inner';
+            var head = document.createElement('tr');
+            ['料号', '名称', '数量', '金额'].forEach(function (title, index) {
+                var th = document.createElement('th');
+                th.textContent = title;
+                if (index > 1) { th.className = 'num'; }
+                head.appendChild(th);
+            });
+            table.appendChild(head);
+            rows.forEach(function (line) {
+                var cells = line.split(/\t|,/);
+                var tr = document.createElement('tr');
+                tr.setAttribute('data-scan-line', 'Y');
+                var code = document.createElement('td');
+                code.textContent = cells[0] || '';
+                tr.appendChild(code);
+                var name = document.createElement('td');
+                name.textContent = cells.length >= 4 ? cells.slice(1, cells.length - 2).join(',') : '';
+                tr.appendChild(name);
+                var qty = document.createElement('td');
+                qty.className = 'num';
+                qty.textContent = cells.length >= 4 ? cells[cells.length - 2] : '';
+                tr.appendChild(qty);
+                var amount = document.createElement('td');
+                amount.className = 'num';
+                amount.textContent = cells.length >= 4 ? cells[cells.length - 1] : line;
+                tr.appendChild(amount);
+                table.appendChild(tr);
+            });
+            cellHolder.appendChild(table);
+            holder.appendChild(cellHolder);
+            return holder;
+        }
         function cell(row, text, className) {
             var td = document.createElement('td');
             if (className) { td.className = className; }
@@ -447,9 +488,10 @@
             orders = found;
             if (!ordersBox || !orderRows) { return; }
             while (orderRows.firstChild) { orderRows.removeChild(orderRows.firstChild); }
-            found.forEach(function (order) {
+            found.forEach(function (order, index) {
                 var row = document.createElement('tr');
                 row.setAttribute('data-scan-order', order.orderNo || '');
+                var key = 'scan-' + (order.orderNo || ('row' + index));
                 cell(row, order.orderNo || '（没读到单号）');
                 cell(row, order.shop || '');
                 /* the date on a shop order is the day it was placed; the arrival day is a few days
@@ -457,7 +499,18 @@
                 var dateCell = cell(row, order.orderDate || '');
                 dateCell.setAttribute('data-scan-date', order.orderDate || '');
                 cell(row, order.freight || '0', 'num');
-                cell(row, linesOf(order).length + ' 行', 'num');
+                /* what will be written, article by article: the person must be able to read it
+                   here, not only after the import (Step 93) */
+                var countCell = cell(row, '', 'num');
+                var link = document.createElement('a');
+                link.href = '#';
+                link.setAttribute('data-toggle-lines', key);
+                link.setAttribute('data-open', 'N');
+                link.appendChild(document.createTextNode(linesOf(order).length + ' '));
+                var arrow = document.createElement('span');
+                arrow.textContent = '▸';
+                link.appendChild(arrow);
+                countCell.appendChild(link);
                 var goods = amountsOf(order);
                 cell(row, goods.toFixed(2), 'num');
                 cell(row, order.paidTotal || '', 'num');
@@ -470,6 +523,7 @@
                 var status = cell(row, statusText);
                 if (order.refunded === 'Y' || off) { status.className = 'error'; }
                 orderRows.appendChild(row);
+                orderRows.appendChild(linesRowOf(order, key));
             });
             ordersBox.hidden = false;
             var refundedAll = found.length > 0 && found.every(function (order) {

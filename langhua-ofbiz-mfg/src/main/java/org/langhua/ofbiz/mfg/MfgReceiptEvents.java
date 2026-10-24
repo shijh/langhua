@@ -243,7 +243,10 @@ public final class MfgReceiptEvents {
             for (int i = 0; i < count; i++) {
                 Map<String, Object> context = new HashMap<>();
                 context.put("userLogin", userLogin);
-                context.put("overwrite", "N");
+                // the person looked at the check table and pressed import: what is read now is the
+                // good version, so a part that is already on the receipt takes these numbers instead
+                // of being skipped (a corrected read used to leave the old wrong amount in place)
+                context.put("overwrite", "Y");
                 String orderNo = value(parameters, i, "orderNo");
                 context.put("supplierOrderNo", orderNo);
                 context.put("supplierName", value(parameters, i, "shop"));
@@ -257,16 +260,26 @@ public final class MfgReceiptEvents {
                     Map<String, Object> result = dispatcher.runSync("mfgReceiptFromOrder", context, -1, true);
                     ok = !ServiceUtil.isError(result);
                     if (ok) {
-                        newLines = countOf(result.get("importedCount")) + countOf(result.get("updatedCount"));
+                        long added = countOf(result.get("importedCount"));
+                        long changed = countOf(result.get("updatedCount"));
                         long skippedLines = countOf(result.get("skippedCount"));
+                        long leftOver = countOf(result.get("leftOverCount"));
+                        String leftOverLines = String.valueOf(result.get("leftOverLines"));
+                        newLines = added + changed;
                         String receipt = String.valueOf(result.get("receiptId"));
                         if (newLines > 0) {
                             imported++;
-                            message = "已入库 " + receipt + "（新 " + newLines + " 行，跳过 "
-                                    + skippedLines + " 行）";
+                            message = "已入库 " + receipt + "（新增 " + added + " 行，覆盖 " + changed
+                                    + " 行，无变化 " + skippedLines + " 行）";
                         } else {
-                            // the same screenshot again: the order is already on a receipt
-                            message = "这单已经在 " + receipt + " 上，没有新增（跳过 " + skippedLines + " 行）";
+                            // nothing differs from what the receipt already holds
+                            message = receipt + " 上的明细已经一样，没有改动（" + skippedLines + " 行无变化）";
+                        }
+                        if (leftOver > 0 && !"null".equals(leftOverLines)) {
+                            // a line the receipt still holds but this answer no longer mentions: it is
+                            // not deleted (that would move stock), so the person has to see it
+                            message += "；这张单上还有 " + leftOver + " 行不在这张截图的明细里："
+                                    + leftOverLines + "，请核对是否要手工删掉";
                         }
                     } else {
                         message = ServiceUtil.getErrorMessage(result);

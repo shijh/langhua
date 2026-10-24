@@ -8243,9 +8243,12 @@ always
                 receipt.set("note", toText(context.get("note")));
                 delegator.create(receipt);
             } else if (freight != null) {
-                // a second delivery of the same order may add freight
-                receipt.set("freightAmount", Double.valueOf(round2(
-                        numberOrZero(receipt.get("freightAmount")) + freight.doubleValue())));
+                boolean replace = "Y".equalsIgnoreCase(toText(context.get("overwrite")));
+                // a re-read of the same order replaces the numbers it wrote before (a freight that was
+                // written wrong must be correctable); a plain second delivery adds up
+                double amount = replace ? freight.doubleValue()
+                        : round2(numberOrZero(receipt.get("freightAmount")) + freight.doubleValue());
+                receipt.set("freightAmount", Double.valueOf(round2(amount)));
                 receipt.store();
             }
             String receiptId = receipt.getString("receiptId");
@@ -8263,9 +8266,11 @@ always
             int imported = 0;
             int skipped = 0;
             int updated = 0;
+            Set<String> answeredCodes = new LinkedHashSet<>();
             long lineSeq = nextReceiptLineSeq(delegator, receiptId);
             for (String[] row : rows) {
                 String componentCode = row[0];
+                answeredCodes.add(componentCode);
                 double qty = toDouble(row[2], 0.0);
                 double amount = toDouble(row[3], 0.0);
                 if (existing.containsKey(lotLineKey(componentCode, Double.valueOf(qty),
@@ -8335,6 +8340,23 @@ always
             result.put("skippedCount", String.valueOf(skipped));
             result.put("shortenedCount", String.valueOf(shortened));
             result.put("updatedCount", String.valueOf(updated));
+            // lines that are on the receipt but no longer in the answer: the person has to know, or a
+            // corrected read could leave a phantom article behind without a word
+            StringBuilder leftOver = new StringBuilder();
+            if (overwrite) {
+                for (String code : existingByCode.keySet()) {
+                    if (answeredCodes.contains(code)) {
+                        continue;
+                    }
+                    if (leftOver.length() > 0) {
+                        leftOver.append('、');
+                    }
+                    leftOver.append(code);
+                }
+            }
+            result.put("leftOverCount", String.valueOf(leftOver.length() == 0 ? 0
+                    : leftOver.toString().split("、").length));
+            result.put("leftOverLines", leftOver.toString());
             result.putAll(summary);
             return result;
         } catch (GenericEntityException e) {
