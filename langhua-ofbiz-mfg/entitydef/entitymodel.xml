@@ -856,6 +856,7 @@
         <field name="supplierOrderNo" type="short-varchar"><description>Order number of the shop (the Taobao order number)</description></field>
         <field name="receiptDate" type="date"><description>Day the goods arrived</description></field>
         <field name="freightAmount" type="currency-amount"><description>Freight paid for the whole receipt, booked as a period cost</description></field>
+        <field name="discountAmount" type="currency-amount" default-value="0.00"><description>Discount taken off the whole order (Taobao 红包, coupon, 满减): 实付款 = goods + freight - discount</description></field>
         <field name="allocationId" type="id"><description>MFG_ALLOC_NONE (default: freight stays a period cost); MFG_ALLOC_BY_AMOUNT and MFG_ALLOC_BY_QTY are kept for spreading it over the lines later</description></field>
         <field name="note" type="description"/>
         <field name="createdStamp" type="date-time"/>

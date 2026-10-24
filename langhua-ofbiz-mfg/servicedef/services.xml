@@ -1043,6 +1043,7 @@
         <attribute name="supplierOrderNo" type="String" mode="IN" optional="true"/>
         <attribute name="receiptDate" type="String" mode="IN" optional="true"/>
         <attribute name="freightAmount" type="String" mode="IN" optional="true"/>
+        <attribute name="discountAmount" type="String" mode="IN" optional="true"/>
         <attribute name="allocationId" type="String" mode="IN" optional="true"/>
         <attribute name="note" type="String" mode="IN" optional="true"/>
         <attribute name="receiptId" type="String" mode="OUT" optional="true"/>
@@ -1076,6 +1077,7 @@
         <attribute name="receipts" type="java.util.List" mode="OUT" optional="true"/>
         <attribute name="goodsTotal" type="Double" mode="OUT" optional="true"/>
         <attribute name="freightTotal" type="Double" mode="OUT" optional="true"/>
+        <attribute name="discountTotal" type="Double" mode="OUT" optional="true"/>
         <attribute name="spendTotal" type="Double" mode="OUT" optional="true"/>
         <attribute name="freightShare" type="Double" mode="OUT" optional="true"/>
         <attribute name="totalCount" type="Integer" mode="OUT" optional="true"/>
@@ -1096,6 +1098,7 @@
         <attribute name="lineCount" type="Integer" mode="OUT" optional="true"/>
         <attribute name="goodsTotal" type="Double" mode="OUT" optional="true"/>
         <attribute name="freightTotal" type="Double" mode="OUT" optional="true"/>
+        <attribute name="discountTotal" type="Double" mode="OUT" optional="true"/>
         <attribute name="spendTotal" type="Double" mode="OUT" optional="true"/>
         <attribute name="freightShare" type="Double" mode="OUT" optional="true"/>
     </service>
@@ -1133,6 +1136,7 @@
         <attribute name="supplierName" type="String" mode="IN" optional="true"/>
         <attribute name="receiptDate" type="String" mode="IN" optional="true"/>
         <attribute name="freightAmount" type="String" mode="IN" optional="true"/>
+        <attribute name="discountAmount" type="String" mode="IN" optional="true"/>
         <attribute name="lines" type="String" mode="IN" optional="false"/>
         <attribute name="overwrite" type="String" mode="IN" optional="true"/>
         <attribute name="refunded" type="String" mode="IN" optional="true"/>
@@ -1148,6 +1152,7 @@
         <attribute name="lineCount" type="Integer" mode="OUT" optional="true"/>
         <attribute name="goodsTotal" type="Double" mode="OUT" optional="true"/>
         <attribute name="freightTotal" type="Double" mode="OUT" optional="true"/>
+        <attribute name="discountTotal" type="Double" mode="OUT" optional="true"/>
         <attribute name="spendTotal" type="Double" mode="OUT" optional="true"/>
         <attribute name="freightShare" type="Double" mode="OUT" optional="true"/>
     </service>
@@ -1497,6 +1502,7 @@
         <attribute name="receiptCount" type="Integer" mode="OUT" optional="true"/>
         <attribute name="goodsTotal" type="Double" mode="OUT" optional="true"/>
         <attribute name="freightTotal" type="Double" mode="OUT" optional="true"/>
+        <attribute name="discountTotal" type="Double" mode="OUT" optional="true"/>
         <attribute name="spendTotal" type="Double" mode="OUT" optional="true"/>
         <attribute name="freightShare" type="Double" mode="OUT" optional="true"/>
         <attribute name="rowCount" type="Integer" mode="OUT" optional="true"/>
@@ -1637,6 +1643,7 @@
         <attribute name="repairRate30" type="String" mode="OUT" optional="true"/>
         <attribute name="refundTotal" type="Double" mode="OUT" optional="true"/>
         <attribute name="freightTotal" type="Double" mode="OUT" optional="true"/>
+        <attribute name="discountTotal" type="Double" mode="OUT" optional="true"/>
         <attribute name="hoursTotal" type="Double" mode="OUT" optional="true"/>
         <attribute name="costTotal" type="Double" mode="OUT" optional="true"/>
         <attribute name="costPerUnit" type="Double" mode="OUT" optional="true"/>

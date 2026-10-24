@@ -674,6 +674,52 @@ public class MfgServicesTest {
     }
 
     @Test
+    public void readsARedPacketAsADiscount() {
+        // the shop paid 10.73 for 6.00 + 3.00 of goods and 2.00 of freight: a 0.27 red packet
+        Map<String, String> order = new HashMap<>();
+        order.put("paidTotal", "10.73");
+        order.put("freight", "2.00");
+        order.put("lines", "TS-D014,switch,100,6.00\nSKT-125,socket,100,3.00");
+        String note = MfgServices.checkOrderTotals(order);
+        assertEquals("0.27", order.get("discount"));
+        assertTrue(note != null && note.contains("10.73") && note.contains("0.27"));
+        assertEquals("2.00", order.get("freight"));
+        // paying less than the goods and the freight is not a lost article: no retry for it
+        assertFalse(MfgServices.totalsDisagree(order));
+
+        // the model reported the discount itself: nothing to say
+        Map<String, String> told = new HashMap<>();
+        told.put("paidTotal", "10.73");
+        told.put("freight", "2.00");
+        told.put("discount", "0.27");
+        told.put("lines", "TS-D014,switch,100,6.00\nSKT-125,socket,100,3.00");
+        assertNull(MfgServices.checkOrderTotals(told));
+
+        // but paying MORE than the lines still means an article is missing
+        Map<String, String> short_ = new HashMap<>();
+        short_.put("paidTotal", "14.40");
+        short_.put("freight", "0.00");
+        short_.put("discount", "0.00");
+        short_.put("lines", "PIN-40,header pin,2,6.40");
+        assertTrue(MfgServices.totalsDisagree(short_));
+        assertTrue(MfgServices.checkOrderTotals(short_).contains("可能漏了一件商品"));
+
+        // the summary takes the discount off the spend, not off the part prices
+        java.util.List<Map<String, Object>> lines = new java.util.ArrayList<>();
+        Map<String, Object> l1 = new HashMap<>();
+        l1.put("goodsAmount", Double.valueOf(6.00));
+        Map<String, Object> l2 = new HashMap<>();
+        l2.put("goodsAmount", Double.valueOf(3.00));
+        lines.add(l1);
+        lines.add(l2);
+        Map<String, Object> summary = MfgServices.receiptSummary(lines, 2.00, 0.27);
+        assertEquals(9.00, ((Double) summary.get("goodsTotal")).doubleValue(), 0.001);
+        assertEquals(2.00, ((Double) summary.get("freightTotal")).doubleValue(), 0.001);
+        assertEquals(0.27, ((Double) summary.get("discountTotal")).doubleValue(), 0.001);
+        assertEquals(10.73, ((Double) summary.get("spendTotal")).doubleValue(), 0.001);
+    }
+
+    @Test
     public void doesNotTurnALostArticleIntoFreight() {
         // the shop paid 14.40 for two articles; the model answered only the first one
         Map<String, String> short_ = new HashMap<>();
@@ -695,12 +741,13 @@ public class MfgServicesTest {
         assertNull(MfgServices.checkOrderTotals(full));
         assertFalse(MfgServices.totalsDisagree(full));
 
-        // no freight on the answer at all: it is filled in from the paid total
+        // no freight printed at all is taken as 0, and the difference is treated as a discount
         Map<String, String> noFreight = new HashMap<>();
         noFreight.put("paidTotal", "9.84");
         noFreight.put("lines", "WIRE,wire,5,9.84");
-        assertEquals("0.00", MfgServices.checkOrderTotals(noFreight) == null ? "0.00" : "0.00");
+        assertNull(MfgServices.checkOrderTotals(noFreight));
         assertEquals("0.00", noFreight.get("freight"));
+        assertNull(noFreight.get("discount"));
 
         // a real freight of 5.00 with matching money is left alone
         Map<String, String> withFreight = new HashMap<>();
@@ -910,12 +957,14 @@ public class MfgServicesTest {
         assertTrue(said != null && said.contains("3.50") && said.contains("4.00"));
         assertEquals("4.00", wrong.get("freight"));
 
-        // without a freight the difference is used
+        // neither freight nor discount: the money does not come out, so it is reported as a possible
+        // missing article instead of being turned into a freight
         Map<String, String> missing = new HashMap<>();
         missing.put("paidTotal", "3.50");
         missing.put("lines", "SK-12D02,switch,10,1.50");
-        assertTrue(MfgServices.checkOrderTotals(missing) != null);
-        assertEquals("2.00", missing.get("freight"));
+        String missingNote = MfgServices.checkOrderTotals(missing);
+        assertTrue(missingNote != null && missingNote.contains("可能漏了一件商品"));
+        assertEquals("0.00", missing.get("freight"));
 
         // a freight that adds up is left alone, and so is an order without a paid total
         Map<String, String> fine = new HashMap<>();

@@ -251,6 +251,8 @@ public final class MfgReceiptEvents {
                 context.put("supplierOrderNo", orderNo);
                 context.put("supplierName", value(parameters, i, "shop"));
                 context.put("freightAmount", value(parameters, i, "freight"));
+                // a red packet or coupon comes off the whole order: 实付 = goods + freight - discount
+                context.put("discountAmount", value(parameters, i, "discount"));
                 context.put("lines", value(parameters, i, "lines"));
                 context.put("refunded", value(parameters, i, "refunded"));
                 boolean ok;

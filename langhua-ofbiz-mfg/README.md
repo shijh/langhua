@@ -350,7 +350,7 @@ https://localhost:8443/mfg/control/main
 | `MfgMaterialIssue` | 发料：`issueId`、`workOrderId`、`componentCode`、`lotId`、`qty`、`directionId`（发料 / 退料）、`issuedDate`、可选 `designators` / `snFrom` / `snTo` |
 | `MfgInventoryDetail` | **库存流水（只增不改）**：`lotId` + `seqId` 主键、`movementTypeId`（RECEIPT/ISSUE/RETURN/SCRAP/COUNT/ADJUST/**TRANSFER**/**RESERVE/RELEASE**）、`quantityDiff`（带符号）、`reservedDiff`（预留增减，不动在库）、`salesOrderId` + `salesOrderItemSeq`（订单预留归属哪一行）、`locationId`（发生在哪个库位）、`unitCost`、`workOrderId`、`physicalInventoryId`、`referenceNo`、`operatorName`、`effectiveDate` |
 | `MfgStockLocation` | 库位：`locationId`（贴在货架上的编码）、`locationName`、`locationTypeId`（MFG_LOC_WAREHOUSE / ZONE / BIN）、`parentLocationId`、`note` |
-| `MfgPurchaseReceipt` | 采购到货单（一次淘宝订单/一张送货单）：`receiptId`（PR-yyMMdd-NN）、`supplierName`、`supplierOrderNo`（店铺订单号）、`receiptDate`、`freightAmount`（整单运费，**记期间费用**）、`allocationId`（MFG_ALLOC_NONE，预留 BY_AMOUNT / BY_QTY）、`note` |
+| `MfgPurchaseReceipt` | 采购到货单（一次淘宝订单/一张送货单）：`receiptId`（PR-yyMMdd-NN）、`supplierName`、`supplierOrderNo`（店铺订单号）、`receiptDate`、`freightAmount`（整单运费，**记期间费用**）、`discountAmount`（整单优惠：红包 / 满减，实付 = 货款 + 运费 − 优惠）、`allocationId`（MFG_ALLOC_NONE，预留 BY_AMOUNT / BY_QTY）、`note` |
 | `MfgPurchaseReceiptLine` | 到货单行：`receiptId` + `lineSeq`、`lotId`（一个批次只能挂在一张单上）、`componentCode`、`qty`、`unitPrice`、`goodsAmount` |
 | `MfgOutsourceFee` | 外协费明细：`workOrderId` + `seqId` 主键、`feeTypeId`（SMT/模具/外发组装/外协测试/其他）、`basisId`（按台/按点/整单）、`rate`、`qty`、`amount`、`vendorName`、`referenceNo`、`feeDate`、`note` |
 | `MfgStockSetting` | 料号主档与安全库存：`componentCode` 主键、`componentName`、`unitOfMeasure`、`minimumStock`、`reorderQty`、`supplierName` |
@@ -424,11 +424,11 @@ https://localhost:8443/mfg/control/main
 | `mfgInventoryLedger` | 流水查询：按料号 / 批次 / 类型 / 日期过滤，带每笔之后的**批次余额** |
 | `mfgStockSettingSave` | 维护料号主档与安全库存（阈值、补货量、供应商） |
 | `mfgStockCount` / `mfgStockCountList` | 盘点：记录账面数与实盘数，**差异写成一条盘盈亏流水**并重算结存；历史盘点单可查 |
-| `mfgPurchaseReceiptSave` | 存到货单的头：供应商 / 店铺订单号 / 到货日 / **整单运费**（可改）；运费只接受非负数，`allocationId` 现在只允许 `MFG_ALLOC_NONE` |
+| `mfgPurchaseReceiptSave` | 存到货单的头：供应商 / 店铺订单号 / 到货日 / **整单运费** / **整单优惠**（都可改）；运费与优惠只接受非负数，`allocationId` 现在只允许 `MFG_ALLOC_NONE` |
 | `mfgPurchaseReceiptLineSave` | 把一个到货批次挂到单上（数量/单价默认取批次，事后可改；一个批次只能挂一张单）、改行、`delete=Y` 差行；发成品批次会被拒 |
-| `mfgPurchaseReceiptList` | 到货单列表（行数 / 货款 / 运费 / 合计）+ 本页的货款合计、运费合计、采购支出合计、运费占货款比例 |
+| `mfgPurchaseReceiptList` | 到货单列表（行数 / 货款 / 运费 / 优惠 / 合计）+ 本页的货款合计、运费合计、优惠合计、采购支出合计、运费占货款比例 |
 | `mfgPurchaseReceiptDetail` | 一张单的行明细与合计，加上“还没挂在任何单上的元件批次”供下拉选择 |
-| `mfgPurchaseFreightTrend` | 采购支出按期间（日 / ISO 周 / 月）汇总：单据数、货款、运费、采购支出、运费占货款；报表页与 `freightCsv` 共用这个服务 |
+| `mfgPurchaseFreightTrend` | 采购支出按期间（日 / ISO 周 / 月）汇总：单据数、货款、运费、优惠、采购支出、运费占货款；报表页与 `freightCsv` 共用这个服务 |
 | `mfgReceiptFromOrder` | 照一张店铺订单（淘宝）一行一个料建单并入库：`料号,名称,数量,实付金额`，后端一次完成**建批次 + 到货流水 + 到货单行**；单价 = 金额 ÷ 数量（0.0291 不会被舍成 0.03）；**同一订单号再来一次只复用单据、跳过已有行** |
 | `mfgSettingsView` / `mfgSettingsSave` | 系统设置（存在 `SystemProperty`，资源 `mfg`）：识图接口地址 / 模型名 / 密钥。**密钥只存不回显**，留空表示不修改，`clear=Y` 清除；接口地址必须是 http(s)。只有管理员可用 |
 | `mfgWorkOrderReserve` | 按工单 BOM 自动预留齐套料：按批次先后在「可发」里挑，能挑多少挑多少，写 `MFG_MOVE_RESERVE` 流水（不动在库），返回预留总数与还差多少 |
@@ -567,7 +567,7 @@ csv         = R0402-10K,10K 0402 resistor,4,R1-R4,N,0.05
 | `/mfg/control/salesOrderReserve` / `.../salesOrderPlan` / `.../salesOrderClose` | POST 先锁在库 / 排产 / 关单释放预留 |
 | `/mfg/control/settings` | **系统设置**（管理员）：识图接口地址 / 模型名 / 密钥（密钥只存不回显，留空不修改，可一键清除）、已配置状态与来源（本页保存 / 启动参数 -D） |
 | `/mfg/control/locations` | **库位与移库**：库位列表（在库量 / 批次数）、新建库位、移库表单、批次 × 库位结存、最近移库 |
-| `/mfg/control/receipts` | **采购到货单**：采购支出汇总（货款 / 运费 / 合计 / 运费占比）、单据列表与搜索、建单与改单、把到货批次挂到单上、移出、行金额 |
+| `/mfg/control/receipts` | **采购到货单**：采购支出汇总（货款 / 运费 / 优惠 / 合计 / 运费占比）、单据列表与搜索、建单与改单、把到货批次挂到单上、移出、行金额 |
 | `/mfg/control/locationSave` / `/mfg/control/stockTransfer` | POST 保存库位 / 移库（`lotId` + `fromLocationId`（可空 = 未分配）+ `toLocationId` + `qty`） |
 | `/mfg/control/shortage` | 齐套预警：按交期列出欠料工单与明细 |
 | `/mfg/control/delivery` | 出货单：新建、列表、明细（**签收单 / 快递面单附件**）；出货后 SN 变为 `MFG_SHIPPED` |
@@ -1007,15 +1007,33 @@ SMT 为外协，且对方**不提供上料 / 换料记录**，因此追溯精度
 
 所以这个系统把运费记在**采购到货单**（`/mfg/control/receipts`）这一层，当作**期间费用**处理：
 
-- 一张单 = 一次采购：供应商、店铺订单号（淘宝订单号）、到货日、**整单运费**、备注；
+- 一张单 = 一次采购：供应商、店铺订单号（淘宝订单号）、到货日、**整单运费**、**整单优惠**、备注；
 - 把这次到货的**物料批次挂到单上**（一个批次只能挂一张单，成品批次不能挂），每行记录数量、单价与货款；
-- 页面顶部汇总**货款合计 / 运费 / 采购支出合计 / 运费占货款**，运费单独可见、可对比；
+- 页面顶部汇总**货款合计 / 运费 / 优惠 / 采购支出合计 / 运费占货款**，运费单独可见、可对比；
 - **批次单价与 BOM 单价都保持实付价**，工单实际材料成本只含货款——运费不会悄悄改变某个料的单价；
 - 想让“含运成本”进成本，用页面上的比例整体估算（例如运费占货款 4.5%，就在毛利测算里给材料加 4.5%），
   而不是改料价；
 - 将来要真的分摊：`MfgPurchaseReceipt.allocationId` 已经留了 `MFG_ALLOC_BY_AMOUNT`（按金额）与
   `MFG_ALLOC_BY_QTY`（按数量）两个值，现在只接受 `MFG_ALLOC_NONE`，打开时分摊额写到行上即可，
   不需要改表结构。
+
+### 红包 / 满减：实付比“货款 + 运费”少是正常的
+
+淘宝结算时常见：货款 9.00 + 运费 2.00 = 应收 11.00，用了红包 0.27，**实付 10.73**。这不是识别错了，
+也不是漏了一件商品，而是**整单优惠**。所以到货单上除了运费还有一项**优惠**：
+
+$$\text{采购支出} = \text{货款合计} + \text{运费} - \text{优惠}$$
+
+- 优惠记在**整张单**上（`MfgPurchaseReceipt.discountAmount`），**不摊进料价**——道理和运费一样，
+  按数量摊会把小件算便宜、按金额摊又让贵料背走全部优惠；
+- 页面上三处都能看到：建单框的「优惠」输入框、顶部汇总的「优惠（红包 / 满减）」、列表里每张单的「优惠」列；
+  单据详情页的「优惠」框改完点「保存单据」即时生效（不刷新页面）；
+- 识图时模型会**直接读「优惠」「红包」「券」**填进这一项；读不到时会用差额反推：只要
+  $0 < \text{货款} + \text{运费} - \text{实付} < \text{货款}$，就记成整单优惠并说明“实付 X 比 货款 Y + 运费 Z 少 D，
+  按整单优惠（红包 / 满减）记下”；
+- **只有差额大于货款**（或明细比实付还多）才仍然当作“没读全”标红，让您核对——那才是真漏了商品；
+- 报表页「采购与运费」的**采购支出**同样扣掉优惠，所以报表和到货单上的数字对得上；
+  「运费占货款」仍只用货款与运费算，优惠不参与这个比例。
 
 ### 按月看运费
 
@@ -1040,7 +1058,9 @@ CAP-104-50V,瓷片电容器 104 0.1uF 100NF 50V,100,2.91
 - **到货日自己选**：订单截图上那个日期是**下单日**，货一般 3~4 天后才到，所以识别不会去填到货日
   （提示里会写“截图上的 2026-10-18 是下单日”），**留空就是今天**；
 - **运费照截图的“含运费”填**：0 就填 0，否则填实付运费（`含运费: ￥2.00` 就是 2.00，不是包邮）；
-  识别时还会拿**实付款**对一遍：**货款 + 运费 ≠ 实付就算“没读全”，自动重发一次**；还不对**不会再把差额改成运费**
+  **红包 / 满减填「优惠」**（截图上的“优惠”“红包”或应收与实付的差额），于是 实付 = 货款 + 运费 − 优惠，
+  收货单上三项分开记；
+  识别时还会拿**实付款**对一遍：**货款 + 运费 − 优惠 ≠ 实付就算“没读全”，自动重发一次**；还不对**不会再把差额改成运费**
   （一张单两件商品只读出一件时，缺的那 8.00 看上去正好像运费，改成运费就把漏掉的商品藏了），
   核对表里那一行会标红「实付与明细对不上，请核对」，并写明差了多少；
 - **同一个订单号再提交不会重复入库**（重复行会被跳过，后来补的运费会累加到单上）；
@@ -1049,7 +1069,7 @@ CAP-104-50V,瓷片电容器 104 0.1uF 100NF 50V,100,2.91
   截图没写字、但你知道退了款的，可以在那个列表里手工登记；记错了就点「撤掉标记」；
   钱退回来了、料一般也没留下，真入了库就是凭空多出一批货。（旧库要跑一次 `tools/refunded-order.sql`）
 - **一张截图里有好几张单时（淘宝「我的订单」那种列表）**：识别后先列出一张核对表
-  （订单号 / 店铺 / 下单 / 运费 / 明细行数 / 货款 / 状态），确认无误再点「导入这些单」，
+  （订单号 / 店铺 / 下单 / 运费 / 优惠 / 明细行数 / 货款 / 实付 / 状态），确认无误再点「导入这些单」，
   它就**一张一张建到货单**（每张单一个事务，某张出错不牵连别的，每行后面写结果）；
   退款 / 关闭的那些行标红「已退款，不入库」，只记进下面的退款列表、不建单；
   已经入过库的单再导一次会说“这单已经在 `PR-…` 上，没有新增”，**点几次都不会重复入库**；
@@ -1097,7 +1117,7 @@ CAP-104-50V,瓷片电容器 104 0.1uF 100NF 50V,100,2.91
    把 **DeepSeek 的 API Key** 粘进「密钥」，点「测试连接」。接口地址与模型名（`deepseek-flash`）**已经默认填好**，
    不用查文档；地址 / 模型 / 密钥也可以继续用启动参数 `-Dorg.langhua.mfg.vision.*` 给，数据库里的值优先。
    图可以**选文件、直接 `Ctrl+V` 粘贴、或拖进那个框**（三种都行，粘贴最省事），
-   再点「识别并核对」：结果**总是先列成一张核对表**（订单号 / 店铺 / 下单 / 运费 / 明细行数 / 货款 / 实付 / 状态），
+   再点「识别并核对」：结果**总是先列成一张核对表**（订单号 / 店铺 / 下单 / 运费 / 优惠 / 明细行数 / 货款 / 实付 / 状态），
    点「2 ▸」展开就**一行一行列出这次要写进库的东西**（料号 / 名称 / 数量 / 金额），
    核对后再点「导入这张单」/「导入这些单」。
    **单张和图列表走同一条路**（单张就是它们的特例）：不再偷偷往下面的表单里填东西，
@@ -1295,8 +1315,9 @@ $$
 | --- | --- |
 | 行货款 | $\text{货款} = \text{数量} \times \text{单价}$，`round2` |
 | 单张货款合计 | $\text{货款合计} = \sum \text{行货款}$ |
-| 单张采购支出 | $\text{支出} = \text{货款合计} + \text{整单运费}$（运费**不摊进任何一行**） |
-| 运费占货款 | $\text{运费} \div \text{货款合计} \times 100\%$（货款为 0 时记 0，不做除法） |
+| 单张采购支出 | $\text{支出} = \text{货款合计} + \text{整单运费} - \text{整单优惠}$（运费与优惠都**不摊进任何一行**） |
+| 优惠反推 | 模型没读到优惠时，若 $0 \lt \text{货款} + \text{运费} - \text{实付} \lt \text{货款}$，就把它记成整单优惠（红包 / 满减）；否则仍判“没读全” |
+| 运费占货款 | $\text{运费} \div \text{货款合计} \times 100\%$（货款为 0 时记 0，不做除法；优惠不参与） |
 | 列表合计 | 对筛选后的单据分别汇总货款、运费与支出，比例同上一行 |
 | 按期间汇总 | 同一个口径按 `periodKey`（日 / ISO 周 / 月）分桶：单据数、货款、运费、支出、比例的合计行都是分桶后相加再 `round2` |
 

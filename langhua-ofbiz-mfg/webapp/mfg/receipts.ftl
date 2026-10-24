@@ -32,10 +32,11 @@
 <div id="receiptListBlock">
 <h2>采购支出（本页列出的单据）</h2>
 <table id="receiptSummary" data-allocation="MFG_ALLOC_NONE">
-    <tr><th>货款合计</th><th>运费（期间费用）</th><th>采购支出合计</th><th>运费占货款</th></tr>
+    <tr><th>货款合计</th><th>运费（期间费用）</th><th>优惠（红包 / 满减）</th><th>采购支出合计</th><th>运费占货款</th></tr>
     <tr>
         <td class="num">${((rl.goodsTotal)!0)?string("0.00")}</td>
         <td class="num">${((rl.freightTotal)!0)?string("0.00")}</td>
+        <td class="num">${((rl.discountTotal)!0)?string("0.00")}</td>
         <td class="num"><b>${((rl.spendTotal)!0)?string("0.00")}</b></td>
         <td class="num"><#if ((rl.freightTotal)!0) gt 0>${((rl.freightShare)!0)?string("0.0")}%<#else><span class="hint">—</span></#if></td>
     </tr>
@@ -52,7 +53,7 @@
 <#if receipts?has_content>
     <table id="receiptTable">
         <tr><th>单号</th><th>供应商</th><th>店铺订单号</th><th>到货日</th>
-            <th class="num">行数</th><th class="num">货款</th><th class="num">运费</th><th class="num">合计</th></tr>
+            <th class="num">行数</th><th class="num">货款</th><th class="num">运费</th><th class="num">优惠</th><th class="num">合计</th></tr>
         <#list receipts as r>
             <tr data-receipt="${r.receiptId}">
                 <td><a href="/mfg/control/receipts?receiptId=${r.receiptId}">${r.receiptId}</a></td>
@@ -64,11 +65,12 @@
                         title="展开这张单的明细">${(r.lineCount)!0} ▸</a><#else>${(r.lineCount)!0}</#if></td>
                 <td class="num">${((r.goodsTotal)!0)?string("0.00")}</td>
                 <td class="num">${((r.freightTotal)!0)?string("0.00")}</td>
+                <td class="num">${((r.discountTotal)!0)?string("0.00")}</td>
                 <td class="num">${((r.spendTotal)!0)?string("0.00")}</td>
             </tr>
             <#if detail?has_content>
                 <tr class="receiptLines" data-receipt-lines="${r.receiptId}" hidden>
-                    <td colspan="8">
+                    <td colspan="9">
                         <table class="inner">
                             <tr><th>行号</th><th>批次</th><th>料号</th><th>名称</th>
                                 <th class="num">数量</th><th class="num">单价</th><th class="num">货款</th><th></th></tr>
@@ -277,7 +279,7 @@
         <p id="batchHint" class="hint"></p>
         <table class="inner" id="scanOrderTable">
             <tr>
-                <th>订单号</th><th>店铺</th><th>下单</th><th class="num">运费</th>
+                <th>订单号</th><th>店铺</th><th>下单</th><th class="num">运费</th><th class="num">优惠</th>
                 <th class="num">明细</th><th class="num">货款</th><th class="num">实付</th><th>状态</th>
             </tr>
             <tbody id="scanOrderRows"></tbody>
@@ -444,7 +446,7 @@
             var holder = document.createElement('tr');
             holder.setAttribute('data-lines', key);
             var cellHolder = document.createElement('td');
-            cellHolder.colSpan = 8;
+            cellHolder.colSpan = 9;
             var table = document.createElement('table');
             table.className = 'inner';
             var head = document.createElement('tr');
@@ -509,6 +511,7 @@
                 var dateCell = cell(row, order.orderDate || '');
                 dateCell.setAttribute('data-scan-date', order.orderDate || '');
                 cell(row, order.freight || '0', 'num');
+                cell(row, order.discount || '0', 'num');
                 /* what will be written, article by article: the person must be able to read it
                    here, not only after the import (Step 93) */
                 var countCell = cell(row, '', 'num');
@@ -524,10 +527,11 @@
                 var goods = amountsOf(order);
                 cell(row, goods.toFixed(2), 'num');
                 cell(row, order.paidTotal || '', 'num');
-                /* 货款 + 运费 must come to 实付: when it does not, an article is probably missing */
+                /* 货款 + 运费 − 优惠 must come to 实付: when it does not, an article is probably missing */
                 var paid = parseFloat(order.paidTotal);
                 var off = !isNaN(paid) && goods > 0
-                    && Math.abs(goods + (parseFloat(order.freight) || 0) - paid) > 0.005;
+                    && Math.abs(goods + (parseFloat(order.freight) || 0)
+                        - (parseFloat(order.discount) || 0) - paid) > 0.005;
                 var statusText = order.refunded === 'Y' ? '已退款，不入库'
                     : (off ? '实付与明细对不上，请核对' : '待导入');
                 var status = cell(row, statusText);
@@ -575,6 +579,7 @@
                     params.append('o' + index + '.orderNo', order.orderNo || '');
                     params.append('o' + index + '.shop', order.shop || '');
                     params.append('o' + index + '.freight', order.freight || '0');
+                    params.append('o' + index + '.discount', order.discount || '0');
                     params.append('o' + index + '.lines', order.lines || '');
                 });
                 var skipped = orders.length - wanted.length;
@@ -691,6 +696,7 @@
             店铺订单号 <input type="text" name="supplierOrderNo" size="20" placeholder="淘宝订单号（可空）"/>
             到货日 <input type="date" name="receiptDate" title="留空就是今天"/>
             运费 <input class="narrow" type="text" name="freightAmount" value="0" title="整单运费，记期间费用"/>
+            优惠 <input class="narrow" type="text" name="discountAmount" value="0" title="整单优惠（红包 / 满减），可空"/>
             备注 <input type="text" name="note" size="20"/>
             <input type="submit" value="建单"/>
         </p>
@@ -705,7 +711,10 @@
             供应商 <input type="text" name="supplierName" size="18" value="${receipt.supplierName!''}"/>
             店铺订单号 <input type="text" name="supplierOrderNo" size="20" value="${receipt.supplierOrderNo!''}"/>
             到货日 <input type="date" name="receiptDate" value="<#if receipt.receiptDate??>${receipt.receiptDate?string("yyyy-MM-dd")}</#if>"/>
-            运费 <input class="narrow" type="text" name="freightAmount" value="${((receipt.freightAmount)!0)?string("0.00")}"/>
+            运费 <input class="narrow" type="text" name="freightAmount" value="${((receipt.freightAmount)!0)?string("0.00")}"
+                title="整单运费，记期间费用"/>
+            优惠 <input class="narrow" type="text" name="discountAmount" value="${((receipt.discountAmount)!0)?string("0.00")}"
+                title="整单优惠（红包 / 优惠券 / 满减）：实付 = 货款 + 运费 − 优惠"/>
             备注 <input type="text" name="note" size="20" value="${receipt.note!''}"/>
             <input type="submit" value="保存单据"/>
             <span id="saveHint" class="hint">改了哪项就点一下保存，页面不会刷新</span>

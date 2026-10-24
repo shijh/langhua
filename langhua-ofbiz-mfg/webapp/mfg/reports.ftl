@@ -102,6 +102,7 @@
 <p>
     <a class="download" href="/mfg/control/freightCsv?fromDate=<#if t.fromDate??>${t.fromDate?string("yyyy-MM-dd")}</#if>&amp;toDate=<#if t.toDate??>${t.toDate?string("yyyy-MM-dd")}</#if>&amp;groupBy=${groupBy}">导出采购运费 CSV</a>
     <span class="hint">运费是整单的期间费用，不进料价；这里的合计按月（或周/日）汇总，比例可以拿去给材料成本整体加成。</span>
+    <span class="hint">采购支出 = 货款 + 运费 − 优惠（淘宝红包 / 满减之类整单优惠，登记在到货单上）。</span>
 </p>
 <#if freightRows?has_content>
     <table id="freightTable">

@@ -115,7 +115,7 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
 | `verify-m43.ps1` | 改密码与退出：新建账号登录、导航有 logout、错当前密码/新旧相同/两次不一致/太短都被拒、改成功落到登录页且会话关闭、旧密码失效新密码可用、logout 结束会话 | 15 |
 | `verify-m44.ps1` | BOM 导入选文件（Step 54）：表单是 multipart、有 `file` 字段、上传 Fritzing 文件后合并 9 种料、**文件优先于文本框**、GBK 文件能解码、料号超长被拒、空提交有提示、20 位型号编码也能导入（日志 `mfg-m43b.txt`） | 31 |
 | `verify-m45.ps1` | BOM 行就地编辑（Step 56/57）：标题带版本号、每行有自己的表单（`form="bomLine<n>"` 的 qty/designators/isKeyPart/unitPrice）、保存后数量与金额重算、手加一行、删除一行、用量 0 被拒、`#bomBlock` 与 JSON 出口（保存/拒绝/删除三种回答）（日志 `mfg-m45.txt`） | 34 |
-| `verify-m46.ps1` | 采购到货单（Step 58）：汇总表与 `data-allocation`、建单与运费、批次下拉、挂批次后的行与金额、合计含运费、同一批次不能挂两张单、负运费被拒、行可以移出（日志 `mfg-m46.txt`） | 26 |
+| `verify-m46.ps1` | 采购到货单（Step 58）：汇总表与 `data-allocation`、建单与运费、批次下拉、挂批次后的行与金额、合计含运费、同一批次不能挂两张单、负运费被拒、行可以移出、**整单优惠（红包 / 满减）四项断言**、列表翻页、行内展开与就地改行、删行、料号重命名（日志 `mfg-m46.txt`） | 63 |
 | `verify-m47.ps1` | 照淘宝订单一步入库（Step 60/65）：订单表单、两行明细 → 建单+入库、订单号已存、货款 4.41、便宜料单价 0.0291、重复提交不重复入库、补运费累加、不满四列/数量 0 被拒、**长料号被缩短且全称留在名称里**、识图按钮与 `/mfg/control/orderImage` 降级回答（日志 `mfg-m47.txt`；最后一项要求实例上没配识图，跑完 m48 会清掉） | 26 |
 | `verify-m48.ps1` | 系统设置页（Step 61）：识图配置块与状态、密钥不回显、接口必须 http(s)、空密钥保留旧的、保存后状态变 DATABASE、`clear=Y` 恢复未配置、没配/配了两种 scan 回答（日志 `mfg-m48.txt`） | 26 |
 
@@ -299,6 +299,16 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   答案是半截 JSON（`orderCount` 读得到、`orders` 解析出 0 条）。`scanFailure` 现在先看
   `orderCountIn(reply) > 0` 就给“回答被截断，一次只框一两张单”的话术；重试那次**换用 `SHORT_PROMPT`**
   （短提示词 → 想得少、答得快），第一次仍用完整 `PROMPT`
+- **红包 / 满减是整单优惠，不是“金额不平”（Step 95）**：用户截图的单子 货款 9.00 + 运费 2.00 = 应收 11.00，
+  用了淘宝红包 0.27，实付 10.73，旧逻辑报“金额对不上”。现在 `MfgPurchaseReceipt.discountAmount` 记整单优惠，
+  口径 **实付 = 货款 + 运费 − 优惠**，`receiptSummary(lines, freight, discount)` 多返回 `discountTotal`，
+  `spendTotal` 扣掉优惠；到货单页（建单框 / 汇总 / 列表 / 详情页「优惠」框）、核对表（「优惠」列）、
+  报表的采购支出都用这一份。**模型侧**：`PROMPT` 多问 `discount`（优惠 / 红包 / 券），`fieldsOfOneOrder` 带出来；
+  读不到时 `checkOrderTotals` 用差额反推（`0 < 货款+运费−实付 < 货款` → 记成优惠），
+  `totalsDisagree` 也只在**差额大于货款**时才判“没读全”，否则红包会白白触发一次重试。
+  旧库要跑一次 `tools/receipt-discount.sql`（`apply-receipt-discount.ps1` 会停实例 → ij → 起），
+  **列是 `NOT NULL DEFAULT 0`：新建单据时必须显式写一次 `discountAmount`**（`purchaseReceiptSave` 曾漏掉，
+  Derby 直接 `Error while inserting`，页面只看到一个 200 的建单页跑回自己——m46 就是这样挂了 24 项）
 - **核对表可展开，重新导入是“覆盖”不是“跳过”（Step 93）**：用户发现第一次少读了一件商品，
   改好再导时那件“已经存在”的料号被跳过、数字没更新（到货单上留下 0.0000 单价的行）。
   现在：① `showOrders` 在明细列出「2 ▸」（`data-toggle-lines="scan-<单号>"` + 紧跟一行

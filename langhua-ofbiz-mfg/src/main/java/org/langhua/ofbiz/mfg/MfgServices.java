@@ -2459,21 +2459,26 @@ public final class MfgServices {
                 List<Map<String, Object>> lines = linesOf.get(receipt.getString("receiptId"));
                 Map<String, Object> summary = receiptSummary(
                         lines == null ? new ArrayList<Map<String, Object>>() : lines,
-                        numberOrZero(receipt.get("freightAmount")));
+                        numberOrZero(receipt.get("freightAmount")),
+                        numberOrZero(receipt.get("discountAmount")));
                 String key = periodKey(day, groupBy);
                 double[] bucket = buckets.get(key);
                 if (bucket == null) {
-                    bucket = new double[3];
+                    bucket = new double[4];
                     buckets.put(key, bucket);
                 }
                 bucket[0] += 1.0;
                 bucket[1] += numberOrZero(summary.get("goodsTotal"));
                 bucket[2] += numberOrZero(summary.get("freightTotal"));
+                // a red packet comes off the period spend too, otherwise the report would claim more
+                // money was spent than really left the bank
+                bucket[3] += numberOrZero(summary.get("discountTotal"));
             }
             List<Map<String, Object>> rows = new ArrayList<>(buckets.size());
             double receipts = 0.0;
             double goods = 0.0;
             double freight = 0.0;
+            double discount = 0.0;
             for (Map.Entry<String, double[]> entry : buckets.entrySet()) {
                 double[] bucket = entry.getValue();
                 Map<String, Object> row = new LinkedHashMap<>();
@@ -2481,19 +2486,22 @@ public final class MfgServices {
                 row.put("receiptCount", Integer.valueOf((int) Math.round(bucket[0])));
                 row.put("goodsTotal", Double.valueOf(round2(bucket[1])));
                 row.put("freightTotal", Double.valueOf(round2(bucket[2])));
-                row.put("spendTotal", Double.valueOf(round2(bucket[1] + bucket[2])));
+                row.put("discountTotal", Double.valueOf(round2(bucket[3])));
+                row.put("spendTotal", Double.valueOf(round2(bucket[1] + bucket[2] - bucket[3])));
                 row.put("freightShare", Double.valueOf(bucket[1] <= 0.0
                         ? 0.0 : round2(bucket[2] / bucket[1] * 100.0)));
                 rows.add(row);
                 receipts += bucket[0];
                 goods += bucket[1];
                 freight += bucket[2];
+                discount += bucket[3];
             }
             result.put("rows", rows);
             result.put("receiptCount", Integer.valueOf((int) Math.round(receipts)));
             result.put("goodsTotal", Double.valueOf(round2(goods)));
             result.put("freightTotal", Double.valueOf(round2(freight)));
-            result.put("spendTotal", Double.valueOf(round2(goods + freight)));
+            result.put("discountTotal", Double.valueOf(round2(discount)));
+            result.put("spendTotal", Double.valueOf(round2(goods + freight - discount)));
             result.put("freightShare", Double.valueOf(goods <= 0.0 ? 0.0 : round2(freight / goods * 100.0)));
             result.put("rowCount", Integer.valueOf(rows.size()));
             return result;
@@ -7821,6 +7829,23 @@ always
      *         {@code freightShare} (freight as a percentage of the goods value)
      */
     static Map<String, Object> receiptSummary(List<Map<String, Object>> lines, double freight) {
+        return receiptSummary(lines, freight, 0.0);
+    }
+
+    /**
+     * Adds up one receipt: the goods value of its lines, the freight, the discount the shop took off
+     * the whole order (a Taobao red packet, coupon or 满减) and what the order cost in total.
+     *
+     * <p>The discount is a payment discount, not a cheaper part: the unit prices stay the prices
+     * printed on the order, and 实付款 = goods + freight - discount.
+     *
+     * @param lines the lines of the receipt, each carrying {@code goodsAmount}
+     * @param freight the freight paid for the whole order
+     * @param discount the money taken off the whole order
+     * @return {@code lineCount}, {@code goodsTotal}, {@code freightTotal}, {@code discountTotal},
+     *         {@code spendTotal} and {@code freightShare}
+     */
+    static Map<String, Object> receiptSummary(List<Map<String, Object>> lines, double freight, double discount) {
         double goods = 0.0;
         for (Map<String, Object> line : lines) {
             Object amount = line.get("goodsAmount");
@@ -7830,11 +7855,13 @@ always
         }
         double goodsTotal = round2(goods);
         double freightTotal = round2(freight);
+        double discountTotal = round2(discount);
         Map<String, Object> summary = new LinkedHashMap<>();
         summary.put("lineCount", Integer.valueOf(lines.size()));
         summary.put("goodsTotal", Double.valueOf(goodsTotal));
         summary.put("freightTotal", Double.valueOf(freightTotal));
-        summary.put("spendTotal", Double.valueOf(round2(goodsTotal + freightTotal)));
+        summary.put("discountTotal", Double.valueOf(discountTotal));
+        summary.put("spendTotal", Double.valueOf(round2(goodsTotal + freightTotal - discountTotal)));
         summary.put("freightShare", Double.valueOf(goodsTotal <= 0.0
                 ? 0.0 : round2(freightTotal / goodsTotal * 100.0)));
         return summary;
@@ -7870,6 +7897,12 @@ always
         if (freightText != null && freight == null) {
             return ServiceUtil.returnError("运费要填非负数字，或留空：" + freightText);
         }
+        // the red packet / coupon taken off the whole order, so 实付款 = goods + freight - discount
+        String discountText = toText(context.get("discountAmount"));
+        Double discount = optionalAmount(discountText);
+        if (discountText != null && discount == null) {
+            return ServiceUtil.returnError("优惠要填非负数字，或留空：" + discountText);
+        }
         try {
             GenericValue receipt = receiptId == null ? null
                     : EntityQuery.use(delegator).from("MfgPurchaseReceipt")
@@ -7879,6 +7912,8 @@ always
                 receipt = delegator.makeValue("MfgPurchaseReceipt");
                 receipt.set("receiptId", receiptId);
                 receipt.set("freightAmount", Double.valueOf(0.0));
+                // the column is NOT NULL: an insert that leaves it out fails on Derby
+                receipt.set("discountAmount", Double.valueOf(0.0));
                 receipt.set("allocationId", ALLOC_NONE);
                 receipt.set("receiptDate", java.sql.Date.valueOf(LocalDate.now()));
             }
@@ -7896,6 +7931,9 @@ always
             if (context.containsKey("freightAmount")) {
                 receipt.set("freightAmount", Double.valueOf(freight == null ? 0.0 : freight.doubleValue()));
             }
+            if (context.containsKey("discountAmount")) {
+                receipt.set("discountAmount", Double.valueOf(discount == null ? 0.0 : discount.doubleValue()));
+            }
             if (context.containsKey("note")) {
                 receipt.set("note", toText(context.get("note")));
             }
@@ -7903,6 +7941,7 @@ always
             Map<String, Object> result = ServiceUtil.returnSuccess();
             result.put("receiptId", receiptId);
             result.put("freightAmount", receipt.get("freightAmount"));
+            result.put("discountAmount", receipt.get("discountAmount"));
             return result;
         } catch (GenericEntityException e) {
             return ServiceUtil.returnError("Could not save the receipt: " + e.getMessage());
@@ -8045,7 +8084,7 @@ always
                 Map<String, Object> row = toReceiptMap(receipt);
                 List<Map<String, Object>> lines = linesOf.get(receipt.getString("receiptId"));
                 row.putAll(receiptSummary(lines == null ? new ArrayList<Map<String, Object>>() : lines,
-                        numberOrZero(receipt.get("freightAmount"))));
+                        numberOrZero(receipt.get("freightAmount")), numberOrZero(receipt.get("discountAmount"))));
                 rows.add(row);
             }
             String keyword = toText(context.get("search"));
@@ -8146,7 +8185,8 @@ always
             }
             result.put("receipt", toReceiptMap(receipt));
             result.put("lines", lines);
-            result.putAll(receiptSummary(lines, numberOrZero(receipt.get("freightAmount"))));
+            result.putAll(receiptSummary(lines, numberOrZero(receipt.get("freightAmount")),
+                    numberOrZero(receipt.get("discountAmount"))));
             return result;
         } catch (GenericEntityException e) {
             return ServiceUtil.returnError("Could not read the receipt: " + e.getMessage());
@@ -8189,6 +8229,13 @@ always
         Double freight = optionalAmount(freightText);
         if (freightText != null && freight == null) {
             return ServiceUtil.returnError("运费要填非负数字，或留空：" + freightText);
+        }
+        // a Taobao red packet, coupon or 满减 comes off the whole order: the part prices stay as they
+        // are printed, so 实付款 = goods + freight - discount
+        String discountText = toText(context.get("discountAmount"));
+        Double discount = optionalAmount(discountText);
+        if (discountText != null && discount == null) {
+            return ServiceUtil.returnError("优惠要填非负数字，或留空：" + discountText);
         }
         List<String[]> rows = parseOrderArticleLines(lines);
         if (rows.isEmpty()) {
@@ -8239,16 +8286,24 @@ always
                 receipt.set("supplierOrderNo", supplierOrderNo);
                 receipt.set("receiptDate", receiptDate);
                 receipt.set("freightAmount", Double.valueOf(freight == null ? 0.0 : freight.doubleValue()));
+                receipt.set("discountAmount", Double.valueOf(discount == null ? 0.0 : discount.doubleValue()));
                 receipt.set("allocationId", ALLOC_NONE);
                 receipt.set("note", toText(context.get("note")));
                 delegator.create(receipt);
-            } else if (freight != null) {
+            } else if (freight != null || discount != null) {
                 boolean replace = "Y".equalsIgnoreCase(toText(context.get("overwrite")));
                 // a re-read of the same order replaces the numbers it wrote before (a freight that was
                 // written wrong must be correctable); a plain second delivery adds up
-                double amount = replace ? freight.doubleValue()
-                        : round2(numberOrZero(receipt.get("freightAmount")) + freight.doubleValue());
-                receipt.set("freightAmount", Double.valueOf(round2(amount)));
+                if (freight != null) {
+                    double amount = replace ? freight.doubleValue()
+                            : round2(numberOrZero(receipt.get("freightAmount")) + freight.doubleValue());
+                    receipt.set("freightAmount", Double.valueOf(round2(amount)));
+                }
+                if (discount != null) {
+                    double amount = replace ? discount.doubleValue()
+                            : round2(numberOrZero(receipt.get("discountAmount")) + discount.doubleValue());
+                    receipt.set("discountAmount", Double.valueOf(round2(amount)));
+                }
                 receipt.store();
             }
             String receiptId = receipt.getString("receiptId");
@@ -8333,7 +8388,8 @@ always
                     .where("receiptId", receiptId).orderBy("lineSeq").queryList()) {
                 lineMaps.add(toReceiptLineMap(line));
             }
-            Map<String, Object> summary = receiptSummary(lineMaps, numberOrZero(receipt.get("freightAmount")));
+            Map<String, Object> summary = receiptSummary(lineMaps, numberOrZero(receipt.get("freightAmount")),
+                    numberOrZero(receipt.get("discountAmount")));
             Map<String, Object> result = ServiceUtil.returnSuccess();
             result.put("receiptId", receiptId);
             result.put("importedCount", String.valueOf(imported));
@@ -8886,6 +8942,8 @@ always
         fields.put("orderDate", orderDate != null ? orderDate : jsonStringField(text, "date"));
         fields.put("freight", jsonStringField(text, "freight"));
         fields.put("paidTotal", jsonStringField(text, "paidTotal"));
+        // a Taobao red packet or coupon: the difference between the articles plus freight and what was paid
+        fields.put("discount", jsonStringField(text, "discount"));
         // a refunded or closed order must not be booked into stock, so the answer carries that too
         fields.put("refunded", jsonStringField(text, "refunded"));
         String lines = jsonStringField(text, "lines");
@@ -9022,6 +9080,7 @@ always
             return null;
         }
         Double freight = optionalAmount(fields.get("freight"));
+        Double discount = optionalAmount(fields.get("discount"));
         double goods = 0.0;
         for (String[] row : parseOrderArticleLines(fields.get("lines"))) {
             goods += toDouble(row[3], 0.0);
@@ -9031,27 +9090,38 @@ always
             // no line could be read: there is nothing to check the freight against
             return null;
         }
+        double freightValue = freight == null ? 0.0 : freight.doubleValue();
         if (freight == null) {
-            double expected = round2(paid.doubleValue() - goods);
-            if (expected < 0.0) {
-                return null;
-            }
-            fields.put("freight", String.format(Locale.ROOT, "%.2f", expected));
-            return "运费按 实付 " + money(paid) + " − 货款 " + money(Double.valueOf(goods)) + " 补成 "
-                    + money(Double.valueOf(expected));
+            // nothing printed next to 含运费 means there was no freight
+            fields.put("freight", "0.00");
         }
-        double total = round2(goods + freight.doubleValue());
-        if (Math.abs(total - paid.doubleValue()) < 0.005) {
+        if (discount == null) {
+            double off = round2(goods + freightValue - paid.doubleValue());
+            if (off > 0.0 && off < goods) {
+                // the shop paid less than the goods and the freight: a red packet, a coupon, 满减
+                fields.put("discount", String.format(Locale.ROOT, "%.2f", off));
+                return "实付 " + money(paid) + " 比 货款 " + money(Double.valueOf(goods)) + " + 运费 "
+                        + money(Double.valueOf(freightValue)) + " 少 " + money(Double.valueOf(off))
+                        + "，按整单优惠（红包 / 满减）记下";
+            }
+        }
+        double discountValue = discount == null ? 0.0 : discount.doubleValue();
+        double expected = round2(goods + freightValue - discountValue);
+        if (Math.abs(expected - paid.doubleValue()) < 0.005) {
             return null;
         }
-        if (total < paid.doubleValue()) {
+        if (expected < paid.doubleValue()) {
             return "实付 " + money(paid) + "，但明细 " + money(Double.valueOf(goods)) + " + 运费 "
-                    + money(freight) + " 只有 " + money(Double.valueOf(total)) + "（差了 "
-                    + money(Double.valueOf(round2(paid.doubleValue() - total)))
+                    + money(Double.valueOf(freightValue))
+                    + (discountValue > 0.0 ? " − 优惠 " + money(Double.valueOf(discountValue)) : "")
+                    + " 只有 " + money(Double.valueOf(expected)) + "（差了 "
+                    + money(Double.valueOf(round2(paid.doubleValue() - expected)))
                     + "），可能漏了一件商品，请对着截图核对";
         }
         return "实付 " + money(paid) + "，但明细 " + money(Double.valueOf(goods)) + " + 运费 "
-                + money(freight) + " 是 " + money(Double.valueOf(total)) + "，比实付还多，请核对";
+                + money(Double.valueOf(freightValue))
+                + (discountValue > 0.0 ? " − 优惠 " + money(Double.valueOf(discountValue)) : "")
+                + " 是 " + money(Double.valueOf(expected)) + "，比实付还多，请核对";
     }
 
     /**
@@ -9077,7 +9147,12 @@ always
         if (goods <= 0.0) {
             return false;
         }
-        return Math.abs(round2(goods + freight.doubleValue()) - paid.doubleValue()) >= 0.005;
+        Double discount = optionalAmount(order.get("discount"));
+        double discountValue = discount == null ? 0.0 : discount.doubleValue();
+        double total = round2(goods + freight.doubleValue() - discountValue);
+        // paying less than goods plus freight is a red packet or a coupon, not a lost article: only a
+        // shortfall towards the shop (paid more than the lines) means something is missing
+        return total < paid.doubleValue() && Math.abs(total - paid.doubleValue()) >= 0.005;
     }
 
     /** @return the amount with two decimals, for a sentence */
