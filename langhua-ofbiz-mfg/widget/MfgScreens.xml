@@ -209,6 +209,7 @@
                     <field-map field-name="lotId" from-field="parameters.lotId"/>
                     <field-map field-name="componentCode" from-field="parameters.componentCode"/>
                     <field-map field-name="movementTypeId" from-field="parameters.movementTypeId"/>
+                    <field-map field-name="reasonEnumId" from-field="parameters.reasonEnumId"/>
                     <field-map field-name="kind" from-field="parameters.kind"/>
                     <field-map field-name="fromDate" from-field="parameters.fromDate"/>
                     <field-map field-name="toDate" from-field="parameters.toDate"/>

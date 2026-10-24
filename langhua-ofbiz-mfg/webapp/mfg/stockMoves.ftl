@@ -2,14 +2,15 @@
 <#import "pager.ftl" as pg>
 <#setting url_escaping_charset="UTF-8">
 <#--
-  出入库流水：一条一笔，带该批次的结存余额；可按料号 / 批次 / 类型 / 日期过滤。
-  数据：ledger.rows（lotId / seqId / componentCode / componentName / movementTypeId /
+  出入库流水：一条一笔，带该批次的结存余额；可按料号 / 批次 / 类型 / 原因 / 日期过滤。
+  数据：ledger.rows（lotId / seqId / componentCode / componentName / movementTypeId / reasonEnumId /
         quantityDiff / balanceQty / unitCost / workOrderId / physicalInventoryId /
         referenceNo / operatorName / effectiveDate / note）
 -->
 <#assign lr = (ledger)!{}>
 <#assign rows = (lr.rows)![]>
 <#assign typeId = (lr.movementTypeId)!''>
+<#assign reasonId = (lr.reasonEnumId)!''>
 <#assign kindId = (lr.kind)!''>
 <#assign errList = (errorMessageList)![]>
 
@@ -26,6 +27,22 @@
     <#else><#return '${id!}'>
     </#if>
 </#function>
+
+<#-- 原因用的是 OFBiz 自带的 IID_REASON 清单（Inventory Item Detail Reason），id 与 OFBiz 一致 -->
+<#function reasonLabel id>
+    <#if (id!'') == 'VAR_LOST'><#return '丢失'>
+    <#elseif (id!'') == 'VAR_STOLEN'><#return '被盗'>
+    <#elseif (id!'') == 'VAR_FOUND'><#return '找到（盘盈）'>
+    <#elseif (id!'') == 'VAR_DAMAGED'><#return '损坏'>
+    <#elseif (id!'') == 'VAR_SAMPLE'><#return '样品 / 赠送'>
+    <#elseif (id!'') == 'VAR_INTEGR'><#return '生产领用（组装）'>
+    <#elseif (id!'') == 'VAR_MISSHIP_ORDERED'><#return '供方少发（应到）'>
+    <#elseif (id!'') == 'VAR_MISSHIP_SHIPPED'><#return '我方多发（已发）'>
+    <#else><#return '${id!}'>
+    </#if>
+</#function>
+
+<#-- 选了原因就把类型拨过去：出库的那几个是报废，找到 / 供方少发 是补入库（脚本在表单下面同步 data-type） -->
 
 <h1>出入库流水</h1>
 
@@ -55,6 +72,18 @@
         <option value="MFG_MOVE_RESERVE"<#if typeId == 'MFG_MOVE_RESERVE'> selected="selected"</#if>>预留</option>
         <option value="MFG_MOVE_RELEASE"<#if typeId == 'MFG_MOVE_RELEASE'> selected="selected"</#if>>释放预留</option>
     </select>
+    原因
+    <select name="reasonEnumId">
+        <option value="">全部</option>
+        <option value="VAR_LOST"<#if reasonId == 'VAR_LOST'> selected="selected"</#if>>丢失</option>
+        <option value="VAR_STOLEN"<#if reasonId == 'VAR_STOLEN'> selected="selected"</#if>>被盗</option>
+        <option value="VAR_FOUND"<#if reasonId == 'VAR_FOUND'> selected="selected"</#if>>找到（盘盈）</option>
+        <option value="VAR_DAMAGED"<#if reasonId == 'VAR_DAMAGED'> selected="selected"</#if>>损坏</option>
+        <option value="VAR_SAMPLE"<#if reasonId == 'VAR_SAMPLE'> selected="selected"</#if>>样品 / 赠送</option>
+        <option value="VAR_INTEGR"<#if reasonId == 'VAR_INTEGR'> selected="selected"</#if>>生产领用（组装）</option>
+        <option value="VAR_MISSHIP_ORDERED"<#if reasonId == 'VAR_MISSHIP_ORDERED'> selected="selected"</#if>>供方少发（应到）</option>
+        <option value="VAR_MISSHIP_SHIPPED"<#if reasonId == 'VAR_MISSHIP_SHIPPED'> selected="selected"</#if>>我方多发（已发）</option>
+    </select>
     起 <input type="text" name="fromDate" size="10" value="<#if lr.fromDate??>${lr.fromDate?string("yyyy-MM-dd")}</#if>" placeholder="yyyy-mm-dd"/>
     止 <input type="text" name="toDate" size="10" value="<#if lr.toDate??>${lr.toDate?string("yyyy-MM-dd")}</#if>" placeholder="yyyy-mm-dd"/>
     <input type="submit" value="查询"/>
@@ -64,7 +93,7 @@
 <#if rows?has_content>
     <table id="ledgerTable">
         <tr>
-            <th>时间</th><th>料号</th><th>批次</th><th>类别</th><th>库位</th><th class="num">序号</th><th>类型</th>
+            <th>时间</th><th>料号</th><th>批次</th><th>类别</th><th>库位</th><th class="num">序号</th><th>类型</th><th>原因</th>
             <th class="num">数量</th><th class="num">结存</th><th class="num">单价</th>
             <th>工单 / 单据</th><th>操作人</th><th>备注</th>
         </tr>
@@ -77,6 +106,7 @@
                 <td><#if row.locationId??>${row.locationId}<#else><span class="hint">—</span></#if></td>
                 <td class="num">${row.seqId?string("0")}</td>
                 <td><#if (row.movementTypeId!'') == 'MFG_MOVE_ISSUE' || (row.movementTypeId!'') == 'MFG_MOVE_SCRAP'><span class="error">${moveLabel(row.movementTypeId)}</span><#elseif (row.movementTypeId!'') == 'MFG_MOVE_RECEIPT'><span class="ok">${moveLabel(row.movementTypeId)}</span><#else>${moveLabel(row.movementTypeId)}</#if></td>
+                <td data-reason="${(row.reasonEnumId)!''}"><#if row.reasonEnumId??>${reasonLabel(row.reasonEnumId)}<#else><span class="hint">—</span></#if></td>
                 <td class="num"><#if ((row.displayQty)!0) lt 0><span class="error">${row.displayQty?string("0.##")}</span><#else><span class="ok">+${row.displayQty?string("0.##")}</span></#if></td>
                 <td class="num">${row.balanceQty?string("0.##")}</td>
                 <td class="num"><#if row.unitCost??>${row.unitCost?string("0.0000")}<#else><span class="hint">—</span></#if></td>
@@ -86,7 +116,7 @@
             </tr>
         </#list>
     </table>
-    <@pg.pager action="/mfg/control/stockMoves" query=('componentCode=' + ((lr.componentCode)!'')?url + '&' + 'lotId=' + ((lr.lotId)!'')?url + '&' + 'movementTypeId=' + typeId?url)
+    <@pg.pager action="/mfg/control/stockMoves" query=('componentCode=' + ((lr.componentCode)!'')?url + '&' + 'lotId=' + ((lr.lotId)!'')?url + '&' + 'movementTypeId=' + typeId?url + '&' + 'reasonEnumId=' + reasonId?url)
     page=(lr.page)!1 pageCount=(lr.pageCount)!1 total=(lr.totalCount)!0 unit="条" pageSize=(lr.pageSize)!20/>
 <#else>
     <p class="hint">没有符合条件的流水。入库（建批次）会自动记一笔到货；发料、退料、报废、盘点各记一笔，结存等于这些数之和。</p>
@@ -95,12 +125,24 @@
 <#if (lr.componentCode!'') != '' || (lr.lotId!'') != ''>
     <fieldset>
         <legend>手工登一笔（报废 / 退料 / 调整）</legend>
-        <form method="post" action="/mfg/control/inventoryMove">
+        <form method="post" action="/mfg/control/inventoryMove" id="moveForm">
             <input type="hidden" name="componentCode" value="${(lr.componentCode)!''}"/>
             <p>
                 批次 <input type="text" name="lotId" size="16" value="${(lr.lotId)!''}" placeholder="LOT-yyMMdd-NN"/>
+                原因
+                <select name="reasonEnumId" id="reasonField" title="为什么数量变了：丢的 / 坏的 / 多出来的">
+                    <option value="" data-type="">（不填）</option>
+                    <option value="VAR_LOST" data-type="MFG_MOVE_SCRAP">丢失</option>
+                    <option value="VAR_STOLEN" data-type="MFG_MOVE_SCRAP">被盗</option>
+                    <option value="VAR_DAMAGED" data-type="MFG_MOVE_SCRAP">损坏</option>
+                    <option value="VAR_SAMPLE" data-type="MFG_MOVE_SCRAP">样品 / 赠送</option>
+                    <option value="VAR_MISSHIP_SHIPPED" data-type="MFG_MOVE_SCRAP">我方多发（已发）</option>
+                    <option value="VAR_INTEGR" data-type="MFG_MOVE_ISSUE">生产领用（组装）</option>
+                    <option value="VAR_FOUND" data-type="MFG_MOVE_RECEIPT">找到（盘盈）</option>
+                    <option value="VAR_MISSHIP_ORDERED" data-type="MFG_MOVE_RECEIPT">供方少发（应到）</option>
+                </select>
                 类型
-                <select name="movementTypeId">
+                <select name="movementTypeId" id="typeField">
                     <option value="MFG_MOVE_SCRAP">报废</option>
                     <option value="MFG_MOVE_RETURN">退料（可填工单）</option>
                     <option value="MFG_MOVE_RECEIPT">补入库</option>
@@ -113,6 +155,24 @@
                 备注 <input type="text" name="note" size="24"/>
                 <input type="submit" value="登记"/>
             </p>
+            <p class="hint" id="reasonHint">选了原因，类型会跟着改：丢失 / 被盗 / 损坏 / 样品 / 多发 → 报废；生产领用 → 发料；找到 / 供方少发 → 补入库。原因来自 OFBiz 自带的库存原因清单（IID_REASON），以后与标准 OFBiz 对账也是同一套编号。</p>
         </form>
+        <script>
+        /* the reason decides the direction: picking "lost" must not be booked as a receipt */
+        (function () {
+            var reason = document.getElementById('reasonField');
+            var type = document.getElementById('typeField');
+            if (!reason || !type) {
+                return;
+            }
+            reason.addEventListener('change', function () {
+                var chosen = reason.options[reason.selectedIndex];
+                var wanted = chosen ? (chosen.getAttribute('data-type') || '') : '';
+                if (wanted) {
+                    type.value = wanted;
+                }
+            });
+        }());
+        </script>
     </fieldset>
 </#if>

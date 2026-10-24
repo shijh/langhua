@@ -105,7 +105,7 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
 | `verify-m33.ps1` | 看板告警与 CSV 导出（告警区、三个导出链接、`text/csv` + 下载头、表头列数、行内容） | 30 |
 | `verify-m34.ps1` | 软件项目：估算试算、保存与编号、台账计划 vs 实际、实测耗时率、超期进告警 | 30 |
 | `verify-m35.ps1` | 报表与成本细化：报表页（卡片/趋势表/日周月切换/未知口径回落/喂进学习曲线的链接）、三份 CSV（良率/工时/采购运费，BOM + 列数 + 合计行）、采购运费块（卡片/表/合计行/周标签）、产品页按工序分摊、工单页工序成本与外协费、开发页问题清单登记→关闭→重开 | 57 |
-| `verify-m36.ps1` | 库存：结存页与卡片、流水页与余额、报废入账与超量被拒、盘点单号与差异、安全库存低于阈值标红与建议采购、告警 CSV、工单预留按钮与两次 POST、成品链路（完工入库 → 成品批次 → 出货扣减 → 重复发货被拒，出货单号从成品流水里读，别按「当天最大号」猜） | 63 |
+| `verify-m36.ps1` | 库存：结存页与卡片、流水页与余额、报废入账与超量被拒、盘点单号与差异、安全库存低于阈值标红与建议采购、告警 CSV、工单预留按钮与两次 POST、成品链路（完工入库 → 成品批次 → 出货扣减 → 重复发货被拒，出货单号从成品流水里读，别按「当天最大号」猜）、**变动原因（8 项 OFBiz 原因、按原因筛、方向冲突被拒、只给原因时类型自动跟随）** | 77 |
 | `verify-m37.ps1` | 销售订单：列表与新建表单、详情（行明细/三个按钮/出货表单）、先锁在库、排产生工单、关单转 CLOSED | 26 |
 | `verify-m38.ps1` | 库位与移库：库位页与两个表单、建库位、到货指定库位、按库位看结存、移库两边余额、流水同单号、超量被拒 | 24 |
 | `verify-m39.ps1` | 外协费按单分摊：工单页三个表单、加一条按台明细、金额与对账单号、删除后消失、非法计价方式被拒 | 16 |
@@ -299,8 +299,7 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   答案是半截 JSON（`orderCount` 读得到、`orders` 解析出 0 条）。`scanFailure` 现在先看
   `orderCountIn(reply) > 0` 就给“回答被截断，一次只框一两张单”的话术；重试那次**换用 `SHORT_PROMPT`**
   （短提示词 → 想得少、答得快），第一次仍用完整 `PROMPT`
-- **红包 / 满减是整单优惠，不是“金额不平”（Step 95）**：用户截图的单子 货款 9.00 + 运费 2.00 = 应收 11.00，
-  用了淘宝红包 0.27，实付 10.73，旧逻辑报“金额对不上”。现在 `MfgPurchaseReceipt.discountAmount` 记整单优惠，
+- **红包 / 满减是整单优惠，不是“金额不平”（Step 95）**：用户截图的单子 货款 9.00 + 运费 2.00 = 应收 11.00，  用了淘宝红包 0.27，实付 10.73，旧逻辑报“金额对不上”。现在 `MfgPurchaseReceipt.discountAmount` 记整单优惠，
   口径 **实付 = 货款 + 运费 − 优惠**，`receiptSummary(lines, freight, discount)` 多返回 `discountTotal`，
   `spendTotal` 扣掉优惠；到货单页（建单框 / 汇总 / 列表 / 详情页「优惠」框）、核对表（「优惠」列）、
   报表的采购支出都用这一份。**模型侧**：`PROMPT` 多问 `discount`（优惠 / 红包 / 券），`fieldsOfOneOrder` 带出来；
@@ -309,6 +308,20 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   旧库要跑一次 `tools/receipt-discount.sql`（`apply-receipt-discount.ps1` 会停实例 → ij → 起），
   **列是 `NOT NULL DEFAULT 0`：新建单据时必须显式写一次 `discountAmount`**（`purchaseReceiptSave` 曾漏掉，
   Derby 直接 `Error while inserting`，页面只看到一个 200 的建单页跑回自己——m46 就是这样挂了 24 项）
+- **库存变动原因借 OFBiz 的 `IID_REASON`（Step 96）**：用户嫌“手工登一笔”只有 报废/退料/补入库/调整 四项、
+  问 OFBiz 里那些原因（丢失之类）能不能用。OFBiz 的清单在
+  `applications/datamodel/data/seed/ProductSeedData.xml` 的枚举类型 **`IID_REASON`**（8 项：
+  `VAR_LOST` / `VAR_STOLEN` / `VAR_FOUND` / `VAR_DAMAGED` / `VAR_SAMPLE` / `VAR_INTEGR` /
+  `VAR_MISSHIP_ORDERED` / `VAR_MISSHIP_SHIPPED`），**id 照抄**（导出/对账同一套编号），只在代码里给中文名。
+  `MfgInventoryDetail.reasonEnumId`（id 类型，可空）；`movementTypeOfReason()` 给每个原因一个默认类型
+  （丢失/被盗/损坏/样品/多发 → 报废，生产领用 → 发料，找到/供方少发 → 补入库），
+  `movementReasonProblem(type, reason, qty)` 只校验**方向**（调整看 qty 的正负），方向冲突就报中文错误——
+  **不要**改成校验“类型必须完全等于原因暗示的类型”，报废与调整都是出库，硬绑会挡人。
+  页面：表单里原因在下拉里、`<option data-type>` 带目标类型，脚本在 change 时把类型拨过去；
+  流水表多一列 `data-reason="…"`，过滤器也按原因筛（`mfgInventoryLedger` 的 IN/OUT 都加了 `reasonEnumId`，
+  屏幕 `<field-map>` 别漏，否则筛选被静默丢弃）。
+  旧库跑 `tools/inventory-reason.sql`（`apply-inventory-reason.ps1`：停实例 → ij → 起）——
+  **列可空**，所以不像 Step 95 那样必须显式写值。
 - **核对表可展开，重新导入是“覆盖”不是“跳过”（Step 93）**：用户发现第一次少读了一件商品，
   改好再导时那件“已经存在”的料号被跳过、数字没更新（到货单上留下 0.0000 单价的行）。
   现在：① `showOrders` 在明细列出「2 ▸」（`data-toggle-lines="scan-<单号>"` + 紧跟一行

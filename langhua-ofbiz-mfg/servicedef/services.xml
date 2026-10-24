@@ -856,7 +856,8 @@
             auth="false" use-transaction="false">
         <description>Record one movement of one lot (receipt, issue, return, scrap or adjustment); the lot totals are summed from the movements</description>
         <attribute name="lotId" type="String" mode="IN" optional="false"/>
-        <attribute name="movementTypeId" type="String" mode="IN" optional="false"/>
+        <attribute name="movementTypeId" type="String" mode="IN" optional="true"/>
+        <attribute name="reasonEnumId" type="String" mode="IN" optional="true"/>
         <attribute name="qty" type="Double" mode="IN" optional="false"/>
         <attribute name="unitCost" type="Double" mode="IN" optional="true"/>
         <attribute name="workOrderId" type="String" mode="IN" optional="true"/>
@@ -868,6 +869,7 @@
         <attribute name="lotId" type="String" mode="OUT" optional="true"/>
         <attribute name="seqId" type="Long" mode="OUT" optional="true"/>
         <attribute name="movementTypeId" type="String" mode="OUT" optional="true"/>
+        <attribute name="reasonEnumId" type="String" mode="OUT" optional="true"/>
         <attribute name="quantityDiff" type="Double" mode="OUT" optional="true"/>
         <attribute name="onHandQty" type="Double" mode="OUT" optional="true"/>
         <attribute name="availableQty" type="Double" mode="OUT" optional="true"/>
@@ -1017,6 +1019,7 @@
         <attribute name="lotId" type="String" mode="IN" optional="true"/>
         <attribute name="componentCode" type="String" mode="IN" optional="true"/>
         <attribute name="movementTypeId" type="String" mode="IN" optional="true"/>
+        <attribute name="reasonEnumId" type="String" mode="IN" optional="true"/>
         <attribute name="kind" type="String" mode="IN" optional="true"/>
         <attribute name="fromDate" type="String" mode="IN" optional="true"/>
         <attribute name="toDate" type="String" mode="IN" optional="true"/>
@@ -1025,6 +1028,7 @@
         <attribute name="lotId" type="String" mode="OUT" optional="true"/>
         <attribute name="componentCode" type="String" mode="OUT" optional="true"/>
         <attribute name="movementTypeId" type="String" mode="OUT" optional="true"/>
+        <attribute name="reasonEnumId" type="String" mode="OUT" optional="true"/>
         <attribute name="kind" type="String" mode="OUT" optional="true"/>
         <attribute name="fromDate" type="java.sql.Date" mode="OUT" optional="true"/>
         <attribute name="toDate" type="java.sql.Date" mode="OUT" optional="true"/>

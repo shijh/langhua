@@ -1413,6 +1413,70 @@ public class MfgServicesTest {
     }
 
     @Test
+    public void namesTheInventoryReasonsOfOfbiz() {
+        // the ids are OFBiz's own IID_REASON list, so an export lines up with a standard install
+        assertEquals(8, MfgServices.MOVE_REASONS.length);
+        assertEquals("VAR_LOST", MfgServices.MOVE_REASONS[0]);
+        assertEquals("VAR_MISSHIP_SHIPPED", MfgServices.MOVE_REASONS[7]);
+        assertEquals("\u4e22\u5931", MfgServices.reasonLabel(MfgServices.REASON_LOST));
+        assertEquals("\u88ab\u76d7", MfgServices.reasonLabel(MfgServices.REASON_STOLEN));
+        assertEquals("\u635f\u574f", MfgServices.reasonLabel(MfgServices.REASON_DAMAGED));
+        assertTrue(MfgServices.reasonLabel(MfgServices.REASON_FOUND).contains("\u627e\u5230"));
+        assertEquals("", MfgServices.reasonLabel(null));
+        assertEquals("VAR_WHATEVER", MfgServices.reasonLabel("VAR_WHATEVER"));
+    }
+
+    @Test
+    public void picksTheMovementTypeFromTheReason() {
+        // what left the stock is booked out, what came back in is booked in
+        assertEquals(MfgServices.MOVE_SCRAP, MfgServices.movementTypeOfReason(MfgServices.REASON_LOST));
+        assertEquals(MfgServices.MOVE_SCRAP, MfgServices.movementTypeOfReason(MfgServices.REASON_STOLEN));
+        assertEquals(MfgServices.MOVE_SCRAP, MfgServices.movementTypeOfReason(MfgServices.REASON_DAMAGED));
+        assertEquals(MfgServices.MOVE_SCRAP, MfgServices.movementTypeOfReason(MfgServices.REASON_SAMPLE));
+        assertEquals(MfgServices.MOVE_SCRAP,
+                MfgServices.movementTypeOfReason(MfgServices.REASON_MISSHIP_SHIPPED));
+        assertEquals(MfgServices.MOVE_ISSUE, MfgServices.movementTypeOfReason(MfgServices.REASON_INTEGR));
+        assertEquals(MfgServices.MOVE_RECEIPT, MfgServices.movementTypeOfReason(MfgServices.REASON_FOUND));
+        assertEquals(MfgServices.MOVE_RECEIPT,
+                MfgServices.movementTypeOfReason(MfgServices.REASON_MISSHIP_ORDERED));
+        assertNull(MfgServices.movementTypeOfReason(null));
+        assertNull(MfgServices.movementTypeOfReason("VAR_WHATEVER"));
+    }
+
+    @Test
+    public void refusesAReasonThatFightsWithTheType() {
+        // nothing to complain about: no reason, or a reason that agrees with the type
+        assertNull(MfgServices.movementReasonProblem(MfgServices.MOVE_SCRAP, null, 3.0));
+        assertNull(MfgServices.movementReasonProblem(MfgServices.MOVE_SCRAP,
+                MfgServices.REASON_LOST, 3.0));
+        assertNull(MfgServices.movementReasonProblem(MfgServices.MOVE_ADJUST,
+                MfgServices.REASON_DAMAGED, -2.0));
+        assertNull(MfgServices.movementReasonProblem(MfgServices.MOVE_RECEIPT,
+                MfgServices.REASON_FOUND, 4.0));
+        // a lost part may not be booked in, and a found one may not be booked out
+        assertTrue(present(MfgServices.movementReasonProblem(MfgServices.MOVE_RECEIPT,
+                MfgServices.REASON_LOST, 3.0)));
+        assertTrue(present(MfgServices.movementReasonProblem(MfgServices.MOVE_SCRAP,
+                MfgServices.REASON_FOUND, 3.0)));
+        // an adjustment follows the sign of the quantity it carries
+        assertTrue(present(MfgServices.movementReasonProblem(MfgServices.MOVE_ADJUST,
+                MfgServices.REASON_LOST, 2.0)));
+        assertNull(MfgServices.movementReasonProblem(MfgServices.MOVE_ADJUST,
+                MfgServices.REASON_LOST, -2.0));
+        // the message names the reason, so the person knows which one to keep
+        String message = MfgServices.movementReasonProblem(MfgServices.MOVE_RECEIPT,
+                MfgServices.REASON_LOST, 3.0);
+        assertTrue(message.contains("\u4e22\u5931"));
+        assertTrue(message.contains("\u8865\u5165\u5e93") || message.contains("\u5230\u8d27\u5165\u5e93"));
+        // an unknown reason is refused even when the type is fine
+        assertTrue(present(MfgServices.movementReasonProblem(MfgServices.MOVE_SCRAP, "VAR_WHATEVER", 3.0)));
+    }
+
+    private static boolean present(String message) {
+        return message != null;
+    }
+
+    @Test
     public void blocksTheStockOfAFailedLot() {
         assertEquals(10.0, MfgServices.availableOf(10.0, MfgServices.IQC_PASS), 1e-9);
         // a pending lot may still be issued, a small workshop does not inspect everything

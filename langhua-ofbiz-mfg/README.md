@@ -119,7 +119,7 @@ flowchart LR
 | **来料检验（IQC）** | 批次可标待检 / 合格 / 让步接收 / 不合格并记录不良数与检验人；**不合格批次不能发料**，待检与让步接收仍可用 |
 | **发料** | 按工单发料（料号 + 批次 + 数量 + 位号），形成“SN → 工单 → 批次”链路；**发料不得超过该批次可用库存** |
 | **库存结存** | 按料号汇总在库 / 可发 / 待检 / 不合格 / 批次 / 金额，带安全库存与建议采购；低于安全库存标红并进看板告警 |
-| **出入库流水** | 一条一篇、只增不改：到货入库 / 发料 / 退料 / 报废 / 盘盈亏 / 调整，带**批次结存余额**与工单/单据、操作人；可按料号/批次/类型/日期过滤，可手工补登 |
+| **出入库流水** | 一条一篇、只增不改：到货入库 / 发料 / 退料 / 报废 / 盘盈亏 / 调整，带**批次结存余额**与工单/单据、操作人、**变动原因**（丢失 / 被盗 / 损坏 / 找到…，与 OFBiz 的 `IID_REASON` 同一套编号）；可按料号/批次/类型/原因/日期过滤，可手工补登 |
 | **盘点** | 逐批填实盘数，系统算盘盈亏并写成一条流水（不直接改数），盘点单号 `CNT-yyMMdd-NN`，历史可查 |
 | **工单预留** | 开工单时按 BOM **自动把齐套料预留出来**（先到先得的批次顺序），其他工单就发不走这批料；发料时自动释放自己预留的那部分，也能一键释放；齐套表多了「已预留」列，欠料按「需求 − 已发 − 已预留」算 |
 | **成品库存** | 工单页一键**完工入库**：按已报工的良品数建成品批次 `FG-<工单号>`，单位成本 = 该工单实际成本 ÷ 良品数，重复点只补差额；结存页多一块「成品库存」（按型号看在库 / 已预留 / 可发 / 累计出货 / 金额），出货自动扣、报废与盘点也走同一套流水 |
@@ -348,7 +348,7 @@ https://localhost:8443/mfg/control/main
 | `MfgReport` | 报工：`reportId`、`workOrderId`、`opSeq`、`sn`（可选）、`operatorName`、`workHours`、`qtyOk`、`qtyNg` || `MfgDefect` | 不良：`defectId`、`workOrderId`、`sn`、`opSeq`、`defectCode`、`qty`、`responsibility`、`repairHours` |
 | `MfgMaterialLot` | 物料批次（元件与成品共用一张表）：`lotId`（元件 `LOT-yyMMdd-NN` / 成品 `FG-WO-…`）、**`lotKindId`**（`MFG_LOT_COMPONENT` / `MFG_LOT_PRODUCT`，空值当元件）、`workOrderId`（成品批次来自哪张工单）、`componentCode`（成品批次里就是型号）、`supplierName`、`supplierLot`（DateCode）、`receivedQty`（到货量）、**`onHandQty` / `reservedQty` / `availableQty`（都由流水求和得出）**、`receivedDate`、`unitPrice`（采购单价，成品则是单位成本）、**`receivedAmount`（这一批的实付总额；单价由它 ÷ 数量 算，便宜料 0.0291 不会被 2 位小数舍成 0.03）**；来料检验：`inspectStatusId`（MFG_IQC_PENDING/PASS/CONCESSION/FAIL）、`rejectedQty`、`inspectDate`、`inspector`、`inspectNote` |
 | `MfgMaterialIssue` | 发料：`issueId`、`workOrderId`、`componentCode`、`lotId`、`qty`、`directionId`（发料 / 退料）、`issuedDate`、可选 `designators` / `snFrom` / `snTo` |
-| `MfgInventoryDetail` | **库存流水（只增不改）**：`lotId` + `seqId` 主键、`movementTypeId`（RECEIPT/ISSUE/RETURN/SCRAP/COUNT/ADJUST/**TRANSFER**/**RESERVE/RELEASE**）、`quantityDiff`（带符号）、`reservedDiff`（预留增减，不动在库）、`salesOrderId` + `salesOrderItemSeq`（订单预留归属哪一行）、`locationId`（发生在哪个库位）、`unitCost`、`workOrderId`、`physicalInventoryId`、`referenceNo`、`operatorName`、`effectiveDate` |
+| `MfgInventoryDetail` | **库存流水（只增不改）**：`lotId` + `seqId` 主键、`movementTypeId`（RECEIPT/ISSUE/RETURN/SCRAP/COUNT/ADJUST/**TRANSFER**/**RESERVE/RELEASE**）、`quantityDiff`（带符号）、`reservedDiff`（预留增减，不动在库）、`salesOrderId` + `salesOrderItemSeq`（订单预留归属哪一行）、`locationId`（发生在哪个库位）、`reasonEnumId`（变动原因，OFBiz 的 `IID_REASON`：`VAR_LOST` / `VAR_STOLEN` / `VAR_FOUND` / `VAR_DAMAGED` / `VAR_SAMPLE` / `VAR_INTEGR` / `VAR_MISSHIP_ORDERED` / `VAR_MISSHIP_SHIPPED`）、`unitCost`、`workOrderId`、`physicalInventoryId`、`referenceNo`、`operatorName`、`effectiveDate` |
 | `MfgStockLocation` | 库位：`locationId`（贴在货架上的编码）、`locationName`、`locationTypeId`（MFG_LOC_WAREHOUSE / ZONE / BIN）、`parentLocationId`、`note` |
 | `MfgPurchaseReceipt` | 采购到货单（一次淘宝订单/一张送货单）：`receiptId`（PR-yyMMdd-NN）、`supplierName`、`supplierOrderNo`（店铺订单号）、`receiptDate`、`freightAmount`（整单运费，**记期间费用**）、`discountAmount`（整单优惠：红包 / 满减，实付 = 货款 + 运费 − 优惠）、`allocationId`（MFG_ALLOC_NONE，预留 BY_AMOUNT / BY_QTY）、`note` |
 | `MfgPurchaseReceiptLine` | 到货单行：`receiptId` + `lineSeq`、`lotId`（一个批次只能挂在一张单上）、`componentCode`、`qty`、`unitPrice`、`goodsAmount` |
@@ -419,9 +419,9 @@ https://localhost:8443/mfg/control/main
 | `mfgDashboardTrends` | 看板数据：近 N 天每日出货/售后序列（已按最大值缩放到百分比）+ 售后 KPI + 责任方成本 |
 | `mfgAlerts` | 看板告警：欠料工单（欠料行数、欠料总量、前三个料号）与售后窗口告警（7 天 / 15 天，已过期或 24 小时内到期），按“紧急 → 剩余时间”排序 |
 | `mfgTrendReport` | 良率与工时趋势：按日 / 周 / 月汇总报工（良品、不良、良率、工时、单台工时、工单数），给出区间总计与最差期间；未知汇总口径自动换成按月 |
-| `mfgInventoryMove` | 登一笔库存流水：到货 / 发料 / 退料 / 报废 / 调整（盘点走单独的盘点服务）；负数超可用量被拒；带工单的发料与退料同时写发料记录，齐套与成本跟着变 |
+| `mfgInventoryMove` | 登一笔库存流水：到货 / 发料 / 退料 / 报废 / 调整（盘点走单独的盘点服务）；负数超可用量被拒；带工单的发料与退料同时写发料记录，齐套与成本跟着变；可带**原因**（`reasonEnumId`，OFBiz 的 `IID_REASON`），只给原因不给类型时类型自动跟着原因走，原因与类型方向冲突（例如丢失记成补入库）会被拒 |
 | `mfgStockSummary` | 按料号汇总在库 / 可发 / 待检 / 不合格 / 批次 / 金额，带上安全库存与建议采购，标出低于阈值的料号；首次访问会给旧批次补建流水（幂等） |
-| `mfgInventoryLedger` | 流水查询：按料号 / 批次 / 类型 / 日期过滤，带每笔之后的**批次余额** |
+| `mfgInventoryLedger` | 流水查询：按料号 / 批次 / 类型 / **原因** / 日期过滤，带每笔之后的**批次余额** |
 | `mfgStockSettingSave` | 维护料号主档与安全库存（阈值、补货量、供应商） |
 | `mfgStockCount` / `mfgStockCountList` | 盘点：记录账面数与实盘数，**差异写成一条盘盈亏流水**并重算结存；历史盘点单可查 |
 | `mfgPurchaseReceiptSave` | 存到货单的头：供应商 / 店铺订单号 / 到货日 / **整单运费** / **整单优惠**（都可改）；运费与优惠只接受非负数，`allocationId` 现在只允许 `MFG_ALLOC_NONE` |
@@ -555,7 +555,7 @@ csv         = R0402-10K,10K 0402 resistor,4,R1-R4,N,0.05
 | `/mfg/control/shortageCsv` | 欠料导出：一行一个缺料元件（`工单,型号,交期,客户,料号,名称,需求,已发,欠料`），直接给采购用 |
 | `/mfg/control/materials` | 物料批次台账、收货登记、CSV 批量导入、按批次反向追溯 |
 | `/mfg/control/stock` | **库存结存**：上半部按料号看在库/可发/待检/不合格/批次/金额，安全库存与建议采购；下半部是**成品库存**（按型号看在库/已预留/可发/累计出货/金额）；可只看低于阈值，带安全库存维护表单 |
-| `/mfg/control/stockMoves` | **出入库流水**：一笔一行，带批次余额；按料号/批次/类别（元件/成品）/类型/日期过滤，可手工补登报废/退料/调整 |
+| `/mfg/control/stockMoves` | **出入库流水**：一笔一行，带批次余额与变动原因；按料号/批次/类别（元件/成品）/类型/原因/日期过滤，可手工补登报废/退料/调整 |
 | `/mfg/control/stockCount` | **盘点**：逐批填实盘数 → 盘盈亏入流水；下方列最近盘点记录 |
 | `/mfg/control/inventoryMove` | POST 登一笔库存流水（`lotId` + `movementTypeId` + `qty` ± `workOrderId` / `referenceNo` / `operatorName` / `note`） |
 | `/mfg/control/stockSettingSave` | POST 保存料号安全库存（`componentCode` + `minimumStock` + `reorderQty`） |
@@ -1399,6 +1399,29 @@ $R^2$ 低于期望值（默认 0.95）时逐点剔除误差最大的批次重拟
 | 库位余额 | $\text{locationOnHand}(lot, loc) = \sum \text{quantityDiff}$（该批次在该库位的流水）；库位总数 = 该库位所有批次之和 |
 | 移库 | 写两条 `MFG_MOVE_TRANSFER`：源库位 $-qty$、目标库位 $+qty$，所以批次总量不变；校验 $qty \le \text{来源库位余额}$ |
 | 未分配库位 | `locationId` 为空的历史流水归到「未分配」，可以当来源库位正常移出 |
+
+#### 变动原因（借 OFBiz 的 `IID_REASON` 清单）
+
+「类型」只说明这笔账落在哪个桶（报废 / 退料 / 补入库 / 调整），真正要回答的是**为什么少了 / 多了**。
+所以流水上另有一项**原因**，直接取 OFBiz 自带的枚举类型 `IID_REASON`（Inventory Item Detail Reason），
+编号与 OFBiz 一致（以后与标准 OFBiz 对账、导出报表都是同一套）：
+
+| 原因 | 编号 | 汉字 | 选上后类型跟着变成 | 方向 |
+| --- | --- | --- | --- | --- |
+| Lost | `VAR_LOST` | 丢失 | 报废 | 出 |
+| Stolen | `VAR_STOLEN` | 被盗 | 报废 | 出 |
+| Damaged | `VAR_DAMAGED` | 损坏 | 报废 | 出 |
+| Sample (Giveaway) | `VAR_SAMPLE` | 样品 / 赠送 | 报废 | 出 |
+| Integration | `VAR_INTEGR` | 生产领用（组装） | 发料 | 出 |
+| Mis-shipped Item Ordered (+) | `VAR_MISSHIP_ORDERED` | 供方少发（应到） | 补入库 | 入 |
+| Mis-shipped Item Shipped (-) | `VAR_MISSHIP_SHIPPED` | 我方多发（已发） | 报废 | 出 |
+| Found | `VAR_FOUND` | 找到（盘盈） | 补入库 | 入 |
+
+- 页面上先选原因，**类型会自动跟过去**（脚本按 `data-type` 拨一下下拉），所以登记“丢失 3 个”只需选原因 + 填数量；
+- 服务里再兜一次：只给原因不给类型 → 按原因推类型；原因说“出库”却填成补入库（或反之）→ 直接拒，
+  免得账面涨了、备注却写着丢了东西；未知原因一律拒；
+- 流水表、流水过滤、单据都能按原因看，所以月底能一眼看出“这个月丢了 40 个、坏了 12 个”；
+- 旧库要跑一次 `tools/inventory-reason.sql`（停实例 → ij → 起，`apply-inventory-reason.ps1` 干这三件事）；新库不用。
 
 ### 12. 销售订单：两级预留（`salesOrderSave` / `salesOrderReserve` / `salesOrderPlan`）
 

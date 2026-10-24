@@ -189,6 +189,25 @@ public final class MfgServices {
     public static final String[] MOVE_TYPES = {MOVE_RECEIPT, MOVE_ISSUE, MOVE_RETURN, MOVE_SCRAP,
         MOVE_COUNT, MOVE_ADJUST, MOVE_TRANSFER, MOVE_RESERVE, MOVE_RELEASE};
 
+    /**
+     * Why a quantity changed, taken from OFBiz's own list: the enumeration type {@code IID_REASON}
+     * ("Inventory Item Detail Reason"). The movement type says which bucket the change lands in (报废,
+     * 退料, 补入库, 调整); the reason says what really happened, which is what a stock keeper is asked
+     * about. Keeping the same ids as OFBiz means the data can be compared with a standard OFBiz
+     * install later on.
+     */
+    public static final String REASON_LOST = "VAR_LOST";
+    public static final String REASON_STOLEN = "VAR_STOLEN";
+    public static final String REASON_FOUND = "VAR_FOUND";
+    public static final String REASON_DAMAGED = "VAR_DAMAGED";
+    public static final String REASON_SAMPLE = "VAR_SAMPLE";
+    public static final String REASON_INTEGR = "VAR_INTEGR";
+    public static final String REASON_MISSHIP_ORDERED = "VAR_MISSHIP_ORDERED";
+    public static final String REASON_MISSHIP_SHIPPED = "VAR_MISSHIP_SHIPPED";
+    /** Every reason, in the order the form lists them (OFBiz sequence 01..08). */
+    public static final String[] MOVE_REASONS = {REASON_LOST, REASON_STOLEN, REASON_FOUND,
+        REASON_DAMAGED, REASON_SAMPLE, REASON_INTEGR, REASON_MISSHIP_ORDERED, REASON_MISSHIP_SHIPPED};
+
     /** What kind of place a stock location is. */
     public static final String LOC_WAREHOUSE = "MFG_LOC_WAREHOUSE";
     public static final String LOC_ZONE = "MFG_LOC_ZONE";
@@ -6155,6 +6174,128 @@ always
     }
 
     /**
+     * Chinese name of one of OFBiz's inventory reasons, so the pages and the CSV exports agree.
+     *
+     * @param reasonEnumId the reason, may be {@code null}
+     * @return the name, the raw id when it is unknown, an empty string when there is none
+     */
+    static String reasonLabel(String reasonEnumId) {
+        if (reasonEnumId == null) {
+            return "";
+        }
+        switch (reasonEnumId) {
+            case REASON_LOST:
+                return "丢失";
+            case REASON_STOLEN:
+                return "被盗";
+            case REASON_FOUND:
+                return "找到（盘盈）";
+            case REASON_DAMAGED:
+                return "损坏";
+            case REASON_SAMPLE:
+                return "样品 / 赠送";
+            case REASON_INTEGR:
+                return "生产领用（组装）";
+            case REASON_MISSHIP_ORDERED:
+                return "供方少发（应到）";
+            case REASON_MISSHIP_SHIPPED:
+                return "我方多发（已发）";
+            default:
+                return reasonEnumId;
+        }
+    }
+
+    /**
+     * The movement type a reason implies when the person only picks a reason: material that is lost,
+     * stolen, broken, given away or sent out by mistake leaves the stock as 报废 (or 发料 for material
+     * used up in assembly), what is found or still owed by the supplier comes back in as 补入库.
+     *
+     * @param reasonEnumId the reason, may be {@code null}
+     * @return the movement type, {@code null} when the reason is unknown
+     */
+    static String movementTypeOfReason(String reasonEnumId) {
+        if (reasonEnumId == null) {
+            return null;
+        }
+        switch (reasonEnumId) {
+            case REASON_LOST:
+            case REASON_STOLEN:
+            case REASON_DAMAGED:
+            case REASON_SAMPLE:
+            case REASON_MISSHIP_SHIPPED:
+                return MOVE_SCRAP;
+            case REASON_INTEGR:
+                return MOVE_ISSUE;
+            case REASON_FOUND:
+            case REASON_MISSHIP_ORDERED:
+                return MOVE_RECEIPT;
+            default:
+                return null;
+        }
+    }
+
+    /**
+     * Chinese name of one movement type, used in the messages the person sees.
+     *
+     * @param movementTypeId the type, may be {@code null}
+     * @return the name, the raw id when it is unknown
+     */
+    static String movementLabel(String movementTypeId) {
+        if (movementTypeId == null) {
+            return "";
+        }
+        switch (movementTypeId) {
+            case MOVE_RECEIPT:
+                return "到货入库";
+            case MOVE_ISSUE:
+                return "发料";
+            case MOVE_RETURN:
+                return "退料";
+            case MOVE_SCRAP:
+                return "报废";
+            case MOVE_COUNT:
+                return "盘盈亏";
+            case MOVE_ADJUST:
+                return "调整";
+            case MOVE_TRANSFER:
+                return "移库";
+            case MOVE_RESERVE:
+                return "预留";
+            case MOVE_RELEASE:
+                return "释放预留";
+            default:
+                return movementTypeId;
+        }
+    }
+
+    /**
+     * Checks that the reason is one of OFBiz's and that it does not fight with the movement type: a
+     * reason that means "material left" may not be booked as 补入库, or the stock would grow while the
+     * note says it was lost.
+     *
+     * @param movementTypeId the movement type, may be {@code null} to take it from the reason
+     * @param reasonEnumId the reason, may be {@code null}
+     * @param qty the quantity as entered (its sign settles the direction of an 调整)
+     * @return {@code null} when they fit together, else the message for the person
+     */
+    static String movementReasonProblem(String movementTypeId, String reasonEnumId, double qty) {
+        if (reasonEnumId != null && movementTypeOfReason(reasonEnumId) == null) {
+            return "未知的库存原因 [" + reasonEnumId + "]，可选：" + String.join(" / ", MOVE_REASONS);
+        }
+        if (movementTypeId == null || reasonEnumId == null) {
+            return null;
+        }
+        double byType = movementDiff(movementTypeId, qty);
+        double byReason = movementDiff(movementTypeOfReason(reasonEnumId), 1.0);
+        if (byType != 0.0 && byReason != 0.0 && (byType > 0.0) != (byReason > 0.0)) {
+            return "原因「" + reasonLabel(reasonEnumId) + "」是"
+                    + (byReason > 0.0 ? "入库" : "出库") + "，和类型「" + movementLabel(movementTypeId)
+                    + "」对不上，请核对（同一个原因选上后类型会自动跟着改）";
+        }
+        return null;
+    }
+
+    /**
      * What may still be issued out of a lot that nothing is reserved on.
      *
      * @param onHand the quantity in stock
@@ -6275,6 +6416,20 @@ always
             double diff, Object unitCost, String workOrderId, String physicalInventoryId,
             String referenceNo, String operatorName, java.sql.Timestamp effectiveDate, String note,
             String locationId) throws GenericEntityException {
+        return recordMovement(delegator, lot, movementTypeId, diff, unitCost, workOrderId,
+                physicalInventoryId, referenceNo, operatorName, effectiveDate, note, locationId, null);
+    }
+
+    /**
+     * Appends one movement, remembering where it happened and why.
+     *
+     * @return the row that was written
+     * @throws GenericEntityException when it cannot be stored
+     */
+    static GenericValue recordMovement(Delegator delegator, GenericValue lot, String movementTypeId,
+            double diff, Object unitCost, String workOrderId, String physicalInventoryId,
+            String referenceNo, String operatorName, java.sql.Timestamp effectiveDate, String note,
+            String locationId, String reasonEnumId) throws GenericEntityException {
         long seq = nextMovementSeq(delegator, lot.getString("lotId"));
         GenericValue movement = delegator.makeValue("MfgInventoryDetail");
         movement.set("lotId", lot.getString("lotId"));
@@ -6287,6 +6442,7 @@ always
         movement.set("workOrderId", workOrderId);
         movement.set("physicalInventoryId", physicalInventoryId);
         movement.set("referenceNo", referenceNo);
+        movement.set("reasonEnumId", reasonEnumId);
         movement.set("operatorName", operatorName);
         movement.set("locationId", locationId);
         movement.set("effectiveDate", effectiveDate == null
@@ -9886,10 +10042,20 @@ always
         Delegator delegator = dctx.getDelegator();
         String lotId = toText(context.get("lotId"));
         String movementTypeId = toText(context.get("movementTypeId"));
+        String reasonEnumId = toText(context.get("reasonEnumId"));
         double qty = toDouble(context.get("qty"), 0.0);
         String workOrderId = toText(context.get("workOrderId"));
         if (lotId == null) {
             return ServiceUtil.returnError("lotId is required");
+        }
+        // the reason comes from OFBiz's own IID_REASON list; when only the reason is given, the type
+        // follows from it (丢失 / 被盗 / 损坏 就是报废，找到 / 供方少发 就是补入库)
+        String reasonProblem = movementReasonProblem(movementTypeId, reasonEnumId, qty);
+        if (reasonProblem != null) {
+            return ServiceUtil.returnError(reasonProblem);
+        }
+        if (movementTypeId == null && reasonEnumId != null) {
+            movementTypeId = movementTypeOfReason(reasonEnumId);
         }
         if (!isKnownMovement(movementTypeId)) {
             return ServiceUtil.returnError("Unknown movement type [" + movementTypeId
@@ -9929,7 +10095,7 @@ always
                     optionalAmount(context.get("unitCost")), workOrderId, null,
                     toText(context.get("referenceNo")), toText(context.get("operatorName")),
                     parseTimestamp(context.get("effectiveDate")), toText(context.get("note")),
-                    toText(context.get("locationId")));
+                    toText(context.get("locationId")), reasonEnumId);
             if (workOrderId != null
                     && (MOVE_ISSUE.equals(movementTypeId) || MOVE_RETURN.equals(movementTypeId))) {
                 GenericValue issue = delegator.makeValue("MfgMaterialIssue");
@@ -9952,6 +10118,7 @@ always
             result.put("lotId", lotId);
             result.put("seqId", movement.get("seqId"));
             result.put("movementTypeId", movementTypeId);
+            result.put("reasonEnumId", movement.get("reasonEnumId"));
             result.put("quantityDiff", Double.valueOf(round2(diff)));
             result.put("onHandQty", lot.get("onHandQty"));
             result.put("availableQty", lot.get("availableQty"));
@@ -10107,6 +10274,7 @@ always
         String lotId = toText(context.get("lotId"));
         String componentCode = toText(context.get("componentCode"));
         String movementTypeId = toText(context.get("movementTypeId"));
+        String reasonEnumId = toText(context.get("reasonEnumId"));
         String kind = toText(context.get("kind"));
         java.sql.Date fromDate = (java.sql.Date) parseDate(context.get("fromDate"));
         java.sql.Date toDate = (java.sql.Date) parseDate(context.get("toDate"));
@@ -10130,6 +10298,9 @@ always
                     continue;
                 }
                 if (movementTypeId != null && !movementTypeId.equals(movement.getString("movementTypeId"))) {
+                    continue;
+                }
+                if (reasonEnumId != null && !reasonEnumId.equals(movement.getString("reasonEnumId"))) {
                     continue;
                 }
                 GenericValue lot = lots.get(movementLot);
@@ -10169,6 +10340,7 @@ always
                 row.put("workOrderId", movement.getString("workOrderId"));
                 row.put("physicalInventoryId", movement.getString("physicalInventoryId"));
                 row.put("referenceNo", movement.getString("referenceNo"));
+                row.put("reasonEnumId", movement.getString("reasonEnumId"));
                 row.put("operatorName", movement.getString("operatorName"));
                 row.put("effectiveDate", effective);
                 row.put("note", movement.getString("note"));
@@ -10179,6 +10351,7 @@ always
             result.put("lotId", lotId);
             result.put("componentCode", componentCode);
             result.put("movementTypeId", movementTypeId);
+            result.put("reasonEnumId", reasonEnumId);
             result.put("kind", kind);
             result.put("fromDate", fromDate);
             result.put("toDate", toDate);

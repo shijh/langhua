@@ -813,6 +813,7 @@
         <field name="locationId" type="id"><description>Warehouse location the movement happened in, empty when it was not recorded</description></field>
         <field name="physicalInventoryId" type="id"><description>Stock count that produced the movement</description></field>
         <field name="referenceNo" type="short-varchar"><description>Voucher, tracking number or count sheet</description></field>
+        <field name="reasonEnumId" type="id"><description>Why the quantity changed, one of OFBiz's inventory item detail reasons (IID_REASON): VAR_LOST, VAR_STOLEN, VAR_FOUND, VAR_DAMAGED, VAR_SAMPLE, VAR_INTEGR, VAR_MISSHIP_ORDERED, VAR_MISSHIP_SHIPPED</description></field>
         <field name="operatorName" type="name"><description>Who did it</description></field>
         <field name="effectiveDate" type="date-time"><description>When it happened</description></field>
         <field name="note" type="description"/>
@@ -827,6 +828,9 @@
         </relation>
         <index name="MFG_INVDET_TYPE" unique="false">
             <index-field name="movementTypeId"/>
+        </index>
+        <index name="MFG_INVDET_REASON" unique="false">
+            <index-field name="reasonEnumId"/>
         </index>
         <index name="MFG_INVDET_WO" unique="false">
             <index-field name="workOrderId"/>
