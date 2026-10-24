@@ -1159,6 +1159,31 @@
         <attribute name="lines" type="java.util.List" mode="OUT" optional="true"/>
     </service>
 
+    <service name="mfgRefundedOrderSave" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgServices" invoke="refundedOrderSave"
+            auth="false" use-transaction="false">
+        <description>Put a shop order on the refunded list by hand, so it cannot be booked into stock</description>
+        <attribute name="orderNo" type="String" mode="IN" optional="false"/>
+        <attribute name="shop" type="String" mode="IN" optional="true"/>
+        <attribute name="note" type="String" mode="IN" optional="true"/>
+        <attribute name="orderNo" type="String" mode="OUT" optional="true"/>
+    </service>
+
+    <service name="mfgRefundedOrderDelete" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgServices" invoke="refundedOrderDelete"
+            auth="false" use-transaction="false">
+        <description>Take a shop order off the refunded list again, for the times it was marked by mistake</description>
+        <attribute name="orderNo" type="String" mode="IN" optional="false"/>
+        <attribute name="orderNo" type="String" mode="OUT" optional="true"/>
+    </service>
+
+    <service name="mfgRefundedOrderList" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgServices" invoke="refundedOrderList"
+            auth="false" use-transaction="false">
+        <description>The shop orders that are kept out of the stock, newest first</description>
+        <attribute name="refundedOrders" type="java.util.List" mode="OUT" optional="true"/>
+    </service>
+
     <service name="mfgLocationSave" engine="java"
             location="org.langhua.ofbiz.mfg.MfgServices" invoke="locationSave"
             auth="false" use-transaction="false">

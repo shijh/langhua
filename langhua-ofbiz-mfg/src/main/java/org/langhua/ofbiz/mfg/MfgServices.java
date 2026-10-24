@@ -14,6 +14,7 @@ package org.langhua.ofbiz.mfg;
 import java.sql.Timestamp;
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
+import java.text.SimpleDateFormat;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -30,6 +31,7 @@ import java.util.Set;
 
 import org.apache.ofbiz.base.util.Debug;
 import org.apache.ofbiz.base.util.UtilGenerics;
+import org.apache.ofbiz.base.util.UtilMisc;
 import org.apache.ofbiz.common.login.LoginServices;
 import org.apache.ofbiz.entity.Delegator;
 import org.apache.ofbiz.entity.GenericEntityException;
@@ -8193,9 +8195,13 @@ always
             return ServiceUtil.returnError("没有解析出明细，一行一个料：料号,名称,数量,实付金额");
         }
         if ("Y".equalsIgnoreCase(toText(context.get("refunded")))) {
-            // a refunded or closed order never arrived: booking it would invent stock
-            return ServiceUtil.returnError("这张单已经退款/关闭，按规矩不入库；"
-                    + "货确实到了再勾上「确认照常入库」后重试");
+            // a refunded or closed order never arrived: booking it would invent stock. Remember it
+            // first, so the same order cannot be booked in by hand a week later either - in its own
+            // transaction, because returning the error rolls this one back
+            rememberRefundedOrderInNewTransaction(dctx, context, supplierOrderNo, supplierName,
+                    "识别到退款/关闭");
+            return ServiceUtil.returnError("这张单已经退款/关闭，按规矩不入库；已经把它记进"
+                    + "「退款 / 关闭的单」了（货确实到了就去那儿撤掉标记）");
         }
         int shortened = 0;
         for (String[] row : rows) {
@@ -8215,6 +8221,12 @@ always
             java.sql.Date receiptDate = (java.sql.Date) parseDate(context.get("receiptDate"));
             if (receiptDate == null) {
                 receiptDate = java.sql.Date.valueOf(LocalDate.now());
+            }
+            // an order that was refunded or closed stays out of the stock for good, even when the
+            // person types the number in by hand and the screenshot is long gone
+            String blocked = refundedOrderProblem(delegator, supplierOrderNo);
+            if (blocked != null) {
+                return ServiceUtil.returnError(blocked);
             }
             GenericValue receipt = supplierOrderNo == null ? null
                     : EntityQuery.use(delegator).from("MfgPurchaseReceipt")
@@ -8367,6 +8379,167 @@ always
             text = text.substring(0, colon);
         }
         return text.length() > 160 ? text.substring(0, 160) + "…" : text;
+    }
+
+    // ------------------------------------------------------------ refunded / closed shop orders
+
+    /**
+     * Remembers a shop order that was refunded or closed, so it stays out of the stock for good.
+     * A failure to write the row is logged and does not stop the refusal: the order is not booked
+     * in either way.
+     *
+     * @param delegator the delegator
+     * @param orderNo the shop order number, ignored when empty
+     * @param shop the shop, may be {@code null}
+     * @param note why it is on the list
+     */
+    static void rememberRefundedOrder(Delegator delegator, String orderNo, String shop, String note) {
+        if (orderNo == null) {
+            return;
+        }
+        try {
+            GenericValue row = delegator.makeValue("MfgRefundedOrder");
+            row.set("orderNo", orderNo);
+            row.set("shop", shop);
+            row.set("note", note);
+            row.set("recordedDate", Timestamp.valueOf(LocalDateTime.now()));
+            delegator.createOrStore(row);
+        } catch (GenericEntityException e) {
+            Debug.logError(e, "Could not remember the refunded order [" + orderNo + "]", MODULE);
+        }
+    }
+
+    /**
+     * Remembers a refunded order from inside a service that is about to fail, so the row must be
+     * written in a transaction of its own: the error return of {@code mfgReceiptFromOrder} rolls
+     * back everything the same transaction did.
+     *
+     * @param dctx the dispatch context, holding the dispatcher
+     * @param context the service context, for the logged in account
+     * @param orderNo the shop order number
+     * @param shop the shop, may be {@code null}
+     * @param note why it is on the list
+     */
+    private static void rememberRefundedOrderInNewTransaction(DispatchContext dctx,
+            Map<String, ? extends Object> context, String orderNo, String shop, String note) {
+        if (orderNo == null || dctx.getDispatcher() == null) {
+            return;
+        }
+        Map<String, Object> ask = UtilMisc.toMap("orderNo", orderNo, "shop", shop, "note", note,
+                "userLogin", context.get("userLogin"));
+        try {
+            dctx.getDispatcher().runSync("mfgRefundedOrderSave", ask, -1, true);
+        } catch (GenericServiceException e) {
+            Debug.logError(e, "Could not remember the refunded order [" + orderNo + "]", MODULE);
+        }
+    }
+
+    /**
+     * Tells whether an order number is on the refunded list, and says since when.
+     *
+     * @param delegator the delegator
+     * @param orderNo the shop order number, may be {@code null}
+     * @return the message to show the person, {@code null} when the order may be booked in
+     * @throws GenericEntityException when the list cannot be read
+     */
+    static String refundedOrderProblem(Delegator delegator, String orderNo) throws GenericEntityException {
+        if (orderNo == null) {
+            return null;
+        }
+        GenericValue row = EntityQuery.use(delegator).from("MfgRefundedOrder")
+                .where("orderNo", orderNo).queryFirst();
+        if (row == null) {
+            return null;
+        }
+        Object recorded = row.get("recordedDate");
+        String when = recorded instanceof Timestamp
+                ? new SimpleDateFormat("yyyy-MM-dd", Locale.ROOT).format((Timestamp) recorded) + " "
+                : "";
+        return "这张单 " + when + "已经登记为退款/关闭，按规矩不入库（钱退回来了，料一般也没留下）；"
+                + "如果记错了，在「退款 / 关闭的单」里撤掉标记再来";
+    }
+
+    /**
+     * Adds an order number to the refunded list by hand, for the times the screenshot does not say
+     * it and the person knows it anyway.
+     *
+     * @param dctx the dispatch context
+     * @param context service context, see {@code servicedef/services.xml#mfgRefundedOrderSave}
+     * @return the service result containing {@code orderNo}
+     */
+    public static Map<String, Object> refundedOrderSave(DispatchContext dctx, Map<String, ? extends Object> context) {
+        String denied = permissionProblem(dctx, context, PERM_STOCK);
+        if (denied != null) {
+            return ServiceUtil.returnError(denied);
+        }
+        String orderNo = toText(context.get("orderNo"));
+        if (orderNo == null) {
+            return ServiceUtil.returnError("请填店铺订单号（淘宝订单号）");
+        }
+        Delegator delegator = dctx.getDelegator();
+        try {
+            rememberRefundedOrder(delegator, orderNo, toText(context.get("shop")),
+                    toText(context.get("note")) == null ? "手工登记" : toText(context.get("note")));
+            Map<String, Object> result = ServiceUtil.returnSuccess();
+            result.put("orderNo", orderNo);
+            return result;
+        } catch (RuntimeException e) {
+            return ServiceUtil.returnError("登记失败：" + e.getMessage());
+        }
+    }
+
+    /**
+     * Takes an order number off the refunded list again, for the times it was marked by mistake.
+     *
+     * @param dctx the dispatch context
+     * @param context service context, see {@code servicedef/services.xml#mfgRefundedOrderDelete}
+     * @return the service result containing {@code orderNo}
+     */
+    public static Map<String, Object> refundedOrderDelete(DispatchContext dctx, Map<String, ? extends Object> context) {
+        String denied = permissionProblem(dctx, context, PERM_STOCK);
+        if (denied != null) {
+            return ServiceUtil.returnError(denied);
+        }
+        String orderNo = toText(context.get("orderNo"));
+        if (orderNo == null) {
+            return ServiceUtil.returnError("请告诉我撤掉哪一张单");
+        }
+        try {
+            dctx.getDelegator().removeByAnd("MfgRefundedOrder", UtilMisc.toMap("orderNo", orderNo));
+            Map<String, Object> result = ServiceUtil.returnSuccess();
+            result.put("orderNo", orderNo);
+            return result;
+        } catch (GenericEntityException e) {
+            return ServiceUtil.returnError("取消失败：" + e.getMessage());
+        }
+    }
+
+    /**
+     * Lists the orders that are kept out of the stock, newest first.
+     *
+     * @param dctx the dispatch context
+     * @param context service context, see {@code servicedef/services.xml#mfgRefundedOrderList}
+     * @return the service result containing {@code refundedOrders}
+     */
+    public static Map<String, Object> refundedOrderList(DispatchContext dctx, Map<String, ? extends Object> context) {
+        Delegator delegator = dctx.getDelegator();
+        List<Map<String, Object>> list = new ArrayList<>();
+        try {
+            for (GenericValue row : EntityQuery.use(delegator).from("MfgRefundedOrder")
+                    .orderBy("-recordedDate").queryList()) {
+                Map<String, Object> map = new LinkedHashMap<>();
+                map.put("orderNo", row.getString("orderNo"));
+                map.put("shop", row.getString("shop"));
+                map.put("note", row.getString("note"));
+                map.put("recordedDate", row.get("recordedDate"));
+                list.add(map);
+            }
+        } catch (GenericEntityException e) {
+            Debug.logError(e, "Could not read the refunded orders", MODULE);
+        }
+        Map<String, Object> result = ServiceUtil.returnSuccess();
+        result.put("refundedOrders", list);
+        return result;
     }
 
     /**

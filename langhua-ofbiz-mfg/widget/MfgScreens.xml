@@ -127,6 +127,8 @@
                          auto-field-map="false">
                     <field-map field-name="receiptId" from-field="parameters.receiptId"/>
                 </service>
+                <!-- the shop orders that are kept out of the stock (refunded or closed) -->
+                <service service-name="mfgRefundedOrderList" result-map="refundedList"/>
             </actions>
             <widgets>
                 <decorator-screen name="mfg-decorator" location="component://mfg/widget/MfgCommonScreens.xml">

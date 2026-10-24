@@ -442,6 +442,21 @@
         <response name="error" type="none"/>
     </request-map>
 
+    <!-- puts a shop order on the refunded list, or takes it off again (Step 85) -->
+    <request-map uri="refundedOrderSave">
+        <security https="true" auth="true"/>
+        <event type="service" invoke="mfgRefundedOrderSave"/>
+        <response name="success" type="request-redirect" value="receipts"/>
+        <response name="error" type="view" value="receipts"/>
+    </request-map>
+
+    <request-map uri="refundedOrderDelete">
+        <security https="true" auth="true"/>
+        <event type="service" invoke="mfgRefundedOrderDelete"/>
+        <response name="success" type="request-redirect" value="receipts"/>
+        <response name="error" type="view" value="receipts"/>
+    </request-map>
+
     <!-- reads a shop order screenshot with the configured vision model, answers with the form fields -->
     <request-map uri="orderImage">
         <security https="true" auth="true"/>

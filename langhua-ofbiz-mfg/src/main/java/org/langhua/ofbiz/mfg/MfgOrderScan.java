@@ -34,6 +34,7 @@ import org.apache.ofbiz.entity.Delegator;
 import org.apache.ofbiz.service.LocalDispatcher;
 
 import static org.langhua.ofbiz.mfg.MfgServices.isRefunded;
+import static org.langhua.ofbiz.mfg.MfgServices.rememberRefundedOrder;
 
 /**
  * Reads a shop order screenshot with a vision model and answers with the fields of the receipt
@@ -126,9 +127,10 @@ public final class MfgOrderScan {
             fields.put("lines", MfgServices.fitOrderLines(fields.get("lines")));
             if (isRefunded(fields)) {
                 // the parts never stayed in the shop; the page keeps the form but blocks the submit
-                // until the person says the goods did arrive after all
-                return answer(response, true, "已识别。这张单显示已退款/已关闭，按规矩不入库；"
-                        + "货确实到了再勾上“确认照常入库”", fields);
+                // and the order number goes on the list, so a later hand typed import is refused too
+                recordRefund(delegatorOf(request), fields);
+                return answer(response, true, "已识别。这张单显示已退款/已关闭，按规矩不入库，"
+                        + "已经记进「退款 / 关闭的单」；货确实到了就去那儿撤掉标记", fields);
             }
             // freight is what the page says, but goods plus freight must come to what was paid
             String totals = MfgServices.checkOrderTotals(fields);
@@ -267,6 +269,20 @@ public final class MfgOrderScan {
             Debug.logError(e, "Could not write the answer of the order scan", MODULE);
             return "error";
         }
+    }
+
+    /**
+     * Puts the recognised order on the refunded list, so a later hand typed import of the same
+     * number is refused as well.
+     *
+     * @param delegator the delegator, may be {@code null}
+     * @param fields the recognised fields
+     */
+    private static void recordRefund(Delegator delegator, Map<String, String> fields) {
+        if (delegator == null) {
+            return;
+        }
+        rememberRefundedOrder(delegator, fields.get("orderNo"), fields.get("shop"), "截图显示退款/关闭");
     }
 
     private static Map<String, Object> parametersOf(HttpServletRequest request) {

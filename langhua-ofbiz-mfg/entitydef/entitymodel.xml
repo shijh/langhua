@@ -891,6 +891,18 @@
         </index>
     </entity>
 
+    <entity entity-name="MfgRefundedOrder"
+            package-name="org.langhua.ofbiz.mfg"
+            title="Refunded or closed shop order">
+        <description>A shop order that was refunded or closed, so the parts never stayed in the shop. Such an order number must not be booked into stock, not even when somebody types it in by hand a second time</description>
+        <field name="orderNo" type="name"><description>Order number of the shop (the Taobao order number)</description></field>
+        <field name="shop" type="name"><description>Supplier, so the row can be checked at a glance</description></field>
+        <field name="note" type="description"><description>Why it is on the list: what the screenshot said, or who marked it</description></field>
+        <field name="recordedDate" type="date-time"><description>When it was marked</description></field>
+        <field name="createdStamp" type="date-time"/>
+        <prim-key field="orderNo"/>
+    </entity>
+
     <entity entity-name="MfgStockSetting"
             package-name="org.langhua.ofbiz.mfg"
             title="Stock setting per component">

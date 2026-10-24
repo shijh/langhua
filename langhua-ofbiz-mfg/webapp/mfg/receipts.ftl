@@ -5,7 +5,8 @@
   Purchase receipts: one purchase (a Taobao order, a supplier invoice) with the lots it brought in
   and the freight paid for it. The freight stays a period cost, so the part price is the price
   really paid for the part.
-  Data: receiptList.receipts and its totals, receiptDetail.receipt / lines / freeLots
+  Data: receiptList.receipts and its totals, receiptDetail.receipt / lines / freeLots and the
+        refunded / closed shop orders of refundedList
 -->
 <#assign rl = (receiptList)!{}>
 <#assign receipts = (rl.receipts)![]>
@@ -14,6 +15,7 @@
 <#assign receipt = (rd.receipt)!{}>
 <#assign lines = (rd.lines)![]>
 <#assign freeLots = (rd.freeLots)![]>
+<#assign refundedOrders = (refundedList.refundedOrders)![]>
 <#assign errList = (errorMessageList)![]>
 
 <h1>采购到货单</h1>
@@ -280,8 +282,8 @@
         <input type="hidden" name="refunded" id="refundField" value="N"/>
         <p id="refundBlock" hidden="hidden">
             这张单显示<strong>已退款 / 已关闭</strong>（截图上的「退款成功」「退款中」「交易关闭」），
-            按规矩<strong>不入库</strong>——钱退回来了，料一般也没留下。
-            <label><input type="checkbox" id="refundAccept"/> 货确实到了，确认照常入库</label>
+            按规矩<strong>不入库</strong>——钱退回来了，料一般也没留下。这个订单号已经记到下面的
+            「退款 / 关闭的单」里，以后再提交也进不来；真是付了两次或换货，到那里把这条撤掉再提交。
         </p>
         <p>
             订单号 <input type="text" id="orderNoField" name="supplierOrderNo" size="22" placeholder="淘宝订单号"/>
@@ -310,11 +312,10 @@
         if (!button || !file || !hint || !window.fetch || !window.FormData) {
             return;
         }
-        /* a refunded or closed order stays out of the stock; the box under the form says so and
-           the person has to tick it when the goods really did arrive */
+        /* a refunded or closed order stays out of the stock: the banner under the form says so and
+           the order number has been put on the list below by the recognition service */
         var refundField = document.getElementById('refundField');
         var refundBlock = document.getElementById('refundBlock');
-        var refundAccept = document.getElementById('refundAccept');
         function showRefund(isRefunded) {
             if (!refundField || !refundBlock) {
                 return;
@@ -322,14 +323,6 @@
             refundField.value = isRefunded ? 'Y' : 'N';
             refundBlock.hidden = !isRefunded;
             refundBlock.className = isRefunded ? 'error' : '';
-            if (refundAccept && isRefunded) {
-                refundAccept.checked = false;
-            }
-        }
-        if (refundAccept && refundField) {
-            refundAccept.addEventListener('change', function () {
-                refundField.value = refundAccept.checked ? 'N' : 'Y';
-            });
         }
         /* the screenshot may come from the picker, from Ctrl+V or from a drop; all three end up
            as the file of the input, which the button then sends as before */
@@ -442,6 +435,42 @@
         }
     }());
     </script>
+</fieldset>
+
+<fieldset id="refundedBlock">
+    <legend>退款 / 关闭的单（登记后这些订单号不再入库）</legend>
+    <form method="post" action="/mfg/control/refundedOrderSave" class="inline">
+        <p>
+            订单号 <input type="text" name="orderNo" size="22" placeholder="淘宝订单号"/>
+            店铺 <input type="text" name="shop" size="16" placeholder="可空"/>
+            备注 <input type="text" name="note" size="24" placeholder="可空，比如“截图写退款成功”"/>
+            <input type="submit" value="登记"/>
+        </p>
+    </form>
+    <p class="hint">截图里能看出「退款成功 / 已关闭」时系统会自动登记（列表里会多一行）；
+        手工粘单、或者截图没写字但你知道退了款的，可以在这里补登。
+        钱退回来了、料一般也没留下——真入了库就是凭空多出一批货，所以这个号一登记就再也建不了单。</p>
+    <#if refundedOrders?has_content>
+        <table id="refundedTable">
+            <tr><th>订单号</th><th>店铺</th><th>登记时间</th><th>备注</th><th>操作</th></tr>
+            <#list refundedOrders as r>
+                <tr data-refunded-order="${r.orderNo!}">
+                    <td>${r.orderNo!}</td>
+                    <td>${r.shop!}</td>
+                    <td><#if r.recordedDate??>${r.recordedDate?string("yyyy-MM-dd HH:mm")}</#if></td>
+                    <td>${r.note!}</td>
+                    <td>
+                        <form method="post" action="/mfg/control/refundedOrderDelete" class="inline">
+                            <input type="hidden" name="orderNo" value="${r.orderNo!}"/>
+                            <input type="submit" value="撤掉标记"/>
+                        </form>
+                    </td>
+                </tr>
+            </#list>
+        </table>
+    <#else>
+        <p class="hint">还没有登记过退款单。</p>
+    </#if>
 </fieldset>
 
 <fieldset>

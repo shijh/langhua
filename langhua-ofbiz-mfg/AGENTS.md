@@ -260,6 +260,15 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   （单引号字面量里不插值，所以不能直接塞 `${…}`），并**必须给默认值加括号** `((x)!'')?url`，
   否则 `!` 的优先级低于 `+`，整句会解析成 `(a + b)!c`；
   `mfgPurchaseReceiptList` 补了 `pageSize` IN，否则换每页条数被静默丢弃
+- **退款/关闭的单列表（Step 85）**：新实体 `MfgRefundedOrder`（`orderNo` 主键 / `shop` / `note` / `recordedDate`），
+  服务 `mfgRefundedOrderSave` / `Delete` / `List`；页面在「从淘宝订单建单并入库」下面一块（`#refundedBlock`，
+  行上 `data-refunded-order`），可以手工登记、也能一键撤掉。识图说退款时 `MfgOrderScan` **自动登记**；
+  `mfgReceiptFromOrder` 开头查这张单在不在列表里（`refundedOrderProblem`），在就拒绝，所以**手粘单也进不来**。
+  **踩坑：在会失败（`return ServiceUtil.returnError`）的服务里写“记录”，必须另开事务**——
+  `mfgReceiptFromOrder` 是 `use-transaction="true"`，错误返回会把同一事务里的写入一起回退，
+  所以登记走 `dispatcher.runSync("mfgRefundedOrderSave", …, -1, true)`（`rememberRefundedOrderInNewTransaction`）。
+  旧库要跑一次 `tools/refunded-order.sql`（停实例 → ij → 起），和 `part-code-100.sql` 一样；
+  OFBiz 启动时会自己补上漏写的 `CREATED_TX_STAMP` 列（日志里能看见 `[addColumn]`）
 - **退款/关闭的单不入库（Step 84）**：识图的 prompt 多了 `refunded`（看到「退款成功 / 已退款 / 退款中 / 交易关闭」填 Y），
   `orderFieldsFrom` 把它带出来，`isRefunded(fields)` 判断；识别到退款时页面把 `#refundField` 设成 `Y`、
   显示红色 `#refundBlock`（带一个“货确实到了，确认照常入库”的勾），**没勾就 `preventDefault` 不发请求**；
