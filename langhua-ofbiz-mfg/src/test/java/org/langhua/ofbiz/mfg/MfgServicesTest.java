@@ -31,6 +31,18 @@ import org.junit.Test;
  */
 public class MfgServicesTest {
 
+    /**
+     * The first order of a vision answer, {@code null} when there is none. The scan only ever uses
+     * the list, so the tests read the first element the same way the event does.
+     *
+     * @param reply the answer text
+     * @return the first order, {@code null} when the answer carries none
+     */
+    private static Map<String, String> oneOrder(String reply) {
+        List<Map<String, String>> orders = MfgServices.orderListFrom(reply);
+        return orders.isEmpty() ? null : orders.get(0);
+    }
+
     @Test
     public void formatsSerialNumber() {
         LocalDate day = LocalDate.of(2026, 10, 20);
@@ -595,7 +607,7 @@ public class MfgServicesTest {
     @Test
     public void readsTheFieldsOfAVisionAnswer() {
         // the model may answer plain, fenced, or inside a chat envelope
-        Map<String, String> plain = MfgServices.orderFieldsFrom(
+        Map<String, String> plain = oneOrder(
                 "{\"orderNo\":\"3316517475066009372\",\"shop\":\"天猫 risym旗舰店\","
                 + "\"orderDate\":\"2026-10-18\",\"freight\":\"0\","
                 + "\"lines\":\"CAP-104-50V,瓷片电容器 104,100,2.91\"}");
@@ -606,36 +618,36 @@ public class MfgServicesTest {
         assertEquals("2026-10-18", plain.get("orderDate"));
 
         // an answer that still calls it date is read as well
-        assertEquals("2026-10-19", MfgServices.orderFieldsFrom(
-                "{\"date\":\"2026-10-19\",\"lines\":\"X,part,1,1.00\"}").get("orderDate"));
+        assertEquals("2026-10-19", oneOrder(
+                "{\"orderNo\":\"45\",\"date\":\"2026-10-19\",\"lines\":\"X,part,1,1.00\"}").get("orderDate"));
 
-        Map<String, String> fenced = MfgServices.orderFieldsFrom(
-                "```json\n{\"lines\":\"A,part,100,2.91\\nB,other,50,1.50\"}\n```");
+        Map<String, String> fenced = oneOrder(
+                "```json\n{\"orderNo\":\"46\",\"lines\":\"A,part,100,2.91\\nB,other,50,1.50\"}\n```");
         assertEquals("A,part,100,2.91\nB,other,50,1.50", fenced.get("lines"));
 
-        Map<String, String> enveloped = MfgServices.orderFieldsFrom(
+        Map<String, String> enveloped = oneOrder(
                 "{\"choices\":[{\"message\":{\"content\":"
                 + "\"{\\\"orderNo\\\":\\\"42\\\",\\\"lines\\\":\\\"X,part,10,1.00\\\"}\"}}]}");
         assertEquals("42", enveloped.get("orderNo"));
         assertEquals("X,part,10,1.00", enveloped.get("lines"));
 
         // a model that thinks first may leave content empty and put the answer in the reasoning
-        Map<String, String> thinking = MfgServices.orderFieldsFrom(
+        Map<String, String> thinking = oneOrder(
                 "{\"choices\":[{\"message\":{\"content\":\"\",\"reasoning_content\":"
                 + "\"{\\\"orderNo\\\":\\\"43\\\",\\\"lines\\\":\\\"Y,part,5,9.90\\\"}\"}}]}");
         assertEquals("43", thinking.get("orderNo"));
         assertEquals("Y,part,5,9.90", thinking.get("lines"));
 
         // a model that escapes the newline twice must still give two rows
-        Map<String, String> twiceEscaped = MfgServices.orderFieldsFrom(
+        Map<String, String> twiceEscaped = oneOrder(
                 "{\"choices\":[{\"message\":{\"content\":"
                 + "\"{\\\"orderNo\\\":\\\"44\\\",\\\"lines\\\":\\\"A,part,100,2.91\\\\nB,other,100,1.50\\\"}\"}}]}");
         assertEquals("44", twiceEscaped.get("orderNo"));
         assertEquals("A,part,100,2.91\nB,other,100,1.50", twiceEscaped.get("lines"));
 
         // an answer without lines is not usable, the person fills the form by hand
-        assertNull(MfgServices.orderFieldsFrom("{\"orderNo\":\"42\"}"));
-        assertNull(MfgServices.orderFieldsFrom(null));
+        assertNull(oneOrder("{\"orderNo\":\"42\"}"));
+        assertNull(oneOrder(null));
     }
 
     @Test
@@ -659,6 +671,33 @@ public class MfgServicesTest {
         assertNull(MfgServices.jsonStringField("{\"lines\": 5}", "lines"));
         assertNull(MfgServices.jsonStringField("{\"lines\":\"open", "lines"));
         assertEquals("v", MfgServices.jsonStringField("  \"k\" : \"v\" }", "k"));
+    }
+
+    @Test
+    public void keepsTheEchoedTemplateOutOfTheOrders() {
+        // a chatty model repeated the answer format: seven placeholder objects around the real order
+        String answer = "{\"orders\":["
+                + "{\"orderNo\":null,\"shop\":null,\"lines\":\"code\\tname\\tquantity\\tamount\"},"
+                + "{\"orderNo\":\"\",\"lines\":\"code\\tname\\tquantity\\tamount\"},"
+                + "{\"orderNo\":\"\",\"lines\":\"code\\tname\\tquantity\\tamount\"},"
+                + "{\"orderNo\":\"3316868509015009372\",\"shop\":\"risym\",\"orderDate\":\"2026-09-16\","
+                + "\"freight\":\"0.00\",\"paidTotal\":\"9.84\",\"refunded\":\"N\","
+                + "\"lines\":\"10CM 母对母 2.54mm 1排40P\\t杜邦线\\t5\\t9.84\"}]}";
+        List<Map<String, String>> orders = MfgServices.orderListFrom(answer);
+        assertEquals(1, orders.size());
+        assertEquals("3316868509015009372", orders.get(0).get("orderNo"));
+        // an order without a number cannot be imported anyway: it is the key the import de-dupes on
+        assertTrue(MfgServices.orderListFrom(
+                "{\"orders\":[{\"lines\":\"A,part,1,1.00\"}]}").isEmpty());
+        assertTrue(MfgServices.isLineTemplate("code,name,quantity,amount"));
+        assertTrue(MfgServices.isLineTemplate("Code\tName\tQuantity\tAmount"));
+        assertFalse(MfgServices.isLineTemplate("A1,part,1,1.00"));
+        assertFalse(MfgServices.isLineTemplate("code1,part,1,1.00"));
+        // an answer that falls back to explaining the format is a poor read: the scan sends it again
+        assertTrue(MfgServices.echoesTemplate("{\"lines\":\"code\\tname\\tquantity\\tamount\"}"));
+        assertTrue(MfgServices.echoesTemplate("please answer code,name,quantity,amount"));
+        assertFalse(MfgServices.echoesTemplate("{\"orderNo\":\"1\",\"lines\":\"A,part,1,1.00\"}"));
+        assertFalse(MfgServices.echoesTemplate(null));
     }
 
     @Test
@@ -769,17 +808,17 @@ public class MfgServicesTest {
 
     @Test
     public void keepsARefundedOrderOutOfTheStock() {        // "退款成功" on the screenshot: the parts never stayed in the shop
-        Map<String, String> refunded = MfgServices.orderFieldsFrom(
+        Map<String, String> refunded = oneOrder(
                 "{\"orderNo\":\"3316900549003018554\",\"refunded\":\"Y\","
                 + "\"lines\":\"CH32V002J4M6,CH32V002J4M6 SOP8,10,6.44\"}");
         assertTrue(MfgServices.isRefunded(refunded));
         assertEquals("Y", refunded.get("refunded"));
 
-        Map<String, String> normal = MfgServices.orderFieldsFrom(
+        Map<String, String> normal = oneOrder(
                 "{\"orderNo\":\"42\",\"refunded\":\"N\",\"lines\":\"X,part,1,1.00\"}");
         assertFalse(MfgServices.isRefunded(normal));
         // older answers do not carry the flag at all, which is not a refund either
-        assertFalse(MfgServices.isRefunded(MfgServices.orderFieldsFrom(
+        assertFalse(MfgServices.isRefunded(oneOrder(
                 "{\"orderNo\":\"42\",\"lines\":\"X,part,1,1.00\"}")));
         assertFalse(MfgServices.isRefunded(null));
     }

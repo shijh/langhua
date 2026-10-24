@@ -81,29 +81,32 @@ public final class MfgOrderScan {
     private static final String TINY_PNG =
             "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
 
-    /** What the model is asked for: one JSON object, nothing else. */
-    static final String PROMPT = "This is a screenshot of an online shop order (Taobao / Tmall). It may"
-            + " show ONE order (the order detail page) or a LIST of several orders (the order list of"
-            + " the shop), each with its own order number, shop, amounts and articles."
-            + " Read, for every order: the order number, the shop name, the order date the page shows"
-            + " (yyyy-MM-dd), the money really paid for that order (paidTotal), the freight (shipping"
-            + " fee) and the article lines of THAT order. Copy the numbers, do not invent them:"
-            + " \"含运费: ￥2.00\" means the freight is 2.00, a freight of 0 is only right when the"
-            + " page says 免运费 or 包邮; when a row of a list only shows 合计, that is the paid total"
-            + " of that order."
-            + " When the page shows 退款成功 / 已退款 / 退款中 / 交易关闭 / 已取消 (refunded or"
-            + " closed), put Y in refunded, otherwise N: such an order did not stay in the shop and"
-            + " must not be booked into stock."
-            + " Answer with one JSON object only, no prose:"
-            + " {\"orderCount\":\"1\",\"orders\":[{\"orderNo\":\"\",\"shop\":\"\",\"orderDate\":\"\",\"paidTotal\":\"\","
-            + "\"freight\":\"\",\"refunded\":\"\",\"lines\":\"code,name,quantity,amount\"}]}"
-            + " where orderCount is how many order blocks the picture shows (count them first) and"
-            + " orders has one element per block, in the order the page shows them; lines has one row per"
-            + " article of that order (x2 in a list means quantity 2, a lot of 100 pieces is 100) and"
-            + " amount is the goods money of that row without freight: when 实付款 is 3.50 and 含运费"
-            + " is 2.00, the row amount is 3.50 minus 2.00. When an order prints no article code, put"
-            + " the model number of the article (for example 5.5V1.5F C型 21*7.5) in the code column;"
-            + " never leave it empty.";
+    /**
+     * What the model is asked for: one JSON object, nothing else.
+     *
+     * <p>It is worded as decisions rather than as questions: the earlier, longer version made the
+     * model deliberate (the shop name with or without 天猫, the struck through price), and a thinking
+     * model that deliberates spends its whole output budget on the reasoning and answers nothing.
+     */
+    static final String PROMPT = "Read this screenshot of Taobao / Tmall orders and answer with one"
+            + " JSON object only, no prose, no explanation:"
+            + " {\"orderCount\":\"1\",\"orders\":[{\"orderNo\":\"\",\"shop\":\"\",\"orderDate\":\"\","
+            + "\"paidTotal\":\"\",\"freight\":\"\",\"refunded\":\"\",\"lines\":\"code,name,quantity,amount\"}]}"
+            + " orderCount is how many order blocks the picture shows; orders has one element per"
+            + " block, top to bottom, and lines has one row per article of that order."
+            + " orderNo is the number after 订单号. shop is the shop name only, without the platform"
+            + " word 淘宝 / 天猫. orderDate is yyyy-MM-dd as printed."
+            + " paidTotal is the money really paid for that order (实付款; in a list page the 合计 of the"
+            + " block). freight is the number after 含运费, and 0 when the page says 免运费 or 包邮."
+            + " refunded is Y when the block shows 退款成功 / 已退款 / 退款中 / 交易关闭 / 已取消,"
+            + " otherwise N."
+            + " In lines, quantity is the number after x (x2 means 2, a lot of 100 pieces is 100) and"
+            + " amount is paidTotal minus freight for a block with one article; never use the struck"
+            + " through or unit price. When an article prints no code, put the model number from its"
+            + " title (for example 5.5V1.5F C型 21*7.5) in code, or the article name when there is no"
+            + " model number; never leave it empty."
+            + " Take the numbers printed on the page: do not weigh alternatives, do not describe the"
+            + " picture.";
 
     private MfgOrderScan() {
     }
@@ -123,12 +126,11 @@ public final class MfgOrderScan {
         }
         if (image.length > MAX_IMAGE_BYTES) {
             return answer(response, false, "图片太大（超过 8 MB），截小一点再试", null, null);
-        }
-        String endpoint = text(MfgServices.setting(delegatorOf(request), VISION_ENDPOINT));
+        }        String endpoint = text(MfgServices.setting(delegatorOf(request), VISION_ENDPOINT));
         String model = text(MfgServices.setting(delegatorOf(request), VISION_MODEL));
         String key = text(MfgServices.setting(delegatorOf(request), VISION_KEY));
         if (endpoint == null || model == null || key == null) {
-            return answer(response, false, missingSetting(), null, null, UNCONFIGURED);
+            return answer(response, false, missingSetting(), null, UNCONFIGURED);
         }
         endpoint = MfgServices.normalizeVisionEndpoint(endpoint);
         String contentType = text(parameters.get("_image_contentType"));
@@ -156,8 +158,10 @@ public final class MfgOrderScan {
             }
             orders = MfgServices.orderListFrom(reply);
             seen = MfgServices.orderCountIn(reply);
-            // the model says how many order blocks it sees: fewer read than seen means one was skipped
-            if (!orders.isEmpty() && (seen <= 0 || orders.size() >= seen)) {
+            // fewer orders read than the model says it saw, or an answer that is mostly the answer
+            // format: either way the read is poor and one more send is worth it
+            boolean shortRead = seen > 0 && orders.size() < seen;
+            if (!orders.isEmpty() && !shortRead && !MfgServices.echoesTemplate(reply)) {
                 break;
             }
             // the answer is kept: its wording tells apart "not an order" from "the model could
@@ -165,7 +169,7 @@ public final class MfgOrderScan {
             Debug.logInfo("The vision answer carried no lines: " + reply, MODULE);
         }
         if (orders.isEmpty()) {
-            return answer(response, false, scanFailure(reply, transportProblem), null, null, NO_ORDERS);
+            return answer(response, false, scanFailure(reply, transportProblem), null, NO_ORDERS);
         }
         String shortfall = seen > orders.size()
                 ? "（截图上看上去有 " + seen + " 张单，这次只读出 " + orders.size()
@@ -207,7 +211,7 @@ public final class MfgOrderScan {
         if (refundedCount < orders.size()) {
             message += "，核对后点「" + (orders.size() == 1 ? "导入这张单" : "导入这些单") + "」";
         }
-        return answer(response, true, message + shortfall, null, orders);
+        return answer(response, true, message + shortfall, orders, null);
     }
 
     /**
@@ -263,7 +267,7 @@ public final class MfgOrderScan {
         String key = firstOf(text(parameters.get("visionKey")),
                 text(MfgServices.setting(delegator, VISION_KEY)));
         if (endpoint == null || model == null || key == null) {
-            return answer(response, false, testMissing(endpoint, model, key), null, null, UNCONFIGURED);
+            return answer(response, false, testMissing(endpoint, model, key), null, UNCONFIGURED);
         }
         try {
             String reply = askVision(MfgServices.normalizeVisionEndpoint(endpoint), model, key,
@@ -276,8 +280,7 @@ public final class MfgOrderScan {
                 content = content.substring(0, 200) + "…";
             }
             String kept = saveTestedSettings(request, endpoint, model, key);
-            return answer(response, true, "连接成功" + kept + "，模型回答：" + content, null, null);
-        } catch (IOException e) {
+            return answer(response, true, "连接成功" + kept + "，模型回答：" + content, null, null);        } catch (IOException e) {
             Debug.logError(e, "Could not test the vision service", MODULE);
             return answer(response, false, "识图服务调用失败：" + e.getMessage(), null, null);
         }
@@ -414,46 +417,23 @@ public final class MfgOrderScan {
     }
 
     /**
-     * Writes the answer of the scan: {@code ok}, a message and, when it worked, the form fields of
-     * one order or the list of recognised orders.
+     * Writes the answer of the event as JSON: {@code ok}, a message, the recognised orders and an
+     * optional machine readable code the page can act on without matching the wording.
      *
      * @param response the response
      * @param ok whether the scan worked
      * @param message what to tell the person
-     * @param fields the form fields of one order, may be {@code null}
-     * @param orders the recognised orders when the screenshot showed a list, may be {@code null}
-     * @return {@code success}, {@code error} when the answer could not be written
-     */
-    private static String answer(HttpServletResponse response, boolean ok, String message,
-            Map<String, String> fields, List<Map<String, String>> orders) {
-        return answer(response, ok, message, fields, orders, null);
-    }
-
-    /**
-     * Writes the answer of the event as JSON, with an optional machine readable code the page can
-     * act on without matching on the wording of the message.
-     *
-     * @param response the response
-     * @param ok whether the scan worked
-     * @param message what to tell the person
-     * @param fields the form fields of one order, may be {@code null}
-     * @param orders the recognised orders when the screenshot showed a list, may be {@code null}
+     * @param orders the recognised orders, {@code null} when there are none
      * @param code a short code such as {@code UNCONFIGURED}, {@code null} when there is none
      * @return {@code success}, {@code error} when the answer could not be written
      */
     private static String answer(HttpServletResponse response, boolean ok, String message,
-            Map<String, String> fields, List<Map<String, String>> orders, String code) {
+            List<Map<String, String>> orders, String code) {
         StringBuilder json = new StringBuilder();
         json.append("{\"ok\":").append(ok).append(",\"message\":")
                 .append(MfgBomEvents.jsonString(message));
         if (code != null) {
             json.append(",\"code\":").append(MfgBomEvents.jsonString(code));
-        }
-        if (fields != null) {
-            for (Map.Entry<String, String> entry : fields.entrySet()) {
-                json.append(',').append(MfgBomEvents.jsonString(entry.getKey())).append(':')
-                        .append(MfgBomEvents.jsonString(entry.getValue()));
-            }
         }
         if (orders != null) {
             json.append(",\"count\":").append(orders.size()).append(",\"orders\":[");

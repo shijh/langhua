@@ -8752,19 +8752,6 @@ always
     }
 
     /**
-     * Pulls the receipt fields out of the answer of a vision model. The answer may be plain JSON, a
-     * fenced code block or a chat envelope, so the fields are read by name instead of by position.
-     *
-     * @param reply the answer text
-     * @return {@code orderNo}, {@code shop}, {@code orderDate}, {@code freight} and {@code lines},
-     *         {@code null} when the answer carries no usable lines
-     */
-    static Map<String, String> orderFieldsFrom(String reply) {
-        String text = orderAnswerText(reply);
-        return text == null ? null : fieldsOfOneOrder(text);
-    }
-
-    /**
      * Turns the answer of a vision model into one field map per order. A screenshot may show a
      * single order (the detail page) or a list of several orders (the order list of the shop), so
      * both shapes are read: {@code {"orders":[{…},{…}]}} and the older flat {@code {"lines":"…"}}.
@@ -8858,11 +8845,18 @@ always
      *
      * @param text the JSON of that one order
      * @return {@code orderNo}, {@code shop}, {@code orderDate}, {@code freight}, {@code paidTotal},
-     *         {@code refunded} and {@code lines}, {@code null} when the object carries no lines
+     *         {@code refunded} and {@code lines}, {@code null} when the object is not an order
      */
     private static Map<String, String> fieldsOfOneOrder(String text) {
         Map<String, String> fields = new LinkedHashMap<>();
-        fields.put("orderNo", jsonStringField(text, "orderNo"));
+        String orderNo = jsonStringField(text, "orderNo");
+        // an order always prints its number, and it is the key the import de-duplicates on: an object
+        // without one is the schema example or a stray brace, not an order (a model that talks a lot
+        // echoes the template, and that used to arrive as seven empty "orders")
+        if (orderNo == null || orderNo.trim().isEmpty()) {
+            return null;
+        }
+        fields.put("orderNo", orderNo.trim());
         fields.put("shop", jsonStringField(text, "shop"));
         // the date printed on a shop order is the day it was placed, not the day the parts arrive;
         // older answers used the bare name date, so both are read
@@ -8873,11 +8867,56 @@ always
         // a refunded or closed order must not be booked into stock, so the answer carries that too
         fields.put("refunded", jsonStringField(text, "refunded"));
         String lines = jsonStringField(text, "lines");
-        if (lines == null || lines.trim().isEmpty()) {
+        if (lines == null || lines.trim().isEmpty() || isLineTemplate(lines.trim())) {
             return null;
         }
         fields.put("lines", lines.trim());
         return fields;
+    }
+
+    /**
+     * Tells the placeholder row of the answer format ({@code code,name,quantity,amount}) from a real
+     * one, so the example a chatty model repeats never shows up as an article.
+     *
+     * @param lines the lines of one order
+     * @return {@code true} when every row is the placeholder
+     */
+    static boolean isLineTemplate(String lines) {
+        if (lines == null || lines.trim().isEmpty()) {
+            return false;
+        }
+        boolean sawRow = false;
+        for (String row : lines.split("\r?\n")) {
+            String trimmed = row.trim();
+            if (trimmed.isEmpty()) {
+                continue;
+            }
+            sawRow = true;
+            String lower = trimmed.toLowerCase();
+            if (!lower.startsWith("code,") && !lower.startsWith("code\t") && !lower.startsWith("料号,")) {
+                return false;
+            }
+        }
+        return sawRow;
+    }
+
+    /**
+     * Tells whether the answer repeats the answer format instead of the orders. A model that starts
+     * explaining the format usually read the picture badly, so the caller sends it once more.
+     *
+     * <p>Only the answer itself is looked at, not the reasoning: a thinking model almost always quotes
+     * the format while it thinks, and checking the whole reply would retry every single call.
+     *
+     * @param reply the answer text
+     * @return {@code true} when the placeholder row appears in the answer
+     */
+    static boolean echoesTemplate(String reply) {
+        String text = orderAnswerText(reply);
+        if (text == null) {
+            return false;
+        }
+        return text.contains("code,name,quantity,amount") || text.contains("code\\tname\\tquantity\\tamount")
+                || text.contains("code\\tname\\tquantity");
     }
 
     /**
