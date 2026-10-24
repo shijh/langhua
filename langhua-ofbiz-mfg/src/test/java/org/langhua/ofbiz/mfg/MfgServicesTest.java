@@ -639,6 +639,24 @@ public class MfgServicesTest {
     }
 
     @Test
+    public void keepsARefundedOrderOutOfTheStock() {
+        // "退款成功" on the screenshot: the parts never stayed in the shop
+        Map<String, String> refunded = MfgServices.orderFieldsFrom(
+                "{\"orderNo\":\"3316900549003018554\",\"refunded\":\"Y\","
+                + "\"lines\":\"CH32V002J4M6,CH32V002J4M6 SOP8,10,6.44\"}");
+        assertTrue(MfgServices.isRefunded(refunded));
+        assertEquals("Y", refunded.get("refunded"));
+
+        Map<String, String> normal = MfgServices.orderFieldsFrom(
+                "{\"orderNo\":\"42\",\"refunded\":\"N\",\"lines\":\"X,part,1,1.00\"}");
+        assertFalse(MfgServices.isRefunded(normal));
+        // older answers do not carry the flag at all, which is not a refund either
+        assertFalse(MfgServices.isRefunded(MfgServices.orderFieldsFrom(
+                "{\"orderNo\":\"42\",\"lines\":\"X,part,1,1.00\"}")));
+        assertFalse(MfgServices.isRefunded(null));
+    }
+
+    @Test
     public void fitsALongPartNumberIntoTheCodeField() {
         // a code that fits is kept, the blanks around it are not
         assertEquals("CAP-104-50V", MfgServices.fittingComponentCode(" CAP-104-50V "));

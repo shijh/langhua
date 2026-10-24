@@ -260,6 +260,15 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   （单引号字面量里不插值，所以不能直接塞 `${…}`），并**必须给默认值加括号** `((x)!'')?url`，
   否则 `!` 的优先级低于 `+`，整句会解析成 `(a + b)!c`；
   `mfgPurchaseReceiptList` 补了 `pageSize` IN，否则换每页条数被静默丢弃
+- **退款/关闭的单不入库（Step 84）**：识图的 prompt 多了 `refunded`（看到「退款成功 / 已退款 / 退款中 / 交易关闭」填 Y），
+  `orderFieldsFrom` 把它带出来，`isRefunded(fields)` 判断；识别到退款时页面把 `#refundField` 设成 `Y`、
+  显示红色 `#refundBlock`（带一个“货确实到了，确认照常入库”的勾），**没勾就 `preventDefault` 不发请求**；
+  服务端 `mfgReceiptFromOrder` 也有一道：`refunded=Y` 直接拒绝。退款单也不要跑 `checkOrderTotals`（退款金额对不上没意义）
+- **`receipts.ftl` 里的 `orderForm` 脚本必须在 DOM 之后接**：那个 script 写在表单**前面**，
+  `document.getElementById('orderForm')` 永远是 null，于是 Step 77 的“再次导入先问”和 Step 84 的退款守卫
+  在浏览器里**都没生效**（服务端测试看不出来）。现在用 `DOMContentLoaded` 后再 `wireOrderForm()`；
+  踩过：m47 的「没有错误框」断言被**常驻的** `class="error"` 横幅弄挂，所以退款块平时不带 `error` 类，
+  只在显示时加
 - **防连点（Step 83）**：`webapp/mfg/js/once.js`（装饰器 `</body>` 前加载，在 expand.js 之前）用捕获阶段的
   submit 监听给每张表单记 `data-last-action`，**同一个表单 1.2 秒内的第二次提交直接**
   `preventDefault + stopImmediatePropagation`（页面自己的 submit 处理器也就跑一次），同时把表单里的按钮加上

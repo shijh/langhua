@@ -193,12 +193,31 @@
     });
 
     /* an order that is already in must not be booked a second time without a word: the page asks
-       before the same parts are overwritten (Step 77) */
-    var orderForm = document.getElementById('orderForm');
-    if (orderForm && window.fetch && window.FormData) {
+       before the same parts are overwritten (Step 77); a refunded order is kept out of the stock
+       altogether (Step 84). The form sits BELOW this script, so the wiring waits for the document -
+       looking it up here always found nothing. */
+    function wireOrderForm() {
+        var orderForm = document.getElementById('orderForm');
+        if (!orderForm || !window.fetch || !window.FormData) {
+            return;
+        }
         orderForm.addEventListener('submit', function (event) {
             var orderNo = document.getElementById('orderNoField');
             var linesField = document.getElementById('linesField');
+            var refundField = document.getElementById('refundField');
+            /* a refunded or closed order never arrived: keep it out of stock unless the person
+               says the goods did arrive after all */
+            if (refundField && refundField.value === 'Y') {
+                event.preventDefault();
+                var refundBlock = document.getElementById('refundBlock');
+                if (refundBlock) {
+                    refundBlock.hidden = false;
+                    refundBlock.className = 'error';
+                }
+                var refundAccept = document.getElementById('refundAccept');
+                if (refundAccept) { refundAccept.focus(); }
+                return;
+            }
             if (!orderNo || !linesField || !orderNo.value.trim() || !linesField.value.trim()) {
                 return;
             }
@@ -239,6 +258,11 @@
                 });
         });
     }
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', wireOrderForm);
+    } else {
+        wireOrderForm();
+    }
 }());
 </script>
 
@@ -253,6 +277,12 @@
     </p>
     <form method="post" action="/mfg/control/receiptFromOrder" id="orderForm">
         <input type="hidden" name="overwrite" id="overwriteField" value="N"/>
+        <input type="hidden" name="refunded" id="refundField" value="N"/>
+        <p id="refundBlock" hidden="hidden">
+            这张单显示<strong>已退款 / 已关闭</strong>（截图上的「退款成功」「退款中」「交易关闭」），
+            按规矩<strong>不入库</strong>——钱退回来了，料一般也没留下。
+            <label><input type="checkbox" id="refundAccept"/> 货确实到了，确认照常入库</label>
+        </p>
         <p>
             订单号 <input type="text" id="orderNoField" name="supplierOrderNo" size="22" placeholder="淘宝订单号"/>
             店铺 <input type="text" id="shopField" name="supplierName" size="18" placeholder="天猫 risym旗舰店"/>
@@ -279,6 +309,27 @@
         var block = document.getElementById('orderBlock');
         if (!button || !file || !hint || !window.fetch || !window.FormData) {
             return;
+        }
+        /* a refunded or closed order stays out of the stock; the box under the form says so and
+           the person has to tick it when the goods really did arrive */
+        var refundField = document.getElementById('refundField');
+        var refundBlock = document.getElementById('refundBlock');
+        var refundAccept = document.getElementById('refundAccept');
+        function showRefund(isRefunded) {
+            if (!refundField || !refundBlock) {
+                return;
+            }
+            refundField.value = isRefunded ? 'Y' : 'N';
+            refundBlock.hidden = !isRefunded;
+            refundBlock.className = isRefunded ? 'error' : '';
+            if (refundAccept && isRefunded) {
+                refundAccept.checked = false;
+            }
+        }
+        if (refundAccept && refundField) {
+            refundAccept.addEventListener('change', function () {
+                refundField.value = refundAccept.checked ? 'N' : 'Y';
+            });
         }
         /* the screenshot may come from the picker, from Ctrl+V or from a drop; all three end up
            as the file of the input, which the button then sends as before */
@@ -368,6 +419,7 @@
                     fill('shopField', data.shop);
                     if (data.freight) { fill('freightField', data.freight); }
                     if (data.lines) { fill('linesField', data.lines); }
+                    showRefund(data.refunded === 'Y');
                     /* the date on a shop order is the day it was placed; the arrival day is a few
                        days later and the person picks it, so the field is left alone */
                     var text = data.message || '已识别，核对后点“建单并入库”';

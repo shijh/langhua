@@ -8192,6 +8192,11 @@ always
         if (rows.isEmpty()) {
             return ServiceUtil.returnError("没有解析出明细，一行一个料：料号,名称,数量,实付金额");
         }
+        if ("Y".equalsIgnoreCase(toText(context.get("refunded")))) {
+            // a refunded or closed order never arrived: booking it would invent stock
+            return ServiceUtil.returnError("这张单已经退款/关闭，按规矩不入库；"
+                    + "货确实到了再勾上「确认照常入库」后重试");
+        }
         int shortened = 0;
         for (String[] row : rows) {
             if (row[0].length() > MAX_COMPONENT_CODE) {
@@ -8607,12 +8612,25 @@ always
         fields.put("orderDate", orderDate != null ? orderDate : jsonStringField(text, "date"));
         fields.put("freight", jsonStringField(text, "freight"));
         fields.put("paidTotal", jsonStringField(text, "paidTotal"));
+        // a refunded or closed order must not be booked into stock, so the answer carries that too
+        fields.put("refunded", jsonStringField(text, "refunded"));
         String lines = jsonStringField(text, "lines");
         if (lines == null || lines.trim().isEmpty()) {
             return null;
         }
         fields.put("lines", lines.trim());
         return fields;
+    }
+
+    /**
+     * Says whether a recognised shop order is refunded or closed. Such an order never stayed in the
+     * shop, so booking it into stock would invent material that is not on the shelf.
+     *
+     * @param fields the recognised fields of {@link #orderFieldsFrom(String)}
+     * @return {@code true} when the screenshot said 退款成功 / 已退款 / 交易关闭 and so on
+     */
+    static boolean isRefunded(Map<String, String> fields) {
+        return fields != null && "Y".equalsIgnoreCase(toText(fields.get("refunded")));
     }
 
     /**

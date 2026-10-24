@@ -33,6 +33,8 @@ import org.apache.ofbiz.base.util.UtilGenerics;
 import org.apache.ofbiz.entity.Delegator;
 import org.apache.ofbiz.service.LocalDispatcher;
 
+import static org.langhua.ofbiz.mfg.MfgServices.isRefunded;
+
 /**
  * Reads a shop order screenshot with a vision model and answers with the fields of the receipt
  * form, so the person only has to check the numbers before the order is booked in.
@@ -67,14 +69,17 @@ public final class MfgOrderScan {
             + " money really paid for the whole order (paidTotal), the freight (shipping fee) and the"
             + " article lines. Copy the numbers, do not invent them: \"含运费: ￥2.00\" means the"
             + " freight is 2.00, a freight of 0 is only right when the page says 免运费 or 包邮."
+            + " When the page shows 退款成功 / 已退款 / 退款中 / 交易关闭 / 已取消 (refunded or"
+            + " closed), put Y in refunded, otherwise N: such an order did not stay in the shop and"
+            + " must not be booked into stock."
             + " Answer with one JSON object only, no prose:"
             + " {\"orderNo\":\"\",\"shop\":\"\",\"orderDate\":\"\",\"paidTotal\":\"\","
-            + "\"freight\":\"\",\"lines\":\"code,name,quantity,amount\"} where lines has one row"
-            + " per article, quantity is the number of pieces (a lot of 100 pieces is 100, not 1) and"
-            + " amount is the goods money of that row without freight: when 实付款 is 3.50 and"
-            + " 含运费 is 2.00, the row amount is 3.50 minus 2.00. When the order prints no article"
-            + " code, put the model number of the article (for example 5.5V1.5F C型 21*7.5) in the"
-            + " code column; never leave it empty.";
+            + "\"freight\":\"\",\"refunded\":\"\",\"lines\":\"code,name,quantity,amount\"} where lines"
+            + " has one row per article, quantity is the number of pieces (a lot of 100 pieces is"
+            + " 100, not 1) and amount is the goods money of that row without freight: when 实付款"
+            + " is 3.50 and 含运费 is 2.00, the row amount is 3.50 minus 2.00. When the order prints"
+            + " no article code, put the model number of the article (for example"
+            + " 5.5V1.5F C型 21*7.5) in the code column; never leave it empty.";
 
     private MfgOrderScan() {
     }
@@ -119,6 +124,12 @@ public final class MfgOrderScan {
             // a package description as the part number does not fit the code field: short it here
             // so the form already shows the code that will be stored
             fields.put("lines", MfgServices.fitOrderLines(fields.get("lines")));
+            if (isRefunded(fields)) {
+                // the parts never stayed in the shop; the page keeps the form but blocks the submit
+                // until the person says the goods did arrive after all
+                return answer(response, true, "已识别。这张单显示已退款/已关闭，按规矩不入库；"
+                        + "货确实到了再勾上“确认照常入库”", fields);
+            }
             // freight is what the page says, but goods plus freight must come to what was paid
             String totals = MfgServices.checkOrderTotals(fields);
             return answer(response, true, totals == null ? "已识别，核对后再提交" : "已识别。" + totals, fields);

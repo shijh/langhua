@@ -1135,6 +1135,7 @@
         <attribute name="freightAmount" type="String" mode="IN" optional="true"/>
         <attribute name="lines" type="String" mode="IN" optional="false"/>
         <attribute name="overwrite" type="String" mode="IN" optional="true"/>
+        <attribute name="refunded" type="String" mode="IN" optional="true"/>
         <attribute name="locationId" type="String" mode="IN" optional="true"/>
         <attribute name="note" type="String" mode="IN" optional="true"/>
         <attribute name="receiptId" type="String" mode="OUT" optional="true"/>
