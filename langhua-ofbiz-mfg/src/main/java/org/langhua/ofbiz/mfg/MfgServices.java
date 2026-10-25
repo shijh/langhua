@@ -9562,29 +9562,14 @@ always
         Double freight = optionalAmount(order.get("freight"));
         if (paid != null && kept.size() > 1) {
             // the rows sometimes carry a summary row on top (the subtotal, or the paid total itself),
-            // which would be booked into stock as one more part: the reading that adds up wins, so a
-            // single row is dropped when that makes the money match what was paid
+            // and sometimes the price of one piece instead of the money of the row: the reading that
+            // adds up wins, so a row may be dropped and the amounts may be multiplied by the quantity
             double freightValue = freight == null ? 0.0 : freight.doubleValue();
             Double discount = optionalAmount(order.get("discount"));
             double discountValue = discount == null ? 0.0 : discount.doubleValue();
-            double goods = 0.0;
-            for (String[] row : kept) {
-                goods += toDouble(row[3], 0.0);
-            }
-            if (Math.abs(round2(goods + freightValue - discountValue) - paid.doubleValue()) >= 0.005) {
-                int dropAt = -1;
-                for (int i = 0; i < kept.size(); i++) {
-                    double rest = round2(goods - toDouble(kept.get(i)[3], 0.0));
-                    // the page rounds its own unit prices, so a few cents are fine here
-                    if (Math.abs(round2(rest + freightValue - discountValue) - paid.doubleValue()) <= 0.06) {
-                        dropAt = i;
-                        break;
-                    }
-                }
-                if (dropAt >= 0) {
-                    kept.remove(dropAt);
-                }
-            }
+            // what the articles alone should come to (paid = goods + freight - discount)
+            double wanted = round2(paid.doubleValue() - freightValue + discountValue);
+            kept = readingThatAddsUp(kept, wanted);
         }
         StringBuilder lines = new StringBuilder();
         for (String[] row : kept) {
@@ -9607,6 +9592,52 @@ always
     private static String rowKey(String code) {
         return code == null ? "" : code.replaceAll("\\s*[\\[【(（][^\\]】)）]{0,6}(交易快照|快照)[\\]】)）]", "")
                 .replaceAll("\\s+", " ").trim();
+    }
+
+    /**
+     * Picks the reading of the article rows whose money comes to what the shop charged. The rows as
+     * they were read are tried first, then without one row (a summary row the model added), then with
+     * the amounts multiplied by the quantity (the model gave the price of one piece), and finally both.
+     * A page rounds its own unit prices, so a few cents are allowed; when nothing fits the rows are
+     * left as they are, and the money check on the page tells the person to look at them.
+     *
+     * @param rows the article rows of one order
+     * @param wanted what the articles alone should come to
+     * @return the rows of the reading that adds up, or the rows as they were
+     */
+    private static List<String[]> readingThatAddsUp(List<String[]> rows, double wanted) {
+        for (int dropAt = -1; dropAt < rows.size(); dropAt++) {
+            for (boolean asUnitPrice : new boolean[] {false, true}) {
+                double sum = 0.0;
+                for (int i = 0; i < rows.size(); i++) {
+                    if (i == dropAt) {
+                        continue;
+                    }
+                    double amount = toDouble(rows.get(i)[3], 0.0);
+                    double qty = toDouble(rows.get(i)[2], 0.0);
+                    sum += asUnitPrice && qty > 0.0 ? amount * qty : amount;
+                }
+                if (Math.abs(round2(sum) - wanted) > 0.06) {
+                    continue;
+                }
+                List<String[]> picked = new ArrayList<>();
+                for (int i = 0; i < rows.size(); i++) {
+                    if (i == dropAt) {
+                        continue;
+                    }
+                    String[] row = rows.get(i);
+                    if (asUnitPrice) {
+                        double qty = toDouble(row[2], 0.0);
+                        double amount = toDouble(row[3], 0.0) * (qty > 0.0 ? qty : 1.0);
+                        row = new String[] {row[0], row[1], row[2],
+                            String.format(Locale.ROOT, "%.2f", Double.valueOf(round2(amount)))};
+                    }
+                    picked.add(row);
+                }
+                return picked;
+            }
+        }
+        return rows;
     }
 
     /**
