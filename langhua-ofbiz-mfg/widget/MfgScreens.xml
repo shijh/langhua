@@ -122,6 +122,7 @@
                          auto-field-map="false">
                     <field-map field-name="search" from-field="parameters.search"/>
                     <field-map field-name="page" from-field="parameters.page"/>
+                    <field-map field-name="includeVoid" from-field="parameters.includeVoid"/>
                 </service>
                 <service service-name="mfgPurchaseReceiptDetail" result-map="receiptDetail"
                          auto-field-map="false">

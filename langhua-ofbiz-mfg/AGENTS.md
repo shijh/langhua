@@ -479,6 +479,17 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   页面在详情（`receipts?receiptId=…`）右上，`confirm()` 里写清“只删单据”，删完 302 回列表并显示
   `parameters.deletedReceipt` 的绿色横幅。要冲库存请走「库存 → 流水」报废（那里留原因），
   **不要让删单去改库存**——那就把“单据”和“实物”两件事混在一起了
+- **整张到货单是“作废”不是“删”（Step 112）**：`MfgPurchaseReceipt.statusId` = `MFG_RCPT_ACTIVE` / `MFG_RCPT_VOID`
+  （老行为 null，一律当 ACTIVE）；作废时写 `voidedDate` / `voidedByUserLoginId` / `voidReason`。
+  `mfgPurchaseReceiptVoid` / `mfgPurchaseReceiptRestore`（`use-transaction="true"`），**批次/库存/流水一律不动**
+  （与 OFBiz 的 `ShipmentReceipt` 同理：那玩意儿连 statusId 都没有，撤销靠 Return + 反向流水；
+  它那个 `deleteShipmentReceipt` 只是 entity-auto 的硬删，界面上没有任何入口）。
+  连带四处要跟着看：① 列表默认只列 ACTIVE，`includeVoid=Y` 才把作废的也列出来（模板有开关，行上有 `data-receipt-status`）；
+  ② 作废单的明细**算自由批次**（`freeLots` 里排掉只属于 ACTIVE 单的行），才能重挂到建对的单上；
+  ③ `purchaseReceiptSave` / `purchaseReceiptLineSave` 对作废单直接拒（要改先恢复）；
+  ④ `mfgReceiptFromOrder` 命中作废单时**复活它**（订单号还是幂等键，不能变成两张同号单），
+  `mfgPurchaseFreightTrend` 与采购支出汇总都跳过作废单。
+  **老的开发/生产库不用手工 ALTER**：OFBiz 启动时会把缺的列补上（日志里的 `[addColumn]`）。
 - **淘宝导出的「订单数据」xlsx 可以整批导入（Step 110）**：到货单页上传 → `/mfg/control/orderExcel`
   （`MfgImportEvents.orderExcel`，multipart 字段 `file`，带 `ajax=Y` 回 JSON：`imported/lines/skipped/failed/notes`；
   不带就 302 回 `receipts?excelImported=…`）。解析全在 `MfgOrderExcel`：**xlsx 就是 zip + XML，没有 POI**，

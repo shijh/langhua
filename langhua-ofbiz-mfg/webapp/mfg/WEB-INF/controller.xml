@@ -449,12 +449,22 @@
         <response name="error" type="view" value="receipts"/>
     </request-map>
 
-    <!-- throws away one whole receipt (head + lines); the lots and the stock stay (Step 111) -->
-    <request-map uri="receiptDelete" save-last-view="true">
+    <!-- voids one receipt (head + lines stay as the record); the lots and the stock stay (Step 112) -->
+    <request-map uri="receiptVoid" save-last-view="true">
         <security https="true" auth="true"/>
-        <event type="service" invoke="mfgPurchaseReceiptDelete"/>
+        <event type="service" invoke="mfgPurchaseReceiptVoid"/>
         <response name="success" type="request-redirect" value="receipts">
-            <redirect-parameter name="deletedReceipt"/>
+            <redirect-parameter name="voidedReceipt"/>
+        </response>
+        <response name="error" type="view" value="receipts"/>
+    </request-map>
+
+    <!-- puts a voided receipt back into force -->
+    <request-map uri="receiptRestore" save-last-view="true">
+        <security https="true" auth="true"/>
+        <event type="service" invoke="mfgPurchaseReceiptRestore"/>
+        <response name="success" type="request-redirect" value="receipts">
+            <redirect-parameter name="receiptId"/>
         </response>
         <response name="error" type="view" value="receipts"/>
     </request-map>

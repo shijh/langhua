@@ -1070,14 +1070,24 @@
         <attribute name="goodsAmount" type="Double" mode="OUT" optional="true"/>
     </service>
 
-    <service name="mfgPurchaseReceiptDelete" engine="java"
-            location="org.langhua.ofbiz.mfg.MfgServices" invoke="purchaseReceiptDelete"
+    <service name="mfgPurchaseReceiptVoid" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgServices" invoke="purchaseReceiptVoid"
             auth="false" use-transaction="true">
-        <description>Delete a whole purchase receipt: the head and its lines. The lots, the stock and the ledger stay as they are - the receipt is only the paper of what was bought</description>
+        <description>Void a purchase receipt: it stays as the record (who, when, why) but drops out of every total, and its lots count as free again. The lots, the stock and the ledger stay as they are</description>
+        <attribute name="receiptId" type="String" mode="IN" optional="false"/>
+        <attribute name="voidReason" type="String" mode="IN" optional="true"/>
+        <attribute name="receiptId" type="String" mode="OUT" optional="true"/>
+        <attribute name="voidedReceipt" type="String" mode="OUT" optional="true"/>
+        <attribute name="statusId" type="String" mode="OUT" optional="true"/>
+    </service>
+
+    <service name="mfgPurchaseReceiptRestore" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgServices" invoke="purchaseReceiptRestore"
+            auth="false" use-transaction="true">
+        <description>Put a voided receipt back into force, for the void that was a mistake itself</description>
         <attribute name="receiptId" type="String" mode="IN" optional="false"/>
         <attribute name="receiptId" type="String" mode="OUT" optional="true"/>
-        <attribute name="deletedReceipt" type="String" mode="OUT" optional="true"/>
-        <attribute name="deletedLines" type="String" mode="OUT" optional="true"/>
+        <attribute name="statusId" type="String" mode="OUT" optional="true"/>
     </service>
 
     <service name="mfgPurchaseReceiptList" engine="java"
@@ -1085,6 +1095,7 @@
             auth="false" use-transaction="false">
         <description>The purchase receipts with goods value, freight and the total spent</description>
         <attribute name="search" type="String" mode="IN" optional="true"/>
+        <attribute name="includeVoid" type="String" mode="IN" optional="true"/>
         <attribute name="page" type="String" mode="IN" optional="true"/>
         <attribute name="pageSize" type="Long" mode="IN" optional="true"/>
         <attribute name="linesByReceipt" type="java.util.Map" mode="OUT" optional="true"/>

@@ -29,7 +29,7 @@
 </#if>
 
 <p id="listHint" class="hint">展开某张单就能直接改数量与单价，点「保存」立刻生效，页面不刷新；
-    要删整张单就点单号进详情（右上有个「删除这张到货单」，只删单据，批次与库存不动）。</p>
+    要作废整张单就点单号进详情（右上有个「作废这张到货单」，单据留痕、批次与库存不动）。</p>
 <div id="receiptListBlock">
 <h2>采购支出（本页列出的单据）</h2>
 <table id="receiptSummary" data-allocation="MFG_ALLOC_NONE">
@@ -47,16 +47,22 @@
 要看“含运成本”就用上面的比例（运费占货款 ${((rl.freightShare)!0)?string("0.0")}%）整体估算，料价本身仍用实付单价。</p>
 
 <h2>到货单（${(rl.totalCount)!0} 张）</h2>
+<#assign showVoid = ((parameters.includeVoid)!'') == 'Y'>
 <form method="get" action="/mfg/control/receipts">
     搜索 <input type="text" name="search" size="24" value="${(rl.search)!''}" placeholder="单号 / 供应商 / 店铺订单号"/>
     <input type="submit" value="查询"/>
+    <input type="hidden" name="includeVoid" value="<#if showVoid>Y<#else>N</#if>"/>
 </form>
+<p class="hint">作废的单不算钱也不占批次，默认不列出来：
+    <#if showVoid><a href="/mfg/control/receipts?search=${(rl.search)!''?url}">只看有效的</a>（现在</#if><#if !showVoid><a href="/mfg/control/receipts?search=${(rl.search)!''?url}&amp;includeVoid=Y">连已作废的一起看</a></#if><#if showVoid>已把作废的也列出来）</#if>。
+</p>
 <#if receipts?has_content>
     <table id="receiptTable">
         <tr><th>单号</th><th>供应商</th><th>店铺订单号</th><th>到货日</th>
-            <th class="num">行数</th><th class="num">货款</th><th class="num">运费</th><th class="num">优惠</th><th class="num">合计</th></tr>
+            <th class="num">行数</th><th class="num">货款</th><th class="num">运费</th><th class="num">优惠</th><th class="num">合计</th><th>状态</th></tr>
         <#list receipts as r>
-            <tr data-receipt="${r.receiptId}">
+            <#assign voided = ((r.statusId)!'') == 'MFG_RCPT_VOID'>
+            <tr data-receipt="${r.receiptId}" data-receipt-status="${(r.statusId)!'MFG_RCPT_ACTIVE'}">
                 <td><a href="/mfg/control/receipts?receiptId=${r.receiptId}">${r.receiptId}</a></td>
                 <td>${r.supplierName!}</td>
                 <td>${r.supplierOrderNo!}</td>
@@ -68,10 +74,11 @@
                 <td class="num">${((r.freightTotal)!0)?string("0.00")}</td>
                 <td class="num">${((r.discountTotal)!0)?string("0.00")}</td>
                 <td class="num">${((r.spendTotal)!0)?string("0.00")}</td>
+                <td<#if voided> class="error"</#if>><#if voided>已作废<#else>有效</#if></td>
             </tr>
             <#if detail?has_content>
                 <tr class="receiptLines" data-receipt-lines="${r.receiptId}" hidden>
-                    <td colspan="9">
+                    <td colspan="10">
                         <table class="inner">
                             <tr><th>行号</th><th>批次</th><th>料号</th><th>名称</th>
                                 <th class="num">数量</th><th class="num">单价</th><th class="num">货款</th><th></th></tr>
@@ -800,20 +807,71 @@
     </form>
 </fieldset>
 
-<#if (parameters.deletedReceipt)?has_content>
-    <p class="ok">已删除到货单 ${parameters.deletedReceipt}；批次与库存没有变动（要冲库存请到「库存 → 流水」按报废处理）。</p>
+<#if (parameters.voidedReceipt)?has_content>
+    <p class="ok">已作废到货单 ${parameters.voidedReceipt}：它不再算进采购支出，批次重新变回可选；单据本身留着可查。
+        批次与库存没有变动（要冲库存请到「库存 → 流水」按报废处理）。</p>
 </#if>
 
 <#if receipt.receiptId??>
-    <h2>到货单 ${receipt.receiptId}（${(rd.lineCount)!0} 行）</h2>
-    <p>
-        <form method="post" action="/mfg/control/receiptDelete" class="inline" id="receiptDeleteForm">
-            <input type="hidden" name="receiptId" value="${receipt.receiptId}"/>
-            <input type="submit" class="secondary" value="删除这张到货单"
-                onclick="return confirm('删除到货单 ${receipt.receiptId}？\n\n只删这张单据（含 ${(rd.lineCount)!0} 行），批次、库存和流水完全不动。\n如果这批料本来就不该在库里，删完再去「库存 → 流水」按报废冲掉。')"/>
-        </form>
-        <span class="hint">这张单建错了就删掉：删的只是单据本身，料和库存都不动。</span>
-    </p>
+    <#assign receiptVoid = ((receipt.statusId)!'MFG_RCPT_ACTIVE') == 'MFG_RCPT_VOID'>
+    <h2>到货单 ${receipt.receiptId}（${(rd.lineCount)!0} 行）<#if receiptVoid><span class="error">已作废</span></#if></h2>
+    <#if receiptVoid>
+        <p class="error">
+            这张单已作废<#if receipt.voidedDate??>（${receipt.voidedDate?string("yyyy-MM-dd HH:mm")}<#if (receipt.voidedByUserLoginId)?has_content>，${receipt.voidedByUserLoginId}</#if><#if (receipt.voidReason)?has_content>，原因：${receipt.voidReason}</#if>）</#if>：
+            不算采购支出，也不占批次；单据留着可查。
+        </p>
+        <p>
+            <form method="post" action="/mfg/control/receiptRestore" class="inline" id="receiptRestoreForm">
+                <input type="hidden" name="receiptId" value="${receipt.receiptId}"/>
+                <input type="submit" class="secondary" value="恢复这张单"
+                    onclick="return confirm('把到货单 ${receipt.receiptId} 恢复成有效？它会重新算进采购支出，并占住它的批次。')"/>
+            </form>
+            <span class="hint">作废作错了就恢复；恢复后又能编辑了。</span>
+        </p>
+    <#else>
+        <p>
+            <form method="post" action="/mfg/control/receiptVoid" class="inline" id="receiptVoidForm">
+                <input type="hidden" name="receiptId" value="${receipt.receiptId}"/>
+                原因 <input class="narrow" type="text" name="voidReason" value="建错了" size="14"
+                    title="会记在单据上，例如：建错了 / 重复建单 / 供应商取消"/>
+                <input type="submit" class="secondary" value="作废这张到货单"
+                    onclick="return confirm('作废到货单 ${receipt.receiptId}？\n\n单据与 ${(rd.lineCount)!0} 行明细都留着可查，但不再算进采购支出，批次也不再占着（可以重新挂到别的单上）。\n批次、库存和流水完全不动。')"/>
+            </form>
+            <span class="hint">这张单建错了就作废：单据留痕、不算钱、批次放开；料和库存都不动。</span>
+        </p>
+    </#if>
+    <#if receiptVoid>
+        <p class="hint">作废的单不能再改：要改先点上面的「恢复这张单」。下面是它当时记下的内容。</p>
+        <table id="receiptLinesVoid">
+            <tr><th>供应商</th><th>店铺订单号</th><th>到货日</th><th class="num">运费</th><th class="num">优惠</th></tr>
+            <tr>
+                <td>${receipt.supplierName!}</td>
+                <td>${receipt.supplierOrderNo!}</td>
+                <td><#if receipt.receiptDate??>${receipt.receiptDate?string("yyyy-MM-dd")}</#if></td>
+                <td class="num">${((receipt.freightAmount)!0)?string("0.00")}</td>
+                <td class="num">${((receipt.discountAmount)!0)?string("0.00")}</td>
+            </tr>
+        </table>
+        <#if lines?has_content>
+            <table id="receiptLines">
+                <tr><th class="num">行号</th><th>批次</th><th>料号</th><th>名称</th>
+                    <th class="num">数量</th><th class="num">单价</th><th class="num">货款</th></tr>
+                <#list lines as l>
+                    <tr data-line-seq="${l.lineSeq}">
+                        <td class="num">${(l.lineSeq)?string("0")}</td>
+                        <td>${l.lotId!}</td>
+                        <td>${l.componentCode!}</td>
+                        <td>${l.componentName!}</td>
+                        <td class="num">${((l.qty)!0)?string("0.##")}</td>
+                        <td class="num">${((l.unitPriceExact)!0)?string("0.0000")}</td>
+                        <td class="num">${((l.goodsAmount)!0)?string("0.00")}</td>
+                    </tr>
+                </#list>
+            </table>
+        <#else>
+            <p class="hint">这张单当时没有挂批次。</p>
+        </#if>
+    <#else>
     <form method="post" action="/mfg/control/receiptSave" id="receiptSaveForm">
         <input type="hidden" name="receiptId" value="${receipt.receiptId}"/>
         <p>
@@ -911,4 +969,5 @@
             <p class="hint">所有元件批次都已经挂在到货单上了。新的到货批次在「物料批次」页建。</p>
         </#if>
     </fieldset>
+    </#if>
 </#if>

@@ -111,6 +111,14 @@ public final class MfgServices {
     public static final String FREIGHT_SELLER = "SELLER";
     public static final String FREIGHT_BUYER = "BUYER";
 
+    /** A purchase receipt that counts: money, goods and reports all read the active ones. */
+    public static final String RECEIPT_ACTIVE = "MFG_RCPT_ACTIVE";
+    /**
+     * A purchase receipt that was voided by mistake or was wrong: it stays as the record of what was
+     * once typed (who, when, why), but it is left out of every total and its lots count as free again.
+     */
+    public static final String RECEIPT_VOID = "MFG_RCPT_VOID";
+
     public static final String INSPECT_QUALITY = "QUALITY";
     public static final String INSPECT_NO_FAULT = "NO_FAULT";
     public static final String INSPECT_HUMAN = "HUMAN";
@@ -2468,6 +2476,10 @@ public final class MfgServices {
             Map<String, double[]> buckets = new java.util.TreeMap<>();
             for (GenericValue receipt : EntityQuery.use(delegator).from("MfgPurchaseReceipt")
                     .orderBy("receiptDate").queryList()) {
+                // a voided receipt was never really bought: it stays out of the freight report
+                if (RECEIPT_VOID.equals(statusOfReceipt(receipt))) {
+                    continue;
+                }
                 java.sql.Date day = receipt.getDate("receiptDate");
                 if (day == null && receipt.getTimestamp("createdStamp") != null) {
                     day = new java.sql.Date(receipt.getTimestamp("createdStamp").getTime());
@@ -8081,6 +8093,9 @@ always
                 receipt.set("discountAmount", Double.valueOf(0.0));
                 receipt.set("allocationId", ALLOC_NONE);
                 receipt.set("receiptDate", java.sql.Date.valueOf(LocalDate.now()));
+                receipt.set("statusId", RECEIPT_ACTIVE);
+            } else if (RECEIPT_VOID.equals(statusOfReceipt(receipt))) {
+                return ServiceUtil.returnError("到货单 [" + receiptId + "] 已经作废，要改先点「恢复这张单」");
             }
             if (context.containsKey("supplierName")) {
                 receipt.set("supplierName", toText(context.get("supplierName")));
@@ -8136,9 +8151,13 @@ always
         boolean removing = "Y".equals(toText(context.get("delete")));
         long lineSeq = toLong(context.get("lineSeq"), 0L);
         try {
-            if (EntityQuery.use(delegator).from("MfgPurchaseReceipt")
-                    .where("receiptId", receiptId).queryOne() == null) {
+            GenericValue receipt = EntityQuery.use(delegator).from("MfgPurchaseReceipt")
+                    .where("receiptId", receiptId).queryOne();
+            if (receipt == null) {
                 return ServiceUtil.returnError("Unknown receipt [" + receiptId + "]");
+            }
+            if (RECEIPT_VOID.equals(statusOfReceipt(receipt))) {
+                return ServiceUtil.returnError("到货单 [" + receiptId + "] 已经作废，料和金额都不再算进去");
             }
             GenericValue line = lineSeq > 0L ? EntityQuery.use(delegator).from("MfgPurchaseReceiptLine")
                     .where("receiptId", receiptId, "lineSeq", Long.valueOf(lineSeq)).queryOne() : null;
@@ -8168,7 +8187,9 @@ always
                 }
                 GenericValue other = EntityQuery.use(delegator).from("MfgPurchaseReceiptLine")
                         .where("lotId", lotId).queryOne();
-                if (other != null) {
+                if (other != null && !RECEIPT_VOID.equals(statusOfReceipt(EntityQuery.use(delegator)
+                        .from("MfgPurchaseReceipt")
+                        .where("receiptId", other.getString("receiptId")).queryOne()))) {
                     return ServiceUtil.returnError("批次 [" + lotId + "] 已经在到货单 ["
                             + other.getString("receiptId") + "] 上");
                 }
@@ -8217,18 +8238,20 @@ always
     }
 
     /**
-     * Deletes a whole purchase receipt: the head and its lines.
+     * Voids a purchase receipt: the head and its lines stay as the record of what was once typed, but
+     * the receipt drops out of every total and its lots count as free again.
      *
-     * <p>Nothing else moves. A receipt is the paper of what was bought - the lots it lists, their
-     * stock and the ledger movements are the truth about the shelf, so they stay. Whoever wants the
-     * parts off the shelf books a scrap movement under 库存 → 流水 (that is what it is for); this
-     * only throws away the paper, for the receipt that was created by mistake.
+     * <p>Voiding never touches the shelf. The lots it lists, their stock and the ledger movements are
+     * the truth about what is in the warehouse, so they stay; whoever wants the parts out of the
+     * stock books a scrap movement under 库存 → 流水, which is what that is for. That is also how
+     * OFBiz itself treats a receipt: {@code ShipmentReceipt} has no undo either, the receipt is kept
+     * and the stock is corrected with a movement.
      *
      * @param dctx the dispatch context
-     * @param context service context, see {@code servicedef/services.xml#mfgPurchaseReceiptDelete}
-     * @return the service result containing {@code receiptId} and {@code deletedLines}
+     * @param context service context, see {@code servicedef/services.xml#mfgPurchaseReceiptVoid}
+     * @return the service result containing {@code receiptId}, {@code statusId} and {@code voidedReceipt}
      */
-    public static Map<String, Object> purchaseReceiptDelete(DispatchContext dctx, Map<String, ? extends Object> context) {
+    public static Map<String, Object> purchaseReceiptVoid(DispatchContext dctx, Map<String, ? extends Object> context) {
         String denied = permissionProblem(dctx, context, PERM_STOCK);
         if (denied != null) {
             return ServiceUtil.returnError(denied);
@@ -8236,7 +8259,7 @@ always
         Delegator delegator = dctx.getDelegator();
         String receiptId = toText(context.get("receiptId"));
         if (receiptId == null) {
-            return ServiceUtil.returnError("请选择要删除的到货单");
+            return ServiceUtil.returnError("请选择要作废的到货单");
         }
         try {
             GenericValue receipt = EntityQuery.use(delegator).from("MfgPurchaseReceipt")
@@ -8244,20 +8267,62 @@ always
             if (receipt == null) {
                 return ServiceUtil.returnError("Unknown receipt [" + receiptId + "]");
             }
-            List<GenericValue> lines = EntityQuery.use(delegator).from("MfgPurchaseReceiptLine")
-                    .where("receiptId", receiptId).queryList();
-            for (GenericValue line : lines) {
-                line.remove();
+            if (RECEIPT_VOID.equals(statusOfReceipt(receipt))) {
+                return ServiceUtil.returnError("到货单 [" + receiptId + "] 已经作废了");
             }
-            receipt.remove();
+            String reason = toText(context.get("voidReason"));
+            receipt.set("statusId", RECEIPT_VOID);
+            receipt.set("voidedDate", new Timestamp(System.currentTimeMillis()));
+            GenericValue userLogin = (GenericValue) context.get("userLogin");
+            receipt.set("voidedByUserLoginId", userLogin == null ? null : userLogin.getString("userLoginId"));
+            receipt.set("voidReason", reason == null ? "建错了" : reason);
+            receipt.store();
             Map<String, Object> result = ServiceUtil.returnSuccess();
             result.put("receiptId", receiptId);
-            result.put("deletedReceipt", receiptId);
-            result.put("deletedLines", String.valueOf(lines.size()));
+            result.put("voidedReceipt", receiptId);
+            result.put("statusId", RECEIPT_VOID);
             return result;
         } catch (GenericEntityException e) {
-            Debug.logError(e, "Could not delete the receipt [" + receiptId + "]", MODULE);
-            return ServiceUtil.returnError("删除失败：" + e.getMessage());
+            Debug.logError(e, "Could not void the receipt [" + receiptId + "]", MODULE);
+            return ServiceUtil.returnError("作废失败：" + e.getMessage());
+        }
+    }
+
+    /**
+     * Puts a voided receipt back into force, for the void that was itself a mistake.
+     *
+     * @param dctx the dispatch context
+     * @param context service context, see {@code servicedef/services.xml#mfgPurchaseReceiptRestore}
+     * @return the service result containing {@code receiptId} and {@code statusId}
+     */
+    public static Map<String, Object> purchaseReceiptRestore(DispatchContext dctx, Map<String, ? extends Object> context) {
+        String denied = permissionProblem(dctx, context, PERM_STOCK);
+        if (denied != null) {
+            return ServiceUtil.returnError(denied);
+        }
+        Delegator delegator = dctx.getDelegator();
+        String receiptId = toText(context.get("receiptId"));
+        if (receiptId == null) {
+            return ServiceUtil.returnError("请选择要恢复的到货单");
+        }
+        try {
+            GenericValue receipt = EntityQuery.use(delegator).from("MfgPurchaseReceipt")
+                    .where("receiptId", receiptId).queryOne();
+            if (receipt == null) {
+                return ServiceUtil.returnError("Unknown receipt [" + receiptId + "]");
+            }
+            receipt.set("statusId", RECEIPT_ACTIVE);
+            receipt.set("voidedDate", null);
+            receipt.set("voidedByUserLoginId", null);
+            receipt.set("voidReason", null);
+            receipt.store();
+            Map<String, Object> result = ServiceUtil.returnSuccess();
+            result.put("receiptId", receiptId);
+            result.put("statusId", RECEIPT_ACTIVE);
+            return result;
+        } catch (GenericEntityException e) {
+            Debug.logError(e, "Could not restore the receipt [" + receiptId + "]", MODULE);
+            return ServiceUtil.returnError("恢复失败：" + e.getMessage());
         }
     }
 
@@ -8289,8 +8354,14 @@ always
                 lines.add(toReceiptLineMap(line));
             }
             List<Map<String, Object>> rows = new ArrayList<>();
+            boolean withVoid = "Y".equalsIgnoreCase(toText(context.get("includeVoid")));
             for (GenericValue receipt : EntityQuery.use(delegator).from("MfgPurchaseReceipt")
                     .orderBy("-receiptDate", "-createdStamp").queryList()) {
+                // a voided receipt keeps its paper but is not a purchase any more: the list hides it
+                // unless the person asks for it as well
+                if (!withVoid && RECEIPT_VOID.equals(statusOfReceipt(receipt))) {
+                    continue;
+                }
                 Map<String, Object> row = toReceiptMap(receipt);
                 List<Map<String, Object>> lines = linesOf.get(receipt.getString("receiptId"));
                 row.putAll(receiptSummary(lines == null ? new ArrayList<Map<String, Object>>() : lines,
@@ -8354,6 +8425,14 @@ always
         try {
             for (GenericValue line : EntityQuery.use(delegator).from("MfgPurchaseReceiptLine").queryList()) {
                 onReceipt.put(line.getString("lotId"), line.getString("receiptId"));
+            }
+            // a lot on a voided receipt is free again: that is how a receipt typed wrong is rebuilt
+            for (GenericValue voided : EntityQuery.use(delegator).from("MfgPurchaseReceipt")
+                    .where("statusId", RECEIPT_VOID).queryList()) {
+                for (GenericValue line : EntityQuery.use(delegator).from("MfgPurchaseReceiptLine")
+                        .where("receiptId", voided.getString("receiptId")).queryList()) {
+                    onReceipt.remove(line.getString("lotId"));
+                }
             }
             List<Map<String, Object>> freeLots = new ArrayList<>();
             for (GenericValue lot : EntityQuery.use(delegator).from("MfgMaterialLot")
@@ -8499,7 +8578,22 @@ always
                 receipt.set("discountAmount", Double.valueOf(discount == null ? 0.0 : discount.doubleValue()));
                 receipt.set("allocationId", ALLOC_NONE);
                 receipt.set("note", toText(context.get("note")));
+                receipt.set("statusId", RECEIPT_ACTIVE);
                 delegator.create(receipt);
+            } else if (RECEIPT_VOID.equals(statusOfReceipt(receipt))) {
+                // the order number is the key: importing it again means it was wanted after all, so
+                // the voided receipt of that order comes back into force instead of staying dead
+                receipt.set("statusId", RECEIPT_ACTIVE);
+                receipt.set("voidedDate", null);
+                receipt.set("voidedByUserLoginId", null);
+                receipt.set("voidReason", null);
+                if (freight != null) {
+                    receipt.set("freightAmount", Double.valueOf(freight.doubleValue()));
+                }
+                if (discount != null) {
+                    receipt.set("discountAmount", Double.valueOf(discount.doubleValue()));
+                }
+                receipt.store();
             } else if (freight != null || discount != null) {
                 boolean replace = "Y".equalsIgnoreCase(toText(context.get("overwrite")));
                 // a re-read of the same order replaces the numbers it wrote before (a freight that was
@@ -8901,7 +8995,8 @@ always
         try {
             GenericValue receipt = EntityQuery.use(delegator).from("MfgPurchaseReceipt")
                     .where("supplierOrderNo", supplierOrderNo).queryFirst();
-            if (receipt == null) {
+            if (receipt == null || RECEIPT_VOID.equals(statusOfReceipt(receipt))) {
+                // a voided receipt is not “already in”: the page should not ask about overwriting it
                 return result;
             }
             List<Map<String, Object>> lines = new ArrayList<>();
@@ -10250,9 +10345,29 @@ always
         map.put("supplierOrderNo", receipt.getString("supplierOrderNo"));
         map.put("receiptDate", receipt.get("receiptDate"));
         map.put("freightAmount", receipt.get("freightAmount"));
+        // without this the edit form always showed 0.00 and saving it wiped the discount
+        map.put("discountAmount", receipt.get("discountAmount"));
         map.put("allocationId", receipt.getString("allocationId"));
+        map.put("statusId", statusOfReceipt(receipt));
+        map.put("voidedDate", receipt.get("voidedDate"));
+        map.put("voidedByUserLoginId", receipt.getString("voidedByUserLoginId"));
+        map.put("voidReason", receipt.getString("voidReason"));
         map.put("note", receipt.getString("note"));
         return map;
+    }
+
+    /**
+     * The state of a receipt: rows written before voiding existed carry no status and are active.
+     *
+     * @param receipt the receipt row
+     * @return {@link #RECEIPT_VOID} or {@link #RECEIPT_ACTIVE}
+     */
+    private static String statusOfReceipt(GenericValue receipt) {
+        if (receipt == null) {
+            return RECEIPT_ACTIVE;
+        }
+        String status = receipt.getString("statusId");
+        return RECEIPT_VOID.equals(status) ? RECEIPT_VOID : RECEIPT_ACTIVE;
     }
 
     private static Map<String, Object> toReceiptLineMap(GenericValue line) {
