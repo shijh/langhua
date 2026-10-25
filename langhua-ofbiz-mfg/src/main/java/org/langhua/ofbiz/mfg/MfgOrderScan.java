@@ -162,7 +162,9 @@ public final class MfgOrderScan {
             + " goes into code so the six rows do not all share one code. The pack"
             + " size is never part of the code: the spec"
             + " line 30K（一件100只）;1%精度;0603贴片电阻 gives the code 30K, not the whole line; a pack size"
-            + " printed inside the title counts too, so 面包板 … 带扣（5个） with x1 is 5 pieces."
+            + " printed inside the title counts too, so 面包板 … 带扣（5个） with x1 is 5 pieces - but a set"
+            + " sold as one article (brackets saying 套装 / 组合 / 套餐) does not: 实验板（4块组合套装）"
+            + " with x1 is 1 set, so qty is 1."
             + " Take the numbers printed on the page: do not weigh alternatives, do not describe the"
             + " picture.";
 
@@ -188,7 +190,9 @@ public final class MfgOrderScan {
             + " rows that print the same title are still one element each, with the colour in code;"
             + " qty = the number after x times the pack size printed in the grey spec line or inside the"
             + " title"
-            + " (一件100只 → x1 is 100, (50只) → x4 is 200, 带扣（5个） → x1 is 5); amount = the row's own"
+            + " (一件100只 → x1 is 100, (50只) → x4 is 200, 带扣（5个） → x1 is 5); a set sold as one"
+            + " article (套装 / 组合 / 套餐 in the brackets) is qty = the number after x itself, so"
+            + " （4块组合套装） with x1 is 1; amount = the row's own"
             + " money (paidTotal"
             + " minus freight for a block with one article, printed row price times the packs after x for"
             + " a block with several). No explanation.";
@@ -275,7 +279,7 @@ public final class MfgOrderScan {
                 }
                 answers.add(read.orders);
             }
-            orders = MfgServices.mergeOrders(answers);
+            orders = MfgServices.mergeOrders(giveTheRowsAnOrder(answers));
             seen = orders.size();
             sliceNote = "（长图分 " + slices.size() + " 段逐段识别）";
         }
@@ -362,6 +366,41 @@ public final class MfgOrderScan {
     }
 
     /**
+     * Hangs the rows of a slice that carries no order number on the order whose header the slice
+     * before it had: a long order of six rows is cut in two, and the second piece prints only the
+     * rows - the number is above the cut. Dropping such an answer lost the rows (a page of six
+     * boards came back with two), so the number of the order seen last is used.
+     *
+     * @param answers what each slice answered, in the order the slices were cut, top to bottom
+     * @return the same answers with an order number on every order that holds rows
+     */
+    private static List<List<Map<String, String>>> giveTheRowsAnOrder(
+            List<List<Map<String, String>>> answers) {
+        String lastNumber = null;
+        for (List<Map<String, String>> answer : answers) {
+            for (Map<String, String> order : answer) {
+                String number = order.get("orderNo");
+                if (number == null || number.trim().isEmpty()) {
+                    if (lastNumber != null) {
+                        order.put("orderNo", lastNumber);
+                    }
+                    continue;
+                }
+                lastNumber = number;
+            }
+        }
+        // a slice above every header (nothing seen yet) has nothing to belong to, and an order without
+        // a number cannot be imported anyway
+        for (List<Map<String, String>> answer : answers) {
+            answer.removeIf(order -> {
+                String number = order.get("orderNo");
+                return number == null || number.trim().isEmpty();
+            });
+        }
+        return answers;
+    }
+
+    /**
      * Sends one picture and keeps the best answer of the attempts. A vision call falls over now and
      * then (a slow answer, a thinking model that runs out of room, a dropped connection, one order of
      * a list read and the others skipped), and the last attempt is not always the best one, so the
@@ -402,7 +441,7 @@ public final class MfgOrderScan {
                 continue;
             }
             read.reply = reply;
-            List<Map<String, String>> got = MfgServices.orderListFrom(reply);
+            List<Map<String, String>> got = MfgServices.orderListFrom(reply, partial);
             int counted = MfgServices.orderCountIn(reply);
             int score = MfgServices.answerScore(got, counted);
             if (score > bestScore) {
@@ -504,13 +543,12 @@ public final class MfgOrderScan {
         int bestChanges = Integer.MAX_VALUE;
         for (int y = from; y <= to; y++) {
             int changes = colourChanges(image, y);
+            // of two equally empty rows the one nearer the wanted cut wins: the slices stay as tall
+            // as they were meant to be, and a page needs fewer calls
             if (changes < bestChanges || (changes == bestChanges
                     && Math.abs(y - wanted) < Math.abs(best - wanted))) {
                 bestChanges = changes;
                 best = y;
-                if (changes == 0) {
-                    break;
-                }
             }
         }
         return best;

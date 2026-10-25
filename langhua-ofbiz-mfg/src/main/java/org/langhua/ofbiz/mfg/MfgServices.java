@@ -9047,6 +9047,19 @@ always
      * @return one map per order that carries lines, empty when there is nothing usable
      */
     static List<Map<String, String>> orderListFrom(String reply) {
+        return orderListFrom(reply, false);
+    }
+
+    /**
+     * Reads the orders of one answer.
+     *
+     * @param reply the answer text
+     * @param anonymousOk {@code true} for one slice of a long page: a slice can start in the middle of
+     *        an order, with its number printed above the cut, and the rows it reads are worth keeping -
+     *        the scan hangs them on the order whose header the slice before it carried
+     * @return one map per order that carries lines, empty when there is nothing usable
+     */
+    static List<Map<String, String>> orderListFrom(String reply, boolean anonymousOk) {
         List<Map<String, String>> orders = new ArrayList<>();
         String text = orderAnswerText(reply);
         if (text == null) {
@@ -9060,14 +9073,14 @@ always
             return orders;
         }
         for (String object : objectTexts(text, from)) {
-            Map<String, String> fields = fieldsOfOneOrder(object);
+            Map<String, String> fields = fieldsOfOneOrder(object, anonymousOk);
             if (fields != null) {
                 orders.add(fields);
             }
         }
         if (orders.isEmpty()) {
             // an answer without an object wrapper, e.g. the four values separated by commas
-            Map<String, String> flat = fieldsOfOneOrder(text);
+            Map<String, String> flat = fieldsOfOneOrder(text, anonymousOk);
             if (flat != null) {
                 orders.add(flat);
             }
@@ -9128,19 +9141,34 @@ always
     }
 
     /**
-     * Reads the fields of one order object.
+     * Reads the fields of one order object, keeping it only when it prints its order number.
      *
      * @param text the JSON of that one order
      * @return {@code orderNo}, {@code shop}, {@code orderDate}, {@code freight}, {@code paidTotal},
      *         {@code refunded} and {@code lines}, {@code null} when the object is not an order
      */
     private static Map<String, String> fieldsOfOneOrder(String text) {
+        return fieldsOfOneOrder(text, false);
+    }
+
+    /**
+     * Reads the fields of one order object.
+     *
+     * @param text the JSON of that one order
+     * @param anonymousOk {@code true} to keep an object that carries articles but no order number
+     * @return {@code orderNo}, {@code shop}, {@code orderDate}, {@code freight}, {@code paidTotal},
+     *         {@code refunded} and {@code lines}, {@code null} when the object is not an order
+     */
+    private static Map<String, String> fieldsOfOneOrder(String text, boolean anonymousOk) {
         Map<String, String> fields = new LinkedHashMap<>();
         String orderNo = jsonStringField(text, "orderNo");
         // an order always prints its number, and it is the key the import de-duplicates on: an object
         // without one is the schema example or a stray brace, not an order (a model that talks a lot
         // echoes the template, and that used to arrive as seven empty "orders")
         if (orderNo == null || orderNo.trim().isEmpty()) {
+            orderNo = anonymousOk ? "" : null;
+        }
+        if (orderNo == null) {
             return null;
         }
         fields.put("orderNo", orderNo.trim());
@@ -9720,16 +9748,19 @@ always
 
     /**
      * Drops the copies of a row that two overlapping slices both read, and only those: a copy is
-     * removed while the rows add up to more than the shop charged, so a page of six identical boards
+     * removed while the rows add up to more than the shop charged. A page of six identical boards
      * (6 x 6.88 = 41.28 paid) keeps all six while the eight copies two slices made of six are cut
-     * back to six. When no number of copies adds up the rows are handed back untouched, and the money
-     * check tells the person to look at them.
+     * back to six; when the copies alone do not explain the difference the reading closest to what
+     * was paid is handed on, and the last row of a bad read (a slice that invented an article) is
+     * dropped afterwards by {@link #readingThatAddsUp}.
      *
      * @param rows the article rows of one order, as read
      * @param wanted what the articles alone should come to
-     * @return the rows with the repeated copies removed, or the rows as read
+     * @return the rows with the repeated copies removed
      */
     private static List<String[]> withoutRepeatedRows(List<String[]> rows, double wanted) {
+        List<String[]> best = rows;
+        double bestGap = Math.abs(round2(sumOfRows(rows)) - wanted);
         List<String[]> current = new ArrayList<>(rows);
         while (round2(sumOfRows(current)) > round2(wanted + 0.06)) {
             String key = mostRepeatedKey(current);
@@ -9742,11 +9773,13 @@ always
                     break;
                 }
             }
+            double gap = Math.abs(round2(sumOfRows(current)) - wanted);
+            if (gap < bestGap) {
+                bestGap = gap;
+                best = new ArrayList<>(current);
+            }
         }
-        if (current.size() < rows.size() && Math.abs(round2(sumOfRows(current)) - wanted) <= 0.06) {
-            return current;
-        }
-        return rows;
+        return best;
     }
 
     /**
@@ -9800,7 +9833,18 @@ always
      * @return what two reads of the same printed row share
      */
     private static String rowIdentity(String[] row) {
-        return rowKey(row[0]) + "|" + row[2] + "|" + row[3];
+        return bareCode(row[0]) + "|" + row[2] + "|" + row[3];
+    }
+
+    /**
+     * The code of a row without the pack size in brackets a shop prints behind it: one slice reads
+     * {@code 黄色（5个）} and the next {@code 黄色}, and they are the same article.
+     *
+     * @param code the code of one row
+     * @return the code without that bracket
+     */
+    private static String bareCode(String code) {
+        return rowKey(code).replaceAll("[（(]\\s*[0-9]+\\s*[只个块件套]\\s*[）)]\\s*$", "").trim();
     }
 
     /**

@@ -921,10 +921,12 @@ public class MfgServicesTest {
         java.awt.Graphics2D pen = image.createGraphics();
         pen.setColor(java.awt.Color.WHITE);
         pen.fillRect(0, 0, 400, 1600);
-        pen.setColor(java.awt.Color.BLACK);
-        for (int y = 650; y <= 700; y++) {
-            for (int x = 0; x < 400; x += 2) {
-                pen.fillRect(x, y, 1, 1);
+        // text reads as colour changes along a row: alternate every four pixels, which is also the
+        // step the slicer samples at
+        for (int y = 640; y <= 720; y++) {
+            for (int x = 0; x < 400; x += 4) {
+                pen.setColor(((x / 4) % 2 == 0) ? java.awt.Color.BLACK : java.awt.Color.WHITE);
+                pen.fillRect(x, y, 4, 1);
             }
         }
         pen.dispose();
@@ -933,8 +935,9 @@ public class MfgServicesTest {
         List<byte[]> slices = MfgOrderScan.slicesOf(out.toByteArray());
         assertTrue(slices.size() >= 2);
         int cut = ImageIO.read(new java.io.ByteArrayInputStream(slices.get(0))).getHeight();
-        assertTrue("the cut landed in the text rows: " + cut, cut < 650 || cut > 700);
-        assertTrue(cut <= MfgOrderScan.SLICE_HEIGHT);
+        assertTrue("the cut landed in the text rows: " + cut, cut < 640 || cut > 720);
+        // the cut may slide either way to find that blank row, but not far
+        assertTrue("slice too tall: " + cut, cut <= MfgOrderScan.SLICE_HEIGHT + MfgOrderScan.SLICE_SEARCH);
     }
 
     @Test
@@ -999,8 +1002,7 @@ public class MfgServicesTest {
     }
 
     @Test
-    public void cutsTheCopiesTwoSlicesMakeOfTheSameRowsBackToWhatWasPaid() {
-        // the same page cut into two overlapping slices: the rows of the overlap are read twice (here
+    public void cutsTheCopiesTwoSlicesMakeOfTheSameRowsBackToWhatWasPaid() {        // the same page cut into two overlapping slices: the rows of the overlap are read twice (here
         // five rows and three rows, two of them shared), so seven rows come back for six articles
         Map<String, String> left = new java.util.LinkedHashMap<>(boardOrder(boardRows(5)));
         Map<String, String> right = new java.util.LinkedHashMap<>(boardOrder(boardRows(3)));
@@ -1030,6 +1032,21 @@ public class MfgServicesTest {
         MfgServices.tidyOrder(different);
         assertEquals(3, MfgServices.parseOrderArticleLines(different.get("lines")).size());
         assertNull(MfgServices.checkOrderTotals(different));
+    }
+
+    @Test
+    public void dropsTheCopiesOneSliceReadWithThePackSizeAndTheNextWithout() {
+        // three slices of one order: the first read all six colours with the pack size in the code,
+        // the next two read three of them again without it, and one invented an article that is not
+        // on the page - the money is the only thing that can sort this out
+        String six = "白（5个）\t板\t5\t6.88\n蓝（5个）\t板\t5\t6.88\n绿（5个）\t板\t5\t6.88"
+                + "\n黄（5个）\t板\t5\t6.88\n黑（5个）\t板\t5\t6.88\n红（5个）\t板\t5\t6.88";
+        String again = "黄\t板\t5\t6.88\n黑\t板\t5\t6.88\n红\t板\t5\t6.88";
+        String invented = "一次性雨衣\t雨衣\t1\t14.90";
+        Map<String, String> order = boardOrder(six + "\n" + again + "\n" + invented);
+        MfgServices.tidyOrder(order);
+        assertEquals(6, MfgServices.parseOrderArticleLines(order.get("lines")).size());
+        assertNull(MfgServices.checkOrderTotals(order));
     }
 
     @Test
