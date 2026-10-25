@@ -862,9 +862,10 @@ public class MfgServicesTest {
     @Test
     public void joinsTheOrdersOfTheSlicesOfOnePage() {
         // a long page is read slice by slice: the same order number is one order, its rows are
-        // joined (a row seen in the overlap of two slices is kept once), missing fields are filled
+        // joined and missing fields are filled; the row seen in the overlap of two slices stays in
+        // the joined rows (a shop may print one row twice on purpose) and the money decides later
         List<Map<String, String>> first = MfgServices.orderListFrom("{\"orders\":["
-                + "{\"orderNo\":\"1\",\"shop\":\"shop A\",\"paidTotal\":\"10.00\",\"items\":["
+                + "{\"orderNo\":\"1\",\"shop\":\"shop A\",\"paidTotal\":\"11.00\",\"items\":["
                 + "{\"code\":\"X\",\"name\":\"x\",\"qty\":\"1\",\"amount\":\"6.00\"}]}]}");
         List<Map<String, String>> second = MfgServices.orderListFrom("{\"orders\":["
                 + "{\"orderNo\":\"1\",\"freight\":\"1.00\",\"items\":["
@@ -876,10 +877,14 @@ public class MfgServicesTest {
         assertEquals("1", merged.get(0).get("orderNo"));
         assertEquals("shop A", merged.get(0).get("shop"));
         assertEquals("1.00", merged.get(0).get("freight"));
+        assertEquals(3, merged.get(0).get("lines").split("\n").length);
+        // 6.00 + 4.00 and 1.00 freight is the 11.00 paid: the copy the overlap read is dropped
+        MfgServices.tidyOrder(merged.get(0));
         String[] rows = merged.get(0).get("lines").split("\n");
         assertEquals(2, rows.length);
         assertTrue(rows[0].startsWith("X"));
         assertTrue(rows[1].startsWith("Y"));
+        assertNull(MfgServices.checkOrderTotals(merged.get(0)));
         assertEquals("2", merged.get(1).get("orderNo"));
         // nothing to merge is not an error
         assertEquals(0, MfgServices.mergeOrders(Arrays.asList(Collections.emptyList())).size());
@@ -935,6 +940,99 @@ public class MfgServicesTest {
         invented.put("lines", "3528钽电容\t名\t10\t3.66");
         assertNull(MfgServices.checkOrderTotals(invented));
         assertEquals("0", invented.get("discount"));
+    }
+
+    /** The 面包板 page: one board sold in six colours, so six rows look exactly the same. */
+    private static String boardRows(int count) {
+        StringBuilder rows = new StringBuilder();
+        for (int i = 0; i < count; i++) {
+            if (rows.length() > 0) {
+                rows.append('\n');
+            }
+            rows.append("面包板 SYB-170\t面包板 实验板 彩色小面包板 SYB-170 170孔 可拼接 带扣（5个）\t5\t6.88");
+        }
+        return rows.toString();
+    }
+
+    private static Map<String, String> boardOrder(String lines) {
+        Map<String, String> order = new java.util.LinkedHashMap<>();
+        order.put("orderNo", "2371626699152500570");
+        order.put("paidTotal", "41.28");
+        order.put("freight", "0.00");
+        order.put("lines", lines);
+        return order;
+    }
+
+    @Test
+    public void keepsTheSixRowsOfOneBoardInSixColours() {
+        // six rows carry the same part number, the same quantity and the same money, and differ only
+        // in the colour printed on the grey line: six articles, not one article read twice
+        Map<String, String> order = boardOrder(boardRows(6));
+        MfgServices.tidyOrder(order);
+        assertEquals(6, MfgServices.parseOrderArticleLines(order.get("lines")).size());
+        // and the money agrees, so the page shows no warning
+        assertNull(MfgServices.checkOrderTotals(order));
+    }
+
+    @Test
+    public void cutsTheCopiesTwoSlicesMakeOfTheSameRowsBackToWhatWasPaid() {
+        // the same page cut into two overlapping slices: the rows of the overlap are read twice (here
+        // five rows and three rows, two of them shared), so seven rows come back for six articles
+        Map<String, String> left = new java.util.LinkedHashMap<>(boardOrder(boardRows(5)));
+        Map<String, String> right = new java.util.LinkedHashMap<>(boardOrder(boardRows(3)));
+        right.put("paidTotal", "");
+        List<Map<String, String>> merged = MfgServices.mergeOrders(
+                Arrays.asList(Arrays.asList(left), Arrays.asList(right)));
+        assertEquals(1, merged.size());
+        Map<String, String> order = merged.get(0);
+        // joining the two reads keeps every row; only the money can tell which of them are copies
+        assertEquals(8, MfgServices.parseOrderArticleLines(order.get("lines")).size());
+        MfgServices.tidyOrder(order);
+        assertEquals(6, MfgServices.parseOrderArticleLines(order.get("lines")).size());
+        assertNull(MfgServices.checkOrderTotals(order));
+    }
+
+    @Test
+    public void leavesTheRowsAloneWhenNoPaidTotalSaysWhichCopyIsReal() {        // without 实付 nothing can tell an overlap from two identical articles, so the rows are kept
+        // as they were read; dropping them would lose material without a word
+        Map<String, String> order = new java.util.LinkedHashMap<>();
+        order.put("lines", boardRows(2));
+        MfgServices.tidyOrder(order);
+        assertEquals(2, MfgServices.parseOrderArticleLines(order.get("lines")).size());
+        // rows that differ are never touched
+        Map<String, String> different = boardOrder(
+                "A\t一件\t1\t1.00\nB\t另一件\t2\t4.00\nC\t第三件\t3\t2.00");
+        different.put("paidTotal", "7.00");
+        MfgServices.tidyOrder(different);
+        assertEquals(3, MfgServices.parseOrderArticleLines(different.get("lines")).size());
+        assertNull(MfgServices.checkOrderTotals(different));
+    }
+
+    @Test
+    public void catchesAPageWhoseSixRowsCameBackAsOneItem() {
+        List<Map<String, String>> oneItem = MfgServices.orderListFrom("{\"orderCount\":\"1\",\"orders\":["
+                + "{\"orderNo\":\"2371626699152500570\",\"paidTotal\":\"41.28\",\"rowCount\":\"6\","
+                + "\"items\":[{\"code\":\"面包板 SYB-170\",\"name\":\"面包板 彩色小面包板\","
+                + "\"qty\":\"5\",\"amount\":\"41.28\"}]}]}");
+        // the money adds up while five articles are missing, so only the printed row count finds it
+        assertNull(MfgServices.checkOrderTotals(oneItem.get(0)));
+        assertTrue(MfgServices.rowsMissing(oneItem.get(0)));
+        // six rows for six counted rows is what the page prints
+        List<Map<String, String>> six = MfgServices.orderListFrom("{\"orders\":[{"
+                + "\"orderNo\":\"1\",\"paidTotal\":\"41.28\",\"rowCount\":\"6\",\"items\":["
+                + "{\"code\":\"白\",\"name\":\"板\",\"qty\":\"5\",\"amount\":\"6.88\"},"
+                + "{\"code\":\"蓝\",\"name\":\"板\",\"qty\":\"5\",\"amount\":\"6.88\"},"
+                + "{\"code\":\"绿\",\"name\":\"板\",\"qty\":\"5\",\"amount\":\"6.88\"},"
+                + "{\"code\":\"黄\",\"name\":\"板\",\"qty\":\"5\",\"amount\":\"6.88\"},"
+                + "{\"code\":\"黑\",\"name\":\"板\",\"qty\":\"5\",\"amount\":\"6.88\"},"
+                + "{\"code\":\"红\",\"name\":\"板\",\"qty\":\"5\",\"amount\":\"6.88\"}]}]}");
+        assertFalse(MfgServices.rowsMissing(six.get(0)));
+        assertEquals(6, MfgServices.parseOrderArticleLines(six.get(0).get("lines")).size());
+        // an answer that does not count its rows is taken as it is, and nothing is null
+        assertFalse(MfgServices.rowsMissing(MfgServices.orderListFrom(
+                "{\"orders\":[{\"orderNo\":\"1\",\"items\":[{\"code\":\"A\",\"name\":\"a\","
+                        + "\"qty\":\"1\",\"amount\":\"1.00\"}]}]}").get(0)));
+        assertFalse(MfgServices.rowsMissing(null));
     }
 
     @Test

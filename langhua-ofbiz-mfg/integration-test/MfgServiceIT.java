@@ -824,6 +824,33 @@ public final class MfgServiceIT {
         Response again = invoke("mfgReceiptFromOrder", form);
         check("order receipt: the same order reuses the receipt", again.status == 200
                 && !again.body.contains("responseMessage=error"), "second call failed");
+
+        // one board in six colours: the same part number on two rows is two lines of one receipt,
+        // and reading that order a second time replaces them instead of adding two more (a line is
+        // identified by code plus quantity plus money, every line may be claimed once)
+        String twiceOrderNo = "3300" + stamp + "22222";
+        String samePart = "DUP-" + stamp;
+        Map<String, String> twiceForm = new LinkedHashMap<>();
+        twiceForm.put("supplierOrderNo", twiceOrderNo);
+        twiceForm.put("supplierName", "IT tmall shop");
+        twiceForm.put("receiptDate", "2026-10-19");
+        twiceForm.put("freightAmount", "0");
+        twiceForm.put("lines", samePart + ",Breadboard white,5,6.88\n"
+                + samePart + ",Breadboard white,5,6.88");
+        Response twice = invoke("mfgReceiptFromOrder", twiceForm);
+        check("order receipt: two identical rows are two lines", twice.status == 200
+                && "2".equals(attribute(twice.body, "importedCount")),
+                "imported=" + attribute(twice.body, "importedCount"));
+        check("order receipt: the receipt carries both lines",
+                "2".equals(attribute(twice.body, "lineCount")),
+                "lineCount=" + attribute(twice.body, "lineCount"));
+        twiceForm.put("overwrite", "Y");
+        Response twiceAgain = invoke("mfgReceiptFromOrder", twiceForm);
+        check("order receipt: re-reading that order replaces both lines", twiceAgain.status == 200
+                && "0".equals(attribute(twiceAgain.body, "importedCount"))
+                && "2".equals(attribute(twiceAgain.body, "lineCount")),
+                "imported=" + attribute(twiceAgain.body, "importedCount")
+                        + " lineCount=" + attribute(twiceAgain.body, "lineCount"));
     }
 
     private void savesRouting() throws IOException {

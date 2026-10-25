@@ -127,10 +127,11 @@ public final class MfgOrderScan {
             + " JSON object only, no prose, no explanation:"
             + " {\"orderCount\":\"1\",\"orders\":[{\"orderNo\":\"\",\"shop\":\"\",\"platform\":\"\","
             + "\"orderDate\":\"\",\"paidTotal\":\"\",\"freight\":\"\",\"discount\":\"\","
-            + "\"refunded\":\"\",\"items\":[{\"code\":\"\",\"name\":\"\",\"qty\":\"\",\"amount\":\"\"}]}]}"
+            + "\"refunded\":\"\",\"rowCount\":\"\",\"items\":[{\"code\":\"\",\"name\":\"\",\"qty\":\"\",\"amount\":\"\"}]}]}"
             + " orderCount is how many order blocks the picture shows; orders has one element per"
             + " block, top to bottom, and items has one element per article of that order - two"
-            + " products are two elements, never one."
+            + " products are two elements, never one. rowCount is how many article rows that block"
+            + " prints, so six colours of the same board is rowCount 6 and six elements."
             + " orderNo is the order number of that block (after 订单号, or the number the page prints"
             + " for it). shop is the shop name only, without the platform word. platform is which"
             + " shop platform the page belongs to: 淘宝, 天猫, 京东, 拼多多, 抖音, or empty when nothing"
@@ -153,9 +154,13 @@ public final class MfgOrderScan {
             + " article - a block that shows two products gets two elements, never one. Never use the"
             + " struck through price. code is the short model or spec line printed under the title"
             + " (2.0mm单排8P(共8P), 502035(350mah), 30K) and name is the title itself; when the article"
-            + " prints neither, use the model number of the title, and never leave code empty. The pack"
+            + " prints neither, use the model number of the title, and never leave code empty. When several"
+            + " rows print exactly the same title (one board sold in six colours) they are still one element"
+            + " each, never one merged element, and the grey line that tells them apart (白色 / 蓝色 / 绿色)"
+            + " goes into code so the six rows do not all share one code. The pack"
             + " size is never part of the code: the spec"
-            + " line 30K（一件100只）;1%精度;0603贴片电阻 gives the code 30K, not the whole line."
+            + " line 30K（一件100只）;1%精度;0603贴片电阻 gives the code 30K, not the whole line; a pack size"
+            + " printed inside the title counts too, so 面包板 … 带扣（5个） with x1 is 5 pieces."
             + " Take the numbers printed on the page: do not weigh alternatives, do not describe the"
             + " picture.";
 
@@ -168,15 +173,21 @@ public final class MfgOrderScan {
             + " picture. Answer with one JSON object only, no prose:"
             + " {\"orderCount\":\"1\",\"orders\":[{\"orderNo\":\"\",\"shop\":\"\",\"platform\":\"\","
             + "\"orderDate\":\"\",\"paidTotal\":\"\",\"freight\":\"\",\"discount\":\"\","
-            + "\"refunded\":\"Y or N\",\"items\":[{\"code\":\"\",\"name\":\"\",\"qty\":\"\",\"amount\":\"\"}]}]}"
+            + "\"refunded\":\"Y or N\",\"rowCount\":\"\","
+            + "\"items\":[{\"code\":\"\",\"name\":\"\",\"qty\":\"\",\"amount\":\"\"}]}]}"
             + " orderCount = how many order blocks you see; one element per block, top to bottom."
+            + " rowCount = how many article rows that block prints (six colours = 6), and items has"
+            + " one element per printed row."
             + " platform = 淘宝 / 天猫 / 京东 / 拼多多 / 抖音. shop without the platform word."
             + " paidTotal = 实付款 (or 合计). freight = the shipping money (含运费 / 运费)."
             + " discount = the red packet / coupon / 满减 taken off the order, 0 when none."
             + " refunded = Y when it says 退款成功 / 已退款 / 交易关闭. items = one element per article,"
             + " never two products in one element: their amounts add up to paidTotal minus freight;"
-            + " qty = the number after x times the pack size printed in the grey spec line"
-            + " (一件100只 → x1 is 100, (50只) → x4 is 200); amount = the row's own money (paidTotal"
+            + " rows that print the same title are still one element each, with the colour in code;"
+            + " qty = the number after x times the pack size printed in the grey spec line or inside the"
+            + " title"
+            + " (一件100只 → x1 is 100, (50只) → x4 is 200, 带扣（5个） → x1 is 5); amount = the row's own"
+            + " money (paidTotal"
             + " minus freight for a block with one article, printed row price times the packs after x for"
             + " a block with several). No explanation.";
 
@@ -288,8 +299,18 @@ public final class MfgOrderScan {
             } else {
                 // freight is what the page says, but goods plus freight must come to what was paid
                 String totals = MfgServices.checkOrderTotals(order);
-                if (totals != null) {
-                    order.put("note", totals);
+                // and the rows the block prints have to be there: six colours of one board read as a
+                // single item still adds up, so this one cannot be left to the money check
+                String rowsOff = null;
+                if (MfgServices.rowsMissing(order)) {
+                    rowsOff = "截图印了 " + order.get("rowCount") + " 行明细，这次只读出 "
+                            + MfgServices.parseOrderArticleLines(order.get("lines")).size()
+                            + " 行，请对着截图核对（也可以再点一次「识别并核对」）";
+                }
+                String note = totals == null ? rowsOff
+                        : (rowsOff == null ? totals : totals + "；" + rowsOff);
+                if (note != null) {
+                    order.put("note", note);
                 }
             }
         }
@@ -379,6 +400,7 @@ public final class MfgOrderScan {
             if (!got.isEmpty() && !shortRead && !MfgServices.echoesTemplate(reply)
                     && !MfgServices.anyUnreadable(got)
                     && !MfgServices.ignoredThePackSize(reply, MfgServices.linesOfOrders(got))
+                    && !anyRowsMissing(got)
                     && (partial || !anyTotalsDisagree(got))) {
                 bestOrders = got;
                 bestReply = reply;
@@ -473,6 +495,23 @@ public final class MfgOrderScan {
     private static boolean anyTotalsDisagree(List<Map<String, String>> orders) {
         for (Map<String, String> order : orders) {
             if (MfgServices.totalsDisagree(order)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Says whether any order came back with fewer article rows than its block prints. The money check
+     * cannot see this one: one board in six colours read as a single item of 41.28 adds up exactly,
+     * so the model is asked to count the rows and a shorter answer is sent once more.
+     *
+     * @param orders the recognised orders
+     * @return {@code true} when an order counts more rows than came back
+     */
+    private static boolean anyRowsMissing(List<Map<String, String>> orders) {
+        for (Map<String, String> order : orders) {
+            if (MfgServices.rowsMissing(order)) {
                 return true;
             }
         }

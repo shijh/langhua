@@ -8473,14 +8473,19 @@ always
             }
             String receiptId = receipt.getString("receiptId");
             boolean overwrite = "Y".equalsIgnoreCase(toText(context.get("overwrite")));
-            Map<String, String> existing = new LinkedHashMap<>();
-            Map<String, GenericValue> existingByCode = new LinkedHashMap<>();
+            // a shop prints the same article several times (one board in six colours), so one part
+            // number may sit on more than one line: a line is identified by code + quantity + money,
+            // and every line of the receipt may be claimed once by the answer
+            Map<String, List<GenericValue>> existingByKey = new LinkedHashMap<>();
+            Map<String, List<GenericValue>> existingByCode = new LinkedHashMap<>();
+            Set<String> claimed = new LinkedHashSet<>();
             for (GenericValue line : EntityQuery.use(delegator).from("MfgPurchaseReceiptLine")
                     .where("receiptId", receiptId).orderBy("lineSeq").queryList()) {
-                existing.put(lotLineKey(line.getString("componentCode"), line.get("qty"), line.get("goodsAmount")), "Y");
                 String code = line.getString("componentCode");
-                if (code != null && !existingByCode.containsKey(code)) {
-                    existingByCode.put(code, line);
+                existingByKey.computeIfAbsent(lotLineKey(code, line.get("qty"), line.get("goodsAmount")),
+                        key -> new ArrayList<>()).add(line);
+                if (code != null) {
+                    existingByCode.computeIfAbsent(code, key -> new ArrayList<>()).add(line);
                 }
             }
             int imported = 0;
@@ -8493,15 +8498,23 @@ always
                 answeredCodes.add(componentCode);
                 double qty = toDouble(row[2], 0.0);
                 double amount = toDouble(row[3], 0.0);
-                if (existing.containsKey(lotLineKey(componentCode, Double.valueOf(qty),
-                        Double.valueOf(round2(amount))))) {
-                    skipped++;
+                List<GenericValue> sameLine = existingByKey.get(lotLineKey(componentCode,
+                        Double.valueOf(qty), Double.valueOf(round2(amount))));
+                GenericValue exact = claimOne(sameLine, claimed);
+                if (exact != null) {
+                    // this very line is already on the receipt: an order read twice, nothing to add
+                    if (overwrite) {
+                        mergeOrderLine(delegator, exact, receiptDate, qty, amount);
+                        updated++;
+                    } else {
+                        skipped++;
+                    }
                     continue;
                 }
-                GenericValue samePart = existingByCode.get(componentCode);
+                GenericValue samePart = claimOne(existingByCode.get(componentCode), claimed);
                 if (samePart != null) {
-                    // the order is already in: the same part is never added twice; the person has
-                    // to say that the new numbers should replace the old ones
+                    // the same part with other numbers: the person has to say that the new numbers
+                    // should replace the old ones (a corrected read of the same order)
                     if (!overwrite) {
                         skipped++;
                         continue;
@@ -8995,6 +9008,35 @@ always
     }
 
     /**
+     * Takes the first line of a list the answer has not used yet, so a second row with the same part
+     * number lands on the second line of the receipt instead of on top of the first (a shop prints
+     * one board in six colours as six lines of the same part number).
+     *
+     * @param lines the lines of the receipt with that part number or those numbers
+     * @param claimed the lines already matched to a row of this answer
+     * @return the line to use, {@code null} when all of them are taken
+     */
+    private static GenericValue claimOne(List<GenericValue> lines, Set<String> claimed) {
+        if (lines == null) {
+            return null;
+        }
+        for (GenericValue line : lines) {
+            if (claimed.add(receiptLineId(line))) {
+                return line;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * @param line one line of a receipt
+     * @return its identity, the primary key of the entity as text
+     */
+    private static String receiptLineId(GenericValue line) {
+        return line.getString("receiptId") + "#" + line.getString("lineSeq");
+    }
+
+    /**
      * Turns the answer of a vision model into one field map per order. A screenshot may show a
      * single order (the detail page) or a list of several orders (the order list of the shop), so
      * both shapes are read: {@code {"orders":[{…},{…}]}} and the older flat {@code {"lines":"…"}}.
@@ -9114,6 +9156,9 @@ always
         fields.put("discount", jsonStringField(text, "discount"));
         // a refunded or closed order must not be booked into stock, so the answer carries that too
         fields.put("refunded", jsonStringField(text, "refunded"));
+        // how many article rows the block prints: six colours of one board are six rows that look
+        // the same, and a model that merges them into one item still adds up to what was paid
+        fields.put("rowCount", jsonStringField(text, "rowCount"));
         String lines = itemsIn(text);
         if (lines == null) {
             lines = jsonStringField(text, "lines");
@@ -9214,6 +9259,25 @@ always
             }
         }
         return sawRow;
+    }
+
+    /**
+     * Says whether an order came back with fewer article rows than the block prints. The money
+     * cannot catch this one: one board in six colours read as a single item of 41.28 adds up exactly,
+     * so the model reports how many rows it counted and a shorter answer is sent once more.
+     *
+     * @param order one order of an answer
+     * @return {@code true} when the order counts more rows than were read
+     */
+    static boolean rowsMissing(Map<String, String> order) {
+        if (order == null) {
+            return false;
+        }
+        double said = toDouble(order.get("rowCount"), 0.0);
+        if (said <= 0.0) {
+            return false;
+        }
+        return parseOrderArticleLines(order.get("lines")).size() < (int) said;
     }
 
     /**
@@ -9538,6 +9602,13 @@ always
      * two slices overlapped (one of them with the {@code [交易快照]} note behind it), and a summary row
      * that only repeats what was paid. Both would otherwise be booked into stock as extra material.
      *
+     * <p>A shop that sells one board in six colours prints six rows that carry the same code, the same
+     * quantity and the same money; those are six articles, not one seen twice. Which of the two a set
+     * of equal rows is can only be told by the money, so copies are dropped one at a time while the
+     * rows still come to more than what was paid, and only a reading that adds up is used. Without a
+     * paid total nothing can tell them apart, so the rows are left as they were read - dropping them
+     * would silently lose material.
+     *
      * @param order the order to clean, its {@code lines} are rewritten
      */
     static void tidyOrder(Map<String, String> order) {
@@ -9548,28 +9619,23 @@ always
         if (rows.isEmpty()) {
             return;
         }
-        List<String[]> kept = new ArrayList<>();
-        Set<String> seen = new LinkedHashSet<>();
-        for (String[] row : rows) {
-            // the overlap of two slices shows the same article twice, one of them carrying the note
-            // the page prints behind the title
-            String key = rowKey(row[0]) + "|" + row[2] + "|" + row[3];
-            if (seen.add(key)) {
-                kept.add(row);
-            }
-        }
+        List<String[]> kept = rows;
         Double paid = optionalAmount(order.get("paidTotal"));
         Double freight = optionalAmount(order.get("freight"));
-        if (paid != null && kept.size() > 1) {
-            // the rows sometimes carry a summary row on top (the subtotal, or the paid total itself),
-            // and sometimes the price of one piece instead of the money of the row: the reading that
-            // adds up wins, so a row may be dropped and the amounts may be multiplied by the quantity
+        if (paid != null) {
             double freightValue = freight == null ? 0.0 : freight.doubleValue();
             Double discount = optionalAmount(order.get("discount"));
             double discountValue = discount == null ? 0.0 : discount.doubleValue();
             // what the articles alone should come to (paid = goods + freight - discount)
             double wanted = round2(paid.doubleValue() - freightValue + discountValue);
-            kept = readingThatAddsUp(kept, wanted);
+            kept = withoutRepeatedRows(rows, wanted);
+            if (kept.size() > 1) {
+                // the rows sometimes carry a summary row on top (the subtotal, or the paid total
+                // itself), and sometimes the price of one piece instead of the money of the row: the
+                // reading that adds up wins, so a row may be dropped and the amounts multiplied by
+                // the quantity
+                kept = readingThatAddsUp(kept, wanted);
+            }
         }
         StringBuilder lines = new StringBuilder();
         for (String[] row : kept) {
@@ -9580,6 +9646,79 @@ always
                     .append('\t').append(row[3]);
         }
         order.put("lines", lines.toString());
+    }
+
+    /**
+     * Drops the copies of a row that two overlapping slices both read, and only those: a copy is
+     * removed while the rows add up to more than the shop charged, so a page of six identical boards
+     * (6 x 6.88 = 41.28 paid) keeps all six while the eight copies two slices made of six are cut
+     * back to six. When no number of copies adds up the rows are handed back untouched, and the money
+     * check tells the person to look at them.
+     *
+     * @param rows the article rows of one order, as read
+     * @param wanted what the articles alone should come to
+     * @return the rows with the repeated copies removed, or the rows as read
+     */
+    private static List<String[]> withoutRepeatedRows(List<String[]> rows, double wanted) {
+        List<String[]> current = new ArrayList<>(rows);
+        while (round2(sumOfRows(current)) > round2(wanted + 0.06)) {
+            String key = mostRepeatedKey(current);
+            if (key == null) {
+                break;
+            }
+            for (int i = current.size() - 1; i >= 0; i--) {
+                if (key.equals(rowIdentity(current.get(i)))) {
+                    current.remove(i);
+                    break;
+                }
+            }
+        }
+        if (current.size() < rows.size() && Math.abs(round2(sumOfRows(current)) - wanted) <= 0.06) {
+            return current;
+        }
+        return rows;
+    }
+
+    /**
+     * @param rows the article rows
+     * @return what the amounts of the rows come to
+     */
+    private static double sumOfRows(List<String[]> rows) {
+        double sum = 0.0;
+        for (String[] row : rows) {
+            sum += toDouble(row[3], 0.0);
+        }
+        return sum;
+    }
+
+    /**
+     * @param rows the article rows
+     * @return the identity of a row that is printed more than once, {@code null} when none is
+     */
+    private static String mostRepeatedKey(List<String[]> rows) {
+        Map<String, Integer> counts = new LinkedHashMap<>();
+        for (String[] row : rows) {
+            String key = rowIdentity(row);
+            Integer seen = counts.get(key);
+            counts.put(key, Integer.valueOf(seen == null ? 1 : seen.intValue() + 1));
+        }
+        String best = null;
+        int most = 1;
+        for (Map.Entry<String, Integer> entry : counts.entrySet()) {
+            if (entry.getValue().intValue() > most) {
+                most = entry.getValue().intValue();
+                best = entry.getKey();
+            }
+        }
+        return best;
+    }
+
+    /**
+     * @param row one article row (code, name, quantity, amount)
+     * @return what two reads of the same printed row share
+     */
+    private static String rowIdentity(String[] row) {
+        return rowKey(row[0]) + "|" + row[2] + "|" + row[3];
     }
 
     /**
@@ -9682,15 +9821,16 @@ always
 
     /**
      * Joins the article rows of two reads of the same order. The overlap of two slices shows a row
-     * twice; the same code with the same quantity and the same money is that row, so it is kept once.
+     * twice, but a page may also print the same row twice on purpose (one board in six colours), so
+     * nothing is dropped here: {@code tidyOrder} removes the copies only when the money says which
+     * reading is the true one.
      *
      * @param first the rows read so far
      * @param second the rows of the next read
-     * @return all distinct rows
+     * @return the rows of both reads, in order
      */
     private static String joinRows(String first, String second) {
         List<String> rows = new ArrayList<>();
-        Set<String> seen = new LinkedHashSet<>();
         for (String text : new String[] {first, second}) {
             if (text == null) {
                 continue;
@@ -9700,11 +9840,7 @@ always
                 if (trimmed.isEmpty()) {
                     continue;
                 }
-                String[] cells = splitCsvLine(trimmed, cellsSeparator(trimmed));
-                String key = cells.length >= 4 ? cells[0] + "|" + cells[2] + "|" + cells[3] : trimmed;
-                if (seen.add(key)) {
-                    rows.add(trimmed);
-                }
+                rows.add(trimmed);
             }
         }
         return String.join("\n", rows);
