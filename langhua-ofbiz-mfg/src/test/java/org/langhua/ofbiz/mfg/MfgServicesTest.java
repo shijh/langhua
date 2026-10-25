@@ -16,11 +16,18 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.time.LocalDate;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+
+import javax.imageio.ImageIO;
+
+import java.awt.image.BufferedImage;
 
 import org.junit.Test;
 
@@ -850,6 +857,55 @@ public class MfgServicesTest {
                 + "{\"code\":\"B\",\"name\":\"battery\",\"qty\":\"1\",\"amount\":\"2.94\"}]}]}");
         assertTrue(MfgServices.answerScore(Arrays.asList(squeezed), 1)
                 < MfgServices.answerScore(readProperly, 1));
+    }
+
+    @Test
+    public void joinsTheOrdersOfTheSlicesOfOnePage() {
+        // a long page is read slice by slice: the same order number is one order, its rows are
+        // joined (a row seen in the overlap of two slices is kept once), missing fields are filled
+        List<Map<String, String>> first = MfgServices.orderListFrom("{\"orders\":["
+                + "{\"orderNo\":\"1\",\"shop\":\"shop A\",\"paidTotal\":\"10.00\",\"items\":["
+                + "{\"code\":\"X\",\"name\":\"x\",\"qty\":\"1\",\"amount\":\"6.00\"}]}]}");
+        List<Map<String, String>> second = MfgServices.orderListFrom("{\"orders\":["
+                + "{\"orderNo\":\"1\",\"freight\":\"1.00\",\"items\":["
+                + "{\"code\":\"X\",\"name\":\"x\",\"qty\":\"1\",\"amount\":\"6.00\"},"
+                + "{\"code\":\"Y\",\"name\":\"y\",\"qty\":\"1\",\"amount\":\"4.00\"}]},"
+                + "{\"orderNo\":\"2\",\"items\":[{\"code\":\"Z\",\"name\":\"z\",\"qty\":\"1\",\"amount\":\"3.00\"}]}]}");
+        List<Map<String, String>> merged = MfgServices.mergeOrders(Arrays.asList(first, second));
+        assertEquals(2, merged.size());
+        assertEquals("1", merged.get(0).get("orderNo"));
+        assertEquals("shop A", merged.get(0).get("shop"));
+        assertEquals("1.00", merged.get(0).get("freight"));
+        String[] rows = merged.get(0).get("lines").split("\n");
+        assertEquals(2, rows.length);
+        assertTrue(rows[0].startsWith("X"));
+        assertTrue(rows[1].startsWith("Y"));
+        assertEquals("2", merged.get(1).get("orderNo"));
+        // nothing to merge is not an error
+        assertEquals(0, MfgServices.mergeOrders(Arrays.asList(Collections.emptyList())).size());
+        assertEquals(0, MfgServices.mergeOrders(null).size());
+    }
+
+    @Test
+    public void cutsALongPageIntoOverlappingSlices() throws IOException {
+        // a picture that already fits is sent as it is
+        assertEquals(1, MfgOrderScan.slicesOf(png(300, 600)).size());
+        // a long page is cut into slices, each one short enough to be read in one go
+        List<byte[]> slices = MfgOrderScan.slicesOf(png(300, 2000));
+        assertTrue(slices.size() >= 2);
+        for (byte[] slice : slices) {
+            BufferedImage image = ImageIO.read(new java.io.ByteArrayInputStream(slice));
+            assertTrue(image.getHeight() <= MfgOrderScan.SLICE_HEIGHT);
+        }
+        // something that is not an image never loses the scan
+        assertEquals(1, MfgOrderScan.slicesOf(new byte[] {1, 2, 3}).size());
+    }
+
+    private static byte[] png(int width, int height) throws IOException {
+        BufferedImage image = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        ImageIO.write(image, "png", out);
+        return out.toByteArray();
     }
 
     @Test

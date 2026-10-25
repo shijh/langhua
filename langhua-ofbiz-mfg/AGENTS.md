@@ -366,6 +366,14 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   `answerScore(orders, seen)` + `scan` 里**保留分数最高的那一份**（第 3 次可能比第 1 次差，不能“最后一份说了算”）：
   分数 = 单数×1000 + 行数×10 + 金额能对上的单数 + （单数等于模型自报张数时 +500）。
   实测同一张两单截图连跑 4 次：4 次都是 2 张单、3 行、金额 77.99 / 3.24+2.94+运费 2.50 = 8.68
+- **长图切段识别 + 多平台口径（Step 99）**：用户反馈“一张 5 张单的图往往要识别 2、3 次”。
+  现在 `MfgOrderScan.slicesOf(image)` 把高于 `SLICE_HEIGHT`（900 px）的图按 150 px 重叠切成几段，
+  每段单独问一次（`readPicture(picture, …, partial=true)`，**段里允许金额对不上**，因为一张单可能被切成两半），
+  再用 `MfgServices.mergeOrders()` 按订单号合并：同号是一张单，行取并集（重叠区同一行只留一次，键是 `code|qty|amount`），
+  字段谁读到用谁的。分数保留逻辑（`answerScore`）从 `scan` 挪进 `readPicture`，每段都一样。
+  `ImageIO.read` 解不开的图**原样整张发**，不要因为切图失败让扫描挂掉。
+  提示词改成平台中立（淘宝 / 天猫 / 京东 / 拼多多 / 抖音），答案多一个 `platform` 字段，
+  核对表里显示成「平台 · 店铺」并带 `data-platform` 属性；**只有淘宝/天猫实测过**，别的平台等真截图再说。
 - **模型会把“答案格式”当成答案（Step 91）**：一次真机跑出来 8 个「订单」，7 个的 lines 是模板
   `code\tname\tquantity\tamount`，真正那张单只读了一张。所以：`fieldsOfOneOrder` **要求 orderNo 非空**
   （它本来就是导入去重的键，空号的单子也不该进库）+ `isLineTemplate()` 挡模板行；

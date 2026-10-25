@@ -11,6 +11,7 @@
 
 package org.langhua.ofbiz.mfg;
 
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -19,16 +20,27 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import javax.imageio.ImageIO;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+
+import java.awt.image.BufferedImage;
 
 import org.apache.ofbiz.base.util.Debug;
 import org.apache.ofbiz.base.util.UtilGenerics;
@@ -72,6 +84,28 @@ public final class MfgOrderScan {
     static final int ATTEMPTS = 3;
 
     /**
+     * How tall a picture may be before it is cut into slices. Three or four order blocks fit in this
+     * much, which is what one call reads reliably; five blocks in one picture is where the model
+     * starts dropping whole orders.
+     */
+    static final int SLICE_HEIGHT = 900;
+
+    /** How much two neighbouring slices share, so an order block is whole in at least one of them. */
+    static final int SLICE_OVERLAP = 150;
+
+    /** Slices that are read at the same time; four small pictures take about as long as one. */
+    static final int MAX_PARALLEL = 4;
+
+    /**
+     * How often one slice is sent. A slice holds one or two order blocks and its money is allowed not
+     * to add up (an order may be cut in two), so there is much less to go wrong than on a whole page.
+     */
+    static final int SLICE_ATTEMPTS = 2;
+
+    /** Seconds one call to the vision service may take, with room on top of the socket timeouts. */
+    static final int SLICE_WAIT_SECONDS = 240;
+
+    /**
      * Room for the answer. A thinking model spends part of it on its reasoning, so a small budget
      * ends with an empty answer: 4000 was not enough for a screenshot holding three orders.
      */
@@ -88,18 +122,22 @@ public final class MfgOrderScan {
      * model deliberate (the shop name with or without 天猫, the struck through price), and a thinking
      * model that deliberates spends its whole output budget on the reasoning and answers nothing.
      */
-    static final String PROMPT = "Read this screenshot of Taobao / Tmall orders and answer with one"
+    static final String PROMPT = "Read this screenshot of shop orders (淘宝 / 天猫, and the same kind of"
+            + " page from 京东 / 拼多多 / 抖音) and answer with one"
             + " JSON object only, no prose, no explanation:"
-            + " {\"orderCount\":\"1\",\"orders\":[{\"orderNo\":\"\",\"shop\":\"\",\"orderDate\":\"\","
-            + "\"paidTotal\":\"\",\"freight\":\"\",\"discount\":\"\",\"refunded\":\"\","
-            + "\"items\":[{\"code\":\"\",\"name\":\"\",\"qty\":\"\",\"amount\":\"\"}]}]}"
+            + " {\"orderCount\":\"1\",\"orders\":[{\"orderNo\":\"\",\"shop\":\"\",\"platform\":\"\","
+            + "\"orderDate\":\"\",\"paidTotal\":\"\",\"freight\":\"\",\"discount\":\"\","
+            + "\"refunded\":\"\",\"items\":[{\"code\":\"\",\"name\":\"\",\"qty\":\"\",\"amount\":\"\"}]}]}"
             + " orderCount is how many order blocks the picture shows; orders has one element per"
             + " block, top to bottom, and items has one element per article of that order - two"
             + " products are two elements, never one."
-            + " orderNo is the number after 订单号. shop is the shop name only, without the platform"
-            + " word 淘宝 / 天猫. orderDate is yyyy-MM-dd as printed."
-            + " paidTotal is the money really paid for that order (实付款; in a list page the 合计 of the"
-            + " block). freight is the number after 含运费, and 0 when the page says 免运费 or 包邮."
+            + " orderNo is the order number of that block (after 订单号, or the number the page prints"
+            + " for it). shop is the shop name only, without the platform word. platform is which"
+            + " shop platform the page belongs to: 淘宝, 天猫, 京东, 拼多多, 抖音, or empty when nothing"
+            + " says. orderDate is yyyy-MM-dd as printed."
+            + " paidTotal is the money really paid for that order (实付款 / 实付; in a list page the 合计"
+            + " of the block). freight is the shipping money of the block (含运费 / 运费), and 0 when the"
+            + " page says 免运费 or 包邮."
             + " discount is the money taken off the whole order (红包 / 优惠券 / 满减): it is what makes"
             + " paidTotal smaller than the articles plus the freight, 0 when there is none."
             + " refunded is Y when the block shows 退款成功 / 已退款 / 退款中 / 交易关闭 / 已取消,"
@@ -126,13 +164,14 @@ public final class MfgOrderScan {
      * every rule it is given; with the long prompt a picture of three orders sometimes ended with the
      * output budget spent on the reasoning and a truncated (or empty) answer.
      */
-    static final String SHORT_PROMPT = "Read the Taobao / Tmall orders in this picture. Answer with one"
-            + " JSON object only, no prose:"
-            + " {\"orderCount\":\"1\",\"orders\":[{\"orderNo\":\"\",\"shop\":\"\",\"orderDate\":\"\","
-            + "\"paidTotal\":\"\",\"freight\":\"\",\"discount\":\"\",\"refunded\":\"Y or N\","
-            + "\"items\":[{\"code\":\"\",\"name\":\"\",\"qty\":\"\",\"amount\":\"\"}]}]}"
+    static final String SHORT_PROMPT = "Read the shop orders (淘宝 / 天猫 / 京东 / 拼多多 / 抖音) in this"
+            + " picture. Answer with one JSON object only, no prose:"
+            + " {\"orderCount\":\"1\",\"orders\":[{\"orderNo\":\"\",\"shop\":\"\",\"platform\":\"\","
+            + "\"orderDate\":\"\",\"paidTotal\":\"\",\"freight\":\"\",\"discount\":\"\","
+            + "\"refunded\":\"Y or N\",\"items\":[{\"code\":\"\",\"name\":\"\",\"qty\":\"\",\"amount\":\"\"}]}]}"
             + " orderCount = how many order blocks you see; one element per block, top to bottom."
-            + " shop without 淘宝 / 天猫. paidTotal = 实付款 (or 合计). freight = the number after 含运费."
+            + " platform = 淘宝 / 天猫 / 京东 / 拼多多 / 抖音. shop without the platform word."
+            + " paidTotal = 实付款 (or 合计). freight = the shipping money (含运费 / 运费)."
             + " discount = the red packet / coupon / 满减 taken off the order, 0 when none."
             + " refunded = Y when it says 退款成功 / 已退款 / 交易关闭. items = one element per article,"
             + " never two products in one element: their amounts add up to paidTotal minus freight;"
@@ -174,58 +213,59 @@ public final class MfgOrderScan {
         String transportProblem = null;
         List<Map<String, String>> orders = Collections.emptyList();
         int seen = 0;
-        // the best of the sends is kept, not the last: a third attempt can drop a whole order that
-        // the first one had read, and a picture of two blocks does that now and then
-        List<Map<String, String>> bestOrders = Collections.emptyList();
-        String bestReply = null;
-        int bestSeen = 0;
-        int bestScore = -1;
-        // a vision call falls over now and then (a slow answer, a thinking model that runs out of
-        // room, a dropped connection, or one order of a list read and the others skipped). One silent
-        // retry turns most of those into a normal result instead of a red line to react to
-        for (int attempt = 1; attempt <= ATTEMPTS; attempt++) {
-            if (attempt > 1) {
-                pause();
+        // a long page (several order blocks one under the other) is cut into overlapping slices: one
+        // small picture per slice is read far more reliably than five blocks at once, and the rows of
+        // an order that straddles two slices are joined afterwards by its number
+        List<byte[]> slices = slicesOf(image);
+        String sliceNote = "";
+        if (slices.size() == 1) {
+            Read read = readPicture(slices.get(0), endpoint, model, key, contentType, false);
+            orders = read.orders;
+            reply = read.reply;
+            seen = read.seen;
+            transportProblem = read.transportProblem;
+        } else {
+            // the slices are read side by side: four small calls in parallel take about as long as
+            // one, while reading them one after the other made a five order page wait minutes
+            List<List<Map<String, String>>> answers = new ArrayList<>();
+            ExecutorService pool = Executors.newFixedThreadPool(Math.min(MAX_PARALLEL, slices.size()));
+            List<Future<Read>> running = new ArrayList<>();
+            final String sliceEndpoint = endpoint;
+            final String sliceModel = model;
+            final String sliceKey = key;
+            final String sliceType = contentType;
+            for (byte[] slice : slices) {
+                final byte[] picture = slice;
+                running.add(pool.submit(new Callable<Read>() {
+                    @Override
+                    public Read call() {
+                        return readPicture(picture, sliceEndpoint, sliceModel, sliceKey, sliceType, true);
+                    }
+                }));
             }
-            try {
-                reply = askVision(endpoint, model, key, image, contentType,
-                        attempt == 1 ? PROMPT : SHORT_PROMPT);
-                transportProblem = null;
-            } catch (IOException e) {
-                Debug.logError(e, "Could not ask the vision service (attempt " + attempt + ")", MODULE);
-                transportProblem = e.getMessage();
-                continue;
+            pool.shutdown();
+            for (Future<Read> future : running) {
+                Read read;
+                try {
+                    read = future.get(SLICE_WAIT_SECONDS, TimeUnit.SECONDS);
+                } catch (InterruptedException | ExecutionException | TimeoutException e) {
+                    Debug.logError(e, "A slice of the screenshot was not read", MODULE);
+                    transportProblem = e.getMessage();
+                    answers.add(Collections.emptyList());
+                    continue;
+                }
+                if (read.reply != null) {
+                    reply = read.reply;
+                }
+                if (read.transportProblem != null) {
+                    transportProblem = read.transportProblem;
+                }
+                answers.add(read.orders);
             }
-            List<Map<String, String>> read = MfgServices.orderListFrom(reply);
-            int counted = MfgServices.orderCountIn(reply);
-            int score = MfgServices.answerScore(read, counted);
-            if (score > bestScore) {
-                bestScore = score;
-                bestOrders = read;
-                bestReply = reply;
-                bestSeen = counted;
-            }
-            // fewer orders read than the model says it saw, an answer that is mostly the answer
-            // format, an order whose goods plus freight is not the paid total (a lost article
-            // looks exactly like that), a row whose quantity or amount cannot be read, or a page
-            // that prints a pack size while every line came back as one piece: either way the read
-            // is poor and one more send is worth it
-            boolean shortRead = counted > 0 && read.size() < counted;
-            if (!read.isEmpty() && !shortRead && !MfgServices.echoesTemplate(reply)
-                    && !anyTotalsDisagree(read) && !MfgServices.anyUnreadable(read)
-                    && !MfgServices.ignoredThePackSize(reply, MfgServices.linesOfOrders(read))) {
-                bestOrders = read;
-                bestReply = reply;
-                bestSeen = counted;
-                break;
-            }
-            // the answer is kept: its wording tells apart "not an order" from "the model could
-            // not see the picture" from "it thought until the output budget ran out"
-            Debug.logInfo("The vision answer carried no lines: " + reply, MODULE);
+            orders = MfgServices.mergeOrders(answers);
+            seen = orders.size();
+            sliceNote = "（长图分 " + slices.size() + " 段逐段识别）";
         }
-        orders = bestOrders;
-        reply = bestReply != null ? bestReply : reply;
-        seen = bestSeen;
         if (orders.isEmpty()) {
             return answer(response, false, scanFailure(reply, transportProblem), null, NO_ORDERS);
         }
@@ -269,7 +309,126 @@ public final class MfgOrderScan {
         if (refundedCount < orders.size()) {
             message += "，核对后点「" + (orders.size() == 1 ? "导入这张单" : "导入这些单") + "」";
         }
-        return answer(response, true, message + shortfall, orders, null);
+        return answer(response, true, message + sliceNote + shortfall, orders, null);
+    }
+
+    /** What one picture (the whole screenshot, or one slice of a long one) answered. */
+    private static final class Read {
+        private List<Map<String, String>> orders = Collections.emptyList();
+        private String reply;
+        private int seen;
+        private String transportProblem;
+    }
+
+    /**
+     * Sends one picture and keeps the best answer of the attempts. A vision call falls over now and
+     * then (a slow answer, a thinking model that runs out of room, a dropped connection, one order of
+     * a list read and the others skipped), and the last attempt is not always the best one, so the
+     * answer is graded and the best one is kept.
+     *
+     * @param picture the image bytes, the whole screenshot or one slice of it
+     * @param endpoint the vision endpoint
+     * @param model the model name
+     * @param key the api key
+     * @param contentType the content type of the picture
+     * @param partial {@code true} for a slice of a long page: an order may be cut in two, so the money
+     *        of that slice is allowed not to add up
+     * @return what was read
+     */
+    private static Read readPicture(byte[] picture, String endpoint, String model, String key,
+            String contentType, boolean partial) {
+        Read read = new Read();
+        List<Map<String, String>> bestOrders = Collections.emptyList();
+        String bestReply = null;
+        int bestSeen = 0;
+        int bestScore = -1;
+        int attempts = partial ? SLICE_ATTEMPTS : ATTEMPTS;
+        for (int attempt = 1; attempt <= attempts; attempt++) {
+            if (attempt > 1) {
+                pause();
+            }
+            String reply;
+            try {
+                reply = askVision(endpoint, model, key, picture, contentType,
+                        attempt == 1 ? PROMPT : SHORT_PROMPT);
+                read.transportProblem = null;
+            } catch (IOException e) {
+                Debug.logError(e, "Could not ask the vision service (attempt " + attempt + ")", MODULE);
+                read.transportProblem = e.getMessage();
+                continue;
+            }
+            read.reply = reply;
+            List<Map<String, String>> got = MfgServices.orderListFrom(reply);
+            int counted = MfgServices.orderCountIn(reply);
+            int score = MfgServices.answerScore(got, counted);
+            if (score > bestScore) {
+                bestScore = score;
+                bestOrders = got;
+                bestReply = reply;
+                bestSeen = counted;
+            }
+            // fewer orders read than the model says it saw, an answer that is mostly the answer
+            // format, a row whose quantity or amount cannot be read, a page that prints a pack size
+            // while every line came back as one piece, or (on a whole screenshot) an order whose
+            // goods plus freight is not the paid total: either way one more send is worth it
+            boolean shortRead = !partial && counted > 0 && got.size() < counted;
+            if (!got.isEmpty() && !shortRead && !MfgServices.echoesTemplate(reply)
+                    && !MfgServices.anyUnreadable(got)
+                    && !MfgServices.ignoredThePackSize(reply, MfgServices.linesOfOrders(got))
+                    && (partial || !anyTotalsDisagree(got))) {
+                bestOrders = got;
+                bestReply = reply;
+                bestSeen = counted;
+                break;
+            }
+            Debug.logInfo("The vision answer carried no lines: " + reply, MODULE);
+        }
+        read.orders = bestOrders;
+        read.reply = bestReply != null ? bestReply : read.reply;
+        read.seen = bestSeen;
+        return read;
+    }
+
+    /**
+     * Cuts a tall screenshot into overlapping slices, so each call sees only one or two order blocks.
+     * A picture that already fits is sent as it is; a picture that cannot be decoded is sent as it is
+     * too, so an odd format never loses the scan.
+     *
+     * @param image the uploaded image
+     * @return one entry per slice
+     */
+    static List<byte[]> slicesOf(byte[] image) {
+        List<byte[]> slices = new ArrayList<>();
+        BufferedImage full;
+        try {
+            full = ImageIO.read(new ByteArrayInputStream(image));
+        } catch (IOException e) {
+            Debug.logError(e, "Could not read the screenshot to slice it", MODULE);
+            full = null;
+        }
+        if (full == null || full.getHeight() <= SLICE_HEIGHT) {
+            slices.add(image);
+            return slices;
+        }
+        int step = SLICE_HEIGHT - SLICE_OVERLAP;
+        for (int top = 0; top < full.getHeight(); top += step) {
+            int bottom = Math.min(full.getHeight(), top + SLICE_HEIGHT);
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            try {
+                // the overlap keeps an order block whole in at least one slice
+                ImageIO.write(full.getSubimage(0, top, full.getWidth(), bottom - top), "png", out);
+            } catch (IOException e) {
+                Debug.logError(e, "Could not write a slice of the screenshot", MODULE);
+                slices.clear();
+                slices.add(image);
+                return slices;
+            }
+            slices.add(out.toByteArray());
+            if (bottom >= full.getHeight()) {
+                break;
+            }
+        }
+        return slices;
     }
 
     /**

@@ -9101,6 +9101,9 @@ always
         }
         fields.put("orderNo", orderNo.trim());
         fields.put("shop", jsonStringField(text, "shop"));
+        // the shop platform the page names (淘宝 / 天猫 / 京东 / 拼多多 / 抖音): the fields are the same
+        // on all of them, so only the label travels with the answer
+        fields.put("platform", jsonStringField(text, "platform"));
         // the date printed on a shop order is the day it was placed, not the day the parts arrive;
         // older answers used the bare name date, so both are read
         String orderDate = jsonStringField(text, "orderDate");
@@ -9521,6 +9524,76 @@ always
             score += 500;
         }
         return score;
+    }
+
+    /**
+     * Joins the orders read from the slices of one long page: the same order number is one order, the
+     * article rows of the slices are joined (a row that straddles two slices is seen twice and kept
+     * once), and a field the other slice read fills in what this one missed.
+     *
+     * @param answers what each slice answered, in the order the slices were read
+     * @return the orders of the whole page
+     */
+    static List<Map<String, String>> mergeOrders(List<List<Map<String, String>>> answers) {
+        Map<String, Map<String, String>> byNumber = new LinkedHashMap<>();
+        if (answers == null) {
+            return new ArrayList<>();
+        }
+        for (List<Map<String, String>> answer : answers) {
+            if (answer == null) {
+                continue;
+            }
+            for (Map<String, String> order : answer) {
+                if (order == null) {
+                    continue;
+                }
+                String number = order.get("orderNo");
+                Map<String, String> kept = byNumber.get(number);
+                if (kept == null) {
+                    byNumber.put(number, new LinkedHashMap<>(order));
+                    continue;
+                }
+                kept.put("lines", joinRows(kept.get("lines"), order.get("lines")));
+                for (String field : new String[] {"platform", "shop", "orderDate", "freight",
+                        "paidTotal", "discount", "refunded"}) {
+                    String value = kept.get(field);
+                    if (value == null || value.trim().isEmpty()) {
+                        kept.put(field, order.get(field));
+                    }
+                }
+            }
+        }
+        return new ArrayList<>(byNumber.values());
+    }
+
+    /**
+     * Joins the article rows of two reads of the same order. The overlap of two slices shows a row
+     * twice; the same code with the same quantity and the same money is that row, so it is kept once.
+     *
+     * @param first the rows read so far
+     * @param second the rows of the next read
+     * @return all distinct rows
+     */
+    private static String joinRows(String first, String second) {
+        List<String> rows = new ArrayList<>();
+        Set<String> seen = new LinkedHashSet<>();
+        for (String text : new String[] {first, second}) {
+            if (text == null) {
+                continue;
+            }
+            for (String row : text.split("\r?\n")) {
+                String trimmed = row.trim();
+                if (trimmed.isEmpty()) {
+                    continue;
+                }
+                String[] cells = splitCsvLine(trimmed, cellsSeparator(trimmed));
+                String key = cells.length >= 4 ? cells[0] + "|" + cells[2] + "|" + cells[3] : trimmed;
+                if (seen.add(key)) {
+                    rows.add(trimmed);
+                }
+            }
+        }
+        return String.join("\n", rows);
     }
 
     /**
