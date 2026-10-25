@@ -474,6 +474,11 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   `closed` 不拦——万一包裹真到了，手工粘明细就能入库。
   **19 位订单号可能少一位**（实测同一张图/不同图读出 `…500570` 与 `…00570`），而订单号是导入的幂等键，
   所以“重复导入是覆盖”只在两次读到的号相同时成立——这是已知局限，别拿它去放宽判据
+- **整张到货单可以删（Step 111）**：`mfgPurchaseReceiptDelete`（IN `receiptId`，OUT `deletedReceipt`/`deletedLines`，
+  `use-transaction="true"`）删单头 + 明细行，**批次/库存/流水一律不动**（单据只是“买了什么”的纸）；
+  页面在详情（`receipts?receiptId=…`）右上，`confirm()` 里写清“只删单据”，删完 302 回列表并显示
+  `parameters.deletedReceipt` 的绿色横幅。要冲库存请走「库存 → 流水」报废（那里留原因），
+  **不要让删单去改库存**——那就把“单据”和“实物”两件事混在一起了
 - **淘宝导出的「订单数据」xlsx 可以整批导入（Step 110）**：到货单页上传 → `/mfg/control/orderExcel`
   （`MfgImportEvents.orderExcel`，multipart 字段 `file`，带 `ajax=Y` 回 JSON：`imported/lines/skipped/failed/notes`；
   不带就 302 回 `receipts?excelImported=…`）。解析全在 `MfgOrderExcel`：**xlsx 就是 zip + XML，没有 POI**，

@@ -1070,6 +1070,16 @@
         <attribute name="goodsAmount" type="Double" mode="OUT" optional="true"/>
     </service>
 
+    <service name="mfgPurchaseReceiptDelete" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgServices" invoke="purchaseReceiptDelete"
+            auth="false" use-transaction="true">
+        <description>Delete a whole purchase receipt: the head and its lines. The lots, the stock and the ledger stay as they are - the receipt is only the paper of what was bought</description>
+        <attribute name="receiptId" type="String" mode="IN" optional="false"/>
+        <attribute name="receiptId" type="String" mode="OUT" optional="true"/>
+        <attribute name="deletedReceipt" type="String" mode="OUT" optional="true"/>
+        <attribute name="deletedLines" type="String" mode="OUT" optional="true"/>
+    </service>
+
     <service name="mfgPurchaseReceiptList" engine="java"
             location="org.langhua.ofbiz.mfg.MfgServices" invoke="purchaseReceiptList"
             auth="false" use-transaction="false">

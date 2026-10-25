@@ -449,6 +449,16 @@
         <response name="error" type="view" value="receipts"/>
     </request-map>
 
+    <!-- throws away one whole receipt (head + lines); the lots and the stock stay (Step 111) -->
+    <request-map uri="receiptDelete" save-last-view="true">
+        <security https="true" auth="true"/>
+        <event type="service" invoke="mfgPurchaseReceiptDelete"/>
+        <response name="success" type="request-redirect" value="receipts">
+            <redirect-parameter name="deletedReceipt"/>
+        </response>
+        <response name="error" type="view" value="receipts"/>
+    </request-map>
+
     <request-map uri="receiptFromOrder" save-last-view="true">
         <security https="true" auth="true"/>
         <event type="service" invoke="mfgReceiptFromOrder"/>

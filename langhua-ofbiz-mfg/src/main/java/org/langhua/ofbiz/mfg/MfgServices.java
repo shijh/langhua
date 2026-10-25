@@ -8217,6 +8217,51 @@ always
     }
 
     /**
+     * Deletes a whole purchase receipt: the head and its lines.
+     *
+     * <p>Nothing else moves. A receipt is the paper of what was bought - the lots it lists, their
+     * stock and the ledger movements are the truth about the shelf, so they stay. Whoever wants the
+     * parts off the shelf books a scrap movement under 库存 → 流水 (that is what it is for); this
+     * only throws away the paper, for the receipt that was created by mistake.
+     *
+     * @param dctx the dispatch context
+     * @param context service context, see {@code servicedef/services.xml#mfgPurchaseReceiptDelete}
+     * @return the service result containing {@code receiptId} and {@code deletedLines}
+     */
+    public static Map<String, Object> purchaseReceiptDelete(DispatchContext dctx, Map<String, ? extends Object> context) {
+        String denied = permissionProblem(dctx, context, PERM_STOCK);
+        if (denied != null) {
+            return ServiceUtil.returnError(denied);
+        }
+        Delegator delegator = dctx.getDelegator();
+        String receiptId = toText(context.get("receiptId"));
+        if (receiptId == null) {
+            return ServiceUtil.returnError("请选择要删除的到货单");
+        }
+        try {
+            GenericValue receipt = EntityQuery.use(delegator).from("MfgPurchaseReceipt")
+                    .where("receiptId", receiptId).queryOne();
+            if (receipt == null) {
+                return ServiceUtil.returnError("Unknown receipt [" + receiptId + "]");
+            }
+            List<GenericValue> lines = EntityQuery.use(delegator).from("MfgPurchaseReceiptLine")
+                    .where("receiptId", receiptId).queryList();
+            for (GenericValue line : lines) {
+                line.remove();
+            }
+            receipt.remove();
+            Map<String, Object> result = ServiceUtil.returnSuccess();
+            result.put("receiptId", receiptId);
+            result.put("deletedReceipt", receiptId);
+            result.put("deletedLines", String.valueOf(lines.size()));
+            return result;
+        } catch (GenericEntityException e) {
+            Debug.logError(e, "Could not delete the receipt [" + receiptId + "]", MODULE);
+            return ServiceUtil.returnError("删除失败：" + e.getMessage());
+        }
+    }
+
+    /**
      * The purchase receipts with what each order cost: goods value, freight and the sum of both.
      *
      * @param dctx the dispatch context

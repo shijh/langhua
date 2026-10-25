@@ -28,7 +28,8 @@
     <p class="error"><#list errList as msg>${msg}<#if msg_has_next><br/></#if></#list></p>
 </#if>
 
-<p id="listHint" class="hint">展开某张单就能直接改数量与单价，点「保存」立刻生效，页面不刷新。</p>
+<p id="listHint" class="hint">展开某张单就能直接改数量与单价，点「保存」立刻生效，页面不刷新；
+    要删整张单就点单号进详情（右上有个「删除这张到货单」，只删单据，批次与库存不动）。</p>
 <div id="receiptListBlock">
 <h2>采购支出（本页列出的单据）</h2>
 <table id="receiptSummary" data-allocation="MFG_ALLOC_NONE">
@@ -799,8 +800,20 @@
     </form>
 </fieldset>
 
+<#if (parameters.deletedReceipt)?has_content>
+    <p class="ok">已删除到货单 ${parameters.deletedReceipt}；批次与库存没有变动（要冲库存请到「库存 → 流水」按报废处理）。</p>
+</#if>
+
 <#if receipt.receiptId??>
     <h2>到货单 ${receipt.receiptId}（${(rd.lineCount)!0} 行）</h2>
+    <p>
+        <form method="post" action="/mfg/control/receiptDelete" class="inline" id="receiptDeleteForm">
+            <input type="hidden" name="receiptId" value="${receipt.receiptId}"/>
+            <input type="submit" class="secondary" value="删除这张到货单"
+                onclick="return confirm('删除到货单 ${receipt.receiptId}？\n\n只删这张单据（含 ${(rd.lineCount)!0} 行），批次、库存和流水完全不动。\n如果这批料本来就不该在库里，删完再去「库存 → 流水」按报废冲掉。')"/>
+        </form>
+        <span class="hint">这张单建错了就删掉：删的只是单据本身，料和库存都不动。</span>
+    </p>
     <form method="post" action="/mfg/control/receiptSave" id="receiptSaveForm">
         <input type="hidden" name="receiptId" value="${receipt.receiptId}"/>
         <p>
