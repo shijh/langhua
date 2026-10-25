@@ -9622,10 +9622,9 @@ always
         Double discount = optionalAmount(order.get("discount"));
         double discountValue = discount == null ? 0.0 : discount.doubleValue();
         double total = round2(goods + freight.doubleValue() - discountValue);
-        // paying less than goods plus freight is a red packet or a coupon, not a lost article: only a
-        // shortfall towards the shop (paid more than the lines) means something is missing, and a few
+        // too little is a lost article, too much is an article read twice or at the wrong price; a few
         // cents of rounded unit prices are no sign of anything
-        return total < paid.doubleValue() && Math.abs(total - paid.doubleValue()) > roundingSlack(rows);
+        return Math.abs(total - paid.doubleValue()) > roundingSlack(rows);
     }
 
     /** @return the amount with two decimals, for a sentence */

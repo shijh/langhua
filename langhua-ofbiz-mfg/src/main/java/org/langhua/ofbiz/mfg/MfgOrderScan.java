@@ -88,8 +88,13 @@ public final class MfgOrderScan {
      * blank row. A cut through the middle of an order block leaves its title in one slice and its
      * articles in the next, and the model then hangs those articles on the block that follows (a page
      * of five orders came back as four right ones and one written out of two).
+     *
+     * <p>The walls of a shop page leave 30 to 40 pixels of white both inside a block and between two
+     * of them, so no cut can be trusted to fall between blocks: with the reasoning of the model
+     * switched off one call reads four or five blocks well, and slicing only pays off on pages that
+     * are longer than this.
      */
-    static final int SLICE_HEIGHT = 700;
+    static final int SLICE_HEIGHT = 2400;
 
     /** How far the cut may slide to find a row with no text, and how many pixels one row is sampled at. */
     static final int SLICE_SEARCH = 180;
@@ -162,7 +167,8 @@ public final class MfgOrderScan {
             + " goes into code so the six rows do not all share one code. The pack"
             + " size is never part of the code: the spec"
             + " line 30K（一件100只）;1%精度;0603贴片电阻 gives the code 30K, not the whole line; a pack size"
-            + " printed inside the title counts too, so 面包板 … 带扣（5个） with x1 is 5 pieces - but a set"
+            + " printed inside the title counts too, so 面包板 … 带扣（5个） with x1 is 5 pieces, and so does"
+            + " a piece count printed bare at the end of the title: IC测试板 … 5只 with x3 is 15 - but a set"
             + " sold as one article (brackets saying 套装 / 组合 / 套餐) does not: 实验板（4块组合套装）"
             + " with x1 is 1 set, so qty is 1."
             + " Take the numbers printed on the page: do not weigh alternatives, do not describe the"
@@ -190,9 +196,9 @@ public final class MfgOrderScan {
             + " rows that print the same title are still one element each, with the colour in code;"
             + " qty = the number after x times the pack size printed in the grey spec line or inside the"
             + " title"
-            + " (一件100只 → x1 is 100, (50只) → x4 is 200, 带扣（5个） → x1 is 5); a set sold as one"
-            + " article (套装 / 组合 / 套餐 in the brackets) is qty = the number after x itself, so"
-            + " （4块组合套装） with x1 is 1; amount = the row's own"
+            + " (一件100只 → x1 is 100, (50只) → x4 is 200, 带扣（5个） → x1 is 5, 测试板 5只 → x3 is 15); a set"
+            + " sold as one article (套装 / 组合 / 套餐 in the brackets) is qty = the number after x"
+            + " itself, so （4块组合套装） with x1 is 1; amount = the row's own"
             + " money (paidTotal"
             + " minus freight for a block with one article, printed row price times the packs after x for"
             + " a block with several). No explanation.";

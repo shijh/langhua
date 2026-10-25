@@ -895,12 +895,13 @@ public class MfgServicesTest {
     public void cutsALongPageIntoOverlappingSlices() throws IOException {
         // a picture that already fits is sent as it is
         assertEquals(1, MfgOrderScan.slicesOf(png(300, 600)).size());
-        // a long page is cut into slices, each one short enough to be read in one go
-        List<byte[]> slices = MfgOrderScan.slicesOf(png(300, 2000));
+        assertEquals(1, MfgOrderScan.slicesOf(png(300, MfgOrderScan.SLICE_HEIGHT)).size());
+        // a page taller than that is cut into slices, each one short enough to be read in one go
+        List<byte[]> slices = MfgOrderScan.slicesOf(png(300, MfgOrderScan.SLICE_HEIGHT * 2 + 400));
         assertTrue(slices.size() >= 2);
         for (byte[] slice : slices) {
             BufferedImage image = ImageIO.read(new java.io.ByteArrayInputStream(slice));
-            assertTrue(image.getHeight() <= MfgOrderScan.SLICE_HEIGHT);
+            assertTrue(image.getHeight() <= MfgOrderScan.SLICE_HEIGHT + MfgOrderScan.SLICE_SEARCH);
         }
         // something that is not an image never loses the scan
         assertEquals(1, MfgOrderScan.slicesOf(new byte[] {1, 2, 3}).size());
@@ -915,15 +916,16 @@ public class MfgServicesTest {
 
     @Test
     public void cutsThePageBetweenOrderBlocksNotThroughOne() throws IOException {
-        // rows 650..700 carry text (a black/white pattern), so a cut there would split one order
-        // block into a title in one slice and its articles in the next
-        BufferedImage image = new BufferedImage(400, 1600, BufferedImage.TYPE_INT_RGB);
+        // a band of text sits where the page would otherwise be cut, so the cut has to slide away
+        int band = MfgOrderScan.SLICE_HEIGHT - 60;
+        int height = MfgOrderScan.SLICE_HEIGHT * 2;
+        BufferedImage image = new BufferedImage(400, height, BufferedImage.TYPE_INT_RGB);
         java.awt.Graphics2D pen = image.createGraphics();
         pen.setColor(java.awt.Color.WHITE);
-        pen.fillRect(0, 0, 400, 1600);
+        pen.fillRect(0, 0, 400, height);
         // text reads as colour changes along a row: alternate every four pixels, which is also the
         // step the slicer samples at
-        for (int y = 640; y <= 720; y++) {
+        for (int y = band; y <= band + 80; y++) {
             for (int x = 0; x < 400; x += 4) {
                 pen.setColor(((x / 4) % 2 == 0) ? java.awt.Color.BLACK : java.awt.Color.WHITE);
                 pen.fillRect(x, y, 4, 1);
@@ -935,7 +937,7 @@ public class MfgServicesTest {
         List<byte[]> slices = MfgOrderScan.slicesOf(out.toByteArray());
         assertTrue(slices.size() >= 2);
         int cut = ImageIO.read(new java.io.ByteArrayInputStream(slices.get(0))).getHeight();
-        assertTrue("the cut landed in the text rows: " + cut, cut < 640 || cut > 720);
+        assertTrue("the cut landed in the text rows: " + cut, cut < band || cut > band + 80);
         // the cut may slide either way to find that blank row, but not far
         assertTrue("slice too tall: " + cut, cut <= MfgOrderScan.SLICE_HEIGHT + MfgOrderScan.SLICE_SEARCH);
     }
