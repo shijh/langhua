@@ -508,6 +508,19 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   否则粘一张图会在这里弹“只认 xlsx”；文字粘贴一律不动（`#linesField` 还要用）；
   ② 拖进来的不是 xlsx 才报红（“截图请拖到上面的识别框”），拖对了一律只填文件、**不自动导入**，
   仍要点「导入 Excel」（导入会写单据，不该由一次拖放触发）。样式是 `#orderBlock.drop, #excelBlock.drop`。
+- **滚到哪一块由 `jump.js` 算，别再用 `scrollIntoView({block:'center'})`（Step 115）**：
+  贴图 / 贴 xlsx / 点单号跳详情三处都要“把那一行顶到导航条下面”，所以算法只有一份：
+  `webapp/mfg/js/jump.js` 的 `window.jumpUnderNav(element, gap)`（导航高 + 14px 的偏移，已经在
+  舒适区就**不动**页面，尾部按 `scrollHeight − innerHeight` 夹住）。装饰器里紧跟着 `session.js` 加载。
+  **`block:'center'` 的坑**：截图核对表或“为什么没入库”表长了以后，`#orderBlock` / `#excelBlock` 比屏幕还高，
+  居中会把**按钮那一行顶到屏幕外**（实测视口 395px、块 1832px 时按钮在 −700px）；
+  现在锚的是 `#scanTools` / `#excelTools` 这两个 `<p>`，实测落点 68.7 / 68.8px（目标 nav 54.8 + 14）。
+- **列表刷新后要把阅读位置按回去（Step 115）**：导入成功后两个块都会 `fetch(location.href)` 换掉
+  **上面**的 `#receiptListBlock`（列表高度会从 3 行涨到 20 行，+1260px），于是下面那块整个往下滑。
+  做法：换 innerHTML **之前**记 `anchorBefore = hint.getBoundingClientRect().top`，换完
+  `window.scrollBy(0, hint.top - anchorBefore)`，再 `jumpUnderNav(hint)` 兜一次——
+  浏览器自己的 scroll anchoring 有时只按到一半（实测停在 26px，被导航条压住），这一步把它拉回 69px。
+  **别把这两步顺序颠倒**，也别指望浏览器每次都替你做。
 - **服务重启后 AJAX 出口必须跳登录页（Step 101）**：会话过期时 OFBiz 对 `auth="true"` 的请求回
   **401 + 登录页 HTML**（实测 `orderImage` / `orderPeek` 都是 401，响应体里带 `USERNAME`），
   于是 `fetch(...).then(a => a.json())` 抛异常、页面只红一句「识别请求失败，再点一次」——再点也是同一个 401。

@@ -276,7 +276,7 @@
 
 <fieldset id="orderBlock">
     <legend>从淘宝订单建单并入库（一行一个料，人工核对后提交）</legend>
-    <p>
+    <p id="scanTools">
         截图识别
         <input type="file" id="orderImage" name="image" accept="image/png,image/jpeg"/>
         <button type="button" id="scanOrder" data-once="Y">识别并核对</button>
@@ -326,6 +326,7 @@
         var file = document.getElementById('orderImage');
         var hint = document.getElementById('scanHint');
         var block = document.getElementById('orderBlock');
+        var tools = document.getElementById('scanTools');
         if (!button || !file || !hint || !window.fetch || !window.FormData) {
             return;
         }
@@ -372,7 +373,11 @@
             }
             event.preventDefault();
             take(image, '已粘贴截图');
-            if (block && block.scrollIntoView) { block.scrollIntoView({ block: 'center' }); }
+            /* aim at the box-and-button row, never the middle of the block: once it carries a long
+               checklist the block is taller than the screen and centering hides the button
+               (Step 115) */
+            if (window.jumpUnderNav) { window.jumpUnderNav(tools || block); }
+            else if (block && block.scrollIntoView) { block.scrollIntoView(); }
         });
         file.addEventListener('change', function () {
             if (file.files && file.files.length) { take(file.files[0], '已选文件'); }
@@ -655,7 +660,9 @@
                                 + ((done + already) < wanted.length ? '，其余见每行的原因' : '') + '。';
                         }
                         importButton.className = importButton.className.replace(/\s*\bbusy\b/g, '');
-                        // the new receipts must show up in the list above
+                        // the new receipts must show up in the list above; that list may be taller or
+                        // shorter afterwards, so keep the checklist the person is reading in place
+                        var anchorBefore = batchHint ? batchHint.getBoundingClientRect().top : 0;
                         fetch(location.href, { credentials: 'same-origin' })
                             .then(function (answer) { return answer.text(); })
                             .then(function (html) {
@@ -663,6 +670,12 @@
                                     .getElementById('receiptListBlock');
                                 var current = document.getElementById('receiptListBlock');
                                 if (fresh && current) { current.innerHTML = fresh.innerHTML; }
+                                if (batchHint) {
+                                    window.scrollBy(0, batchHint.getBoundingClientRect().top - anchorBefore);
+                                    /* the browser usually holds the anchor itself; line it up again if
+                                       the list above grew enough to slide it under the nav */
+                                    if (window.jumpUnderNav) { window.jumpUnderNav(batchHint); }
+                                }
                             });
                     })
                     .catch(function (problem) {
@@ -685,7 +698,7 @@
 <fieldset id="excelBlock">
     <legend>从淘宝导出的「订单数据」Excel 一次导入（一张单一张到货单）</legend>
     <form method="post" action="/mfg/control/orderExcel" enctype="multipart/form-data" id="excelForm">
-        <p>
+        <p id="excelTools">
             文件 <input type="file" id="excelFile" name="file" accept=".xlsx"/>
             <button type="submit" id="excelImport" data-once="Y">导入 Excel</button>
             <span id="excelHint" class="hint">淘宝「已买到的宝贝 → 导出」得到的 xlsx（1-10 页）；
@@ -709,6 +722,7 @@
     var form = document.getElementById('excelForm');
     if (!form) { return; }
     var block = document.getElementById('excelBlock');
+    var tools = document.getElementById('excelTools');
     var fileField = document.getElementById('excelFile');
     var hint = document.getElementById('excelHint');
     var button = document.getElementById('excelImport');
@@ -761,7 +775,10 @@
         if (!workbook) { return; }
         event.preventDefault();
         take(workbook, '已粘贴文件');
-        if (block && block.scrollIntoView) { block.scrollIntoView({ block: 'center' }); }
+        /* same rule as the screenshot block: line the file box up under the nav, even when the
+           block below it carries a long list of orders that could not be booked in (Step 115) */
+        if (window.jumpUnderNav) { window.jumpUnderNav(tools || block); }
+        else if (block && block.scrollIntoView) { block.scrollIntoView(); }
     });
     if (block) {
         block.addEventListener('dragover', function (event) {
@@ -808,12 +825,21 @@
                 });
                 if (result) { result.hidden = !(answer.notes && answer.notes.length); }
                 if (answer.imported > 0) {
-                    /* the list below is re-read so the receipts just written show up without a reload */
+                    /* the list below is re-read so the receipts just written show up without a reload;
+                       that list is above this block, so it moves the file box and the note table -
+                       keep the line the person is reading where it is */
+                    var anchorBefore = hint ? hint.getBoundingClientRect().top : 0;
                     fetch(location.href).then(function (a) { return a.text(); }).then(function (html) {
                         var fresh = new DOMParser().parseFromString(html, 'text/html')
                             .getElementById('receiptListBlock');
                         var current = document.getElementById('receiptListBlock');
                         if (fresh && current) { current.innerHTML = fresh.innerHTML; }
+                        if (hint) {
+                            window.scrollBy(0, hint.getBoundingClientRect().top - anchorBefore);
+                            /* the browser usually holds the anchor itself; line it up again if the
+                               list above grew enough to slide it under the nav */
+                            if (window.jumpUnderNav) { window.jumpUnderNav(hint); }
+                        }
                     }).catch(function () {});
                 }
             })
@@ -1043,16 +1069,12 @@
     /* opening a receipt from the list (or after voiding / saving) lands on the long list page first:
        bring the receipt itself into view. The offset keeps its heading below the sticky navigation
        bar; it runs after the page has loaded, because a browser first jumps to the #receiptDetail
-       fragment itself and an old cached stylesheet carries no scroll-margin to correct that jump */
+       fragment itself and an old cached stylesheet carries no scroll-margin to correct that jump.
+       The arithmetic lives in /mfg/js/jump.js, shared with the paste jumps (Step 115) */
     (function () {
         function jumpToReceipt() {
             var detail = document.getElementById('receiptDetail');
-            if (!detail) { return; }
-            var nav = document.querySelector('.nav');
-            var offset = (nav ? nav.getBoundingClientRect().height : 0) + 14;
-            var top = detail.getBoundingClientRect().top
-                + (window.scrollY || window.pageYOffset || 0) - offset;
-            window.scrollTo(0, Math.max(0, top));
+            if (detail && window.jumpUnderNav) { window.jumpUnderNav(detail); }
         }
         if (document.readyState === 'complete') {
             jumpToReceipt();
