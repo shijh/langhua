@@ -454,14 +454,22 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   于是 `$SHOP + '：' + $shop` 画出来是“ShopA Digital： ShopA Digital”；全局标签用 `$L_SHOP` 这种前缀
 - **退款/关闭的单列表（Step 85）**：新实体 `MfgRefundedOrder`（`orderNo` 主键 / `shop` / `note` / `recordedDate`），
   服务 `mfgRefundedOrderSave` / `Delete` / `List`；页面在「从淘宝订单建单并入库」下面一块（`#refundedBlock`，
-  行上 `data-refunded-order`），可以手工登记、也能一键撤掉。识图说退款时 `MfgOrderScan` **自动登记**；
+  行上 `data-refunded-order`），可以手工登记、也能一键撤掉。**识图不再自动登记（Step 108）**：
+  模型把「退货宝」「7天无理由退货」看成退款，自动登记就等于把一张好单永久拦住（开发库真出现过两条
+  这种脏数据）；现在识别到退款只在**这一轮**不入库（`note` 写“显示已退款，这一次不入库；货确实到了就
+  手工粘明细建单，确实退了就把它登记到「退款 / 关闭的单」里”），黑名单一律由人在页面上登记。
   `mfgReceiptFromOrder` 开头查这张单在不在列表里（`refundedOrderProblem`），在就拒绝，所以**手粘单也进不来**。
   **踩坑：在会失败（`return ServiceUtil.returnError`）的服务里写“记录”，必须另开事务**——
   `mfgReceiptFromOrder` 是 `use-transaction="true"`，错误返回会把同一事务里的写入一起回退，
   所以登记走 `dispatcher.runSync("mfgRefundedOrderSave", …, -1, true)`（`rememberRefundedOrderInNewTransaction`）。
   旧库要跑一次 `tools/refunded-order.sql`（停实例 → ij → 起），和 `part-code-100.sql` 一样；
   OFBiz 启动时会自己补上漏写的 `CREATED_TX_STAMP` 列（日志里能看见 `[addColumn]`）
-- **退款/关闭的单不入库（Step 84）**：识图的 prompt 多了 `refunded`（看到「退款成功 / 已退款 / 退款中 / 交易关闭」填 Y），
+- **退款/关闭的单不入库（Step 84/108）**：识图的 prompt 多了 `refunded`，
+  **只有「退款成功 / 已退款 / 退款中 / 退货退款」才填 Y**；「交易关闭 / 已取消」只是交易状态结束、
+  货往往照常收到（用户实测有一单就是这样），所以 **refunded 保持 N、照常可导入、不进黑名单**（Step 108）；
+  `退货宝` / `7天无理由退货` / `退换货` 是店铺政策、每行都印，**不是订单状态**（提示词里写明了）；
+  **19 位订单号可能少一位**（实测同一张图/不同图读出 `…500570` 与 `…00570`），而订单号是导入的幂等键，
+  所以“重复导入是覆盖”只在两次读到的号相同时成立——这是已知局限，别拿它去放宽判据
   `orderFieldsFrom` 把它带出来，`isRefunded(fields)` 判断；识别到退款时页面把 `#refundField` 设成 `Y`、
   显示红色 `#refundBlock`（带一个“货确实到了，确认照常入库”的勾），**没勾就 `preventDefault` 不发请求**；
   服务端 `mfgReceiptFromOrder` 也有一道：`refunded=Y` 直接拒绝。退款单也不要跑 `checkOrderTotals`（退款金额对不上没意义）

@@ -48,7 +48,6 @@ import org.apache.ofbiz.entity.Delegator;
 import org.apache.ofbiz.service.LocalDispatcher;
 
 import static org.langhua.ofbiz.mfg.MfgServices.isRefunded;
-import static org.langhua.ofbiz.mfg.MfgServices.rememberRefundedOrder;
 
 /**
  * Reads a shop order screenshot with a vision model and answers with the fields of the receipt
@@ -148,8 +147,10 @@ public final class MfgOrderScan {
             + " page says 免运费 or 包邮."
             + " discount is the money taken off the whole order (红包 / 优惠券 / 满减): it is what makes"
             + " paidTotal smaller than the articles plus the freight, 0 when there is none."
-            + " refunded is Y when the block shows 退款成功 / 已退款 / 退款中 / 交易关闭 / 已取消,"
-            + " otherwise N."
+            + " refunded is Y only when the money went back: 退款成功 / 已退款 / 退款中 / 退货退款."
+            + " 交易关闭 / 已取消 is not a refund - such an order often arrived all the same - so"
+            + " refunded stays N. 7天无理由退货 / 退货宝 / 退换货 are the shop's policy printed on every"
+            + " row, not the state of the order: never answer Y for those."
             + " In items, quantity is how many pieces were bought: Taobao sells resistors and"
             + " capacitors by the pack, and the grey spec line under the title prints the pack size"
             + " as 一件100只 / （50只） / 100只装 / 1件=100个. qty = the number after x times that"
@@ -191,7 +192,9 @@ public final class MfgOrderScan {
             + " platform = 淘宝 / 天猫 / 京东 / 拼多多 / 抖音. shop without the platform word."
             + " paidTotal = 实付款 (or 合计). freight = the shipping money (含运费 / 运费)."
             + " discount = the red packet / coupon / 满减 taken off the order, 0 when none."
-            + " refunded = Y when it says 退款成功 / 已退款 / 交易关闭. items = one element per article,"
+            + " refunded = Y only when it says 退款成功 / 已退款 / 退款中 / 退货退款; 交易关闭 / 已取消"
+            + " is not a refund, and neither is 退货宝 / 7天无理由退货, so refunded is N."
+            + " items = one element per article,"
             + " never two products in one element: their amounts add up to paidTotal minus freight;"
             + " rows that print the same title are still one element each, with the colour in code;"
             + " qty = the number after x times the pack size printed in the grey spec line or inside the"
@@ -303,10 +306,12 @@ public final class MfgOrderScan {
             MfgServices.tidyOrder(order);
             order.put("lines", MfgServices.fitOrderLines(order.get("lines")));
             if (isRefunded(order)) {
-                // the parts never stayed in the shop: the number goes on the list, so even a hand
-                // typed import of it is refused later
-                recordRefund(delegatorOf(request), order);
-                order.put("note", "已退款/关闭，不入库");
+                // a refund is not booked in, but reading one is a guess like everything else: the model
+                // took 「7天无理由退货」 and 「退货宝」 for a refund and blocked a good order for good.
+                // So the order is only left out of this round, and the person puts a real refund on the
+                // list with one click (Step 108).
+                order.put("note", "显示已退款，这一次不入库；货确实到了就手工粘明细建单，"
+                        + "确实退了就把它登记到「退款 / 关闭的单」里");
                 refundedCount++;
             } else {
                 // freight is what the page says, but goods plus freight must come to what was paid
@@ -920,20 +925,6 @@ public final class MfgOrderScan {
             Debug.logError(e, "Could not write the answer of the order scan", MODULE);
             return "error";
         }
-    }
-
-    /**
-     * Puts the recognised order on the refunded list, so a later hand typed import of the same
-     * number is refused as well.
-     *
-     * @param delegator the delegator, may be {@code null}
-     * @param fields the recognised fields
-     */
-    private static void recordRefund(Delegator delegator, Map<String, String> fields) {
-        if (delegator == null) {
-            return;
-        }
-        rememberRefundedOrder(delegator, fields.get("orderNo"), fields.get("shop"), "截图显示退款/关闭");
     }
 
     private static Map<String, Object> parametersOf(HttpServletRequest request) {
