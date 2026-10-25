@@ -398,7 +398,7 @@
             var release = function () { button.className = button.className.replace(/\s*\bbusy\b/g, ''); };
             button.className = (button.className + ' busy').replace(/^\s+/, '');
             fetch('/mfg/control/orderImage', { method: 'POST', body: body, credentials: 'same-origin' })
-                .then(function (answer) { return answer.json(); })
+                .then(jsonOrLogin)
                 .then(function (data) {
                     if (!data.ok) {
                         hint.className = 'error';
@@ -419,13 +419,21 @@
                     hint.className = 'error';
                     hint.textContent = data.message || '没有读出订单，再点一次，或者手工填';
                 })
-                .catch(function () {
+                .catch(function (problem) {
+                    if (problem && problem.message === 'login') {
+                        /* the page is already on its way to the login page */
+                        return;
+                    }
                     hint.className = 'error';
                     hint.textContent = '识别请求失败，再点一次，或者手工填';
                     button.textContent = '再试一次';
                 })
                 .then(release, release);
         });
+
+        /* After a restart of the server the session is gone and the endpoint answers with the login
+           page instead of JSON: jsonOrLogin (js/session.js) sends the person to the login page, and
+           the promise is rejected with 'login' so no red "再点一次" message appears here. */
 
         /* a screenshot of the order list holds several orders: they are shown first, then booked in
            with one click (Step 86) */
@@ -605,7 +613,7 @@
                     credentials: 'same-origin',
                     headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' }
                 })
-                    .then(function (answer) { return answer.json(); })
+                    .then(jsonOrLogin)
                     .then(function (data) {
                         var byOrder = {};
                         (data.results || []).forEach(function (result) {
@@ -641,8 +649,11 @@
                                 if (fresh && current) { current.innerHTML = fresh.innerHTML; }
                             });
                     })
-                    .catch(function () {
+                    .catch(function (problem) {
                         importButton.className = importButton.className.replace(/\s*\bbusy\b/g, '');
+                        if (problem && problem.message === 'login') {
+                            return;
+                        }
                         if (batchHint) {
                             batchHint.className = 'error';
                             batchHint.textContent = '导入请求失败了，刷新页面看看已经进去了几张。';

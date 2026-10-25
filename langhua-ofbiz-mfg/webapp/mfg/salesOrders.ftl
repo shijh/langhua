@@ -162,9 +162,7 @@
             method: 'POST',
             credentials: 'same-origin',
             body: new URLSearchParams(new FormData(form))
-        }).then(function (answer) {
-            return answer.json();
-        }).then(function (data) {
+        }).then(jsonOrLogin).then(function (data) {
             say(data.ok, data.message);
             if (!data.ok || !block) {
                 return null;
@@ -185,7 +183,10 @@
                     }
                 }
             });
-        }).catch(function () {
+        }).catch(function (problem) {
+            if (problem && problem.message === 'login') {
+                return;
+            }
             form.submit();
         });
     }, true);

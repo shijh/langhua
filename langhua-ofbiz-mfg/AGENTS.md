@@ -428,6 +428,18 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   `orderFieldsFrom` 把它带出来，`isRefunded(fields)` 判断；识别到退款时页面把 `#refundField` 设成 `Y`、
   显示红色 `#refundBlock`（带一个“货确实到了，确认照常入库”的勾），**没勾就 `preventDefault` 不发请求**；
   服务端 `mfgReceiptFromOrder` 也有一道：`refunded=Y` 直接拒绝。退款单也不要跑 `checkOrderTotals`（退款金额对不上没意义）
+- **服务重启后 AJAX 出口必须跳登录页（Step 101）**：会话过期时 OFBiz 对 `auth="true"` 的请求回
+  **401 + 登录页 HTML**（实测 `orderImage` / `orderPeek` 都是 401，响应体里带 `USERNAME`），
+  于是 `fetch(...).then(a => a.json())` 抛异常、页面只红一句「识别请求失败，再点一次」——再点也是同一个 401。
+  现在 `webapp/mfg/js/session.js`（装饰器里在 `once.js` 之前加载）提供全局 `jsonOrLogin(answer)`：
+  401/403、被 302 到 `login`、回来的不是 JSON 而是带 `USERNAME` / `forgotPassword` 的页面，三种都
+  `location.replace('/mfg/control/login')` 并 `Promise.reject(new Error('login'))`；
+  调用方写成 `.then(jsonOrLogin).then(...)`，`catch` 里先判 `problem.message === 'login'` 就直接 return
+  （不要再显示“失败了”）。已接：到货单页的识别/批量导入、BOM 行保存（products.ftl）、
+  销售订单行改数量（salesOrders.ftl）；到货单页的 `receiptSaveJson` / `receiptLineJson` / `orderPeek`
+  失败会退回 `form.submit()`，普通 POST 本来就会落到登录页，不必改。
+  **不要在模板里再写一份**，也不要改成 `answer.json()`；逻辑有 5 个用例的 node 测试
+  （`%TEMP%\jup\js-check\session-test.js`，不联网也能跑）
 - **`receipts.ftl` 里的 `orderForm` 脚本必须在 DOM 之后接**：那个 script 写在表单**前面**，
   `document.getElementById('orderForm')` 永远是 null，于是 Step 77 的“再次导入先问”和 Step 84 的退款守卫
   在浏览器里**都没生效**（服务端测试看不出来）。现在用 `DOMContentLoaded` 后再 `wireOrderForm()`；

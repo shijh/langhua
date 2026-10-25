@@ -330,15 +330,16 @@ BAT-18650,18650 电池,1,BT1,Y,12</textarea></p>
                 body: new URLSearchParams(new FormData(form)),
                 credentials: 'same-origin',
                 headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' }
-            }).then(function (answer) {
-                return answer.json();
-            }).then(function (data) {
+            }).then(jsonOrLogin).then(function (data) {
                 if (!data.ok) {
                     say(data.message || '保存失败', false);
                     return;
                 }
                 return refreshBlock(data.message);
-            }).catch(function () {
+            }).catch(function (problem) {
+                if (problem && problem.message === 'login') {
+                    return;
+                }
                 form.submit();
             });
         });
