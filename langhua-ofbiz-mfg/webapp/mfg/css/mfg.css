@@ -268,8 +268,8 @@ td.label { background: var(--bg-widget); }
     th, td { padding: 4px 6px; }
 }
 
-/* a screenshot can be pasted or dropped onto the order block (Step 67) */
-#orderBlock.drop { outline: 2px dashed var(--accent); outline-offset: 2px; }
+/* a screenshot or the exported workbook can be pasted or dropped onto its block (Step 67 / 114) */
+#orderBlock.drop, #excelBlock.drop { outline: 2px dashed var(--accent); outline-offset: 2px; }
 kbd {
     font: inherit; font-size: .95em; padding: 0 .35em;
     border: 1px solid var(--border); border-bottom-width: 2px; border-radius: 3px;

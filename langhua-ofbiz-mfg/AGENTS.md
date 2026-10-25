@@ -501,6 +501,13 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   到货日取 `订单提交时间`（用户确认：补历史最接近）；`交易关闭` / `超时未付款，订单已关闭` / `充值成功`
   的单跳过并在 `notes` 里说明；每张单一次 `runSync("mfgReceiptFromOrder", …, -1, true)`（`overwrite=Y`），
   订单号仍是幂等键，所以同一份文件导两次不会重复买料。**别改成一次性大批事务**：坏一单不该连累别的。
+- **xlsx 也能拖进来 / Ctrl+V 粘贴（Step 114）**：`#excelBlock` 的脚本照截图那块（Step 67）的做法，
+  把文件塞回 `#excelFile.files`（`new DataTransfer()`，老浏览器失败就用内部变量 `chosen`，提交时
+  `data.set('file', chosen, chosen.name)` 兜底），所以**服务端一行没改**。两条边界：
+  ① `document` 上的 paste 监听**只拿 workbook**（`.xlsx` / `spreadsheetml` / zip），截图留给上面的识别框——
+  否则粘一张图会在这里弹“只认 xlsx”；文字粘贴一律不动（`#linesField` 还要用）；
+  ② 拖进来的不是 xlsx 才报红（“截图请拖到上面的识别框”），拖对了一律只填文件、**不自动导入**，
+  仍要点「导入 Excel」（导入会写单据，不该由一次拖放触发）。样式是 `#orderBlock.drop, #excelBlock.drop`。
 - **服务重启后 AJAX 出口必须跳登录页（Step 101）**：会话过期时 OFBiz 对 `auth="true"` 的请求回
   **401 + 登录页 HTML**（实测 `orderImage` / `orderPeek` 都是 401，响应体里带 `USERNAME`），
   于是 `fetch(...).then(a => a.json())` 抛异常、页面只红一句「识别请求失败，再点一次」——再点也是同一个 401。

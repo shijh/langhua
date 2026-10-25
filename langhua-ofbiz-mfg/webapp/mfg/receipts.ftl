@@ -689,6 +689,7 @@
             文件 <input type="file" id="excelFile" name="file" accept=".xlsx"/>
             <button type="submit" id="excelImport" data-once="Y">导入 Excel</button>
             <span id="excelHint" class="hint">淘宝「已买到的宝贝 → 导出」得到的 xlsx（1-10 页）；
+                也可以直接 <kbd>Ctrl+V</kbd> 粘贴这个文件，或者把它拖到这个框里；
                 料号取「型号款式」，没有就用商品名称；到货日用「订单提交时间」那天。</span>
         </p>
     </form>
@@ -707,6 +708,8 @@
 (function () {
     var form = document.getElementById('excelForm');
     if (!form) { return; }
+    var block = document.getElementById('excelBlock');
+    var fileField = document.getElementById('excelFile');
     var hint = document.getElementById('excelHint');
     var button = document.getElementById('excelImport');
     var result = document.getElementById('excelResult');
@@ -715,10 +718,76 @@
         hint.className = style || 'hint';
         hint.textContent = text;
     }
+    /* the workbook may come from the picker, from Ctrl+V or from a drop; all three end up as the
+       file of the input, which the form then sends exactly as before (Step 114) */
+    var chosen = null;
+    function workbookish(fileLike) {
+        var name = (fileLike && fileLike.name ? fileLike.name : '').toLowerCase();
+        var type = (fileLike && fileLike.type ? fileLike.type : '').toLowerCase();
+        return name.slice(-5) === '.xlsx' || type.indexOf('spreadsheetml') >= 0
+            || type === 'application/zip' || type === 'application/x-zip-compressed';
+    }
+    function take(fileLike, source) {
+        if (!workbookish(fileLike)) { return false; }
+        chosen = fileLike;
+        try {
+            var carrier = new DataTransfer();
+            carrier.items.add(fileLike);
+            fileField.files = carrier.files;
+        } catch (e) {
+            // an older browser refuses a scripted FileList, the form uses `chosen` anyway
+        }
+        say(source + '：' + (fileLike.name || 'xlsx') + '，点「导入 Excel」', 'ok');
+        return true;
+    }
+    /* a pasted screenshot belongs to the scanner above, so only a workbook is taken here */
+    function pastedFile(event) {
+        var data = event.clipboardData;
+        if (!data) { return null; }
+        var files = data.files || [];
+        for (var i = 0; i < files.length; i++) {
+            if (workbookish(files[i])) { return files[i]; }
+        }
+        var items = data.items || [];
+        for (var j = 0; j < items.length; j++) {
+            if (items[j].kind !== 'file') { continue; }
+            var got = items[j].getAsFile();
+            if (got && workbookish(got)) { return got; }
+        }
+        return null;
+    }
+    document.addEventListener('paste', function (event) {
+        var workbook = pastedFile(event);
+        if (!workbook) { return; }
+        event.preventDefault();
+        take(workbook, '已粘贴文件');
+        if (block && block.scrollIntoView) { block.scrollIntoView({ block: 'center' }); }
+    });
+    if (block) {
+        block.addEventListener('dragover', function (event) {
+            event.preventDefault();
+            block.classList.add('drop');
+        });
+        block.addEventListener('dragleave', function () { block.classList.remove('drop'); });
+        block.addEventListener('drop', function (event) {
+            event.preventDefault();
+            block.classList.remove('drop');
+            var dropped = (event.dataTransfer && event.dataTransfer.files) || [];
+            if (!dropped.length) { return; }
+            if (!take(dropped[0], '已拖入文件')) {
+                say('只认淘宝导出的 xlsx（' + (dropped[0].name || '这个文件') + ' 不是）；'
+                    + '截图请拖到上面的识别框', 'error');
+            }
+        });
+    }
     form.addEventListener('submit', function (event) {
         if (!window.FormData || !window.fetch) { return; }
         event.preventDefault();
         var data = new FormData(form);
+        if (chosen && !(fileField.files && fileField.files.length)) {
+            try { data.set('file', chosen, chosen.name || 'orders.xlsx'); }
+            catch (e) { data.append('file', chosen); }
+        }
         data.append('ajax', 'Y');
         say('正在读文件，一张单一张到货单，请稍等…', 'hint');
         fetch('/mfg/control/orderExcel', { method: 'POST', body: data, credentials: 'same-origin' })
