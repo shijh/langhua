@@ -9184,8 +9184,11 @@ always
         fields.put("paidTotal", jsonStringField(text, "paidTotal"));
         // a Taobao red packet or coupon: the difference between the articles plus freight and what was paid
         fields.put("discount", jsonStringField(text, "discount"));
-        // a refunded or closed order must not be booked into stock, so the answer carries that too
+        // a refunded order must not be booked into stock, so the answer carries that too
         fields.put("refunded", jsonStringField(text, "refunded"));
+        // and a closed one (交易关闭 / 已取消: the deal never went through, usually never paid) is
+        // not booked in either - the shop prints 交易关闭 on its own badge, next to 交易成功
+        fields.put("closed", jsonStringField(text, "closed"));
         // how many article rows the block prints: six colours of one board are six rows that look
         // the same, and a model that merges them into one item still adds up to what was paid
         fields.put("rowCount", jsonStringField(text, "rowCount"));
@@ -9500,14 +9503,39 @@ always
     }
 
     /**
-     * Says whether a recognised shop order is refunded or closed. Such an order never stayed in the
-     * shop, so booking it into stock would invent material that is not on the shelf.
+     * Says whether a recognised shop order was refunded. Such an order never stayed in the shop, so
+     * booking it into stock would invent material that is not on the shelf.
      *
      * @param fields the recognised fields of {@link #orderFieldsFrom(String)}
-     * @return {@code true} when the screenshot said 退款成功 / 已退款 / 交易关闭 and so on
+     * @return {@code true} when the screenshot said 退款成功 / 已退款 / 退款中 / 退货退款
      */
     static boolean isRefunded(Map<String, String> fields) {
         return fields != null && "Y".equalsIgnoreCase(toText(fields.get("refunded")));
+    }
+
+    /**
+     * Says whether a recognised shop order was closed without being paid (交易关闭 / 已取消).
+     *
+     * <p>The shop prints 交易关闭 right where a finished order prints 交易成功; the person confirmed
+     * it means the deal never went through (usually the money was never paid), so such an order is
+     * not booked in either - only a hand typed one is, for the rare parcel that turns up anyway.
+     *
+     * @param fields the recognised fields of {@link #orderFieldsFrom(String)}
+     * @return {@code true} when the screenshot said 交易关闭 / 已取消 / 交易失败
+     */
+    static boolean isClosed(Map<String, String> fields) {
+        return fields != null && "Y".equalsIgnoreCase(toText(fields.get("closed")));
+    }
+
+    /**
+     * Says whether a recognised order is to be left out of the stock this time: it was refunded, or
+     * the deal never went through.
+     *
+     * @param fields the recognised fields of {@link #orderFieldsFrom(String)}
+     * @return {@code true} when the order must not be booked in
+     */
+    static boolean notToBookIn(Map<String, String> fields) {
+        return isRefunded(fields) || isClosed(fields);
     }
 
     /**
@@ -9933,7 +9961,7 @@ always
                 }
                 kept.put("lines", joinRows(kept.get("lines"), order.get("lines")));
                 for (String field : new String[] {"platform", "shop", "orderDate", "freight",
-                        "paidTotal", "discount", "refunded"}) {
+                        "paidTotal", "discount", "refunded", "closed"}) {
                     String value = kept.get(field);
                     if (value == null || value.trim().isEmpty()) {
                         kept.put(field, order.get(field));

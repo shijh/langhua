@@ -47,6 +47,7 @@ import org.apache.ofbiz.base.util.UtilGenerics;
 import org.apache.ofbiz.entity.Delegator;
 import org.apache.ofbiz.service.LocalDispatcher;
 
+import static org.langhua.ofbiz.mfg.MfgServices.isClosed;
 import static org.langhua.ofbiz.mfg.MfgServices.isRefunded;
 
 /**
@@ -133,7 +134,7 @@ public final class MfgOrderScan {
             + " JSON object only, no prose, no explanation:"
             + " {\"orderCount\":\"1\",\"orders\":[{\"orderNo\":\"\",\"shop\":\"\",\"platform\":\"\","
             + "\"orderDate\":\"\",\"paidTotal\":\"\",\"freight\":\"\",\"discount\":\"\","
-            + "\"refunded\":\"\",\"rowCount\":\"\",\"items\":[{\"code\":\"\",\"name\":\"\",\"qty\":\"\",\"amount\":\"\"}]}]}"
+            + "\"refunded\":\"\",\"closed\":\"\",\"rowCount\":\"\",\"items\":[{\"code\":\"\",\"name\":\"\",\"qty\":\"\",\"amount\":\"\"}]}]}"
             + " orderCount is how many order blocks the picture shows; orders has one element per"
             + " block, top to bottom, and items has one element per article of that order - two"
             + " products are two elements, never one. rowCount is how many article rows that block"
@@ -148,8 +149,10 @@ public final class MfgOrderScan {
             + " discount is the money taken off the whole order (红包 / 优惠券 / 满减): it is what makes"
             + " paidTotal smaller than the articles plus the freight, 0 when there is none."
             + " refunded is Y only when the money went back: 退款成功 / 已退款 / 退款中 / 退货退款."
-            + " 交易关闭 / 已取消 is not a refund - such an order often arrived all the same - so"
-            + " refunded stays N. 7天无理由退货 / 退货宝 / 退换货 are the shop's policy printed on every"
+            + " closed is Y when the badge says 交易关闭 / 已取消 / 交易失败 - the deal never went"
+            + " through, usually because it was never paid - and N when it says 交易成功; the two are"
+            + " different states, so a closed order has refunded N and a refunded one closed N."
+            + " 7天无理由退货 / 退货宝 / 退换货 are the shop's policy printed on every"
             + " row, not the state of the order: never answer Y for those."
             + " In items, quantity is how many pieces were bought: Taobao sells resistors and"
             + " capacitors by the pack, and the grey spec line under the title prints the pack size"
@@ -184,7 +187,7 @@ public final class MfgOrderScan {
             + " picture. Answer with one JSON object only, no prose:"
             + " {\"orderCount\":\"1\",\"orders\":[{\"orderNo\":\"\",\"shop\":\"\",\"platform\":\"\","
             + "\"orderDate\":\"\",\"paidTotal\":\"\",\"freight\":\"\",\"discount\":\"\","
-            + "\"refunded\":\"Y or N\",\"rowCount\":\"\","
+            + "\"refunded\":\"Y or N\",\"closed\":\"Y or N\",\"rowCount\":\"\","
             + "\"items\":[{\"code\":\"\",\"name\":\"\",\"qty\":\"\",\"amount\":\"\"}]}]}"
             + " orderCount = how many order blocks you see; one element per block, top to bottom."
             + " rowCount = how many article rows that block prints (six colours = 6), and items has"
@@ -192,8 +195,9 @@ public final class MfgOrderScan {
             + " platform = 淘宝 / 天猫 / 京东 / 拼多多 / 抖音. shop without the platform word."
             + " paidTotal = 实付款 (or 合计). freight = the shipping money (含运费 / 运费)."
             + " discount = the red packet / coupon / 满减 taken off the order, 0 when none."
-            + " refunded = Y only when it says 退款成功 / 已退款 / 退款中 / 退货退款; 交易关闭 / 已取消"
-            + " is not a refund, and neither is 退货宝 / 7天无理由退货, so refunded is N."
+            + " refunded = Y only when it says 退款成功 / 已退款 / 退款中 / 退货退款 (never for 退货宝 /"
+            + " 7天无理由退货 - that is a shop policy). closed = Y when the badge says 交易关闭 /"
+            + " 已取消 / 交易失败, else N; a closed order is not a refund, so its refunded is N."
             + " items = one element per article,"
             + " never two products in one element: their amounts add up to paidTotal minus freight;"
             + " rows that print the same title are still one element each, with the colour in code;"
@@ -300,6 +304,7 @@ public final class MfgOrderScan {
                         + " 张，可能漏了；核对一下，也可以再点一次「识别并核对」）"
                 : "";
         int refundedCount = 0;
+        int closedCount = 0;
         for (Map<String, String> order : orders) {
             // a package description as the part number does not fit the code field: short it here
             // so the page already shows the code that will be stored
@@ -313,6 +318,13 @@ public final class MfgOrderScan {
                 order.put("note", "显示已退款，这一次不入库；货确实到了就手工粘明细建单，"
                         + "确实退了就把它登记到「退款 / 关闭的单」里");
                 refundedCount++;
+            } else if (isClosed(order)) {
+                // 交易关闭 means the deal never went through - the person confirmed it is usually an
+                // order they never paid. Nothing was shipped, so booking it would invent stock; a
+                // parcel that does turn up can still be typed in by hand (Step 109).
+                order.put("note", "交易关闭：这张单没成交（一般是从没付款），这一次不入库；"
+                        + "万一货真发过来了，就手工粘明细建单");
+                closedCount++;
             } else {
                 // freight is what the page says, but goods plus freight must come to what was paid
                 String totals = MfgServices.checkOrderTotals(order);
@@ -353,16 +365,20 @@ public final class MfgOrderScan {
         String message = orders.size() == 1
                 ? "识别到 1 张单"
                 : "识别到 " + orders.size() + " 张单";
-        if (refundedCount > 0) {
-            if (refundedCount == orders.size()) {
+        int skipped = refundedCount + closedCount;
+        if (skipped > 0) {
+            String what = refundedCount > 0 && closedCount > 0
+                    ? "退款/关闭的"
+                    : (refundedCount > 0 ? "已退款的" : "交易关闭的");
+            if (skipped == orders.size()) {
                 message += orders.size() == 1
-                        ? "，这张单显示已退款/已关闭，按规矩不入库（订单号已经记进「退款 / 关闭的单」）"
-                        : "，都是退款/关闭的，按规矩不入库（订单号已经记进「退款 / 关闭的单」）";
+                        ? "，这张单是" + what + "，按规矩不入库"
+                        : "，都是" + what + "，按规矩不入库";
             } else {
-                message += "（其中 " + refundedCount + " 张已退款，不会入库）";
+                message += "（其中 " + skipped + " 张是" + what + "，不会入库）";
             }
         }
-        if (refundedCount < orders.size()) {
+        if (skipped < orders.size()) {
             message += "，核对后点「" + (orders.size() == 1 ? "导入这张单" : "导入这些单") + "」";
         }
         return answer(response, true, message + sliceNote + shortfall, orders, null);

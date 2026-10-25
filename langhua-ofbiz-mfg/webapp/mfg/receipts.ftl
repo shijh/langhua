@@ -504,6 +504,11 @@
             });
             return total;
         }
+        /* a refunded order, or one whose deal never went through (交易关闭): neither is on the shelf,
+           so neither is booked in (Step 108 / 109) */
+        function leftOut(order) {
+            return order.refunded === 'Y' || order.closed === 'Y';
+        }
         function showOrders(found) {
             orders = found;
             if (!ordersBox || !orderRows) { return; }
@@ -543,21 +548,24 @@
                 var off = !isNaN(paid) && goods > 0
                     && Math.abs(goods + (parseFloat(order.freight) || 0)
                         - (parseFloat(order.discount) || 0) - paid) > 0.005;
+                /* 交易关闭 is not a refund: the deal never went through (usually never paid), so it is
+                   left out as well - the two reasons are spelled out, because the person acts
+                   differently on each (Step 109) */
+                var kept = leftOut(order);
                 var statusText = order.refunded === 'Y' ? '已退款，不入库'
-                    : (off ? '实付与明细对不上，请核对' : '待导入');
+                    : (order.closed === 'Y' ? '交易关闭，不入库'
+                        : (off ? '实付与明细对不上，请核对' : '待导入'));
                 var status = cell(row, statusText);
-                if (order.refunded === 'Y' || off) { status.className = 'error'; }
+                if (kept || off) { status.className = 'error'; }
                 orderRows.appendChild(row);
                 orderRows.appendChild(linesRowOf(order, key));
             });
             ordersBox.hidden = false;
-            var refundedAll = found.length > 0 && found.every(function (order) {
-                return order.refunded === 'Y';
-            });
+            var nothingToImport = found.length > 0 && found.every(leftOut);
             if (importButton) {
-                /* nothing to import when every block is a refund: say so instead of letting the
-                   person press a button that only answers "not in the stock" */
-                importButton.hidden = refundedAll;
+                /* nothing to import when every block is refunded or closed: say so instead of
+                   letting the person press a button that only answers "not in the stock" */
+                importButton.hidden = nothingToImport;
                 importButton.textContent = found.length > 1 ? '导入这些单' : '导入这张单';
             }
             if (batchHint) {
@@ -566,10 +574,10 @@
                 }).map(function (order) {
                     return (order.orderNo || '一张单') + '：' + order.note;
                 });
-                batchHint.className = refundedAll ? 'error' : 'hint';
-                if (refundedAll) {
-                    batchHint.textContent = '这张截图里的单都已退款/关闭，按规矩不入库；'
-                        + '订单号已经记进下面的「退款 / 关闭的单」。货确实到了就去那儿撤掉标记再导。';
+                batchHint.className = nothingToImport ? 'error' : 'hint';
+                if (nothingToImport) {
+                    batchHint.textContent = '这张截图里的单都已退款或交易关闭，按规矩不入库；'
+                        + '真收到货了就手工粘明细建单。';
                     return;
                 }
                 batchHint.textContent = (found.length > 1
@@ -584,7 +592,7 @@
                 var params = new URLSearchParams();
                 var wanted = [];
                 orders.forEach(function (order) {
-                    if (order.refunded === 'Y') { return; }
+                    if (leftOut(order)) { return; }
                     var index = wanted.length;
                     wanted.push(order);
                     params.append('o' + index + '.orderNo', order.orderNo || '');
@@ -597,7 +605,7 @@
                 if (!wanted.length) {
                     if (batchHint) {
                         batchHint.className = 'error';
-                        batchHint.textContent = '这几张单都是退款/关闭的，按规矩不入库。';
+                        batchHint.textContent = '这几张单都是退款或交易关闭的，按规矩不入库。';
                     }
                     return;
                 }
@@ -635,7 +643,7 @@
                             batchHint.className = (done + already) === wanted.length ? 'ok' : 'error';
                             batchHint.textContent = '导入完成：' + done + ' 张入库'
                                 + (already > 0 ? '，' + already + ' 张之前已入过（这次没新增）' : '')
-                                + (skipped > 0 ? '，' + skipped + ' 张退款单按规矩没入' : '')
+                                + (skipped > 0 ? '，' + skipped + ' 张退款或交易关闭的单按规矩没入' : '')
                                 + ((done + already) < wanted.length ? '，其余见每行的原因' : '') + '。';
                         }
                         importButton.className = importButton.className.replace(/\s*\bbusy\b/g, '');

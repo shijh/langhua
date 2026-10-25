@@ -464,15 +464,16 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   所以登记走 `dispatcher.runSync("mfgRefundedOrderSave", …, -1, true)`（`rememberRefundedOrderInNewTransaction`）。
   旧库要跑一次 `tools/refunded-order.sql`（停实例 → ij → 起），和 `part-code-100.sql` 一样；
   OFBiz 启动时会自己补上漏写的 `CREATED_TX_STAMP` 列（日志里能看见 `[addColumn]`）
-- **退款/关闭的单不入库（Step 84/108）**：识图的 prompt 多了 `refunded`，
-  **只有「退款成功 / 已退款 / 退款中 / 退货退款」才填 Y**；「交易关闭 / 已取消」只是交易状态结束、
-  货往往照常收到（用户实测有一单就是这样），所以 **refunded 保持 N、照常可导入、不进黑名单**（Step 108）；
-  `退货宝` / `7天无理由退货` / `退换货` 是店铺政策、每行都印，**不是订单状态**（提示词里写明了）；
+- **退款 / 交易关闭的单都不入库，但两者不是一回事（Step 84/108/109）**：prompt 里有 `refunded` 与
+  `closed` 两个字段——`refunded=Y` 只认「退款成功 / 已退款 / 退款中 / 退货退款」，
+  `closed=Y` 认「交易关闭 / 已取消 / 交易失败」（**用户确认：交易关闭＝这笔交易没成交，通常是一直没付款**，
+  货根本没发）；`退货宝` / `7天无理由退货` / `退换货` 是店铺政策、每行都印，两个字段都填 N。
+  `isRefunded` / `isClosed` / `notToBookIn` 判断，`scan` 给两种不同的 note；页面 `leftOut(order)` 把两种行
+  都标红（「已退款，不入库」/「交易关闭，不入库」）且**都不提交**，整张截图都是这两种时把「导入」按钮藏起来。
+  **两种都不写黑名单**：读错一次只是这一轮不入库；`mfgReceiptFromOrder` 只对 `refunded=Y` 硬拒，
+  `closed` 不拦——万一包裹真到了，手工粘明细就能入库。
   **19 位订单号可能少一位**（实测同一张图/不同图读出 `…500570` 与 `…00570`），而订单号是导入的幂等键，
   所以“重复导入是覆盖”只在两次读到的号相同时成立——这是已知局限，别拿它去放宽判据
-  `orderFieldsFrom` 把它带出来，`isRefunded(fields)` 判断；识别到退款时页面把 `#refundField` 设成 `Y`、
-  显示红色 `#refundBlock`（带一个“货确实到了，确认照常入库”的勾），**没勾就 `preventDefault` 不发请求**；
-  服务端 `mfgReceiptFromOrder` 也有一道：`refunded=Y` 直接拒绝。退款单也不要跑 `checkOrderTotals`（退款金额对不上没意义）
 - **服务重启后 AJAX 出口必须跳登录页（Step 101）**：会话过期时 OFBiz 对 `auth="true"` 的请求回
   **401 + 登录页 HTML**（实测 `orderImage` / `orderPeek` 都是 401，响应体里带 `USERNAME`），
   于是 `fetch(...).then(a => a.json())` 抛异常、页面只红一句「识别请求失败，再点一次」——再点也是同一个 401。

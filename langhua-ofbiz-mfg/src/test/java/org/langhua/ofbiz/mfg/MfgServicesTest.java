@@ -1331,6 +1331,40 @@ public class MfgServicesTest {
     }
 
     @Test
+    public void keepsAClosedOrderOutOfTheStockTooButSaysSoDifferently() {
+        // 交易关闭: the deal never went through (the person confirmed they simply never paid), so the
+        // parts were never shipped - it is not a refund, and the page must say which of the two it is
+        Map<String, String> closed = oneOrder(
+                "{\"orderNo\":\"1975537021797500570\",\"paidTotal\":\"79.00\",\"freight\":\"0.00\","
+                + "\"refunded\":\"N\",\"closed\":\"Y\","
+                + "\"lines\":\"FOGO激光测距仪,FOGO激光测距仪 旗舰款,1,79.00\"}");
+        assertTrue(MfgServices.isClosed(closed));
+        assertTrue(MfgServices.notToBookIn(closed));
+        assertFalse(MfgServices.isRefunded(closed));
+
+        // 交易成功 with the same article is booked in
+        Map<String, String> done = oneOrder(
+                "{\"orderNo\":\"1975568594158500570\",\"paidTotal\":\"69.00\",\"freight\":\"0.00\","
+                + "\"refunded\":\"N\",\"closed\":\"N\","
+                + "\"lines\":\"FOGO激光测距仪,FOGO激光测距仪 旗舰款,1,69.00\"}");
+        assertFalse(MfgServices.isClosed(done));
+        assertFalse(MfgServices.notToBookIn(done));
+
+        // a refund is left out as well, but it is not a closed order
+        Map<String, String> refunded = oneOrder(
+                "{\"orderNo\":\"42\",\"refunded\":\"Y\",\"lines\":\"X,part,1,1.00\"}");
+        assertTrue(MfgServices.notToBookIn(refunded));
+        assertFalse(MfgServices.isClosed(refunded));
+
+        // answers read before the flag existed carry neither
+        assertFalse(MfgServices.isClosed(oneOrder(
+                "{\"orderNo\":\"42\",\"lines\":\"X,part,1,1.00\"}")));
+        assertFalse(MfgServices.notToBookIn(oneOrder(
+                "{\"orderNo\":\"42\",\"lines\":\"X,part,1,1.00\"}")));
+        assertFalse(MfgServices.isClosed(null));
+    }
+
+    @Test
     public void fitsALongPartNumberIntoTheCodeField() {
         // a code that fits is kept, the blanks around it are not
         assertEquals("CAP-104-50V", MfgServices.fittingComponentCode(" CAP-104-50V "));
