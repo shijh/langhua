@@ -84,14 +84,16 @@ public final class MfgOrderScan {
     static final int ATTEMPTS = 3;
 
     /**
-     * How tall a picture may be before it is cut into slices. Three or four order blocks fit in this
-     * much, which is what one call reads reliably; five blocks in one picture is where the model
-     * starts dropping whole orders.
+     * How tall a picture may be before it is cut into slices, and how far a cut may move to land on a
+     * blank row. A cut through the middle of an order block leaves its title in one slice and its
+     * articles in the next, and the model then hangs those articles on the block that follows (a page
+     * of five orders came back as four right ones and one written out of two).
      */
     static final int SLICE_HEIGHT = 700;
 
-    /** How much two neighbouring slices share, so an order block is whole in at least one of them. */
-    static final int SLICE_OVERLAP = 150;
+    /** How far the cut may slide to find a row with no text, and how many pixels one row is sampled at. */
+    static final int SLICE_SEARCH = 180;
+    private static final int SLICE_SAMPLE = 4;
 
     /** Slices that are read at the same time; four small pictures take about as long as one. */
     static final int MAX_PARALLEL = 4;
@@ -314,6 +316,23 @@ public final class MfgOrderScan {
                 }
             }
         }
+        // a block that carries exactly the articles and the money of another block was probably copied
+        // from it while the page was read: say so, the money of a copy adds up and nothing else notices
+        Map<String, String> firstOfKind = new LinkedHashMap<>();
+        for (Map<String, String> order : orders) {
+            String content = MfgServices.orderContentKey(order);
+            if (content == null) {
+                continue;
+            }
+            String other = firstOfKind.get(content);
+            if (other == null) {
+                firstOfKind.put(content, order.get("orderNo"));
+                continue;
+            }
+            String copied = "明细与单号 " + other + " 那张一模一样，可能识别时抄错了，请对着截图核对";
+            String note = order.get("note");
+            order.put("note", note == null ? copied : note + "；" + copied);
+        }
         // one order is a list of one: the page always gets the array, so there is only one path to walk
         // (a single order used to fill the form instead, which the shop found confusing)
         String message = orders.size() == 1
@@ -401,6 +420,7 @@ public final class MfgOrderScan {
                     && !MfgServices.anyUnreadable(got)
                     && !MfgServices.ignoredThePackSize(reply, MfgServices.linesOfOrders(got))
                     && !anyRowsMissing(got)
+                    && !MfgServices.repeatsAnotherOrder(got)
                     && (partial || !anyTotalsDisagree(got))) {
                 bestOrders = got;
                 bestReply = reply;
@@ -416,9 +436,13 @@ public final class MfgOrderScan {
     }
 
     /**
-     * Cuts a tall screenshot into overlapping slices, so each call sees only one or two order blocks.
-     * A picture that already fits is sent as it is; a picture that cannot be decoded is sent as it is
-     * too, so an odd format never loses the scan.
+     * Cuts a tall screenshot into slices, so each call sees only one or two order blocks. A picture
+     * that already fits is sent as it is; a picture that cannot be decoded is sent as it is too, so an
+     * odd format never loses the scan.
+     *
+     * <p>The cut slides to a row without text ({@code blankRowNear}), so an order block is whole in
+     * one of the slices: a cut through a block used to leave its title in one slice and its articles
+     * in the next, and the model then attached them to the order below.
      *
      * @param image the uploaded image
      * @return one entry per slice
@@ -436,12 +460,15 @@ public final class MfgOrderScan {
             slices.add(image);
             return slices;
         }
-        int step = SLICE_HEIGHT - SLICE_OVERLAP;
-        for (int top = 0; top < full.getHeight(); top += step) {
-            int bottom = Math.min(full.getHeight(), top + SLICE_HEIGHT);
+        int height = full.getHeight();
+        int top = 0;
+        while (top < height) {
+            int bottom = Math.min(height, top + SLICE_HEIGHT);
+            if (bottom < height) {
+                bottom = blankRowNear(full, top, bottom);
+            }
             ByteArrayOutputStream out = new ByteArrayOutputStream();
             try {
-                // the overlap keeps an order block whole in at least one slice
                 ImageIO.write(full.getSubimage(0, top, full.getWidth(), bottom - top), "png", out);
             } catch (IOException e) {
                 Debug.logError(e, "Could not write a slice of the screenshot", MODULE);
@@ -450,11 +477,61 @@ public final class MfgOrderScan {
                 return slices;
             }
             slices.add(out.toByteArray());
-            if (bottom >= full.getHeight()) {
+            if (bottom >= height) {
                 break;
             }
+            top = bottom;
         }
         return slices;
+    }
+
+    /**
+     * The row closest to the wanted cut that carries no text, so the cut falls between two order
+     * blocks instead of through one. A page prints a blank line (or the grey band of the next block)
+     * between orders, and such a row has almost no colour changes across it.
+     *
+     * @param image the picture being cut
+     * @param top the first row of the slice
+     * @param wanted the row the slice would end at
+     * @return the row to end the slice at
+     */
+    private static int blankRowNear(BufferedImage image, int top, int wanted) {
+        // a slice that only holds a sliver of a block is worse than a cut through it
+        int lowest = top + SLICE_HEIGHT / 2;
+        int from = Math.max(lowest, wanted - SLICE_SEARCH);
+        int to = Math.min(image.getHeight() - 1, wanted + SLICE_SEARCH);
+        int best = wanted;
+        int bestChanges = Integer.MAX_VALUE;
+        for (int y = from; y <= to; y++) {
+            int changes = colourChanges(image, y);
+            if (changes < bestChanges || (changes == bestChanges
+                    && Math.abs(y - wanted) < Math.abs(best - wanted))) {
+                bestChanges = changes;
+                best = y;
+                if (changes == 0) {
+                    break;
+                }
+            }
+        }
+        return best;
+    }
+
+    /**
+     * @param image the picture
+     * @param y the row to look at
+     * @return how often the colour changes along that row; a blank or single coloured row gives 0
+     */
+    private static int colourChanges(BufferedImage image, int y) {
+        int changes = 0;
+        int previous = image.getRGB(0, y);
+        for (int x = SLICE_SAMPLE; x < image.getWidth(); x += SLICE_SAMPLE) {
+            int rgb = image.getRGB(x, y);
+            if (rgb != previous) {
+                changes++;
+                previous = rgb;
+            }
+        }
+        return changes;
     }
 
     /**

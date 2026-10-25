@@ -414,6 +414,15 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   - 入库（`receiptFromOrder`）里同一个料号可以有好几行：单据的每一行**只能被认领一次**（`claimOne` +
     `Set<String> claimed`，行 id 是 `receiptId#lineSeq`），所以六行建六个批次、重跑同一张单是六次覆盖而不是十二行。
     改这附近时别再写成 `Map<code, line>`（踩过：六行合成一行、后面五次被 skip）
+- **切段要在订单之间切，不是“随便切 + 重叠”（Step 104）**：`slicesOf` 现在把切点滑到**空白行**
+  （`blankRowNear`：在 700±180 像素里找“整行几乎没有颜色变化”的那一行，`colourChanges` 每 4 个像素采样一次），
+  不再靠 150 像素重叠。原因是真机踩过的错：一张 2869×1694 的 5 单截图切在第二单中间，
+  于是“订单号在上一段、商品在下一段”，模型把下段的商品挂到了下一张单上——
+  第 5 单变成 19.09（= 17.90 + 1.19）、明细是两张单混在一起，而且还**对得上账**。
+  配套两道：`repeatsAnotherOrder`（两张单明细与实付完全相同 → 重发，并在核对表里标“可能抄错了”）；
+  `roundingSlack`（页面单价四舍五入到分，0.095 印成 0.10，两件就是 1.20 对 1.19 → 差一两分算对得上，
+  `checkOrderTotals` 与 `totalsDisagree` 用同一个额度，别改回 0.005）；模型把划线价当优惠时
+  （`0.09` 旁边就是 `0.10 ×2`），`tidyOrder` 会展试“不带优惠”的读法，对上就把优惠清零。
 - **`jsonStringField` 不能用正则（Step 86 踩坑）**：原来是
   `"name"\s*:\s*"((?:[^"\\]|\\.)*)"`，遇到 thinking 模型那种几千字符的 `content` 会
   **`StackOverflowError` in `Pattern$Loop.match`**（`OrderImage` 请求 23 秒后 200 + **空 body**，

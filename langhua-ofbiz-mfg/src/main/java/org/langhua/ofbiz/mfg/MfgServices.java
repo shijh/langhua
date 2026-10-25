@@ -8977,7 +8977,9 @@ always
             if (out.length() > 0) {
                 out.append('\n');
             }
-            String fitted = fittingComponentCode(row[0]);
+            // the note a shop prints behind the title ([交易快照]) is not part of the part number, and
+            // a model that has no code to copy often answers with the whole title
+            String fitted = fittingComponentCode(rowKey(row[0]));
             // only a shortened code needs the full number kept in the name
             String name = fitted.equals(row[0]) ? (row[1] == null ? "" : row[1])
                     : nameWithFullCode(row[1], row[0]);
@@ -9281,6 +9283,48 @@ always
     }
 
     /**
+     * What two orders of one answer share when one of them was copied from the other: the same
+     * articles and the same money. A model reading a list block by block sometimes carries the
+     * articles of the block before into the next one; the copy adds up (its freight and its paid
+     * total come along too), so neither the money check nor the row count can see it.
+     *
+     * @param order one order of an answer
+     * @return the key two copies share, {@code null} when the order has no articles
+     */
+    static String orderContentKey(Map<String, String> order) {
+        if (order == null) {
+            return null;
+        }
+        List<String[]> rows = parseOrderArticleLines(order.get("lines"));
+        if (rows.isEmpty()) {
+            return null;
+        }
+        List<String> parts = new ArrayList<>();
+        for (String[] row : rows) {
+            parts.add(rowIdentity(row));
+        }
+        java.util.Collections.sort(parts);
+        return String.join(";", parts) + "|" + order.get("paidTotal") + "|" + order.get("freight");
+    }
+
+    /**
+     * Says whether two different orders of one answer carry exactly the same articles and money.
+     *
+     * @param orders the orders of one answer
+     * @return {@code true} when one order looks copied from another
+     */
+    static boolean repeatsAnotherOrder(List<Map<String, String>> orders) {
+        Set<String> seen = new LinkedHashSet<>();
+        for (Map<String, String> order : orders) {
+            String key = orderContentKey(order);
+            if (key != null && !seen.add(key)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
      * Tells whether the answer repeats the answer format instead of the orders. A model that starts
      * explaining the format usually read the picture badly, so the caller sends it once more.
      *
@@ -9457,8 +9501,9 @@ always
         }
         Double freight = optionalAmount(fields.get("freight"));
         Double discount = optionalAmount(fields.get("discount"));
+        List<String[]> rows = parseOrderArticleLines(fields.get("lines"));
         double goods = 0.0;
-        for (String[] row : parseOrderArticleLines(fields.get("lines"))) {
+        for (String[] row : rows) {
             goods += toDouble(row[3], 0.0);
         }
         goods = round2(goods);
@@ -9466,13 +9511,16 @@ always
             // no line could be read: there is nothing to check the freight against
             return null;
         }
+        // a page prints its unit prices rounded to the cent (0.095 shows as 0.10), so two pieces of
+        // 0.10 come to 1.20 where 1.19 was paid: that is rounding, not a missing article
+        double slack = roundingSlack(rows);
         double freightValue = freight == null ? 0.0 : freight.doubleValue();
         if (freight == null) {
             // nothing printed next to 含运费 means there was no freight
             fields.put("freight", "0.00");
         }
         if (discount != null && discount.doubleValue() > 0.0
-                && Math.abs(round2(goods + freightValue) - paid.doubleValue()) < 0.005) {
+                && Math.abs(round2(goods + freightValue) - paid.doubleValue()) <= slack) {
             // the articles and the freight already come to what was paid, so a discount the model
             // reported (a struck through price read as one) would only break the balance
             fields.put("discount", "0");
@@ -9490,7 +9538,7 @@ always
         }
         double discountValue = discount == null ? 0.0 : discount.doubleValue();
         double expected = round2(goods + freightValue - discountValue);
-        if (Math.abs(expected - paid.doubleValue()) < 0.005) {
+        if (Math.abs(expected - paid.doubleValue()) <= slack) {
             return null;
         }
         if (expected < paid.doubleValue()) {
@@ -9505,6 +9553,18 @@ always
                 + money(Double.valueOf(freightValue))
                 + (discountValue > 0.0 ? " − 优惠 " + money(Double.valueOf(discountValue)) : "")
                 + " 是 " + money(Double.valueOf(expected)) + "，比实付还多，请核对";
+    }
+
+    /**
+     * @param rows the article rows of one order
+     * @return the few cents a page may lose by printing its unit prices rounded
+     */
+    private static double roundingSlack(List<String[]> rows) {
+        double pieces = 0.0;
+        for (String[] row : rows) {
+            pieces += Math.max(1.0, toDouble(row[2], 1.0));
+        }
+        return round2(0.005 * pieces + 0.005);
     }
 
     /**
@@ -9523,8 +9583,9 @@ always
         if (paid == null || freight == null) {
             return false;
         }
+        List<String[]> rows = parseOrderArticleLines(order.get("lines"));
         double goods = 0.0;
-        for (String[] row : parseOrderArticleLines(order.get("lines"))) {
+        for (String[] row : rows) {
             goods += toDouble(row[3], 0.0);
         }
         if (goods <= 0.0) {
@@ -9534,8 +9595,9 @@ always
         double discountValue = discount == null ? 0.0 : discount.doubleValue();
         double total = round2(goods + freight.doubleValue() - discountValue);
         // paying less than goods plus freight is a red packet or a coupon, not a lost article: only a
-        // shortfall towards the shop (paid more than the lines) means something is missing
-        return total < paid.doubleValue() && Math.abs(total - paid.doubleValue()) >= 0.005;
+        // shortfall towards the shop (paid more than the lines) means something is missing, and a few
+        // cents of rounded unit prices are no sign of anything
+        return total < paid.doubleValue() && Math.abs(total - paid.doubleValue()) > roundingSlack(rows);
     }
 
     /** @return the amount with two decimals, for a sentence */
@@ -9629,12 +9691,20 @@ always
             // what the articles alone should come to (paid = goods + freight - discount)
             double wanted = round2(paid.doubleValue() - freightValue + discountValue);
             kept = withoutRepeatedRows(rows, wanted);
-            if (kept.size() > 1) {
-                // the rows sometimes carry a summary row on top (the subtotal, or the paid total
-                // itself), and sometimes the price of one piece instead of the money of the row: the
-                // reading that adds up wins, so a row may be dropped and the amounts multiplied by
-                // the quantity
-                kept = readingThatAddsUp(kept, wanted);
+            // the rows sometimes carry a summary row on top (the subtotal, or the paid total itself),
+            // and sometimes the price of one piece instead of the money of the row: the reading that
+            // adds up wins, so a row may be dropped and the amounts multiplied by the quantity
+            kept = readingThatAddsUp(kept, wanted);
+            if (discountValue > 0.0 && !addsUp(kept, wanted)) {
+                // the discount the model reported may be the struck through price of one piece (0.09
+                // beside 0.10): read the rows once more without it, and keep the reading that adds up
+                double plain = round2(paid.doubleValue() - freightValue);
+                List<String[]> withoutDiscount = readingThatAddsUp(
+                        withoutRepeatedRows(rows, plain), plain);
+                if (addsUp(withoutDiscount, plain)) {
+                    kept = withoutDiscount;
+                    order.put("discount", "0");
+                }
             }
         }
         StringBuilder lines = new StringBuilder();
@@ -9680,7 +9750,7 @@ always
     }
 
     /**
-     * @param rows the article rows
+     * @param rows the article rows of one order
      * @return what the amounts of the rows come to
      */
     private static double sumOfRows(List<String[]> rows) {
@@ -9689,6 +9759,18 @@ always
             sum += toDouble(row[3], 0.0);
         }
         return sum;
+    }
+
+    /**
+     * Whether the amounts of the rows come to what they should. A page rounds its unit prices to the
+     * cent, so a few cents are allowed.
+     *
+     * @param rows the article rows
+     * @param wanted what the articles alone should come to
+     * @return {@code true} when the rows add up
+     */
+    private static boolean addsUp(List<String[]> rows, double wanted) {
+        return Math.abs(round2(sumOfRows(rows)) - wanted) <= 0.06;
     }
 
     /**

@@ -914,6 +914,30 @@ public class MfgServicesTest {
     }
 
     @Test
+    public void cutsThePageBetweenOrderBlocksNotThroughOne() throws IOException {
+        // rows 650..700 carry text (a black/white pattern), so a cut there would split one order
+        // block into a title in one slice and its articles in the next
+        BufferedImage image = new BufferedImage(400, 1600, BufferedImage.TYPE_INT_RGB);
+        java.awt.Graphics2D pen = image.createGraphics();
+        pen.setColor(java.awt.Color.WHITE);
+        pen.fillRect(0, 0, 400, 1600);
+        pen.setColor(java.awt.Color.BLACK);
+        for (int y = 650; y <= 700; y++) {
+            for (int x = 0; x < 400; x += 2) {
+                pen.fillRect(x, y, 1, 1);
+            }
+        }
+        pen.dispose();
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        ImageIO.write(image, "png", out);
+        List<byte[]> slices = MfgOrderScan.slicesOf(out.toByteArray());
+        assertTrue(slices.size() >= 2);
+        int cut = ImageIO.read(new java.io.ByteArrayInputStream(slices.get(0))).getHeight();
+        assertTrue("the cut landed in the text rows: " + cut, cut < 650 || cut > 700);
+        assertTrue(cut <= MfgOrderScan.SLICE_HEIGHT);
+    }
+
+    @Test
     public void tidiesWhatTheOverlapOfTwoSlicesAddsOn() {
         // the same article seen in both slices, one of them with the note the page prints behind the
         // title: it is one row, not two (two would book the part in twice)
@@ -1033,6 +1057,69 @@ public class MfgServicesTest {
                 "{\"orders\":[{\"orderNo\":\"1\",\"items\":[{\"code\":\"A\",\"name\":\"a\","
                         + "\"qty\":\"1\",\"amount\":\"1.00\"}]}]}").get(0)));
         assertFalse(MfgServices.rowsMissing(null));
+    }
+
+    @Test
+    public void spotsAnOrderCopiedFromTheOneAbove() {
+        // the page lists five blocks; the model carried the articles and the money of the fourth into
+        // the fifth, which then adds up as well (0.19 + 1.00 = 1.19), so nothing else can see it
+        List<Map<String, String>> answer = MfgServices.orderListFrom("{\"orderCount\":\"2\",\"orders\":["
+                + "{\"orderNo\":\"2366688758496500570\",\"paidTotal\":\"1.19\",\"freight\":\"1.00\","
+                + "\"items\":[{\"code\":\"TP4056\",\"name\":\"充电芯片\",\"qty\":\"2\",\"amount\":\"0.19\"}]},"
+                + "{\"orderNo\":\"2366655602274500570\",\"paidTotal\":\"1.19\",\"freight\":\"1.00\","
+                + "\"items\":[{\"code\":\"TP4056\",\"name\":\"充电芯片\",\"qty\":\"2\",\"amount\":\"0.19\"}]}]}");
+        assertEquals(2, answer.size());
+        assertTrue(MfgServices.repeatsAnotherOrder(answer));
+        // two different orders are not a copy
+        List<Map<String, String>> different = MfgServices.orderListFrom("{\"orders\":["
+                + "{\"orderNo\":\"1\",\"paidTotal\":\"1.19\",\"freight\":\"1.00\","
+                + "\"items\":[{\"code\":\"TP4056\",\"name\":\"充电芯片\",\"qty\":\"2\",\"amount\":\"0.19\"}]},"
+                + "{\"orderNo\":\"2\",\"paidTotal\":\"17.90\",\"freight\":\"0.00\","
+                + "\"items\":[{\"code\":\"HFD1.9\",\"name\":\"串口屏\",\"qty\":\"1\",\"amount\":\"17.90\"}]}]}");
+        assertFalse(MfgServices.repeatsAnotherOrder(different));
+        // the same article bought twice for the same money is suspicious but the same key needs both
+        // the articles and the money to match
+        List<Map<String, String>> sameArticle = MfgServices.orderListFrom("{\"orders\":["
+                + "{\"orderNo\":\"1\",\"paidTotal\":\"8.00\",\"freight\":\"0.00\","
+                + "\"items\":[{\"code\":\"A\",\"name\":\"a\",\"qty\":\"1\",\"amount\":\"8.00\"}]},"
+                + "{\"orderNo\":\"2\",\"paidTotal\":\"9.00\",\"freight\":\"0.00\","
+                + "\"items\":[{\"code\":\"A\",\"name\":\"a\",\"qty\":\"1\",\"amount\":\"8.00\"}]}]}");
+        assertFalse(MfgServices.repeatsAnotherOrder(sameArticle));
+        assertFalse(MfgServices.repeatsAnotherOrder(Collections.emptyList()));
+        assertNull(MfgServices.orderContentKey(null));
+    }
+
+    @Test
+    public void dropsTheSnapshotNoteFromThePartNumber() {        // a model with no code to copy answers with the whole title; the note the shop prints behind
+        // it is not part of the part number
+        String lines = MfgServices.fitOrderLines(
+                "SYB-500 组合面包板 [交易快照]\tSYB-500 组合面包板 [交易快照]\t1\t16.00");
+        assertTrue(lines, lines.startsWith("SYB-500 组合面包板\t"));
+    }
+
+    @Test
+    public void readsTheRowMoneyWhenTheStruckPriceCameAsADiscount() {
+        // a page prints 0.10 beside the struck through 0.09 and x2: the model answered the unit price
+        // as the row money and the struck price as a discount of the whole order
+        Map<String, String> order = new java.util.LinkedHashMap<>();
+        order.put("orderNo", "2366688758496500570");
+        order.put("paidTotal", "1.19");
+        order.put("freight", "1.00");
+        order.put("discount", "0.09");
+        order.put("lines", "TP4056\t充电芯片\t2\t0.10");
+        MfgServices.tidyOrder(order);
+        assertEquals("0", order.get("discount"));
+        assertEquals(1, MfgServices.parseOrderArticleLines(order.get("lines")).size());
+        assertNull(MfgServices.checkOrderTotals(order));
+        // a real red packet survives: 9.00 + 2.00 - 0.27 = 10.73
+        Map<String, String> packet = new java.util.LinkedHashMap<>();
+        packet.put("paidTotal", "10.73");
+        packet.put("freight", "2.00");
+        packet.put("discount", "0.27");
+        packet.put("lines", "一条\t商品\t1\t9.00");
+        MfgServices.tidyOrder(packet);
+        assertEquals("0.27", packet.get("discount"));
+        assertNull(MfgServices.checkOrderTotals(packet));
     }
 
     @Test
