@@ -909,6 +909,35 @@ public class MfgServicesTest {
     }
 
     @Test
+    public void tidiesWhatTheOverlapOfTwoSlicesAddsOn() {
+        // the same article seen in both slices, one of them with the note the page prints behind the
+        // title: it is one row, not two (two would book the part in twice)
+        Map<String, String> twice = new java.util.LinkedHashMap<>();
+        twice.put("paidTotal", "2.07");
+        twice.put("freight", "0.00");
+        twice.put("lines", "SOP转接板 10P\t名\t10\t2.07\nSOP转接板 10P [交易快照]\t名\t10\t2.07");
+        MfgServices.tidyOrder(twice);
+        assertEquals(1, MfgServices.parseOrderArticleLines(twice.get("lines")).size());
+        assertNull(MfgServices.checkOrderTotals(twice));
+        // a row that only repeats the paid total is a summary, not an article
+        Map<String, String> summary = new java.util.LinkedHashMap<>();
+        summary.put("paidTotal", "3.40");
+        summary.put("freight", "2.00");
+        summary.put("lines", "原装富满 DW01A\t名\t1\t3.40\nDW01A\t名\t10\t0.60\n"
+                + "8205LA\t名\t5\t0.55\n8205HA\t名\t5\t0.30");
+        MfgServices.tidyOrder(summary);
+        assertEquals(3, MfgServices.parseOrderArticleLines(summary.get("lines")).size());
+        // and a discount that would break an order that already adds up is dropped
+        Map<String, String> invented = new java.util.LinkedHashMap<>();
+        invented.put("paidTotal", "3.66");
+        invented.put("freight", "0.00");
+        invented.put("discount", "4.80");
+        invented.put("lines", "3528钽电容\t名\t10\t3.66");
+        assertNull(MfgServices.checkOrderTotals(invented));
+        assertEquals("0", invented.get("discount"));
+    }
+
+    @Test
     public void catchesAPictureWhosePacksWereCountedAsPieces() {
         // Taobao prints the pack size in the grey spec line: x1 of 一件100只 is 100 pieces, and an
         // answer that says 1 for every article read the number of packs, not the number of pieces

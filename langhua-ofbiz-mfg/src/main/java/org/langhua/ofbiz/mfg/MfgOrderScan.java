@@ -88,7 +88,7 @@ public final class MfgOrderScan {
      * much, which is what one call reads reliably; five blocks in one picture is where the model
      * starts dropping whole orders.
      */
-    static final int SLICE_HEIGHT = 900;
+    static final int SLICE_HEIGHT = 700;
 
     /** How much two neighbouring slices share, so an order block is whole in at least one of them. */
     static final int SLICE_OVERLAP = 150;
@@ -100,7 +100,7 @@ public final class MfgOrderScan {
      * How often one slice is sent. A slice holds one or two order blocks and its money is allowed not
      * to add up (an order may be cut in two), so there is much less to go wrong than on a whole page.
      */
-    static final int SLICE_ATTEMPTS = 2;
+    static final int SLICE_ATTEMPTS = 3;
 
     /** Seconds one call to the vision service may take, with room on top of the socket timeouts. */
     static final int SLICE_WAIT_SECONDS = 240;
@@ -277,6 +277,7 @@ public final class MfgOrderScan {
         for (Map<String, String> order : orders) {
             // a package description as the part number does not fit the code field: short it here
             // so the page already shows the code that will be stored
+            MfgServices.tidyOrder(order);
             order.put("lines", MfgServices.fitOrderLines(order.get("lines")));
             if (isRefunded(order)) {
                 // the parts never stayed in the shop: the number goes on the list, so even a hand
@@ -349,8 +350,11 @@ public final class MfgOrderScan {
             }
             String reply;
             try {
+                // a slice is asked with the short request from the start: the long one makes a
+                // thinking model deliberate about every rule, and on a hard page it then spends the
+                // whole output budget on the thinking and answers with nothing at all
                 reply = askVision(endpoint, model, key, picture, contentType,
-                        attempt == 1 ? PROMPT : SHORT_PROMPT);
+                        partial || attempt > 1 ? SHORT_PROMPT : PROMPT);
                 read.transportProblem = null;
             } catch (IOException e) {
                 Debug.logError(e, "Could not ask the vision service (attempt " + attempt + ")", MODULE);
@@ -614,6 +618,15 @@ public final class MfgOrderScan {
     }
 
     /**
+     * Whether the endpoint takes the "do not think first" switch. A thinking model spends its output
+     * budget on the reasoning when the picture is dense and then answers with an empty content, which
+     * is what made a page of eight orders need several sends. Reading a page is not a reasoning task,
+     * so the switch is asked for; when the endpoint does not know it (HTTP 400) it is dropped for the
+     * rest of the run and the call is repeated once without it.
+     */
+    private static volatile boolean plainAnswerWorks = true;
+
+    /**
      * Calls an OpenAI compatible chat endpoint with the screenshot as a data URL.
      *
      * @param endpoint the chat completions URL
@@ -627,13 +640,30 @@ public final class MfgOrderScan {
      */
     static String askVision(String endpoint, String model, String key, byte[] image, String contentType,
             String prompt) throws IOException {
+        return send(endpoint, model, key, image, contentType, prompt, plainAnswerWorks);
+    }
+
+    /**
+     * One call to the endpoint.
+     *
+     * @param plain {@code true} to ask the model to answer without thinking first
+     * @return the answer text of the model
+     * @throws IOException when the call fails
+     */
+    private static String send(String endpoint, String model, String key, byte[] image, String contentType,
+            String prompt, boolean plain) throws IOException {
         String dataUrl = "data:" + contentType + ";base64,"
                 + Base64.getEncoder().encodeToString(image);
         StringBuilder body = new StringBuilder();
         body.append("{\"model\":").append(MfgBomEvents.jsonString(model))
                 // a model that thinks first needs room for the reasoning and the answer
-                .append(",\"max_tokens\":").append(MAX_TOKENS)
-                .append(",\"messages\":[{\"role\":\"user\",\"content\":[")
+                .append(",\"max_tokens\":").append(MAX_TOKENS);
+        if (plain) {
+            // OpenAI compatible servers ignore a field they do not know; the ones that do know it
+            // then answer straight away, which is what a screenshot needs
+            body.append(",\"thinking\":{\"type\":\"disabled\"}");
+        }
+        body.append(",\"messages\":[{\"role\":\"user\",\"content\":[")
                 .append("{\"type\":\"text\",\"text\":").append(MfgBomEvents.jsonString(prompt)).append("},")
                 .append("{\"type\":\"image_url\",\"image_url\":{\"url\":")
                 .append(MfgBomEvents.jsonString(dataUrl)).append("}}]}]}");
@@ -652,6 +682,13 @@ public final class MfgOrderScan {
             InputStream stream = status >= 400 ? connection.getErrorStream() : connection.getInputStream();
             String text = stream == null ? "" : readAll(stream);
             if (status >= 400) {
+                if (plain && status == 400 && plainAnswerWorks) {
+                    // the endpoint did not like the switch: remember it and ask again without it
+                    plainAnswerWorks = false;
+                    Debug.logInfo("The vision endpoint refused the thinking switch, asking again without"
+                            + " it: " + text, MODULE);
+                    return send(endpoint, model, key, image, contentType, prompt, false);
+                }
                 throw new IOException(MfgServices.describeVisionError(status, text));
             }
             return text;

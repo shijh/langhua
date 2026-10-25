@@ -9407,6 +9407,13 @@ always
             // nothing printed next to 含运费 means there was no freight
             fields.put("freight", "0.00");
         }
+        if (discount != null && discount.doubleValue() > 0.0
+                && Math.abs(round2(goods + freightValue) - paid.doubleValue()) < 0.005) {
+            // the articles and the freight already come to what was paid, so a discount the model
+            // reported (a struck through price read as one) would only break the balance
+            fields.put("discount", "0");
+            discount = Double.valueOf(0.0);
+        }
         if (discount == null) {
             double off = round2(goods + freightValue - paid.doubleValue());
             if (off > 0.0 && off < goods) {
@@ -9524,6 +9531,82 @@ always
             score += 500;
         }
         return score;
+    }
+
+    /**
+     * Tidies what reading a long page adds on top of the articles: the same row printed twice because
+     * two slices overlapped (one of them with the {@code [交易快照]} note behind it), and a summary row
+     * that only repeats what was paid. Both would otherwise be booked into stock as extra material.
+     *
+     * @param order the order to clean, its {@code lines} are rewritten
+     */
+    static void tidyOrder(Map<String, String> order) {
+        if (order == null) {
+            return;
+        }
+        List<String[]> rows = parseOrderArticleLines(order.get("lines"));
+        if (rows.isEmpty()) {
+            return;
+        }
+        List<String[]> kept = new ArrayList<>();
+        Set<String> seen = new LinkedHashSet<>();
+        for (String[] row : rows) {
+            // the overlap of two slices shows the same article twice, one of them carrying the note
+            // the page prints behind the title
+            String key = rowKey(row[0]) + "|" + row[2] + "|" + row[3];
+            if (seen.add(key)) {
+                kept.add(row);
+            }
+        }
+        Double paid = optionalAmount(order.get("paidTotal"));
+        Double freight = optionalAmount(order.get("freight"));
+        if (paid != null && kept.size() > 1) {
+            // the rows sometimes carry a summary row on top (the subtotal, or the paid total itself),
+            // which would be booked into stock as one more part: the reading that adds up wins, so a
+            // single row is dropped when that makes the money match what was paid
+            double freightValue = freight == null ? 0.0 : freight.doubleValue();
+            Double discount = optionalAmount(order.get("discount"));
+            double discountValue = discount == null ? 0.0 : discount.doubleValue();
+            double goods = 0.0;
+            for (String[] row : kept) {
+                goods += toDouble(row[3], 0.0);
+            }
+            if (Math.abs(round2(goods + freightValue - discountValue) - paid.doubleValue()) >= 0.005) {
+                int dropAt = -1;
+                for (int i = 0; i < kept.size(); i++) {
+                    double rest = round2(goods - toDouble(kept.get(i)[3], 0.0));
+                    // the page rounds its own unit prices, so a few cents are fine here
+                    if (Math.abs(round2(rest + freightValue - discountValue) - paid.doubleValue()) <= 0.06) {
+                        dropAt = i;
+                        break;
+                    }
+                }
+                if (dropAt >= 0) {
+                    kept.remove(dropAt);
+                }
+            }
+        }
+        StringBuilder lines = new StringBuilder();
+        for (String[] row : kept) {
+            if (lines.length() > 0) {
+                lines.append('\n');
+            }
+            lines.append(row[0]).append('\t').append(row[1]).append('\t').append(row[2])
+                    .append('\t').append(row[3]);
+        }
+        order.put("lines", lines.toString());
+    }
+
+    /**
+     * The code of an article without the notes a shop prints behind it ({@code [交易快照]} and the
+     * like), so two reads of the same article end up with the same key.
+     *
+     * @param code the code of one row
+     * @return the code without those notes, blanks squeezed
+     */
+    private static String rowKey(String code) {
+        return code == null ? "" : code.replaceAll("\\s*[\\[【(（][^\\]】)）]{0,6}(交易快照|快照)[\\]】)）]", "")
+                .replaceAll("\\s+", " ").trim();
     }
 
     /**
