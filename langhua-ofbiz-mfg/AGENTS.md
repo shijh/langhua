@@ -431,6 +431,16 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
     （`IC测试板 5只` ×3 → 15）；但**套装 / 组合 / 套餐 算一件**（`实验板（4块组合套装）` ×1 → 1，用户明确要求的）。
   - **金额校验是双向的**：`totalsDisagree` 在“明细 + 运费 − 优惠”与实付**多或少**超过 `roundingSlack` 时都算没读好
     （Step 106 之前只看“少了”，所以“两行各 2.06”那种多读的回答不会重发）。
+- **登录后回到原来那一页：用 OFBiz 自带的 `<after-login>` 钩子（Step 107）**：`controller.xml` 顶部的
+  `<after-login><event path="…MfgLoginEvents" invoke="afterLogin"/></after-login>` 在登录成功后只跑一次，
+  它把“要回到哪一页”定下来（存会话属性 `mfgLoginReturnTo`）；真正跳转是起始页 `main` 的 `backAfterLogin`
+  （302）——**不要在 `<after-login>` 里 `sendRedirect`**，那时登录视图还没渲染。
+  页面那边：`session.js` 的 `jsonOrLogin` 先请求 `rememberReturn?to=<本页地址>`（它存地址再 302 到登录页），
+  因为 401 的是 AJAX 入口，地址栏里那个页面地址只有页面自己知道；`_PREVIOUS_REQUEST_` 只是兜底。
+  **两个坑**：① `<after-login>` 的 event 必须是 `(HttpServletRequest, HttpServletResponse)`，
+  签名不对会 `NoSuchMethodException`，而框架“忽略 after-login 的错误”，日志里才看得到；
+  ② 会话被重启清掉时 `_LAST_VIEW_NAME_` / `_PREVIOUS_REQUEST_` 一并没了，所以页面自己存的那一份才是主路径。
+  另外给页面 request-map 开了 `save-last-view="true"`（框架自带的“记住上一个视图”，写入 `_LAST_VIEW_NAME_`）。
 - **`jsonStringField` 不能用正则（Step 86 踩坑）**：原来是
   `"name"\s*:\s*"((?:[^"\\]|\\.)*)"`，遇到 thinking 模型那种几千字符的 `content` 会
   **`StackOverflowError` in `Pattern$Loop.match`**（`OrderImage` 请求 23 秒后 200 + **空 body**，

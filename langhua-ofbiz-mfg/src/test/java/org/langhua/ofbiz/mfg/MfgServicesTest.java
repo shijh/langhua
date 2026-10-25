@@ -1109,11 +1109,39 @@ public class MfgServicesTest {
     }
 
     @Test
-    public void dropsTheSnapshotNoteFromThePartNumber() {        // a model with no code to copy answers with the whole title; the note the shop prints behind
+    public void dropsTheSnapshotNoteFromThePartNumber() {
+        // a model with no code to copy answers with the whole title; the note the shop prints behind
         // it is not part of the part number
         String lines = MfgServices.fitOrderLines(
                 "SYB-500 组合面包板 [交易快照]\tSYB-500 组合面包板 [交易快照]\t1\t16.00");
         assertTrue(lines, lines.startsWith("SYB-500 组合面包板\t"));
+    }
+
+    @Test
+    public void onlyAPageOfThisComponentIsWorthComingBackTo() {
+        // the page a person was on is kept across the login, and then they land right back there
+        assertEquals("/mfg/control/receipts?search=PR-260101-01",
+                MfgLoginEvents.safeReturnTo("/mfg/control/receipts?search=PR-260101-01"));
+        // anything else could send somebody to another site or another component
+        assertNull(MfgLoginEvents.safeReturnTo("https://example.com/mfg/control/receipts"));
+        assertNull(MfgLoginEvents.safeReturnTo("//example.com/mfg/control/receipts"));
+        assertNull(MfgLoginEvents.safeReturnTo("/learningcurve/control/main"));
+        assertNull(MfgLoginEvents.safeReturnTo("/mfg/control/../learningcurve/control/main"));
+        assertNull(MfgLoginEvents.safeReturnTo("/mfg/control/receipts\r\nSet-Cookie: a=b"));
+        assertNull(MfgLoginEvents.safeReturnTo(null));
+    }
+
+    @Test
+    public void findsThePageOfTheRequestTheFrameworkRefused() {
+        // OFBiz saves the request it refused, and the person should land on that page again
+        assertEquals("/mfg/control/receipts", MfgLoginEvents.pageOf("/control/receipts"));
+        assertEquals("/mfg/control/products", MfgLoginEvents.pageOf("products"));
+        // an endpoint that answers with data is no place to land: the page that called it says where
+        // to go instead (see session.js), and without that the start page is fine
+        assertNull(MfgLoginEvents.pageOf("/control/orderImage"));
+        assertNull(MfgLoginEvents.pageOf("/control/receiptSaveJson"));
+        assertNull(MfgLoginEvents.pageOf("/control/freightCsv"));
+        assertNull(MfgLoginEvents.pageOf(null));
     }
 
     @Test

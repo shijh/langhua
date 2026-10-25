@@ -6,64 +6,80 @@
     <include location="component://common/webcommon/WEB-INF/common-controller.xml"/>
     <description>Hardware Assembly Component Site Configuration File</description>
 
-    <request-map uri="main">
+    <!-- OFBiz runs this hook right after a successful login. It keeps the page the person was on
+         (set by the page itself or by the framework's refused request), and the start page hands it
+         back once: logging in after a restart lands on the page you were working on -->
+    <after-login>
+        <event type="java" path="org.langhua.ofbiz.mfg.MfgLoginEvents" invoke="afterLogin"/>
+    </after-login>
+
+    <request-map uri="main" save-last-view="true">
         <security https="true" auth="true"/>
+        <event type="java" path="org.langhua.ofbiz.mfg.MfgLoginEvents" invoke="backAfterLogin"/>
         <response name="success" type="view" value="main"/>
+        <response name="redirected" type="none"/>
     </request-map>
 
-    <request-map uri="products">
+    <request-map uri="rememberReturn">
+        <description>Remember the page a person was on and send them to the login form</description>
+        <security https="true" auth="false"/>
+        <event type="java" path="org.langhua.ofbiz.mfg.MfgLoginEvents" invoke="rememberReturn"/>
+        <response name="success" type="none"/>
+    </request-map>
+
+    <request-map uri="products" save-last-view="true">
         <security https="true" auth="true"/>
         <response name="success" type="view" value="products"/>
     </request-map>
 
-    <request-map uri="workOrder">
+    <request-map uri="workOrder" save-last-view="true">
         <security https="true" auth="true"/>
         <response name="success" type="view" value="workOrder"/>
     </request-map>
 
-    <request-map uri="sn">
+    <request-map uri="sn" save-last-view="true">
         <security https="true" auth="true"/>
         <response name="success" type="view" value="sn"/>
     </request-map>
 
-    <request-map uri="dashboard">
+    <request-map uri="dashboard" save-last-view="true">
         <security https="true" auth="true"/>
         <response name="success" type="view" value="dashboard"/>
     </request-map>
 
-    <request-map uri="software">
+    <request-map uri="software" save-last-view="true">
         <security https="true" auth="true"/>
         <response name="success" type="view" value="software"/>
     </request-map>
 
-    <request-map uri="reports">
+    <request-map uri="reports" save-last-view="true">
         <security https="true" auth="true"/>
         <response name="success" type="view" value="reports"/>
     </request-map>
 
-    <request-map uri="stock">
+    <request-map uri="stock" save-last-view="true">
         <security https="true" auth="true"/>
         <response name="success" type="view" value="stock"/>
     </request-map>
 
-    <request-map uri="stockMoves">
+    <request-map uri="stockMoves" save-last-view="true">
         <security https="true" auth="true"/>
         <response name="success" type="view" value="stockMoves"/>
     </request-map>
 
-    <request-map uri="stockCount">
+    <request-map uri="stockCount" save-last-view="true">
         <security https="true" auth="true"/>
         <response name="success" type="view" value="stockCount"/>
     </request-map>
 
-    <request-map uri="stockSettingSave">
+    <request-map uri="stockSettingSave" save-last-view="true">
         <security https="true" auth="true"/>
         <event type="service" invoke="mfgStockSettingSave"/>
         <response name="success" type="request-redirect" value="stock"/>
         <response name="error" type="view" value="stock"/>
     </request-map>
 
-    <request-map uri="inventoryMove">
+    <request-map uri="inventoryMove" save-last-view="true">
         <security https="true" auth="true"/>
         <event type="service" invoke="mfgInventoryMove"/>
         <response name="success" type="request-redirect" value="stockMoves">
@@ -72,7 +88,7 @@
         <response name="error" type="view" value="stockMoves"/>
     </request-map>
 
-    <request-map uri="stockCountSave">
+    <request-map uri="stockCountSave" save-last-view="true">
         <security https="true" auth="true"/>
         <event type="service" invoke="mfgStockCount"/>
         <response name="success" type="request-redirect" value="stockCount">
@@ -102,7 +118,7 @@
         <response name="error" type="none"/>
     </request-map>
 
-    <request-map uri="softwareProjectSave">
+    <request-map uri="softwareProjectSave" save-last-view="true">
         <security https="true" auth="true"/>
         <event type="service" invoke="mfgSoftwareProjectSave"/>
         <response name="success" type="request-redirect" value="software">
@@ -134,7 +150,7 @@
         <response name="error" type="none"/>
     </request-map>
 
-    <request-map uri="productSave">
+    <request-map uri="productSave" save-last-view="true">
         <security https="true" auth="true"/>
         <event type="service" invoke="mfgProductSave"/>
         <response name="success" type="request-redirect" value="products">
@@ -144,7 +160,7 @@
     </request-map>
 
     <!-- the password gate posts here; a changed password sends the user back to the login screen -->
-    <request-map uri="changePasswordSave">
+    <request-map uri="changePasswordSave" save-last-view="true">
         <security https="true" auth="true"/>
         <event type="service" invoke="mfgChangePassword"/>
         <response name="success" type="request-redirect" value="logout"/>
@@ -152,7 +168,7 @@
     </request-map>
 
     <!-- Takes the pasted text or an uploaded file (multipart form) and hands it to mfgBomImport. -->
-    <request-map uri="bomImport">
+    <request-map uri="bomImport" save-last-view="true">
         <security https="true" auth="true"/>
         <event type="java" path="org.langhua.ofbiz.mfg.MfgImportEvents" invoke="bomImport"/>
         <response name="success" type="request-redirect" value="products">
@@ -163,7 +179,7 @@
         <response name="error" type="view" value="products"/>
     </request-map>
 
-    <request-map uri="bomItemSave">
+    <request-map uri="bomItemSave" save-last-view="true">
         <security https="true" auth="true"/>
         <event type="service" invoke="mfgBomItemSave"/>
         <response name="success" type="request-redirect" value="products">
@@ -204,28 +220,28 @@
 
     <!-- the product photo urls of the previous release keep working on the same events -->
 
-    <request-map uri="productImageUpload">
+    <request-map uri="productImageUpload" save-last-view="true">
         <security https="true" auth="true"/>
         <event type="java" path="org.langhua.ofbiz.mfg.MfgAttachmentEvents" invoke="upload"/>
         <response name="success" type="none"/>
         <response name="error" type="none"/>
     </request-map>
 
-    <request-map uri="productImage">
+    <request-map uri="productImage" save-last-view="true">
         <security https="true" auth="true"/>
         <event type="java" path="org.langhua.ofbiz.mfg.MfgAttachmentEvents" invoke="serve"/>
         <response name="success" type="none"/>
         <response name="error" type="none"/>
     </request-map>
 
-    <request-map uri="productImageDelete">
+    <request-map uri="productImageDelete" save-last-view="true">
         <security https="true" auth="true"/>
         <event type="java" path="org.langhua.ofbiz.mfg.MfgAttachmentEvents" invoke="delete"/>
         <response name="success" type="none"/>
         <response name="error" type="none"/>
     </request-map>
 
-    <request-map uri="routingSave">
+    <request-map uri="routingSave" save-last-view="true">
         <security https="true" auth="true"/>
         <event type="service" invoke="mfgRoutingSave"/>
         <response name="success" type="request-redirect" value="products">
@@ -234,7 +250,7 @@
         <response name="error" type="view" value="products"/>
     </request-map>
 
-    <request-map uri="workOrderCreate">
+    <request-map uri="workOrderCreate" save-last-view="true">
         <security https="true" auth="true"/>
         <event type="service" invoke="mfgWorkOrderCreate"/>
         <response name="success" type="request-redirect" value="workOrder">
@@ -243,7 +259,7 @@
         <response name="error" type="view" value="main"/>
     </request-map>
 
-    <request-map uri="reportCreate">
+    <request-map uri="reportCreate" save-last-view="true">
         <security https="true" auth="true"/>
         <event type="service" invoke="mfgReportCreate"/>
         <response name="success" type="request-redirect" value="workOrder">
@@ -252,7 +268,7 @@
         <response name="error" type="view" value="workOrder"/>
     </request-map>
 
-    <request-map uri="snRegister">
+    <request-map uri="snRegister" save-last-view="true">
         <security https="true" auth="true"/>
         <event type="service" invoke="mfgSnRegister"/>
         <response name="success" type="request-redirect" value="workOrder">
@@ -261,7 +277,7 @@
         <response name="error" type="view" value="workOrder"/>
     </request-map>
 
-    <request-map uri="defectCreate">
+    <request-map uri="defectCreate" save-last-view="true">
         <security https="true" auth="true"/>
         <event type="service" invoke="mfgDefectCreate"/>
         <response name="success" type="request-redirect" value="workOrder">
@@ -270,12 +286,12 @@
         <response name="error" type="view" value="workOrder"/>
     </request-map>
 
-    <request-map uri="materials">
+    <request-map uri="materials" save-last-view="true">
         <security https="true" auth="true"/>
         <response name="success" type="view" value="materials"/>
     </request-map>
 
-    <request-map uri="lotSave">
+    <request-map uri="lotSave" save-last-view="true">
         <security https="true" auth="true"/>
         <event type="service" invoke="mfgLotSave"/>
         <response name="success" type="request-redirect" value="materials">
@@ -285,7 +301,7 @@
     </request-map>
 
     <!-- renames a part number everywhere it is stored (Step 74) -->
-    <request-map uri="partCodeRename">
+    <request-map uri="partCodeRename" save-last-view="true">
         <security https="true" auth="true"/>
         <event type="service" invoke="mfgPartCodeRename"/>
         <response name="success" type="request-redirect" value="materials">
@@ -295,7 +311,7 @@
         <response name="error" type="view" value="materials"/>
     </request-map>
 
-    <request-map uri="issueSave">
+    <request-map uri="issueSave" save-last-view="true">
         <security https="true" auth="true"/>
         <event type="service" invoke="mfgIssueSave"/>        <response name="success" type="request-redirect" value="workOrder">
             <redirect-parameter name="workOrderId"/>
@@ -303,7 +319,7 @@
         <response name="error" type="view" value="workOrder"/>
     </request-map>
 
-    <request-map uri="shipmentSave">
+    <request-map uri="shipmentSave" save-last-view="true">
         <security https="true" auth="true"/>
         <event type="service" invoke="mfgShipmentSave"/>
         <response name="success" type="request-redirect" value="workOrder">
@@ -312,7 +328,7 @@
         <response name="error" type="view" value="workOrder"/>
     </request-map>
 
-    <request-map uri="shortage">
+    <request-map uri="shortage" save-last-view="true">
         <security https="true" auth="true"/>
         <response name="success" type="view" value="shortage"/>
     </request-map>
@@ -326,7 +342,7 @@
         <response name="error" type="view" value="materials"/>
     </request-map>
 
-    <request-map uri="lotInspect">
+    <request-map uri="lotInspect" save-last-view="true">
         <security https="true" auth="true"/>
         <event type="service" invoke="mfgLotInspect"/>
         <response name="success" type="request-redirect" value="materials">
@@ -335,7 +351,7 @@
         <response name="error" type="view" value="materials"/>
     </request-map>
 
-    <request-map uri="replacementSave">
+    <request-map uri="replacementSave" save-last-view="true">
         <security https="true" auth="true"/>
         <event type="service" invoke="mfgReplacementSave"/>
         <response name="success" type="request-redirect" value="sn">
@@ -344,12 +360,12 @@
         <response name="error" type="view" value="sn"/>
     </request-map>
 
-    <request-map uri="delivery">
+    <request-map uri="delivery" save-last-view="true">
         <security https="true" auth="true"/>
         <response name="success" type="view" value="delivery"/>
     </request-map>
 
-    <request-map uri="deliverySave">
+    <request-map uri="deliverySave" save-last-view="true">
         <security https="true" auth="true"/>
         <event type="service" invoke="mfgDeliverySave"/>
         <response name="success" type="request-redirect" value="delivery">
@@ -368,22 +384,22 @@
         <response name="error" type="view" value="workOrder"/>
     </request-map>
 
-    <request-map uri="salesOrders">
+    <request-map uri="salesOrders" save-last-view="true">
         <security https="true" auth="true"/>
         <response name="success" type="view" value="salesOrders"/>
     </request-map>
 
-    <request-map uri="locations">
+    <request-map uri="locations" save-last-view="true">
         <security https="true" auth="true"/>
         <response name="success" type="view" value="locations"/>
     </request-map>
 
-    <request-map uri="receipts">
+    <request-map uri="receipts" save-last-view="true">
         <security https="true" auth="true"/>
         <response name="success" type="view" value="receipts"/>
     </request-map>
 
-    <request-map uri="receiptSave">
+    <request-map uri="receiptSave" save-last-view="true">
         <security https="true" auth="true"/>
         <event type="service" invoke="mfgPurchaseReceiptSave"/>
         <response name="success" type="request-redirect" value="receipts">
@@ -416,7 +432,7 @@
         <response name="error" type="none"/>
     </request-map>
 
-    <request-map uri="receiptLineSave">
+    <request-map uri="receiptLineSave" save-last-view="true">
         <security https="true" auth="true"/>        <event type="service" invoke="mfgPurchaseReceiptLineSave"/>
         <response name="success" type="request-redirect" value="receipts">
             <redirect-parameter name="receiptId"/>
@@ -424,7 +440,7 @@
         <response name="error" type="view" value="receipts"/>
     </request-map>
 
-    <request-map uri="receiptFromOrder">
+    <request-map uri="receiptFromOrder" save-last-view="true">
         <security https="true" auth="true"/>
         <event type="service" invoke="mfgReceiptFromOrder"/>
         <response name="success" type="request-redirect" value="receipts">
@@ -443,14 +459,14 @@
     </request-map>
 
     <!-- puts a shop order on the refunded list, or takes it off again (Step 85) -->
-    <request-map uri="refundedOrderSave">
+    <request-map uri="refundedOrderSave" save-last-view="true">
         <security https="true" auth="true"/>
         <event type="service" invoke="mfgRefundedOrderSave"/>
         <response name="success" type="request-redirect" value="receipts"/>
         <response name="error" type="view" value="receipts"/>
     </request-map>
 
-    <request-map uri="refundedOrderDelete">
+    <request-map uri="refundedOrderDelete" save-last-view="true">
         <security https="true" auth="true"/>
         <event type="service" invoke="mfgRefundedOrderDelete"/>
         <response name="success" type="request-redirect" value="receipts"/>
@@ -473,21 +489,21 @@
         <response name="error" type="none"/>
     </request-map>
 
-    <request-map uri="visionTest">
+    <request-map uri="visionTest" save-last-view="true">
         <security https="true" auth="true"/>
         <event type="java" path="org.langhua.ofbiz.mfg.MfgOrderScan" invoke="test"/>
         <response name="success" type="none"/>
         <response name="error" type="none"/>
     </request-map>
 
-    <request-map uri="locationSave">
+    <request-map uri="locationSave" save-last-view="true">
         <security https="true" auth="true"/>
         <event type="service" invoke="mfgLocationSave"/>
         <response name="success" type="request-redirect" value="locations"/>
         <response name="error" type="view" value="locations"/>
     </request-map>
 
-    <request-map uri="stockTransfer">
+    <request-map uri="stockTransfer" save-last-view="true">
         <security https="true" auth="true"/>
         <event type="service" invoke="mfgStockTransfer"/>
         <response name="success" type="request-redirect" value="locations">
@@ -496,12 +512,12 @@
         <response name="error" type="view" value="locations"/>
     </request-map>
 
-    <request-map uri="salesOrder">
+    <request-map uri="salesOrder" save-last-view="true">
         <security https="true" auth="true"/>
         <response name="success" type="view" value="salesOrder"/>
     </request-map>
 
-    <request-map uri="salesOrderSave">
+    <request-map uri="salesOrderSave" save-last-view="true">
         <security https="true" auth="true"/>
         <event type="service" invoke="mfgSalesOrderSave"/>
         <response name="success" type="request-redirect" value="salesOrder">
@@ -510,7 +526,7 @@
         <response name="error" type="view" value="salesOrders"/>
     </request-map>
 
-    <request-map uri="salesOrderReserve">
+    <request-map uri="salesOrderReserve" save-last-view="true">
         <security https="true" auth="true"/>
         <event type="service" invoke="mfgSalesOrderReserve"/>
         <response name="success" type="request-redirect" value="salesOrder">
@@ -519,7 +535,7 @@
         <response name="error" type="view" value="salesOrder"/>
     </request-map>
 
-    <request-map uri="salesOrderPlan">
+    <request-map uri="salesOrderPlan" save-last-view="true">
         <security https="true" auth="true"/>
         <event type="service" invoke="mfgSalesOrderPlan"/>
         <response name="success" type="request-redirect" value="salesOrder">
@@ -528,7 +544,7 @@
         <response name="error" type="view" value="salesOrder"/>
     </request-map>
 
-    <request-map uri="salesOrderClose">
+    <request-map uri="salesOrderClose" save-last-view="true">
         <security https="true" auth="true"/>
         <event type="service" invoke="mfgSalesOrderClose"/>
         <response name="success" type="request-redirect" value="salesOrder">
@@ -537,50 +553,50 @@
         <response name="error" type="view" value="salesOrder"/>
     </request-map>
 
-    <request-map uri="vendors">
+    <request-map uri="vendors" save-last-view="true">
         <security https="true" auth="true"/>
         <response name="success" type="view" value="vendors"/>
     </request-map>
 
-    <request-map uri="vendorSave">
+    <request-map uri="vendorSave" save-last-view="true">
         <security https="true" auth="true"/>
         <event type="service" invoke="mfgVendorSave"/>
         <response name="success" type="request-redirect" value="vendors"/>
         <response name="error" type="view" value="vendors"/>
     </request-map>
 
-    <request-map uri="users">
+    <request-map uri="users" save-last-view="true">
         <security https="true" auth="true"/>
         <response name="success" type="view" value="users"/>
     </request-map>
 
-    <request-map uri="settings">
+    <request-map uri="settings" save-last-view="true">
         <security https="true" auth="true"/>
         <response name="success" type="view" value="settings"/>
     </request-map>
 
-    <request-map uri="settingsSave">
+    <request-map uri="settingsSave" save-last-view="true">
         <security https="true" auth="true"/>
         <event type="service" invoke="mfgSettingsSave"/>
         <response name="success" type="request-redirect" value="settings"/>
         <response name="error" type="view" value="settings"/>
     </request-map>
 
-    <request-map uri="userSave">
+    <request-map uri="userSave" save-last-view="true">
         <security https="true" auth="true"/>
         <event type="service" invoke="mfgUserSave"/>
         <response name="success" type="request-redirect" value="users"/>
         <response name="error" type="view" value="users"/>
     </request-map>
 
-    <request-map uri="userResetPassword">
+    <request-map uri="userResetPassword" save-last-view="true">
         <security https="true" auth="true"/>
         <event type="service" invoke="mfgUserResetPassword"/>
         <response name="success" type="request-redirect" value="users"/>
         <response name="error" type="view" value="users"/>
     </request-map>
 
-    <request-map uri="workOrderVendor">
+    <request-map uri="workOrderVendor" save-last-view="true">
         <security https="true" auth="true"/>
         <event type="service" invoke="mfgWorkOrderVendor"/>
         <response name="success" type="request-redirect" value="workOrder">
@@ -589,12 +605,12 @@
         <response name="error" type="view" value="workOrder"/>
     </request-map>
 
-    <request-map uri="claims">
+    <request-map uri="claims" save-last-view="true">
         <security https="true" auth="true"/>
         <response name="success" type="view" value="claims"/>
     </request-map>
 
-    <request-map uri="claimCreate">
+    <request-map uri="claimCreate" save-last-view="true">
         <security https="true" auth="true"/>
         <event type="service" invoke="mfgClaimCreate"/>
         <response name="success" type="request-redirect" value="claims">
@@ -603,7 +619,7 @@
         <response name="error" type="view" value="claims"/>
     </request-map>
 
-    <request-map uri="claimUpdate">
+    <request-map uri="claimUpdate" save-last-view="true">
         <security https="true" auth="true"/>
         <event type="service" invoke="mfgClaimUpdate"/>
         <response name="success" type="request-redirect" value="claims">
@@ -612,7 +628,7 @@
         <response name="error" type="view" value="claims"/>
     </request-map>
 
-    <request-map uri="claimExchange">
+    <request-map uri="claimExchange" save-last-view="true">
         <security https="true" auth="true"/>
         <event type="service" invoke="mfgClaimExchange"/>
         <response name="success" type="request-redirect" value="claims">
@@ -621,7 +637,7 @@
         <response name="error" type="view" value="claims"/>
     </request-map>
 
-    <request-map uri="claimRepair">
+    <request-map uri="claimRepair" save-last-view="true">
         <security https="true" auth="true"/>
         <event type="service" invoke="mfgClaimRepair"/>
         <response name="success" type="request-redirect" value="claims">
@@ -630,24 +646,24 @@
         <response name="error" type="view" value="claims"/>
     </request-map>
 
-    <request-map uri="buyers">
+    <request-map uri="buyers" save-last-view="true">
         <security https="true" auth="true"/>
         <response name="success" type="view" value="buyers"/>
     </request-map>
 
-    <request-map uri="buyerFlagSave">
+    <request-map uri="buyerFlagSave" save-last-view="true">
         <security https="true" auth="true"/>
         <event type="service" invoke="mfgBuyerFlagSave"/>
         <response name="success" type="request-redirect" value="buyers"/>
         <response name="error" type="view" value="buyers"/>
     </request-map>
 
-    <request-map uri="quality">
+    <request-map uri="quality" save-last-view="true">
         <security https="true" auth="true"/>
         <response name="success" type="view" value="quality"/>
     </request-map>
 
-    <request-map uri="bomVersionCreate">
+    <request-map uri="bomVersionCreate" save-last-view="true">
         <security https="true" auth="true"/>
         <event type="service" invoke="mfgBomVersionCreate"/>
         <response name="success" type="request-redirect" value="products">
@@ -656,7 +672,7 @@
         <response name="error" type="view" value="products"/>
     </request-map>
 
-    <request-map uri="bomVersionActivate">
+    <request-map uri="bomVersionActivate" save-last-view="true">
         <security https="true" auth="true"/>
         <event type="service" invoke="mfgBomVersionActivate"/>
         <response name="success" type="request-redirect" value="products">
@@ -665,12 +681,12 @@
         <response name="error" type="view" value="products"/>
     </request-map>
 
-    <request-map uri="dev">
+    <request-map uri="dev" save-last-view="true">
         <security https="true" auth="true"/>
         <response name="success" type="view" value="dev"/>
     </request-map>
 
-    <request-map uri="devProjectSave">
+    <request-map uri="devProjectSave" save-last-view="true">
         <security https="true" auth="true"/>
         <event type="service" invoke="mfgDevProjectSave"/>
         <response name="success" type="request-redirect" value="dev">
@@ -679,7 +695,7 @@
         <response name="error" type="view" value="dev"/>
     </request-map>
 
-    <request-map uri="devStageSave">
+    <request-map uri="devStageSave" save-last-view="true">
         <security https="true" auth="true"/>
         <event type="service" invoke="mfgDevStageSave"/>
         <response name="success" type="request-redirect" value="dev">
@@ -688,7 +704,7 @@
         <response name="error" type="view" value="dev"/>
     </request-map>
 
-    <request-map uri="devStepSave">
+    <request-map uri="devStepSave" save-last-view="true">
         <security https="true" auth="true"/>
         <event type="service" invoke="mfgDevStepSave"/>
         <response name="success" type="request-redirect" value="dev">
@@ -697,7 +713,7 @@
         <response name="error" type="view" value="dev"/>
     </request-map>
 
-    <request-map uri="devStepStatus">
+    <request-map uri="devStepStatus" save-last-view="true">
         <security https="true" auth="true"/>
         <event type="service" invoke="mfgDevStepStatus"/>
         <response name="success" type="request-redirect" value="dev">
@@ -706,7 +722,7 @@
         <response name="error" type="view" value="dev"/>
     </request-map>
 
-    <request-map uri="devIssueSave">
+    <request-map uri="devIssueSave" save-last-view="true">
         <security https="true" auth="true"/>
         <event type="service" invoke="mfgDevStepIssueSave"/>
         <response name="success" type="request-redirect" value="dev">
@@ -715,7 +731,7 @@
         <response name="error" type="view" value="dev"/>
     </request-map>
 
-    <request-map uri="devIssueStatus">
+    <request-map uri="devIssueStatus" save-last-view="true">
         <security https="true" auth="true"/>
         <event type="service" invoke="mfgDevStepIssueStatus"/>
         <response name="success" type="request-redirect" value="dev">
@@ -724,7 +740,7 @@
         <response name="error" type="view" value="dev"/>
     </request-map>
 
-    <request-map uri="workOrderOutsource">
+    <request-map uri="workOrderOutsource" save-last-view="true">
         <security https="true" auth="true"/>
         <event type="service" invoke="mfgWorkOrderOutsourceSave"/>
         <response name="success" type="request-redirect" value="workOrder">
@@ -733,7 +749,7 @@
         <response name="error" type="view" value="workOrder"/>
     </request-map>
 
-    <request-map uri="workOrderReserve">
+    <request-map uri="workOrderReserve" save-last-view="true">
         <security https="true" auth="true"/>
         <event type="service" invoke="mfgWorkOrderReserve"/>
         <response name="success" type="request-redirect" value="workOrder">
@@ -742,7 +758,7 @@
         <response name="error" type="view" value="workOrder"/>
     </request-map>
 
-    <request-map uri="workOrderRelease">
+    <request-map uri="workOrderRelease" save-last-view="true">
         <security https="true" auth="true"/>
         <event type="service" invoke="mfgWorkOrderRelease"/>
         <response name="success" type="request-redirect" value="workOrder">
@@ -751,7 +767,7 @@
         <response name="error" type="view" value="workOrder"/>
     </request-map>
 
-    <request-map uri="workOrderComplete">
+    <request-map uri="workOrderComplete" save-last-view="true">
         <security https="true" auth="true"/>
         <event type="service" invoke="mfgWorkOrderComplete"/>
         <response name="success" type="request-redirect" value="workOrder">
@@ -760,7 +776,7 @@
         <response name="error" type="view" value="workOrder"/>
     </request-map>
 
-    <request-map uri="outsourceFeeSave">
+    <request-map uri="outsourceFeeSave" save-last-view="true">
         <security https="true" auth="true"/>
         <event type="service" invoke="mfgOutsourceFeeSave"/>
         <response name="success" type="request-redirect" value="workOrder">
@@ -769,7 +785,7 @@
         <response name="error" type="view" value="workOrder"/>
     </request-map>
 
-    <request-map uri="outsourceFeeDelete">
+    <request-map uri="outsourceFeeDelete" save-last-view="true">
         <security https="true" auth="true"/>
         <event type="service" invoke="mfgOutsourceFeeDelete"/>
         <response name="success" type="request-redirect" value="workOrder">
@@ -778,12 +794,12 @@
         <response name="error" type="view" value="workOrder"/>
     </request-map>
 
-    <request-map uri="eco">
+    <request-map uri="eco" save-last-view="true">
         <security https="true" auth="true"/>
         <response name="success" type="view" value="eco"/>
     </request-map>
 
-    <request-map uri="ecoSave">
+    <request-map uri="ecoSave" save-last-view="true">
         <security https="true" auth="true"/>
         <event type="service" invoke="mfgDevEcoSave"/>
         <response name="success" type="request-redirect" value="eco">
@@ -792,7 +808,7 @@
         <response name="error" type="view" value="eco"/>
     </request-map>
 
-    <request-map uri="ecoApprove">
+    <request-map uri="ecoApprove" save-last-view="true">
         <security https="true" auth="true"/>
         <event type="service" invoke="mfgDevEcoApprove"/>
         <response name="success" type="request-redirect" value="eco">
@@ -801,7 +817,7 @@
         <response name="error" type="view" value="eco"/>
     </request-map>
 
-    <request-map uri="ecoApply">
+    <request-map uri="ecoApply" save-last-view="true">
         <security https="true" auth="true"/>
         <event type="service" invoke="mfgDevEcoApply"/>
         <response name="success" type="request-redirect" value="eco">
@@ -810,7 +826,7 @@
         <response name="error" type="view" value="eco"/>
     </request-map>
 
-    <request-map uri="ecoCancel">
+    <request-map uri="ecoCancel" save-last-view="true">
         <security https="true" auth="true"/>
         <event type="service" invoke="mfgDevEcoCancel"/>
         <response name="success" type="request-redirect" value="eco">

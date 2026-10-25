@@ -29,6 +29,16 @@
     <link rel="icon" type="image/png" sizes="64x64" href="/mfg/images/logo-64.png"/>
     <link rel="apple-touch-icon" href="/mfg/images/logo-180.png"/>
     <link rel="stylesheet" type="text/css" href="/mfg/css/mfg.css"/>
+<#--
+  A login that was asked for because the session ran out renders the start page in place (the
+  framework answers the login form by rendering the main view, so the address bar still says
+  "login"). The start page request is what hands the person back to the page they were on, so this
+  first render goes there: MfgLoginEvents.backAfterLogin redirects and forgets the address; with
+  nothing remembered the page just stays.
+-->
+<#if ((sessionAttributes.mfgLoginReturnTo)!'')?has_content>
+    <script>window.location.replace('/mfg/control/main');</script>
+</#if>
 </head>
 <body>
 <#if mustChange>
