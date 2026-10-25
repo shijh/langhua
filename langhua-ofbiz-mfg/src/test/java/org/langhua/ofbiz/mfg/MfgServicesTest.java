@@ -19,9 +19,11 @@ import static org.junit.Assert.assertTrue;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -1331,8 +1333,7 @@ public class MfgServicesTest {
     }
 
     @Test
-    public void keepsAClosedOrderOutOfTheStockTooButSaysSoDifferently() {
-        // 交易关闭: the deal never went through (the person confirmed they simply never paid), so the
+    public void keepsAClosedOrderOutOfTheStockTooButSaysSoDifferently() {        // 交易关闭: the deal never went through (the person confirmed they simply never paid), so the
         // parts were never shipped - it is not a refund, and the page must say which of the two it is
         Map<String, String> closed = oneOrder(
                 "{\"orderNo\":\"1975537021797500570\",\"paidTotal\":\"79.00\",\"freight\":\"0.00\","
@@ -1362,6 +1363,95 @@ public class MfgServicesTest {
         assertFalse(MfgServices.notToBookIn(oneOrder(
                 "{\"orderNo\":\"42\",\"lines\":\"X,part,1,1.00\"}")));
         assertFalse(MfgServices.isClosed(null));
+    }
+
+    @Test
+    public void readsTheWorkbookTaobaoLetsABuyerDownload() {
+        // the export prints the order level cells on the first row of an order and leaves the next
+        // rows empty, so the second article of an order must land on the same order
+        List<Map<String, String>> rows = new ArrayList<>();
+        rows.add(excelRow("订单号", "订单提交时间", "订单状态", "店铺名称", "商品名称", "型号款式",
+                "商品数量", "商品金额", "实付金额", "运费"));
+        rows.add(excelRow("2012720340237500570", "2023-11-10 16:22:01", "交易成功", "高芯达电子",
+                "鼠标脚贴3M脚垫", "3M G102黑色脚贴", "2", "￥5.05", "￥23.14", "￥3.00"));
+        rows.add(excelRow("", "", "", "", "SMA天线", "2.4G/5.8G双频8dBi", "2", "￥5.02", "", ""));
+        rows.add(excelRow("776630145044500570", "2023-11-11 09:00:00", "交易成功", "宇宙悍将",
+                "面包板", "830孔 面包板", "1", "￥64.00", "￥51.80", "￥0.00"));
+        rows.add(excelRow("1975537021797500570", "2023-09-19 10:00:00", "交易关闭", "优速家居",
+                "激光测距仪", "旗舰款（50米）", "1", "￥79.00", "￥79.00", "￥0.00"));
+        rows.add(excelRow("1234567890123450570", "2023-09-20 10:00:00", "充值成功", "话费充值",
+                "100元话费", "", "1", "￥100.00", "￥100.00", "￥0.00"));
+
+        List<Map<String, String>> orders = MfgOrderExcel.ordersOfRows(rows);
+        assertEquals(4, orders.size());
+
+        Map<String, String> first = orders.get(0);
+        assertEquals("2012720340237500570", first.get("orderNo"));
+        assertEquals("高芯达电子", first.get("shop"));
+        assertEquals("2023-11-10", first.get("orderDate"));
+        assertEquals("3.00", first.get("freight"));
+        assertEquals("2", first.get("rowCount"));
+        // 商品金额 is the price of one piece: two pieces of 5.05 are 10.10, two of 5.02 are 10.04
+        assertTrue(first.get("lines").startsWith("3M G102黑色脚贴\t"));
+        assertTrue(first.get("lines").contains("\t2\t10.10"));
+        assertTrue(first.get("lines").contains("\t2\t10.04"));
+        assertNull(first.get("skip"));
+        // 20.14 of goods plus 3.00 of freight is what was paid: no discount to keep
+        assertEquals("0", first.get("discount"));
+
+        // a red packet makes the paid total smaller than the lines plus the freight: the difference
+        // is the discount of the receipt, not a mangled line amount (Step 95)
+        assertEquals("12.20", orders.get(1).get("discount"));
+
+        Map<String, String> closed = orders.get(2);
+        assertEquals(MfgOrderExcel.SKIP_CLOSED, closed.get("skip"));
+
+        Map<String, String> topUp = orders.get(3);
+        assertEquals(MfgOrderExcel.SKIP_TOPUP, topUp.get("skip"));
+
+        // a file that is not a workbook is answered with "no orders" instead of an exception
+        assertTrue(MfgOrderExcel.ordersOf(new byte[] {1, 2, 3}).isEmpty());
+        assertTrue(MfgOrderExcel.ordersOf(null).isEmpty());
+    }
+
+    /** One row of the export, keyed by column letter as the reader returns it. */
+    private static Map<String, String> excelRow(String... cells) {
+        Map<String, String> row = new LinkedHashMap<>();
+        for (int i = 0; i < cells.length; i++) {
+            row.put(String.valueOf((char) ('A' + i)), cells[i]);
+        }
+        return row;
+    }
+
+    @Test
+    public void readsTheZipOfAWorkbookAndItsSharedStrings() throws IOException {
+        // an xlsx is a zip: xl/sharedStrings.xml holds the text, the sheet points at it by index
+        java.io.ByteArrayOutputStream bytes = new java.io.ByteArrayOutputStream();
+        try (java.util.zip.ZipOutputStream zip = new java.util.zip.ZipOutputStream(bytes)) {
+            zip.putNextEntry(new java.util.zip.ZipEntry("xl/sharedStrings.xml"));
+            zip.write(("<?xml version=\"1.0\" encoding=\"UTF-8\"?><sst>"
+                    + "<si><t>订单号</t></si><si><t>订单状态</t></si>"
+                    + "<si><t>2012720340237500570</t></si><si><t>交易成功</t></si></sst>")
+                    .getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            zip.closeEntry();
+            zip.putNextEntry(new java.util.zip.ZipEntry("xl/worksheets/sheet1.xml"));
+            zip.write(("<?xml version=\"1.0\" encoding=\"UTF-8\"?><worksheet><sheetData>"
+                    + "<row r=\"1\"><c r=\"A1\" t=\"s\"><v>0</v></c><c r=\"B1\" t=\"s\"><v>1</v></c></row>"
+                    + "<row r=\"2\"><c r=\"A2\" t=\"s\"><v>2</v></c><c r=\"B2\" t=\"s\"><v>3</v></c>"
+                    + "<c r=\"C2\" t=\"inlineStr\"><is><t>7</t></is></c></row>"
+                    + "</sheetData></worksheet>").getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            zip.closeEntry();
+        }
+        List<Map<String, String>> rows = MfgOrderExcel.rowsOf(bytes.toByteArray());
+        assertEquals(2, rows.size());
+        assertEquals("订单号", rows.get(0).get("A"));
+        assertEquals("交易成功", rows.get(1).get("B"));
+        // an inline string is read as well (Taobao writes the newer columns that way)
+        assertEquals("7", rows.get(1).get("C"));
+
+        // a zip that carries no worksheet is answered with nothing instead of an exception
+        assertTrue(MfgOrderExcel.rowsOf("not a zip".getBytes(java.nio.charset.StandardCharsets.UTF_8))
+                .isEmpty());
     }
 
     @Test

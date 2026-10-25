@@ -674,6 +674,80 @@
     </script>
 </fieldset>
 
+<fieldset id="excelBlock">
+    <legend>从淘宝导出的「订单数据」Excel 一次导入（一张单一张到货单）</legend>
+    <form method="post" action="/mfg/control/orderExcel" enctype="multipart/form-data" id="excelForm">
+        <p>
+            文件 <input type="file" id="excelFile" name="file" accept=".xlsx"/>
+            <button type="submit" id="excelImport" data-once="Y">导入 Excel</button>
+            <span id="excelHint" class="hint">淘宝「已买到的宝贝 → 导出」得到的 xlsx（1-10 页）；
+                料号取「型号款式」，没有就用商品名称；到货日用「订单提交时间」那天。</span>
+        </p>
+    </form>
+    <div id="excelResult" hidden="hidden">
+        <table class="inner" id="excelNoteTable">
+            <tr><th>订单号</th><th>为什么没入库</th></tr>
+            <tbody id="excelNoteRows"></tbody>
+        </table>
+    </div>
+    <#if (parameters.excelImported)?has_content>
+        <p class="ok">上次导入：写入 ${parameters.excelImported} 张单（${(parameters.excelLines)!'0'} 行），
+            跳过 ${(parameters.excelSkipped)!'0'} 张，失败 ${(parameters.excelFailed)!'0'} 张。</p>
+    </#if>
+</fieldset>
+<script>
+(function () {
+    var form = document.getElementById('excelForm');
+    if (!form) { return; }
+    var hint = document.getElementById('excelHint');
+    var button = document.getElementById('excelImport');
+    var result = document.getElementById('excelResult');
+    var rows = document.getElementById('excelNoteRows');
+    function say(text, style) {
+        hint.className = style || 'hint';
+        hint.textContent = text;
+    }
+    form.addEventListener('submit', function (event) {
+        if (!window.FormData || !window.fetch) { return; }
+        event.preventDefault();
+        var data = new FormData(form);
+        data.append('ajax', 'Y');
+        say('正在读文件，一张单一张到货单，请稍等…', 'hint');
+        fetch('/mfg/control/orderExcel', { method: 'POST', body: data, credentials: 'same-origin' })
+            .then(jsonOrLogin)
+            .then(function (answer) {
+                say(answer.message || (answer.ok ? '导入完成' : '没有导入'), answer.ok ? 'ok' : 'error');
+                while (rows.firstChild) { rows.removeChild(rows.firstChild); }
+                (answer.notes || []).forEach(function (note) {
+                    var tr = document.createElement('tr');
+                    tr.setAttribute('data-excel-note', note.orderNo || '');
+                    var first = document.createElement('td');
+                    first.textContent = note.orderNo || '';
+                    var second = document.createElement('td');
+                    second.textContent = note.message || '';
+                    tr.appendChild(first);
+                    tr.appendChild(second);
+                    rows.appendChild(tr);
+                });
+                if (result) { result.hidden = !(answer.notes && answer.notes.length); }
+                if (answer.imported > 0) {
+                    /* the list below is re-read so the receipts just written show up without a reload */
+                    fetch(location.href).then(function (a) { return a.text(); }).then(function (html) {
+                        var fresh = new DOMParser().parseFromString(html, 'text/html')
+                            .getElementById('receiptListBlock');
+                        var current = document.getElementById('receiptListBlock');
+                        if (fresh && current) { current.innerHTML = fresh.innerHTML; }
+                    }).catch(function () {});
+                }
+            })
+            .catch(function (problem) {
+                if (problem && problem.message === 'login') { return; }
+                form.submit();
+            });
+    });
+}());
+</script>
+
 <fieldset id="refundedBlock">
     <legend>退款 / 关闭的单（登记后这些订单号不再入库）</legend>
     <form method="post" action="/mfg/control/refundedOrderSave" class="inline">
@@ -684,8 +758,8 @@
             <input type="submit" value="登记"/>
         </p>
     </form>
-    <p class="hint">截图里能看出「退款成功 / 已关闭」时系统会自动登记（列表里会多一行）；
-        手工粘单、或者截图没写字但你知道退了款的，可以在这里补登。
+    <p class="hint">识图认出「退款成功 / 已关闭」时，那张单只是这一次不入库，不会自动登记到这里；
+        确实退了的就手工登记一行。
         钱退回来了、料一般也没留下——真入了库就是凭空多出一批货，所以这个号一登记就再也建不了单。</p>
     <#if refundedOrders?has_content>
         <table id="refundedTable">

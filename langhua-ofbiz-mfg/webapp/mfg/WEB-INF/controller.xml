@@ -179,6 +179,15 @@
         <response name="error" type="view" value="products"/>
     </request-map>
 
+    <!-- Imports the workbook Taobao exports (已买到的宝贝 → 导出订单): one receipt per order number.
+         The page script posts it and gets JSON back; a plain post is redirected with the counts. -->
+    <request-map uri="orderExcel" save-last-view="true">
+        <security https="true" auth="true"/>
+        <event type="java" path="org.langhua.ofbiz.mfg.MfgImportEvents" invoke="orderExcel"/>
+        <response name="json" type="none"/>
+        <response name="error" type="none"/>
+    </request-map>
+
     <request-map uri="bomItemSave" save-last-view="true">
         <security https="true" auth="true"/>
         <event type="service" invoke="mfgBomItemSave"/>
