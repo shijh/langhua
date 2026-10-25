@@ -78,6 +78,10 @@ a:hover { text-decoration: underline; }
     overflow-x: auto;
     overflow-y: hidden;
 }
+/* jumping to a block (e.g. a receipt opened from its list) must not hide its heading under the nav */
+#receiptDetail {
+    scroll-margin-top: 3.6em;
+}
 .nav a {
     display: inline-block;
     margin-right: .15em;

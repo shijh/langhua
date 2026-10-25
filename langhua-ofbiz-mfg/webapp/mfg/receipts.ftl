@@ -63,7 +63,7 @@
         <#list receipts as r>
             <#assign voided = ((r.statusId)!'') == 'MFG_RCPT_VOID'>
             <tr data-receipt="${r.receiptId}" data-receipt-status="${(r.statusId)!'MFG_RCPT_ACTIVE'}">
-                <td><a href="/mfg/control/receipts?receiptId=${r.receiptId}">${r.receiptId}</a></td>
+                <td><a href="/mfg/control/receipts?receiptId=${r.receiptId}#receiptDetail">${r.receiptId}</a></td>
                 <td>${r.supplierName!}</td>
                 <td>${r.supplierOrderNo!}</td>
                 <td><#if r.receiptDate??>${r.receiptDate?string("yyyy-MM-dd")}</#if></td>
@@ -814,7 +814,7 @@
 
 <#if receipt.receiptId??>
     <#assign receiptVoid = ((receipt.statusId)!'MFG_RCPT_ACTIVE') == 'MFG_RCPT_VOID'>
-    <h2>到货单 ${receipt.receiptId}（${(rd.lineCount)!0} 行）<#if receiptVoid><span class="error">已作废</span></#if></h2>
+    <h2 id="receiptDetail">到货单 ${receipt.receiptId}（${(rd.lineCount)!0} 行）<#if receiptVoid><span class="error">已作废</span></#if></h2>
     <#if receiptVoid>
         <p class="error">
             这张单已作废<#if receipt.voidedDate??>（${receipt.voidedDate?string("yyyy-MM-dd HH:mm")}<#if (receipt.voidedByUserLoginId)?has_content>，${receipt.voidedByUserLoginId}</#if><#if (receipt.voidReason)?has_content>，原因：${receipt.voidReason}</#if>）</#if>：
@@ -970,4 +970,26 @@
         </#if>
     </fieldset>
     </#if>
+    <script>
+    /* opening a receipt from the list (or after voiding / saving) lands on the long list page first:
+       bring the receipt itself into view. The offset keeps its heading below the sticky navigation
+       bar; it runs after the page has loaded, because a browser first jumps to the #receiptDetail
+       fragment itself and an old cached stylesheet carries no scroll-margin to correct that jump */
+    (function () {
+        function jumpToReceipt() {
+            var detail = document.getElementById('receiptDetail');
+            if (!detail) { return; }
+            var nav = document.querySelector('.nav');
+            var offset = (nav ? nav.getBoundingClientRect().height : 0) + 14;
+            var top = detail.getBoundingClientRect().top
+                + (window.scrollY || window.pageYOffset || 0) - offset;
+            window.scrollTo(0, Math.max(0, top));
+        }
+        if (document.readyState === 'complete') {
+            jumpToReceipt();
+        } else {
+            window.addEventListener('load', jumpToReceipt);
+        }
+    }());
+    </script>
 </#if>
