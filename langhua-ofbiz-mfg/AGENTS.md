@@ -791,6 +791,23 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   于是提示跑到首页去了。现在组件里**重写了一份 `forgotPassword` request-map**（自己的 request-map 压住 common 的），
   把 `auth` 也接成 view `forgotPassword`；`signIn.groovy` 先读 `_EVENT_MESSAGE_` 再读 `_ERROR_MESSAGE_`，
   把「密码提示：x / 没有设密码提示 / 没填账号」翻成中文（提示用蓝框 `.signin-note`，抱怨用红框）。
+- **操作记录 / 审计（Step 125）**：新实体 `MfgAuditLog`（`AU-yyMMdd-NN`，`userLoginId` / `actionId` /
+  `targetId` / `remoteAddr` / `note` / `createdStamp`）+ `MfgAudit`（写行、编号、中文动作名、一天一次清理）。
+  **四个记录点**：① `MfgLoginEvents.login` 包住 `LoginWorker.login`（`error`→`LOGIN_FAIL`；`success` /
+  `requirePasswordChange`→`LOGIN_OK`；表单带了 `newPassword` 再加一条 `PASSWORD_CHANGE`）；
+  ② `MfgLoginEvents.forgotPassword`（只有按了按钮才记，记的就是“查了谁的密码提示”——这页不需要登录，
+  所以这是唯一能回答“谁看了谁的提示”的地方）；③ `mfgChangePassword`；④ `mfgUserResetPassword`
+  （note 写“管理员重置密码”）。两个 webapp 的 `login` / `forgotPassword` request-map 都指向 mfg 的事件
+  （`MfgAudit.webappName` 把 note 写成 MES / 学习曲线），所以两个组件的登录都在同一张表里。
+  **页面**：`/mfg/control/users` 底部「操作记录」，只有管理员看得到；筛选 = 账号/对象 + 动作，
+  行上 `data-audit` / `data-action` 给巡检；「清理一年以前」按钮 POST `auditPurge`。
+  **保留 1 年**：`MfgAudit.record` 里顺带每天清一次（`SystemProperty` 的 `mfg.audit.lastPurge` 记日期），
+  按钮只是手动触发，不按也不会涨。
+  **坑**：① `<redirect-parameter>` 只吃 String 请求属性，所以服务 OUT 叫 `purged`（String）不是 `removed`（Long），
+  否则页面上拿不到条数；② 所有写库都 try/catch —— 写不进审计日志绝不能拦住登录；
+  ③ 顺带把三套实例的 `store.login.history.incorrect.password` 改成了 `false`（OFBiz 会把**输错的密码明文**
+  写进 `USER_LOGIN_HISTORY`），现在失败只记在 `MfgAuditLog` 里。
+  巡检：`verify-m49.ps1`（admin 建探针账号 → 错密码 → 对密码 → 查提示 → 看四类行 + 筛选 + 清理）14 项。
 - **保修**：从出货日开始算，月数在产品上（`warrantyMonths`，默认 12）- **淘宝窗口**：7 天无理由 = 签收日 + 8 天 00:00（即签收次日起 168 小时）；15 天售后 = 签收 + 15 天 23:59:59
 - **买家名单**：匹配键优先买家昵称（`TB:N:nick`），因为淘宝收件手机号常被隐私号掩码；手机号必须是 11 位真号、
   带 `*` 一律拒绝；名单 12 个月自动失效；**只提示，不拦截任何法定售后**

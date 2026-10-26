@@ -795,6 +795,8 @@
                 <set field="pageTitle" value="用户账号"/>
                 <set field="activeMenu" value="users"/>
                 <service service-name="mfgUserList" result-map="accountList" auto-field-map="true"/>
+                <!-- who logged in, who asked for a password hint, who changed a password (Step 125) -->
+                <service service-name="mfgAuditList" result-map="auditLog" auto-field-map="true"/>
             </actions>
             <widgets>
                 <decorator-screen name="mfg-decorator" location="component://mfg/widget/MfgCommonScreens.xml">

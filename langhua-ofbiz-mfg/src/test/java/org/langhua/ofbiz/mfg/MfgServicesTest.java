@@ -1150,6 +1150,50 @@ public class MfgServicesTest {
     }
 
     @Test
+    public void namesTheAuditActionsInChinese() {
+        // the page shows words, the table keeps the id: both come from one place
+        assertEquals("登录成功", MfgAudit.label(MfgAudit.LOGIN_OK));
+        assertEquals("登录失败", MfgAudit.label(MfgAudit.LOGIN_FAIL));
+        assertEquals("查看密码提示", MfgAudit.label(MfgAudit.FORGOT_HINT));
+        assertEquals("修改密码", MfgAudit.label(MfgAudit.PASSWORD_CHANGE));
+        // an action this build does not know is shown as it is, not hidden
+        assertEquals("SOMETHING_NEW", MfgAudit.label("SOMETHING_NEW"));
+        assertEquals("", MfgAudit.label(null));
+        assertEquals(4, MfgAudit.options().size());
+        assertEquals(MfgAudit.LOGIN_OK, MfgAudit.options().get(0).get("actionId"));
+        assertEquals("登录成功", MfgAudit.options().get(0).get("label"));
+    }
+
+    @Test
+    public void saysWhyALoginWasRefusedInChinese() {
+        // the audit row is read by the shop, so the framework's English is translated (the login
+        // page does the same in signIn.groovy - keep the two in step)
+        assertEquals("密码不对", MfgAudit.failureText(
+                "following error occurred during login: Password incorrect."));
+        assertEquals("账号被临时锁住了（连着输错密码）", MfgAudit.failureText(
+                "following error occurred during login: The account for user login id \"admin\" has been disabled. It will be re-enabled 13:49:27."));
+        assertEquals("没有这个账号名", MfgAudit.failureText("User not found."));
+        assertEquals("", MfgAudit.failureText(null));
+        // anything else is shown as it came, not swallowed
+        assertEquals("something odd", MfgAudit.failureText("something odd"));
+        // both components write into the same table, so the note says which one it was
+        assertEquals("MES", MfgAudit.webappName("/mfg"));
+        assertEquals("学习曲线", MfgAudit.webappName("/learningcurve"));
+        assertEquals("webtools", MfgAudit.webappName("/webtools"));
+        assertEquals("", MfgAudit.webappName(null));
+    }
+
+    @Test
+    public void numbersAuditRowsByDayAndKeepsThemAYear() {        // same shape as every other number of the component, and it grows past 99 by itself
+        assertEquals("AU-261026-01", MfgAudit.auditId(java.time.LocalDate.of(2026, 10, 26), 1));
+        assertEquals("AU-261026-120", MfgAudit.auditId(java.time.LocalDate.of(2026, 10, 26), 120));
+        // a year of retention, counted from an exact moment
+        long now = java.sql.Timestamp.valueOf("2027-10-26 08:00:00").getTime();
+        assertEquals("2026-10-26 08:00:00.0",
+                MfgAudit.keepCutoff(now, MfgAudit.KEEP_DAYS).toString());
+    }
+
+    @Test
     public void readsTheRowMoneyWhenTheStruckPriceCameAsADiscount() {
         // a page prints 0.10 beside the struck through 0.09 and x2: the model answered the unit price
         // as the row money and the struck price as a discount of the whole order

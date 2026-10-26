@@ -9,11 +9,20 @@
     <!-- every request the framework could not finish lands here (Step 123) -->
     <errorpage>component://learningcurve/webapp/learningcurve/error.ftl</errorpage>
 
+    <!-- the stock login, through the MES event so every attempt lands in the same audit log
+         (Step 125); the answers are the ones LoginWorker gives -->
+    <request-map uri="login">
+        <security https="true" auth="false"/>
+        <event type="java" path="org.langhua.ofbiz.mfg.MfgLoginEvents" invoke="login"/>
+        <response name="success" type="view" value="main"/>
+        <response name="requirePasswordChange" type="view" value="requirePasswordChange"/>
+        <response name="error" type="view" value="login"/>
+    </request-map>
+
     <request-map uri="main">
         <security https="true" auth="true"/>
         <response name="success" type="view" value="main"/>
     </request-map>
-
     <request-map uri="estimate">
         <security https="true" auth="true"/>
         <event type="service" invoke="learningCurveSaveEstimate"/>
@@ -66,7 +75,7 @@
          our own page instead, where signIn.groovy turns that text into Chinese -->
     <request-map uri="forgotPassword">
         <security https="true" auth="false"/>
-        <event type="java" path="org.apache.ofbiz.securityext.login.LoginEvents" invoke="forgotPassword"/>
+        <event type="java" path="org.langhua.ofbiz.mfg.MfgLoginEvents" invoke="forgotPassword"/>
         <response name="success" type="view" value="forgotPassword"/>
         <response name="error" type="view" value="forgotPassword"/>
         <response name="auth" type="view" value="forgotPassword"/>

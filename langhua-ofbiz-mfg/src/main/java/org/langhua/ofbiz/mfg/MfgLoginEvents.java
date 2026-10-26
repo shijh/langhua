@@ -25,6 +25,9 @@ import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
 
 import org.apache.ofbiz.base.util.Debug;
+import org.apache.ofbiz.entity.Delegator;
+import org.apache.ofbiz.securityext.login.LoginEvents;
+import org.apache.ofbiz.webapp.control.LoginWorker;
 
 /**
  * Remembers the page a person was on when the session ran out, so that logging in brings them back
@@ -59,6 +62,71 @@ public final class MfgLoginEvents {
     private static final String PREVIOUS_REQUEST = "_PREVIOUS_REQUEST_";
 
     private MfgLoginEvents() {
+    }
+
+    /**
+     * The framework's login, plus one line in the audit log (Step 125): who got in, who was refused
+     * and why. The framework only says "success", "error" or "requirePasswordChange" - the last one
+     * means the password was right but has to be changed, so it counts as a login.
+     *
+     * <p>Recording is guarded: an audit row that cannot be written must never keep somebody out.
+     *
+     * @param request the login form, {@code USERNAME} / {@code PASSWORD}
+     * @param response the response, untouched here
+     * @return whatever the framework answered ({@code success}, {@code error}, …)
+     */
+    public static String login(HttpServletRequest request, HttpServletResponse response) {
+        String outcome = LoginWorker.login(request, response);
+        try {
+            Delegator delegator = (Delegator) request.getAttribute("delegator");
+            String typed = request.getParameter("USERNAME");
+            String webapp = MfgAudit.webappName(request.getContextPath());
+            String remote = request.getRemoteAddr();
+            if ("error".equals(outcome)) {
+                Object message = request.getAttribute("_ERROR_MESSAGE_");
+                MfgAudit.record(delegator, null, MfgAudit.LOGIN_FAIL, typed, remote,
+                        webapp + " " + MfgAudit.failureText(message == null ? null : String.valueOf(message)));
+            } else if ("success".equals(outcome) || "requirePasswordChange".equals(outcome)) {
+                MfgAudit.record(delegator, typed, MfgAudit.LOGIN_OK, null, remote, webapp);
+                // the password gate posts back to this same request with the new password in it
+                String newPassword = request.getParameter("newPassword");
+                if (newPassword != null && !newPassword.isEmpty()) {
+                    MfgAudit.record(delegator, typed, MfgAudit.PASSWORD_CHANGE, typed, remote,
+                            webapp + " 首次登录改密");
+                }
+            }
+        } catch (Throwable t) {
+            Debug.logError(t, "Could not write the audit row of a login", MODULE);
+        }
+        return outcome;
+    }
+
+    /**
+     * The framework's "forgot my password", plus one line in the audit log when somebody really
+     * asked for a hint (opening the page leaves no trace). This is the interesting one for security:
+     * the page needs no login, so the row is the only way to answer "who looked at whose hint".
+     *
+     * @param request the form, {@code USERNAME} and one of the two buttons
+     * @param response the response, untouched here
+     * @return whatever the framework answered ({@code success}, {@code error}, {@code auth}, …)
+     */
+    public static String forgotPassword(HttpServletRequest request, HttpServletResponse response) {
+        String outcome = LoginEvents.forgotPassword(request, response);
+        try {
+            boolean asked = request.getParameter("GET_PASSWORD_HINT") != null
+                    || request.getParameter("GET_PASSWORD_HINT.x") != null
+                    || request.getParameter("EMAIL_PASSWORD") != null
+                    || request.getParameter("EMAIL_PASSWORD.x") != null;
+            if (asked) {
+                Delegator delegator = (Delegator) request.getAttribute("delegator");
+                String what = request.getAttribute("_EVENT_MESSAGE_") != null ? " 看到提示" : " 没有提示";
+                MfgAudit.record(delegator, null, MfgAudit.FORGOT_HINT, request.getParameter("USERNAME"),
+                        request.getRemoteAddr(), MfgAudit.webappName(request.getContextPath()) + what);
+            }
+        } catch (Throwable t) {
+            Debug.logError(t, "Could not write the audit row of a password hint", MODULE);
+        }
+        return outcome;
     }
 
     /**

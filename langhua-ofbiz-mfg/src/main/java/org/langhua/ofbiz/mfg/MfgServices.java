@@ -355,6 +355,8 @@ public final class MfgServices {
     private static final DateTimeFormatter DAY = DateTimeFormatter.ofPattern("yyMMdd");
     private static final DateTimeFormatter MONTH_DAY = DateTimeFormatter.ofPattern("MM-dd");
     private static final DateTimeFormatter FULL_DAY = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+    /** Day and minute, for the audit list. */
+    private static final DateTimeFormatter STAMP = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
 
     private MfgServices() {
     }
@@ -444,6 +446,8 @@ public final class MfgServices {
         Map<String, Object> result = ServiceUtil.returnSuccess("密码已修改");
         result.put("changed", "Y");
         result.put("userLoginId", userLoginId == null ? "" : userLoginId);
+        // the audit log keeps a line for it, so "who changed a password when" can be answered
+        MfgAudit.record(delegator, userLoginId, MfgAudit.PASSWORD_CHANGE, userLoginId, null, "服务");
         return result;
     }
 
@@ -874,10 +878,126 @@ public final class MfgServices {
                     "密码已重置为出厂密码，该账号下次登录会被要求修改");
             result.put("userLoginId", target.getString("userLoginId"));
             result.put("reset", "Y");
+            // the audit log answers "who put whose password back"
+            MfgAudit.record(delegator, userLogin.getString("userLoginId"), MfgAudit.PASSWORD_CHANGE,
+                    target.getString("userLoginId"), null, "管理员重置密码");
             return result;
         } catch (GenericEntityException | GenericServiceException e) {
             return ServiceUtil.returnError("重置密码失败：" + e.getMessage());
         }
+    }
+
+    /**
+     * One page of the audit log: who logged in, who was refused, who asked for a password hint and
+     * who changed a password, newest first.
+     *
+     * <p>Never returns an error for somebody who may not read it: the page it belongs to is the
+     * account page, which everybody with a login can open.
+     *
+     * @param dctx the dispatch context
+     * @param context service context, see {@code servicedef/services.xml#mfgAuditList}
+     * @return the service result with {@code rows}, {@code options} and the paging metadata
+     */
+    public static Map<String, Object> auditList(DispatchContext dctx, Map<String, ? extends Object> context) {
+        Delegator delegator = dctx.getDelegator();
+        List<Map<String, Object>> rows = new ArrayList<>();
+        Map<String, Object> result = ServiceUtil.returnSuccess();
+        result.put("rows", rows);
+        result.put("options", MfgAudit.options());
+        result.put("canManage", "N");
+        result.put("message", "");
+        result.put("totalCount", Integer.valueOf(0));
+        result.put("page", Long.valueOf(1));
+        result.put("pageCount", Long.valueOf(1));
+        result.put("pageSize", Long.valueOf(pageSizeOf(context)));
+        result.put("keepingDays", Long.valueOf(MfgAudit.KEEP_DAYS));
+        result.put("lastPurge", "");
+        GenericValue userLogin = (GenericValue) context.get("userLogin");
+        if (userLogin == null) {
+            return result;
+        }
+        String denied = accountAdminProblem(dctx, userLogin);
+        result.put("canManage", denied == null ? "Y" : "N");
+        result.put("message", denied == null ? "" : denied);
+        if (denied != null) {
+            return result;
+        }
+        try {
+            GenericValue purgeDay = EntityQuery.use(delegator).from("SystemProperty")
+                    .where("systemResourceId", "mfg", "systemPropertyId", "mfg.audit.lastPurge").queryOne();
+            if (purgeDay != null) {
+                result.put("lastPurge", toText(purgeDay.getString("systemPropertyValue")) == null
+                        ? "" : purgeDay.getString("systemPropertyValue"));
+            }
+            String search = toText(context.get("search"));
+            String actionId = toText(context.get("actionId"));
+            List<EntityCondition> conditions = new ArrayList<>();
+            if (actionId != null) {
+                conditions.add(EntityCondition.makeCondition("actionId", EntityOperator.EQUALS, actionId));
+            }
+            if (search != null) {
+                conditions.add(EntityCondition.makeCondition(EntityCondition.makeCondition("userLoginId",
+                        EntityOperator.LIKE, "%" + search + "%"), EntityOperator.OR,
+                        EntityCondition.makeCondition("targetId", EntityOperator.LIKE, "%" + search + "%")));
+            }
+            EntityCondition where = conditions.isEmpty() ? null
+                    : EntityCondition.makeCondition(conditions, EntityOperator.AND);
+            List<GenericValue> found = EntityQuery.use(delegator).from("MfgAuditLog")
+                    .where(where).orderBy("-createdStamp", "-auditId").queryList();
+            for (GenericValue entry : found) {
+                Map<String, Object> row = new LinkedHashMap<>();
+                row.put("auditId", toText(entry.getString("auditId")));
+                row.put("actionId", toText(entry.getString("actionId")));
+                row.put("actionLabel", MfgAudit.label(entry.getString("actionId")));
+                row.put("userLoginId", toText(entry.getString("userLoginId")));
+                row.put("targetId", toText(entry.getString("targetId")));
+                row.put("remoteAddr", toText(entry.getString("remoteAddr")));
+                row.put("note", toText(entry.getString("note")));
+                row.put("when", stampText(entry.getTimestamp("createdStamp")));
+                rows.add(row);
+            }
+            putPage(result, "rows", rows, pageOf(context), pageSizeOf(context), search);
+            result.put("actionId", actionId == null ? "" : actionId);
+            return result;
+        } catch (GenericEntityException e) {
+            return ServiceUtil.returnError("读取操作记录失败：" + e.getMessage());
+        }
+    }
+
+    /**
+     * Drops the audit rows older than a year. The same clean up runs by itself about once a day, so
+     * this button is only there for the person who wants to see it happen.
+     *
+     * @param dctx the dispatch context
+     * @param context service context, see {@code servicedef/services.xml#mfgAuditPurge}
+     * @return the service result with {@code purged}
+     */
+    public static Map<String, Object> auditPurge(DispatchContext dctx, Map<String, ? extends Object> context) {
+        String denied = permissionProblem(dctx, context, PERM_ADMIN);
+        if (denied != null) {
+            return ServiceUtil.returnError(denied);
+        }
+        try {
+            int removed = MfgAudit.purge(dctx.getDelegator(),
+                    MfgAudit.keepCutoff(System.currentTimeMillis(), MfgAudit.KEEP_DAYS));
+            Map<String, Object> result = ServiceUtil.returnSuccess(
+                    "已删除 " + removed + " 条一年以前的记录");
+            // a redirect parameter has to be a String, so the page reads it back as one
+            result.put("purged", String.valueOf(removed));
+            return result;
+        } catch (GenericEntityException e) {
+            return ServiceUtil.returnError("清理操作记录失败：" + e.getMessage());
+        }
+    }
+
+    /**
+     * Formats a timestamp with the day and the minute, for the audit list.
+     *
+     * @param value the timestamp, may be {@code null}
+     * @return {@code yyyy-MM-dd HH:mm} or an empty string
+     */
+    private static String stampText(Timestamp value) {
+        return value == null ? "" : value.toLocalDateTime().format(STAMP);
     }
 
     /**

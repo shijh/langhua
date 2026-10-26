@@ -52,6 +52,9 @@ OFBiz **学习曲线**插件：按历史批次（数量 + 总额/工时）拟合
   + `webapp/learningcurve/forgotPassword.ftl`），只留“查看密码提示”；`LoginEvents` 找到提示时返回的是
   `auth`（文本在 `_EVENT_MESSAGE_`），所以自己那份 request-map 把 `auth` 接成 view `forgotPassword`。
   细节见 `../langhua-ofbiz-mfg/AGENTS.md` 的 Step 124。
+- **操作记录（Step 125）**：本组件的 `login` / `forgotPassword` request-map 指向 **MES 的** `MfgLoginEvents`，
+  所以学习曲线的登录、登录失败、查提示都写进同一张 `MfgAuditLog`（note 里写“学习曲线”），
+  看的地方是 `/mfg/control/users` 底部的「操作记录」；两个 webapp 会话不共享，要登两次才看得到。
 
 ## 注意
 

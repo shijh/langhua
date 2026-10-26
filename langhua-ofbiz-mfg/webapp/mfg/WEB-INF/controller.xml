@@ -16,13 +16,22 @@
         <event type="java" path="org.langhua.ofbiz.mfg.MfgLoginEvents" invoke="afterLogin"/>
     </after-login>
 
+    <!-- the stock login, through our own event so every attempt leaves a line in the audit log
+         (Step 125); the answers are the ones LoginWorker gives -->
+    <request-map uri="login">
+        <security https="true" auth="false"/>
+        <event type="java" path="org.langhua.ofbiz.mfg.MfgLoginEvents" invoke="login"/>
+        <response name="success" type="view" value="main"/>
+        <response name="requirePasswordChange" type="view" value="requirePasswordChange"/>
+        <response name="error" type="view" value="login"/>
+    </request-map>
+
     <request-map uri="main" save-last-view="true">
         <security https="true" auth="true"/>
         <event type="java" path="org.langhua.ofbiz.mfg.MfgLoginEvents" invoke="backAfterLogin"/>
         <response name="success" type="view" value="main"/>
         <response name="redirected" type="none"/>
     </request-map>
-
     <request-map uri="rememberReturn">
         <description>Remember the page a person was on and send them to the login form</description>
         <security https="true" auth="false"/>
@@ -167,7 +176,7 @@
          our own page instead, where signIn.groovy turns that text into Chinese -->
     <request-map uri="forgotPassword">
         <security https="true" auth="false"/>
-        <event type="java" path="org.apache.ofbiz.securityext.login.LoginEvents" invoke="forgotPassword"/>
+        <event type="java" path="org.langhua.ofbiz.mfg.MfgLoginEvents" invoke="forgotPassword"/>
         <response name="success" type="view" value="forgotPassword"/>
         <response name="error" type="view" value="forgotPassword"/>
         <response name="auth" type="view" value="forgotPassword"/>
@@ -636,6 +645,16 @@
         <security https="true" auth="true"/>
         <event type="service" invoke="mfgUserResetPassword"/>
         <response name="success" type="request-redirect" value="users"/>
+        <response name="error" type="view" value="users"/>
+    </request-map>
+
+    <!-- drops the audit rows older than a year; the same clean up also runs by itself once a day -->
+    <request-map uri="auditPurge" save-last-view="true">
+        <security https="true" auth="true"/>
+        <event type="service" invoke="mfgAuditPurge"/>
+        <response name="success" type="request-redirect" value="users">
+            <redirect-parameter name="purged"/>
+        </response>
         <response name="error" type="view" value="users"/>
     </request-map>
 

@@ -3,13 +3,27 @@
 <#--
   User accounts: who may log in, which security group they belong to, whether they still use the
   default password. Only members of the SUPER group get the editing forms.
-  Data: accountList (mfgUserList -> rows / groupOptions / canManage / message)
+  Data: accountList (mfgUserList -> rows / groupOptions / canManage / message),
+        auditLog (mfgAuditList -> rows / options / page / pageCount / totalCount / keepingDays)
 -->
+<#import "pager.ftl" as pg>
 <#assign al = (accountList)!{}>
 <#assign rows = (al.rows)![]>
 <#assign groupOptions = (al.groupOptions)![]>
 <#assign canManage = ((al.canManage)!'N') == 'Y'>
 <#assign currentUser = (al.currentUserLoginId)!''>
+<#assign audit = (auditLog)!{}>
+<#assign auditRows = (audit.rows)![]>
+<#assign auditOptions = (audit.options)![]>
+<#assign auditCanManage = ((audit.canManage)!'N') == 'Y'>
+<#assign auditPairs = []>
+<#if ((audit.search)!'')?has_content><#assign auditPairs = auditPairs + ['search=' + audit.search?url]></#if>
+<#if ((audit.actionId)!'')?has_content><#assign auditPairs = auditPairs + ['actionId=' + audit.actionId?url]></#if>
+<#assign auditQuery = auditPairs?join('&')>
+<#assign auditPage = (audit.page)!1>
+<#assign auditPages = (audit.pageCount)!1>
+<#assign auditTotal = (audit.totalCount)!0>
+<#assign auditSize = (audit.pageSize)!20>
 <#assign errList = (errorMessageList)![]>
 <#assign okList = (infoMessageList)![]>
 
@@ -99,4 +113,51 @@
 
 <p class="hint">共 ${(al.totalCount)!0} 个账号。新账号第一次登录会被要求改密码（出厂密码不能长期使用）；
     忘记密码就让管理员在这里点「重置密码」，重置后同样要求改。</p>
+</#if>
+
+<h2>操作记录</h2>
+<#if ((parameters.purged)!'')?has_content>
+    <p class="ok">已删除 ${parameters.purged} 条一年以前的记录。</p>
+</#if>
+<#if !auditCanManage>
+    <p class="warn">${(audit.message)!'只有管理员可以查看操作记录'}</p>
+<#else>
+<#-- who logged in, who was refused, who asked for a password hint, who changed a password -->
+<form method="get" action="/mfg/control/users">
+    <p>
+        账号 / 目标 <input type="text" name="search" value="${(audit.search)!}" size="16" placeholder="账号或对方账号"/>
+        动作
+        <select name="actionId" class="compact">
+            <option value="">全部</option>
+            <#list auditOptions as o>
+                <option value="${o.actionId}"<#if o.actionId == ((audit.actionId)!'')> selected="selected"</#if>>${o.label}</option>
+            </#list>
+        </select>
+        <input type="submit" value="筛选"/>
+    </p>
+</form>
+<#if auditRows?has_content>
+    <table id="auditTable">
+        <tr><th>时间</th><th>动作</th><th>谁</th><th>对象</th><th>来源</th><th>说明</th></tr>
+        <#list auditRows as a>
+            <tr data-audit="${a.auditId!}" data-action="${a.actionId!}">
+                <td class="nowrap">${a.when!}</td>
+                <td class="nowrap">${a.actionLabel!}</td>
+                <td><#if (a.userLoginId!)?has_content>${a.userLoginId}<#else>—</#if></td>
+                <td><#if (a.targetId!)?has_content>${a.targetId}<#else>—</#if></td>
+                <td class="nowrap"><#if (a.remoteAddr!)?has_content>${a.remoteAddr}<#else>—</#if></td>
+                <td class="hint">${a.note!}</td>
+            </tr>
+        </#list>
+    </table>
+    <@pg.pager action="/mfg/control/users" query=auditQuery page=auditPage pageCount=auditPages total=auditTotal unit="条" pageSize=auditSize/>
+<#else>
+    <p class="hint">还没有记录。登录、登录失败、查看密码提示、修改密码都会记一行。</p>
+</#if>
+<p class="hint">只保留 ${(audit.keepingDays)!365} 天，过期的记录每天自动清一次（也可以在下面手动清）。
+    <#if ((audit.lastPurge)!'')?has_content>上次清理：${audit.lastPurge}。</#if></p>
+<form method="post" action="/mfg/control/auditPurge" class="inline"
+      onsubmit="return confirm('删除一年以前的记录？这个动作不会影响账号和单据。');">
+    <button type="submit" class="secondary">清理一年以前的记录</button>
+</form>
 </#if>

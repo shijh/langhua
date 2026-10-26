@@ -996,4 +996,26 @@
             <key-map field-name="productCode"/>
         </relation>
     </entity>
+
+    <entity entity-name="MfgAuditLog"
+            package-name="org.langhua.ofbiz.mfg"
+            title="Who did what">
+        <description>One row per action worth remembering: a login, a refused login, somebody asking for a password hint, a changed password. Rows older than a year are dropped by MfgAudit itself, so nobody has to clean this table by hand</description>
+        <field name="auditId" type="id"><description>AU-yyMMdd-NN</description></field>
+        <field name="userLoginId" type="id-vlong"><description>Who did it; empty when nobody was logged in (login form, password hint)</description></field>
+        <field name="actionId" type="id"><description>LOGIN_OK, LOGIN_FAIL, FORGOT_HINT or PASSWORD_CHANGE, see MfgAudit</description></field>
+        <field name="targetId" type="name"><description>What it was done to: the account name that was typed</description></field>
+        <field name="remoteAddr" type="name"><description>Address the request came from</description></field>
+        <field name="note" type="description"><description>Why a login failed, which webapp it was</description></field>
+        <field name="createdStamp" type="date-time"/>
+        <field name="createdTxStamp" type="date-time"/>
+        <prim-key field="auditId"/>
+        <index name="MFG_AUDIT_USER" unique="false">
+            <index-field name="userLoginId"/>
+            <index-field name="createdStamp"/>
+        </index>
+        <index name="MFG_AUDIT_DATE" unique="false">
+            <index-field name="createdStamp"/>
+        </index>
+    </entity>
 </entitymodel>

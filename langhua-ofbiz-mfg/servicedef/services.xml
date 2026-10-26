@@ -89,6 +89,36 @@
         <attribute name="reset" type="String" mode="OUT" optional="true"/>
     </service>
 
+    <!--
+        The audit log (Step 125): what a person did, when and from where. Written by MfgAudit from
+        the login / password hint / password change paths; nobody may write a row through the web.
+    -->
+    <service name="mfgAuditList" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgServices" invoke="auditList"
+            auth="true" use-transaction="false">
+        <description>One page of the audit log, for the administrators only</description>
+        <attribute name="search" type="String" mode="IN" optional="true"/>
+        <attribute name="actionId" type="String" mode="IN" optional="true"/>
+        <attribute name="page" type="Long" mode="IN" optional="true"/>
+        <attribute name="pageSize" type="Long" mode="IN" optional="true"/>
+        <attribute name="rows" type="List" mode="OUT" optional="true"/>
+        <attribute name="options" type="List" mode="OUT" optional="true"/>
+        <attribute name="canManage" type="String" mode="OUT" optional="true"/>
+        <attribute name="message" type="String" mode="OUT" optional="true"/>
+        <attribute name="totalCount" type="Long" mode="OUT" optional="true"/>
+        <attribute name="pageCount" type="Long" mode="OUT" optional="true"/>
+        <attribute name="pageSize" type="Long" mode="OUT" optional="true"/>
+        <attribute name="keepingDays" type="Long" mode="OUT" optional="true"/>
+        <attribute name="lastPurge" type="String" mode="OUT" optional="true"/>
+    </service>
+
+    <service name="mfgAuditPurge" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgServices" invoke="auditPurge"
+            auth="true" use-transaction="false">
+        <description>Drop the audit rows older than a year (the same clean up runs by itself once a day)</description>
+        <attribute name="purged" type="String" mode="OUT" optional="true"/>
+    </service>
+
     <!-- ==================== product models ==================== -->
 
     <service name="mfgProductSave" engine="java"
