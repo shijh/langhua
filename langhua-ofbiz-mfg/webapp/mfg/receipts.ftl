@@ -281,6 +281,7 @@
         <input type="file" id="orderImage" name="image" accept="image/png,image/jpeg"/>
         <button type="button" id="scanOrder" data-once="Y">识别并核对</button>
         <span id="scanHint" class="hint">选文件后点按钮，或者直接 <kbd>Ctrl+V</kbd> 粘贴截图（也可以把图拖进来）；
+            整页的订单列表<b>不用缩</b>，长图会分段识别；
             识别结果先列在下面那张核对表里，确认后再点「导入这些单」。</span>
     </p>
     <div id="scanOrders" hidden="hidden">

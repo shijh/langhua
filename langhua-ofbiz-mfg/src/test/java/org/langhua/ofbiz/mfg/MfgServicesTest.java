@@ -917,6 +917,33 @@ public class MfgServicesTest {
     }
 
     @Test
+    public void takesALongPageScreenshotAsItIs() {
+        // a whole shop page captured in one picture runs to ten megabytes and more; the picture is
+        // cut into slices anyway, so the upload is not refused for being long (Step 128)
+        assertNull(MfgOrderScan.imageSizeProblem(3 * 1024 * 1024));
+        assertNull(MfgOrderScan.imageSizeProblem(MfgOrderScan.MAX_IMAGE_BYTES));
+        assertEquals(32 * 1024 * 1024, MfgOrderScan.MAX_IMAGE_BYTES);
+        String tooBig = MfgOrderScan.imageSizeProblem(MfgOrderScan.MAX_IMAGE_BYTES + 1);
+        // the message says the real limit and what to do with a page above it
+        assertTrue(tooBig.contains("32 MB"));
+        assertTrue(tooBig.contains("分段"));
+        assertTrue(tooBig.contains("截成两张"));
+    }
+
+    @Test
+    public void handsALargeSliceToTheModelAsJpeg() throws IOException {
+        byte[] jpeg = MfgOrderScan.jpegOf(png(120, 160));
+        // a JPEG starts with FF D8 and ends with FF D9
+        assertEquals((byte) 0xFF, jpeg[0]);
+        assertEquals((byte) 0xD8, jpeg[1]);
+        assertEquals((byte) 0xFF, jpeg[jpeg.length - 2]);
+        assertEquals((byte) 0xD9, jpeg[jpeg.length - 1]);
+        // something that is not a picture is not lost: there is nothing to re-encode, so the caller
+        // sends what it got
+        assertNull(MfgOrderScan.jpegOf(new byte[] {1, 2, 3}));
+    }
+
+    @Test
     public void cutsThePageBetweenOrderBlocksNotThroughOne() throws IOException {
         // a band of text sits where the page would otherwise be cut, so the cut has to slide away
         int band = MfgOrderScan.SLICE_HEIGHT - 60;

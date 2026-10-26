@@ -36,10 +36,16 @@ import java.util.concurrent.TimeoutException;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import javax.imageio.IIOImage;
 import javax.imageio.ImageIO;
+import javax.imageio.ImageWriteParam;
+import javax.imageio.ImageWriter;
+import javax.imageio.stream.ImageOutputStream;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
+import java.awt.Color;
+import java.awt.Graphics2D;
 import java.awt.image.BufferedImage;
 
 import org.apache.ofbiz.base.util.Debug;
@@ -71,14 +77,29 @@ public final class MfgOrderScan {
     /** Bearer token of the endpoint. */
     static final String VISION_KEY = "org.langhua.mfg.vision.key";
 
-    /** Largest screenshot accepted, phone screenshots are well below. */
-    static final int MAX_IMAGE_BYTES = 8 * 1024 * 1024;
+    /**
+     * Largest screenshot taken in. A phone screenshot of a dozen orders is a few megabytes, but a
+     * whole shop page captured in one picture (3 000 by 12 000 pixels) is ten or more, and the model
+     * only ever sees slices of it - so the limit is there to keep a runaway upload out of the heap,
+     * not because of the call.
+     */
+    static final int MAX_IMAGE_BYTES = 32 * 1024 * 1024;
+
+    /**
+     * How much one call may carry. A slice of a long page is cut out of the picture and written as
+     * PNG, which is big for a screenshot holding product photographs; above this size it is handed
+     * over as JPEG, which the models read just as well and which keeps the request small.
+     */
+    static final int MAX_PAYLOAD_BYTES = 4 * 1024 * 1024;
 
     /** Answer code of the events when the vision service is not set up yet. */
     static final String UNCONFIGURED = "UNCONFIGURED";
 
     /** Answer code when the service answered but no order could be read out of it. */
     static final String NO_ORDERS = "NO_ORDERS";
+
+    /** Answer code when the upload is larger than {@link #MAX_IMAGE_BYTES}. */
+    static final String TOO_LARGE = "TOO_LARGE";
 
     /** How often the screenshot is sent before the person is asked to try again. */
     static final int ATTEMPTS = 3;
@@ -214,6 +235,24 @@ public final class MfgOrderScan {
     }
 
     /**
+     * Says whether an upload is too large for the scan, and what to do about it.
+     *
+     * <p>A long page is not a problem: the picture is cut into slices and each slice is read on its
+     * own, so a screenshot of a whole order list is welcome as it is. The limit only stops an upload
+     * that would not fit the heap.
+     *
+     * @param bytes how many bytes the upload has
+     * @return the message for the person, {@code null} when the picture may be read
+     */
+    static String imageSizeProblem(int bytes) {
+        if (bytes <= MAX_IMAGE_BYTES) {
+            return null;
+        }
+        return "图片太大（超过 " + (MAX_IMAGE_BYTES / (1024 * 1024)) + " MB）：很长的页面不用缩，"
+                + "整张传上来会分段识别；超过这个大小请截成两张再试";
+    }
+
+    /**
      * Sends the uploaded screenshot to the vision service and answers with the form fields.
      *
      * @param request the request, holding the multipart form with the field {@code image}
@@ -227,8 +266,9 @@ public final class MfgOrderScan {
             return answer(response, false, "没有收到图片，先选一张订单截图", null, null);
         }
         if (image.length > MAX_IMAGE_BYTES) {
-            return answer(response, false, "图片太大（超过 8 MB），截小一点再试", null, null);
-        }        String endpoint = text(MfgServices.setting(delegatorOf(request), VISION_ENDPOINT));
+            return answer(response, false, imageSizeProblem(image.length), null, TOO_LARGE);
+        }
+        String endpoint = text(MfgServices.setting(delegatorOf(request), VISION_ENDPOINT));
         String model = text(MfgServices.setting(delegatorOf(request), VISION_MODEL));
         String key = text(MfgServices.setting(delegatorOf(request), VISION_KEY));
         if (endpoint == null || model == null || key == null) {
@@ -445,6 +485,15 @@ public final class MfgOrderScan {
     private static Read readPicture(byte[] picture, String endpoint, String model, String key,
             String contentType, boolean partial) {
         Read read = new Read();
+        // a slice of a page full of product photographs is large as PNG: hand it over as JPEG, which
+        // keeps the call small enough for the endpoint while the text stays readable
+        if (picture != null && picture.length > MAX_PAYLOAD_BYTES) {
+            byte[] jpeg = jpegOf(picture);
+            if (jpeg != null && jpeg.length < picture.length) {
+                picture = jpeg;
+                contentType = "image/jpeg";
+            }
+        }
         List<Map<String, String>> bestOrders = Collections.emptyList();
         String bestReply = null;
         int bestSeen = 0;
@@ -549,6 +598,55 @@ public final class MfgOrderScan {
             top = bottom;
         }
         return slices;
+    }
+
+    /**
+     * Re-encodes a picture as JPEG, so a large slice of a page full of product photographs does not
+     * have to be sent as lossless PNG. The text of a screenshot stays readable at this quality.
+     *
+     * @param image the picture bytes
+     * @return the JPEG bytes, {@code null} when the picture cannot be decoded or written (an odd
+     *         format is then sent as it came rather than lost)
+     */
+    static byte[] jpegOf(byte[] image) {
+        BufferedImage picture;
+        try {
+            picture = ImageIO.read(new ByteArrayInputStream(image));
+        } catch (IOException e) {
+            Debug.logError(e, "Could not read the picture to re-encode it", MODULE);
+            return null;
+        }
+        if (picture == null) {
+            return null;
+        }
+        // JPEG has no transparency: draw the picture on white, or a screenshot with an alpha channel
+        // comes out black
+        BufferedImage flat = new BufferedImage(picture.getWidth(), picture.getHeight(),
+                BufferedImage.TYPE_INT_RGB);
+        Graphics2D canvas = flat.createGraphics();
+        canvas.drawImage(picture, 0, 0, Color.WHITE, null);
+        canvas.dispose();
+        java.util.Iterator<ImageWriter> writers = ImageIO.getImageWritersByFormatName("jpeg");
+        if (!writers.hasNext()) {
+            return null;
+        }
+        ImageWriter writer = writers.next();
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        try (ImageOutputStream stream = ImageIO.createImageOutputStream(out)) {
+            writer.setOutput(stream);
+            ImageWriteParam param = writer.getDefaultWriteParam();
+            if (param.canWriteCompressed()) {
+                param.setCompressionMode(ImageWriteParam.MODE_EXPLICIT);
+                param.setCompressionQuality(0.9f);
+            }
+            writer.write(null, new IIOImage(flat, null, null), param);
+        } catch (IOException e) {
+            Debug.logError(e, "Could not write the picture as JPEG", MODULE);
+            return null;
+        } finally {
+            writer.dispose();
+        }
+        return out.toByteArray();
     }
 
     /**
