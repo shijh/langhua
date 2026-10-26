@@ -6,6 +6,9 @@
     <include location="component://common/webcommon/WEB-INF/common-controller.xml"/>
     <description>Learning Curve Component Site Configuration File</description>
 
+    <!-- every request the framework could not finish lands here (Step 123) -->
+    <errorpage>component://learningcurve/webapp/learningcurve/error.ftl</errorpage>
+
     <request-map uri="main">
         <security https="true" auth="true"/>
         <response name="success" type="view" value="main"/>
@@ -84,6 +87,11 @@
         <response name="success" type="none"/>
         <response name="error" type="view" value="records"/>
     </request-map>
+
+    <!-- the two pages in front of the component (Step 123): our view maps replace the stock OFBiz
+         screens (a view map defined here pushes over the one from common-controller.xml) -->
+    <view-map name="login" type="screen" page="component://learningcurve/widget/LearningCurveLoginScreens.xml#login" auth="false"/>
+    <view-map name="requirePasswordChange" type="screen" page="component://learningcurve/widget/LearningCurveLoginScreens.xml#requirePasswordChange"/>
 
     <view-map name="main" type="screen" page="component://learningcurve/widget/LearningCurveScreens.xml#main"/>
     <view-map name="records" type="screen" page="component://learningcurve/widget/LearningCurveScreens.xml#records"/>

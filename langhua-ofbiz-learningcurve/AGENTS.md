@@ -36,6 +36,17 @@ OFBiz **学习曲线**插件：按历史批次（数量 + 总额/工时）拟合
   开关是系统属性 `org.langhua.mfg.requirePasswordChange=Y`（生产开着，开发实例设成 `N`，否则巡检用 `admin`/`ofbiz` 登录会全红）；
   巡检断言用 `action="/learningcurve/control/changePasswordSave"` / `action="/learningcurve/control/estimate"`，不要断言中文
 - `recordDetail.ftl` 里除了结果表还有「记录不存在」分支和 CSV/返回链接那一段，别删
+- **自己的登录页 / 改密页 / 报错页（Step 123）**：`controller.xml` 底部 `<view-map name="login">` /
+  `name="requirePasswordChange"` 指向 `widget/LearningCurveLoginScreens.xml`（**同名 view-map 后来者胜**），
+  顶部一行 `<errorpage>component://learningcurve/webapp/learningcurve/error.ftl</errorpage>`；
+  页面本体 `webapp/learningcurve/login.ftl` / `changePassword.ftl` / `error.ftl`，样式在 `lc.css` 末尾的
+  `body.signin` 段。细节与坑（门禁页在登录前渲染、不能调 `auth="true"` 服务、表单 POST 回 `/learningcurve/control/login`、
+  上下文里的中文已是数字实体别再 `?html`、css 改了要把 `?v=N` 加一）见
+  `../langhua-ofbiz-mfg/AGENTS.md` 的 Step 123 那一条。
+  **本组件多一个坑**：`lc.css` 有全局 `label { display: inline-block; width: 11em }`，
+  登录卡片的 `.signin-field` 必须自己写 `width: 100%`，否则输入框只有 11em 宽。
+- **CSRF/话术脚本**：`script/signIn.groovy`（两个组件各一份，内容一致）给登录/改密表单补 CSRF 隐藏域，
+  并把「密码错 / 没这个账号 / 锁号」翻成中文；stock 的 `csrf.defense.strategy` 是空的，所以现在页面不带隐藏域也不影响。
 
 ## 注意
 

@@ -761,6 +761,27 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   现在**只用两个真地址**（`safeReturnTo(mfgLoginReturnTo)` + `pageOf(_PREVIOUS_REQUEST_)`），
   `NOT_A_PAGE` 里也加了 `requirePasswordChange` 兜底。**别再把 `_LAST_VIEW_NAME_` 加回去**：
   `save-last-view="true"` 记的同样是视图名，不是地址。
+- **自己的登录页 / 改密页 / 报错页（Step 123）**：三张页面都在本组件里，不再用 OFBiz 的白色表格：
+  `controller.xml` 底部用 `<view-map name="login">` / `name="requirePasswordChange"` 指向
+  `widget/MfgLoginScreens.xml`（**同名的 view-map 后来者胜**：`ConfigXMLReader.pushIncludes` 把本文件的 map 压在上面），
+  顶部 `</description>` 后面一行 `<errorpage>component://mfg/webapp/mfg/error.ftl</errorpage>`（XSD 里就一个，字符串）；
+  页面本体是 `webapp/mfg/login.ftl` / `changePassword.ftl` / `error.ftl`（自带整份 html，不走装饰器：登录前没有导航可点），
+  样式在 `css/mfg.css` 末尾的 `body.signin` / `.signin-card` 一段。
+  **坑（都踩过）**：
+  ① **改密门禁页是在登录完成之前画的**（session 里还没有 `userLogin`），所以不能调 `auth="true"` 的服务
+  （`mfgPasswordStatus` 会报 `User authorization is required` 整页 500），表单也**不能** POST 到 `changePasswordSave`；
+  正确做法是 POST 回 `/mfg/control/login`，带 `USERNAME` + `PASSWORD`（当前密码）+ `newPassword` + `newPasswordVerify`，
+  `LoginWorker#login` 会拿它转调 `updatePassword`，成功就直接进主页面（这就是官方门禁的做法，看 `LoginWorker` 537 行）；
+  ② 上下文里的字符串已经被 `StringHtmlWrapperForFtl` 转义过（中文变数字实体），模板里**别再 `?html`**，
+  否则页面显示成字面的 `&#x5bc6;`（`decorator.ftl` 里的 `${msg}` 就是这个写法，照它写）；
+  ③ 视图上下文里的 `userLogin` 是 `GenericValue`，`userLogin.userLoginId` 在 FTL 里取不到（没这个 getter）——
+  要名字就用服务返回的 map（如 `pwdStatus.userLoginId`）或 `getString('userLoginId')`；
+  ④ 登录失败的原话是英文（`following error occurred during login: Password incorrect.`），
+  `script/signIn.groovy` 把常见的三种（密码错 / 没这个账号 / 连续错被锁号，带解锁时间）翻成中文；
+  同一个脚本顺手生成 CSRF 隐藏域（stock 的 `csrf.defense.strategy` 是空的，等于不校验；将来打开也不会坏）；
+  ⑤ 静态 css 加了 `?v=N`：改了样式就**把 N 加一**，否则浏览器用缓存，新页面看起来没样式；
+  ⑥ 密码门禁页的账号名只能从 `parameters.USERNAME` 来（登录表单刚 POST 的），别指望 session。
+  巡检：`verify-m43.ps1`（把 `$base` 换成 8095 就是 test 实例）15 项全过。
 - **保修**：从出货日开始算，月数在产品上（`warrantyMonths`，默认 12）- **淘宝窗口**：7 天无理由 = 签收日 + 8 天 00:00（即签收次日起 168 小时）；15 天售后 = 签收 + 15 天 23:59:59
 - **买家名单**：匹配键优先买家昵称（`TB:N:nick`），因为淘宝收件手机号常被隐私号掩码；手机号必须是 11 位真号、
   带 `*` 一律拒绝；名单 12 个月自动失效；**只提示，不拦截任何法定售后**

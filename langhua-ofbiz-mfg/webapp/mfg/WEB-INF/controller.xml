@@ -6,6 +6,9 @@
     <include location="component://common/webcommon/WEB-INF/common-controller.xml"/>
     <description>Hardware Assembly Component Site Configuration File</description>
 
+    <!-- every request the framework could not finish lands here (Step 123) -->
+    <errorpage>component://mfg/webapp/mfg/error.ftl</errorpage>
+
     <!-- OFBiz runs this hook right after a successful login. It keeps the page the person was on
          (set by the page itself or by the framework's refused request), and the start page hands it
          back once: logging in after a restart lands on the page you were working on -->
@@ -863,6 +866,11 @@
         </response>
         <response name="error" type="view" value="eco"/>
     </request-map>
+
+    <!-- the two pages in front of the MES (Step 123): our view maps replace the stock OFBiz
+         screens (a view map defined here pushes over the one from common-controller.xml) -->
+    <view-map name="login" type="screen" page="component://mfg/widget/MfgLoginScreens.xml#login" auth="false"/>
+    <view-map name="requirePasswordChange" type="screen" page="component://mfg/widget/MfgLoginScreens.xml#requirePasswordChange"/>
 
     <view-map name="main" type="screen" page="component://mfg/widget/MfgScreens.xml#main"/>
     <view-map name="products" type="screen" page="component://mfg/widget/MfgScreens.xml#products"/>

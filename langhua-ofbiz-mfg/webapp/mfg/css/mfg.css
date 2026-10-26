@@ -313,3 +313,111 @@ a[data-toggle-lines] { text-decoration: none; white-space: nowrap; }
 
 /* a button that already took the click stays dimmed until its request is done (once.js) */
 .busy { opacity: .55; pointer-events: none; }
+
+/* ---------------------------------------------------------------------------------------------
+   Sign-in pages (login.ftl, changePassword.ftl) and the error page (error.ftl) - Step 123.
+   They are the first pages of the component, so they bring their own centred card: no navigation
+   (there is nothing to navigate to before a login), the palette above, one blue action.
+   --------------------------------------------------------------------------------------------- */
+body.signin {
+    margin: 0;
+    padding: 1.5em 1em;
+    min-height: 100vh;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    background: radial-gradient(120% 80% at 50% 0, #22303d 0%, var(--bg) 60%) no-repeat, var(--bg);
+}
+.signin-card {
+    box-sizing: border-box;
+    width: 322px;
+    max-width: calc(100vw - 2em);
+    /* auto margins centre the card and never push its top off a short window the way
+       justify-content: center does */
+    margin: auto;
+    padding: 1.7em 1.9em 1.5em;
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    box-shadow: 0 14px 40px rgba(0, 0, 0, .5);
+    text-align: center;
+}
+/* the password page and the error page hold a form or a stack trace: they need the room */
+.signin-card-wide { width: 560px; text-align: left; }
+.signin-card h1 { margin: 0; font-size: 1.28em; color: var(--fg-strong); text-align: center; }
+.signin-logo { display: block; width: 72px; height: 72px; margin: 0 auto .7em; }
+.signin-sub { margin: .35em 0 1.3em; color: var(--fg-muted); font-size: .82em; line-height: 1.5; text-align: center; }
+.signin-card form { margin: 0; }
+.signin-field { display: block; box-sizing: border-box; width: 100%; margin-bottom: .8em; color: var(--fg-muted); font-size: .82em; text-align: left; }
+.signin-card input[type="text"],
+.signin-card input[type="password"] {
+    display: block;
+    box-sizing: border-box;
+    width: 100%;
+    margin-top: .35em;
+    padding: 6px 9px;
+    font-size: 1.02em;
+    background: var(--bg-input);
+    color: var(--fg-strong);
+    border: 1px solid var(--border-strong);
+    border-radius: 4px;
+}
+.signin-card input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 2px rgba(0, 120, 212, .25); }
+.signin-card button[type="submit"] {
+    width: 100%;
+    margin-top: .5em;
+    padding: .55em 1em;
+    font-size: 1em;
+    color: #ffffff;
+    background: var(--accent);
+    border: 1px solid transparent;
+    border-radius: 4px;
+    cursor: pointer;
+}
+.signin-card button[type="submit"]:hover { background: var(--accent-hover); }
+/* a refused login (wrong password, locked account) says so right above the form */
+.signin-error {
+    margin: 0 0 1em;
+    padding: .55em .75em;
+    text-align: left;
+    font-size: .82em;
+    color: var(--error);
+    background: rgba(241, 76, 76, .09);
+    border: 1px solid rgba(241, 76, 76, .55);
+    border-radius: 4px;
+}
+/* what the framework answered, kept quiet and scrollable: it is for the person who has to fix it */
+.signin-detail {
+    margin: 0 0 1em;
+    padding: .7em .8em;
+    max-height: 13em;
+    overflow: auto;
+    background: var(--bg-widget);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--code);
+    font-family: Consolas, "Courier New", monospace;
+    font-size: .78em;
+    line-height: 1.45;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+.signin-hint { margin: 1.1em 0 0; color: var(--fg-muted); font-size: .75em; line-height: 1.6; }
+.signin-hint code { color: var(--code); }
+.signin-actions { display: flex; gap: .6em; margin: 1.2em 0 0; }
+.signin-actions .button {
+    flex: 1;
+    padding: .5em .8em;
+    text-align: center;
+    text-decoration: none;
+    font-size: .9em;
+    color: #ffffff;
+    background: var(--accent);
+    border: 1px solid transparent;
+    border-radius: 4px;
+}
+.signin-actions .button:hover { background: var(--accent-hover); }
+.signin-actions .button.secondary { color: var(--fg); background: var(--bg-input); border-color: var(--border-strong); }
+.signin-actions .button.secondary:hover { background: #3a3d41; }
+.signin-foot { margin: 1.2em 0 0; color: var(--fg-muted); font-size: .72em; text-align: center; }
