@@ -1255,6 +1255,70 @@ public class MfgServicesTest {
     }
 
     @Test
+    public void cutsBetweenTheBlocksOfAnOrderList() throws IOException {
+        // every block of a Taobao list prints an orange 再买一单 button, so the blocks are found in the
+        // picture and the cuts go between them: no block is ever cut in two (Step 139)
+        int width = 300;
+        int blockHeight = 400;
+        int gap = 120;
+        int blocks = 8;
+        BufferedImage image = new BufferedImage(width, blocks * (blockHeight + gap),
+                BufferedImage.TYPE_INT_RGB);
+        java.awt.Graphics2D pen = image.createGraphics();
+        pen.setColor(java.awt.Color.WHITE);
+        pen.fillRect(0, 0, width, image.getHeight());
+        int[] colours = new int[blocks];
+        for (int i = 0; i < blocks; i++) {
+            int top = i * (blockHeight + gap);
+            int rgb = ((20 + i * 10) << 16) | ((30 + i * 11) << 8) | (40 + i * 13);
+            colours[i] = rgb & 0xFFFFFF;
+            pen.setColor(new java.awt.Color(rgb));
+            pen.fillRect(0, top, width, blockHeight);
+            pen.setColor(new java.awt.Color(0xFF5000));
+            pen.fillRect(width - 100, top + blockHeight / 2, 60, 40);
+        }
+        pen.dispose();
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        ImageIO.write(image, "png", out);
+        assertEquals(blocks, MfgOrderScan.blockAnchors(image).size());
+        List<byte[]> slices = MfgOrderScan.slicesOf(out.toByteArray());
+        assertTrue(slices.size() >= 2);
+        java.util.Set<Integer> whole = new java.util.HashSet<>();
+        for (byte[] slice : slices) {
+            BufferedImage picture = ImageIO.read(new java.io.ByteArrayInputStream(slice));
+            assertTrue(picture.getHeight() <= MfgOrderScan.SLICE_HEIGHT + MfgOrderScan.SLICE_OVERLAP);
+            for (int i = 0; i < blocks; i++) {
+                int rows = 0;
+                for (int y = 0; y < picture.getHeight(); y++) {
+                    if ((picture.getRGB(0, y) & 0xFFFFFF) == colours[i]) {
+                        rows++;
+                    }
+                }
+                if (rows >= blockHeight) {
+                    whole.add(Integer.valueOf(i));
+                }
+            }
+        }
+        for (int i = 0; i < blocks; i++) {
+            assertTrue("block " + i + " was cut in two by every slice", whole.contains(Integer.valueOf(i)));
+        }
+        // a page with no such button (another platform) is still cut, at the blank rows as before
+        BufferedImage plain = new BufferedImage(width, 400 * 10, BufferedImage.TYPE_INT_RGB);
+        java.awt.Graphics2D pen2 = plain.createGraphics();
+        pen2.setColor(java.awt.Color.WHITE);
+        pen2.fillRect(0, 0, width, plain.getHeight());
+        for (int i = 0; i < 10; i++) {
+            pen2.setColor(new java.awt.Color(0x808080));
+            pen2.fillRect(0, i * 400 + 40, width, 120);
+        }
+        pen2.dispose();
+        assertEquals(0, MfgOrderScan.blockAnchors(plain).size());
+        ByteArrayOutputStream out2 = new ByteArrayOutputStream();
+        ImageIO.write(plain, "png", out2);
+        assertTrue(MfgOrderScan.slicesOf(out2.toByteArray()).size() >= 2);
+    }
+
+    @Test
     public void takesALongPageScreenshotAsItIs() {
         // a whole shop page captured in one picture runs to ten megabytes and more; the picture is
         // cut into slices anyway, so the upload is not refused for being long (Step 128)

@@ -135,6 +135,19 @@ public final class MfgOrderScan {
     static final int MAX_PARALLEL = 4;
 
     /**
+     * The orange of the 再买一单 button of a shop order block. Every block of a Taobao / 天猫 list
+     * prints one, so the blocks can be counted in the picture and the cuts put between them instead
+     * of at a fixed height (Step 139).
+     */
+    private static final int BUTTON_RED = 200;
+    private static final int BUTTON_GREEN_LOW = 50;
+    private static final int BUTTON_GREEN_HIGH = 140;
+    private static final int BUTTON_BLUE = 90;
+
+    /** Two runs of orange closer than this belong to one button (its face and its label). */
+    private static final int BUTTON_RUN_GAP = 90;
+
+    /**
      * How often one slice is sent. A slice holds one or two order blocks and its money is allowed not
      * to add up (an order may be cut in two), so there is much less to go wrong than on a whole page.
      */
@@ -605,32 +618,148 @@ public final class MfgOrderScan {
             return slices;
         }
         int height = full.getHeight();
+        // the blocks of the page are found in the picture itself when it is a list of orders: cutting
+        // between two blocks keeps every block whole, which is what the model needs most (Step 139)
+        List<Integer> anchors = blockAnchors(full);
+        List<Integer> cuts = cutsBetweenBlocks(full, anchors);
+        if (cuts.isEmpty()) {
+            cuts = cutsAtBlankRows(full);
+        }
         int top = 0;
-        while (top < height) {
-            int bottom = Math.min(height, top + SLICE_HEIGHT);
-            if (bottom < height) {
-                bottom = blankRowNear(full, top, bottom);
-            }
-            ByteArrayOutputStream out = new ByteArrayOutputStream();
-            try {
-                ImageIO.write(full.getSubimage(0, top, full.getWidth(), bottom - top), "png", out);
-            } catch (IOException e) {
-                Debug.logError(e, "Could not write a slice of the screenshot", MODULE);
+        for (int i = 0; i <= cuts.size(); i++) {
+            int bottom = i < cuts.size() ? cuts.get(i).intValue() : height;
+            byte[] slice = sliceOf(full, top, bottom);
+            if (slice == null) {
                 slices.clear();
                 slices.add(image);
                 return slices;
             }
-            slices.add(out.toByteArray());
+            slices.add(slice);
             if (bottom >= height) {
                 break;
             }
-            // the next slice starts before this one ends, so a block the cut went through is whole in
-            // it; the guard only keeps the loop moving if the cut slid back too far
+            // the next slice starts a little before the cut, so nothing at the seam is lost; the rows
+            // read twice are joined by the order number
             int next = bottom - SLICE_OVERLAP;
-            top = next > top ? next : top + Math.max(1, SLICE_HEIGHT / 2);
+            top = next > top ? next : bottom;
         }
         return slices;
     }
+
+    /**
+     * Finds the rows where the page prints one order block less: the orange button of every block is
+     * an anchor, and the cut goes halfway between two of them - inside the white gap of the page, not
+     * through a block.
+     *
+     * @param image the picture being cut
+     * @param anchors the top row of every order button, in order
+     * @return the rows to cut at, empty when the picture shows no order buttons
+     */
+    private static List<Integer> cutsBetweenBlocks(BufferedImage image, List<Integer> anchors) {
+        List<Integer> cuts = new ArrayList<>();
+        if (anchors.size() < 4) {
+            return cuts;
+        }
+        int top = 0;
+        for (int i = 1; i < anchors.size(); i++) {
+            int mid = (anchors.get(i - 1).intValue() + anchors.get(i).intValue()) / 2;
+            if (mid - top > SLICE_HEIGHT) {
+                cuts.add(Integer.valueOf(mid));
+                top = mid;
+            }
+        }
+        return cuts;
+    }
+
+    /**
+     * The cuts of a page that shows no order buttons (another shop platform, or a cropped picture):
+     * every {@code SLICE_HEIGHT} rows, slid to the nearest row without text.
+     *
+     * @param image the picture being cut
+     * @return the rows to cut at
+     */
+    private static List<Integer> cutsAtBlankRows(BufferedImage image) {
+        List<Integer> cuts = new ArrayList<>();
+        int height = image.getHeight();
+        int top = 0;
+        while (top < height) {
+            int bottom = Math.min(height, top + SLICE_HEIGHT);
+            if (bottom < height) {
+                bottom = blankRowNear(image, top, bottom);
+                cuts.add(Integer.valueOf(bottom));
+            }
+            if (bottom >= height) {
+                break;
+            }
+            int next = bottom - SLICE_OVERLAP;
+            top = next > top ? next : top + Math.max(1, SLICE_HEIGHT / 2);
+        }
+        return cuts;
+    }
+
+    /**
+     * @param image the picture
+     * @param top the first row of the slice
+     * @param bottom the row after the last one
+     * @return the slice as PNG bytes, {@code null} when it cannot be written
+     */
+    private static byte[] sliceOf(BufferedImage image, int top, int bottom) {
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        try {
+            ImageIO.write(image.getSubimage(0, top, image.getWidth(), bottom - top), "png", out);
+        } catch (IOException e) {
+            Debug.logError(e, "Could not write a slice of the screenshot", MODULE);
+            return null;
+        }
+        return out.toByteArray();
+    }
+
+    /**
+     * Finds the orange button of every order block of a shop page: a row that carries a wide stretch
+     * of that colour is a button, and a button means a block. Used to cut between blocks, so a cut
+     * never goes through one.
+     *
+     * @param image the picture
+     * @return the top row of every button found, top to bottom; empty when the page has none
+     */
+    static List<Integer> blockAnchors(BufferedImage image) {
+        List<Integer> runs = new ArrayList<>();
+        int step = Math.max(2, image.getWidth() / 200);
+        int needed = Math.max(3, (image.getWidth() / step) / 25);
+        int runStart = -1;
+        for (int y = 0; y < image.getHeight(); y++) {
+            int orange = 0;
+            for (int x = 0; x < image.getWidth(); x += step) {
+                int rgb = image.getRGB(x, y);
+                int r = (rgb >> 16) & 0xFF;
+                int g = (rgb >> 8) & 0xFF;
+                int b = rgb & 0xFF;
+                if (r >= BUTTON_RED && g >= BUTTON_GREEN_LOW && g <= BUTTON_GREEN_HIGH
+                        && b <= BUTTON_BLUE) {
+                    orange++;
+                }
+            }
+            boolean button = orange >= needed;
+            if (button && runStart < 0) {
+                runStart = y;
+            } else if (!button && runStart >= 0) {
+                if (y - runStart >= 8) {
+                    runs.add(Integer.valueOf(runStart));
+                }
+                runStart = -1;
+            }
+        }
+        List<Integer> anchors = new ArrayList<>();
+        for (Integer run : runs) {
+            if (!anchors.isEmpty()
+                    && run.intValue() - anchors.get(anchors.size() - 1).intValue() < BUTTON_RUN_GAP) {
+                continue;
+            }
+            anchors.add(run);
+        }
+        return anchors;
+    }
+
 
     /**
      * Re-encodes a picture as JPEG, so a large slice of a page full of product photographs does not

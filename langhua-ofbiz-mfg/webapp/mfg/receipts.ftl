@@ -512,21 +512,31 @@
             linesBox.setAttribute('data-scan-lines', key);
             linesBox.title = '一行一个料：料号,名称,数量,金额（Tab 或逗号分隔）';
             editor.appendChild(linesBox);
-            var moneyLine = document.createElement('span');
-            moneyLine.appendChild(document.createTextNode(' 运费 '));
-            moneyLine.appendChild(inputOf(key, 'freight', order.freight || '0', 5));
-            moneyLine.appendChild(document.createTextNode(' 实付 '));
-            moneyLine.appendChild(inputOf(key, 'paid', order.paidTotal || '', 7));
+            var head = document.createElement('p');
+            head.appendChild(document.createTextNode('单号 '));
+            head.appendChild(inputOf(key, 'no', order.orderNo || '', 22));
+            head.appendChild(document.createTextNode(' 店铺 '));
+            head.appendChild(inputOf(key, 'shop', order.shop || '', 16));
+            head.appendChild(document.createTextNode(' 运费 '));
+            head.appendChild(inputOf(key, 'freight', order.freight || '0', 5));
+            head.appendChild(document.createTextNode(' 实付 '));
+            head.appendChild(inputOf(key, 'paid', order.paidTotal || '', 7));
             var save = document.createElement('button');
             save.type = 'button';
             save.textContent = '保存这一行';
             save.setAttribute('data-scan-save', key);
-            moneyLine.appendChild(save);
+            head.appendChild(save);
+            var drop = document.createElement('button');
+            drop.type = 'button';
+            drop.className = 'secondary';
+            drop.textContent = '删掉这一行（不入库）';
+            drop.setAttribute('data-scan-drop', key);
+            head.appendChild(drop);
             var saved = document.createElement('span');
             saved.className = 'hint';
             saved.setAttribute('data-scan-saved', key);
-            moneyLine.appendChild(saved);
-            editor.appendChild(moneyLine);
+            head.appendChild(saved);
+            editor.appendChild(head);
             cellHolder.appendChild(editor);
             holder.appendChild(cellHolder);
             return holder;
@@ -541,23 +551,45 @@
         }
         /* the row edited by hand: what it says is what the import writes */
         function saveRow(key) {
-            var index = -1;
-            for (var i = 0; i < orders.length; i++) {
-                if ('scan-' + i === key) { index = i; }
-            }
+            var index = indexOfRow(key);
             if (index < 0) { return; }
             var order = orders[index];
             var box = orderRows.querySelector('[data-scan-lines="' + key + '"]');
+            var number = orderRows.querySelector('[data-scan-no="' + key + '"]');
+            var shop = orderRows.querySelector('[data-scan-shop="' + key + '"]');
             var freight = orderRows.querySelector('[data-scan-freight="' + key + '"]');
             var paid = orderRows.querySelector('[data-scan-paid="' + key + '"]');
             if (box) { order.lines = box.value.replace(/\r/g, ''); }
+            if (number && number.value.trim()) { order.orderNo = number.value.trim(); }
+            if (shop) { order.shop = shop.value.trim(); }
             if (freight) { order.freight = freight.value.trim() || '0'; }
             if (paid) { order.paidTotal = paid.value.trim(); }
+            /* the person has looked at it, so the doubt the scan raised is settled */
+            delete order.note;
             showOrders(orders);
             var again = orderRows.querySelector('[data-toggle-lines="' + key + '"]');
             if (again) { again.click(); }
             var hint = orderRows.querySelector('[data-scan-saved="' + key + '"]');
             if (hint) { hint.textContent = '已保存'; }
+        }
+        /* a row the person does not want booked in: a block the scan read twice, or one that is not an
+           order at all */
+        function removeRow(key) {
+            var index = indexOfRow(key);
+            if (index < 0) { return; }
+            orders.splice(index, 1);
+            showOrders(orders);
+            if (batchHint) {
+                batchHint.className = 'hint';
+                batchHint.textContent = '去掉了 1 行，还剩 ' + orders.length
+                    + ' 张单，核对后点「导入这些单」。';
+            }
+        }
+        function indexOfRow(key) {
+            for (var i = 0; i < orders.length; i++) {
+                if ('scan-' + i === key) { return i; }
+            }
+            return -1;
         }
         function cell(row, text, className) {
             var td = document.createElement('td');
@@ -678,6 +710,12 @@
             if (key) {
                 event.preventDefault();
                 saveRow(key);
+                return;
+            }
+            key = target.getAttribute('data-scan-drop');
+            if (key) {
+                event.preventDefault();
+                removeRow(key);
             }
         });
         if (importButton) {
