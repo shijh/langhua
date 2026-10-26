@@ -1156,12 +1156,44 @@ public class MfgServicesTest {
         assertEquals("登录失败", MfgAudit.label(MfgAudit.LOGIN_FAIL));
         assertEquals("查看密码提示", MfgAudit.label(MfgAudit.FORGOT_HINT));
         assertEquals("修改密码", MfgAudit.label(MfgAudit.PASSWORD_CHANGE));
+        // a document write is not one action for the shop but two: it went through, or it was
+        // refused, and the row says which (Step 125b)
+        assertEquals("单据操作", MfgAudit.label(MfgAudit.DOC_CHANGE));
+        assertEquals("操作被拒", MfgAudit.label(MfgAudit.DOC_FAIL));
         // an action this build does not know is shown as it is, not hidden
         assertEquals("SOMETHING_NEW", MfgAudit.label("SOMETHING_NEW"));
         assertEquals("", MfgAudit.label(null));
-        assertEquals(4, MfgAudit.options().size());
+        assertEquals(6, MfgAudit.options().size());
         assertEquals(MfgAudit.LOGIN_OK, MfgAudit.options().get(0).get("actionId"));
         assertEquals("登录成功", MfgAudit.options().get(0).get("label"));
+    }
+
+    @Test
+    public void namesTheRequestsThatChangeADocument() {
+        // the hook after every request only writes a row for these, so a page that only reads leaves
+        // nothing behind (Step 125b)
+        assertEquals("新建工单", MfgAudit.documentLabel("workOrderCreate"));
+        assertEquals("完工入库", MfgAudit.documentLabel("workOrderComplete"));
+        assertEquals("发料", MfgAudit.documentLabel("issueSave"));
+        assertEquals("出货", MfgAudit.documentLabel("deliverySave"));
+        assertEquals("作废到货单", MfgAudit.documentLabel("receiptVoid"));
+        // the same write reached through the JSON entry the page uses must carry the same words
+        assertEquals("改到货单行", MfgAudit.documentLabel("receiptLineJson"));
+        // reading a page, a lookup for a page, and the login itself are not documents
+        assertNull(MfgAudit.documentLabel("main"));
+        assertNull(MfgAudit.documentLabel("workOrderList"));
+        assertNull(MfgAudit.documentLabel("orderPeek"));
+        assertNull(MfgAudit.documentLabel("login"));
+        assertNull(MfgAudit.documentLabel(null));
+        // the component is mounted at /control/*, so the request name is the last segment of the
+        // path info; reading the servlet path gave "/control" and recorded nothing at all
+        assertEquals("workOrderCreate", MfgAudit.requestNameOf("/workOrderCreate"));
+        assertEquals("workOrderCreate", MfgAudit.requestNameOf("/control/workOrderCreate"));
+        assertEquals("workOrderCreate", MfgAudit.requestNameOf("/control/workOrderCreate/"));
+        assertEquals("workOrderCreate", MfgAudit.requestNameOf("workOrderCreate"));
+        assertNull(MfgAudit.requestNameOf("/"));
+        assertNull(MfgAudit.requestNameOf(""));
+        assertNull(MfgAudit.requestNameOf(null));
     }
 
     @Test

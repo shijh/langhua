@@ -16,6 +16,12 @@
         <event type="java" path="org.langhua.ofbiz.mfg.MfgLoginEvents" invoke="afterLogin"/>
     </after-login>
 
+    <!-- runs after every request: a request that changed a document leaves one line in the audit
+         log (Step 125b), so every page of the component is covered by one hook -->
+    <postprocessor>
+        <event name="audit" type="java" path="org.langhua.ofbiz.mfg.MfgLoginEvents" invoke="auditRequest"/>
+    </postprocessor>
+
     <!-- the stock login, through our own event so every attempt leaves a line in the audit log
          (Step 125); the answers are the ones LoginWorker gives -->
     <request-map uri="login">

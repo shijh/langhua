@@ -808,6 +808,19 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   ③ 顺带把三套实例的 `store.login.history.incorrect.password` 改成了 `false`（OFBiz 会把**输错的密码明文**
   写进 `USER_LOGIN_HISTORY`），现在失败只记在 `MfgAuditLog` 里。
   巡检：`verify-m49.ps1`（admin 建探针账号 → 错密码 → 对密码 → 查提示 → 看四类行 + 筛选 + 清理）14 项。
+- **单据操作也进同一张表（Step 125b）**：谁改了哪张单据，靠的是**每个 webapp 的 `<postprocessor>`**
+  （`controller.xml` 里 `<postprocessor><event name="audit" invoke="auditRequest"/></postprocessor>`），
+  `MfgLoginEvents.auditRequest` → `MfgAudit.recordDocumentRequest`：**只记 POST**、只在会话里有 `userLogin` 时记、
+  **只认 `DOCUMENTS` 表里那张请求名清单**（`workOrderCreate` / `issueSave` / `receiptVoid` / `deliverySave` …，
+  加新页面时把请求名 + 中文一起加进去就行），所以列表页、`orderPeek` 这类查询页、登录本身都不留行。
+  **两个坑都踩过**：① 先按 `request.getServletPath()` 取请求名，结果拿到的是 `/control`（组件挂在 `/control/*`），
+  一条都没记下来——要用 `getPathInfo()`，兜底才是 servletPath（`MfgAudit.requestNameOf`）；
+  ② 判失败不能只看 `_ERROR_MESSAGE_`：服务返回的是 `errorMessageList`，框架落在 **`_ERROR_MESSAGE_LIST_`** 上，
+  两个都要看（`MfgAudit.refusalOf`），否则被拒的写入会被记成“单据操作”。
+  单据号先看**请求属性**再看参数——新建的单据号是服务凭空生成的（`workOrderCreate` 只收到型号），
+  服务 OUT 会被框架拷到 request 属性上，所以行上能直接看到 `WO-…`。
+  动作是 `DOC_CHANGE`（单据操作）与 `DOC_FAIL`（操作被拒，note 里带原因），页面筛选自动就有这两项。
+  巡检：`verify-m50-test.ps1`（12 项，日志 `mfg-m50-test.txt`）。
 - **保修**：从出货日开始算，月数在产品上（`warrantyMonths`，默认 12）- **淘宝窗口**：7 天无理由 = 签收日 + 8 天 00:00（即签收次日起 168 小时）；15 天售后 = 签收 + 15 天 23:59:59
 - **买家名单**：匹配键优先买家昵称（`TB:N:nick`），因为淘宝收件手机号常被隐私号掩码；手机号必须是 11 位真号、
   带 `*` 一律拒绝；名单 12 个月自动失效；**只提示，不拦截任何法定售后**

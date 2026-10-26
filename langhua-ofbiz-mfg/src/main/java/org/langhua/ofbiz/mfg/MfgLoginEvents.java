@@ -65,6 +65,20 @@ public final class MfgLoginEvents {
     }
 
     /**
+     * Runs after every request of the webapp (Step 125b) and writes a line when that request changed
+     * a document. It never answers anything but {@code success} and never throws: a request that
+     * saved a work order must not fail because the audit table hiccuped.
+     *
+     * @param request the finished request
+     * @param response the finished response, untouched
+     * @return {@code success}
+     */
+    public static String auditRequest(HttpServletRequest request, HttpServletResponse response) {
+        MfgAudit.recordDocumentRequest(request);
+        return "success";
+    }
+
+    /**
      * The framework's login, plus one line in the audit log (Step 125): who got in, who was refused
      * and why. The framework only says "success", "error" or "requirePasswordChange" - the last one
      * means the password was right but has to be changed, so it counts as a login.

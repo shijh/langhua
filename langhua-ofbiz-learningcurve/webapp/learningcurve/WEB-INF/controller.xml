@@ -9,6 +9,12 @@
     <!-- every request the framework could not finish lands here (Step 123) -->
     <errorpage>component://learningcurve/webapp/learningcurve/error.ftl</errorpage>
 
+    <!-- runs after every request: a request that changed a document leaves one line in the audit
+         log (Step 125b), the same table the MES component writes -->
+    <postprocessor>
+        <event name="audit" type="java" path="org.langhua.ofbiz.mfg.MfgLoginEvents" invoke="auditRequest"/>
+    </postprocessor>
+
     <!-- the stock login, through the MES event so every attempt lands in the same audit log
          (Step 125); the answers are the ones LoginWorker gives -->
     <request-map uri="login">

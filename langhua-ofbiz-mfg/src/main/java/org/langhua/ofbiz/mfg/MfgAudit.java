@@ -59,6 +59,10 @@ public final class MfgAudit {
     public static final String FORGOT_HINT = "FORGOT_HINT";
     /** An account changed its own password. */
     public static final String PASSWORD_CHANGE = "PASSWORD_CHANGE";
+    /** A document was written: a work order, a receipt, a stock movement, an order ... */
+    public static final String DOC_CHANGE = "DOC_CHANGE";
+    /** A document write that the service refused (no permission, bad numbers, ...). */
+    public static final String DOC_FAIL = "DOC_FAIL";
 
     /** How long a row is kept, in days: the shop asked for one year. */
     public static final int KEEP_DAYS = 365;
@@ -79,7 +83,129 @@ public final class MfgAudit {
         ACTIONS.put(LOGIN_FAIL, "登录失败");
         ACTIONS.put(FORGOT_HINT, "查看密码提示");
         ACTIONS.put(PASSWORD_CHANGE, "修改密码");
+        ACTIONS.put(DOC_CHANGE, "单据操作");
+        ACTIONS.put(DOC_FAIL, "操作被拒");
     }
+
+    /**
+     * The requests that change a document, with the words the audit page shows for them. Everything
+     * else (reading a page, a JSON lookup, the login itself) leaves no row, or has one of its own.
+     */
+    private static final Map<String, String> DOCUMENTS = new LinkedHashMap<>();
+
+    static {
+        DOCUMENTS.put("workOrderCreate", "新建工单");
+        DOCUMENTS.put("reportCreate", "报工");
+        DOCUMENTS.put("issueSave", "发料");
+        DOCUMENTS.put("shipmentSave", "外协收发");
+        DOCUMENTS.put("workOrderComplete", "完工入库");
+        DOCUMENTS.put("workOrderReserve", "预留物料");
+        DOCUMENTS.put("workOrderRelease", "释放预留");
+        DOCUMENTS.put("workOrderVendor", "设置外协厂家");
+        DOCUMENTS.put("workOrderOutsource", "外协加工费");
+        DOCUMENTS.put("outsourceFeeSave", "加外协明细");
+        DOCUMENTS.put("outsourceFeeDelete", "删外协明细");
+        DOCUMENTS.put("productSave", "保存型号");
+        DOCUMENTS.put("bomImport", "导入 BOM");
+        DOCUMENTS.put("bomItemSave", "改 BOM 行");
+        DOCUMENTS.put("bomItemSaveJson", "改 BOM 行");
+        DOCUMENTS.put("bomVersionCreate", "新建 BOM 版本");
+        DOCUMENTS.put("bomVersionActivate", "启用 BOM 版本");
+        DOCUMENTS.put("routingSave", "保存工序");
+        DOCUMENTS.put("lotSave", "保存批次");
+        DOCUMENTS.put("lotImportCsv", "导入批次");
+        DOCUMENTS.put("lotInspect", "来料检验");
+        DOCUMENTS.put("snRegister", "登记 SN");
+        DOCUMENTS.put("defectCreate", "登记不良");
+        DOCUMENTS.put("replacementSave", "记录换料");
+        DOCUMENTS.put("testImportCsv", "导入测试结果");
+        DOCUMENTS.put("partCodeRename", "料号重命名");
+        DOCUMENTS.put("inventoryMove", "库存流水");
+        DOCUMENTS.put("stockCountSave", "盘点");
+        DOCUMENTS.put("stockTransfer", "移库");
+        DOCUMENTS.put("stockSettingSave", "安全库存");
+        DOCUMENTS.put("locationSave", "保存库位");
+        DOCUMENTS.put("receiptSave", "保存到货单");
+        DOCUMENTS.put("receiptSaveJson", "保存到货单");
+        DOCUMENTS.put("receiptLineSave", "到货单行");
+        DOCUMENTS.put("receiptLineJson", "改到货单行");
+        DOCUMENTS.put("receiptVoid", "作废到货单");
+        DOCUMENTS.put("receiptRestore", "恢复到货单");
+        DOCUMENTS.put("receiptFromOrder", "照订单入库");
+        DOCUMENTS.put("receiptFromOrdersJson", "照订单入库");
+        DOCUMENTS.put("orderExcel", "导入订单 Excel");
+        DOCUMENTS.put("refundedOrderSave", "登记退款单");
+        DOCUMENTS.put("refundedOrderDelete", "撤销退款单");
+        DOCUMENTS.put("salesOrderSave", "保存销售订单");
+        DOCUMENTS.put("salesOrderReserve", "订单预留");
+        DOCUMENTS.put("salesOrderPlan", "排产");
+        DOCUMENTS.put("salesOrderClose", "关闭订单");
+        DOCUMENTS.put("salesOrderLineJson", "改订单行数量");
+        DOCUMENTS.put("deliverySave", "出货");
+        DOCUMENTS.put("devProjectSave", "保存开发项目");
+        DOCUMENTS.put("devStageSave", "开发阶段");
+        DOCUMENTS.put("devStepSave", "开发步骤");
+        DOCUMENTS.put("devStepStatus", "步骤状态");
+        DOCUMENTS.put("devIssueSave", "登记问题");
+        DOCUMENTS.put("devIssueStatus", "问题状态");
+        DOCUMENTS.put("ecoSave", "保存设计变更");
+        DOCUMENTS.put("ecoApprove", "批准设计变更");
+        DOCUMENTS.put("ecoApply", "执行设计变更");
+        DOCUMENTS.put("ecoCancel", "取消设计变更");
+        DOCUMENTS.put("claimCreate", "建售后单");
+        DOCUMENTS.put("claimUpdate", "更新售后单");
+        DOCUMENTS.put("claimExchange", "换货");
+        DOCUMENTS.put("claimRepair", "返修单");
+        DOCUMENTS.put("buyerFlagSave", "买家名单");
+        DOCUMENTS.put("vendorSave", "保存外协厂家");
+        DOCUMENTS.put("softwareProjectSave", "软件项目");
+        DOCUMENTS.put("userSave", "账号");
+        DOCUMENTS.put("userResetPassword", "重置密码");
+        DOCUMENTS.put("settingsSave", "系统设置");
+        DOCUMENTS.put("attachmentUpload", "上传附件");
+        DOCUMENTS.put("attachmentDelete", "删除附件");
+        DOCUMENTS.put("productImageUpload", "上传附件");
+        DOCUMENTS.put("productImageDelete", "删除附件");
+        DOCUMENTS.put("auditPurge", "清理操作记录");
+    }
+
+    /**
+     * The words the audit page shows for a request that changes a document.
+     *
+     * @param requestName the last segment of the request, e.g. {@code workOrderCreate}
+     * @return the words, {@code null} when that request writes no document (a list page, a lookup)
+     */
+    static String documentLabel(String requestName) {
+        return requestName == null ? null : DOCUMENTS.get(requestName);
+    }
+
+    /**
+     * The name of a request: the last segment of its path. The component is mounted with the
+     * {@code /control/*} mapping, so the name is in the path info ({@code /workOrderCreate}) and not
+     * in the servlet path ({@code /control}) - asking the wrong one silently recorded nothing.
+     *
+     * @param path the path info or the servlet path, may be {@code null}
+     * @return the last segment, {@code null} when there is none
+     */
+    static String requestNameOf(String path) {
+        if (path == null) {
+            return null;
+        }
+        String trimmed = path.trim();
+        while (trimmed.endsWith("/")) {
+            trimmed = trimmed.substring(0, trimmed.length() - 1);
+        }
+        if (trimmed.isEmpty()) {
+            return null;
+        }
+        String name = trimmed.substring(trimmed.lastIndexOf('/') + 1);
+        return name.isEmpty() ? null : name;
+    }
+
+    /** The parameters that name the document a request works on, most specific first. */
+    private static final String[] ID_PARAMS = {"workOrderId", "receiptId", "salesOrderId", "deliveryId",
+        "claimId", "ecoId", "projectCode", "productCode", "lotId", "vendorId", "locationId",
+        "sn", "issueId", "userLoginId"};
 
     private MfgAudit() {
     }
@@ -182,6 +308,104 @@ public final class MfgAudit {
             return "学习曲线";
         }
         return path;
+    }
+
+    /**
+     * Writes one row for a request that changed a document (Step 125b): who sent which operation and
+     * on what. Called from the postprocessor of both webapps, so every document - the ones written
+     * today and the ones added next year - is covered without a line in each service.
+     *
+     * <p>Reading pages, JSON lookups for a page and the login itself leave nothing here: they either
+     * change no document or have a row of their own. A refused write is written as
+     * {@link #DOC_FAIL} with the reason, so a row never claims something was done that was not.
+     *
+     * @param request the finished request
+     */
+    static void recordDocumentRequest(javax.servlet.http.HttpServletRequest request) {
+        try {
+            if (request == null || !"POST".equalsIgnoreCase(request.getMethod())) {
+                return;
+            }
+            String path = request.getPathInfo();
+            if (path == null || path.isEmpty() || "/".equals(path)) {
+                path = request.getServletPath();
+            }
+            String name = requestNameOf(path);
+            String what = documentLabel(name);
+            if (what == null) {
+                return;
+            }
+            javax.servlet.http.HttpSession session = request.getSession(false);
+            Object logged = session == null ? null : session.getAttribute("userLogin");
+            String user = logged instanceof GenericValue
+                    ? ((GenericValue) logged).getString("userLoginId") : null;
+            if (user == null) {
+                return;
+            }
+            String target = null;
+            // a document that was just created has no number in the request: the service returns it
+            // and the framework copies the answer onto the request, so look there first
+            for (String param : ID_PARAMS) {
+                Object value = request.getAttribute(param);
+                if (value instanceof CharSequence && ((CharSequence) value).toString().trim().length() > 0) {
+                    target = value.toString().trim();
+                    break;
+                }
+            }
+            for (int i = 0; target == null && i < ID_PARAMS.length; i++) {
+                String value = request.getParameter(ID_PARAMS[i]);
+                if (value != null && !value.trim().isEmpty()) {
+                    target = value.trim();
+                }
+            }
+            String problem = refusalOf(request);
+            String action = problem == null ? DOC_CHANGE : DOC_FAIL;
+            String note = what + (problem == null ? "" : "：" + problem);
+            record(delegatorOf(request), user, action, target, request.getRemoteAddr(), note);
+        } catch (Throwable t) {
+            Debug.logWarning(t, "Could not write the audit row of a request", MODULE);
+        }
+    }
+
+    /**
+     * Why a request was refused, in the words of the service: a failing service leaves either the
+     * single message or the list of messages on the request, and only the first one is read.
+     *
+     * @param request the finished request
+     * @return the reason, {@code null} when nothing was refused
+     */
+    static String refusalOf(javax.servlet.http.HttpServletRequest request) {
+        Object single = request.getAttribute("_ERROR_MESSAGE_");
+        if (single != null && !String.valueOf(single).trim().isEmpty()) {
+            return String.valueOf(single);
+        }
+        Object list = request.getAttribute("_ERROR_MESSAGE_LIST_");
+        if (list instanceof java.util.Collection) {
+            for (Object message : (java.util.Collection<?>) list) {
+                if (message != null && !String.valueOf(message).trim().isEmpty()) {
+                    String text = String.valueOf(message);
+                    return text.length() > 200 ? text.substring(0, 200) + "…" : text;
+                }
+            }
+        }
+        return null;
+    }
+
+    /**
+     * The delegator of a request: the framework puts it on the request, and on the servlet context
+     * of the webapp as a fallback.
+     *
+     * @param request the request
+     * @return the delegator, {@code null} when neither carries one
+     */
+    private static Delegator delegatorOf(javax.servlet.http.HttpServletRequest request) {
+        Object fromRequest = request.getAttribute("delegator");
+        if (fromRequest instanceof Delegator) {
+            return (Delegator) fromRequest;
+        }
+        javax.servlet.ServletContext webapp = request.getServletContext();
+        Object fromContext = webapp == null ? null : webapp.getAttribute("delegator");
+        return fromContext instanceof Delegator ? (Delegator) fromContext : null;
     }
 
     /**
