@@ -782,6 +782,15 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   ⑤ 静态 css 加了 `?v=N`：改了样式就**把 N 加一**，否则浏览器用缓存，新页面看起来没样式；
   ⑥ 密码门禁页的账号名只能从 `parameters.USERNAME` 来（登录表单刚 POST 的），别指望 session。
   巡检：`verify-m43.ps1`（把 `$base` 换成 8095 就是 test 实例）15 项全过。
+- **找回密码页（Step 124）**：`forgotPassword` 视图换成我们自己的（`widget/MfgLoginScreens.xml#forgotPassword` +
+  `webapp/mfg/forgotPassword.ftl`），登录页的「忘记密码？」链到这里。**只留“查看密码提示”一个按钮**：
+  三套实例都没配邮件服务器，`EMAIL_PASSWORD` 那条路只会回“unable to email password”；真要开邮件，
+  在 FTL 里加一个 `name="EMAIL_PASSWORD"` 的提交按钮即可（`LoginEvents` 已经支持）。
+  **坑**：`LoginEvents.forgotPassword` 找到提示时返回的是 **`auth`**（提示文本放 `_EVENT_MESSAGE_`、
+  带个英文句号的“Password hint is: x”），stock 的 request-map 把 `auth` 接成 `request-redirect main`，
+  于是提示跑到首页去了。现在组件里**重写了一份 `forgotPassword` request-map**（自己的 request-map 压住 common 的），
+  把 `auth` 也接成 view `forgotPassword`；`signIn.groovy` 先读 `_EVENT_MESSAGE_` 再读 `_ERROR_MESSAGE_`，
+  把「密码提示：x / 没有设密码提示 / 没填账号」翻成中文（提示用蓝框 `.signin-note`，抱怨用红框）。
 - **保修**：从出货日开始算，月数在产品上（`warrantyMonths`，默认 12）- **淘宝窗口**：7 天无理由 = 签收日 + 8 天 00:00（即签收次日起 168 小时）；15 天售后 = 签收 + 15 天 23:59:59
 - **买家名单**：匹配键优先买家昵称（`TB:N:nick`），因为淘宝收件手机号常被隐私号掩码；手机号必须是 11 位真号、
   带 `*` 一律拒绝；名单 12 个月自动失效；**只提示，不拦截任何法定售后**

@@ -286,6 +286,17 @@ body.signin {
     border: 1px solid rgba(241, 76, 76, .55);
     border-radius: 4px;
 }
+/* an answer that is not a complaint (the password hint) */
+.signin-note {
+    margin: 0 0 1em;
+    padding: .55em .75em;
+    text-align: left;
+    font-size: .82em;
+    color: var(--fg-strong);
+    background: rgba(0, 120, 212, .12);
+    border: 1px solid rgba(0, 120, 212, .55);
+    border-radius: 4px;
+}
 /* what the framework answered, kept quiet and scrollable: it is for the person who has to fix it */
 .signin-detail {
     margin: 0 0 1em;

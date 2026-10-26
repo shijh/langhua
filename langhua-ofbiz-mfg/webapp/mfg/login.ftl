@@ -28,7 +28,7 @@
     <link rel="icon" type="image/png" sizes="32x32" href="/mfg/images/logo-32.png"/>
     <link rel="icon" type="image/png" sizes="64x64" href="/mfg/images/logo-64.png"/>
     <link rel="apple-touch-icon" href="/mfg/images/logo-180.png"/>
-    <link rel="stylesheet" type="text/css" href="/mfg/css/mfg.css?v=3"/>
+    <link rel="stylesheet" type="text/css" href="/mfg/css/mfg.css?v=4"/>
 </head>
 <body class="signin">
 <main class="signin-card">
@@ -51,7 +51,8 @@
 </#if>
         <button type="submit">登录</button>
     </form>
-    <p class="signin-hint">忘记密码请让管理员在「用户账号」页把密码重置回出厂值，再用新密码登录。</p>
+    <p class="signin-hint"><a href="/mfg/control/forgotPassword">忘记密码？</a> 先看看当初留下的密码提示；
+        提示也想不起来，请让管理员在「用户账号」页把密码重置回出厂值。</p>
 </main>
 <p class="signin-foot">© 2026 天津朗华博基科技发展有限公司</p>
 </body>

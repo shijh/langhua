@@ -61,6 +61,17 @@
         <response name="success" type="view" value="recordDetail"/>
     </request-map>
 
+    <!-- "forgot my password": the stock map sends the found hint to the start page (LoginEvents
+         answers "auth" when it has a hint, with the text in _EVENT_MESSAGE_); keep the person on
+         our own page instead, where signIn.groovy turns that text into Chinese -->
+    <request-map uri="forgotPassword">
+        <security https="true" auth="false"/>
+        <event type="java" path="org.apache.ofbiz.securityext.login.LoginEvents" invoke="forgotPassword"/>
+        <response name="success" type="view" value="forgotPassword"/>
+        <response name="error" type="view" value="forgotPassword"/>
+        <response name="auth" type="view" value="forgotPassword"/>
+    </request-map>
+
     <!-- the password gate posts here (the service lives in the MES component); a changed password
          sends the user back to the login screen so the new one is used right away -->
     <request-map uri="changePasswordSave">
@@ -91,6 +102,7 @@
     <!-- the two pages in front of the component (Step 123): our view maps replace the stock OFBiz
          screens (a view map defined here pushes over the one from common-controller.xml) -->
     <view-map name="login" type="screen" page="component://learningcurve/widget/LearningCurveLoginScreens.xml#login" auth="false"/>
+    <view-map name="forgotPassword" type="screen" page="component://learningcurve/widget/LearningCurveLoginScreens.xml#forgotPassword" auth="false"/>
     <view-map name="requirePasswordChange" type="screen" page="component://learningcurve/widget/LearningCurveLoginScreens.xml#requirePasswordChange"/>
 
     <view-map name="main" type="screen" page="component://learningcurve/widget/LearningCurveScreens.xml#main"/>

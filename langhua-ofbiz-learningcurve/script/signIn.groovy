@@ -47,3 +47,43 @@ try {
     context.csrfName = null
     context.csrfValue = null
 }
+
+/*
+ * 3. The answer of the "forgot your password" request, which comes back on the same page in the
+ *    labels of LoginEvents (English): the password hint, "no hint stored", "username was empty".
+ */
+try {
+    String raw = null
+    // the hint comes back as an event message, the complaints as error messages
+    Object fromRequest = request.getAttribute('_EVENT_MESSAGE_')
+    if (fromRequest == null) fromRequest = request.getAttribute('_ERROR_MESSAGE_')
+    if (fromRequest != null) raw = String.valueOf(fromRequest)
+    if (!raw && context.eventMessage) raw = String.valueOf(context.eventMessage)
+    if (!raw && context.errorMessage) raw = String.valueOf(context.errorMessage)
+    if (!raw && context.eventMessageList) raw = String.valueOf(context.eventMessageList[0])
+    if (!raw && context.errorMessageList) raw = String.valueOf(context.errorMessageList[0])
+    context.forgotMessage = null
+    context.forgotIsHint = 'N'
+    if (raw) {
+        String text = raw.trim()
+        String lower = text.toLowerCase()
+        if (lower.contains('password hint is')) {
+            // "The password hint is: <what the account owner wrote>"
+            int cut = text.lastIndexOf(':')
+            String hint = (cut >= 0 ? text.substring(cut + 1) : text).trim().replaceAll(/[.\s]+$/, '')
+            context.forgotMessage = '密码提示：' + hint
+            context.forgotIsHint = 'Y'
+        } else if (lower.contains('no password hint')) {
+            context.forgotMessage = '这个账号没有设密码提示，请让管理员把密码重置回出厂值'
+        } else if (lower.contains('was empty')) {
+            context.forgotMessage = '请先填账号名'
+        } else if (lower.contains('not found')) {
+            context.forgotMessage = '没有这个账号名，检查一下拼写'
+        } else {
+            context.forgotMessage = text
+        }
+    }
+} catch (Throwable ignored) {
+    context.forgotMessage = null
+    context.forgotIsHint = 'N'
+}

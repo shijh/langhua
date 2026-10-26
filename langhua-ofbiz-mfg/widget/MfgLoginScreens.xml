@@ -4,7 +4,7 @@
         xsi:schemaLocation="http://ofbiz.apache.org/Widget-Screen http://ofbiz.apache.org/dtds/widget-screen.xsd">
 
     <!--
-        The two pages a person meets before the MES itself (Step 123).
+        The pages a person meets before the MES itself (Step 123).
 
         "login" is the view the framework renders whenever a page needs a login (the stock one is a
         white Apache table with an English title). controller.xml overrides the view map of the
@@ -12,11 +12,13 @@
         framework's own login request, so nothing about authentication changes.
 
         "requirePasswordChange" is where a successful login ends while the account still has to pick
-        a password of its own. Its form posts to changePasswordSave, the same request the password
-        gate inside decorator.ftl uses.
+        a password of its own; its form posts back to the login request, which changes the password
+        (the gate is drawn before the session is logged in).
 
-        Both pages are hand written FTL (login.ftl / changePassword.ftl) so they carry the brand,
-        the dark palette and no navigation: there is nothing to navigate to before a login.
+        "forgotPassword" asks only for the password hint (see the comment above that screen).
+
+        All of them are hand written FTL so they carry the brand, the dark palette and no
+        navigation: there is nothing to navigate to before a login.
     -->
     <screen name="login">
         <section>
@@ -30,6 +32,29 @@
                 <platform-specific>
                     <html>
                         <html-template location="component://mfg/webapp/mfg/login.ftl"/>
+                    </html>
+                </platform-specific>
+            </widgets>
+        </section>
+    </screen>
+
+    <!--
+        "Forgot your password": the stock page asks for a name and offers two buttons (show the
+        password hint / mail a new password). This one only asks for the hint, because none of the
+        instances has a mail server configured - the E-mail button could only answer "unable to
+        email password". The form still posts to the framework's own forgotPassword request.
+    -->
+    <screen name="forgotPassword">
+        <section>
+            <actions>
+                <set field="loginUser" from-field="parameters.USERNAME"/>
+                <set field="csrfTarget" value="forgotPassword"/>
+                <script location="component://mfg/script/signIn.groovy"/>
+            </actions>
+            <widgets>
+                <platform-specific>
+                    <html>
+                        <html-template location="component://mfg/webapp/mfg/forgotPassword.ftl"/>
                     </html>
                 </platform-specific>
             </widgets>

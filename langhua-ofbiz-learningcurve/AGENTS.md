@@ -46,7 +46,12 @@ OFBiz **学习曲线**插件：按历史批次（数量 + 总额/工时）拟合
   **本组件多一个坑**：`lc.css` 有全局 `label { display: inline-block; width: 11em }`，
   登录卡片的 `.signin-field` 必须自己写 `width: 100%`，否则输入框只有 11em 宽。
 - **CSRF/话术脚本**：`script/signIn.groovy`（两个组件各一份，内容一致）给登录/改密表单补 CSRF 隐藏域，
-  并把「密码错 / 没这个账号 / 锁号」翻成中文；stock 的 `csrf.defense.strategy` 是空的，所以现在页面不带隐藏域也不影响。
+  并把「密码错 / 没这个账号 / 锁号」以及找回密码的「密码提示 / 没有提示」翻成中文；
+  stock 的 `csrf.defense.strategy` 是空的，所以现在页面不带隐藏域也不影响。
+- **找回密码页（Step 124）**：`forgotPassword` 视图与 request-map 都在本组件里重写（`LearningCurveLoginScreens.xml#forgotPassword`
+  + `webapp/learningcurve/forgotPassword.ftl`），只留“查看密码提示”；`LoginEvents` 找到提示时返回的是
+  `auth`（文本在 `_EVENT_MESSAGE_`），所以自己那份 request-map 把 `auth` 接成 view `forgotPassword`。
+  细节见 `../langhua-ofbiz-mfg/AGENTS.md` 的 Step 124。
 
 ## 注意
 
