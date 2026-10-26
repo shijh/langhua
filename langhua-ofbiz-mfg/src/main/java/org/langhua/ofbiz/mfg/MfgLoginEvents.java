@@ -34,6 +34,9 @@ import org.apache.ofbiz.base.util.Debug;
  * after logging in it always goes to {@code main}: a person who was half way through booking in a
  * shop order had to walk back to the receipt page by hand. The page asks for the login through
  * {@code rememberReturn}, which keeps the address in the session, and {@code main} hands it back once.
+ *
+ * <p>Only addresses that this webapp answers as a <em>request</em> are kept: a view name is not an
+ * address (see {@code NOT_A_PAGE}).
  */
 public final class MfgLoginEvents {
 
@@ -47,13 +50,13 @@ public final class MfgLoginEvents {
 
     /** What this webapp answers with data rather than a page: those are never worth coming back to. */
     private static final String[] NOT_A_PAGE = {"Json", "Csv", "orderImage", "orderPeek",
-        "attachment", "thumb", "login", "logout", "rememberReturn"};
+        "attachment", "thumb", "login", "logout", "rememberReturn",
+        // a view the framework renders, not a request of this webapp: coming back to it is a dead
+        // URL ("Unknown request [requirePasswordChange]" right after the password gate, Step 122)
+        "requirePasswordChange"};
 
     /** Where the framework keeps the request it refused because nobody was logged in. */
     private static final String PREVIOUS_REQUEST = "_PREVIOUS_REQUEST_";
-
-    /** Where the framework keeps the last page drawn, when the request map says save-last-view. */
-    private static final String LAST_VIEW = "_LAST_VIEW_NAME_";
 
     private MfgLoginEvents() {
     }
@@ -77,11 +80,11 @@ public final class MfgLoginEvents {
         if (back == null) {
             back = pageOf(session.getAttribute(PREVIOUS_REQUEST));
         }
-        if (back == null) {
-            // the last page drawn before the login, kept by the framework for request maps with
-            // save-last-view="true" (that is what the setting is for)
-            back = pageOf(session.getAttribute(LAST_VIEW));
-        }
+        // note: the framework's _LAST_VIEW_NAME_ is deliberately not used here. It holds a **view**
+        // name, and a view is not a request: requirePasswordChange (the screen shown when the account
+        // must change its password) has no request map, so coming back to "it" was a dead URL and the
+        // person got "Unknown request [requirePasswordChange]" right after changing the password
+        // (Step 122). The two sources above are real addresses.
         session.removeAttribute(PREVIOUS_REQUEST);
         if (back != null) {
             session.setAttribute(RETURN_TO, back);

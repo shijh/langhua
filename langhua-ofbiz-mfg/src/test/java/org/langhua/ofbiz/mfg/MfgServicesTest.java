@@ -1143,6 +1143,9 @@ public class MfgServicesTest {
         assertNull(MfgLoginEvents.pageOf("/control/orderImage"));
         assertNull(MfgLoginEvents.pageOf("/control/receiptSaveJson"));
         assertNull(MfgLoginEvents.pageOf("/control/freightCsv"));
+        // the password gate is a view, not a request: coming back to it was a dead URL (Step 122)
+        assertNull(MfgLoginEvents.pageOf("requirePasswordChange"));
+        assertNull(MfgLoginEvents.pageOf("/control/requirePasswordChange"));
         assertNull(MfgLoginEvents.pageOf(null));
     }
 

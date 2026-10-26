@@ -740,17 +740,27 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   **开关是系统属性 `org.langhua.mfg.requirePasswordChange`，只有 `Y` 才启用**：`start-prod.bat` 设 `Y`，
   开发实例 `ofbiz-server.bat` 显式设 `N`（否则巡检/集成测试用 `admin`/`ofbiz` 登录会整片红），
   `start-dev-gate.bat` 是「开发实例 + 门禁开」的调试入口；重置密码用 `gradle loadAdminUserLogin -PuserLoginId=admin`
-  （脚本 `reset-admin.bat`，**必须先停实例**，内嵌 Derby 单进程）——它只是把
-  `framework/resources/templates/AdminUserLoginData.xml` 载入（`requirePasswordChange="Y"` + 把 admin 加进 `SUPER`），
-  **别指望它把密码改成 `ofbiz`**：模板里的 `{SHA}47ca69…` 并不是 sha1("ofbiz")（实测 sha1("ofbiz") =
-  `47b56994cbc2b6d10aa1be30f70165adb305a41a`），而且 `--load-data` 的默认动作是 `create`，撞到已存在的行只会报重复。
-  真要写一个已知密码就停实例改库（表在 **`OFBIZ`** schema，物理名就是 **`USER_LOGIN`**，不是 `SEC_USER_LOGIN`）：
+  （脚本 `reset-admin.bat`，**必须先停实例**，内嵌 Derby 单进程）——它把
+  `framework/resources/templates/AdminUserLoginData.xml` 载入，**确实会把密码设回 `ofbiz`**（Step 121 实测）：
+  模板里的 `{SHA}47ca69…` 是 OFBiz 的 legacy `oldFunnyHex` 编码，日志里会警告
+  `detected oldFunnyHex password prefixed with a hashType; ... update the value in the database with ({SHA}47b56994…)`，
+  两者是**同一个摘要**（sha1("ofbiz")，小端十六进制）不同写法，走的是兼容校验路径。
+  **但 `--load-data` 的默认动作是 `create`，撞到已存在的行只会报重复**，所以那一行不会被改写——
+  要让已存在的 admin 回到 `ofbiz`，还是停实例改库（表在 **`OFBIZ`** schema，物理名就是 **`USER_LOGIN`**，不是 `SEC_USER_LOGIN`）：
   `UPDATE OFBIZ.USER_LOGIN SET CURRENT_PASSWORD='{SHA}47b56994cbc2b6d10aa1be30f70165adb305a41a', REQUIRE_PASSWORD_CHANGE='Y', SUCCESSIVE_FAILED_LOGINS=0, DISABLED_DATE_TIME=NULL WHERE USER_LOGIN_ID='admin';`
-  （`{SHA}hex` 是 `{SHA}` + sha1 十六进制；正常改密写的是 `$SHA$<盐>$<base64url>`，见 `HashCrypt.cryptBytes`）。
+  （`{SHA}hex` 是 `{SHA}` + sha1 十六进制；正常改密写的是 `$SHA$<盐>$<base64url>` 或 `{PBKDF2-SHA512}…`，见 `HashCrypt.cryptBytes`）。
   **连错 3 次会被框架锁号 5 分钟**（`max.failed.logins` / `login.disable.minutes`），
   锁着的时候密码对了也进不去（页面写“will be re-enabled HH:mm:ss”），别在窗口里反复试；
   巡检断言改密码要用 ASCII 标记（`action="/mfg/control/changePasswordSave"` / `action="/mfg/control/workOrderCreate"`），
   别断言中文——上下文里的字符串会被渲染成数字实体
+- **视图名不是请求地址（Step 122）**：改完密码后生产报了
+  `RequestHandlerException: Unknown request [requirePasswordChange]`。原因是 `MfgLoginEvents.afterLogin`
+  除了「页面自己存的地址」和框架的 `_PREVIOUS_REQUEST_`，还退到 `_LAST_VIEW_NAME_` 兜底，
+  而那里存的是**视图名**（`requirePasswordChange` 是 common-controller 的 `<view-map>`，**全发行版没有同名 request-map**），
+  `pageOf` 把裸名拼成 `/mfg/control/requirePasswordChange` 存进会话，`main` 的 `backAfterLogin` 就 302 到那个死地址。
+  现在**只用两个真地址**（`safeReturnTo(mfgLoginReturnTo)` + `pageOf(_PREVIOUS_REQUEST_)`），
+  `NOT_A_PAGE` 里也加了 `requirePasswordChange` 兜底。**别再把 `_LAST_VIEW_NAME_` 加回去**：
+  `save-last-view="true"` 记的同样是视图名，不是地址。
 - **保修**：从出货日开始算，月数在产品上（`warrantyMonths`，默认 12）- **淘宝窗口**：7 天无理由 = 签收日 + 8 天 00:00（即签收次日起 168 小时）；15 天售后 = 签收 + 15 天 23:59:59
 - **买家名单**：匹配键优先买家昵称（`TB:N:nick`），因为淘宝收件手机号常被隐私号掩码；手机号必须是 11 位真号、
   带 `*` 一律拒绝；名单 12 个月自动失效；**只提示，不拦截任何法定售后**
