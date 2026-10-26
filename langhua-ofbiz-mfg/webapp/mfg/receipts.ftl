@@ -297,7 +297,8 @@
         <p>
             <button type="button" id="importOrders" data-once="Y">导入这些单</button>
             <span class="hint">一张截图里有几张单就建几张到货单（只有一张也一样）；已退款的单不入库，
-                已经入过库的明细会跳过（不会重复）。</span>
+                已经入过库的明细会跳过（不会重复）。哪一行读错了：点开「1 ▸」把明细、运费、实付改对，
+                再点「保存这一行」，导入用的是改过的内容。</span>
         </p>
     </div>
     <p class="hint">识别不了、或者手里没有截图时，下面手工填也一样：一行一个料，提交后才写库。</p>
@@ -463,7 +464,9 @@
                 return row.trim().length > 0;
             });
         }
-        /* the articles of one order, opened under its row: what exactly will be written */
+        /* the articles of one order, opened under its row: what exactly will be written, and the
+           box to correct it - a block that came back with the articles of the block above it is fixed
+           here instead of being typed again (Step 138) */
         function linesRowOf(order, key) {
             var rows = linesOf(order);
             var holder = document.createElement('tr');
@@ -501,8 +504,60 @@
                 table.appendChild(tr);
             });
             cellHolder.appendChild(table);
+            var editor = document.createElement('p');
+            var linesBox = document.createElement('textarea');
+            linesBox.rows = Math.max(3, rows.length + 1);
+            linesBox.cols = 78;
+            linesBox.value = order.lines || '';
+            linesBox.setAttribute('data-scan-lines', key);
+            linesBox.title = '一行一个料：料号,名称,数量,金额（Tab 或逗号分隔）';
+            editor.appendChild(linesBox);
+            var moneyLine = document.createElement('span');
+            moneyLine.appendChild(document.createTextNode(' 运费 '));
+            moneyLine.appendChild(inputOf(key, 'freight', order.freight || '0', 5));
+            moneyLine.appendChild(document.createTextNode(' 实付 '));
+            moneyLine.appendChild(inputOf(key, 'paid', order.paidTotal || '', 7));
+            var save = document.createElement('button');
+            save.type = 'button';
+            save.textContent = '保存这一行';
+            save.setAttribute('data-scan-save', key);
+            moneyLine.appendChild(save);
+            var saved = document.createElement('span');
+            saved.className = 'hint';
+            saved.setAttribute('data-scan-saved', key);
+            moneyLine.appendChild(saved);
+            editor.appendChild(moneyLine);
+            cellHolder.appendChild(editor);
             holder.appendChild(cellHolder);
             return holder;
+        }
+        function inputOf(key, what, value, size) {
+            var input = document.createElement('input');
+            input.type = 'text';
+            input.size = size;
+            input.value = value;
+            input.setAttribute('data-scan-' + what, key);
+            return input;
+        }
+        /* the row edited by hand: what it says is what the import writes */
+        function saveRow(key) {
+            var index = -1;
+            for (var i = 0; i < orders.length; i++) {
+                if ('scan-' + i === key) { index = i; }
+            }
+            if (index < 0) { return; }
+            var order = orders[index];
+            var box = orderRows.querySelector('[data-scan-lines="' + key + '"]');
+            var freight = orderRows.querySelector('[data-scan-freight="' + key + '"]');
+            var paid = orderRows.querySelector('[data-scan-paid="' + key + '"]');
+            if (box) { order.lines = box.value.replace(/\r/g, ''); }
+            if (freight) { order.freight = freight.value.trim() || '0'; }
+            if (paid) { order.paidTotal = paid.value.trim(); }
+            showOrders(orders);
+            var again = orderRows.querySelector('[data-toggle-lines="' + key + '"]');
+            if (again) { again.click(); }
+            var hint = orderRows.querySelector('[data-scan-saved="' + key + '"]');
+            if (hint) { hint.textContent = '已保存'; }
         }
         function cell(row, text, className) {
             var td = document.createElement('td');
@@ -532,7 +587,7 @@
                 var row = document.createElement('tr');
                 row.setAttribute('data-scan-order', order.orderNo || '');
                 row.setAttribute('data-platform', order.platform || '');
-                var key = 'scan-' + (order.orderNo || ('row' + index));
+                var key = 'scan-' + index;
                 /* the number of the block on this page: the screenshot can be held next to it, so a
                    block that was read twice or not at all is seen at once (Step 136) */
                 var seq = cell(row, String(index + 1), 'num');
@@ -562,20 +617,30 @@
                 var goods = amountsOf(order);
                 cell(row, goods.toFixed(2), 'num');
                 cell(row, order.paidTotal || '', 'num');
-                /* 货款 + 运费 − 优惠 must come to 实付: when it does not, an article is probably missing */
+                /* 货款 + 运费 − 优惠 must come to 实付: when it does not, an article is probably missing.
+                   A page rounds its own unit prices (0.095 shows as 0.10), so the same few cents the
+                   server allows are allowed here, or a row would be marked red for two cents */
                 var paid = parseFloat(order.paidTotal);
+                var pieces = 0;
+                linesOf(order).forEach(function (line) {
+                    var cells = line.split(/\t|,/);
+                    pieces += Math.max(1, parseFloat(cells[cells.length - 2]) || 1);
+                });
+                var slack = Math.round((0.005 * pieces + 0.005) * 100) / 100;
                 var off = !isNaN(paid) && goods > 0
                     && Math.abs(goods + (parseFloat(order.freight) || 0)
-                        - (parseFloat(order.discount) || 0) - paid) > 0.005;
+                        - (parseFloat(order.discount) || 0) - paid) > slack;
                 /* 交易关闭 is not a refund: the deal never went through (usually never paid), so it is
                    left out as well - the two reasons are spelled out, because the person acts
                    differently on each (Step 109) */
                 var kept = leftOut(order);
+                var doubtful = !kept && !off && order.note;
                 var statusText = order.refunded === 'Y' ? '已退款，不入库'
                     : (order.closed === 'Y' ? '交易关闭，不入库'
-                        : (off ? '实付与明细对不上，请核对' : '待导入'));
+                        : (off ? '实付与明细对不上，请核对' : (order.note ? '请核对' : '待导入')));
                 var status = cell(row, statusText);
-                if (kept || off) { status.className = 'error'; }
+                if (kept || off || doubtful) { status.className = 'error'; }
+                if (order.note) { status.title = order.note; }
                 orderRows.appendChild(row);
                 orderRows.appendChild(linesRowOf(order, key));
             });
@@ -605,6 +670,16 @@
                     + (notes.length ? ' ' + notes.join('；') : '');
             }
         }
+        /* the articles of one row are a draft until the person says they are right */
+        orderRows.addEventListener('click', function (event) {
+            var target = event.target;
+            if (!target || !target.getAttribute) { return; }
+            var key = target.getAttribute('data-scan-save');
+            if (key) {
+                event.preventDefault();
+                saveRow(key);
+            }
+        });
         if (importButton) {
             importButton.addEventListener('click', function () {
                 if (!orders.length) { return; }
