@@ -9997,6 +9997,12 @@ always
             return;
         }
         List<String[]> kept = rows;
+        // the overlap shows one printed row twice and the two reads write the code differently
+        // (FC-135 beside 无源贴片FC-135…), so what makes a row an article cannot tell them apart: when
+        // the block says it prints fewer rows than were read, the extra ones share the quantity and the
+        // amount of a row already there and are dropped (Step 134)
+        kept = withoutExtraRows(rows, (int) toDouble(order.get("rowCount"), 0.0));
+        rows = kept;
         Double paid = optionalAmount(order.get("paidTotal"));
         Double freight = optionalAmount(order.get("freight"));
         if (paid != null) {
@@ -10204,6 +10210,40 @@ always
     }
 
     /**
+     * Drops the rows the overlap of two slices read twice when the block says how many rows it prints:
+     * the two reads often write the code of the row differently ({@code FC-135} and {@code 无源贴片FC-135…}),
+     * so two copies of one printed row look like two articles. A row is a copy when a row already kept
+     * has the same quantity and the same amount.
+     *
+     * @param rows the article rows of one order, as read
+     * @param printed how many rows the block says it prints, 0 when it did not say
+     * @return the rows cut back to the number the block prints, or the rows as they came when that
+     *     cannot be told apart
+     */
+    private static List<String[]> withoutExtraRows(List<String[]> rows, int printed) {
+        if (printed <= 0 || rows.size() <= printed) {
+            return rows;
+        }
+        List<String[]> out = new ArrayList<>();
+        for (String[] row : rows) {
+            if (out.size() >= printed) {
+                break;
+            }
+            boolean already = false;
+            for (String[] seen : out) {
+                if (seen[2].equals(row[2]) && seen[3].equals(row[3])) {
+                    already = true;
+                    break;
+                }
+            }
+            if (!already) {
+                out.add(row);
+            }
+        }
+        return out.size() >= printed ? out : rows;
+    }
+
+    /**
      * @param rows the article rows of one order
      * @return what the amounts of the rows come to
      */
@@ -10339,6 +10379,14 @@ always
         if (answers == null) {
             return new ArrayList<>();
         }
+        // the length the page prints its numbers at, so a read that added or lost a digit does not win
+        List<Map<String, String>> all = new ArrayList<>();
+        for (List<Map<String, String>> answer : answers) {
+            if (answer != null) {
+                all.addAll(answer);
+            }
+        }
+        int usual = usualNumberLength(all);
         for (List<Map<String, String>> answer : answers) {
             if (answer == null) {
                 continue;
@@ -10349,6 +10397,18 @@ always
                 }
                 String number = order.get("orderNo") == null ? "" : order.get("orderNo").trim();
                 Map<String, String> kept = byNumber.get(number);
+                if (kept != null && !sameMoney(kept, order)) {
+                    // a page never prints one order number on two blocks, so one of the two reads is
+                    // wrong: keeping them apart shows both orders, while merging them drops a whole
+                    // order into the other one (a page of 31 blocks came back with 30 and one block
+                    // carrying two orders of articles, Step 134)
+                    String apart = freeNumber(byNumber, number);
+                    Map<String, String> stray = new LinkedHashMap<>(order);
+                    stray.put("note", "订单号与另一张单读成了一样（" + number
+                            + "），可能有一张读错了，请对着截图核对");
+                    byNumber.put(apart, stray);
+                    continue;
+                }
                 if (kept == null) {
                     String twin = numberOneCharacterOff(byNumber, order);
                     kept = twin == null ? null : byNumber.get(twin);
@@ -10365,9 +10425,19 @@ always
                         kept.put(field, order.get(field));
                     }
                 }
-                // the page prints the whole number: when one read lost a digit, the longer one stays
+                // the page prints one number for the order: keep the read that has the length the page
+                // writes, and only then prefer the longer one (a read that added a digit is the longer
+                // one as well, Step 134)
                 String keptNumber = kept.get("orderNo") == null ? "" : kept.get("orderNo").trim();
-                if (number.length() > keptNumber.length()) {
+                boolean takeNew = number.length() > keptNumber.length();
+                if (usual > 0 && !number.equals(keptNumber)) {
+                    if (keptNumber.length() == usual) {
+                        takeNew = false;
+                    } else if (number.length() == usual) {
+                        takeNew = true;
+                    }
+                }
+                if (takeNew) {
                     kept.put("orderNo", number);
                 }
             }
@@ -10516,12 +10586,25 @@ always
         }
         if (a.length() == b.length()) {
             int differ = 0;
+            int atFirst = -1;
+            int atSecond = -1;
             for (int i = 0; i < a.length(); i++) {
                 if (a.charAt(i) != b.charAt(i)) {
                     differ++;
+                    if (atFirst < 0) {
+                        atFirst = i;
+                    } else if (atSecond < 0) {
+                        atSecond = i;
+                    }
                 }
             }
-            return differ == 1;
+            if (differ == 1) {
+                return true;
+            }
+            // two digits read the other way round: 3316115535567018554 came back once as
+            // 3316115553567018554 (Step 134)
+            return differ == 2 && atSecond == atFirst + 1
+                    && a.charAt(atFirst) == b.charAt(atSecond) && a.charAt(atSecond) == b.charAt(atFirst);
         }
         String longer = a.length() > b.length() ? a : b;
         String shorter = a.length() > b.length() ? b : a;
@@ -10543,6 +10626,34 @@ always
             }
         }
         return at == shorter.length();
+    }
+
+    /**
+     * @param kept an order read from one slice
+     * @param order the same part of the page read from another slice
+     * @return {@code true} when both print the same money, which is what two reads of one block share
+     */
+    private static boolean sameMoney(Map<String, String> kept, Map<String, String> order) {
+        Double paid = optionalAmount(kept.get("paidTotal"));
+        Double otherPaid = optionalAmount(order.get("paidTotal"));
+        if (paid == null || otherPaid == null) {
+            // one of the two reads did not get the money: nothing says they are two blocks
+            return true;
+        }
+        return Math.abs(paid.doubleValue() - otherPaid.doubleValue()) <= 0.06;
+    }
+
+    /**
+     * @param byNumber the orders read so far
+     * @param number the number two blocks were read with
+     * @return a key for the second of them, so both are kept
+     */
+    private static String freeNumber(Map<String, Map<String, String>> byNumber, String number) {
+        String key = number + " #2";
+        for (int i = 3; byNumber.containsKey(key); i++) {
+            key = number + " #" + i;
+        }
+        return key;
     }
 
     /**

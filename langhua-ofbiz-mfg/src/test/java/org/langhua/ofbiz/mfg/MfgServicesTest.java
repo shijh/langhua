@@ -999,11 +999,41 @@ public class MfgServicesTest {
         // a read may also lose three digits: 3316453503083081392 came back once as 3316453503081392
         assertTrue(MfgServices.numbersOfTheSameOrder("3316453503083081392", "3316453503081392"));
         assertTrue(MfgServices.numbersOfTheSameOrder("3316453503083081392", "3316453503083081393"));
+        // and two neighbouring digits are read the other way round now and then
+        assertTrue(MfgServices.numbersOfTheSameOrder("3316115535567018554", "3316115553567018554"));
+        assertFalse(MfgServices.numbersOfTheSameOrder("3316115535567018554", "3316115535567099554"));
         assertFalse(MfgServices.numbersOfTheSameOrder("3316452855010009372", "3316485867036009372"));
         assertFalse(MfgServices.numbersOfTheSameOrder("3316453503083081392", "3316453503083081392"));
         assertFalse(MfgServices.numbersOfTheSameOrder("3316453503083081392", "3453508"));
         assertFalse(MfgServices.numbersOfTheSameOrder("", "3316453503083081392"));
         assertFalse(MfgServices.numbersOfTheSameOrder(null, "3316453503083081392"));
+    }
+
+    @Test
+    public void keepsTwoBlocksThatWereReadWithTheSameNumber() {
+        // a page never prints one order number on two blocks: when two blocks of different money come
+        // back with the same number one of the reads is wrong, and merging them would drop a whole
+        // order into the other (a page of 31 blocks came back with 30, Step 134)
+        List<Map<String, String>> page = MfgServices.orderListFrom("{\"orders\":["
+                + "{\"orderNo\":\"3316374446353172593\",\"shop\":\"telesky\",\"paidTotal\":\"2.63\","
+                + "\"items\":[{\"code\":\"2.54mm 1*40\",\"name\":\"pin header\",\"qty\":\"5\","
+                + "\"amount\":\"0.63\"}]},"
+                + "{\"orderNo\":\"3316374446353172593\",\"shop\":\"telesky\",\"paidTotal\":\"3.87\","
+                + "\"items\":[{\"code\":\"SOP16\",\"name\":\"adapter\",\"qty\":\"10\","
+                + "\"amount\":\"3.87\"}]}]}");
+        List<Map<String, String>> merged = MfgServices.mergeOrders(Collections.singletonList(page));
+        assertEquals(2, merged.size());
+        assertEquals(1, MfgServices.parseOrderArticleLines(merged.get(0).get("lines")).size());
+        assertEquals(1, MfgServices.parseOrderArticleLines(merged.get(1).get("lines")).size());
+        // the second one says why it carries the same number
+        assertNotNull(merged.get(1).get("note"));
+        // two reads of one block still join: same number and the same money
+        List<Map<String, String>> repeated = MfgServices.orderListFrom("{\"orders\":["
+                + "{\"orderNo\":\"3316374446353172593\",\"paidTotal\":\"2.63\","
+                + "\"items\":[{\"code\":\"X\",\"name\":\"x\",\"qty\":\"5\",\"amount\":\"0.63\"}]},"
+                + "{\"orderNo\":\"3316374446353172593\",\"paidTotal\":\"2.63\","
+                + "\"items\":[{\"code\":\"Y\",\"name\":\"y\",\"qty\":\"2\",\"amount\":\"2.00\"}]}]}");
+        assertEquals(1, MfgServices.mergeOrders(Collections.singletonList(repeated)).size());
     }
 
     @Test
@@ -1039,6 +1069,36 @@ public class MfgServicesTest {
                 + "{\"orderNo\":\"3141164514099372\",\"shop\":\"第三家\",\"paidTotal\":\"7.00\","
                 + "\"items\":[{\"code\":\"A\",\"name\":\"a\",\"qty\":\"1\",\"amount\":\"7.00\"}]}]}");
         assertEquals(4, MfgServices.mergeOrders(Collections.singletonList(twoShops)).size());
+    }
+
+    @Test
+    public void dropsTheRowTheOverlapReadTwiceWithAnotherCode() {
+        // the two reads of one row wrote the code differently (FC-135 beside 无源贴片FC-135…), so the
+        // row identity cannot see that they are one row; the block says it prints one row, and two rows
+        // of the same quantity and the same money are the same printed row (Step 134)
+        Map<String, String> order = new LinkedHashMap<>();
+        order.put("paidTotal", "2.25");
+        order.put("freight", "1.00");
+        order.put("rowCount", "1");
+        order.put("lines", "FC-135\t无源贴片FC-135 32.768K 3215\t5\t2.25\n"
+                + "FC-135 32.768K 3215\t无源贴片FC-135 32.768K 3215 [交易快照]\t5\t2.25");
+        MfgServices.tidyOrder(order);
+        String[] rows = order.get("lines").split("\n");
+        assertEquals(1, rows.length);
+        assertTrue(rows[0].startsWith("FC-135"));
+        // the freight the model reported stands as it does for every other block (Step 129), so the
+        // article is what was paid less the freight - what matters here is that the block adds up and
+        // the page does not have to warn about a row that was read twice
+        assertNull(MfgServices.checkOrderTotals(order));
+        // a block that prints as many rows as were read is left alone, even when two of them share
+        // their quantity and their money (six colours of one board are six rows)
+        Map<String, String> colours = new LinkedHashMap<>();
+        colours.put("paidTotal", "41.28");
+        colours.put("rowCount", "6");
+        colours.put("lines", "A\t白色\t5\t6.88\nB\t蓝色\t5\t6.88\nC\t绿色\t5\t6.88\n"
+                + "D\t黄色\t5\t6.88\nE\t红色\t5\t6.88\nF\t黑色\t5\t6.88");
+        MfgServices.tidyOrder(colours);
+        assertEquals(6, colours.get("lines").split("\n").length);
     }
 
     @Test
