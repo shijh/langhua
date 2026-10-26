@@ -988,6 +988,12 @@ public class MfgServicesTest {
                 + "\"freight\":\"2.80\",\"items\":[{\"code\":\"CH32V002J4M6\",\"name\":\"ch32\","
                 + "\"qty\":\"30\",\"amount\":\"19.44\"}]}]}");
         assertEquals(2, MfgServices.mergeOrders(Arrays.asList(whole, otherShop)).size());
+        // a read that left the shop empty is still the same order when the money is the same
+        List<Map<String, String>> noShop = MfgServices.orderListFrom("{\"orders\":["
+                + "{\"orderNo\":\"331645303083081392\",\"shop\":\"\",\"paidTotal\":\"22.24\","
+                + "\"freight\":\"2.80\",\"items\":[{\"code\":\"CH32V002J4M6\",\"name\":\"ch32\","
+                + "\"qty\":\"30\",\"amount\":\"19.44\"}]}]}");
+        assertEquals(1, MfgServices.mergeOrders(Arrays.asList(whole, noShop)).size());
         // and so is other money
         List<Map<String, String>> otherMoney = MfgServices.orderListFrom("{\"orders\":["
                 + "{\"orderNo\":\"331645303083081392\",\"shop\":\"华瑞芯城\",\"paidTotal\":\"9.99\","
@@ -1066,19 +1072,51 @@ public class MfgServicesTest {
     }
 
     @Test
-    public void keepsTwoAlikeOrdersThatThePagePrintsUnderOneNumber() {        // the page holds two orders with the same articles and the same money and different numbers;
-        // one picture shows each block once, so two blocks of one answer that came back with the same
-        // number are two orders - merging them lost the second (29 orders came back as 28, Step 135)
+    public void keepsTwoAlikeOrdersThatThePagePrintsUnderDifferentNumbers() {
+        // the page holds two orders with the same articles and the same money and different numbers;
+        // one picture shows each block once, so two blocks of one answer with two numbers are two
+        // orders - merging them lost the second (29 orders came back as 28, Step 135)
         List<Map<String, String>> picture = MfgServices.orderListFrom("{\"orders\":["
                 + "{\"orderNo\":\"3316981944203136583\",\"shop\":\"欧贝特旗舰店\",\"paidTotal\":\"2.00\","
                 + "\"items\":[{\"code\":\"0603 200R\",\"name\":\"resistor\",\"qty\":\"100\","
                 + "\"amount\":\"2.00\"}]},"
-                + "{\"orderNo\":\"3316981944203136583\",\"shop\":\"欧贝特旗舰店\",\"paidTotal\":\"2.00\","
+                + "{\"orderNo\":\"3316981944203136599\",\"shop\":\"欧贝特旗舰店\",\"paidTotal\":\"2.00\","
                 + "\"items\":[{\"code\":\"0603 200R\",\"name\":\"resistor\",\"qty\":\"100\","
                 + "\"amount\":\"2.00\"}]}]}");
         List<Map<String, String>> merged = MfgServices.mergeOrders(Collections.singletonList(picture));
         assertEquals(2, merged.size());
-        assertNotNull(merged.get(1).get("note"));
+        // but the very same block read twice in one answer is one block: the same number with exactly
+        // the same articles and the same money is not two orders (a page of 27 came back with 28)
+        List<Map<String, String>> twice = MfgServices.orderListFrom("{\"orders\":["
+                + "{\"orderNo\":\"3111921698687500570\",\"shop\":\"安致二三极管\",\"paidTotal\":\"10.00\","
+                + "\"freight\":\"2.00\",\"items\":[{\"code\":\"0.5A\",\"name\":\"fuse\",\"qty\":\"200\","
+                + "\"amount\":\"8.00\"}]},"
+                + "{\"orderNo\":\"3111921698687500570\",\"shop\":\"\",\"paidTotal\":\"10.00\","
+                + "\"freight\":\"2.00\",\"items\":[{\"code\":\"0.5A\",\"name\":\"fuse\",\"qty\":\"200\","
+                + "\"amount\":\"8.00\"}]}]}");
+        List<Map<String, String>> one = MfgServices.mergeOrders(Collections.singletonList(twice));
+        assertEquals(1, one.size());
+        assertEquals("安致二三极管", one.get(0).get("shop"));
+        MfgServices.tidyOrder(one.get(0));
+        assertEquals(1, one.get(0).get("lines").split("\n").length);
+        // the shop is printed on the same strip as the number, so the same number with the shop lost
+        // once is the same block - even when the two reads do not agree on the articles (Step 141)
+        List<Map<String, String>> fragment = MfgServices.orderListFrom("{\"orders\":["
+                + "{\"orderNo\":\"3111921698687500570\",\"shop\":\"安致二三极管\",\"paidTotal\":\"10.00\","
+                + "\"freight\":\"2.00\",\"items\":[{\"code\":\"0.5A\",\"name\":\"fuse\",\"qty\":\"500\","
+                + "\"amount\":\"8.00\"}]},"
+                + "{\"orderNo\":\"3111921698687500570\",\"shop\":\"\",\"paidTotal\":\"2.00\","
+                + "\"freight\":\"2.00\",\"items\":[{\"code\":\"0.5A\",\"name\":\"fuse\",\"qty\":\"200\","
+                + "\"amount\":\"2.00\"}]}]}");
+        assertEquals(1, MfgServices.mergeOrders(Collections.singletonList(fragment)).size());
+        // two blocks that both print a shop stay apart when they came back with one number and two
+        // different monies: that is two orders misnumbered, not one block read twice
+        List<Map<String, String>> misnumbered = MfgServices.orderListFrom("{\"orders\":["
+                + "{\"orderNo\":\"3316377687042009372\",\"shop\":\"优利德品牌企业店\",\"paidTotal\":\"3.87\","
+                + "\"items\":[{\"code\":\"SOP16\",\"name\":\"adapter\",\"qty\":\"10\",\"amount\":\"3.87\"}]},"
+                + "{\"orderNo\":\"3316377687042009372\",\"shop\":\"优利德品牌企业店\",\"paidTotal\":\"113.16\","
+                + "\"items\":[{\"code\":\"UT890C\",\"name\":\"meter\",\"qty\":\"1\",\"amount\":\"113.16\"}]}]}");
+        assertEquals(2, MfgServices.mergeOrders(Collections.singletonList(misnumbered)).size());
     }
 
     @Test

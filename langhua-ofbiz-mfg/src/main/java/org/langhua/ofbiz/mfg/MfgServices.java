@@ -10425,7 +10425,8 @@ always
                 }
                 String number = order.get("orderNo") == null ? "" : order.get("orderNo").trim();
                 Map<String, String> kept = byNumber.get(number);
-                if (kept != null && sameAnswer(kept, slice, sliceOf)) {
+                if (kept != null && sameAnswer(kept, slice, sliceOf) && !sameMoneyAndArticles(kept, order)
+                        && !lostTheShop(kept, order)) {
                     // a page never prints one order number on two blocks, and one picture shows each
                     // block once: the two blocks were read with the same number, so keeping them apart
                     // shows both orders. Merging them dropped the second one - a page of 29 orders with
@@ -10438,7 +10439,7 @@ always
                     sliceOf.put(stray, Integer.valueOf(slice));
                     continue;
                 }
-                if (kept != null && !sameMoney(kept, order)) {
+                if (kept != null && !sameAnswer(kept, slice, sliceOf) && !sameMoney(kept, order)) {
                     // two slices, but two different block monies: this is not the same block either
                     String apart = freeNumber(byNumber, number);
                     Map<String, String> stray = new LinkedHashMap<>(order);
@@ -10451,7 +10452,8 @@ always
                 if (kept == null) {
                     String twin = numberOneCharacterOff(byNumber, order);
                     kept = twin == null ? null : byNumber.get(twin);
-                    if (kept != null && sameAnswer(kept, slice, sliceOf)) {
+                    if (kept != null && sameAnswer(kept, slice, sliceOf)
+                            && !sameMoneyAndArticles(kept, order)) {
                         // the twin rule joined two blocks of one answer: they are two orders
                         kept = null;
                     }
@@ -10692,10 +10694,33 @@ always
     /**
      * @param kept an order read from one slice
      * @param order the same part of the page read from another slice
+     * @return {@code true} when one of the two reads lost the shop of the block: the shop is printed on
+     *     the same strip as the number, so a block with a number and no shop at all is the same block
+     *     read a second time, not another order
+     */
+    private static boolean lostTheShop(Map<String, String> kept, Map<String, String> order) {
+        String here = kept.get("shop") == null ? "" : kept.get("shop").trim();
+        String there = order.get("shop") == null ? "" : order.get("shop").trim();
+        return here.isEmpty() != there.isEmpty();
+    }
+
+    /**
+     * @param kept an order read from one slice
+     * @param order the same part of the page read from another slice
+     * @return {@code true} when both carry exactly the same articles, the same articles money and the
+     *     same paid total, which is one block read twice and not two orders
+     */
+    private static boolean sameMoneyAndArticles(Map<String, String> kept, Map<String, String> order) {
+        String here = moneyKeyOf(kept);
+        return here != null && here.equals(moneyKeyOf(order));
+    }
+
+    /**
+     * @param kept an order read from one slice
+     * @param order the same part of the page read from another slice
      * @return {@code true} when both print the same money, which is what two reads of one block share
      */
-    private static boolean sameMoney(Map<String, String> kept, Map<String, String> order) {
-        Double paid = optionalAmount(kept.get("paidTotal"));
+    private static boolean sameMoney(Map<String, String> kept, Map<String, String> order) {        Double paid = optionalAmount(kept.get("paidTotal"));
         Double otherPaid = optionalAmount(order.get("paidTotal"));
         if (paid == null || otherPaid == null) {
             // one of the two reads did not get the money: nothing says they are two blocks
@@ -10723,16 +10748,19 @@ always
      * @return {@code true} when both print the same shop and the same money
      */
     private static boolean sameShopAndMoney(Map<String, String> kept, Map<String, String> order) {
-        String shop = kept.get("shop");
-        String otherShop = order.get("shop");
-        if (shop == null || otherShop == null || shop.trim().isEmpty() || otherShop.trim().isEmpty()
-                || !shop.trim().equals(otherShop.trim())) {
+        String shop = kept.get("shop") == null ? "" : kept.get("shop").trim();
+        String otherShop = order.get("shop") == null ? "" : order.get("shop").trim();
+        if (!shop.isEmpty() && !otherShop.isEmpty() && !shop.equals(otherShop)) {
             return false;
         }
         Double paid = optionalAmount(kept.get("paidTotal"));
         Double otherPaid = optionalAmount(order.get("paidTotal"));
-        return paid != null && otherPaid != null
-                && Math.abs(paid.doubleValue() - otherPaid.doubleValue()) <= 0.06;
+        if (paid != null && otherPaid != null) {
+            // the money decides; a shop one read left empty does not spoil it
+            return Math.abs(paid.doubleValue() - otherPaid.doubleValue()) <= 0.06;
+        }
+        // one of the two reads has no money: then the shop has to say they are the same order
+        return !shop.isEmpty() && shop.equals(otherShop);
     }
 
     /**
