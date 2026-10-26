@@ -982,12 +982,13 @@ public class MfgServicesTest {
         MfgServices.tidyOrder(merged.get(0));
         assertEquals(1, merged.get(0).get("lines").split("\n").length);
         assertNull(MfgServices.checkOrderTotals(merged.get(0)));
-        // another shop is another order, however close the numbers are
+        // the shop of the two reads is not asked: the number and the shop sit on the same strip, so a
+        // misread hits either of them - the money of the block is what says both reads are one block
         List<Map<String, String>> otherShop = MfgServices.orderListFrom("{\"orders\":["
                 + "{\"orderNo\":\"331645303083081392\",\"shop\":\"别的店\",\"paidTotal\":\"22.24\","
                 + "\"freight\":\"2.80\",\"items\":[{\"code\":\"CH32V002J4M6\",\"name\":\"ch32\","
                 + "\"qty\":\"30\",\"amount\":\"19.44\"}]}]}");
-        assertEquals(2, MfgServices.mergeOrders(Arrays.asList(whole, otherShop)).size());
+        assertEquals(1, MfgServices.mergeOrders(Arrays.asList(whole, otherShop)).size());
         // a read that left the shop empty is still the same order when the money is the same
         List<Map<String, String>> noShop = MfgServices.orderListFrom("{\"orders\":["
                 + "{\"orderNo\":\"331645303083081392\",\"shop\":\"\",\"paidTotal\":\"22.24\","

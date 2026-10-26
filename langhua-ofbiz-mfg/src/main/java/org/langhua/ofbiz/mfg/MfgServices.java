@@ -10607,8 +10607,9 @@ always
      * Finds the order already read whose number is the same one read with digits lost: a block that
      * two overlapping slices both show comes back with a digit or three missing now and then
      * (production read 3316453503083081392 once as 331645303083081392 and once as 3316453503081392),
-     * and the page would then show one order too many. The shop and the paid money of both reads have
-     * to be the same, so two orders of two shops are never joined, however close their numbers are.
+     * and the page would then show one order too many. The shop of the two reads is not asked: the
+     * number and the shop are printed on the same strip, so a misread hits either of them, and the
+     * money of the block is the witness that both reads are the same block.
      *
      * @param byNumber the orders read so far, by their number
      * @param order the order just read
@@ -10622,11 +10623,23 @@ always
         }
         for (Map.Entry<String, Map<String, String>> entry : byNumber.entrySet()) {
             if (numbersOfTheSameOrder(entry.getKey(), number)
-                    && sameShopAndMoney(entry.getValue(), order)) {
+                    && samePaidMoney(entry.getValue(), order)) {
                 return entry.getKey();
             }
         }
         return null;
+    }
+
+    /**
+     * @param kept an order read from one slice
+     * @param order the same part of the page read from another slice
+     * @return {@code true} when both print the same money (a read that got no money says nothing)
+     */
+    private static boolean samePaidMoney(Map<String, String> kept, Map<String, String> order) {
+        Double paid = optionalAmount(kept.get("paidTotal"));
+        Double otherPaid = optionalAmount(order.get("paidTotal"));
+        return paid != null && otherPaid != null
+                && Math.abs(paid.doubleValue() - otherPaid.doubleValue()) <= 0.06;
     }
 
     /** How many digits a read of one order number may be missing and still be the same number. */
