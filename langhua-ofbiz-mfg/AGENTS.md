@@ -780,16 +780,18 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
 - **`snPrefix` 是 `very-short`（10 字符）且默认取型号编码**：型号编码超过 10 位又不给 `snPrefix` 时，
   过去是 Derby 报错→错误页（HTTP 200，巡检看不出来），现在 `productSave` 直接返回中文错误；
   巡检脚本建型号用 `PSLC<HHmmss>` 这种 10 位码
-- **生产密码算法用加盐 SHA-512，别选 PBKDF2（Step 118）**：`framework/security/config/security.properties` 里
-  `password.encrypt.hash.type=SHA-512`（改完**必须重启实例**）。老值不受影响——`$SHA$…` / `{SHA}…` / 裸 hex
-  各按自身前缀校验，只有**新写入**的密码用新算法（`$SHA-512$<盐>$<base64url>`）；实测旧 `$SHA$…` 账号照样能登。
-  **PBKDF2 在这套 24.09.07 上是坏的**：`HashCrypt.doComparePbkdf2` 把盐多做了一次 `Arrays.toString`
-  （`Arrays.toString(Base64.decode(parts[1]…))`），与写入时的 `salt.getBytes()` 不是同一串，所以 PBKDF2 写进去的密码
-  **永远验不过**（与 HMAC 选 SHA1/256/384/512 无关，bug 在选算法之前）。实测：切到 `PBKDF2WithHmacSHA512` + 210000
-  和 `PBKDF2WithHmacSHA256` + 210000 两种，`mfgUserResetPassword` 写出的 `{PBKDF2-…}210000$…` 登录都直接回登录页；
-  改回 `SHA-512` 立刻正常。
-  upstream trunk 已修（直接 `decode(parts[1]…)`，还加了常量时间比较）；真要上 PBKDF2 得把这个补丁打到实例的
-  `framework/base/src/main/java/org/apache/ofbiz/base/crypto/HashCrypt.java` 再 `gradle jar`（升级 OFBiz 会丢，三套实例都要打）。
+- **密码算法：PBKDF2WithHmacSHA512 + 210000 次，前提是打了 `../ofbiz-patches/` 的 HashCrypt 补丁（Step 118/120）**：
+  三套实例的 `framework/security/config/security.properties` 现在都是
+  `password.encrypt=true` / `password.encrypt.hash.type=PBKDF2WithHmacSHA512` / `password.encrypt.pbkdf2.iterations=210000`
+  （改完**必须重启实例**）。新密码写成 `{PBKDF2-SHA512}210000$<base64盐>$<base64摘要>`；
+  老的 `$SHA$…` / `{SHA}…` / 裸 hex 各按自身前缀校验，所以升级算法**不用让任何人重设密码**。
+  **24.09.07 原版 PBKDF2 是坏的**：`HashCrypt.doComparePbkdf2` 把盐多做了一次 `Arrays.toString`
+  （`Arrays.toString(Base64.decode(parts[1]…))`），与写入时的 `salt.getBytes()` 不是同一串，PBKDF2 写进去的密码
+  **永远验不过**（与 HMAC 选 SHA1/256/384/512 无关，bug 在选算法之前）。实测：打补丁前切到
+  `PBKDF2WithHmacSHA512`/`PBKDF2WithHmacSHA256` + 210000，`mfgUserResetPassword` 写出的 `{PBKDF2-…}` 登录都回登录页；
+  打上 `../ofbiz-patches/apply-hashcrypt-pbkdf2.ps1`（就是 upstream trunk 那一行回移）后立刻正常。
+  **换 OFBiz 版本 / 重新解包实例 = 补丁丢失**，那时 `hash.type` 得先改回 `SHA-512`，否则一改密码就登不进去；
+  重打补丁用 `powershell -File ../ofbiz-patches/apply-hashcrypt-pbkdf2.ps1 -Instance <实例目录>`（幂等，自带 `gradle jar`）。
 - **两套实例并存要改的不只是 web 端口**：管理套接字（`AdminServerContainer`，默认 `127.0.0.1:10523`）不在
   `framework/*/ofbiz-component.xml` 里，而是系统属性 `ofbiz.admin.port`；没改的话第二个实例启动到
   `admin-container` 就 `Couldn't create server socket` 退出。`start-prod.bat` 用 `JAVA_TOOL_OPTIONS=-Dofbiz.admin.port=10623`
