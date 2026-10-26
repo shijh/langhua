@@ -10003,6 +10003,17 @@ always
             double freightValue = freight == null ? 0.0 : freight.doubleValue();
             Double discount = optionalAmount(order.get("discount"));
             double discountValue = discount == null ? 0.0 : discount.doubleValue();
+            double paidNet = round2(paid.doubleValue() - discountValue);
+            // the paid total already holds the freight: a block printing 实付款 9.99 and 含运费 2.99 is
+            // read as articles worth 9.99 beside a freight of 2.99, and the freight is counted twice.
+            // This has to happen before any row is dropped as a summary, or the money check "fixes" the
+            // block by throwing a real article away (Step 129)
+            if (freightValue > 0.0) {
+                List<String[]> withoutFreight = goodsWithoutFreight(rows, paidNet, freightValue);
+                if (withoutFreight != null) {
+                    rows = withoutFreight;
+                }
+            }
             // what the articles alone should come to (paid = goods + freight - discount)
             double wanted = round2(paid.doubleValue() - freightValue + discountValue);
             kept = withoutRepeatedRows(rows, wanted);
@@ -10031,6 +10042,70 @@ always
                     .append('\t').append(row[3]);
         }
         order.put("lines", lines.toString());
+    }
+
+    /**
+     * Takes the freight out of the article rows when the rows came to the whole paid total: a page
+     * prints 实付款 9.99 next to 含运费 2.99, and a model that reads the paid total as the money of
+     * the article carries the freight twice. The article then really costs 7.00 and the freight stands
+     * beside it, which is exactly what the receipt wants - the part price stays what was paid for the
+     * part and the freight stays a cost of the order.
+     *
+     * <p>Only applied when the rows already come to the paid total and the freight fits inside it;
+     * a page that prints the goods and the freight separately is left alone.
+     *
+     * @param rows the article rows of one order
+     * @param paid the paid total without the discount
+     * @param freight the freight the page printed, above zero
+     * @return the rows with the freight taken out, {@code null} when that reading does not fit
+     */
+    private static List<String[]> goodsWithoutFreight(List<String[]> rows, double paid, double freight) {
+        if (freight <= 0.0 || rows.isEmpty()) {
+            return null;
+        }
+        double goods = round2(sumOfRows(rows));
+        // only the shape "the rows are the paid total" is corrected: 9.99 rows and 9.99 paid
+        if (Math.abs(goods - paid) > 0.06) {
+            return null;
+        }
+        double target = round2(paid - freight);
+        if (target <= 0.0) {
+            return null;
+        }
+        List<String[]> out = new ArrayList<>(rows.size());
+        if (rows.size() == 1) {
+            String[] row = rows.get(0);
+            out.add(new String[] {row[0], row[1], row[2],
+                String.format(Locale.ROOT, "%.2f", Double.valueOf(target))});
+            return out;
+        }
+        // several rows: keep their share of the money, and put the rounding on the largest one
+        double factor = target / goods;
+        int biggest = 0;
+        double biggestAmount = -1.0;
+        double sum = 0.0;
+        for (int i = 0; i < rows.size(); i++) {
+            String[] row = rows.get(i);
+            double amount = round2(toDouble(row[3], 0.0) * factor);
+            if (amount < 0.0) {
+                amount = 0.0;
+            }
+            if (amount > biggestAmount) {
+                biggestAmount = amount;
+                biggest = i;
+            }
+            sum += amount;
+            out.add(new String[] {row[0], row[1], row[2],
+                String.format(Locale.ROOT, "%.2f", Double.valueOf(amount))});
+        }
+        double drift = round2(target - sum);
+        if (Math.abs(drift) > 0.0) {
+            String[] row = out.get(biggest);
+            double amount = round2(toDouble(row[3], 0.0) + drift);
+            out.set(biggest, new String[] {row[0], row[1], row[2],
+                String.format(Locale.ROOT, "%.2f", Double.valueOf(amount))});
+        }
+        return out;
     }
 
     /**

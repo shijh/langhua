@@ -1000,6 +1000,42 @@ public class MfgServicesTest {
         assertEquals("0", invented.get("discount"));
     }
 
+    @Test
+    public void readsTheFreightOutOfThePaidTotal() {
+        // a page prints 实付款 9.99 next to 含运费 2.99: the paid total already holds the freight, so
+        // a model that reads the article as 9.99 counts the freight twice (Step 129)
+        Map<String, String> order = new java.util.LinkedHashMap<>();
+        order.put("orderNo", "3316901521014009372");
+        order.put("paidTotal", "9.99");
+        order.put("freight", "2.99");
+        order.put("discount", "0");
+        order.put("lines", "0603\t0603贴片电容 100NF 104K\t100\t9.99");
+        MfgServices.tidyOrder(order);
+        // the article is what was paid for it, the freight stands beside it
+        assertEquals("7.00", MfgServices.parseOrderArticleLines(order.get("lines")).get(0)[3]);
+        assertNull(MfgServices.checkOrderTotals(order));
+        // several rows keep their share of the money and still come to the same total
+        Map<String, String> split = new java.util.LinkedHashMap<>();
+        split.put("orderNo", "3317076120013109755");
+        split.put("paidTotal", "9.40");
+        split.put("freight", "5.00");
+        split.put("lines", "A\t名\t10\t5.00\nB\t名\t10\t4.40");
+        MfgServices.tidyOrder(split);
+        java.util.List<String[]> afterSplit = MfgServices.parseOrderArticleLines(split.get("lines"));
+        assertEquals(2, afterSplit.size());
+        double sum = Double.parseDouble(afterSplit.get(0)[3]) + Double.parseDouble(afterSplit.get(1)[3]);
+        assertEquals("4.40", String.format(java.util.Locale.ROOT, "%.2f", Double.valueOf(sum)));
+        assertNull(MfgServices.checkOrderTotals(split));
+        // a page that prints the goods and the freight apart is left alone: 7.00 + 2.99 = 9.99
+        Map<String, String> apart = new java.util.LinkedHashMap<>();
+        apart.put("paidTotal", "9.99");
+        apart.put("freight", "2.99");
+        apart.put("lines", "0603\t0603贴片电容\t100\t7.00");
+        MfgServices.tidyOrder(apart);
+        assertEquals("7.00", MfgServices.parseOrderArticleLines(apart.get("lines")).get(0)[3]);
+        assertNull(MfgServices.checkOrderTotals(apart));
+    }
+
     /** The 面包板 page: one board sold in six colours, so six rows look exactly the same. */
     private static String boardRows(int count) {
         StringBuilder rows = new StringBuilder();
