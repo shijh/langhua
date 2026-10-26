@@ -792,6 +792,10 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   打上 `../ofbiz-patches/apply-hashcrypt-pbkdf2.ps1`（就是 upstream trunk 那一行回移）后立刻正常。
   **换 OFBiz 版本 / 重新解包实例 = 补丁丢失**，那时 `hash.type` 得先改回 `SHA-512`，否则一改密码就登不进去；
   重打补丁用 `powershell -File ../ofbiz-patches/apply-hashcrypt-pbkdf2.ps1 -Instance <实例目录>`（幂等，自带 `gradle jar`）。
+  **别再折腾“换更强算法”**：JDK（到最新 GA）的 `SecretKeyFactory` 只有 PBKDF2 家族，**没有 Argon2/scrypt/bcrypt**，
+  换 JDK 只带来 TLS/抗量子（ML-KEM、ML-DSA）的收益，不会让口令更难破；强度旋钮是 `pbkdf2.iterations`。
+  真要 Argon2id 得引库（Bouncy Castle `Argon2BytesGenerator` 或 argon2-jvm）**并再改一次 `HashCrypt`**
+  （`comparePassword` 没有外来算法的插槽），代价与取舍见 `../ofbiz-patches/README.md` 第 5 节——**已评估，不做**。
 - **两套实例并存要改的不只是 web 端口**：管理套接字（`AdminServerContainer`，默认 `127.0.0.1:10523`）不在
   `framework/*/ofbiz-component.xml` 里，而是系统属性 `ofbiz.admin.port`；没改的话第二个实例启动到
   `admin-container` 就 `Couldn't create server socket` 退出。`start-prod.bat` 用 `JAVA_TOOL_OPTIONS=-Dofbiz.admin.port=10623`

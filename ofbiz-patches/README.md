@@ -66,3 +66,68 @@ powershell -NoProfile -ExecutionPolicy Bypass -File apply-hashcrypt-pbkdf2.ps1 -
 3. 在「用户账号」页随便建个测试账号（默认密码 `ofbiz`）→ 用那个账号登录；
    **能进 = 补丁生效**，此时库里那个账号的值是 `{PBKDF2-SHA512}210000$<base64盐>$<base64摘要>`。
 4. 更快的办法（不动界面）：`mfgUserResetPassword` 把测试账号的密码重置成 `ofbiz`，然后直接 POST 登录。
+
+## 5. 口令哈希：JDK 能给到什么、为什么没上 Argon2
+
+2026-10 的查证 + 实测结论，省得以后又绕一圈。
+
+### 5.1 三套实例现在的配置
+
+| 实例 | `password.encrypt.hash.type` | `pbkdf2.iterations` | 补丁 |
+| --- | --- | --- | --- |
+| 开发 8443 / 测试 8095 / 生产 8453 | `PBKDF2WithHmacSHA512` | `210000` | `apply-hashcrypt-pbkdf2.ps1` 已打 |
+
+新密码写成 `{PBKDF2-SHA512}210000$<base64盐>$<base64摘要>`；老的 `$SHA$…` / `{SHA}…` / 裸 hex 各按自身前缀校验，
+**没有人需要因为换算法去重设密码**。
+
+### 5.2 JDK 自带的“最强”是什么（按用途）
+
+JDK 只带通用原语，**从来不带** Argon2 / scrypt / bcrypt。实测枚举（`java.security` providers）：
+
+| 用途 | JDK 17（本项目运行时） | JDK 21 | JDK 25/26（最新 GA） |
+| --- | --- | --- | --- |
+| 口令派生 | `PBKDF2WithHmacSHA1/224/256/384/512` | 多 `…SHA512/224`、`…SHA512/256` | 同上（**仍然没有 Argon2/scrypt**） |
+| 摘要 | `SHA-256/384/512`、`SHA3-256/384/512`、`SHA-512/224`、`/256` | 同 | 多 `SHAKE128-256`、`SHAKE256-512` |
+| 对称 AEAD | `AES-256-GCM`、`ChaCha20-Poly1305` | 同 | 同 |
+| 签名 | `Ed25519`/`Ed448`、`RSASSA-PSS`、ECDSA | 多 `HSS/LMS` | 多 `ML-DSA`（44/65/87，抗量子） |
+| 密钥封装 | —— | —— | 多 `ML-KEM`（512/768/1024）、`DHKEM`（抗量子） |
+| HKDF | —— | —— | `KDF`: `HKDF-SHA256/384/512`（JDK 24 预览 → 25 二次预览） |
+| RSA 默认位数 | 2048 | 2048 | 3072 |
+
+结论：**换 JDK 不会让“存密码”更强**。新 JDK 的收益在通信（TLS）与签名/密钥交换（抗量子），
+不在口令哈希。口令这一档的强度旋钮是**迭代数**，不是“换更长的摘要”。
+（`hash.type=SHA3-512` 这类也能填，但那是**单遍**摘要，加了盐也扛不住 GPU，对存密码来说比 PBKDF2 弱。）
+
+顺带：本机 `.jdks` 里只装到 corretto **21.0.2**；OFBiz 24.09 官方支持 Java 17 这一档，别为了加密升 JDK。
+
+### 5.3 迭代数怎么调
+
+`210000` 是 OWASP 2023 对 PBKDF2-HMAC-SHA512 的建议值，登录约 100–200 ms。想更抗离线爆破就把
+`password.encrypt.pbkdf2.iterations` 往上调（400000 ≈ 200–400 ms），**改完要重启实例**，
+而且**只影响之后新写的密码**——老值的迭代数写在值里（`{PBKDF2-SHA512}<迭代>$…`），照旧按自己的次数校验。
+
+### 5.4 如果一定要 Argon2id（目前**没有**采用）
+
+Argon2id 是内存硬算法，抗 GPU/ASIC 明显强于 PBKDF2，但 **JDK 里没有**，而且 OFBiz 的校验路径
+（`LoginServices.checkPassword` → `HashCrypt.comparePassword`）只认这几种形状：
+`{PBKDF2-…}` / `{类型}hex` / `$类型$盐$base64` / 裸 hex，**没有“外来算法”的插槽**。
+所以工作量不在“加个库”，而在**再打一个框架补丁**：
+
+1. 选库（二选一）：
+   - **Bouncy Castle**：`org.bouncycastle:bcprov-jdk18on`，纯 Java、无本地库；
+     用 `org.bouncycastle.crypto.generators.Argon2BytesGenerator` +
+     `new Argon2Parameters.Builder(Argon2Parameters.ARGON2_id).withVersion(Argon2Parameters.ARGON2_VERSION_13)`
+     `.withSalt(salt).withIterations(3).withMemoryAsKB(65536).withParallelism(1).build()`，再 `generateBytes(...)`。
+   - **argon2-jvm**：`de.mkammerer:argon2-jvm`，封装好 `hash` / `verify`（自己解析
+     `$argon2id$v=19$m=65536,t=3,p=1$<salt>$<hash>`），但要带 **JNA + 本地库**（Windows 上是 dll），
+     多一层部署麻烦。
+2. 把 jar 放进实例（或组件 `build.gradle` 的 `dependencies`，看部署方式），保证运行时能加载；
+3. 改 `HashCrypt`：`cryptUTF8` 在 `hashType` 为 Argon2 时走库；`comparePassword` 认
+   `{ARGON2ID}<m>,<t>,<p>$<base64盐>$<base64摘要>` 这种前缀，并且用常量时间比较；
+4. 三套实例都打补丁 + `gradle jar` + 重启，再按第 4 节验一遍“写进去能登”；
+5. 代价：**比 PBKDF2 那个一行补丁大得多**，升级 OFBiz 一样会丢（要重打 + 重新引 jar）。
+
+**结论：不做。** 现在这套（PBKDF2-HMAC-SHA512 + 每个人独立随机盐 + 210000 次）对一个小厂内网 MES 已经够用；
+真要提升安全，优先级更高的是：口令长度/复杂度策略（`security.login.password.pattern`）、
+失败锁号（现在 3 次锁 5 分钟）、HTTPS 全覆盖，以及**别让数据库文件被随手拷走**。
+
