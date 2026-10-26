@@ -821,6 +821,26 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   服务 OUT 会被框架拷到 request 属性上，所以行上能直接看到 `WO-…`。
   动作是 `DOC_CHANGE`（单据操作）与 `DOC_FAIL`（操作被拒，note 里带原因），页面筛选自动就有这两项。
   巡检：`verify-m50-test.ps1`（12 项，日志 `mfg-m50-test.txt`）。
+- **生产只留一个 admin（Step 126）**：出厂/演示数据带了 **54 个** `USER_LOGIN`，其中 52 个 `ENABLED='Y'`
+  （`demoadmin` / `accountingadmin` / `bigal` / `blog_guest` …）——等于一排谁都能试的门。账号页只看得到
+  “有店铺安全组”的那几个，所以界面上只显示 5 个，别再被页面骗了。
+  **物理删除删不动**：`applications/content`、`applications/workeffort` 上有外键指向 `USER_LOGIN`
+  （`DELETE` 报 `CONTENT_CB_ULGN`，整条语句回滚；那 4 个能删的是因为没人引用），所以改成**统一停用**：
+  `tools/only-admin.sql`（停实例 → ij → 起实例），保留 `admin` 与框架自己用的 `system`（本来就是 `ENABLED='N'`）。
+  验证不用密码：`/mfg/control/login` 用错密码 POST，**已停用与不存在的账号都回“没有这个账号名”**，
+  存在且启用的回“密码不对”——所以“回没有这个账号名”= 那个号进不来了。
+  **新库不要这么改**：`gradle "ofbiz --load-data readers=seed,ext"`（不带 demo）后只有
+  `loadAdminUserLogin` 建的 admin。
+- **applications 下的组件不能删（Step 126 实测）**：两个插件真正依赖的只有 `applications/datamodel`
+  （**全部业务实体的定义**都在 `datamodel/entitydef/*`，`UserLogin`/`SecurityGroup` 在 `framework/security`）
+  和 `applications/party`（`createPersonAndUserLogin`；`updatePassword` 在 `framework/common`）。
+  但把 `content`/`product`/`order`… 从 `applications/component-load.xml` 里去掉**编不过**：
+  `party` 用了 `ContentWrapper`/`ContentWorker`（content），`securityext` 用了 `ProductStoreWorker`/
+  `ProductEvents`（product），`plugins/pricat` 用了 `FinAccountHelper`（accounting）——它们是**一整套**。
+  真要瘦身只能**搬走 `plugins/` 下用不到的插件**（`ebay` / `ebaystore` / `ecommerce` / `solr` / `webpos` /
+  `pricat` / `scrum` / `birt` / `bi` / `cmssite` / `multiflex` / `example` / `exampleext` / `assetmaint` /
+  `ldap` / `passport` / `msggateway` / `rest-api` / `lucene` / `projectmgr` / `myportal` /
+  `firstdatapaymentgateway`，只留 `mfg` + `learningcurve`），applications 全部保留。
 - **保修**：从出货日开始算，月数在产品上（`warrantyMonths`，默认 12）- **淘宝窗口**：7 天无理由 = 签收日 + 8 天 00:00（即签收次日起 168 小时）；15 天售后 = 签收 + 15 天 23:59:59
 - **买家名单**：匹配键优先买家昵称（`TB:N:nick`），因为淘宝收件手机号常被隐私号掩码；手机号必须是 11 位真号、
   带 `*` 一律拒绝；名单 12 个月自动失效；**只提示，不拦截任何法定售后**
