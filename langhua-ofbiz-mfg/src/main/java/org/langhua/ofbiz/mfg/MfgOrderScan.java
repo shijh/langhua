@@ -209,6 +209,8 @@ public final class MfgOrderScan {
             + " Under the last order the page shows pictures of other products (猜你喜欢 / 为你推荐 /"
             + " 看了又看 / 广告): they have no order number and no 实付款, so they are not an order, and"
             + " their products are never items of the order above them."
+            + " The articles printed inside one block belong to that block only: never write the articles"
+            + " of a block into the block under it, and never leave a block without its own articles."
             + " Take the numbers printed on the page: do not weigh alternatives, do not describe the"
             + " picture.";
 
@@ -243,7 +245,8 @@ public final class MfgOrderScan {
             + " money (paidTotal"
             + " minus freight for a block with one article, printed row price times the packs after x for"
             + " a block with several). Pictures of other products below the order list (猜你喜欢 / 推荐 /"
-            + " 广告) are not orders and are not items. No explanation.";
+            + " 广告) are not orders and are not items; the articles of one block are never items of the"
+            + " block under it. No explanation.";
 
     private MfgOrderScan() {
     }
@@ -400,19 +403,31 @@ public final class MfgOrderScan {
         // a block that carries exactly the articles and the money of another block was probably copied
         // from it while the page was read: say so, the money of a copy adds up and nothing else notices
         Map<String, String> firstOfKind = new LinkedHashMap<>();
-        for (Map<String, String> order : orders) {
+        Map<String, String> firstOfMoney = new LinkedHashMap<>();
+        for (int i = 0; i < orders.size(); i++) {
+            Map<String, String> order = orders.get(i);
             String content = MfgServices.orderContentKey(order);
-            if (content == null) {
-                continue;
-            }
-            String other = firstOfKind.get(content);
-            if (other == null) {
+            String money = MfgServices.moneyKeyOf(order);
+            String other = content == null ? null : firstOfKind.get(content);
+            String otherMoney = money == null ? null : firstOfMoney.get(money);
+            if (content != null && other == null) {
                 firstOfKind.put(content, order.get("orderNo"));
-                continue;
             }
-            String copied = "明细与单号 " + other + " 那张一模一样，可能识别时抄错了，请对着截图核对";
-            String note = order.get("note");
-            order.put("note", note == null ? copied : note + "；" + copied);
+            if (money != null && otherMoney == null) {
+                firstOfMoney.put(money, String.valueOf(i + 1));
+            }
+            String copied = null;
+            if (other != null) {
+                copied = "明细与单号 " + other + " 那张一模一样，可能识别时抄错了，请对着截图核对";
+            } else if (otherMoney != null) {
+                // the codes and names two reads write differ now and then, so two rows of one printed
+                // line do not always look alike: what matches is the quantity and the money
+                copied = "明细和金额与第 " + otherMoney + " 张单完全相同，可能把上一块的明细带下来了，请对着截图核对";
+            }
+            if (copied != null) {
+                String note = order.get("note");
+                order.put("note", note == null ? copied : note + "；" + copied);
+            }
         }
         // one order is a list of one: the page always gets the array, so there is only one path to walk
         // (a single order used to fill the form instead, which the shop found confusing)

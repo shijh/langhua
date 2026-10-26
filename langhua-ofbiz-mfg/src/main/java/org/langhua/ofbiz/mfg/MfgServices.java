@@ -9599,13 +9599,37 @@ always
     }
 
     /**
+     * What two orders share when one of them was copied from the other, when the codes and names are
+     * not alike enough: the quantities, the amounts and the money of the order. Two reads of one
+     * printed line write the code differently now and then ({@code FC-135} beside {@code 无源贴片FC-135}),
+     * so the money is the only witness of a block that carried the articles of the block above.
+     *
+     * @param order one order of an answer
+     * @return the key two blocks of the same articles share, {@code null} when it has no articles
+     */
+    static String moneyKeyOf(Map<String, String> order) {
+        if (order == null) {
+            return null;
+        }
+        List<String[]> rows = parseOrderArticleLines(order.get("lines"));
+        if (rows.isEmpty()) {
+            return null;
+        }
+        List<String> parts = new ArrayList<>();
+        for (String[] row : rows) {
+            parts.add(row[2] + "|" + row[3]);
+        }
+        java.util.Collections.sort(parts);
+        return String.join(";", parts) + "|" + order.get("paidTotal") + "|" + order.get("freight");
+    }
+
+    /**
      * Says whether two different orders of one answer carry exactly the same articles and money.
      *
      * @param orders the orders of one answer
      * @return {@code true} when one order looks copied from another
      */
-    static boolean repeatsAnotherOrder(List<Map<String, String>> orders) {
-        Set<String> seen = new LinkedHashSet<>();
+    static boolean repeatsAnotherOrder(List<Map<String, String>> orders) {        Set<String> seen = new LinkedHashSet<>();
         for (Map<String, String> order : orders) {
             String key = orderContentKey(order);
             if (key != null && !seen.add(key)) {

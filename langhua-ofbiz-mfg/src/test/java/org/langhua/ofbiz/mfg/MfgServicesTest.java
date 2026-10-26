@@ -1039,8 +1039,34 @@ public class MfgServicesTest {
     }
 
     @Test
-    public void keepsTwoAlikeOrdersThatThePagePrintsUnderOneNumber() {
-        // the page holds two orders with the same articles and the same money and different numbers;
+    public void seesABlockThatCarriedTheArticlesOfTheBlockAbove() {
+        // the codes and names of one printed line are written differently by two reads, so the blocks
+        // look different although the articles are the same: the money tells it (a block on the page
+        // came back with the breadboard of the block above it, Step 137)
+        Map<String, String> first = new LinkedHashMap<>();
+        first.put("orderNo", "3316822177083054564");
+        first.put("paidTotal", "39.50");
+        first.put("freight", "1.50");
+        first.put("lines", "SYB-500面包板(240*200*8.5MM) 组合型（1个）\t400孔面包板线MB-102 SYB-500\t2\t38.00");
+        Map<String, String> second = new LinkedHashMap<>();
+        second.put("orderNo", "3316819945036045382");
+        second.put("paidTotal", "39.50");
+        second.put("freight", "1.50");
+        second.put("lines", "SYB-500\t400孔面包板线MB-102 SYB-500 [交易快照]\t2\t38.00");
+        assertFalse(MfgServices.orderContentKey(first).equals(MfgServices.orderContentKey(second)));
+        assertEquals(MfgServices.moneyKeyOf(first), MfgServices.moneyKeyOf(second));
+        // another order of other articles is not the same block
+        Map<String, String> other = new LinkedHashMap<>();
+        other.put("orderNo", "3316999260043018554");
+        other.put("paidTotal", "52.60");
+        other.put("freight", "3.00");
+        other.put("lines", "NanoDLA\tNanoDLA 逻辑分析仪\t1\t49.60");
+        assertFalse(MfgServices.moneyKeyOf(first).equals(MfgServices.moneyKeyOf(other)));
+        assertNull(MfgServices.moneyKeyOf(new LinkedHashMap<>()));
+    }
+
+    @Test
+    public void keepsTwoAlikeOrdersThatThePagePrintsUnderOneNumber() {        // the page holds two orders with the same articles and the same money and different numbers;
         // one picture shows each block once, so two blocks of one answer that came back with the same
         // number are two orders - merging them lost the second (29 orders came back as 28, Step 135)
         List<Map<String, String>> picture = MfgServices.orderListFrom("{\"orders\":["
