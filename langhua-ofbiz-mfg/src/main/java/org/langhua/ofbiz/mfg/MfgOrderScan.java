@@ -206,6 +206,9 @@ public final class MfgOrderScan {
             + " a piece count printed bare at the end of the title: IC测试板 … 5只 with x3 is 15 - but a set"
             + " sold as one article (brackets saying 套装 / 组合 / 套餐) does not: 实验板（4块组合套装）"
             + " with x1 is 1 set, so qty is 1."
+            + " Under the last order the page shows pictures of other products (猜你喜欢 / 为你推荐 /"
+            + " 看了又看 / 广告): they have no order number and no 实付款, so they are not an order, and"
+            + " their products are never items of the order above them."
             + " Take the numbers printed on the page: do not weigh alternatives, do not describe the"
             + " picture.";
 
@@ -239,7 +242,8 @@ public final class MfgOrderScan {
             + " itself, so （4块组合套装） with x1 is 1; amount = the row's own"
             + " money (paidTotal"
             + " minus freight for a block with one article, printed row price times the packs after x for"
-            + " a block with several). No explanation.";
+            + " a block with several). Pictures of other products below the order list (猜你喜欢 / 推荐 /"
+            + " 广告) are not orders and are not items. No explanation.";
 
     private MfgOrderScan() {
     }

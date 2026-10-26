@@ -960,6 +960,85 @@ public class MfgServicesTest {
     }
 
     @Test
+    public void joinsTheSameOrderWhoseNumberLostADigit() {
+        // one block is shown by two overlapping slices, and one of the two reads lost a digit: the
+        // page prints 3316453503083081392 and it came back once as 331645303083081392. The same shop
+        // and the same paid money say it is one order, so the page is not shown with one order too
+        // many (a page of 29 blocks was reported as 30, Step 131)
+        List<Map<String, String>> whole = MfgServices.orderListFrom("{\"orders\":["
+                + "{\"orderNo\":\"3316453503083081392\",\"shop\":\"华瑞芯城\",\"paidTotal\":\"22.24\","
+                + "\"freight\":\"2.80\",\"items\":[{\"code\":\"CH32V002J4M6\",\"name\":\"ch32\","
+                + "\"qty\":\"30\",\"amount\":\"19.44\"}]}]}");
+        List<Map<String, String>> shortened = MfgServices.orderListFrom("{\"orders\":["
+                + "{\"orderNo\":\"331645303083081392\",\"shop\":\"华瑞芯城\",\"paidTotal\":\"22.24\","
+                + "\"freight\":\"2.80\",\"items\":[{\"code\":\"CH32V002J4M6\",\"name\":\"ch32\","
+                + "\"qty\":\"30\",\"amount\":\"19.44\"}]}]}");
+        List<Map<String, String>> merged = MfgServices.mergeOrders(Arrays.asList(whole, shortened));
+        assertEquals(1, merged.size());
+        // the number the page prints stays, the short read only joins it
+        assertEquals("3316453503083081392", merged.get(0).get("orderNo"));
+        assertEquals(2, merged.get(0).get("lines").split("\n").length);
+        MfgServices.tidyOrder(merged.get(0));
+        assertEquals(1, merged.get(0).get("lines").split("\n").length);
+        assertNull(MfgServices.checkOrderTotals(merged.get(0)));
+        // another shop is another order, however close the numbers are
+        List<Map<String, String>> otherShop = MfgServices.orderListFrom("{\"orders\":["
+                + "{\"orderNo\":\"331645303083081392\",\"shop\":\"别的店\",\"paidTotal\":\"22.24\","
+                + "\"freight\":\"2.80\",\"items\":[{\"code\":\"CH32V002J4M6\",\"name\":\"ch32\","
+                + "\"qty\":\"30\",\"amount\":\"19.44\"}]}]}");
+        assertEquals(2, MfgServices.mergeOrders(Arrays.asList(whole, otherShop)).size());
+        // and so is other money
+        List<Map<String, String>> otherMoney = MfgServices.orderListFrom("{\"orders\":["
+                + "{\"orderNo\":\"331645303083081392\",\"shop\":\"华瑞芯城\",\"paidTotal\":\"9.99\","
+                + "\"items\":[{\"code\":\"CH32V002J4M6\",\"name\":\"ch32\",\"qty\":\"1\","
+                + "\"amount\":\"9.99\"}]}]}");
+        assertEquals(2, MfgServices.mergeOrders(Arrays.asList(whole, otherMoney)).size());
+        // two numbers that differ by more than one character are never the same order
+        assertTrue(MfgServices.numbersOfTheSameOrder("3316453503083081392", "331645303083081392"));
+        // a read may also lose three digits: 3316453503083081392 came back once as 3316453503081392
+        assertTrue(MfgServices.numbersOfTheSameOrder("3316453503083081392", "3316453503081392"));
+        assertTrue(MfgServices.numbersOfTheSameOrder("3316453503083081392", "3316453503083081393"));
+        assertFalse(MfgServices.numbersOfTheSameOrder("3316452855010009372", "3316485867036009372"));
+        assertFalse(MfgServices.numbersOfTheSameOrder("3316453503083081392", "3316453503083081392"));
+        assertFalse(MfgServices.numbersOfTheSameOrder("3316453503083081392", "3453508"));
+        assertFalse(MfgServices.numbersOfTheSameOrder("", "3316453503083081392"));
+        assertFalse(MfgServices.numbersOfTheSameOrder(null, "3316453503083081392"));
+    }
+
+    @Test
+    public void leavesTheProductPicturesBelowTheOrderListOutOfTheLastOrder() {
+        // under the last block the page prints the pictures of other products (猜你喜欢 / 为你推荐) with
+        // their prices; the model hands them to the order above, which then comes to more than was paid
+        Map<String, String> order = new LinkedHashMap<>();
+        order.put("paidTotal", "12.75");
+        order.put("freight", "0.00");
+        order.put("lines", "ATECC608B\tATECC608B 加密芯片\t5\t12.75\n"
+                + "面包板\t某面包板\t1\t9.90\n"
+                + "杜邦线\t某杜邦线\t1\t5.00");
+        MfgServices.tidyOrder(order);
+        String[] rows = order.get("lines").split("\n");
+        assertEquals(1, rows.length);
+        assertTrue(rows[0].startsWith("ATECC608B"));
+        assertNull(MfgServices.checkOrderTotals(order));
+        // a picture carries no money of its own either: a row without an amount at the end of a block
+        // that did cost money is not an article of it
+        Map<String, String> free = new LinkedHashMap<>();
+        free.put("paidTotal", "9.84");
+        free.put("lines", "XH2.54\t杜邦线 200 根\t200\t9.84\n面包板\t某面包板\t1\t0");
+        MfgServices.tidyOrder(free);
+        assertEquals(1, free.get("lines").split("\n").length);
+        // a block that adds up as it is keeps every row: six colours of one board are six articles
+        Map<String, String> colours = new LinkedHashMap<>();
+        colours.put("paidTotal", "41.28");
+        colours.put("lines", "面包板-白\t面包板 白色\t5\t6.88\n面包板-蓝\t面包板 蓝色\t5\t6.88\n"
+                + "面包板-绿\t面包板 绿色\t5\t6.88\n面包板-黄\t面包板 黄色\t5\t6.88\n"
+                + "面包板-红\t面包板 红色\t5\t6.88\n面包板-黑\t面包板 黑色\t5\t6.88");
+        MfgServices.tidyOrder(colours);
+        assertEquals(6, colours.get("lines").split("\n").length);
+        assertNull(MfgServices.checkOrderTotals(colours));
+    }
+
+    @Test
     public void takesALongPageScreenshotAsItIs() {
         // a whole shop page captured in one picture runs to ten megabytes and more; the picture is
         // cut into slices anyway, so the upload is not refused for being long (Step 128)

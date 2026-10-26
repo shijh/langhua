@@ -10017,6 +10017,9 @@ always
             // what the articles alone should come to (paid = goods + freight - discount)
             double wanted = round2(paid.doubleValue() - freightValue + discountValue);
             kept = withoutRepeatedRows(rows, wanted);
+            // the pictures a page prints below its last order (猜你喜欢 / 为你推荐) are printed with
+            // prices too, and the model hands them to the order above (Step 131)
+            kept = withoutTheTailThatDoesNotFit(kept, wanted);
             // the rows sometimes carry a summary row on top (the subtotal, or the paid total itself),
             // and sometimes the price of one piece instead of the money of the row: the reading that
             // adds up wins, so a row may be dropped and the amounts multiplied by the quantity
@@ -10142,6 +10145,45 @@ always
             }
         }
         return best;
+    }
+
+    /**
+     * Leaves out what a page prints under its last order: the product pictures of 猜你喜欢 / 为你推荐
+     * (and the like) sit right below the order block and carry prices of their own, so the model reads
+     * them as further articles of that order. They also cost nothing when the page only shows them as
+     * pictures, which is the other half of the rule below.
+     *
+     * <p>Only a reading that leaves rows out and then comes to exactly what was paid is used; a block
+     * that adds up as it is keeps every row (the six colours of one board are six articles).
+     *
+     * @param rows the article rows of one order
+     * @param wanted what the articles alone should come to
+     * @return the rows without the tail that is not part of the order
+     */
+    private static List<String[]> withoutTheTailThatDoesNotFit(List<String[]> rows, double wanted) {
+        if (rows.size() < 2 || wanted <= 0.0) {
+            return rows;
+        }
+        // a picture below the list carries no money of its own: a row without an amount at the end of
+        // a block that did cost money is not an article of that block
+        List<String[]> kept = new ArrayList<>(rows);
+        while (kept.size() > 1
+                && Math.abs(toDouble(kept.get(kept.size() - 1)[3], -1.0)) < 0.005) {
+            kept.remove(kept.size() - 1);
+        }
+        if (addsUp(kept, wanted)) {
+            return kept;
+        }
+        // the prices of those pictures are printed too, so the tail only shows itself in the money: a
+        // block that comes to more than was paid, but to exactly the paid total once its last rows are
+        // left out, is read without them
+        for (int drop = 1; drop < rows.size(); drop++) {
+            List<String[]> head = new ArrayList<>(rows.subList(0, rows.size() - drop));
+            if (addsUp(head, wanted)) {
+                return head;
+            }
+        }
+        return rows;
     }
 
     /**
@@ -10288,8 +10330,12 @@ always
                 if (order == null) {
                     continue;
                 }
-                String number = order.get("orderNo");
+                String number = order.get("orderNo") == null ? "" : order.get("orderNo").trim();
                 Map<String, String> kept = byNumber.get(number);
+                if (kept == null) {
+                    String twin = numberOneCharacterOff(byNumber, order);
+                    kept = twin == null ? null : byNumber.get(twin);
+                }
                 if (kept == null) {
                     byNumber.put(number, new LinkedHashMap<>(order));
                     continue;
@@ -10302,9 +10348,107 @@ always
                         kept.put(field, order.get(field));
                     }
                 }
+                // the page prints the whole number: when one read lost a digit, the longer one stays
+                String keptNumber = kept.get("orderNo") == null ? "" : kept.get("orderNo").trim();
+                if (number.length() > keptNumber.length()) {
+                    kept.put("orderNo", number);
+                }
             }
         }
         return new ArrayList<>(byNumber.values());
+    }
+
+    /**
+     * Finds the order already read whose number is the same one read with digits lost: a block that
+     * two overlapping slices both show comes back with a digit or three missing now and then
+     * (production read 3316453503083081392 once as 331645303083081392 and once as 3316453503081392),
+     * and the page would then show one order too many. The shop and the paid money of both reads have
+     * to be the same, so two orders of two shops are never joined, however close their numbers are.
+     *
+     * @param byNumber the orders read so far, by their number
+     * @param order the order just read
+     * @return the number the same order was filed under, {@code null} when it is a new one
+     */
+    private static String numberOneCharacterOff(Map<String, Map<String, String>> byNumber,
+            Map<String, String> order) {
+        String number = order.get("orderNo") == null ? "" : order.get("orderNo").trim();
+        if (number.isEmpty()) {
+            return null;
+        }
+        for (Map.Entry<String, Map<String, String>> entry : byNumber.entrySet()) {
+            if (numbersOfTheSameOrder(entry.getKey(), number)
+                    && sameShopAndMoney(entry.getValue(), order)) {
+                return entry.getKey();
+            }
+        }
+        return null;
+    }
+
+    /** How many digits a read of one order number may be missing and still be the same number. */
+    private static final int MISSING_DIGITS_ALLOWED = 4;
+
+    /**
+     * @param first one order number
+     * @param second another order number
+     * @return {@code true} when one is the other read with a character written differently or with
+     *     digits missing (a long number is read digit by digit, and a digit is dropped now and then)
+     */
+    static boolean numbersOfTheSameOrder(String first, String second) {
+        if (first == null || second == null) {
+            return false;
+        }
+        String a = first.trim();
+        String b = second.trim();
+        if (a.isEmpty() || b.isEmpty() || a.equals(b) || Math.abs(a.length() - b.length()) > MISSING_DIGITS_ALLOWED) {
+            return false;
+        }
+        if (a.length() == b.length()) {
+            int differ = 0;
+            for (int i = 0; i < a.length(); i++) {
+                if (a.charAt(i) != b.charAt(i)) {
+                    differ++;
+                }
+            }
+            return differ == 1;
+        }
+        String longer = a.length() > b.length() ? a : b;
+        String shorter = a.length() > b.length() ? b : a;
+        // a handful of digits says nothing: the short read has to be a long number itself
+        return shorter.length() >= 12 && isSubsequence(shorter, longer);
+    }
+
+    /**
+     * @param shorter the shorter of two order numbers
+     * @param longer the longer of the two
+     * @return {@code true} when the digits of the shorter appear in the longer in the same order,
+     *     which is what dropping digits from a number leaves behind
+     */
+    private static boolean isSubsequence(String shorter, String longer) {
+        int at = 0;
+        for (int i = 0; i < longer.length() && at < shorter.length(); i++) {
+            if (longer.charAt(i) == shorter.charAt(at)) {
+                at++;
+            }
+        }
+        return at == shorter.length();
+    }
+
+    /**
+     * @param kept an order read from one slice
+     * @param order the same part of the page read from another slice
+     * @return {@code true} when both print the same shop and the same money
+     */
+    private static boolean sameShopAndMoney(Map<String, String> kept, Map<String, String> order) {
+        String shop = kept.get("shop");
+        String otherShop = order.get("shop");
+        if (shop == null || otherShop == null || shop.trim().isEmpty() || otherShop.trim().isEmpty()
+                || !shop.trim().equals(otherShop.trim())) {
+            return false;
+        }
+        Double paid = optionalAmount(kept.get("paidTotal"));
+        Double otherPaid = optionalAmount(order.get("paidTotal"));
+        return paid != null && otherPaid != null
+                && Math.abs(paid.doubleValue() - otherPaid.doubleValue()) <= 0.06;
     }
 
     /**
