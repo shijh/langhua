@@ -739,9 +739,15 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   表单 POST `changePasswordSave`（两个 webapp 各一个 request-map，落到同一个服务）；
   **开关是系统属性 `org.langhua.mfg.requirePasswordChange`，只有 `Y` 才启用**：`start-prod.bat` 设 `Y`，
   开发实例 `ofbiz-server.bat` 显式设 `N`（否则巡检/集成测试用 `admin`/`ofbiz` 登录会整片红），
-  `start-dev-gate.bat` 是「开发实例 + 门禁开」的调试入口；重置密码用 `gradle loadAdminUserLogin -PuserLoginId=admin`；
-  **这条只认种子值 `ofbiz`**（写回 `{SHA}47ca69…` 并置 `requirePasswordChange=Y`），而且**必须先停实例**（内嵌 Derby
-  单进程），脚本是 `reset-admin.bat`。**连错 3 次会被框架锁号 5 分钟**（`max.failed.logins` / `login.disable.minutes`），
+  `start-dev-gate.bat` 是「开发实例 + 门禁开」的调试入口；重置密码用 `gradle loadAdminUserLogin -PuserLoginId=admin`
+  （脚本 `reset-admin.bat`，**必须先停实例**，内嵌 Derby 单进程）——它只是把
+  `framework/resources/templates/AdminUserLoginData.xml` 载入（`requirePasswordChange="Y"` + 把 admin 加进 `SUPER`），
+  **别指望它把密码改成 `ofbiz`**：模板里的 `{SHA}47ca69…` 并不是 sha1("ofbiz")（实测 sha1("ofbiz") =
+  `47b56994cbc2b6d10aa1be30f70165adb305a41a`），而且 `--load-data` 的默认动作是 `create`，撞到已存在的行只会报重复。
+  真要写一个已知密码就停实例改库（表在 **`OFBIZ`** schema，物理名就是 **`USER_LOGIN`**，不是 `SEC_USER_LOGIN`）：
+  `UPDATE OFBIZ.USER_LOGIN SET CURRENT_PASSWORD='{SHA}47b56994cbc2b6d10aa1be30f70165adb305a41a', REQUIRE_PASSWORD_CHANGE='Y', SUCCESSIVE_FAILED_LOGINS=0, DISABLED_DATE_TIME=NULL WHERE USER_LOGIN_ID='admin';`
+  （`{SHA}hex` 是 `{SHA}` + sha1 十六进制；正常改密写的是 `$SHA$<盐>$<base64url>`，见 `HashCrypt.cryptBytes`）。
+  **连错 3 次会被框架锁号 5 分钟**（`max.failed.logins` / `login.disable.minutes`），
   锁着的时候密码对了也进不去（页面写“will be re-enabled HH:mm:ss”），别在窗口里反复试；
   巡检断言改密码要用 ASCII 标记（`action="/mfg/control/changePasswordSave"` / `action="/mfg/control/workOrderCreate"`），
   别断言中文——上下文里的字符串会被渲染成数字实体
