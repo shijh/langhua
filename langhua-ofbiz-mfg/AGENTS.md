@@ -17,6 +17,7 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
 | `stop-ofbiz.bat` | 只停**开发**实例（按命令行里的 `apache-ofbiz-24.09.07` 匹配）；生产有 `stop-prod.bat` |
 | `deploy-prod.bat` | **生产实例（8453）**：停生产 → robocopy 两个插件到 `ofbiz-prod\plugins` → `gradle jar` → 启动（日志 `prod-deploy.txt`） |
 | `start-prod.bat` / `stop-prod.bat` | 只启/停生产实例（按命令行里的 `ofbiz-prod` 匹配进程） |
+| `reset-admin.bat` | **生产 `admin` 忘了密码**：停生产 → `gradle loadAdminUserLogin -PuserLoginId=admin` → 起生产（日志 `reset-admin.txt` / `reset-admin-gradle.log`） |
 | `mfg-tests.bat` | 单元测试（JUnit 4，离线，依赖 `F:\build-ofbiz\lib` 的 jar）；**只编 `MfgServices.java`** |
 | `mfg-tests-all.bat` | 同上，但先编**全部源码**（别的类改坏会当场报） |
 | `mfg-it.bat` | 集成测试 `integration-test/MfgServiceIT.java`，走 `/webtools/control/scheduleServiceSync` + `_RUN_SYNC_=Y`（日志 `mfg-it.txt`） |
@@ -739,6 +740,9 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   **开关是系统属性 `org.langhua.mfg.requirePasswordChange`，只有 `Y` 才启用**：`start-prod.bat` 设 `Y`，
   开发实例 `ofbiz-server.bat` 显式设 `N`（否则巡检/集成测试用 `admin`/`ofbiz` 登录会整片红），
   `start-dev-gate.bat` 是「开发实例 + 门禁开」的调试入口；重置密码用 `gradle loadAdminUserLogin -PuserLoginId=admin`；
+  **这条只认种子值 `ofbiz`**（写回 `{SHA}47ca69…` 并置 `requirePasswordChange=Y`），而且**必须先停实例**（内嵌 Derby
+  单进程），脚本是 `reset-admin.bat`。**连错 3 次会被框架锁号 5 分钟**（`max.failed.logins` / `login.disable.minutes`），
+  锁着的时候密码对了也进不去（页面写“will be re-enabled HH:mm:ss”），别在窗口里反复试；
   巡检断言改密码要用 ASCII 标记（`action="/mfg/control/changePasswordSave"` / `action="/mfg/control/workOrderCreate"`），
   别断言中文——上下文里的字符串会被渲染成数字实体
 - **保修**：从出货日开始算，月数在产品上（`warrantyMonths`，默认 12）- **淘宝窗口**：7 天无理由 = 签收日 + 8 天 00:00（即签收次日起 168 小时）；15 天售后 = 签收 + 15 天 23:59:59
