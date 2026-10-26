@@ -121,6 +121,16 @@ public final class MfgOrderScan {
     static final int SLICE_SEARCH = 180;
     private static final int SLICE_SAMPLE = 4;
 
+    /**
+     * How much two slices share. An order block is 300 to 500 pixels tall, so a block that the cut
+     * goes through is still whole inside the next slice: with no overlap its title landed in one
+     * slice and its articles in the next, and when the model did not hang the rows on the block above
+     * that order was gone (production lost the fourth block of a page this way, Step 130). The rows
+     * the overlap reads twice are merged by the order number and cut back to one copy by
+     * {@code MfgServices.tidyOrder}.
+     */
+    static final int SLICE_OVERLAP = 500;
+
     /** Slices that are read at the same time; four small pictures take about as long as one. */
     static final int MAX_PARALLEL = 4;
 
@@ -595,7 +605,10 @@ public final class MfgOrderScan {
             if (bottom >= height) {
                 break;
             }
-            top = bottom;
+            // the next slice starts before this one ends, so a block the cut went through is whole in
+            // it; the guard only keeps the loop moving if the cut slid back too far
+            int next = bottom - SLICE_OVERLAP;
+            top = next > top ? next : top + Math.max(1, SLICE_HEIGHT / 2);
         }
         return slices;
     }

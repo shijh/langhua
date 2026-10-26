@@ -917,6 +917,49 @@ public class MfgServicesTest {
     }
 
     @Test
+    public void overlapsTheSlicesSoAnOrderBlockIsNeverCutInTwo() throws IOException {
+        // one band is one order block: the cut may fall through a band, but because the slices share
+        // SLICE_OVERLAP pixels every band is still whole inside one of them. Without the overlap the
+        // block the cut went through was reported by halves and dropped on production.
+        int width = 200;
+        int bands = 30;
+        int band = 120;
+        BufferedImage image = new BufferedImage(width, bands * band, BufferedImage.TYPE_INT_RGB);
+        java.awt.Graphics2D pen = image.createGraphics();
+        int[] colours = new int[bands];
+        for (int i = 0; i < bands; i++) {
+            int rgb = ((10 + i * 7) << 16) | ((20 + i * 11) << 8) | (30 + i * 13);
+            colours[i] = rgb & 0xFFFFFF;
+            pen.setColor(new java.awt.Color(rgb));
+            pen.fillRect(0, i * band, width, band);
+        }
+        pen.dispose();
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        ImageIO.write(image, "png", out);
+        List<byte[]> slices = MfgOrderScan.slicesOf(out.toByteArray());
+        assertTrue(slices.size() >= 2);
+        assertTrue(MfgOrderScan.SLICE_OVERLAP < MfgOrderScan.SLICE_HEIGHT);
+        java.util.Set<Integer> whole = new java.util.HashSet<>();
+        for (byte[] slice : slices) {
+            BufferedImage picture = ImageIO.read(new java.io.ByteArrayInputStream(slice));
+            for (int i = 0; i < bands; i++) {
+                int rows = 0;
+                for (int y = 0; y < picture.getHeight(); y++) {
+                    if ((picture.getRGB(0, y) & 0xFFFFFF) == colours[i]) {
+                        rows++;
+                    }
+                }
+                if (rows >= band) {
+                    whole.add(Integer.valueOf(i));
+                }
+            }
+        }
+        for (int i = 0; i < bands; i++) {
+            assertTrue("band " + i + " was cut in two by every slice", whole.contains(Integer.valueOf(i)));
+        }
+    }
+
+    @Test
     public void takesALongPageScreenshotAsItIs() {
         // a whole shop page captured in one picture runs to ten megabytes and more; the picture is
         // cut into slices anyway, so the upload is not refused for being long (Step 128)
