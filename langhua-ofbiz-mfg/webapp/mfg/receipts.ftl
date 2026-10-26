@@ -288,6 +288,7 @@
         <p id="batchHint" class="hint"></p>
         <table class="inner" id="scanOrderTable">
             <tr>
+                <th class="num">#</th>
                 <th>订单号</th><th>店铺</th><th>下单</th><th class="num">运费</th><th class="num">优惠</th>
                 <th class="num">明细</th><th class="num">货款</th><th class="num">实付</th><th>状态</th>
             </tr>
@@ -468,7 +469,7 @@
             var holder = document.createElement('tr');
             holder.setAttribute('data-lines', key);
             var cellHolder = document.createElement('td');
-            cellHolder.colSpan = 9;
+            cellHolder.colSpan = 10;
             var table = document.createElement('table');
             table.className = 'inner';
             var head = document.createElement('tr');
@@ -532,6 +533,10 @@
                 row.setAttribute('data-scan-order', order.orderNo || '');
                 row.setAttribute('data-platform', order.platform || '');
                 var key = 'scan-' + (order.orderNo || ('row' + index));
+                /* the number of the block on this page: the screenshot can be held next to it, so a
+                   block that was read twice or not at all is seen at once (Step 136) */
+                var seq = cell(row, String(index + 1), 'num');
+                seq.setAttribute('data-scan-seq', String(index + 1));
                 cell(row, order.orderNo || '（没读到单号）');
                 /* the platform is printed next to the shop, so a 京东 / 拼多多 / 抖音 order is not
                    mistaken for a Taobao one; the store itself stays untouched for the import */

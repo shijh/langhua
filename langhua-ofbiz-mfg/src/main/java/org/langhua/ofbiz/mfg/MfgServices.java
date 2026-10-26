@@ -10387,7 +10387,11 @@ always
             }
         }
         int usual = usualNumberLength(all);
-        for (List<Map<String, String>> answer : answers) {
+        // which picture each order was read from: the overlap of two slices shows one block twice, but
+        // one picture shows a block once, so the same number twice in one answer is two blocks (Step 135)
+        Map<Map<String, String>, Integer> sliceOf = new java.util.IdentityHashMap<>();
+        for (int slice = 0; slice < answers.size(); slice++) {
+            List<Map<String, String>> answer = answers.get(slice);
             if (answer == null) {
                 continue;
             }
@@ -10397,24 +10401,41 @@ always
                 }
                 String number = order.get("orderNo") == null ? "" : order.get("orderNo").trim();
                 Map<String, String> kept = byNumber.get(number);
-                if (kept != null && !sameMoney(kept, order)) {
-                    // a page never prints one order number on two blocks, so one of the two reads is
-                    // wrong: keeping them apart shows both orders, while merging them drops a whole
-                    // order into the other one (a page of 31 blocks came back with 30 and one block
-                    // carrying two orders of articles, Step 134)
+                if (kept != null && sameAnswer(kept, slice, sliceOf)) {
+                    // a page never prints one order number on two blocks, and one picture shows each
+                    // block once: the two blocks were read with the same number, so keeping them apart
+                    // shows both orders. Merging them dropped the second one - a page of 29 orders with
+                    // two orders of the same articles and the same money came back with 28 (Step 135)
                     String apart = freeNumber(byNumber, number);
                     Map<String, String> stray = new LinkedHashMap<>(order);
                     stray.put("note", "订单号与另一张单读成了一样（" + number
                             + "），可能有一张读错了，请对着截图核对");
                     byNumber.put(apart, stray);
+                    sliceOf.put(stray, Integer.valueOf(slice));
+                    continue;
+                }
+                if (kept != null && !sameMoney(kept, order)) {
+                    // two slices, but two different block monies: this is not the same block either
+                    String apart = freeNumber(byNumber, number);
+                    Map<String, String> stray = new LinkedHashMap<>(order);
+                    stray.put("note", "订单号与另一张单读成了一样（" + number
+                            + "），可能有一张读错了，请对着截图核对");
+                    byNumber.put(apart, stray);
+                    sliceOf.put(stray, Integer.valueOf(slice));
                     continue;
                 }
                 if (kept == null) {
                     String twin = numberOneCharacterOff(byNumber, order);
                     kept = twin == null ? null : byNumber.get(twin);
+                    if (kept != null && sameAnswer(kept, slice, sliceOf)) {
+                        // the twin rule joined two blocks of one answer: they are two orders
+                        kept = null;
+                    }
                 }
                 if (kept == null) {
-                    byNumber.put(number, new LinkedHashMap<>(order));
+                    Map<String, String> fresh = new LinkedHashMap<>(order);
+                    byNumber.put(number, fresh);
+                    sliceOf.put(fresh, Integer.valueOf(slice));
                     continue;
                 }
                 kept.put("lines", joinRows(kept.get("lines"), order.get("lines")));
@@ -10442,7 +10463,19 @@ always
                 }
             }
         }
-        return withoutDoubleReads(new ArrayList<>(byNumber.values()));
+        return withoutDoubleReads(new ArrayList<>(byNumber.values()), sliceOf);
+    }
+
+    /**
+     * @param order an order already read
+     * @param slice the picture the current read comes from
+     * @param sliceOf which picture each order already read comes from
+     * @return {@code true} when both reads come from the same picture, which shows a block only once
+     */
+    private static boolean sameAnswer(Map<String, String> order, int slice,
+            Map<Map<String, String>, Integer> sliceOf) {
+        Integer seen = sliceOf.get(order);
+        return seen != null && seen.intValue() == slice;
     }
 
     /**
@@ -10453,9 +10486,11 @@ always
      * beside the same block read properly, Step 133).
      *
      * @param orders the orders of the whole page
+     * @param sliceOf which picture each order was read from
      * @return the same orders without the shorter read of an order that is already there
      */
-    private static List<Map<String, String>> withoutDoubleReads(List<Map<String, String>> orders) {
+    private static List<Map<String, String>> withoutDoubleReads(List<Map<String, String>> orders,
+            Map<Map<String, String>, Integer> sliceOf) {
         int usual = usualNumberLength(orders);
         if (usual <= 0) {
             return orders;
@@ -10469,7 +10504,9 @@ always
             }
             Map<String, String> full = null;
             for (Map<String, String> other : kept) {
-                if (sameArticles(other, order) && sameShopAndMoney(other, order)) {
+                // two blocks of one picture are two orders, however alike their articles and money are
+                if (!sameAnswer(other, sliceOf.get(order) == null ? -1 : sliceOf.get(order).intValue(),
+                        sliceOf) && sameArticles(other, order) && sameShopAndMoney(other, order)) {
                     full = other;
                     break;
                 }
