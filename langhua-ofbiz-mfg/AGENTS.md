@@ -841,6 +841,22 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   `pricat` / `scrum` / `birt` / `bi` / `cmssite` / `multiflex` / `example` / `exampleext` / `assetmaint` /
   `ldap` / `passport` / `msggateway` / `rest-api` / `lucene` / `projectmgr` / `myportal` /
   `firstdatapaymentgateway`，只留 `mfg` + `learningcurve`），applications 全部保留。
+- **用不到的插件已经搬走（Step 127）**：测试 8095 与生产 8453 的 `plugins/` 现在**只剩 `mfg` + `learningcurve`**，
+  其余 24 个（`ebay` / `ebaystore` / `ecommerce` / `solr` / `webpos` / `pricat` / `scrum` / `birt` / `bi` /
+  `cmssite` / `multiflex` / `example` / `exampleext` / `assetmaint` / `ldap` / `passport` / `msggateway` /
+  `rest-api` / `lucene` / `projectmgr` / `myportal` / `firstdatapaymentgateway` / `docs` 里的组件）搬到了
+  `F:\build-ofbiz\<实例>-unused-plugins\`——**是搬不是删**，`move` 回来就恢复。
+  效果：`gradle jar` 从“一堆 npm/前端任务”变成只编 framework + applications + 两个插件；`/ecommerce`
+  `/solr` `/webpos` 这些 webapp 直接 **404**（原来只是登录拦截，现在是根本不挂载）。
+  **搬完必须重编一次**（`deploy-*.bat` 会做），而且 `deploy-mfg.bat` / `deploy-test.bat` / `deploy-prod.bat`
+  只 robocopy 两个插件，所以**不会再把这 24 个搬回来**。
+  开发实例 8443 目前**没搬**（保持原样方便对照 OFBiz 官方行为）。
+  **验证 prod 的 https 页面用 curl 不要用 PowerShell**：`Invoke-WebRequest` 对这个实例的 GET 会
+  `基础连接已经关闭: 发送时发生错误`（POST 登录页反而正常），所以 `verify-m51-prod.bat` 用
+  `curl -s -k -o nul -w "%{http_code}"`：21 个搬走的 webapp 全 404、`mfg`/`learningcurve` 401（登录页 200）、
+  `accounting`/`catalog`/`ordermgr`/`partymgr` 仍 401、`webtools` 200。
+- **`enabled='N'` 才真的挡住登录**：`LoginWorker` 1561 行 `return !"N".equals(enabled) && isEmpty(disabledBy)`，
+  所以 `tools/only-admin.sql` 的停用是有效的（`disabledBy` 要留空，否则那个号也算停用——两种都拒）。
 - **保修**：从出货日开始算，月数在产品上（`warrantyMonths`，默认 12）- **淘宝窗口**：7 天无理由 = 签收日 + 8 天 00:00（即签收次日起 168 小时）；15 天售后 = 签收 + 15 天 23:59:59
 - **买家名单**：匹配键优先买家昵称（`TB:N:nick`），因为淘宝收件手机号常被隐私号掩码；手机号必须是 11 位真号、
   带 `*` 一律拒绝；名单 12 个月自动失效；**只提示，不拦截任何法定售后**
