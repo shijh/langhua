@@ -13,6 +13,7 @@ package org.langhua.ofbiz.mfg;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
@@ -1006,8 +1007,42 @@ public class MfgServicesTest {
     }
 
     @Test
-    public void leavesTheProductPicturesBelowTheOrderListOutOfTheLastOrder() {
-        // under the last block the page prints the pictures of other products (猜你喜欢 / 为你推荐) with
+    public void mergesAnOrderReadTwiceWithATooShortNumber() {
+        // one block came back as 3141164514099372 beside the same block read in full: the page prints
+        // its numbers at 19 digits, and the short read carries exactly the same articles, the same shop
+        // and the same money, so it is the same order read twice (Step 133)
+        List<Map<String, String>> page = MfgServices.orderListFrom("{\"orders\":["
+                + "{\"orderNo\":\"3316900333085054564\",\"shop\":\"华瑞芯城\",\"paidTotal\":\"7.00\","
+                + "\"items\":[{\"code\":\"CH32V002J4M6\",\"name\":\"ch32\",\"qty\":\"10\","
+                + "\"amount\":\"6.44\"}]},"
+                + "{\"orderNo\":\"3316900549003018554\",\"shop\":\"华瑞芯城\",\"paidTotal\":\"9.24\","
+                + "\"items\":[{\"code\":\"CH32V002J4M6\",\"name\":\"ch32\",\"qty\":\"10\","
+                + "\"amount\":\"6.44\"}]},"
+                + "{\"orderNo\":\"3316901197252018554\",\"shop\":\"优信电子\",\"paidTotal\":\"1.33\","
+                + "\"items\":[{\"code\":\"SH1.0\",\"name\":\"端子线\",\"qty\":\"10\",\"amount\":\"1.33\"}]},"
+                + "{\"orderNo\":\"3141164514099372\",\"shop\":\"华瑞芯城\",\"paidTotal\":\"9.24\","
+                + "\"items\":[{\"code\":\"CH32V002J4M6\",\"name\":\"ch32\",\"qty\":\"10\","
+                + "\"amount\":\"6.44\"}]}]}");
+        List<Map<String, String>> merged = MfgServices.mergeOrders(Collections.singletonList(page));
+        assertEquals(3, merged.size());
+        for (Map<String, String> order : merged) {
+            assertFalse("3141164514099372".equals(order.get("orderNo")));
+        }
+        // the same articles of two different shops are two orders, however short one number is
+        List<Map<String, String>> twoShops = MfgServices.orderListFrom("{\"orders\":["
+                + "{\"orderNo\":\"3316900333085054564\",\"shop\":\"华瑞芯城\",\"paidTotal\":\"7.00\","
+                + "\"items\":[{\"code\":\"A\",\"name\":\"a\",\"qty\":\"1\",\"amount\":\"7.00\"}]},"
+                + "{\"orderNo\":\"3316900549003018554\",\"shop\":\"别家\",\"paidTotal\":\"7.00\","
+                + "\"items\":[{\"code\":\"A\",\"name\":\"a\",\"qty\":\"1\",\"amount\":\"7.00\"}]},"
+                + "{\"orderNo\":\"3316901197252018554\",\"shop\":\"优信电子\",\"paidTotal\":\"1.33\","
+                + "\"items\":[{\"code\":\"B\",\"name\":\"b\",\"qty\":\"1\",\"amount\":\"1.33\"}]},"
+                + "{\"orderNo\":\"3141164514099372\",\"shop\":\"第三家\",\"paidTotal\":\"7.00\","
+                + "\"items\":[{\"code\":\"A\",\"name\":\"a\",\"qty\":\"1\",\"amount\":\"7.00\"}]}]}");
+        assertEquals(4, MfgServices.mergeOrders(Collections.singletonList(twoShops)).size());
+    }
+
+    @Test
+    public void leavesTheProductPicturesBelowTheOrderListOutOfTheLastOrder() {        // under the last block the page prints the pictures of other products (猜你喜欢 / 为你推荐) with
         // their prices; the model hands them to the order above, which then comes to more than was paid
         Map<String, String> order = new LinkedHashMap<>();
         order.put("paidTotal", "12.75");
@@ -1036,6 +1071,80 @@ public class MfgServicesTest {
         MfgServices.tidyOrder(colours);
         assertEquals(6, colours.get("lines").split("\n").length);
         assertNull(MfgServices.checkOrderTotals(colours));
+    }
+
+    @Test
+    public void booksTheWholePaidTotalOnTheOnlyArticleOfTheBlock() {
+        // the page prints 实付款 6.60 beside ¥3.30 x2, and the grey line says SH1.0/3P/10CM双头（5条）:
+        // one article of 10 pieces worth 6.60. The model took the price of one pack (3.30) as the
+        // money of the row and the block came to half of what was paid (Step 132)
+        Map<String, String> order = new LinkedHashMap<>();
+        order.put("paidTotal", "6.60");
+        order.put("freight", "0.00");
+        order.put("rowCount", "1");
+        order.put("lines", "SH1.0/3P/10CM\tSH1.0mm 2/3/4/5/6/7/8/9/10P 单/双头 电子端子线 长10CM连接线\t10\t3.30");
+        MfgServices.tidyOrder(order);
+        String[] rows = order.get("lines").split("\n");
+        assertEquals(1, rows.length);
+        // the quantity the page printed stays, only the money of the row is the money of the order
+        assertEquals("10", rows[0].split("\t")[2]);
+        assertEquals("6.60", rows[0].split("\t")[3]);
+        assertNull(MfgServices.checkOrderTotals(order));
+        // a block that prints two rows but was read with one is left alone: the money is not moved on
+        // to the row that was read, and the page goes on warning that an article may be missing
+        Map<String, String> shortRead = new LinkedHashMap<>();
+        shortRead.put("paidTotal", "6.60");
+        shortRead.put("freight", "0.00");
+        shortRead.put("rowCount", "2");
+        shortRead.put("lines", "SH1.0/3P/10CM\tSH1.0mm 电子端子线\t10\t3.30");
+        MfgServices.tidyOrder(shortRead);
+        assertEquals("3.30", shortRead.get("lines").split("\n")[0].split("\t")[3]);
+        assertNotNull(MfgServices.checkOrderTotals(shortRead));
+        // and without a row count nothing is assumed about the block either
+        Map<String, String> noCount = new LinkedHashMap<>();
+        noCount.put("paidTotal", "6.60");
+        noCount.put("freight", "0.00");
+        noCount.put("lines", "SH1.0/3P/10CM\tSH1.0mm 电子端子线\t10\t3.30");
+        MfgServices.tidyOrder(noCount);
+        assertEquals("3.30", noCount.get("lines").split("\n")[0].split("\t")[3]);
+        // a block of several rows keeps its own money: rowCount 2 with two rows is complete
+        Map<String, String> twoRows = new LinkedHashMap<>();
+        twoRows.put("paidTotal", "4.64");
+        twoRows.put("rowCount", "2");
+        twoRows.put("lines", "AT24C64\tEEPROM\t10\t3.22\nAT24C02\tEEPROM\t10\t1.42");
+        MfgServices.tidyOrder(twoRows);
+        assertEquals(2, twoRows.get("lines").split("\n").length);
+        assertNull(MfgServices.checkOrderTotals(twoRows));
+        // the same shape the other way round: the row was read as more than what was paid
+        Map<String, String> dearer = new LinkedHashMap<>();
+        dearer.put("paidTotal", "2.00");
+        dearer.put("freight", "0.00");
+        dearer.put("rowCount", "1");
+        dearer.put("lines", "0603 100NF\t0603 贴片电容 100NF 50只\t50\t3.00");
+        MfgServices.tidyOrder(dearer);
+        assertEquals("2.00", dearer.get("lines").split("\n")[0].split("\t")[3]);
+        assertNull(MfgServices.checkOrderTotals(dearer));
+        // and the discount the model reports to balance a row it read too high is not a discount of
+        // the order: one printed article is worth what was paid for it (Step 132)
+        Map<String, String> invented = new LinkedHashMap<>();
+        invented.put("paidTotal", "2.00");
+        invented.put("freight", "0.00");
+        invented.put("discount", "1.00");
+        invented.put("rowCount", "1");
+        invented.put("lines", "0603 100NF\t0603 贴片电容 100NF 50只\t50\t3.00");
+        MfgServices.tidyOrder(invented);
+        assertEquals("2.00", invented.get("lines").split("\n")[0].split("\t")[3]);
+        assertEquals("0", invented.get("discount"));
+        assertNull(MfgServices.checkOrderTotals(invented));
+        // the freight stays beside the article: 实付 9.99 with 含运费 2.99 is 7.00 of goods
+        Map<String, String> withFreight = new LinkedHashMap<>();
+        withFreight.put("paidTotal", "9.99");
+        withFreight.put("freight", "2.99");
+        withFreight.put("rowCount", "1");
+        withFreight.put("lines", "BAS70DW-04\t肖特基二极管\t20\t9.99");
+        MfgServices.tidyOrder(withFreight);
+        assertEquals("7.00", withFreight.get("lines").split("\n")[0].split("\t")[3]);
+        assertNull(MfgServices.checkOrderTotals(withFreight));
     }
 
     @Test

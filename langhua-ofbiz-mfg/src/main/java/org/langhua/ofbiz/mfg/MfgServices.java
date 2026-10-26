@@ -10035,6 +10035,23 @@ always
                     order.put("discount", "0");
                 }
             }
+            // a block that prints one article carries the whole money of that block: 实付款 6.60
+            // beside ¥3.30 x2 with （5条）a pack is one article of 10 pieces worth 6.60, and the model
+            // reads the price of one pack as the money of the row - or invents a discount of the
+            // difference to make the two add up. rowCount says the block prints one row, so nothing is
+            // missing from the read: the article cost what was paid for it less the freight (Step 132)
+            if (kept.size() == 1 && (int) toDouble(order.get("rowCount"), 0.0) == 1) {
+                double money = round2(paid.doubleValue() - freightValue);
+                if (money > 0.0 && !addsUp(kept, money)) {
+                    String[] row = kept.get(0);
+                    kept = new ArrayList<>();
+                    kept.add(new String[] {row[0], row[1], row[2],
+                        String.format(Locale.ROOT, "%.2f", Double.valueOf(money))});
+                    // a discount the model reported only balances the books it could not read; the
+                    // money of the one article is the money that was paid for it
+                    order.put("discount", "0");
+                }
+            }
         }
         StringBuilder lines = new StringBuilder();
         for (String[] row : kept) {
@@ -10355,7 +10372,102 @@ always
                 }
             }
         }
-        return new ArrayList<>(byNumber.values());
+        return withoutDoubleReads(new ArrayList<>(byNumber.values()));
+    }
+
+    /**
+     * Collapses the reads of one order that came back with two very different numbers. A page prints
+     * its order numbers at one length (19 digits on Taobao), so a number much shorter than the rest of
+     * the page that carries exactly the articles, the shop and the money of another order is that
+     * order read twice with the middle digits lost (production read one block as 3141164514099372
+     * beside the same block read properly, Step 133).
+     *
+     * @param orders the orders of the whole page
+     * @return the same orders without the shorter read of an order that is already there
+     */
+    private static List<Map<String, String>> withoutDoubleReads(List<Map<String, String>> orders) {
+        int usual = usualNumberLength(orders);
+        if (usual <= 0) {
+            return orders;
+        }
+        List<Map<String, String>> kept = new ArrayList<>();
+        for (Map<String, String> order : orders) {
+            String number = order.get("orderNo") == null ? "" : order.get("orderNo").trim();
+            if (number.length() > usual - 2) {
+                kept.add(order);
+                continue;
+            }
+            Map<String, String> full = null;
+            for (Map<String, String> other : kept) {
+                if (sameArticles(other, order) && sameShopAndMoney(other, order)) {
+                    full = other;
+                    break;
+                }
+            }
+            if (full == null) {
+                kept.add(order);
+                continue;
+            }
+            // a refund or a closed badge seen by either read is true of the order
+            for (String flag : new String[] {"refunded", "closed"}) {
+                if ("Y".equalsIgnoreCase(String.valueOf(order.get(flag)))
+                        && !"Y".equalsIgnoreCase(String.valueOf(full.get(flag)))) {
+                    full.put(flag, "Y");
+                }
+            }
+        }
+        return kept;
+    }
+
+    /**
+     * @param orders the orders of one page
+     * @return the length most of their order numbers have, 0 when the page does not agree on one
+     */
+    private static int usualNumberLength(List<Map<String, String>> orders) {
+        Map<Integer, Integer> counts = new LinkedHashMap<>();
+        for (Map<String, String> order : orders) {
+            String number = order.get("orderNo") == null ? "" : order.get("orderNo").trim();
+            if (number.length() < 8) {
+                continue;
+            }
+            Integer length = Integer.valueOf(number.length());
+            Integer seen = counts.get(length);
+            counts.put(length, Integer.valueOf(seen == null ? 1 : seen.intValue() + 1));
+        }
+        int usual = 0;
+        int most = 0;
+        for (Map.Entry<Integer, Integer> entry : counts.entrySet()) {
+            if (entry.getValue().intValue() > most) {
+                most = entry.getValue().intValue();
+                usual = entry.getKey().intValue();
+            }
+        }
+        // three numbers of one length are a habit of the page, two are a coincidence
+        return most >= 3 ? usual : 0;
+    }
+
+    /**
+     * @param first one order of a page
+     * @param second another order of the same page
+     * @return {@code true} when both print exactly the same articles
+     */
+    private static boolean sameArticles(Map<String, String> first, Map<String, String> second) {
+        List<String[]> rows = parseOrderArticleLines(first.get("lines"));
+        List<String[]> otherRows = parseOrderArticleLines(second.get("lines"));
+        if (rows.isEmpty() || rows.size() != otherRows.size()) {
+            return false;
+        }
+        List<String> keys = new ArrayList<>();
+        List<String> otherKeys = new ArrayList<>();
+        for (String[] row : rows) {
+            keys.add(rowIdentity(row));
+        }
+        for (String[] row : otherRows) {
+            otherKeys.add(rowIdentity(row));
+        }
+        java.util.Collections.sort(keys);
+        java.util.Collections.sort(otherKeys);
+        return keys.equals(otherKeys);
     }
 
     /**
