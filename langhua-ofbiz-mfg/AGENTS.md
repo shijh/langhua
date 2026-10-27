@@ -1090,6 +1090,16 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   整页仍是 17/20 正确、3/20 多一行。
   **日志**：`A picture printing N blocks was answered with M orders`（每段一条）、
   `The order list ends at row X of Y`（截断位置）、`The picture shows N order buttons, M orders were read`（整页）。
+- **能折回去的“同号两行”就折回去（Step 155）**：`mergeOrders` 把“同一段、同号、金额不同”的两行**拆开**留着
+  （Step 134/135：宁可多一行也不吞单）。但**图上的块数比读出的单数少**时，这个拆一定是错的——
+  `OirOrders.foldExtraReads(orders, blocks)` 把单号相同、金额最接近的一对合回一张：明细取并集（`rowIdentity` 去重）、
+  实付取“和明细合计更接近”的那份、`rowCount` 跟着改，note 写“单号相同的两行已合成一张…请核对”，
+  之后照常跑 `tidyOrder` / `checkOrderTotals`。**只认同一个单号**（`baseNumber` 会剥掉 ` #2` 这个拆开时加的标记）：
+  少一位的号属于另一个问题，拿它合会吞真单。`blocks` 为 0（页面没表态）时**不动**。
+  实测：20 次里 3 次出现“同号两行”，能折的都变回 23 张（日志 `The reads of one order number were folded: 24 -> 23`）。
+- **提速（Step 155）**：`MAX_PARALLEL` 4 → **6**（9 段从 3 波变 2 波）；切片**一律先试 JPEG**（质量 0.9），
+  比 PNG 小才用（实测 843 KB → 510 KB）；原本只在 > 4 MB 时才转。单张 23 单长图实测 **11.8 s**（9 段）。
+  **提示词只提淘宝 / 天猫**：别的平台没在用，`PROMPT` / `SHORT_PROMPT` / `platform` 字段的候选值都收窄了。
 - **PowerShell 写文件别用 `Set-Content -Encoding UTF8`**：PS 5.1 会带 BOM，javac 直接报
   `非法字符: '\ufeff'`（三个文件同时中招）。要改源码用 `create_file`/编辑工具，或写完后用
   `[System.IO.File]::WriteAllBytes` 去掉前 3 个字节。

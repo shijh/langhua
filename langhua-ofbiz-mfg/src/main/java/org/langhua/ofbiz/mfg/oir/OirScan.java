@@ -142,8 +142,11 @@ public final class OirScan {
      */
     public static final int SLICE_OVERLAP = 500;
 
-    /** Slices that are read at the same time; four small pictures take about as long as one. */
-    public static final int MAX_PARALLEL = 4;
+    /**
+     * Slices that are read at the same time. Six is still well inside what the vision service allows,
+     * and it turns the nine slices of a long page into two waiting rounds instead of three (Step 155).
+     */
+    public static final int MAX_PARALLEL = 6;
 
     /**
      * The orange of the 再买一单 button of a shop order block. Every block of a Taobao / 天猫 list
@@ -191,8 +194,7 @@ public final class OirScan {
      * model deliberate (the shop name with or without 天猫, the struck through price), and a thinking
      * model that deliberates spends its whole output budget on the reasoning and answers nothing.
      */
-    public static final String PROMPT = "Read this screenshot of shop orders (淘宝 / 天猫, and the same kind of"
-            + " page from 京东 / 拼多多 / 抖音) and answer with one"
+    public static final String PROMPT = "Read this screenshot of shop orders (淘宝 / 天猫) and answer with one"
             + " JSON object only, no prose, no explanation:"
             + " {\"orderCount\":\"1\",\"orders\":[{\"orderNo\":\"\",\"shop\":\"\",\"platform\":\"\","
             + "\"orderDate\":\"\",\"paidTotal\":\"\",\"freight\":\"\",\"discount\":\"\","
@@ -205,7 +207,7 @@ public final class OirScan {
             + " the articles of a block all go into that block's items."
             + " orderNo is the order number of that block (after 订单号, or the number the page prints"
             + " for it). shop is the shop name only, without the platform word. platform is which"
-            + " shop platform the page belongs to: 淘宝, 天猫, 京东, 拼多多, 抖音, or empty when nothing"
+            + " shop platform the page belongs to: 淘宝, 天猫, or empty when nothing"
             + " says. orderDate is yyyy-MM-dd as printed."
             + " paidTotal is the money really paid for that order (实付款 / 实付; in a list page the 合计"
             + " of the block). freight is the shipping money of the block (含运费 / 运费), and 0 when the"
@@ -254,7 +256,7 @@ public final class OirScan {
      * every rule it is given; with the long prompt a picture of three orders sometimes ended with the
      * output budget spent on the reasoning and a truncated (or empty) answer.
      */
-    public static final String SHORT_PROMPT = "Read the shop orders (淘宝 / 天猫 / 京东 / 拼多多 / 抖音) in this"
+    public static final String SHORT_PROMPT = "Read the shop orders (淘宝 / 天猫) in this"
             + " picture. Answer with one JSON object only, no prose:"
             + " {\"orderCount\":\"1\",\"orders\":[{\"orderNo\":\"\",\"shop\":\"\",\"platform\":\"\","
             + "\"orderDate\":\"\",\"paidTotal\":\"\",\"freight\":\"\",\"discount\":\"\","
@@ -265,7 +267,7 @@ public final class OirScan {
             + " articles of a block all go into that block's items."
             + " rowCount = how many article rows that block prints (six colours = 6), and items has"
             + " one element per printed row."
-            + " platform = 淘宝 / 天猫 / 京东 / 拼多多 / 抖音. shop without the platform word."
+            + " platform = 淘宝 / 天猫. shop without the platform word."
             + " paidTotal = 实付款 (or 合计). freight = the shipping money (含运费 / 运费)."
             + " discount = the red packet / coupon / 满减 taken off the order, 0 when none."
             + " refunded = Y only when it says 退款成功 / 已退款 / 退款中 / 退货退款 (never for 退货宝 /"
@@ -425,6 +427,15 @@ public final class OirScan {
         int blocks = blockCountOf(image);
         Debug.logInfo("The picture shows " + blocks + " order buttons, " + orders.size()
                 + " orders were read", MODULE);
+        // fewer blocks than orders: two of those rows are one block read twice (the join kept them
+        // apart because a page never prints one number on two blocks), so the reads of one number are
+        // folded back together - the count of the buttons is what makes that safe (Step 155)
+        int read = orders.size();
+        orders = OirOrders.foldExtraReads(orders, blocks);
+        if (orders.size() != read) {
+            Debug.logInfo("The reads of one order number were folded: " + read + " -> " + orders.size(),
+                    MODULE);
+        }
         String countOff = blockCountNote(blocks, orders.size());
         String shortfall = seen > orders.size()
                 ? "（截图上看上去有 " + seen + " 张单，这次只读出 " + orders.size()
@@ -635,11 +646,13 @@ public final class OirScan {
     private static Read readPicture(byte[] picture, String endpoint, String model, String key,
             String contentType, boolean partial, int blocksHere) {
         Read read = new Read();
-        // a slice of a page full of product photographs is large as PNG: hand it over as JPEG, which
-        // keeps the call small enough for the endpoint while the text stays readable
-        if (picture != null && picture.length > MAX_PAYLOAD_BYTES) {
+        // a slice of a page full of product photographs is far smaller as JPEG and the text stays
+        // readable at this quality; the PNG is kept when it comes out smaller than the JPEG
+        if (picture != null) {
             byte[] jpeg = jpegOf(picture);
             if (jpeg != null && jpeg.length < picture.length) {
+                Debug.logInfo("A slice of " + picture.length + " bytes is sent as " + jpeg.length
+                        + " bytes of JPEG", MODULE);
                 picture = jpeg;
                 contentType = "image/jpeg";
             }

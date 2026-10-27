@@ -1692,6 +1692,61 @@ public class MfgServicesTest {
     }
 
     @Test
+    public void foldsTwoReadsOfOneNumberWhenThePageHasFewerBlocks() {
+        // the join keeps two blocks read with one number apart, because a page never prints one number
+        // on two blocks and dropping one would lose an order. The blocks of the picture can be
+        // counted, so when there are fewer blocks than orders that split was wrong and the two rows
+        // are one block read twice (Step 155)
+        Map<String, String> one = new LinkedHashMap<>();
+        one.put("orderNo", "3102077787932500570");
+        one.put("shop", "盛创");
+        one.put("paidTotal", "199.00");
+        one.put("freight", "0.00");
+        one.put("discount", "0");
+        one.put("rowCount", "1");
+        one.put("lines", "CH340X\tCH340X 芯片\t100\t199.00");
+        Map<String, String> again = new LinkedHashMap<>(one);
+        again.put("paidTotal", "2.00");
+        List<Map<String, String>> orders = new ArrayList<>(java.util.Arrays.asList(one, again));
+        // the page does not say how many blocks it has, or says as many as were read: leave them alone
+        assertEquals(2, OirOrders.foldExtraReads(orders, 0).size());
+        assertEquals(2, OirOrders.foldExtraReads(orders, 2).size());
+        // one block, two reads: folded, and the money kept is the one the articles come to
+        List<Map<String, String>> folded = OirOrders.foldExtraReads(orders, 1);
+        assertEquals(1, folded.size());
+        assertEquals("199.00", folded.get(0).get("paidTotal"));
+        assertEquals(1, OirOrders.parseOrderArticleLines(folded.get(0).get("lines")).size());
+        assertTrue(folded.get(0).get("note").contains("已合成一张"));
+        // two different numbers are two orders, whatever the count says
+        Map<String, String> other = new LinkedHashMap<>(again);
+        other.put("orderNo", "3102053594917500570");
+        assertEquals(2, OirOrders.foldExtraReads(
+                new ArrayList<>(java.util.Arrays.asList(one, other)), 1).size());
+
+        // the join keeps a second read of one number under "<number> #2", so the fold has to look
+        // behind that mark - otherwise it never finds the pair it was written for
+        Map<String, String> readA = new LinkedHashMap<>();
+        readA.put("orderNo", "3102077787932500570");
+        readA.put("shop", "盛创");
+        readA.put("paidTotal", "199.00");
+        readA.put("freight", "0.00");
+        readA.put("lines", "CH340X\tCH340X 芯片\t100\t199.00");
+        Map<String, String> readB = new LinkedHashMap<>(readA);
+        // the same article read twice with a different money: not the price of one piece (199.00 is
+        // not 199.00 times a quantity), so the join keeps the two apart
+        readB.put("paidTotal", "150.00");
+        List<List<Map<String, String>>> answers = new ArrayList<>();
+        answers.add(new ArrayList<>(java.util.Arrays.asList(readA, readB)));
+        List<Map<String, String>> joined = OirOrders.mergeOrders(answers);
+        assertEquals(2, joined.size());
+        // the join keeps the number on both rows and marks only its own key, so the fold finds them
+        assertEquals("3102077787932500570", joined.get(1).get("orderNo"));
+        List<Map<String, String>> foldedJoin = OirOrders.foldExtraReads(joined, 1);
+        assertEquals(1, foldedJoin.size());
+        assertEquals("3102077787932500570", foldedJoin.get(0).get("orderNo"));
+    }
+
+    @Test
     public void takesALongPageScreenshotAsItIs() {
         // a whole shop page captured in one picture runs to ten megabytes and more; the picture is
         // cut into slices anyway, so the upload is not refused for being long (Step 128)

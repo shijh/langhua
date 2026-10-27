@@ -289,8 +289,8 @@ public final class OirOrders {
         }
         fields.put("orderNo", orderNo.trim());
         fields.put("shop", jsonStringField(text, "shop"));
-        // the shop platform the page names (淘宝 / 天猫 / 京东 / 拼多多 / 抖音): the fields are the same
-        // on all of them, so only the label travels with the answer
+        // the shop platform the page names (淘宝 / 天猫): the fields are the same on both, so only the
+        // label travels with the answer
         fields.put("platform", jsonStringField(text, "platform"));
         // the date printed on a shop order is the day it was placed, not the day the parts arrive;
         // older answers used the bare name date, so both are read
@@ -1278,6 +1278,167 @@ public final class OirOrders {
             }
         }
         return best;
+    }
+
+    /**
+     * Folds two reads of one order number back into one order while the page shows fewer blocks than
+     * were read.
+     *
+     * <p>The join keeps two blocks that were read with the same number apart (Step 134/135/141): a
+     * page never prints one number on two blocks, so dropping one of them would lose an order. But the
+     * blocks of the picture can be counted, and when there are fewer blocks than orders the split was
+     * wrong - the two rows are one block read twice, once with the money of the block and once with
+     * something else (a price, a subtotal). The pair whose two monies are closest is folded first, the
+     * articles are joined without duplicates, and the paid total kept is the one the rows come to; the
+     * money checks then run over the folded order as over any other.
+     *
+     * <p>Only an exact order number folds: a number read with a digit missing is a different question
+     * (see {@link #numbersOfTheSameOrder}) and merging on it could swallow a real order.
+     *
+     * @param orders the orders of the page
+     * @param blocks how many order blocks the picture shows, {@code 0} when the page does not say
+     * @return the same orders with the extra reads folded, when the count says they cannot be blocks
+     */
+    public static List<Map<String, String>> foldExtraReads(List<Map<String, String>> orders, int blocks) {
+        if (orders == null) {
+            return new ArrayList<>();
+        }
+        if (blocks <= 0 || orders.size() <= blocks) {
+            return orders;
+        }
+        List<Map<String, String>> out = new ArrayList<>(orders);
+        while (out.size() > blocks) {
+            int[] pair = closestSameNumber(out);
+            if (pair == null) {
+                break;
+            }
+            Map<String, String> joined = joinReads(out.get(pair[0]), out.get(pair[1]));
+            out.set(pair[0], joined);
+            out.remove(pair[1]);
+        }
+        return out;
+    }
+
+    /**
+     * The number of the order a read belongs to: the join keeps a second read of one number under
+     * {@code <number> #2}, and folding the two back together has to look behind that mark.
+     *
+     * @param number an order number, possibly with the mark of a second read
+     * @return the number the page prints
+     */
+    private static String baseNumber(String number) {
+        if (number == null) {
+            return "";
+        }
+        String text = number.trim();
+        int mark = text.lastIndexOf(" #");
+        if (mark > 0) {
+            String tail = text.substring(mark + 2);
+            boolean digits = !tail.isEmpty();
+            for (int i = 0; i < tail.length() && digits; i++) {
+                digits = Character.isDigit(tail.charAt(i));
+            }
+            if (digits) {
+                return text.substring(0, mark).trim();
+            }
+        }
+        return text;
+    }
+
+    /**
+     * @param orders the orders of one page
+     * @return the two positions of the pair with the same order number whose money is closest, or
+     *         {@code null} when no number appears twice
+     */
+    private static int[] closestSameNumber(List<Map<String, String>> orders) {
+        int[] best = null;
+        double closest = Double.MAX_VALUE;
+        for (int i = 0; i < orders.size(); i++) {
+            String number = orders.get(i).get("orderNo");
+            if (number == null || number.trim().isEmpty()) {
+                continue;
+            }
+            for (int j = i + 1; j < orders.size(); j++) {
+                if (!baseNumber(number).equals(baseNumber(orders.get(j).get("orderNo")))) {
+                    continue;
+                }
+                Double one = optionalAmount(orders.get(i).get("paidTotal"));
+                Double other = optionalAmount(orders.get(j).get("paidTotal"));
+                double apart = one == null || other == null
+                        ? 0.0 : Math.abs(one.doubleValue() - other.doubleValue());
+                if (best == null || apart < closest) {
+                    best = new int[] {i, j};
+                    closest = apart;
+                }
+            }
+        }
+        return best;
+    }
+
+    /**
+     * One order out of two reads of it: the articles are joined without a duplicate row, and the money
+     * kept is the read the articles come to.
+     *
+     * @param first the read kept in place
+     * @param second the read folded into it
+     * @return the folded order
+     */
+    private static Map<String, String> joinReads(Map<String, String> first, Map<String, String> second) {
+        List<String[]> rows = parseOrderArticleLines(first.get("lines"));
+        java.util.Set<String> seen = new java.util.LinkedHashSet<>();
+        for (String[] row : rows) {
+            seen.add(rowIdentity(row));
+        }
+        for (String[] row : parseOrderArticleLines(second.get("lines"))) {
+            if (seen.add(rowIdentity(row))) {
+                rows.add(row);
+            }
+        }
+        double sum = round2(sumOfRows(rows));
+        Double paidFirst = optionalAmount(first.get("paidTotal"));
+        Double paidSecond = optionalAmount(second.get("paidTotal"));
+        Map<String, String> money = first;
+        if (paidFirst == null) {
+            money = second;
+        } else if (paidSecond != null
+                && Math.abs(sum - paidSecond.doubleValue()) < Math.abs(sum - paidFirst.doubleValue())) {
+            money = second;
+        }
+        Map<String, String> joined = new LinkedHashMap<>(first);
+        joined.put("lines", rowsToText(rows));
+        joined.put("rowCount", String.valueOf(rows.size()));
+        if (money.get("paidTotal") != null) {
+            joined.put("paidTotal", money.get("paidTotal"));
+        }
+        if (money.get("freight") != null) {
+            joined.put("freight", money.get("freight"));
+        }
+        if (money.get("discount") != null) {
+            joined.put("discount", money.get("discount"));
+        }
+        if (second.get("shop") != null && String.valueOf(joined.get("shop")).trim().isEmpty()) {
+            joined.put("shop", second.get("shop"));
+        }
+        String why = "单号相同的两行已合成一张（图上的块数比读出的单数少），请对着截图核对";
+        String already = first.get("note");
+        joined.put("note", already == null || already.trim().isEmpty() ? why : already + "；" + why);
+        return joined;
+    }
+
+    /**
+     * @param rows the article rows of one order
+     * @return them as the one row per line text the order carries
+     */
+    private static String rowsToText(List<String[]> rows) {
+        StringBuilder text = new StringBuilder();
+        for (String[] row : rows) {
+            if (text.length() > 0) {
+                text.append('\n');
+            }
+            text.append(row[0]).append('\t').append(row[1]).append('\t').append(row[2])
+                    .append('\t').append(row[3]);
+        }
+        return text.toString();
     }
 
     /**

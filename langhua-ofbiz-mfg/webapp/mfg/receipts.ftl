@@ -625,8 +625,8 @@
                 var seq = cell(row, String(index + 1), 'num');
                 seq.setAttribute('data-scan-seq', String(index + 1));
                 cell(row, order.orderNo || '（没读到单号）');
-                /* the platform is printed next to the shop, so a 京东 / 拼多多 / 抖音 order is not
-                   mistaken for a Taobao one; the store itself stays untouched for the import */
+                /* the platform is printed next to the shop (淘宝 / 天猫); the store itself stays
+                   untouched for the import */
                 cell(row, order.platform ? (order.platform + ' · ' + (order.shop || '')) : (order.shop || ''));
                 /* the date on a shop order is the day it was placed; the arrival day is a few days
                    later and the person picks it, so it is only shown here */
