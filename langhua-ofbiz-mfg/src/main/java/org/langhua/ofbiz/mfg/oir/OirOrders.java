@@ -76,6 +76,14 @@ public final class OirOrders {
     /** How many packs of a row its money may be the price of (Step 145). */
     private static final int MAX_PACKS = 20;
 
+    /**
+     * How much of the goods a red packet or a 满减 may take, when the discount is not read but worked
+     * out from the paid total. Half is generous for a coupon and far below what a bad read makes of the
+     * difference: a block of five rows copied over answers 975.00 of goods against 195.65 paid, and
+     * turning those 780.35 into a discount would book an order nobody placed (Step 162).
+     */
+    private static final double MAX_DISCOUNT_SHARE = 0.5;
+
     /** How many digits of an order number a second read may lose and still be the same order. */
     private static final int MISSING_DIGITS_ALLOWED = 4;
 
@@ -744,14 +752,24 @@ public final class OirOrders {
             fields.put("discount", "0");
             discount = Double.valueOf(0.0);
         }
-        if (discount == null) {
+        if (discount == null || discount.doubleValue() <= 0.0) {
             double off = round2(goods + freightValue - paid.doubleValue());
-            if (off > 0.0 && off < goods) {
-                // the shop paid less than the goods and the freight: a red packet, a coupon, 满减
-                fields.put("discount", String.format(Locale.ROOT, "%.2f", off));
-                return "实付 " + money(paid) + " 比 货款 " + money(Double.valueOf(goods)) + " + 运费 "
-                        + money(Double.valueOf(freightValue)) + " 少 " + money(Double.valueOf(off))
-                        + "，按整单优惠（红包 / 满减）记下";
+            if (off > 0.0 && off < goods && off <= goods * MAX_DISCOUNT_SHARE
+                    && off <= dearestRow(rows) && !rowsMissing(fields)) {
+                // the shop paid less than the goods and the freight: a red packet, a coupon, 满减. The
+                // model answers "discount": "0" more often than it leaves the field out, so both count
+                // as "it did not read one" - the identity paid = goods + freight - discount fixes the
+                // amount itself, and the page then shows it in its 优惠 column instead of flagging a
+                // block whose money is right (Step 162).
+                //
+                // The three bounds are what keeps a bad read out of the books. A block of five rows
+                // read twice over answers 975.00 of goods against 195.65 paid, and the difference
+                // (780.35) is smaller than the goods - filling that in would have booked a 780 yuan
+                // discount on an order whose rows were copied, and no warning would have said so. A
+                // coupon takes a small share of the articles, never more than the dearest of them, and
+                // no row may be reported missing (then the difference is an article).
+                fields.put("discount", String.format(Locale.ROOT, "%.2f", Double.valueOf(off)));
+                discount = Double.valueOf(off);
             }
         }
         double discountValue = discount == null ? 0.0 : discount.doubleValue();
@@ -771,6 +789,18 @@ public final class OirOrders {
                 + money(Double.valueOf(freightValue))
                 + (discountValue > 0.0 ? " − 优惠 " + money(Double.valueOf(discountValue)) : "")
                 + " 是 " + money(Double.valueOf(expected)) + "，比实付还多，请核对";
+    }
+
+    /**
+     * @param rows the article rows of one order
+     * @return the money of the dearest row, 0 when the order prints none
+     */
+    private static double dearestRow(List<String[]> rows) {
+        double dearest = 0.0;
+        for (String[] row : rows) {
+            dearest = Math.max(dearest, Math.max(0.0, toDouble(row[3], 0.0)));
+        }
+        return dearest;
     }
 
     /**

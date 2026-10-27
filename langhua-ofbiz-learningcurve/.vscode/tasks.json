@@ -2231,6 +2231,118 @@
 			"command": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\deployed161c.ps1",
 			"isBackground": false,
 			"problemMatcher": []
+		},
+		{
+			"label": "tests-162",
+			"type": "shell",
+			"command": "C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\mfg-tests-all.bat",
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "deploy-162",
+			"type": "shell",
+			"command": "C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\deploy-mfg.bat",
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "scan9c",
+			"type": "shell",
+			"command": "C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\scan9c.bat",
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "summarize9b2",
+			"type": "shell",
+			"command": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\sumruns.ps1 -Prefix r9b -Target 'F:/build-ofbiz/runs-analysis.txt'",
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "dumporder6",
+			"type": "shell",
+			"command": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\dumporder.ps1 -Prefix r9b -Index 6",
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "dumporder6b",
+			"type": "shell",
+			"command": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\dumporder2.ps1 -Prefix r9b -Index 6",
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "tests-162b",
+			"type": "shell",
+			"command": "C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\mfg-tests-all.bat",
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "deploy-162b",
+			"type": "shell",
+			"command": "C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\deploy-mfg.bat",
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "scan9d",
+			"type": "shell",
+			"command": "C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\scan9c.bat",
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "summarize9d",
+			"type": "shell",
+			"command": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\sumruns.ps1 -Prefix r9b -Target 'F:/build-ofbiz/runs-analysis.txt'",
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "dumpcoupon",
+			"type": "shell",
+			"command": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\dumpcoupon.ps1",
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "scan13c",
+			"type": "shell",
+			"command": "C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\scan13b.bat",
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "analyze13c",
+			"type": "shell",
+			"command": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\analyze13b.ps1",
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "deploy-test-162",
+			"type": "shell",
+			"command": "C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\deploy-test.bat",
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "deploy-prod-162",
+			"type": "shell",
+			"command": "C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\deploy-prod.bat",
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "deployed-162",
+			"type": "shell",
+			"command": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\deployed161c.ps1",
+			"isBackground": false,
+			"problemMatcher": []
 		}
 	]
 }

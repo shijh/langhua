@@ -690,14 +690,16 @@ public class MfgServicesTest {
 
     @Test
     public void readsARedPacketAsADiscount() {
-        // the shop paid 10.73 for 6.00 + 3.00 of goods and 2.00 of freight: a 0.27 red packet
+        // the shop paid 10.73 for 6.00 + 3.00 of goods and 2.00 of freight: a 0.27 red packet. The
+        // amount is not a guess - paid = goods + freight - discount fixes it - so it is filled in and
+        // the block is not flagged: the row shows the discount in its 优惠 column (Step 162)
         Map<String, String> order = new HashMap<>();
         order.put("paidTotal", "10.73");
         order.put("freight", "2.00");
         order.put("lines", "TS-D014,switch,100,6.00\nSKT-125,socket,100,3.00");
         String note = OirOrders.checkOrderTotals(order);
         assertEquals("0.27", order.get("discount"));
-        assertTrue(note != null && note.contains("10.73") && note.contains("0.27"));
+        assertNull("a block whose money adds up is not flagged", note);
         assertEquals("2.00", order.get("freight"));
         // paying less than the goods and the freight is not a lost article: no retry for it
         assertFalse(OirOrders.totalsDisagree(order));
@@ -771,6 +773,101 @@ public class MfgServicesTest {
         withFreight.put("lines", "CHIP,chip,5,3.88");
         assertNull(OirOrders.checkOrderTotals(withFreight));
         assertEquals("5.00", withFreight.get("freight"));
+    }
+
+    @Test
+    public void fillsTheDiscountTheModelAnsweredAsZero() {
+        // a real receipt: 货款 9.00 + 运费 2.00, 实付 10.73, and the model answered "discount":"0"
+        // rather than leaving the field out. The 0.27 is not readable from the picture, but the
+        // identity paid = goods + freight - discount fixes it, so it is written down instead of a red
+        // "比实付还多" on a block whose money is right (Step 162)
+        Map<String, String> order = new HashMap<>();
+        order.put("paidTotal", "10.73");
+        order.put("freight", "2.00");
+        order.put("discount", "0");
+        order.put("rowCount", "2");
+        order.put("lines", "TS-D014,switch,100,6.00\nSKT-125,socket,100,3.00");
+        assertNull(OirOrders.checkOrderTotals(order));
+        assertEquals("0.27", order.get("discount"));
+
+        // the same when the discount field is empty rather than zero
+        Map<String, String> blank = new HashMap<>(order);
+        blank.put("discount", "");
+        assertNull(OirOrders.checkOrderTotals(blank));
+        assertEquals("0.27", blank.get("discount"));
+
+        // nothing is invented when the money already adds up
+        Map<String, String> even = new HashMap<>();
+        even.put("paidTotal", "11.00");
+        even.put("freight", "2.00");
+        even.put("discount", "0");
+        even.put("lines", "TS-D014,switch,100,6.00\nSKT-125,socket,100,3.00");
+        assertNull(OirOrders.checkOrderTotals(even));
+        assertEquals("0", even.get("discount"));
+
+        // a block that says it prints three rows while two were read is missing an article, and the
+        // difference is not a coupon: it stays in the report
+        Map<String, String> shortRead = new HashMap<>();
+        shortRead.put("paidTotal", "10.73");
+        shortRead.put("freight", "2.00");
+        shortRead.put("discount", "0");
+        shortRead.put("rowCount", "3");
+        shortRead.put("lines", "TS-D014,switch,100,6.00\nSKT-125,socket,100,3.00");
+        assertTrue(OirOrders.checkOrderTotals(shortRead).contains("请核对"));
+        assertEquals("0", shortRead.get("discount"));
+
+        // and paying more than the lines is a missing article, never a negative discount
+        Map<String, String> paidMore = new HashMap<>();
+        paidMore.put("paidTotal", "14.40");
+        paidMore.put("freight", "0.00");
+        paidMore.put("discount", "0");
+        paidMore.put("lines", "PIN-40,header pin,2,6.40");
+        assertTrue(OirOrders.checkOrderTotals(paidMore).contains("可能漏了一件商品"));
+        assertEquals("0", paidMore.get("discount"));
+    }
+
+    @Test
+    public void doesNotBookACopiedBlockAsADiscount() {
+        // the real shape that came back from the 23 order page: one article of 195.65 answered five
+        // times over, so 975.00 of goods against 195.65 paid. The difference (780.35) is smaller than
+        // the goods, which is all the first version of the filled in discount asked - it booked a
+        // 780 yuan discount on the order and said nothing at all (Step 162)
+        Map<String, String> copied = new HashMap<>();
+        copied.put("paidTotal", "195.65");
+        copied.put("freight", "1.00");
+        copied.put("discount", "0");
+        copied.put("rowCount", "5");
+        copied.put("lines", "RT6150AGQW,RT6150AGQW,100,195.00\n"
+                + "RT6150B-33GQW,RT6150B-33GQW,100,195.00\n"
+                + "RT6150BGQW,RT6150BGQW,100,195.00\n"
+                + "RT6154AGQW,RT6154AGQW,100,195.00\n"
+                + "RT6160AWSC,RT6160AWSC,100,195.00");
+        String note = OirOrders.checkOrderTotals(copied);
+        assertTrue("a copied block has to be reported, not made to add up: " + note,
+                note != null && note.contains("比实付还多"));
+        assertEquals("0", copied.get("discount"));
+
+        // the same order read once: the freight sits inside the paid total and nothing is invented
+        Map<String, String> once = new HashMap<>();
+        once.put("paidTotal", "195.65");
+        once.put("freight", "1.00");
+        once.put("discount", "0");
+        once.put("rowCount", "1");
+        once.put("lines", "RT6150AGQW,RT6150AGQW,100,194.65");
+        assertNull(OirOrders.checkOrderTotals(once));
+        assertEquals("0", once.get("discount"));
+
+        // a coupon never takes more than the dearest article of the order either: 9.00 of goods paid
+        // with 0.50 of freight leaves 7.50 to explain, and no red packet of one order is that large
+        Map<String, String> tooBig = new HashMap<>();
+        tooBig.put("paidTotal", "2.00");
+        tooBig.put("freight", "0.50");
+        tooBig.put("discount", "0");
+        tooBig.put("rowCount", "2");
+        tooBig.put("lines", "TS-D014,switch,100,6.00\nSKT-125,socket,100,3.00");
+        String told = OirOrders.checkOrderTotals(tooBig);
+        assertEquals("0", tooBig.get("discount"));
+        assertTrue("7.50 of a 9.00 order is no red packet: " + told, told != null);
     }
 
     @Test
