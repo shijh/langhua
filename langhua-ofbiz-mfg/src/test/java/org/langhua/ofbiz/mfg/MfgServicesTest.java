@@ -1359,6 +1359,51 @@ public class MfgServicesTest {
     }
 
     @Test
+    public void multipliesThePriceOfOnePackByItsPacks() {
+        // the page prints 0603叠层高频电感 … ¥2.00 x2 with 0603 1.5UH ±10%（50个）in the grey line, so the
+        // row is 100 pieces for 4.00; the model read the 100 pieces but kept the 2.00 of one pack as
+        // the money of the row, and the block came to 12.00 of the 14.00 that was paid (Step 145)
+        Map<String, String> order = new LinkedHashMap<>();
+        order.put("paidTotal", "14.00");
+        order.put("freight", "0.00");
+        order.put("rowCount", "2");
+        order.put("lines", "0603 1.5nH 10%\t0603叠层高频电感1NH 1.5NH 2.2NH 4.7NH\t100\t2.00\n"
+                + "10UF 10V 6.3X5.4 20个\tSMD贴片铝电解电容器 10UF22UF33UF47UF\t100\t10.00");
+        MfgServices.tidyOrder(order);
+        String[] rows = order.get("lines").split("\n");
+        assertEquals(2, rows.length);
+        // the quantity the page printed stays and the money of the row becomes two packs of 2.00
+        assertEquals("100", rows[0].split("\t")[2]);
+        assertEquals("4.00", rows[0].split("\t")[3]);
+        assertEquals("100", rows[1].split("\t")[2]);
+        assertEquals("10.00", rows[1].split("\t")[3]);
+        assertNull(MfgServices.checkOrderTotals(order));
+        assertNotNull(order.get("note"));
+
+        // two rows of the same amount both explain the gap: nothing says which of them the page sold
+        // in packs, so the rows stay as they were read and the money check keeps warning
+        Map<String, String> ambiguous = new LinkedHashMap<>();
+        ambiguous.put("paidTotal", "8.00");
+        ambiguous.put("freight", "0.00");
+        ambiguous.put("rowCount", "2");
+        ambiguous.put("lines", "A\ta\t100\t2.00\nB\tb\t100\t2.00");
+        MfgServices.tidyOrder(ambiguous);
+        assertEquals("2.00", ambiguous.get("lines").split("\n")[0].split("\t")[3]);
+        assertEquals("2.00", ambiguous.get("lines").split("\n")[1].split("\t")[3]);
+        assertNotNull(MfgServices.checkOrderTotals(ambiguous));
+
+        // a block whose rows already come to what was paid is left alone
+        Map<String, String> fine = new LinkedHashMap<>();
+        fine.put("paidTotal", "14.00");
+        fine.put("freight", "0.00");
+        fine.put("rowCount", "2");
+        fine.put("lines", "A\ta\t100\t4.00\nB\tb\t100\t10.00");
+        MfgServices.tidyOrder(fine);
+        assertEquals("4.00", fine.get("lines").split("\n")[0].split("\t")[3]);
+        assertNull(fine.get("note"));
+    }
+
+    @Test
     public void cutsBetweenTheBlocksOfAnOrderList() throws IOException {
         // every block of a Taobao list prints an orange 再买一单 button, so the blocks are found in the
         // picture and the cuts go between them: no block is ever cut in two (Step 139)

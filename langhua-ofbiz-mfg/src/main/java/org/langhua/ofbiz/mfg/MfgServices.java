@@ -10027,6 +10027,9 @@ always
         // amount of a row already there and are dropped (Step 134)
         kept = withoutExtraRows(rows, (int) toDouble(order.get("rowCount"), 0.0));
         rows = kept;
+        // how many rows the block says it prints: a block that prints more rows than were read is
+        // missing an article, and then the money must not be moved onto the rows that were read
+        int printed = (int) toDouble(order.get("rowCount"), 0.0);
         Double paid = optionalAmount(order.get("paidTotal"));
         Double freight = optionalAmount(order.get("freight"));
         if (paid != null) {
@@ -10063,6 +10066,21 @@ always
                 if (addsUp(withoutDiscount, plain)) {
                     kept = withoutDiscount;
                     order.put("discount", "0");
+                }
+            }
+            if (!addsUp(kept, wanted)) {
+                // a row whose money is the price of one pack: the block pays 14.00, the rows come to
+                // 12.00, and one of them is the 2.00 of a pack sold twice (Step 145)
+                double plain = round2(paid.doubleValue() - freightValue);
+                List<String[]> byPacks = moneyOfOnePack(kept, plain, printed);
+                if (byPacks != null) {
+                    kept = byPacks;
+                    if (discountValue > 0.0) {
+                        // a discount the model reported only balanced the books it could not read
+                        order.put("discount", "0");
+                    }
+                    order.put("note", "有一行的金额按「每包单价 × 包数」修正了（模型把一包的价钱当成了整行的钱），"
+                            + "请对着截图核对");
                 }
             }
             // a block that prints one article carries the whole money of that block: 实付款 6.60
@@ -10277,6 +10295,57 @@ always
             sum += toDouble(row[3], 0.0);
         }
         return sum;
+    }
+
+    /** The most packs behind one {@code x} the page may print for one row. */
+    private static final int MAX_PACKS = 20;
+
+    /**
+     * Reads the money of a row that was given as the price of one pack instead of the money of the
+     * whole row: a page prints {@code 0603叠层高频电感 … ¥2.00 x2} with {@code （50个）} in the grey
+     * spec line, so the row is 100 pieces for 4.00 (two packs at 2.00), while the model takes the 2.00
+     * of one pack as the money of that row. The block paid 14.00 and the rows come to 12.00, so
+     * multiplying that one row by 2 is the only reading that comes to what was paid (Step 145).
+     *
+     * <p>Only a gap that exactly one row explains is corrected: two rows of the same amount could
+     * both be the pack price, and then nothing says which of them the page sold in packs.
+     *
+     * @param rows the article rows of one order
+     * @param wanted what the articles alone should come to
+     * @param printed how many rows the block says it prints, 0 when it did not say
+     * @return the rows with that one amount multiplied, {@code null} when no single row explains it
+     */
+    private static List<String[]> moneyOfOnePack(List<String[]> rows, double wanted, int printed) {
+        // a block of one row is the case of Step 132 (the whole money belongs to that row), and a block
+        // that prints more rows than were read is missing an article: neither is a pack price
+        if (rows.size() < 2 || wanted <= 0.0 || printed > rows.size()) {
+            return null;
+        }
+        double gap = round2(wanted - sumOfRows(rows));
+        if (gap <= 0.06) {
+            return null;
+        }
+        List<String[]> found = null;
+        int fitting = 0;
+        for (int i = 0; i < rows.size(); i++) {
+            double amount = round2(toDouble(rows.get(i)[3], 0.0));
+            if (amount <= 0.0) {
+                continue;
+            }
+            for (int packs = 2; packs <= MAX_PACKS; packs++) {
+                if (Math.abs(round2(amount * (packs - 1)) - gap) > 0.06) {
+                    continue;
+                }
+                List<String[]> fixed = new ArrayList<>(rows);
+                String[] row = rows.get(i);
+                fixed.set(i, new String[] {row[0], row[1], row[2],
+                    String.format(Locale.ROOT, "%.2f", Double.valueOf(round2(amount * packs)))});
+                found = fixed;
+                fitting++;
+                break;
+            }
+        }
+        return fitting == 1 ? found : null;
     }
 
     /**

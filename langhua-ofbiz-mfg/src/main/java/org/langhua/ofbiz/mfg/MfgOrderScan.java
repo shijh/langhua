@@ -207,7 +207,9 @@ public final class MfgOrderScan {
             + " pack size is the number after x itself; amount is that row's money: for a block with one"
             + " article it is paidTotal minus freight,"
             + " for a block with two or more articles it is the printed row price times the number of"
-            + " packs after x (1.20 with x2 is 2.40), never the price of a single piece. One element per"
+            + " packs after x (1.20 with x2 is 2.40), never the price of a single piece nor the price of"
+            + " one pack: the pack size only changes the quantity, so ¥2.00 with x2 is 4.00 however many"
+            + " pieces one pack holds. One element per"
             + " article - a block that shows two products gets two elements, never one. Never use the"
             + " struck through price. code is the short model or spec line printed under the title"
             + " (2.0mm单排8P(共8P), 502035(350mah), 30K) and name is the title itself; when the article"
@@ -261,7 +263,8 @@ public final class MfgOrderScan {
             + " itself, so （4块组合套装） with x1 is 1; amount = the row's own"
             + " money (paidTotal"
             + " minus freight for a block with one article, printed row price times the packs after x for"
-            + " a block with several). Pictures of other products below the order list (猜你喜欢 / 推荐 /"
+            + " a block with several - the pack size changes the quantity, never the row money, so ¥2.00"
+            + " with x2 is 4.00). Pictures of other products below the order list (猜你喜欢 / 推荐 /"
             + " 广告) are not orders and are not items; the articles of one block are never items of the"
             + " block under it. No explanation.";
 
