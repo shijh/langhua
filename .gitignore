@@ -1,2 +1,4 @@
 runtime/
 derby.log
+*.code-workspace
+*.bak

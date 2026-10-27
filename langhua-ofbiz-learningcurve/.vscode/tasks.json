@@ -111,6 +111,2063 @@
 			"label": "deploy-lc",
 			"type": "shell",
 			"command": "C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\deploy-lc.bat"
+		},
+		{
+			"label": "mfg-tests-all",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\mfg-tests-all.bat"
+			],
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "mfg-deploy",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\deploy-mfg.bat"
+			],
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "mfg-smoke",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\mfg-smoke.bat"
+			],
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "mfg-tests-all2",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\mfg-tests-all.bat"
+			],
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "mfg-tests-all3",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\mfg-tests-all.bat"
+			],
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "mfg-tests-all4",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\mfg-tests-all.bat"
+			],
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "mfg-tests-all5",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\mfg-tests-all.bat"
+			],
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "mfg-deploy2",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\deploy-mfg.bat"
+			],
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "mfg-scan-real",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\scan-real2.bat"
+			],
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "deploy-dev",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\deploy-mfg.bat"
+			],
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "deploy-test",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\deploy-test.bat"
+			],
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "deploy-prod",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\deploy-prod.bat"
+			],
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "three-boot",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\three-boot.bat"
+			],
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "jar-has",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\jar-has.bat"
+			],
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "jar-has2",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\jar-has.bat"
+			],
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "jar-unpack",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\jar-unpack.bat"
+			],
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "enc-check3",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\enc-check3.bat"
+			],
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "boot-errors",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\boot-errors.bat"
+			],
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "xml-warn",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\xml-warn.bat"
+			],
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "mfg-tests-all6",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\mfg-tests-all.bat"
+			],
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "mfg-tests-all7",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\mfg-tests-all.bat"
+			],
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "mfg-tests-all8",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\mfg-tests-all.bat"
+			],
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "deploy-dev2",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\deploy-mfg.bat"
+			],
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "scan-caicos",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\scan-caicos.bat"
+			],
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "deploy-test2",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\deploy-test.bat"
+			],
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "deploy-prod2",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\deploy-prod.bat"
+			],
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "scan-cxd",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\scan-cxd.bat"
+			],
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "mfg-tests-all9",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\mfg-tests-all.bat"
+			],
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "mfg-tests-all10",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\mfg-tests-all.bat"
+			],
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "deploy-dev3",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\deploy-mfg.bat"
+			],
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "scan-r3",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\scan-r3.bat"
+			],
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "scan-r3b",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\scan-r3b.bat"
+			],
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "scan-nums",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\scan-nums.bat"
+			],
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "scan-cxd2",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\scan-cxd2.bat"
+			],
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "deploy-test3",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\deploy-test.bat"
+			],
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "deploy-prod3",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\deploy-prod.bat"
+			],
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "probe-anchors",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\probe-anchors.bat"
+			],
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "mfg-tests-all11",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\mfg-tests-all.bat"
+			],
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "mfg-tests-all12",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\mfg-tests-all.bat"
+			],
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "deploy-dev4",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\deploy-mfg.bat"
+			],
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "probe-anchors2",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\probe-anchors.bat"
+			],
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "mfg-tests-all13",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\mfg-tests-all.bat"
+			],
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "deploy-dev5",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\deploy-mfg.bat"
+			],
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "probe-anchors3",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\probe-anchors.bat"
+			],
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "ten-runs",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\ten-runs.bat"
+			],
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "ten-runs2",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\ten-runs2.bat"
+			],
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "ten-summary",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\ten-summary.bat"
+			],
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "ten-runs3",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\ten-runs3.bat"
+			],
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "ten-summary2",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\ten-summary.bat"
+			],
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "ten-summary3",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\ten-summary.bat"
+			],
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "ten-detail",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\ten-detail.bat"
+			],
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "mfg-tests-all14",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\mfg-tests-all.bat"
+			],
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "deploy-dev6",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\deploy-mfg.bat"
+			],
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "ten-runs4",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\ten-runs4.bat"
+			],
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "wait-t2",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\wait-t2.bat"
+			],
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "t2-detail",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\t2-detail.bat"
+			],
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "mfg-tests-all15",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\mfg-tests-all.bat"
+			],
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "deploy-dev7",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\deploy-mfg.bat"
+			],
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "ten-runs5",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\ten-runs5.bat"
+			],
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "wait-t3",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\wait-t3.bat"
+			],
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "deploy-test4",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\deploy-test.bat"
+			],
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "deploy-prod4",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\deploy-prod.bat"
+			],
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "deploy-final",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\deploy-final.bat"
+			],
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "find-git2",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\find-git2.bat"
+			],
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "commit147",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\commit147.bat"
+			],
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "mfg-tests-all16",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\mfg-tests-all.bat"
+			],
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "mfg-tests-all17",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\mfg-tests-all.bat"
+			],
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "mfg-tests-all18",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\mfg-tests-all.bat"
+			],
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "probe-real",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\probe2.bat"
+			],
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "probe-real2",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\probe3.bat"
+			],
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "probe-four",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\probe4.bat"
+			],
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "probe-peaks",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\probe-peaks.bat"
+			],
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "mfg-tests-all19",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\mfg-tests-all.bat"
+			],
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "mfg-tests-all20",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\mfg-tests-all.bat"
+			],
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "mfg-tests-all21",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\mfg-tests-all.bat"
+			],
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "probe-five",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\probe4.bat"
+			],
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "deploy-dev8",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\deploy-mfg.bat"
+			],
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "ten-runs6",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\ten-runs6.bat"
+			],
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "wait-t4",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\wait-t4.bat"
+			],
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "deploy-test5",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\deploy-test.bat"
+			],
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "deploy-prod5",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\deploy-prod.bat"
+			],
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "commit148",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\commit148.bat"
+			],
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "deploy-final2",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\deploy-final.bat"
+			],
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "move-oir",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\move-oir.bat"
+			],
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "open-api",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\open-api.bat"
+			],
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "point-tests",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\point-tests.bat"
+			],
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "mfg-tests-all22",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\mfg-tests-all.bat"
+			],
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "strip-bom",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\strip-bom.bat"
+			],
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "mfg-tests-all23",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\mfg-tests-all.bat"
+			],
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "mfg-tests-all24",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\mfg-tests-all.bat"
+			],
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "deploy-dev9",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\deploy-mfg.bat"
+			],
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "scan-after-move",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\scan-real2.bat"
+			],
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "scan-after-move-sum",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\ten-summary.bat"
+			],
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "deploy-test6",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\deploy-test.bat"
+			],
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "deploy-prod6",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\deploy-prod.bat"
+			],
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "commit149",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\commit149.bat"
+			],
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "deploy-final3",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\deploy-final.bat"
+			],
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "run-extract",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\run-extract.bat"
+			],
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "mfg-tests-all25",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\mfg-tests-all.bat"
+			],
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "run-prefix",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\run-prefix.bat"
+			],
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "mfg-tests-all26",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\mfg-tests-all.bat"
+			],
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "run-fix",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\run-fix.bat"
+			],
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "mfg-tests-all27",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\mfg-tests-all.bat"
+			],
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "deploy-dev10",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\deploy-mfg.bat"
+			],
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "scan-after-split",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\scan-real2.bat"
+			],
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "deploy-test10",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\deploy-test.bat"
+			],
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "deploy-prod10",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\deploy-prod.bat"
+			],
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "deploy-final10",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\deploy-final.bat"
+			],
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "mfg-tests-all28",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\mfg-tests-all.bat"
+			],
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "deploy-dev11",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\deploy-mfg.bat"
+			],
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "scan-after-review",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\scan-real2.bat"
+			],
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "deploy-test11",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\deploy-test.bat"
+			],
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "deploy-prod11",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\deploy-prod.bat"
+			],
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "deploy-final11",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\deploy-final.bat"
+			],
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "mfg-tests-all29",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\mfg-tests-all.bat"
+			],
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "deploy-dev12",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\deploy-mfg.bat"
+			],
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "scan-solid",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\scan-real2.bat"
+			],
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "ten-runs-solid",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\ten-runs7.bat"
+			],
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "mfg-tests-all30",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\mfg-tests-all.bat"
+			],
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "deploy-test12",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\deploy-test.bat"
+			],
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "deploy-prod12",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\deploy-prod.bat"
+			],
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "deploy-final12",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\deploy-final.bat"
+			],
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "mfg-tests-all31",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\mfg-tests-all.bat"
+			],
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "mfg-tests-all32",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\mfg-tests-all.bat"
+			],
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "deploy-dev13",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\deploy-mfg.bat"
+			],
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "mfg-tests-all33",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\mfg-tests-all.bat"
+			],
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "deploy-dev14",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\deploy-mfg.bat"
+			],
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "ten-runs-count",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\ten-runs7.bat"
+			],
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "mfg-tests-all34",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\mfg-tests-all.bat"
+			],
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "deploy-dev15",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\deploy-mfg.bat"
+			],
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "scan-final-check",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\scan-real2.bat"
+			],
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "deploy-test13",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\deploy-test.bat"
+			],
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "deploy-prod13",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\deploy-prod.bat"
+			],
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "deploy-final13",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\deploy-final.bat"
+			],
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "mfg-tests-all35",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\mfg-tests-all.bat"
+			],
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "deploy-dev16",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\deploy-mfg.bat"
+			],
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "ten-runs-slice",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\ten-runs7.bat"
+			],
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "mfg-tests-all36",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\mfg-tests-all.bat"
+			],
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "deploy-dev17",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\deploy-mfg.bat"
+			],
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "mfg-tests-all37",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\mfg-tests-all.bat"
+			],
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "deploy-dev18",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\deploy-mfg.bat"
+			],
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "ten-runs-tail",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\ten-runs7.bat"
+			],
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "mfg-tests-all38",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\mfg-tests-all.bat"
+			],
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "deploy-dev19",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\deploy-mfg.bat"
+			],
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "ten-runs-tail2",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\ten-runs7.bat"
+			],
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "deploy-test14",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\deploy-test.bat"
+			],
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "deploy-prod14",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\deploy-prod.bat"
+			],
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "deploy-final14",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\deploy-final.bat"
+			],
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "mfg-tests-all39",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\mfg-tests-all.bat"
+			],
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "deploy-dev20",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\deploy-mfg.bat"
+			],
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "ten-runs-fold",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\ten-runs7.bat"
+			],
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "mfg-tests-all40",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\mfg-tests-all.bat"
+			],
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "mfg-tests-all41",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\mfg-tests-all.bat"
+			],
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "mfg-tests-all42",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\mfg-tests-all.bat"
+			],
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "deploy-dev21",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\deploy-mfg.bat"
+			],
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "ten-runs-fold2",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\ten-runs7.bat"
+			],
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "deploy-test15",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\deploy-test.bat"
+			],
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "deploy-prod15",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\deploy-prod.bat"
+			],
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "deploy-final15",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\deploy-final.bat"
+			],
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "mfg-tests-all43",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\mfg-tests-all.bat"
+			],
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "mfg-tests-all44",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\mfg-tests-all.bat"
+			],
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "mfg-tests-all45",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\mfg-tests-all.bat"
+			],
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "deploy-dev22",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\deploy-mfg.bat"
+			],
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "deploy-dev23",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\deploy-mfg.bat"
+			],
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "scan-headers",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\scan-real2.bat"
+			],
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "mfg-tests-all46",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\mfg-tests-all.bat"
+			],
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "deploy-dev24",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\deploy-mfg.bat"
+			],
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "scan-headers2",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\scan-real2.bat"
+			],
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "ten-runs-headers",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\ten-runs7.bat"
+			],
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "deploy-test16",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\deploy-test.bat"
+			],
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "deploy-prod16",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\deploy-prod.bat"
+			],
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "deploy-final16",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\deploy-final.bat"
+			],
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "fifty-runs",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\fifty-runs.bat"
+			],
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "mfg-tests-all47",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\mfg-tests-all.bat"
+			],
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "mfg-tests-all48",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\mfg-tests-all.bat"
+			],
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "deploy-dev25",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\deploy-mfg.bat"
+			],
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "fifty-runs2",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\fifty-runs2.bat"
+			],
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "mfg-tests-all49",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\mfg-tests-all.bat"
+			],
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "deploy-test17",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\deploy-test.bat"
+			],
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "deploy-prod17",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\deploy-prod.bat"
+			],
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "deploy-final17",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\deploy-final.bat"
+			],
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "fifty-runs3",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\fifty-runs3.bat"
+			],
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "deploy-dev26",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\deploy-mfg.bat"
+			],
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "fifty-runs4",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\fifty-runs4.bat"
+			],
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "deploy-test18",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\deploy-test.bat"
+			],
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "deploy-prod18",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\deploy-prod.bat"
+			],
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "deploy-final18",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\deploy-final.bat"
+			],
+			"problemMatcher": [],
+			"group": "build"
 		}
 	]
 }

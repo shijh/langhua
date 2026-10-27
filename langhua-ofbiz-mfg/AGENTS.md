@@ -1131,6 +1131,24 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   同店同价同行数，但两者在 50 次里**每次都出现**→ 是两笔真采购，提示是误报。现在只在
   `blocks <= 0 || 单数 > blocks`（真有可能是抄的那一行）时才加这条 note。
   实测：收紧后 50 次里只有 **1 条**（就是那次 24 张的），收之前是“每次都有”。
+- **`controller.xml` 的两处 schema 错（Step 160）**：生产日志里每次加载 controller 都刷一批
+  `UtilXml |E| … process error`（一次加载 = 2 行 postprocessor + 184 行 save-last-view），两个都不影响运行，
+  但把真错误埋在噪声里（日志总共才 911 行）。① **`<postprocessor>` 必须写在 `<after-login>` 前面**：
+  `site-conf.xsd` 的顶层顺序是 `… firstvisit → preprocessor → postprocessor → after-login → before-logout →
+  default-request → request-map* → view-map*`，反过来写就报
+  `Invalid content was found starting with element 'postprocessor'`；两个钩子各自排队执行，换顺序不动行为。
+  ② **`save-last-view` 属于 `<response>`，不属于 `<request-map>`**：`ConfigXMLReader` 第 962 行是
+  `responseElement.getAttribute("save-last-view")`、`RequestHandler` 第 843 行用 `nextRequestResponse.isSaveLastView()`，
+  所以写在 request-map 上**从来没生效过**（92 处已删；它是 `%TEMP%\jup\add-save-last-view.ps1` 加上去的，
+  **别再去跑那个脚本**）。真要记 `_LAST_VIEW_NAME_` 就把属性写到 `<response name="success" …>` 上，
+  但**我们故意不用它**（它存的是视图名不是地址，Step 122），所以不补；`view-last` 之类的响应本组件也没用。
+  **离线自查两秒**：`%TEMP%\jup\xsdcheck.ps1` 拿框架自己的 `framework/webapp/dtd/site-conf.xsd` 验两个组件的
+  controller.xml，结果写 `F:\build-ofbiz\xsd-check.txt`（`xsdprobe.ps1` / `xsdprobe2.ps1` 是故意写错的反向验证，
+  确认这个检查真的会报错，别以为是空跑）。**改完不用重启**：controller.xml 按 mtime 重载，copy 过去、请求一次
+  就会重新解析，然后看 `runtime/logs/ofbiz.log` 里还有没有 `cvc-` / `process error`。
+  **踩坑**：把仓库里那份（`https="true"`）直接 copy 到**测试实例**会冲掉 `relax-test-https.ps1` 的改动，
+  页面立刻 302 到 `https://localhost:8443`（看着像“改坏了”）——copy 完要对测试实例重跑那个脚本
+  （这次它报了 113 个 request map）。回归：m50 13 项、m49 14 项、m43 15 项全过。
 - **切点要落在每个块的表头上，一块一段（Step 159）**：第 3、4、9 单解析错的**根因是切点**。
   `cutsBetweenBlocks` 原来是「在目标高度附近找两个按钮之间最宽的一段、取中点」，可**一块只有一个按钮**，
   那段就是**一个块本身**，中点必然落在块中间。这一页块高从 300 到 2700 行不等（第 3 块印了十三行电阻，
