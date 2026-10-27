@@ -10441,6 +10441,21 @@ always
                 }
                 String number = order.get("orderNo") == null ? "" : order.get("orderNo").trim();
                 Map<String, String> kept = byNumber.get(number);
+                if (kept != null && onePrintsThePriceOfTheOther(kept, order)) {
+                    // the block printed 原装正品 TPS63051RMWR … ¥2.18 x100 with 实付款 ¥217.90, and the
+                    // model answered that one row twice: once with the money of the order and once
+                    // with the price of a single piece. The price of a piece is not an order of its
+                    // own, so the read that carries the block's money stays alone (a page of 23
+                    // orders came back with 24, Step 144)
+                    if (biggerMoney(order, kept)) {
+                        kept.clear();
+                        kept.putAll(order);
+                    }
+                    String already = kept.get("note");
+                    String why = "同一块被读成了两张单（另一张把单价当成了实付），多出来的那条已去掉，请对着截图核对";
+                    kept.put("note", already == null || already.trim().isEmpty() ? why : already + "；" + why);
+                    continue;
+                }
                 boolean halvesOfOneBlock = kept != null && sameAnswer(kept, slice, sliceOf)
                         && saysFewerBlocksThanItRead(blocksSaid, slice, answer.size())
                         && sameShopOrMissing(kept, order);
@@ -10780,6 +10795,57 @@ always
             key = number + " #" + i;
         }
         return key;
+    }
+
+    /**
+     * Tells whether two reads of one block printed the same row, one of them carrying the price of a
+     * single piece where the other carries what the order was paid: the page printed
+     * {@code 原装正品 TPS63051RMWR … ¥2.18 x100} with 实付款 {@code ¥217.90}, and the model answered that
+     * row twice - 217.90 once and 2.18 once - because 217.90 is 100 x 2.18 (Step 144).
+     *
+     * @param kept one read of the block
+     * @param order the other read of it
+     * @return {@code true} when one row amount is the other one multiplied by a quantity of the row
+     */
+    private static boolean onePrintsThePriceOfTheOther(Map<String, String> kept, Map<String, String> order) {
+        for (String[] here : parseOrderArticleLines(kept.get("lines"))) {
+            double hereQty = toDouble(here[2], 0.0);
+            double hereAmount = toDouble(here[3], 0.0);
+            for (String[] there : parseOrderArticleLines(order.get("lines"))) {
+                double thereQty = toDouble(there[2], 0.0);
+                double thereAmount = toDouble(there[3], 0.0);
+                if (hereQty <= 0.0 || thereQty <= 0.0 || hereAmount <= 0.0 || thereAmount <= 0.0) {
+                    continue;
+                }
+                double bigger = Math.max(hereAmount, thereAmount);
+                double smaller = Math.min(hereAmount, thereAmount);
+                // the two reads have to disagree, and a piece price only makes a bigger number when
+                // there are pieces: one piece of 6.00 against one piece of 6.00 is the same row read
+                // twice in the overlap of two slices, not a price
+                if (bigger <= smaller + 0.06) {
+                    continue;
+                }
+                // a piece price times the pieces is what the order was paid: the page rounds its unit
+                // prices, so a few tenths of a cent per piece are allowed for
+                double slack = Math.max(0.05, 0.002 * bigger);
+                if ((hereQty >= 2.0 && Math.abs(round2(bigger - hereQty * smaller)) <= slack)
+                        || (thereQty >= 2.0 && Math.abs(round2(bigger - thereQty * smaller)) <= slack)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    /**
+     * @param first one read of a block
+     * @param second the other read of it
+     * @return {@code true} when the first carries the bigger money, which is the read of the order
+     */
+    private static boolean biggerMoney(Map<String, String> first, Map<String, String> second) {
+        Double here = optionalAmount(first.get("paidTotal"));
+        Double there = optionalAmount(second.get("paidTotal"));
+        return here != null && there != null && here.doubleValue() > there.doubleValue() + 0.06;
     }
 
     /**

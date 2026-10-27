@@ -1047,50 +1047,65 @@ public class MfgServicesTest {
 
     @Test
     public void bringsTheTwoHalvesOfOneBlockBackTogether() {
-        // a block prints one order number and one 实付款, so when the model answers with two objects of
-        // that one number (two articles, each with its own money) while saying the picture shows one
-        // block, the two objects are the two halves of it (a page of 23 orders came back with 24)
+        // the block prints 原装正品 TPS63051RMWR … ¥2.18 x100 with 实付款 ¥217.90, and the model answered
+        // that one row twice: once with the money of the order and once with the price of one piece
+        // (217.90 is 100 x 2.18). The piece price is not an order of its own - a page of 23 orders came
+        // back with 24 - so only the read that carries the block's money stays
         List<Map<String, String>> picture = MfgServices.orderListFrom("{\"orderCount\":\"1\",\"orders\":["
                 + "{\"orderNo\":\"3071465510024500570\",\"shop\":\"深圳市华胜特电子商城\","
                 + "\"paidTotal\":\"217.90\",\"freight\":\"0.00\",\"rowCount\":\"1\","
-                + "\"items\":[{\"code\":\"TPS62130\",\"name\":\"buck module\",\"qty\":\"1\","
+                + "\"items\":[{\"code\":\"TPS63051RMWR\",\"name\":\"buck converter\",\"qty\":\"100\","
                 + "\"amount\":\"217.90\"}]},"
                 + "{\"orderNo\":\"3071465510024500570\",\"shop\":\"深圳市华胜特电子商城\","
                 + "\"paidTotal\":\"2.18\",\"freight\":\"0.00\",\"rowCount\":\"1\","
-                + "\"items\":[{\"code\":\"0603 10K\",\"name\":\"resistor\",\"qty\":\"100\","
+                + "\"items\":[{\"code\":\"TPS63051RMWR\",\"name\":\"buck converter\",\"qty\":\"100\","
                 + "\"amount\":\"2.18\"}]}]}");
-        List<Map<String, String>> merged = MfgServices.mergeOrders(Collections.singletonList(picture),
+        // the count the model gives does not matter: the money says the second read is the piece price
+        for (Integer said : new Integer[] {null, Integer.valueOf(1), Integer.valueOf(2)}) {
+            List<Integer> counts = said == null ? null : Collections.singletonList(said);
+            List<Map<String, String>> merged = MfgServices.mergeOrders(Collections.singletonList(picture),
+                    counts);
+            assertEquals(1, merged.size());
+            assertEquals(1, MfgServices.parseOrderArticleLines(merged.get(0).get("lines")).size());
+            assertEquals("217.90", merged.get(0).get("paidTotal"));
+            assertNotNull(merged.get(0).get("note"));
+            assertNull(MfgServices.checkOrderTotals(merged.get(0)));
+        }
+
+        // a block of two real articles that came back as two objects is joined again when the picture
+        // says it holds one block: both rows stay and the money is the two halves added up
+        List<Map<String, String>> splitBlock = MfgServices.orderListFrom("{\"orderCount\":\"1\",\"orders\":["
+                + "{\"orderNo\":\"3071465510024500571\",\"shop\":\"深圳市华胜特电子商城\","
+                + "\"paidTotal\":\"10.00\",\"freight\":\"0.00\",\"rowCount\":\"2\","
+                + "\"items\":[{\"code\":\"A\",\"name\":\"a\",\"qty\":\"1\",\"amount\":\"10.00\"}]},"
+                + "{\"orderNo\":\"3071465510024500571\",\"shop\":\"深圳市华胜特电子商城\","
+                + "\"paidTotal\":\"5.00\",\"freight\":\"0.00\",\"rowCount\":\"2\","
+                + "\"items\":[{\"code\":\"B\",\"name\":\"b\",\"qty\":\"3\",\"amount\":\"5.00\"}]}]}");
+        List<Map<String, String>> joined = MfgServices.mergeOrders(Collections.singletonList(splitBlock),
                 Collections.singletonList(Integer.valueOf(1)));
-        assertEquals(1, merged.size());
-        // both article rows are there, and the money of the block is the two halves added up
-        assertEquals(2, MfgServices.parseOrderArticleLines(merged.get(0).get("lines")).size());
-        assertEquals("220.08", merged.get(0).get("paidTotal"));
-        assertNotNull(merged.get(0).get("note"));
+        assertEquals(1, joined.size());
+        assertEquals(2, MfgServices.parseOrderArticleLines(joined.get(0).get("lines")).size());
+        assertEquals("15.00", joined.get(0).get("paidTotal"));
 
         // a picture that says it holds two blocks keeps the two blocks
-        List<Map<String, String>> samePicture = MfgServices.orderListFrom("{\"orderCount\":\"2\",\"orders\":["
-                + "{\"orderNo\":\"3071465510024500570\",\"shop\":\"深圳市华胜特电子商城\","
-                + "\"paidTotal\":\"217.90\",\"freight\":\"0.00\",\"rowCount\":\"1\","
-                + "\"items\":[{\"code\":\"TPS62130\",\"name\":\"buck module\",\"qty\":\"1\","
-                + "\"amount\":\"217.90\"}]},"
-                + "{\"orderNo\":\"3071465510024500570\",\"shop\":\"深圳市华胜特电子商城\","
-                + "\"paidTotal\":\"2.18\",\"freight\":\"0.00\",\"rowCount\":\"1\","
-                + "\"items\":[{\"code\":\"0603 10K\",\"name\":\"resistor\",\"qty\":\"100\","
-                + "\"amount\":\"2.18\"}]}]}");
-        assertEquals(2, MfgServices.mergeOrders(Collections.singletonList(samePicture),
+        List<Map<String, String>> twoBlocks = MfgServices.orderListFrom("{\"orderCount\":\"2\",\"orders\":["
+                + "{\"orderNo\":\"3071465510024500571\",\"shop\":\"深圳市华胜特电子商城\","
+                + "\"paidTotal\":\"10.00\",\"rowCount\":\"1\","
+                + "\"items\":[{\"code\":\"A\",\"name\":\"a\",\"qty\":\"1\",\"amount\":\"10.00\"}]},"
+                + "{\"orderNo\":\"3071465510024500571\",\"shop\":\"深圳市华胜特电子商城\","
+                + "\"paidTotal\":\"5.00\",\"rowCount\":\"1\","
+                + "\"items\":[{\"code\":\"B\",\"name\":\"b\",\"qty\":\"3\",\"amount\":\"5.00\"}]}]}");
+        assertEquals(2, MfgServices.mergeOrders(Collections.singletonList(twoBlocks),
                 Collections.singletonList(Integer.valueOf(2))).size());
 
-        // two shops are two orders however the count reads: the number and the shop sit on one strip,
-        // so a block read twice keeps the shop it printed
+        // two shops are two orders however the count reads: the number and the shop sit on one strip
         List<Map<String, String>> twoShops = MfgServices.orderListFrom("{\"orderCount\":\"1\",\"orders\":["
-                + "{\"orderNo\":\"3071465510024500570\",\"shop\":\"深圳市华胜特电子商城\","
-                + "\"paidTotal\":\"217.90\",\"rowCount\":\"1\","
-                + "\"items\":[{\"code\":\"TPS62130\",\"name\":\"buck module\",\"qty\":\"1\","
-                + "\"amount\":\"217.90\"}]},"
-                + "{\"orderNo\":\"3071465510024500570\",\"shop\":\"深圳市德明电子贸易商\","
-                + "\"paidTotal\":\"2.18\",\"rowCount\":\"1\","
-                + "\"items\":[{\"code\":\"0603 10K\",\"name\":\"resistor\",\"qty\":\"100\","
-                + "\"amount\":\"2.18\"}]}]}");
+                + "{\"orderNo\":\"3071465510024500571\",\"shop\":\"深圳市华胜特电子商城\","
+                + "\"paidTotal\":\"10.00\",\"rowCount\":\"1\","
+                + "\"items\":[{\"code\":\"A\",\"name\":\"a\",\"qty\":\"1\",\"amount\":\"10.00\"}]},"
+                + "{\"orderNo\":\"3071465510024500571\",\"shop\":\"深圳市德明电子贸易商\","
+                + "\"paidTotal\":\"5.00\",\"rowCount\":\"1\","
+                + "\"items\":[{\"code\":\"B\",\"name\":\"b\",\"qty\":\"3\",\"amount\":\"5.00\"}]}]}");
         assertEquals(2, MfgServices.mergeOrders(Collections.singletonList(twoShops),
                 Collections.singletonList(Integer.valueOf(1))).size());
     }
