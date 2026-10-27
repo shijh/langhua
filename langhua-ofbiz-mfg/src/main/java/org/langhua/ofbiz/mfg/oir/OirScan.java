@@ -341,10 +341,11 @@ public final class OirScan {
         // a long page (several order blocks one under the other) is cut into overlapping slices: one
         // small picture per slice is read far more reliably than five blocks at once, and the rows of
         // an order that straddles two slices are joined afterwards by its number
-        List<byte[]> slices = slicesOf(image);
+        Slices sliced = slicesOfRanges(image);
+        List<byte[]> slices = sliced.pictures;
         String sliceNote = "";
         if (slices.size() == 1) {
-            Read read = readPicture(slices.get(0), endpoint, model, key, contentType, false);
+            Read read = readPicture(slices.get(0), endpoint, model, key, contentType, false, 0);
             orders = read.orders;
             reply = read.reply;
             seen = read.seen;
@@ -362,12 +363,18 @@ public final class OirScan {
             final String sliceModel = model;
             final String sliceKey = key;
             final String sliceType = contentType;
-            for (byte[] slice : slices) {
-                final byte[] picture = slice;
+            for (int at = 0; at < slices.size(); at++) {
+                final byte[] picture = slices.get(at);
+                // how many blocks that slice shows whole: what its answer should hold, and the only
+                // way to see a block the model dropped (a slice cuts nothing else, so nothing else
+                // notices)
+                int[] range = sliced.ranges.get(at);
+                final int blocksHere = blocksInside(sliced.buttons, range[0], range[1]);
                 running.add(pool.submit(new Callable<Read>() {
                     @Override
                     public Read call() {
-                        return readPicture(picture, sliceEndpoint, sliceModel, sliceKey, sliceType, true);
+                        return readPicture(picture, sliceEndpoint, sliceModel, sliceKey, sliceType, true,
+                                blocksHere);
                     }
                 }));
             }
@@ -581,6 +588,33 @@ public final class OirScan {
     }
 
     /**
+     * How many order blocks a slice shows whole, told by the buttons of the page: a block ends with
+     * its button, and its header starts below the button of the block above, so a block is whole when
+     * the button above it is well inside the slice and its own button is too. The first block of the
+     * page has nothing above it to tell, and a block cut at the top or at the bottom is not counted -
+     * its rows may be the only thing the slice shows.
+     *
+     * @param buttons the top row of every button of the page, top to bottom
+     * @param top the first row of the slice
+     * @param bottom the last row of the slice
+     * @return how many blocks the slice shows whole
+     */
+    public static int blocksInside(List<Integer> buttons, int top, int bottom) {
+        int inside = 0;
+        if (buttons == null) {
+            return 0;
+        }
+        for (int i = 1; i < buttons.size(); i++) {
+            int above = buttons.get(i - 1).intValue();
+            int button = buttons.get(i).intValue();
+            if (above >= top + 60 && button <= bottom - 60) {
+                inside++;
+            }
+        }
+        return inside;
+    }
+
+    /**
      * Sends one picture and keeps the best answer of the attempts. A vision call falls over now and
      * then (a slow answer, a thinking model that runs out of room, a dropped connection, one order of
      * a list read and the others skipped), and the last attempt is not always the best one, so the
@@ -593,10 +627,13 @@ public final class OirScan {
      * @param contentType the content type of the picture
      * @param partial {@code true} for a slice of a long page: an order may be cut in two, so the money
      *        of that slice is allowed not to add up
+     * @param blocksHere how many order blocks the picture prints whole, {@code 0} when unknown: an
+     *        answer with one block less is asked again, which is the only check that sees a block
+     *        dropped in the middle of a slice
      * @return what was read
      */
     private static Read readPicture(byte[] picture, String endpoint, String model, String key,
-            String contentType, boolean partial) {
+            String contentType, boolean partial, int blocksHere) {
         Read read = new Read();
         // a slice of a page full of product photographs is large as PNG: hand it over as JPEG, which
         // keeps the call small enough for the endpoint while the text stays readable
@@ -642,10 +679,11 @@ public final class OirScan {
             }
             // fewer orders read than the model says it saw, an answer that is mostly the answer
             // format, a row whose quantity or amount cannot be read, a page that prints a pack size
-            // while every line came back as one piece, or (on a whole screenshot) an order whose
-            // goods plus freight is not the paid total: either way one more send is worth it
+            // while every line came back as one piece, a slice that prints more blocks than came
+            // back, or (on a whole screenshot) an order whose goods plus freight is not the paid
+            // total: either way one more send is worth it
             boolean shortRead = !partial && counted > 0 && got.size() < counted;
-            String why = whyAskAgain(got, counted, partial, shortRead, reply);
+            String why = whyAskAgain(got, counted, partial, shortRead, blocksHere, reply);
             if (why == null) {
                 bestOrders = got;
                 bestReply = reply;
@@ -661,6 +699,12 @@ public final class OirScan {
         read.orders = bestOrders;
         read.reply = bestReply != null ? bestReply : read.reply;
         read.seen = bestSeen;
+        if (blocksHere > 0) {
+            // what a slice shows and what it answered, side by side: the only way to tell a slice that
+            // dropped a block from one that read its blocks and a piece of the next
+            Debug.logInfo("A picture printing " + blocksHere + " blocks was answered with "
+                    + bestOrders.size() + " orders", MODULE);
+        }
         return read;
     }
 
@@ -673,16 +717,23 @@ public final class OirScan {
      * @param counted how many order blocks the model said the picture shows, zero when it did not say
      * @param partial {@code true} for one slice of a long page, whose money is allowed not to add up
      * @param shortRead {@code true} when fewer orders came back than the model said it saw
+     * @param blocksHere how many order blocks the picture prints whole, {@code 0} when unknown
      * @param reply the answer text
      * @return why the picture should be asked again, {@code null} when it need not be
      */
     private static String whyAskAgain(List<Map<String, String>> got, int counted, boolean partial,
-            boolean shortRead, String reply) {
+            boolean shortRead, int blocksHere, String reply) {
         if (got.isEmpty()) {
             return "no order came back";
         }
         if (shortRead) {
             return "the model saw " + counted + " orders and answered " + got.size();
+        }
+        if (blocksHere >= 2 && got.size() < blocksHere) {
+            // a block carries its own button whatever became of the deal, so a slice that prints two
+            // of them and answers one has dropped one: nothing else notices, the money of what came
+            // back adds up on its own (Step 154)
+            return "the slice prints " + blocksHere + " blocks and answered " + got.size();
         }
         if (OirOrders.echoesTemplate(reply)) {
             return "the answer is the answer format itself";
@@ -718,7 +769,22 @@ public final class OirScan {
      * @return one entry per slice
      */
     public static List<byte[]> slicesOf(byte[] image) {
-        List<byte[]> slices = new ArrayList<>();
+        return slicesOfRanges(image).pictures;
+    }
+
+    /**
+     * The slices of a picture, each with the rows it was cut from, and the buttons of the whole page.
+     * The rows are what makes it possible to say how many order blocks a slice really shows, and so to
+     * notice a slice the model answered with one block less than it prints.
+     */
+    private static final class Slices {
+        private final List<byte[]> pictures = new ArrayList<>();
+        private final List<int[]> ranges = new ArrayList<>();
+        private final List<Integer> buttons = new ArrayList<>();
+    }
+
+    private static Slices slicesOfRanges(byte[] image) {
+        Slices sliced = new Slices();
         BufferedImage full;
         try {
             full = ImageIO.read(new ByteArrayInputStream(image));
@@ -727,8 +793,9 @@ public final class OirScan {
             full = null;
         }
         if (full == null || full.getHeight() <= ONE_CALL_HEIGHT) {
-            slices.add(image);
-            return slices;
+            sliced.pictures.add(image);
+            sliced.ranges.add(new int[] {0, full == null ? 0 : full.getHeight()});
+            return sliced;
         }
         int height = full.getHeight();
         // how tall one slice should be: two order blocks, measured on the picture itself, so the cuts
@@ -736,7 +803,31 @@ public final class OirScan {
         int target = sliceTargetOf(full);
         // the blocks of the page are found in the picture itself when it is a list of orders: cutting
         // between two blocks keeps every block whole, which is what the model needs most (Step 139)
-        List<Integer> anchors = blockAnchors(full);
+        List<int[]> found = buttonsOf(full);
+        List<Integer> anchors = new ArrayList<>(found.size());
+        for (int[] button : found) {
+            anchors.add(Integer.valueOf(button[0]));
+        }
+        // the buttons of the list itself, without the page's own: only those say how many blocks a
+        // slice shows, and a page header or a recommendation strip counted as a block would make a
+        // good answer look short and send it again for nothing (Step 154)
+        List<Integer> list = listButtons(found, Math.max(2, full.getWidth() / 200));
+        sliced.buttons.addAll(list);
+        // the last block of the list ends with its button, and below that the page prints its
+        // recommendation feed: cards with prices and buttons of their own and no orders at all. On the
+        // audited page that feed was the bottom 4700 rows - three of twelve calls spent on
+        // advertisements and a chance for the model to invent an order (Step 154)
+        if (!list.isEmpty()) {
+            int lastButton = list.get(list.size() - 1).intValue();
+            // one block of room below the last button, so an order that prints no orange button of its
+            // own is still inside
+            int end = Math.min(height, lastButton + Math.max(300, blockHeightOf(full)));
+            if (end < height) {
+                Debug.logInfo("The order list ends at row " + end + " of " + height
+                        + ", the rest is the recommendation feed", MODULE);
+                height = end;
+            }
+        }
         // how many buttons the page prints is logged: it is close to the number of order blocks, and
         // the next step towards spotting a block the model never read (see oir/README.md, section 6)
         Debug.logInfo("The picture shows " + anchors.size() + " orange buttons in " + height + " rows",
@@ -750,11 +841,15 @@ public final class OirScan {
             int bottom = i < cuts.size() ? cuts.get(i).intValue() : height;
             byte[] slice = sliceOf(full, top, bottom);
             if (slice == null) {
-                slices.clear();
-                slices.add(image);
-                return slices;
+                sliced.pictures.clear();
+                sliced.ranges.clear();
+                sliced.buttons.clear();
+                sliced.pictures.add(image);
+                sliced.ranges.add(new int[] {0, height});
+                return sliced;
             }
-            slices.add(slice);
+            sliced.pictures.add(slice);
+            sliced.ranges.add(new int[] {top, bottom});
             if (bottom >= height) {
                 break;
             }
@@ -763,7 +858,7 @@ public final class OirScan {
             int next = bottom - SLICE_OVERLAP;
             top = next > top ? next : bottom;
         }
-        return slices;
+        return sliced;
     }
 
     /**
@@ -979,30 +1074,60 @@ public final class OirScan {
      *         buttons, or no place printed more than once)
      */
     public static int blockCountOf(BufferedImage image) {
-        List<int[]> buttons = buttonsOf(image);
+        List<Integer> buttons = listButtonsOf(image);
+        return buttons.size() >= 3 ? buttons.size() : 0;
+    }
+
+    /**
+     * The buttons of the order list itself, top to bottom, without the ones of the page header and of
+     * the recommendation strip below the list: those stand somewhere else on the page and are printed
+     * once, while every block of the list prints its button at the same place.
+     *
+     * @param image the picture
+     * @return the top row of every button of the list, empty when the page does not say
+     */
+    public static List<Integer> listButtonsOf(BufferedImage image) {
+        return listButtons(buttonsOf(image), Math.max(2, image.getWidth() / 200));
+    }
+
+    /**
+     * The buttons of the list among all the buttons found: the members of the biggest place.
+     *
+     * @param buttons the buttons of the picture, {@code {top row, left edge}} each
+     * @param step the width of one sample of the picture
+     * @return the top row of every button of the list, empty when no place repeats
+     */
+    private static List<Integer> listButtons(List<int[]> buttons, int step) {
         if (buttons.size() < 3) {
-            return 0;
+            return new ArrayList<>();
         }
-        int step = Math.max(2, image.getWidth() / 200);
-        java.util.TreeMap<Integer, Integer> byPlace = new java.util.TreeMap<>();
+        java.util.TreeMap<Integer, List<Integer>> byPlace = new java.util.TreeMap<>();
         for (int[] button : buttons) {
             Integer place = Integer.valueOf(button[1] / step);
-            Integer there = byPlace.get(place);
-            byPlace.put(place, Integer.valueOf(there == null ? 1 : there.intValue() + 1));
+            List<Integer> there = byPlace.get(place);
+            if (there == null) {
+                there = new ArrayList<>();
+                byPlace.put(place, there);
+            }
+            there.add(Integer.valueOf(button[0]));
         }
         // a shop may print two button styles that start a step or two apart, so neighbouring places
-        // are counted together
-        int most = 0;
-        int running = 0;
+        // are one place
+        List<Integer> best = new ArrayList<>();
+        List<Integer> running = new ArrayList<>();
         Integer previous = null;
-        for (Map.Entry<Integer, Integer> place : byPlace.entrySet()) {
-            running = previous != null && place.getKey().intValue() - previous.intValue() <= 2
-                    ? running + place.getValue().intValue()
-                    : place.getValue().intValue();
-            most = Math.max(most, running);
+        for (Map.Entry<Integer, List<Integer>> place : byPlace.entrySet()) {
+            if (previous != null && place.getKey().intValue() - previous.intValue() <= 2) {
+                running.addAll(place.getValue());
+            } else {
+                running = new ArrayList<>(place.getValue());
+            }
+            if (running.size() > best.size()) {
+                best = new ArrayList<>(running);
+            }
             previous = place.getKey();
         }
-        return most >= 3 ? most : 0;
+        return best.size() >= 3 ? best : new ArrayList<>();
     }
 
     /**

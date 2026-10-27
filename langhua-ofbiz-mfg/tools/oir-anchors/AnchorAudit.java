@@ -41,6 +41,27 @@ public final class AnchorAudit {
         System.out.println("blockHeight " + block + " sliceTarget " + target
                 + " anchors " + anchors.size() + " slices " + (cuts.size() + 1));
         System.out.println("order blocks the page shows: " + blocks);
+        @SuppressWarnings("unchecked")
+        List<Integer> list = (List<Integer>) scan.getMethod("listButtonsOf", BufferedImage.class)
+                .invoke(null, image);
+        System.out.println("buttons of the list: " + list);
+        Method insideM = scan.getMethod("blocksInside", List.class, int.class, int.class);
+        int top = 0;
+        int total = 0;
+        for (int i = 0; i <= cuts.size(); i++) {
+            int bottom = i < cuts.size() ? cuts.get(i).intValue() : image.getHeight();
+            int inside = ((Integer) insideM.invoke(null, list, Integer.valueOf(top),
+                    Integer.valueOf(bottom))).intValue();
+            total += inside;
+            System.out.println("  slice " + i + " rows " + top + ".." + bottom
+                    + " shows " + inside + " blocks whole");
+            if (bottom >= image.getHeight()) {
+                break;
+            }
+            int next = bottom - 500;
+            top = next > top ? next : bottom;
+        }
+        System.out.println("blocks counted over all slices: " + total);
         System.out.println("anchors " + anchors);
         System.out.println("cuts " + cuts);
     }

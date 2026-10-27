@@ -1080,6 +1080,16 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   实测 10 连测：9 次 23/23 无提示，1 次模型只读 21 张 → 消息自动多出“可能漏了 2 张”。
   单测 `countsTheBlocksOfAPageByWhereTheirButtonsArePrinted`（含两种按钮样式、页头/页尾各一个、两块的页返回 0）
   与 `blockCountNote` 的四种说法。
+- **底部信息流要截掉 + 每段核对“看见几个块”（Step 154）**：实测 23 单那页的订单只到 y≈11700，
+  下面 4700 行是「猜你喜欢」信息流（有价格、有按钮、没有订单）——以前它占了 12 段里的 3 段。
+  `slicesOfRanges` 现在把图截到「最后一个**列表按钮** + 一个块高」（12297 / 16384），**12 段 → 9 段**。
+  截断用 `listButtonsOf`（只留重复出现的那一组按钮），所以页头/信息流那一堆不会被当成“最后一块”。
+  同一处还给每段算 `blocksInside`（上一块的按钮已进段、本块按钮也在段内 = 这一块完整可见），
+  一段印 2 块只答 1 块就重发这一段——**整段丢一块时金额自己是对的，别的检查都看不见**。
+  实测（20 次）：每段的“块数 → 答出单数”永远是 `≥`（多出来的是接缝处的半块），所以这道检查只在真丢块时触发；
+  整页仍是 17/20 正确、3/20 多一行。
+  **日志**：`A picture printing N blocks was answered with M orders`（每段一条）、
+  `The order list ends at row X of Y`（截断位置）、`The picture shows N order buttons, M orders were read`（整页）。
 - **PowerShell 写文件别用 `Set-Content -Encoding UTF8`**：PS 5.1 会带 BOM，javac 直接报
   `非法字符: '\ufeff'`（三个文件同时中招）。要改源码用 `create_file`/编辑工具，或写完后用
   `[System.IO.File]::WriteAllBytes` 去掉前 3 个字节。

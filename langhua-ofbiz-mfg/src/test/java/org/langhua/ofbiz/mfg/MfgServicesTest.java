@@ -1674,6 +1674,24 @@ public class MfgServicesTest {
     }
 
     @Test
+    public void tellsHowManyBlocksASliceShowsWhole() {
+        // a block ends with its button and starts below the button of the block above, so a block is
+        // whole in a slice when both buttons are well inside it. This is what a slice's answer is
+        // held against: one block less than it prints is a block the model dropped, and nothing else
+        // in the read notices it (Step 154)
+        List<Integer> buttons = java.util.Arrays.asList(Integer.valueOf(118), Integer.valueOf(673),
+                Integer.valueOf(1037), Integer.valueOf(1445), Integer.valueOf(2148));
+        // the first slice holds the blocks that end at 673 and at 1037; the page header at 118 is not
+        // a block and the block ending at 1445 is cut by the bottom of the slice
+        assertEquals(2, OirScan.blocksInside(buttons, 0, 1241));
+        // the second slice starts below the 673 button, so that block is cut at its top
+        assertEquals(2, OirScan.blocksInside(buttons, 741, 2352));
+        // a slice that shows only one block says nothing: one is what the model is expected to answer
+        assertEquals(0, OirScan.blocksInside(buttons, 1000, 1500));
+        assertEquals(0, OirScan.blocksInside(null, 0, 100));
+    }
+
+    @Test
     public void takesALongPageScreenshotAsItIs() {
         // a whole shop page captured in one picture runs to ten megabytes and more; the picture is
         // cut into slices anyway, so the upload is not refused for being long (Step 128)
