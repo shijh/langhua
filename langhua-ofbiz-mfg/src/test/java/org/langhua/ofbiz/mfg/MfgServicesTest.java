@@ -1747,6 +1747,92 @@ public class MfgServicesTest {
     }
 
     @Test
+    public void correctsTheOrderNumberWithTheSharperRead() {
+        // the number is the key the import joins on, and it is the one field a model fills in from the
+        // shape of its neighbours: on the audited page it answered 3071881380774500570 where the page
+        // prints 3102077787932500570. The header line is read a second time from a strip the service
+        // scales half as much, so where the two disagree the strip wins - and the order says so
+        // (Step 156)
+        List<Map<String, String>> headers = OirOrders.headerListFrom(
+                "{\"blocks\":[{\"orderNo\":\"3102077787932500570\",\"orderDate\":\"2025-12-04\","
+                        + "\"shop\":\"盛创\"}]}");
+        assertEquals(1, headers.size());
+        assertEquals("3102077787932500570", headers.get(0).get("orderNo"));
+
+        // the real answer comes wrapped: a chat envelope whose content is the escaped JSON. The envelope
+        // is what the service returns, and reading the raw envelope as if it were the answer found no
+        // header at all (2026-10-27)
+        List<Map<String, String>> wrapped = OirOrders.headerListFrom(
+                "{\"choices\":[{\"message\":{\"role\":\"assistant\",\"content\":"
+                        + "\"{\\\"blocks\\\":[{\\\"orderNo\\\":\\\"3102077787932500570\\\","
+                        + "\\\"orderDate\\\":\\\"2025-12-04\\\",\\\"shop\\\":\\\"盛创\\\"},"
+                        + "{\\\"orderNo\\\":\\\"3102053594917500570\\\"}]}\"}}]}");
+        assertEquals(2, wrapped.size());
+        assertEquals("3102077787932500570", wrapped.get(0).get("orderNo"));
+        assertEquals("3102053594917500570", wrapped.get(1).get("orderNo"));
+
+        Map<String, String> order = new LinkedHashMap<>();
+        order.put("orderNo", "3071881380774500570");
+        order.put("shop", "");
+        order.put("orderDate", "");
+        List<Map<String, String>> orders = new ArrayList<>();
+        orders.add(order);
+        assertEquals(1, OirOrders.correctNumbers(orders, headers));
+        assertEquals("3102077787932500570", order.get("orderNo"));
+        assertEquals("2025-12-04", order.get("orderDate"));
+        assertEquals("盛创", order.get("shop"));
+        assertTrue(order.get("note").contains("单号两次读数不一致"));
+
+        // a correction that would hand two orders one number is not made: the import joins on it
+        Map<String, String> first = new LinkedHashMap<>();
+        first.put("orderNo", "3102077787932500570");
+        Map<String, String> second = new LinkedHashMap<>();
+        second.put("orderNo", "3102053594917500570");
+        List<Map<String, String>> pair = new ArrayList<>(java.util.Arrays.asList(first, second));
+        List<Map<String, String>> bothTheSame = OirOrders.headerListFrom(
+                "{\"blocks\":[{\"orderNo\":\"3102077787932500570\"},"
+                        + "{\"orderNo\":\"3102077787932500570\"}]}");
+        assertEquals(0, OirOrders.correctNumbers(pair, bothTheSame));
+        assertEquals("3102053594917500570", second.get("orderNo"));
+
+        // a block cut at the top of the picture has no number of its own: the two lists are not the same
+        // blocks then, so nothing may be lined up
+        Map<String, String> anonymous = new LinkedHashMap<>();
+        anonymous.put("orderNo", "");
+        List<Map<String, String>> withAnonymous = new ArrayList<>(java.util.Arrays.asList(anonymous));
+        assertEquals(0, OirOrders.correctNumbers(withAnonymous, headers));
+        assertEquals("", anonymous.get("orderNo"));
+        assertEquals(0, OirOrders.correctNumbers(pair, headers));
+    }
+
+    @Test
+    public void cutsTheEmptyMarginAway() {
+        // a shop page keeps an empty margin each side; cutting it away is what makes the digits of an
+        // order number bigger once the vision service scales the picture down
+        int width = 800;
+        int height = 300;
+        BufferedImage image = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
+        java.awt.Graphics2D pen = image.createGraphics();
+        pen.setColor(java.awt.Color.WHITE);
+        pen.fillRect(0, 0, width, height);
+        pen.setColor(java.awt.Color.BLACK);
+        pen.fillRect(200, 40, 400, 200);
+        pen.dispose();
+        int[] columns = OirScan.contentColumns(image, 0, height);
+        assertTrue("left " + columns[0], columns[0] >= 180 && columns[0] <= 200);
+        assertTrue("right " + columns[1], columns[1] >= 598 && columns[1] <= 612);
+
+        // a picture printed edge to edge keeps all its columns
+        BufferedImage solid = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
+        java.awt.Graphics2D pen2 = solid.createGraphics();
+        pen2.setColor(java.awt.Color.BLACK);
+        pen2.fillRect(0, 0, width, height);
+        pen2.dispose();
+        assertEquals(0, OirScan.contentColumns(solid, 0, height)[0]);
+        assertEquals(width - 1, OirScan.contentColumns(solid, 0, height)[1]);
+    }
+
+    @Test
     public void takesALongPageScreenshotAsItIs() {
         // a whole shop page captured in one picture runs to ten megabytes and more; the picture is
         // cut into slices anyway, so the upload is not refused for being long (Step 128)

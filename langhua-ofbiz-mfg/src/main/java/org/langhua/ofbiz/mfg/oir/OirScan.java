@@ -149,6 +149,13 @@ public final class OirScan {
     public static final int MAX_PARALLEL = 6;
 
     /**
+     * How wide the strip with the order numbers is, in pixels of the picture: the page prints its number
+     * and shop on the left, and a strip 1700 wide is handed to the model at about the size it was
+     * captured, while the whole slice of 3434 has to be scaled down (Step 156).
+     */
+    public static final int STRIP_WIDTH = 1700;
+
+    /**
      * The orange of the 再买一单 button of a shop order block. Every block of a Taobao / 天猫 list
      * prints one, so the blocks can be counted in the picture and the cuts put between them instead
      * of at a fixed height (Step 139).
@@ -186,6 +193,20 @@ public final class OirScan {
     /** A 1x1 png, used by the connection test so a vision endpoint has something to look at. */
     private static final String TINY_PNG =
             "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
+
+    /**
+     * The "numbers only" question, asked about a picture cropped to the left of the page: the order
+     * number, the date and the shop of every block, and nothing else. Kept as short as it can be - the
+     * answer is one line per block, so a thinking model has nothing to weigh.
+     */
+    public static final String HEADER_PROMPT = "Read only the header line of every order block in this"
+            + " picture (the line with 订单号 / 下单时间 / 店铺名称 above the articles) and answer with"
+            + " one JSON object only, no prose:"
+            + " {\"blocks\":[{\"orderNo\":\"\",\"orderDate\":\"yyyy-MM-dd\",\"shop\":\"\"}]}"
+            + " One element per block, top to bottom, in the order the blocks are printed. orderNo is the"
+            + " order number exactly as printed after 订单号, digit by digit - copy it, never guess the"
+            + " digits from the other numbers of the page. shop is the shop name only, without the"
+            + " platform word. Do not read the articles, the money or the buttons.";
 
     /**
      * What the model is asked for: one JSON object, nothing else.
@@ -348,6 +369,14 @@ public final class OirScan {
         String sliceNote = "";
         if (slices.size() == 1) {
             Read read = readPicture(slices.get(0), endpoint, model, key, contentType, false, 0);
+            // the numbers read from the whole page, and again from the narrow strip where they are
+            // printed twice as large: where the two disagree the strip wins (Step 156)
+            int corrected = OirOrders.correctNumbers(read.orders,
+                    readHeaders(sliced.strips.isEmpty() ? null : sliced.strips.get(0), endpoint, model,
+                            key, "image/png"));
+            if (corrected > 0) {
+                Debug.logInfo("The header line corrected " + corrected + " order numbers", MODULE);
+            }
             orders = read.orders;
             reply = read.reply;
             seen = read.seen;
@@ -367,6 +396,7 @@ public final class OirScan {
             final String sliceType = contentType;
             for (int at = 0; at < slices.size(); at++) {
                 final byte[] picture = slices.get(at);
+                final byte[] strip = at < sliced.strips.size() ? sliced.strips.get(at) : null;
                 // how many blocks that slice shows whole: what its answer should hold, and the only
                 // way to see a block the model dropped (a slice cuts nothing else, so nothing else
                 // notices)
@@ -375,8 +405,11 @@ public final class OirScan {
                 running.add(pool.submit(new Callable<Read>() {
                     @Override
                     public Read call() {
-                        return readPicture(picture, sliceEndpoint, sliceModel, sliceKey, sliceType, true,
-                                blocksHere);
+                        Read read = readPicture(picture, sliceEndpoint, sliceModel, sliceKey,
+                                sliceType, true, blocksHere);
+                        OirOrders.correctNumbers(read.orders,
+                                readHeaders(strip, sliceEndpoint, sliceModel, sliceKey, "image/png"));
+                        return read;
                     }
                 }));
             }
@@ -626,6 +659,97 @@ public final class OirScan {
     }
 
     /**
+     * Asks one picture for the header line of every order block and nothing else: the order number, the
+     * date it was placed and the shop. Used on a picture cropped to the left of the page, which comes
+     * back to the model far larger than the whole slice does, because a nineteen digit number is the one
+     * field a model fills in from the shape of its neighbours (a page of 23 orders came back with
+     * {@code 3071881380774500570} where the page prints {@code 3102077787932500570}).
+     *
+     * @param strip the picture cropped to the numbered part of the page
+     * @param endpoint the vision endpoint
+     * @param model the model name
+     * @param key the api key
+     * @param contentType the content type of the picture
+     * @return one header per block, top to bottom; empty when the call failed or answered nothing
+     */
+    private static List<Map<String, String>> readHeaders(byte[] strip, String endpoint, String model,
+            String key, String contentType) {
+        if (strip == null) {
+            return Collections.emptyList();
+        }
+        byte[] picture = strip;
+        if (picture.length > MAX_PAYLOAD_BYTES) {
+            byte[] jpeg = jpegOf(picture);
+            if (jpeg != null && jpeg.length < picture.length) {
+                picture = jpeg;
+                contentType = "image/jpeg";
+            }
+        }
+        try {
+            String reply = askVision(endpoint, model, key, picture, contentType, HEADER_PROMPT);
+            List<Map<String, String>> headers = OirOrders.headerListFrom(reply);
+            Debug.logInfo("The header line read gave " + headers.size() + " numbers", MODULE);
+            if (headers.isEmpty()) {
+                Debug.logInfo("The header line answer could not be read: " + reply, MODULE);
+            }
+            return headers;
+        } catch (IOException e) {
+            // the numbers of the main read stand as they are: a picture that cannot be asked a second
+            // time is not a reason to lose the scan
+            Debug.logError(e, "Could not read the order numbers a second time", MODULE);
+            return Collections.emptyList();
+        }
+    }
+
+    /**
+     * The columns a page prints in: a shop page carries an empty margin on each side, and cutting it
+     * away makes every letter - the nineteen digits of an order number above all - that much bigger
+     * once the vision service scales the picture down. The audited page prints between 60 and 2620 of
+     * its 3434 pixels, so a fifth of the picture was margin.
+     *
+     * @param image the picture
+     * @param top the first row to look at
+     * @param bottom the row after the last one to look at
+     * @return {@code {left, right}} of what is printed, {@code {0, width - 1}} when the picture looks
+     *         printed all over
+     */
+    public static int[] contentColumns(BufferedImage image, int top, int bottom) {
+        int width = image.getWidth();
+        int[] all = new int[] {0, width - 1};
+        if (image == null || width < 40) {
+            return all;
+        }
+        int step = Math.max(2, width / 400);
+        int first = -1;
+        int last = -1;
+        for (int x = 0; x < width; x += step) {
+            boolean inked = false;
+            for (int y = Math.max(0, top); y < Math.min(bottom, image.getHeight()); y += 6) {
+                int rgb = image.getRGB(x, y);
+                int r = (rgb >> 16) & 0xFF;
+                int g = (rgb >> 8) & 0xFF;
+                int b = rgb & 0xFF;
+                if ((r + g + b) / 3 <= 200) {
+                    inked = true;
+                    break;
+                }
+            }
+            if (inked) {
+                if (first < 0) {
+                    first = x;
+                }
+                last = x;
+            }
+        }
+        // a margin worth cutting away has to be a real one, or a page printed edge to edge would lose
+        // its own border
+        if (first < 0 || first < width / 50 || width - last < width / 50) {
+            return all;
+        }
+        return new int[] {Math.max(0, first - 8), Math.min(width - 1, last + 8)};
+    }
+
+    /**
      * Sends one picture and keeps the best answer of the attempts. A vision call falls over now and
      * then (a slow answer, a thinking model that runs out of room, a dropped connection, one order of
      * a list read and the others skipped), and the last attempt is not always the best one, so the
@@ -794,6 +918,8 @@ public final class OirScan {
         private final List<byte[]> pictures = new ArrayList<>();
         private final List<int[]> ranges = new ArrayList<>();
         private final List<Integer> buttons = new ArrayList<>();
+        /** The same slices cropped to the numbered left of the page, for the second, sharper read. */
+        private final List<byte[]> strips = new ArrayList<>();
     }
 
     private static Slices slicesOfRanges(byte[] image) {
@@ -808,9 +934,18 @@ public final class OirScan {
         if (full == null || full.getHeight() <= ONE_CALL_HEIGHT) {
             sliced.pictures.add(image);
             sliced.ranges.add(new int[] {0, full == null ? 0 : full.getHeight()});
+            if (full != null) {
+                int[] columns = contentColumns(full, 0, full.getHeight());
+                byte[] strip = sliceOf(full, columns[0],
+                        Math.min(columns[1], columns[0] + STRIP_WIDTH), 0, full.getHeight());
+                if (strip != null) {
+                    sliced.strips.add(strip);
+                } else {
+                    sliced.strips.add(null);
+                }
+            }
             return sliced;
-        }
-        int height = full.getHeight();
+        }        int height = full.getHeight();
         // how tall one slice should be: two order blocks, measured on the picture itself, so the cuts
         // suit the page in hand instead of one number picked for one screenshot (Step 148)
         int target = sliceTargetOf(full);
@@ -849,20 +984,29 @@ public final class OirScan {
         if (cuts.isEmpty()) {
             cuts = cutsAtBlankRows(full, target);
         }
+        // the page prints between two columns and keeps an empty margin each side: cutting it away makes
+        // every letter of the slice bigger once the vision service scales it (Step 156)
+        int[] columns = contentColumns(full, 0, height);
+        int stripRight = Math.min(columns[1], columns[0] + STRIP_WIDTH);
+        Debug.logInfo("The page prints between columns " + columns[0] + " and " + columns[1] + " of "
+                + full.getWidth() + ", the numbers are read from columns " + columns[0] + ".."
+                + stripRight, MODULE);
         int top = 0;
         for (int i = 0; i <= cuts.size(); i++) {
             int bottom = i < cuts.size() ? cuts.get(i).intValue() : height;
-            byte[] slice = sliceOf(full, top, bottom);
+            byte[] slice = sliceOf(full, columns[0], columns[1], top, bottom);
             if (slice == null) {
                 sliced.pictures.clear();
                 sliced.ranges.clear();
                 sliced.buttons.clear();
+                sliced.strips.clear();
                 sliced.pictures.add(image);
                 sliced.ranges.add(new int[] {0, height});
                 return sliced;
             }
             sliced.pictures.add(slice);
             sliced.ranges.add(new int[] {top, bottom});
+            sliced.strips.add(sliceOf(full, columns[0], stripRight, top, bottom));
             if (bottom >= height) {
                 break;
             }
@@ -1035,14 +1179,17 @@ public final class OirScan {
 
     /**
      * @param image the picture
+     * @param left the first column to keep
+     * @param right the last column to keep
      * @param top the first row of the slice
      * @param bottom the row after the last one
      * @return the slice as PNG bytes, {@code null} when it cannot be written
      */
-    private static byte[] sliceOf(BufferedImage image, int top, int bottom) {
+    private static byte[] sliceOf(BufferedImage image, int left, int right, int top, int bottom) {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         try {
-            ImageIO.write(image.getSubimage(0, top, image.getWidth(), bottom - top), "png", out);
+            int width = Math.max(1, Math.min(right, image.getWidth() - 1) - Math.max(0, left) + 1);
+            ImageIO.write(image.getSubimage(Math.max(0, left), top, width, bottom - top), "png", out);
         } catch (IOException e) {
             Debug.logError(e, "Could not write a slice of the screenshot", MODULE);
             return null;

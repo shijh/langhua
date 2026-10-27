@@ -1106,6 +1106,18 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   提示词收窄这一项**没做**（会把全部实测基线作废，要单独跑一轮对照）。
   设计说明的口径在这三处：`docs/识图设计.md`（演进史与为什么）、`oir/README.md`（规则、实测、要审计的问题）、
   本文件（踩过的坑）。**改之前先看后者里的“约束”：不能写库、返回结构不能变、`MfgOrderScan` 类名不能删。**
+- **裁白边 + 单号再读一次（Step 156）**：单号错不是 JPEG 糊的（q0.9 的带子与 PNG 笔画一样完整），
+  而是**19 位数字在模型眼里太小**：原图每位 16.4 px、字高 21 px，接口把 3434 宽压到 1568 就只剩 7.5 px。
+  两件事：
+  ① `contentColumns` 量出页面真正打印的列（审计页 104..2792 / 3434，左边 60 px、右边约 814 px 是空白），
+  切片就按这个裁——**不增调用**，相当于把字放大 28%：日志 `The page prints between columns A and B of W`。
+  ② 每段再裁一条左侧 `STRIP_WIDTH = 1700` 宽的带子，只问「单号 / 下单日 / 店铺」（`HEADER_PROMPT`），
+  由 `OirOrders.headerListFrom` 解析、`correctNumbers` 比对：两次不一致时**以放大那次为准**并写 note；
+  条数对不上（有块被切掉上半）、或改正后会让两张单同一个号时**不动**。
+  实测：14 次扫描共 126 次带子读取，**0 次解析失败、0 次改正**（本来就没分歧）；一次扫描仍约 **13 s**（多了 9 次小调用）。
+  **踩的坑**：`carriesOrders` 只认 `lines` / `"orders"`，而带子回答用的是 `blocks`，于是 chat envelope 从未被拆开、
+  每次都“读到 0 个号”——日志里 `the header line answer could not be read: {…}`。加 `blocks` 后正常，
+  单测里补了**带 envelope 的真实形状**（以前只测了裸 JSON）。
 - **PowerShell 写文件别用 `Set-Content -Encoding UTF8`**：PS 5.1 会带 BOM，javac 直接报
   `非法字符: '\ufeff'`（三个文件同时中招）。要改源码用 `create_file`/编辑工具，或写完后用
   `[System.IO.File]::WriteAllBytes` 去掉前 3 个字节。

@@ -252,8 +252,14 @@ public final class OirOrders {
         return reply;
     }
 
+    /**
+     * @param text what a field of the chat envelope holds
+     * @return {@code true} when it is the JSON of an answer instead of prose: the orders of a picture, or
+     *         the header lines of the "numbers only" question
+     */
     private static boolean carriesOrders(String text) {
-        return text != null && (text.contains("lines") || text.contains("\"orders\""));
+        return text != null && (text.contains("lines") || text.contains("\"orders\"")
+                || text.contains("blocks"));
     }
 
     /**
@@ -1278,6 +1284,109 @@ public final class OirOrders {
             }
         }
         return best;
+    }
+
+    /**
+     * Reads the header line of every order block out of an answer to the "numbers only" question: the
+     * order number, the date it was placed and the shop, one element per block, top to bottom.
+     *
+     * @param reply the answer text
+     * @return one map per block ({@code orderNo}, {@code orderDate}, {@code shop}), empty when nothing
+     *         could be read
+     */
+    public static List<Map<String, String>> headerListFrom(String reply) {
+        List<Map<String, String>> headers = new ArrayList<>();
+        String text = orderAnswerText(reply);
+        if (text == null) {
+            return headers;
+        }
+        int array = text.indexOf('[');
+        int blocks = text.indexOf("\"blocks\"");
+        int orders = text.indexOf("\"orders\"");
+        int key = blocks >= 0 ? blocks : orders;
+        int from = key >= 0 && array > key ? array : text.indexOf('{');
+        if (from < 0) {
+            return headers;
+        }
+        for (String object : objectTexts(text, from)) {
+            String number = jsonStringField(object, "orderNo");
+            String date = jsonStringField(object, "orderDate");
+            String shop = jsonStringField(object, "shop");
+            if ((number == null || number.trim().isEmpty()) && date == null && shop == null) {
+                continue;
+            }
+            Map<String, String> header = new LinkedHashMap<>();
+            header.put("orderNo", number == null ? "" : number.trim());
+            header.put("orderDate", date);
+            header.put("shop", shop);
+            headers.add(header);
+        }
+        return headers;
+    }
+
+    /**
+     * Corrects the order numbers of one picture with what its header line read gave.
+     *
+     * <p>The number is the key the import de-duplicates on, and a nineteen digit run is the one field a
+     * model fills in from the shape of its neighbours: a page of 23 orders came back with
+     * {@code 3071881380774500570} where the page prints {@code 3102077787932500570} (2026-10-27). The
+     * header line is read a second time from a picture cropped to the left of the page, which the
+     * vision service scales half as much, so where the two reads disagree the cropped one wins - and the
+     * order says so, because the person imports on that number.
+     *
+     * @param orders the orders of one picture, {@code orderNo} may be rewritten
+     * @param headers what the header line read answered, one element per block
+     * @return how many numbers were corrected
+     */
+    public static int correctNumbers(List<Map<String, String>> orders, List<Map<String, String>> headers) {
+        if (orders == null || headers == null || headers.isEmpty() || headers.size() != orders.size()) {
+            // a block cut at the top of the picture has no number of its own, and then the two lists are
+            // not the same blocks and nothing may be lined up
+            return 0;
+        }
+        for (Map<String, String> order : orders) {
+            if (order == null || order.get("orderNo") == null || order.get("orderNo").trim().isEmpty()) {
+                return 0;
+            }
+        }
+        Set<String> taken = new LinkedHashSet<>();
+        for (Map<String, String> order : orders) {
+            taken.add(order.get("orderNo").trim());
+        }
+        int corrected = 0;
+        for (int i = 0; i < orders.size(); i++) {
+            Map<String, String> order = orders.get(i);
+            Map<String, String> header = headers.get(i);
+            if (header == null) {
+                continue;
+            }
+            String seen = order.get("orderNo").trim();
+            String clearer = header.get("orderNo") == null ? "" : header.get("orderNo").trim();
+            if (!clearer.isEmpty() && !clearer.equals(seen) && !taken.contains(clearer)) {
+                order.put("orderNo", clearer);
+                taken.remove(seen);
+                taken.add(clearer);
+                String why = "单号两次读数不一致，已按「只读单号那一条」的放大结果写成 " + clearer + "，请对着截图核对";
+                String already = order.get("note");
+                order.put("note", already == null || already.trim().isEmpty() ? why : already + "；" + why);
+                corrected++;
+            }
+            fillTheBlank(order, "orderDate", header.get("orderDate"));
+            fillTheBlank(order, "shop", header.get("shop"));
+        }
+        return corrected;
+    }
+
+    /**
+     * @param order the order to fill in
+     * @param field the field of it
+     * @param value what the header line read gave, used only when the order has nothing there
+     */
+    private static void fillTheBlank(Map<String, String> order, String field, String value) {
+        String there = order.get(field);
+        if (value != null && !value.trim().isEmpty() && (there == null || there.trim().isEmpty())) {
+            order.put(field, value.trim());
+        }
     }
 
     /**

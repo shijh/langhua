@@ -23,13 +23,16 @@
 ```
 上传 multipart(image)
   ├─ 图片大小/格式校验（MAX_IMAGE_BYTES，超长图不缩：会分段识别）
-  ├─ 读图 → 分段（自适应段高，见 §2）
+  ├─ 读图 → 分段（自适应段高，见 §2；先裁掉左右空白：`contentColumns`）
   ├─ 每段并发调用视觉服务（最多 MAX_PARALLEL=6 段同时）
   │    ├─ 提示词：PROMPT / SHORT_PROMPT（段一律用短的）
   │    ├─ 失败重试：SLICE_ATTEMPTS=3 次，按 answerScore 保留最好的一次
   │    └─ 触发重试的信号：空答案、答案像模板、数量/金额读不出、rowCount 与行数不符、
   │       每行都是 1 件但页面印了包量、两块明细完全相同、这一段印着几个块却答得更少、
   │       (整图时)实付与明细对不上
+  ├─ **单号再读一次**：同一段裁成左侧 1700 宽的一条（`STRIP_WIDTH`），只问
+  │       订单号 / 下单日期 / 店铺（`HEADER_PROMPT`）；两次读数不一致时以放大那次为准，
+  │       并在那一行写 note（`OirOrders.correctNumbers`）
   ├─ 解析：orderListFrom(reply) → itemsIn() → 每单 {orderNo, shop, platform, orderDate,
   │        paidTotal, freight, discount, refunded, closed, rowCount, lines}
   ├─ 合并：OirOrders.mergeOrders(answers, blocksSaid)（见 §3）
