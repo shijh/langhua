@@ -10,7 +10,8 @@
 | `JpegEye.java` | 同一条带子裁两遍：原图 PNG 与“过一遍 q0.9 JPEG”之后，并排看字有没有糊 |
 | `Digits.java` | 量一条带子的墨水盒子（字高、19 位单号每位几像素），也能证明某块区域是空白 |
 | `run.bat` | 先编再连着跑前两个（`run.bat "D:\path\shot.png"`）；后两个按需手敲请参看文件头的注释 |
-| `run-fifty.bat` | 同一张图连跑 N 次（`run-fifty.bat "shot.png" 50 F:\build-ofbiz\runs`），给基线用 |
+| `run-fifty.bat` | 同一张图连跑 N 次，可顺手落成基线：`run-fifty.bat "shot.png" 50 F:\build-ofbiz\runs t12 "Step 158 build"` |
+| `make-baseline.ps1` | 把 `run-N.json` 收成 `baseline/batch-<id>.json`（`-From <目录> -Id <批次号> [-Note "哪版代码"]`） |
 | `baseline/` | 四批 50 次连测的**原始回答**（每批一个 JSON），见下文 |
 | `analyze-baseline.ps1` | 读 `baseline/` 打印每批的准确率与各类提示的数量（`powershell -File analyze-baseline.ps1`） |
 
@@ -37,6 +38,20 @@ t11    50    49      98     23        1    1    1     0      14    23
   按钮数提示抓到（`Hint` 列与 `ExtraRow` 列完全对上）。
 - 换算法后要对照：改完先 `run-fifty.bat` 跑 50 次，再用 `analyze-baseline.ps1` 的口径算一遍。
   **跑之前先核 `ofbiz.jar` 的时间戳早不早于源码**（t10 就是旧 jar 跑的，差点当结论）。
+
+一条命令走完一轮对照：
+
+```bat
+rem 1) 确认实例的 jar 不比源码旧
+dir /T:W F:\build-ofbiz\apache-ofbiz-24.09.07\build\libs\ofbiz.jar
+dir /T:W F:\git\langhua\langhua-ofbiz-mfg\src\main\java\org\langhua\ofbiz\mfg\oir\OirScan.java
+
+rem 2) 跑 50 次并落成批次 t12
+tools\oir-anchors\run-fifty.bat "D:\Downloads\shot.png" 50 F:\build-ofbiz\runs t12 "Step 158 build"
+
+rem 3) 与历史批次对照
+powershell -File tools\oir-anchors\analyze-baseline.ps1
+```
 
 ### 基线文件里有什么
 
