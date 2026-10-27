@@ -10,6 +10,44 @@
 | `JpegEye.java` | 同一条带子裁两遍：原图 PNG 与“过一遍 q0.9 JPEG”之后，并排看字有没有糊 |
 | `Digits.java` | 量一条带子的墨水盒子（字高、19 位单号每位几像素），也能证明某块区域是空白 |
 | `run.bat` | 先编再连着跑前两个（`run.bat "D:\path\shot.png"`）；后两个按需手敲请参看文件头的注释 |
+| `run-fifty.bat` | 同一张图连跑 N 次（`run-fifty.bat "shot.png" 50 F:\build-ofbiz\runs`），给基线用 |
+| `baseline/` | 四批 50 次连测的**原始回答**（每批一个 JSON），见下文 |
+| `analyze-baseline.ps1` | 读 `baseline/` 打印每批的准确率与各类提示的数量（`powershell -File analyze-baseline.ps1`） |
+
+## 基线：四批 50 连测（2026-10-27，同一张 23 单整页截图）
+
+```
+Batch Runs Right Percent Orders ExtraRow Hint Copy Twice RowsOff Money
+----- ---- ----- ------- ------ -------- ---- ---- ----- ------- -----
+t8     50    44      88     23        3    3   50     0      19    18
+t9     50    47      94     23        3    3   50     1      25     8
+t10    50    48      96     23        2    2   50     3      18    14
+t11    50    49      98     23        1    1    1     0      14    23
+```
+
+- `Right` = 整页的 23 个单号全对且无多余行的次数；`ExtraRow` = 多出一张单的次数；
+  `Hint` = 那几次页面上有没有点出“图上有 23 个「再买一单」”；
+  `Copy/Twice/RowsOff/Money` = 四类 note 各出现了多少次。
+- 四批的代码差别：
+  - **t8**：“单号读两遍、放大那次为准”——错的 3 次里，整页读对、带子读错，却被改错（88%）；
+  - **t9**：改成“按位数判定”（94%）；
+  - **t10**：与 t9 同一份代码（当时 dev 实例还没跟上最近一次改动，96%）；
+  - **t11**：“一模一样”提示只在多出一行时才说（98%，误报从 50 次 50 条降到 1 条）。
+- **150 次里只有一种错**：多出一张带“页面上没有的单号”的行（每 50 次 1~3 次），每一次都被
+  按钮数提示抓到（`Hint` 列与 `ExtraRow` 列完全对上）。
+- 换算法后要对照：改完先 `run-fifty.bat` 跑 50 次，再用 `analyze-baseline.ps1` 的口径算一遍。
+  **跑之前先核 `ofbiz.jar` 的时间戳早不早于源码**（t10 就是旧 jar 跑的，差点当结论）。
+
+### 基线文件里有什么
+
+`baseline/batch-t8.json` 等四个文件，每个是：
+
+```json
+{"batch":"t11","note":"哪一版代码","screenshot":"…3434x16384，23 单","runs":[{"run":1,"response":{…服务端原样返回…}}]}
+```
+
+`response` 就是 `/mfg/control/orderImage` 的原话（包含 message、count、orders[] 与每单的 note），
+**没有改过一个字**；每题约 430 KB，四个批次合计约 1.7 MB。
 
 ## 实测（2026-10-27，淘宝“我的订单”整页 3434×16384，23 单）
 
