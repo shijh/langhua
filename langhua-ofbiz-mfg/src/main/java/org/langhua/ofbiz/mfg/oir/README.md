@@ -31,8 +31,8 @@
   │       每行都是 1 件但页面印了包量、两块明细完全相同、这一段印着几个块却答得更少、
   │       (整图时)实付与明细对不上
   ├─ **单号再读一次**：同一段裁成左侧 1700 宽的一条（`STRIP_WIDTH`），只问
-  │       订单号 / 下单日期 / 店铺（`HEADER_PROMPT`）；两次读数不一致时以放大那次为准，
-  │       并在那一行写 note（`OirOrders.correctNumbers`）
+  │       订单号 / 下单日期 / 店铺（`HEADER_PROMPT`）；两次读数**不按大小定输赢**，
+  │       合并后由 `settleNumbers` 用“这一页印单号的位数”判定（见 §3 第 6 条）
   ├─ 解析：orderListFrom(reply) → itemsIn() → 每单 {orderNo, shop, platform, orderDate,
   │        paidTotal, freight, discount, refunded, closed, rowCount, lines}
   ├─ 合并：OirOrders.mergeOrders(answers, blocksSaid)（见 §3）
@@ -76,6 +76,7 @@
 | 固定 900 行/段 | 9/10 正确 |
 | 自适应（689→1378 行/段，12 段） | **10/10 正确，无重复单号** |
 | 同上 + 截掉底部信息流（9 段，6 并行） | 20 连测：19 次 23 张、1 次 24 张（那一行是模型编的新单号），单次约 12 秒 |
+| 同上 + 裁白边 + 单号读两遍（按位数判定） | **50 连测：47 次 23 张全对（94%）**，无单号位数错误；3 次 24 张（编了个新号），单次约 13 秒 |
 
 ## 3. 合并：同一块被读了两次怎么办
 
@@ -94,6 +95,10 @@
    **只认同一个单号**：少一位的号（`numbersOfTheSameOrder`）属于另一个问题，拿它来合会吞掉真单。
    实测：20 次里有 3 次会抛出“单号相同的两行”，其中能被折回去的都变成了 23 张（日志
    `The reads of one order number were folded: 24 -> 23`）。
+6. **单号的第二遍读**：`noteTheSecondRead` 把“只读单号那一条带子”的结果记下来（`headerOrderNo`，
+   顺便补空着的日期 / 店铺），合并后 `settleNumbers` 用**这一页印单号的位数**（众数，样本 ≥3）判：
+   位数对得上的那次赢；两次等长就**保留第一次**，并把两次都写进 note。
+   **别改回“放大那次为准”**：50 连测里出错的那 3 次，恰恰是带子读错、整页读对。
 
 相关规则函数：`OirOrders.mergeOrders / numbersOfTheSameOrder / onePrintsThePriceOfTheOther`…（都在本包 `OirOrders` 里，不再跨包）。
 

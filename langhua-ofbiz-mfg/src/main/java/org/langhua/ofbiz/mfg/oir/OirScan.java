@@ -369,14 +369,11 @@ public final class OirScan {
         String sliceNote = "";
         if (slices.size() == 1) {
             Read read = readPicture(slices.get(0), endpoint, model, key, contentType, false, 0);
-            // the numbers read from the whole page, and again from the narrow strip where they are
-            // printed twice as large: where the two disagree the strip wins (Step 156)
-            int corrected = OirOrders.correctNumbers(read.orders,
+            // the numbers read from the whole page, and a second reading from the narrow strip: they are
+            // compared after the join, where the length this page prints at is known (Step 156/157)
+            OirOrders.noteTheSecondRead(read.orders,
                     readHeaders(sliced.strips.isEmpty() ? null : sliced.strips.get(0), endpoint, model,
                             key, "image/png"));
-            if (corrected > 0) {
-                Debug.logInfo("The header line corrected " + corrected + " order numbers", MODULE);
-            }
             orders = read.orders;
             reply = read.reply;
             seen = read.seen;
@@ -407,7 +404,7 @@ public final class OirScan {
                     public Read call() {
                         Read read = readPicture(picture, sliceEndpoint, sliceModel, sliceKey,
                                 sliceType, true, blocksHere);
-                        OirOrders.correctNumbers(read.orders,
+                        OirOrders.noteTheSecondRead(read.orders,
                                 readHeaders(strip, sliceEndpoint, sliceModel, sliceKey, "image/png"));
                         return read;
                     }
@@ -469,6 +466,13 @@ public final class OirScan {
             Debug.logInfo("The reads of one order number were folded: " + read + " -> " + orders.size(),
                     MODULE);
         }
+        // every order that was read twice keeps both numbers up to here: the one that has the length this
+        // page prints at wins, two of the same length are left as the first read had them and the row
+        // says both were seen
+        int replaced = OirOrders.settleNumbers(orders);
+        if (replaced > 0) {
+            Debug.logInfo("The second reading of the order numbers replaced " + replaced, MODULE);
+        }
         String countOff = blockCountNote(blocks, orders.size());
         String shortfall = seen > orders.size()
                 ? "（截图上看上去有 " + seen + " 张单，这次只读出 " + orders.size()
@@ -515,7 +519,11 @@ public final class OirScan {
             }
         }
         // a block that carries exactly the articles and the money of another block was probably copied
-        // from it while the page was read: say so, the money of a copy adds up and nothing else notices
+        // from it while the page was read: say so, the money of a copy adds up and nothing else notices.
+        // But a shop does sell the same part twice, and on the audited page two orders of 199.00 of the
+        // same chip are really there - so the caution is only worth its noise when the buttons say the
+        // picture holds fewer blocks than rows, or when the page does not say at all (Step 157)
+        boolean mayHoldACopy = blocks <= 0 || orders.size() > blocks;
         Map<String, String> firstOfKind = new LinkedHashMap<>();
         Map<String, String> firstOfMoney = new LinkedHashMap<>();
         for (int i = 0; i < orders.size(); i++) {
@@ -538,7 +546,7 @@ public final class OirScan {
                 // line do not always look alike: what matches is the quantity and the money
                 copied = "明细和金额与第 " + otherMoney + " 张单完全相同，可能把上一块的明细带下来了，请对着截图核对";
             }
-            if (copied != null) {
+            if (copied != null && mayHoldACopy) {
                 String note = order.get("note");
                 order.put("note", note == null ? copied : note + "；" + copied);
             }

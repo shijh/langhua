@@ -1325,20 +1325,21 @@ public final class OirOrders {
     }
 
     /**
-     * Corrects the order numbers of one picture with what its header line read gave.
+     * Keeps a second reading of the order numbers next to the first one, and fills in a date or a shop
+     * the first read left empty.
      *
-     * <p>The number is the key the import de-duplicates on, and a nineteen digit run is the one field a
-     * model fills in from the shape of its neighbours: a page of 23 orders came back with
-     * {@code 3071881380774500570} where the page prints {@code 3102077787932500570} (2026-10-27). The
-     * header line is read a second time from a picture cropped to the left of the page, which the
-     * vision service scales half as much, so where the two reads disagree the cropped one wins - and the
-     * order says so, because the person imports on that number.
+     * <p>The second read comes from a strip cropped to the numbered part of the page, which the vision
+     * service scales less, and it does <em>not</em> win by being bigger: fifty runs of the audited page
+     * showed three where the strip read a digit short or long and the whole page read the number right
+     * (2026-10-27). So both readings are kept and {@link #settleNumbers} decides, with the length the
+     * page prints at as the evidence.
      *
-     * @param orders the orders of one picture, {@code orderNo} may be rewritten
-     * @param headers what the header line read answered, one element per block
-     * @return how many numbers were corrected
+     * @param orders the orders of one picture
+     * @param headers what the strip read answered, one element per block
+     * @return how many orders carry a second reading that differs from the first
      */
-    public static int correctNumbers(List<Map<String, String>> orders, List<Map<String, String>> headers) {
+    public static int noteTheSecondRead(List<Map<String, String>> orders,
+            List<Map<String, String>> headers) {
         if (orders == null || headers == null || headers.isEmpty() || headers.size() != orders.size()) {
             // a block cut at the top of the picture has no number of its own, and then the two lists are
             // not the same blocks and nothing may be lined up
@@ -1349,11 +1350,7 @@ public final class OirOrders {
                 return 0;
             }
         }
-        Set<String> taken = new LinkedHashSet<>();
-        for (Map<String, String> order : orders) {
-            taken.add(order.get("orderNo").trim());
-        }
-        int corrected = 0;
+        int differing = 0;
         for (int i = 0; i < orders.size(); i++) {
             Map<String, String> order = orders.get(i);
             Map<String, String> header = headers.get(i);
@@ -1362,19 +1359,78 @@ public final class OirOrders {
             }
             String seen = order.get("orderNo").trim();
             String clearer = header.get("orderNo") == null ? "" : header.get("orderNo").trim();
-            if (!clearer.isEmpty() && !clearer.equals(seen) && !taken.contains(clearer)) {
-                order.put("orderNo", clearer);
-                taken.remove(seen);
-                taken.add(clearer);
-                String why = "单号两次读数不一致，已按「只读单号那一条」的放大结果写成 " + clearer + "，请对着截图核对";
-                String already = order.get("note");
-                order.put("note", already == null || already.trim().isEmpty() ? why : already + "；" + why);
-                corrected++;
+            if (!clearer.isEmpty() && !clearer.equals(seen)) {
+                order.put("headerOrderNo", clearer);
+                differing++;
             }
             fillTheBlank(order, "orderDate", header.get("orderDate"));
             fillTheBlank(order, "shop", header.get("shop"));
         }
-        return corrected;
+        return differing;
+    }
+
+    /**
+     * Settles the order number of every order that carries a second reading, using the length the page
+     * prints its numbers at: a number read with a digit too few or too many is the common way a
+     * nineteen digit run goes wrong, and then the reading with the page's own length wins. Two readings
+     * of the same length cannot be told apart by the picture, so the first one stays and the order says
+     * both were seen - the number is the key the import de-duplicates on, and a person has to look.
+     *
+     * @param orders the orders of the whole picture, after the reads of one page were joined
+     * @return how many numbers were replaced by the second reading
+     */
+    public static int settleNumbers(List<Map<String, String>> orders) {
+        if (orders == null || orders.isEmpty()) {
+            return 0;
+        }
+        Map<Integer, Integer> byLength = new HashMap<>();
+        int samples = 0;
+        for (Map<String, String> order : orders) {
+            String number = order.get("orderNo");
+            if (number == null || number.trim().isEmpty()) {
+                continue;
+            }
+            Integer length = Integer.valueOf(number.trim().length());
+            Integer there = byLength.get(length);
+            byLength.put(length, Integer.valueOf(there == null ? 1 : there.intValue() + 1));
+            samples++;
+        }
+        int usual = 0;
+        int most = 0;
+        for (Map.Entry<Integer, Integer> entry : byLength.entrySet()) {
+            if (entry.getValue().intValue() > most) {
+                most = entry.getValue().intValue();
+                usual = entry.getKey().intValue();
+            }
+        }
+        if (samples < 3 || most < samples / 2) {
+            usual = 0;
+        }
+        int replaced = 0;
+        for (Map<String, String> order : orders) {
+            String second = order.remove("headerOrderNo");
+            if (second == null || second.trim().isEmpty()) {
+                continue;
+            }
+            String first = order.get("orderNo") == null ? "" : order.get("orderNo").trim();
+            String clearer = second.trim();
+            if (clearer.equals(first)) {
+                continue;
+            }
+            boolean firstFits = usual <= 0 || first.length() == usual;
+            boolean secondFits = usual > 0 && clearer.length() == usual;
+            String kept = first;
+            if (!firstFits && secondFits) {
+                kept = clearer;
+                order.put("orderNo", clearer);
+                replaced++;
+            }
+            String why = "单号两遍读数不一致（" + first + " / " + clearer + "），已保留 " + kept
+                    + "，请对着截图核对";
+            String already = order.get("note");
+            order.put("note", already == null || already.trim().isEmpty() ? why : already + "；" + why);
+        }
+        return replaced;
     }
 
     /**

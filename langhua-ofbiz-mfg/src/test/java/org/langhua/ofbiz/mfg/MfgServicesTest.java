@@ -1747,62 +1747,83 @@ public class MfgServicesTest {
     }
 
     @Test
-    public void correctsTheOrderNumberWithTheSharperRead() {
-        // the number is the key the import joins on, and it is the one field a model fills in from the
-        // shape of its neighbours: on the audited page it answered 3071881380774500570 where the page
-        // prints 3102077787932500570. The header line is read a second time from a strip the service
-        // scales half as much, so where the two disagree the strip wins - and the order says so
-        // (Step 156)
+    public void settlesTheOrderNumberWithTheLengthThePagePrintsAt() {
+        // the number is the key the import joins on, and a nineteen digit run is the one field a model
+        // fills in from the shape of its neighbours. Fifty runs of a 23 order page showed three where
+        // one of the two readings had a digit too few or too many - and the second read (from the strip,
+        // which the service scales less) was as often the wrong one as the first. So neither wins by
+        // being bigger: the reading with the length the page prints at wins, and two of the same length
+        // are left as they were with both written into the note (Step 156/157)
         List<Map<String, String>> headers = OirOrders.headerListFrom(
                 "{\"blocks\":[{\"orderNo\":\"3102077787932500570\",\"orderDate\":\"2025-12-04\","
                         + "\"shop\":\"盛创\"}]}");
         assertEquals(1, headers.size());
-        assertEquals("3102077787932500570", headers.get(0).get("orderNo"));
 
-        // the real answer comes wrapped: a chat envelope whose content is the escaped JSON. The envelope
-        // is what the service returns, and reading the raw envelope as if it were the answer found no
-        // header at all (2026-10-27)
-        List<Map<String, String>> wrapped = OirOrders.headerListFrom(
-                "{\"choices\":[{\"message\":{\"role\":\"assistant\",\"content\":"
-                        + "\"{\\\"blocks\\\":[{\\\"orderNo\\\":\\\"3102077787932500570\\\","
-                        + "\\\"orderDate\\\":\\\"2025-12-04\\\",\\\"shop\\\":\\\"盛创\\\"},"
-                        + "{\\\"orderNo\\\":\\\"3102053594917500570\\\"}]}\"}}]}");
-        assertEquals(2, wrapped.size());
-        assertEquals("3102077787932500570", wrapped.get(0).get("orderNo"));
-        assertEquals("3102053594917500570", wrapped.get(1).get("orderNo"));
-
-        Map<String, String> order = new LinkedHashMap<>();
-        order.put("orderNo", "3071881380774500570");
-        order.put("shop", "");
-        order.put("orderDate", "");
+        // the whole page read one digit too few, the strip read it right: the strip's number is used
+        Map<String, String> short1 = new LinkedHashMap<>();
+        short1.put("orderNo", "310207778793250570");
+        short1.put("shop", "");
+        short1.put("orderDate", "");
+        Map<String, String> fine1 = new LinkedHashMap<>();
+        fine1.put("orderNo", "3102053594917500570");
+        Map<String, String> fine2 = new LinkedHashMap<>();
+        fine2.put("orderNo", "3102079443458500570");
         List<Map<String, String>> orders = new ArrayList<>();
-        orders.add(order);
-        assertEquals(1, OirOrders.correctNumbers(orders, headers));
-        assertEquals("3102077787932500570", order.get("orderNo"));
-        assertEquals("2025-12-04", order.get("orderDate"));
-        assertEquals("盛创", order.get("shop"));
-        assertTrue(order.get("note").contains("单号两次读数不一致"));
+        orders.add(short1);
+        orders.add(fine1);
+        orders.add(fine2);
+        List<Map<String, String>> threeBlocks = OirOrders.headerListFrom(
+                "{\"blocks\":[{\"orderNo\":\"3102077787932500570\",\"orderDate\":\"2025-12-04\","
+                        + "\"shop\":\"盛创\"},{\"orderNo\":\"3102053594917500570\"},"
+                        + "{\"orderNo\":\"3102079443458500570\"}]}");
+        assertEquals(3, threeBlocks.size());
+        assertEquals(1, OirOrders.noteTheSecondRead(orders, threeBlocks));
+        assertEquals(1, OirOrders.settleNumbers(orders));
+        assertEquals("3102077787932500570", short1.get("orderNo"));
+        assertEquals("2025-12-04", short1.get("orderDate"));
+        assertEquals("盛创", short1.get("shop"));
+        assertTrue(short1.get("note").contains("单号两遍读数不一致"));
 
-        // a correction that would hand two orders one number is not made: the import joins on it
-        Map<String, String> first = new LinkedHashMap<>();
-        first.put("orderNo", "3102077787932500570");
-        Map<String, String> second = new LinkedHashMap<>();
-        second.put("orderNo", "3102053594917500570");
-        List<Map<String, String>> pair = new ArrayList<>(java.util.Arrays.asList(first, second));
-        List<Map<String, String>> bothTheSame = OirOrders.headerListFrom(
-                "{\"blocks\":[{\"orderNo\":\"3102077787932500570\"},"
-                        + "{\"orderNo\":\"3102077787932500570\"}]}");
-        assertEquals(0, OirOrders.correctNumbers(pair, bothTheSame));
-        assertEquals("3102053594917500570", second.get("orderNo"));
+        // the other way round: the strip read a digit too many, the whole page was right, so the number
+        // stays - it is only written into the note
+        Map<String, String> good = new LinkedHashMap<>();
+        good.put("orderNo", "3102077787932500570");
+        Map<String, String> other = new LinkedHashMap<>();
+        other.put("orderNo", "3102053594917500570");
+        Map<String, String> third = new LinkedHashMap<>();
+        third.put("orderNo", "3102079443458500570");
+        List<Map<String, String>> run = new ArrayList<>();
+        run.add(good);
+        run.add(other);
+        run.add(third);
+        List<Map<String, String>> longStrip = OirOrders.headerListFrom(
+                "{\"blocks\":[{\"orderNo\":\"31020777879325000570\"},{\"orderNo\":\"3102053594917500570\"},"
+                        + "{\"orderNo\":\"3102079443458500570\"}]}");
+        assertEquals(1, OirOrders.noteTheSecondRead(run, longStrip));
+        assertEquals(0, OirOrders.settleNumbers(run));
+        assertEquals("3102077787932500570", good.get("orderNo"));
+        assertTrue(good.get("note").contains("已保留 3102077787932500570"));
+
+        // two readings of the same length cannot be told apart by the picture: the first stays, and the
+        // row says both were seen
+        Map<String, String> same = new LinkedHashMap<>();
+        same.put("orderNo", "3102077787932500570");
+        List<Map<String, String>> one = new ArrayList<>(java.util.Arrays.asList(same));
+        List<Map<String, String>> sameStrip = OirOrders.headerListFrom(
+                "{\"blocks\":[{\"orderNo\":\"3071881380774500570\"}]}");
+        assertEquals(1, OirOrders.noteTheSecondRead(one, sameStrip));
+        assertEquals(0, OirOrders.settleNumbers(one));
+        assertEquals("3102077787932500570", same.get("orderNo"));
+        assertNull(same.get("headerOrderNo"));
 
         // a block cut at the top of the picture has no number of its own: the two lists are not the same
         // blocks then, so nothing may be lined up
         Map<String, String> anonymous = new LinkedHashMap<>();
         anonymous.put("orderNo", "");
         List<Map<String, String>> withAnonymous = new ArrayList<>(java.util.Arrays.asList(anonymous));
-        assertEquals(0, OirOrders.correctNumbers(withAnonymous, headers));
+        assertEquals(0, OirOrders.noteTheSecondRead(withAnonymous, headers));
         assertEquals("", anonymous.get("orderNo"));
-        assertEquals(0, OirOrders.correctNumbers(pair, headers));
+        assertEquals(0, OirOrders.noteTheSecondRead(run, headers));
     }
 
     @Test
