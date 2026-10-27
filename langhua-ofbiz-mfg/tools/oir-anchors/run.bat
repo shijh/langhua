@@ -23,7 +23,7 @@ if "%~1"=="" (
   exit /b 1
 )
 set "CP=%~dp0;%OFBIZ%\build\libs\ofbiz.jar;%OFBIZ%\lib\*"
-"%JAVAC%" -nowarn -encoding UTF-8 -cp "%CP%" -d "%~dp0." "%~dp0AnchorAudit.java" "%~dp0LongestOrange.java" || exit /b 1
+"%JAVAC%" -nowarn -encoding UTF-8 -cp "%CP%" -d "%~dp0." "%~dp0AnchorAudit.java" "%~dp0LongestOrange.java" "%~dp0JpegEye.java" "%~dp0Digits.java" || exit /b 1
 echo ==== what the shipped code does ====
 "%JAVA%" -Dfile.encoding=UTF-8 -cp "%CP%" AnchorAudit "%~1"
 echo.

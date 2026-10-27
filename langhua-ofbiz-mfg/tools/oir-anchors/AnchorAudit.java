@@ -36,26 +36,34 @@ public final class AnchorAudit {
         Method cutsM = scan.getDeclaredMethod("cutsBetweenBlocks", List.class, int.class, int.class);
         cutsM.setAccessible(true);
         @SuppressWarnings("unchecked")
+        List<Integer> list = (List<Integer>) scan.getMethod("listButtonsOf", BufferedImage.class)
+                .invoke(null, image);
+        // the scan ends the picture at the last button of the list plus one block: below that the page
+        // prints its recommendation feed (Step 154)
+        int end = image.getHeight();
+        if (!list.isEmpty()) {
+            int last = list.get(list.size() - 1).intValue();
+            end = Math.min(end, last + Math.max(300, block));
+            System.out.println("the order list ends at row " + end + " of " + image.getHeight());
+        }
+        @SuppressWarnings("unchecked")
         List<Integer> cuts = (List<Integer>) cutsM.invoke(null, anchors,
-                Integer.valueOf(target), Integer.valueOf(image.getHeight()));
+                Integer.valueOf(target), Integer.valueOf(end));
         System.out.println("blockHeight " + block + " sliceTarget " + target
                 + " anchors " + anchors.size() + " slices " + (cuts.size() + 1));
         System.out.println("order blocks the page shows: " + blocks);
-        @SuppressWarnings("unchecked")
-        List<Integer> list = (List<Integer>) scan.getMethod("listButtonsOf", BufferedImage.class)
-                .invoke(null, image);
         System.out.println("buttons of the list: " + list);
         Method insideM = scan.getMethod("blocksInside", List.class, int.class, int.class);
         int top = 0;
         int total = 0;
         for (int i = 0; i <= cuts.size(); i++) {
-            int bottom = i < cuts.size() ? cuts.get(i).intValue() : image.getHeight();
+            int bottom = i < cuts.size() ? cuts.get(i).intValue() : end;
             int inside = ((Integer) insideM.invoke(null, list, Integer.valueOf(top),
                     Integer.valueOf(bottom))).intValue();
             total += inside;
             System.out.println("  slice " + i + " rows " + top + ".." + bottom
                     + " shows " + inside + " blocks whole");
-            if (bottom >= image.getHeight()) {
+            if (bottom >= end) {
                 break;
             }
             int next = bottom - 500;
