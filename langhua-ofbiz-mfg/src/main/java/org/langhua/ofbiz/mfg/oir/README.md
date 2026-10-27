@@ -24,14 +24,16 @@
 上传 multipart(image)
   ├─ 图片大小/格式校验（MAX_IMAGE_BYTES，超长图不缩：会分段识别）
   ├─ 读图 → 分段（自适应段高，见 §2）
-  ├─ 每段并发调用视觉服务（最多 MAX_PARALLEL=4 段同时）
+  ├─ 每段并发调用视觉服务（最多 MAX_PARALLEL=6 段同时）
   │    ├─ 提示词：PROMPT / SHORT_PROMPT（段一律用短的）
   │    ├─ 失败重试：SLICE_ATTEMPTS=3 次，按 answerScore 保留最好的一次
   │    └─ 触发重试的信号：空答案、答案像模板、数量/金额读不出、rowCount 与行数不符、
-  │       每行都是 1 件但页面印了包量、两块明细完全相同、(整图时)实付与明细对不上
+  │       每行都是 1 件但页面印了包量、两块明细完全相同、这一段印着几个块却答得更少、
+  │       (整图时)实付与明细对不上
   ├─ 解析：orderListFrom(reply) → itemsIn() → 每单 {orderNo, shop, platform, orderDate,
   │        paidTotal, freight, discount, refunded, closed, rowCount, lines}
   ├─ 合并：OirOrders.mergeOrders(answers, blocksSaid)（见 §3）
+  ├─ 对账：blockCountOf(image) 数出图上有几个块，`foldExtraReads` 把同号两行折回一张（见 §3 第 5 条）
   ├─ 整理：OirOrders.tidyOrder(order)（见 §4）
   └─ 核对：OirOrders.checkOrderTotals / rowsMissing → 给每行写 note（页面上标"请核对"）
 ```
@@ -70,7 +72,7 @@
 | 固定 2400 行/段 | 1/3 正确，且会整块丢失 2~3 张 |
 | 固定 900 行/段 | 9/10 正确 |
 | 自适应（689→1378 行/段，12 段） | **10/10 正确，无重复单号** |
-| 同上 + 截掉底部信息流（9 段） | 20 连测：17 次 23 张、3 次 24 张（多一行，见 §5）；调用数少 25% |
+| 同上 + 截掉底部信息流（9 段，6 并行） | 20 连测：19 次 23 张、1 次 24 张（那一行是模型编的新单号），单次约 12 秒 |
 
 ## 3. 合并：同一块被读了两次怎么办
 
