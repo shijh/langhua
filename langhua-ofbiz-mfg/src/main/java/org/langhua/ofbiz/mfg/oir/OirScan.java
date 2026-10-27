@@ -707,6 +707,10 @@ public final class OirScan {
         // the blocks of the page are found in the picture itself when it is a list of orders: cutting
         // between two blocks keeps every block whole, which is what the model needs most (Step 139)
         List<Integer> anchors = blockAnchors(full);
+        // how many buttons the page prints is logged: it is close to the number of order blocks, and
+        // the next step towards spotting a block the model never read (see oir/README.md, section 6)
+        Debug.logInfo("The picture shows " + anchors.size() + " orange buttons in " + height + " rows",
+                MODULE);
         List<Integer> cuts = cutsBetweenBlocks(anchors, target, height);
         if (cuts.isEmpty()) {
             cuts = cutsAtBlankRows(full, target);
@@ -909,9 +913,15 @@ public final class OirScan {
     }
 
     /**
-     * Finds the orange button of every order block of a shop page: a row that carries a wide stretch
-     * of that colour is a button, and a button means a block. Used to cut between blocks, so a cut
-     * never goes through one.
+     * Finds the orange button of every order block of a shop page: the face of a button is one
+     * unbroken stretch of that colour, so a row that carries a long band of it is a button row, and a
+     * button means a block. Used to cut between blocks, so a cut never goes through one.
+     *
+     * <p>The band has to be <em>unbroken</em>: the orange words a block prints in its header
+     * ({@code 订单详情 >}, {@code 交易成功}, the coupon strip) put as much orange on one row as a
+     * button does, but spread over the whole width in strokes a few pixels wide. Counting those as
+     * buttons gave 32 buttons for a page of 23 orders (audited on the real page: 23 buttons, 9 rows of
+     * orange words, then the header button and the one of the recommendation strip below the list).
      *
      * @param image the picture
      * @return the top row of every button found, top to bottom; empty when the page has none
@@ -922,7 +932,8 @@ public final class OirScan {
         int needed = Math.max(3, (image.getWidth() / step) / 25);
         int runStart = -1;
         for (int y = 0; y < image.getHeight(); y++) {
-            int orange = 0;
+            int band = 0;
+            int longest = 0;
             for (int x = 0; x < image.getWidth(); x += step) {
                 int rgb = image.getRGB(x, y);
                 int r = (rgb >> 16) & 0xFF;
@@ -930,10 +941,13 @@ public final class OirScan {
                 int b = rgb & 0xFF;
                 if (r >= BUTTON_RED && g >= BUTTON_GREEN_LOW && g <= BUTTON_GREEN_HIGH
                         && b <= BUTTON_BLUE) {
-                    orange++;
+                    band++;
+                    longest = Math.max(longest, band);
+                } else {
+                    band = 0;
                 }
             }
-            boolean button = orange >= needed;
+            boolean button = longest >= needed;
             if (button && runStart < 0) {
                 runStart = y;
             } else if (!button && runStart >= 0) {

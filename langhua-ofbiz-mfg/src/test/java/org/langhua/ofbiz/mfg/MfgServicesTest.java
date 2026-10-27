@@ -1585,6 +1585,49 @@ public class MfgServicesTest {
     }
 
     @Test
+    public void tellsAButtonFromTheOrangeWordsOfAHeader() throws IOException {
+        // a block prints "订单详情 >" and "交易成功" in the same orange, and a whole row of those words
+        // holds as much orange as a button does - but in strokes a few pixels wide with gaps between
+        // them. Counting all the orange of a row found 32 buttons on a real page of 23 orders: 23
+        // buttons and 9 rows of words (audited 2026-10-27)
+        int width = 400;
+        int blockHeight = 400;
+        int blocks = 3;
+        BufferedImage withButtons = new BufferedImage(width, blocks * blockHeight,
+                BufferedImage.TYPE_INT_RGB);
+        BufferedImage withWords = new BufferedImage(width, blocks * blockHeight,
+                BufferedImage.TYPE_INT_RGB);
+        java.awt.Graphics2D buttons = withButtons.createGraphics();
+        java.awt.Graphics2D words = withWords.createGraphics();
+        buttons.setColor(java.awt.Color.WHITE);
+        buttons.fillRect(0, 0, width, withButtons.getHeight());
+        words.setColor(java.awt.Color.WHITE);
+        words.fillRect(0, 0, width, withWords.getHeight());
+        for (int i = 0; i < blocks; i++) {
+            int top = i * blockHeight;
+            // the header row: many short strokes of the shop orange, spread over the whole width
+            buttons.setColor(new java.awt.Color(0xFF5000));
+            words.setColor(new java.awt.Color(0xFF5000));
+            for (int x = 10; x < width - 10; x += 30) {
+                buttons.fillRect(x, top + 20, 8, 14);
+                words.fillRect(x, top + 20, 8, 14);
+            }
+            if (i == 0) {
+                // one block prints no button at all, only words: it must not be counted as a block
+                continue;
+            }
+        }
+        for (int i = 1; i < blocks; i++) {
+            buttons.setColor(new java.awt.Color(0xFF5000));
+            buttons.fillRect(width - 100, i * blockHeight + 200, 60, 30);
+        }
+        buttons.dispose();
+        words.dispose();
+        assertEquals(2, OirScan.blockAnchors(withButtons).size());
+        assertEquals(0, OirScan.blockAnchors(withWords).size());
+    }
+
+    @Test
     public void takesALongPageScreenshotAsItIs() {
         // a whole shop page captured in one picture runs to ten megabytes and more; the picture is
         // cut into slices anyway, so the upload is not refused for being long (Step 128)
