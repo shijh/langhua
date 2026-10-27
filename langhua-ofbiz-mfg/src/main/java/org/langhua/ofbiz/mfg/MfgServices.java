@@ -10399,6 +10399,22 @@ always
      * @return the orders of the whole page
      */
     static List<Map<String, String>> mergeOrders(List<List<Map<String, String>>> answers) {
+        return mergeOrders(answers, null);
+    }
+
+    /**
+     * The same join, told how many order blocks the model said each picture shows. A model that splits
+     * one block into two objects (two articles, one number) says it saw one block and answers with two;
+     * a page never prints one order number on two blocks, so two objects of one picture that carry the
+     * same number and the same shop are the two halves of that block and are joined (a page of 23
+     * orders came back with 24, Step 143).
+     *
+     * @param answers what each slice answered, in the order the slices were read
+     * @param blocksSaid how many blocks the model said each slice shows, {@code null} when unknown
+     * @return the orders of the whole page
+     */
+    static List<Map<String, String>> mergeOrders(List<List<Map<String, String>>> answers,
+            List<Integer> blocksSaid) {
         Map<String, Map<String, String>> byNumber = new LinkedHashMap<>();
         if (answers == null) {
             return new ArrayList<>();
@@ -10425,8 +10441,11 @@ always
                 }
                 String number = order.get("orderNo") == null ? "" : order.get("orderNo").trim();
                 Map<String, String> kept = byNumber.get(number);
+                boolean halvesOfOneBlock = kept != null && sameAnswer(kept, slice, sliceOf)
+                        && saysFewerBlocksThanItRead(blocksSaid, slice, answer.size())
+                        && sameShopOrMissing(kept, order);
                 if (kept != null && sameAnswer(kept, slice, sliceOf) && !sameMoneyAndArticles(kept, order)
-                        && !lostTheShop(kept, order)) {
+                        && !lostTheShop(kept, order) && !halvesOfOneBlock) {
                     // a page never prints one order number on two blocks, and one picture shows each
                     // block once: the two blocks were read with the same number, so keeping them apart
                     // shows both orders. Merging them dropped the second one - a page of 29 orders with
@@ -10434,7 +10453,7 @@ always
                     String apart = freeNumber(byNumber, number);
                     Map<String, String> stray = new LinkedHashMap<>(order);
                     stray.put("note", "订单号与另一张单读成了一样（" + number
-                            + "），可能有一张读错了，请对着截图核对");
+                            + "）：一块只印一个号，这两行里可能有一行是同一块被拆开的，对不上就删掉多出来的那行");
                     byNumber.put(apart, stray);
                     sliceOf.put(stray, Integer.valueOf(slice));
                     continue;
@@ -10444,7 +10463,7 @@ always
                     String apart = freeNumber(byNumber, number);
                     Map<String, String> stray = new LinkedHashMap<>(order);
                     stray.put("note", "订单号与另一张单读成了一样（" + number
-                            + "），可能有一张读错了，请对着截图核对");
+                            + "）：一块只印一个号，这两行里可能有一行是同一块被拆开的，对不上就删掉多出来的那行");
                     byNumber.put(apart, stray);
                     sliceOf.put(stray, Integer.valueOf(slice));
                     continue;
@@ -10465,6 +10484,14 @@ always
                     continue;
                 }
                 kept.put("lines", joinRows(kept.get("lines"), order.get("lines")));
+                if (halvesOfOneBlock) {
+                    // the block printed one 实付款 and two article rows: the two objects carry that one
+                    // amount between them, and the note says where the second row came from
+                    addUpTheTwoHalves(kept, order);
+                    String already = kept.get("note");
+                    String why = "同一订单号被读成了两张单（一块的两段），已并回一张，实付按两笔相加，请对着截图核对";
+                    kept.put("note", already == null || already.trim().isEmpty() ? why : already + "；" + why);
+                }
                 for (String field : new String[] {"platform", "shop", "orderDate", "freight",
                         "paidTotal", "discount", "refunded", "closed"}) {
                     String value = kept.get(field);
@@ -10753,6 +10780,55 @@ always
             key = number + " #" + i;
         }
         return key;
+    }
+
+    /**
+     * @param blocksSaid how many blocks the model said each picture shows, {@code null} when unknown
+     * @param slice the picture the read comes from
+     * @param objects how many objects that picture answered with
+     * @return {@code true} when the picture holds fewer blocks than the objects it came back with, so
+     *     one of them is a block read in two parts
+     */
+    private static boolean saysFewerBlocksThanItRead(List<Integer> blocksSaid, int slice, int objects) {
+        if (blocksSaid == null || slice < 0 || slice >= blocksSaid.size()) {
+            return false;
+        }
+        Integer said = blocksSaid.get(slice);
+        return said != null && said.intValue() > 0 && said.intValue() < objects;
+    }
+
+    /**
+     * @param kept an order already read
+     * @param order the order just read
+     * @return {@code true} when both print the same shop, or one of them lost it: the shop sits on the
+     *     same strip as the number, so a missing shop says nothing against the same block
+     */
+    private static boolean sameShopOrMissing(Map<String, String> kept, Map<String, String> order) {
+        String here = kept.get("shop") == null ? "" : kept.get("shop").trim();
+        String there = order.get("shop") == null ? "" : order.get("shop").trim();
+        return here.isEmpty() || there.isEmpty() || here.equals(there);
+    }
+
+    /**
+     * The two halves of one block carry the block's one 实付款 between them: when the two amounts come
+     * to what the joined rows come to, and neither amount alone does, the order was paid that sum.
+     *
+     * @param kept the order the second half was just joined into
+     * @param order the second half
+     */
+    private static void addUpTheTwoHalves(Map<String, String> kept, Map<String, String> order) {
+        Double here = optionalAmount(kept.get("paidTotal"));
+        Double there = optionalAmount(order.get("paidTotal"));
+        if (here == null || there == null) {
+            return;
+        }
+        List<String[]> rows = parseOrderArticleLines(kept.get("lines"));
+        double goods = round2(sumOfRows(rows));
+        double slack = roundingSlack(rows);
+        double both = round2(here.doubleValue() + there.doubleValue());
+        if (Math.abs(round2(both) - goods) <= slack && Math.abs(round2(here.doubleValue()) - goods) > slack) {
+            kept.put("paidTotal", money(Double.valueOf(both)));
+        }
     }
 
     /**

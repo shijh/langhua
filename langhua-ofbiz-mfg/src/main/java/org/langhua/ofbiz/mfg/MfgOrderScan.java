@@ -183,6 +183,8 @@ public final class MfgOrderScan {
             + " block, top to bottom, and items has one element per article of that order - two"
             + " products are two elements, never one. rowCount is how many article rows that block"
             + " prints, so six colours of the same board is rowCount 6 and six elements."
+            + " One block carries one order number, so the same number never comes back on two elements:"
+            + " the articles of a block all go into that block's items."
             + " orderNo is the order number of that block (after 订单号, or the number the page prints"
             + " for it). shop is the shop name only, without the platform word. platform is which"
             + " shop platform the page belongs to: 淘宝, 天猫, 京东, 拼多多, 抖音, or empty when nothing"
@@ -239,6 +241,8 @@ public final class MfgOrderScan {
             + "\"refunded\":\"Y or N\",\"closed\":\"Y or N\",\"rowCount\":\"\","
             + "\"items\":[{\"code\":\"\",\"name\":\"\",\"qty\":\"\",\"amount\":\"\"}]}]}"
             + " orderCount = how many order blocks you see; one element per block, top to bottom."
+            + " One block carries one order number, so the same number never comes back twice: the"
+            + " articles of a block all go into that block's items."
             + " rowCount = how many article rows that block prints (six colours = 6), and items has"
             + " one element per printed row."
             + " platform = 淘宝 / 天猫 / 京东 / 拼多多 / 抖音. shop without the platform word."
@@ -328,6 +332,9 @@ public final class MfgOrderScan {
             // the slices are read side by side: four small calls in parallel take about as long as
             // one, while reading them one after the other made a five order page wait minutes
             List<List<Map<String, String>>> answers = new ArrayList<>();
+            // how many blocks each picture said it shows: a model that splits one block into two
+            // objects says one and answers two, which tells the join those two are one order
+            List<Integer> blocksSaid = new ArrayList<>();
             ExecutorService pool = Executors.newFixedThreadPool(Math.min(MAX_PARALLEL, slices.size()));
             List<Future<Read>> running = new ArrayList<>();
             final String sliceEndpoint = endpoint;
@@ -352,6 +359,7 @@ public final class MfgOrderScan {
                     Debug.logError(e, "A slice of the screenshot was not read", MODULE);
                     transportProblem = e.getMessage();
                     answers.add(Collections.emptyList());
+                    blocksSaid.add(Integer.valueOf(0));
                     continue;
                 }
                 if (read.reply != null) {
@@ -361,8 +369,9 @@ public final class MfgOrderScan {
                     transportProblem = read.transportProblem;
                 }
                 answers.add(read.orders);
+                blocksSaid.add(Integer.valueOf(read.seen));
             }
-            orders = MfgServices.mergeOrders(giveTheRowsAnOrder(answers));
+            orders = MfgServices.mergeOrders(giveTheRowsAnOrder(answers), blocksSaid);
             seen = orders.size();
             sliceNote = "（长图分 " + slices.size() + " 段逐段识别）";
         }
