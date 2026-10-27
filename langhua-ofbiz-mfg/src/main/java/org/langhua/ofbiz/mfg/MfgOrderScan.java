@@ -111,11 +111,19 @@ public final class MfgOrderScan {
      * of five orders came back as four right ones and one written out of two).
      *
      * <p>The walls of a shop page leave 30 to 40 pixels of white both inside a block and between two
-     * of them, so no cut can be trusted to fall between blocks: with the reasoning of the model
-     * switched off one call reads four or five blocks well, and slicing only pays off on pages that
-     * are longer than this.
+     * of them, so no cut can be trusted to fall between blocks; a slice is therefore cut where the
+     * page leaves the widest stretch between two buttons, and one slice is kept small (two blocks).
+     * A model handed four or five blocks in one picture drops a whole block now and then - a page of
+     * 23 orders came back with 21 once, the last three gone - while one or two blocks are read
+     * reliably (Step 147).
      */
-    static final int SLICE_HEIGHT = 2400;
+    static final int SLICE_HEIGHT = 900;
+
+    /**
+     * A picture up to this height is sent in one piece: cutting it in two would cost two calls and
+     * lose the look at the whole page, which is what a short page needs.
+     */
+    static final int ONE_CALL_HEIGHT = 2 * SLICE_HEIGHT;
 
     /** How far the cut may slide to find a row with no text, and how many pixels one row is sampled at. */
     static final int SLICE_SEARCH = 180;
@@ -625,7 +633,7 @@ public final class MfgOrderScan {
             Debug.logError(e, "Could not read the screenshot to slice it", MODULE);
             full = null;
         }
-        if (full == null || full.getHeight() <= SLICE_HEIGHT) {
+        if (full == null || full.getHeight() <= ONE_CALL_HEIGHT) {
             slices.add(image);
             return slices;
         }
@@ -659,9 +667,10 @@ public final class MfgOrderScan {
     }
 
     /**
-     * Finds the rows where the page prints one order block less: the orange button of every block is
-     * an anchor, and the cut goes halfway between two of them - inside the white gap of the page, not
-     * through a block.
+     * Finds the rows where the page prints one order block less: the orange buttons of the blocks are
+     * the anchors, and the cut goes halfway through the <em>widest</em> stretch between two of them -
+     * a page prints two or three buttons per block, so the small stretches lie inside one block and
+     * only the wide one is the white gap between two blocks.
      *
      * @param image the picture being cut
      * @param anchors the top row of every order button, in order
@@ -672,13 +681,29 @@ public final class MfgOrderScan {
         if (anchors.size() < 4) {
             return cuts;
         }
+        int height = image.getHeight();
         int top = 0;
-        for (int i = 1; i < anchors.size(); i++) {
-            int mid = (anchors.get(i - 1).intValue() + anchors.get(i).intValue()) / 2;
-            if (mid - top > SLICE_HEIGHT) {
-                cuts.add(Integer.valueOf(mid));
-                top = mid;
+        while (true) {
+            int target = top + SLICE_HEIGHT;
+            if (target >= height) {
+                break;
             }
+            int best = -1;
+            int widest = -1;
+            for (int i = 1; i < anchors.size(); i++) {
+                int gap = anchors.get(i).intValue() - anchors.get(i - 1).intValue();
+                int mid = (anchors.get(i - 1).intValue() + anchors.get(i).intValue()) / 2;
+                if (mid <= top + SLICE_HEIGHT / 2 || mid > target + SLICE_HEIGHT / 2 || mid >= height) {
+                    continue;
+                }
+                if (gap > widest) {
+                    widest = gap;
+                    best = mid;
+                }
+            }
+            int cut = best >= 0 ? best : target;
+            cuts.add(Integer.valueOf(cut));
+            top = cut;
         }
         return cuts;
     }

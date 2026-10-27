@@ -1156,6 +1156,38 @@ public class MfgServicesTest {
     }
 
     @Test
+    public void joinsAFragmentOfABlockThatCarriesNoMoney() {
+        // the overlap of two slices showed the articles of the last block without its header, and the
+        // second read came back with the same number and no 实付款 at all. A block always prints one,
+        // so that read is a piece of the block and not a second order (Step 147)
+        List<Map<String, String>> picture = MfgServices.orderListFrom("{\"orderCount\":\"2\",\"orders\":["
+                + "{\"orderNo\":\"3071758657686500570\",\"shop\":\"深圳市芯信世纪电子\",\"paidTotal\":\"534.10\","
+                + "\"freight\":\"0.00\",\"rowCount\":\"1\",\"items\":["
+                + "{\"code\":\"STM32F103\",\"name\":\"mcu\",\"qty\":\"10\",\"amount\":\"534.10\"}]},"
+                + "{\"orderNo\":\"3071758657686500570\",\"shop\":\"\",\"paidTotal\":\"0.00\","
+                + "\"rowCount\":\"1\",\"items\":["
+                + "{\"code\":\"STM32F103\",\"name\":\"mcu\",\"qty\":\"10\",\"amount\":\"0.00\"}]}]}");
+        List<Map<String, String>> merged = MfgServices.mergeOrders(Collections.singletonList(picture));
+        assertEquals(1, merged.size());
+        assertEquals("534.10", merged.get(0).get("paidTotal"));
+        // the same fragment seen from another slice is joined as well
+        List<Map<String, String>> first = MfgServices.orderListFrom("{\"orders\":["
+                + "{\"orderNo\":\"3071758657686500570\",\"shop\":\"深圳市芯信世纪电子\",\"paidTotal\":\"534.10\","
+                + "\"rowCount\":\"1\",\"items\":[{\"code\":\"A\",\"name\":\"a\",\"qty\":\"10\",\"amount\":\"534.10\"}]}]}");
+        List<Map<String, String>> fragment = MfgServices.orderListFrom("{\"orders\":["
+                + "{\"orderNo\":\"3071758657686500570\",\"shop\":\"\",\"paidTotal\":\"0.00\","
+                + "\"rowCount\":\"1\",\"items\":[{\"code\":\"A\",\"name\":\"a\",\"qty\":\"10\",\"amount\":\"0.00\"}]}]}");
+        assertEquals(1, MfgServices.mergeOrders(Arrays.asList(first, fragment)).size());
+        // two blocks that both print a money stay apart
+        List<Map<String, String>> twoMonies = MfgServices.orderListFrom("{\"orders\":["
+                + "{\"orderNo\":\"3071758657686500570\",\"shop\":\"深圳市芯信世纪电子\",\"paidTotal\":\"534.10\","
+                + "\"rowCount\":\"1\",\"items\":[{\"code\":\"A\",\"name\":\"a\",\"qty\":\"1\",\"amount\":\"534.10\"}]},"
+                + "{\"orderNo\":\"3071758657686500570\",\"shop\":\"深圳市芯信世纪电子\",\"paidTotal\":\"8.00\","
+                + "\"rowCount\":\"1\",\"items\":[{\"code\":\"B\",\"name\":\"b\",\"qty\":\"1\",\"amount\":\"8.00\"}]}]}");
+        assertEquals(2, MfgServices.mergeOrders(Collections.singletonList(twoMonies)).size());
+    }
+
+    @Test
     public void seesABlockThatCarriedTheArticlesOfTheBlockAbove() {
         // the codes and names of one printed line are written differently by two reads, so the blocks
         // look different although the articles are the same: the money tells it (a block on the page
@@ -1543,7 +1575,7 @@ public class MfgServicesTest {
     public void cutsThePageBetweenOrderBlocksNotThroughOne() throws IOException {
         // a band of text sits where the page would otherwise be cut, so the cut has to slide away
         int band = MfgOrderScan.SLICE_HEIGHT - 60;
-        int height = MfgOrderScan.SLICE_HEIGHT * 2;
+        int height = MfgOrderScan.ONE_CALL_HEIGHT + MfgOrderScan.SLICE_HEIGHT;
         BufferedImage image = new BufferedImage(400, height, BufferedImage.TYPE_INT_RGB);
         java.awt.Graphics2D pen = image.createGraphics();
         pen.setColor(java.awt.Color.WHITE);

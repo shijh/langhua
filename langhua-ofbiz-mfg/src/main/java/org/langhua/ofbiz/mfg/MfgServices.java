@@ -10574,7 +10574,8 @@ always
                         && saysFewerBlocksThanItRead(blocksSaid, slice, answer.size())
                         && sameShopOrMissing(kept, order);
                 if (kept != null && sameAnswer(kept, slice, sliceOf) && !sameMoneyAndArticles(kept, order)
-                        && !lostTheShop(kept, order) && !halvesOfOneBlock && !samePaidMoney(kept, order)) {
+                        && !lostTheShop(kept, order) && !halvesOfOneBlock
+                        && hasMoney(kept) && hasMoney(order) && !samePaidMoney(kept, order)) {
                     // a page never prints one order number on two blocks, and one picture shows each
                     // block once: the two blocks were read with the same number, so keeping them apart
                     // shows both orders. Merging them dropped the second one - a page of 29 orders with
@@ -10587,7 +10588,8 @@ always
                     sliceOf.put(stray, Integer.valueOf(slice));
                     continue;
                 }
-                if (kept != null && !sameAnswer(kept, slice, sliceOf) && !sameMoney(kept, order)) {
+                if (kept != null && !sameAnswer(kept, slice, sliceOf) && hasMoney(kept) && hasMoney(order)
+                        && !sameMoney(kept, order)) {
                     // two slices, but two different block monies: this is not the same block either
                     String apart = freeNumber(byNumber, number);
                     Map<String, String> stray = new LinkedHashMap<>(order);
@@ -10798,6 +10800,18 @@ always
             }
         }
         return null;
+    }
+
+    /**
+     * @param kept an order read so far
+     * @param order one read of the same block
+     * @return {@code true} when the read got the money of the block at all: a block always prints a
+     *     实付款, so a read without one is a fragment of the block (the overlap of two slices shows the
+     *     articles without the header) and never a second order
+     */
+    private static boolean hasMoney(Map<String, String> order) {
+        Double paid = optionalAmount(order.get("paidTotal"));
+        return paid != null && paid.doubleValue() > 0.0;
     }
 
     /**
