@@ -1021,6 +1021,16 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   **窗口从 ±50% 收紧到 ±25%**（±50% 时一段会漂到目标的 1.3 倍，等于没变小）。
   实测：**12 段**；同一张图 **10 连测全部 23 张、无重复单号、提示只剩 1~2 条**（固定 900 时是 9/10，2400 时是 1/3 且会少块）。
   **自相关的坑**：取**全局最大值**，不要取“最小的那个够高的峰”——最早那版取 ≥0.85×max 的最小 lag，结果锁在 582 的次峰上。
+- **识图代码独立成包 `org.langhua.ofbiz.mfg.oir`（Step 149）**：`MfgOrderScan` 整类搬成 `oir/OirScan`（原样搬，没改逻辑），
+  旧的 `MfgOrderScan` 只留两个请求入口（`scan` / `test`）转发过去 —— **这个类名不能删**，`controller.xml` 的
+  `<request-map uri="orderImage">` 指向它。目的：让第三方只读 `oir/` 就能审计算法；包里有 `README.md`
+  （流程图、段高与切点、合并/整理的每条规则、实测数据、已知失败模式、要审计的 6 个问题、"不能写库 / 返回结构不能变"）。
+  跨包用到的 `MfgServices` 规则函数（`mergeOrders` / `tidyOrder` / `checkOrderTotals` / `orderListFrom` … 共 24 个）
+  已改成 `public static`（javadoc 标了被 oir 使用），`MfgBomEvents.jsonString` 也改成 public。
+  实测：搬完 161 个单测全过，真实图片识别 23 张 / 12 段，与搬之前一致。
+- **PowerShell 写文件别用 `Set-Content -Encoding UTF8`**：PS 5.1 会带 BOM，javac 直接报
+  `非法字符: '\ufeff'`（三个文件同时中招）。要改源码用 `create_file`/编辑工具，或写完后用
+  `[System.IO.File]::WriteAllBytes` 去掉前 3 个字节。
 - **保修**：从出货日开始算，月数在产品上（`warrantyMonths`，默认 12）- **淘宝窗口**：7 天无理由 = 签收日 + 8 天 00:00（即签收次日起 168 小时）；15 天售后 = 签收 + 15 天 23:59:59
 - **买家名单**：匹配键优先买家昵称（`TB:N:nick`），因为淘宝收件手机号常被隐私号掩码；手机号必须是 11 位真号、
   带 `*` 一律拒绝；名单 12 个月自动失效；**只提示，不拦截任何法定售后**

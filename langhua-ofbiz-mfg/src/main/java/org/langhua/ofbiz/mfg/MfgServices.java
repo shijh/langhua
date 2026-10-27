@@ -9143,7 +9143,7 @@ always
      * @param text the pasted text
      * @return one array per line: code, name, quantity, amount (as text)
      */
-    static List<String[]> parseOrderArticleLines(String text) {
+    public static List<String[]> parseOrderArticleLines(String text) {
         List<String[]> rows = new ArrayList<>();
         if (text == null) {
             return rows;
@@ -9227,7 +9227,7 @@ always
      * @param lines the pasted or recognised lines
      * @return the same lines with fitting codes
      */
-    static String fitOrderLines(String lines) {
+    public static String fitOrderLines(String lines) {
         List<String[]> rows = parseOrderArticleLines(lines);
         if (rows.isEmpty()) {
             return lines;
@@ -9306,7 +9306,7 @@ always
      * @param reply the answer text
      * @return one map per order that carries lines, empty when there is nothing usable
      */
-    static List<Map<String, String>> orderListFrom(String reply) {
+    public static List<Map<String, String>> orderListFrom(String reply) {
         return orderListFrom(reply, false);
     }
 
@@ -9319,7 +9319,7 @@ always
      *        the scan hangs them on the order whose header the slice before it carried
      * @return one map per order that carries lines, empty when there is nothing usable
      */
-    static List<Map<String, String>> orderListFrom(String reply, boolean anonymousOk) {
+    public static List<Map<String, String>> orderListFrom(String reply, boolean anonymousOk) {
         List<Map<String, String>> orders = new ArrayList<>();
         String text = orderAnswerText(reply);
         if (text == null) {
@@ -9356,7 +9356,7 @@ always
      * @param reply the answer text
      * @return the number it reported, 0 when the answer does not say
      */
-    static int orderCountIn(String reply) {
+    public static int orderCountIn(String reply) {
         String text = orderAnswerText(reply);
         if (text == null) {
             return 0;
@@ -9562,7 +9562,7 @@ always
      * @param order one order of an answer
      * @return {@code true} when the order counts more rows than were read
      */
-    static boolean rowsMissing(Map<String, String> order) {
+    public static boolean rowsMissing(Map<String, String> order) {
         if (order == null) {
             return false;
         }
@@ -9582,7 +9582,7 @@ always
      * @param order one order of an answer
      * @return the key two copies share, {@code null} when the order has no articles
      */
-    static String orderContentKey(Map<String, String> order) {
+    public static String orderContentKey(Map<String, String> order) {
         if (order == null) {
             return null;
         }
@@ -9607,7 +9607,7 @@ always
      * @param order one order of an answer
      * @return the key two blocks of the same articles share, {@code null} when it has no articles
      */
-    static String moneyKeyOf(Map<String, String> order) {
+    public static String moneyKeyOf(Map<String, String> order) {
         if (order == null) {
             return null;
         }
@@ -9629,7 +9629,7 @@ always
      * @param orders the orders of one answer
      * @return {@code true} when one order looks copied from another
      */
-    static boolean repeatsAnotherOrder(List<Map<String, String>> orders) {        Set<String> seen = new LinkedHashSet<>();
+    public static boolean repeatsAnotherOrder(List<Map<String, String>> orders) {        Set<String> seen = new LinkedHashSet<>();
         for (Map<String, String> order : orders) {
             String key = orderContentKey(order);
             if (key != null && !seen.add(key)) {
@@ -9649,7 +9649,7 @@ always
      * @param reply the answer text
      * @return {@code true} when the placeholder row appears in the answer
      */
-    static boolean echoesTemplate(String reply) {
+    public static boolean echoesTemplate(String reply) {
         String text = orderAnswerText(reply);
         if (text == null) {
             return false;
@@ -9672,7 +9672,7 @@ always
      * @param orders the order maps built from one answer
      * @return one entry per order, the tab separated article rows
      */
-    static List<String> linesOfOrders(List<Map<String, String>> orders) {
+    public static List<String> linesOfOrders(List<Map<String, String>> orders) {
         List<String> lines = new ArrayList<>();
         if (orders == null) {
             return lines;
@@ -9693,7 +9693,7 @@ always
      * @param linesByOrder the article rows of the orders that were read
      * @return {@code true} when a pack size was printed and no line counted more than one piece
      */
-    static boolean ignoredThePackSize(String reply, List<String> linesByOrder) {
+    public static boolean ignoredThePackSize(String reply, List<String> linesByOrder) {
         if (reply == null || !PACK_SIZE.matcher(reply).find()) {
             return false;
         }
@@ -9793,7 +9793,7 @@ always
      * @param fields the recognised fields of {@link #orderFieldsFrom(String)}
      * @return {@code true} when the screenshot said 退款成功 / 已退款 / 退款中 / 退货退款
      */
-    static boolean isRefunded(Map<String, String> fields) {
+    public static boolean isRefunded(Map<String, String> fields) {
         return fields != null && "Y".equalsIgnoreCase(toText(fields.get("refunded")));
     }
 
@@ -9807,7 +9807,7 @@ always
      * @param fields the recognised fields of {@link #orderFieldsFrom(String)}
      * @return {@code true} when the screenshot said 交易关闭 / 已取消 / 交易失败
      */
-    static boolean isClosed(Map<String, String> fields) {
+    public static boolean isClosed(Map<String, String> fields) {
         return fields != null && "Y".equalsIgnoreCase(toText(fields.get("closed")));
     }
 
@@ -9834,7 +9834,7 @@ always
      * @param fields the recognised fields, {@code paidTotal}, {@code freight} and {@code lines}
      * @return a sentence to show the person, {@code null} when the numbers agree or cannot be checked
      */
-    static String checkOrderTotals(Map<String, String> fields) {
+    public static String checkOrderTotals(Map<String, String> fields) {
         Double paid = optionalAmount(fields.get("paidTotal"));
         if (paid == null) {
             return null;
@@ -9914,7 +9914,7 @@ always
      * @param order the recognised order
      * @return {@code true} when goods plus freight is not the paid total
      */
-    static boolean totalsDisagree(Map<String, String> order) {
+    public static boolean totalsDisagree(Map<String, String> order) {
         if (order == null) {
             return false;
         }
@@ -9953,7 +9953,7 @@ always
      * @param orders the orders of one answer
      * @return {@code true} when any article row is unusable
      */
-    static boolean anyUnreadable(List<Map<String, String>> orders) {
+    public static boolean anyUnreadable(List<Map<String, String>> orders) {
         if (orders == null) {
             return false;
         }
@@ -9977,7 +9977,7 @@ always
      * @param seen how many orders the model said the picture shows, 0 when it did not say
      * @return the grade, negative when the answer holds no order at all
      */
-    static int answerScore(List<Map<String, String>> orders, int seen) {
+    public static int answerScore(List<Map<String, String>> orders, int seen) {
         if (orders == null || orders.isEmpty()) {
             return -1;
         }
@@ -10012,7 +10012,7 @@ always
      *
      * @param order the order to clean, its {@code lines} are rewritten
      */
-    static void tidyOrder(Map<String, String> order) {
+    public static void tidyOrder(Map<String, String> order) {
         if (order == null) {
             return;
         }
@@ -10512,7 +10512,7 @@ always
      * @param answers what each slice answered, in the order the slices were read
      * @return the orders of the whole page
      */
-    static List<Map<String, String>> mergeOrders(List<List<Map<String, String>>> answers) {
+    public static List<Map<String, String>> mergeOrders(List<List<Map<String, String>>> answers) {
         return mergeOrders(answers, null);
     }
 
@@ -10527,7 +10527,7 @@ always
      * @param blocksSaid how many blocks the model said each slice shows, {@code null} when unknown
      * @return the orders of the whole page
      */
-    static List<Map<String, String>> mergeOrders(List<List<Map<String, String>>> answers,
+    public static List<Map<String, String>> mergeOrders(List<List<Map<String, String>>> answers,
             List<Integer> blocksSaid) {
         Map<String, Map<String, String>> byNumber = new LinkedHashMap<>();
         if (answers == null) {
@@ -11117,7 +11117,7 @@ always
      * @param max length the quote is cut to
      * @return one line, never empty
      */
-    static String visionReplyExcerpt(String reply, int max) {
+    public static String visionReplyExcerpt(String reply, int max) {
         if (reply == null) {
             return "（空回答）";
         }
@@ -11146,7 +11146,7 @@ always
      * @param name the field name
      * @return the value with its escapes resolved, {@code null} when the field is missing
      */
-    static String jsonStringField(String text, String name) {
+    public static String jsonStringField(String text, String name) {
         if (text == null || name == null || name.isEmpty()) {
             return null;
         }
@@ -11373,7 +11373,7 @@ always
      * @param id the property id, e.g. {@code org.langhua.mfg.vision.endpoint}
      * @return the value, {@code null} when neither the database nor the JVM knows it
      */
-    static String setting(Delegator delegator, String id) {
+    public static String setting(Delegator delegator, String id) {
         if (delegator != null) {
             try {
                 GenericValue row = EntityQuery.use(delegator).from("SystemProperty")
@@ -11503,7 +11503,7 @@ always
      * @param endpoint what the settings hold
      * @return the chat completions URL, {@code null} for a null input
      */
-    static String normalizeVisionEndpoint(String endpoint) {
+    public static String normalizeVisionEndpoint(String endpoint) {
         if (endpoint == null) {
             return null;
         }
@@ -11530,7 +11530,7 @@ always
      * @param body the answer body, may be {@code null}
      * @return the message shown to the person
      */
-    static String describeVisionError(int status, String body) {
+    public static String describeVisionError(int status, String body) {
         String hint;
         if (status == 401 || status == 403) {
             hint = "密钥不对或没有权限";

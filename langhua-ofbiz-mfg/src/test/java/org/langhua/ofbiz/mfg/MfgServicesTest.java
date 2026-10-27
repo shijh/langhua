@@ -32,6 +32,8 @@ import javax.imageio.ImageIO;
 
 import java.awt.image.BufferedImage;
 
+import org.langhua.ofbiz.mfg.oir.OirScan;
+
 import org.junit.Test;
 
 /**
@@ -914,34 +916,34 @@ public class MfgServicesTest {
             pen.fillRect(20, top + 300, 120, 20);
         }
         pen.dispose();
-        int measured = MfgOrderScan.blockHeightOf(image);
+        int measured = OirScan.blockHeightOf(image);
         assertTrue("block height " + measured + " is not " + block, Math.abs(measured - block) <= 20);
         // one slice holds two blocks
-        assertEquals(2 * block, MfgOrderScan.sliceTargetOf(image));
+        assertEquals(2 * block, OirScan.sliceTargetOf(image));
         // a page that does not repeat (nothing printed on it) says nothing
         BufferedImage blank = new BufferedImage(300, 1200, BufferedImage.TYPE_INT_RGB);
         java.awt.Graphics2D empty = blank.createGraphics();
         empty.setColor(java.awt.Color.WHITE);
         empty.fillRect(0, 0, 300, 1200);
         empty.dispose();
-        assertEquals(0, MfgOrderScan.blockHeightOf(blank));
-        assertEquals(MfgOrderScan.SLICE_HEIGHT, MfgOrderScan.sliceTargetOf(blank));
+        assertEquals(0, OirScan.blockHeightOf(blank));
+        assertEquals(OirScan.SLICE_HEIGHT, OirScan.sliceTargetOf(blank));
     }
 
     @Test
     public void cutsALongPageIntoOverlappingSlices() throws IOException {
         // a picture that already fits is sent as it is
-        assertEquals(1, MfgOrderScan.slicesOf(png(300, 600)).size());
-        assertEquals(1, MfgOrderScan.slicesOf(png(300, MfgOrderScan.SLICE_HEIGHT)).size());
+        assertEquals(1, OirScan.slicesOf(png(300, 600)).size());
+        assertEquals(1, OirScan.slicesOf(png(300, OirScan.SLICE_HEIGHT)).size());
         // a page taller than that is cut into slices, each one short enough to be read in one go
-        List<byte[]> slices = MfgOrderScan.slicesOf(png(300, MfgOrderScan.ONE_CALL_HEIGHT + MfgOrderScan.SLICE_HEIGHT));
+        List<byte[]> slices = OirScan.slicesOf(png(300, OirScan.ONE_CALL_HEIGHT + OirScan.SLICE_HEIGHT));
         assertTrue(slices.size() >= 2);
         for (byte[] slice : slices) {
             BufferedImage image = ImageIO.read(new java.io.ByteArrayInputStream(slice));
-            assertTrue(image.getHeight() <= MfgOrderScan.SLICE_HEIGHT + MfgOrderScan.SLICE_SEARCH);
+            assertTrue(image.getHeight() <= OirScan.SLICE_HEIGHT + OirScan.SLICE_SEARCH);
         }
         // something that is not an image never loses the scan
-        assertEquals(1, MfgOrderScan.slicesOf(new byte[] {1, 2, 3}).size());
+        assertEquals(1, OirScan.slicesOf(new byte[] {1, 2, 3}).size());
     }
 
     private static byte[] png(int width, int height) throws IOException {
@@ -971,9 +973,9 @@ public class MfgServicesTest {
         pen.dispose();
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         ImageIO.write(image, "png", out);
-        List<byte[]> slices = MfgOrderScan.slicesOf(out.toByteArray());
+        List<byte[]> slices = OirScan.slicesOf(out.toByteArray());
         assertTrue(slices.size() >= 2);
-        assertTrue(MfgOrderScan.SLICE_OVERLAP < MfgOrderScan.SLICE_HEIGHT);
+        assertTrue(OirScan.SLICE_OVERLAP < OirScan.SLICE_HEIGHT);
         java.util.Set<Integer> whole = new java.util.HashSet<>();
         for (byte[] slice : slices) {
             BufferedImage picture = ImageIO.read(new java.io.ByteArrayInputStream(slice));
@@ -1540,15 +1542,15 @@ public class MfgServicesTest {
         pen.dispose();
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         ImageIO.write(image, "png", out);
-        assertEquals(blocks, MfgOrderScan.blockAnchors(image).size());
-        List<byte[]> slices = MfgOrderScan.slicesOf(out.toByteArray());
+        assertEquals(blocks, OirScan.blockAnchors(image).size());
+        List<byte[]> slices = OirScan.slicesOf(out.toByteArray());
         assertTrue(slices.size() >= 2);
         // a slice is one target plus the overlap, and the cut may slide a quarter of a target
-        int target = MfgOrderScan.sliceTargetOf(image);
+        int target = OirScan.sliceTargetOf(image);
         java.util.Set<Integer> whole = new java.util.HashSet<>();
         for (byte[] slice : slices) {
             BufferedImage picture = ImageIO.read(new java.io.ByteArrayInputStream(slice));
-            assertTrue(picture.getHeight() <= target * 5 / 4 + MfgOrderScan.SLICE_OVERLAP);
+            assertTrue(picture.getHeight() <= target * 5 / 4 + OirScan.SLICE_OVERLAP);
             for (int i = 0; i < blocks; i++) {
                 int rows = 0;
                 for (int y = 0; y < picture.getHeight(); y++) {
@@ -1574,20 +1576,20 @@ public class MfgServicesTest {
             pen2.fillRect(0, i * 400 + 40, width, 120);
         }
         pen2.dispose();
-        assertEquals(0, MfgOrderScan.blockAnchors(plain).size());
+        assertEquals(0, OirScan.blockAnchors(plain).size());
         ByteArrayOutputStream out2 = new ByteArrayOutputStream();
         ImageIO.write(plain, "png", out2);
-        assertTrue(MfgOrderScan.slicesOf(out2.toByteArray()).size() >= 2);
+        assertTrue(OirScan.slicesOf(out2.toByteArray()).size() >= 2);
     }
 
     @Test
     public void takesALongPageScreenshotAsItIs() {
         // a whole shop page captured in one picture runs to ten megabytes and more; the picture is
         // cut into slices anyway, so the upload is not refused for being long (Step 128)
-        assertNull(MfgOrderScan.imageSizeProblem(3 * 1024 * 1024));
-        assertNull(MfgOrderScan.imageSizeProblem(MfgOrderScan.MAX_IMAGE_BYTES));
-        assertEquals(32 * 1024 * 1024, MfgOrderScan.MAX_IMAGE_BYTES);
-        String tooBig = MfgOrderScan.imageSizeProblem(MfgOrderScan.MAX_IMAGE_BYTES + 1);
+        assertNull(OirScan.imageSizeProblem(3 * 1024 * 1024));
+        assertNull(OirScan.imageSizeProblem(OirScan.MAX_IMAGE_BYTES));
+        assertEquals(32 * 1024 * 1024, OirScan.MAX_IMAGE_BYTES);
+        String tooBig = OirScan.imageSizeProblem(OirScan.MAX_IMAGE_BYTES + 1);
         // the message says the real limit and what to do with a page above it
         assertTrue(tooBig.contains("32 MB"));
         assertTrue(tooBig.contains("分段"));
@@ -1596,7 +1598,7 @@ public class MfgServicesTest {
 
     @Test
     public void handsALargeSliceToTheModelAsJpeg() throws IOException {
-        byte[] jpeg = MfgOrderScan.jpegOf(png(120, 160));
+        byte[] jpeg = OirScan.jpegOf(png(120, 160));
         // a JPEG starts with FF D8 and ends with FF D9
         assertEquals((byte) 0xFF, jpeg[0]);
         assertEquals((byte) 0xD8, jpeg[1]);
@@ -1604,14 +1606,14 @@ public class MfgServicesTest {
         assertEquals((byte) 0xD9, jpeg[jpeg.length - 1]);
         // something that is not a picture is not lost: there is nothing to re-encode, so the caller
         // sends what it got
-        assertNull(MfgOrderScan.jpegOf(new byte[] {1, 2, 3}));
+        assertNull(OirScan.jpegOf(new byte[] {1, 2, 3}));
     }
 
     @Test
     public void cutsThePageBetweenOrderBlocksNotThroughOne() throws IOException {
         // a band of text sits where the page would otherwise be cut, so the cut has to slide away
-        int band = MfgOrderScan.SLICE_HEIGHT - 60;
-        int height = MfgOrderScan.ONE_CALL_HEIGHT + MfgOrderScan.SLICE_HEIGHT;
+        int band = OirScan.SLICE_HEIGHT - 60;
+        int height = OirScan.ONE_CALL_HEIGHT + OirScan.SLICE_HEIGHT;
         BufferedImage image = new BufferedImage(400, height, BufferedImage.TYPE_INT_RGB);
         java.awt.Graphics2D pen = image.createGraphics();
         pen.setColor(java.awt.Color.WHITE);
@@ -1627,12 +1629,12 @@ public class MfgServicesTest {
         pen.dispose();
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         ImageIO.write(image, "png", out);
-        List<byte[]> slices = MfgOrderScan.slicesOf(out.toByteArray());
+        List<byte[]> slices = OirScan.slicesOf(out.toByteArray());
         assertTrue(slices.size() >= 2);
         int cut = ImageIO.read(new java.io.ByteArrayInputStream(slices.get(0))).getHeight();
         assertTrue("the cut landed in the text rows: " + cut, cut < band || cut > band + 80);
         // the cut may slide either way to find that blank row, but not far
-        assertTrue("slice too tall: " + cut, cut <= MfgOrderScan.SLICE_HEIGHT + MfgOrderScan.SLICE_SEARCH);
+        assertTrue("slice too tall: " + cut, cut <= OirScan.SLICE_HEIGHT + OirScan.SLICE_SEARCH);
     }
 
     @Test
@@ -2030,26 +2032,26 @@ public class MfgServicesTest {
         // a thinking model that ran out of output budget answers with reasoning only
         String truncated = "{\"choices\":[{\"finish_reason\":\"length\",\"message\":{\"content\":\"\","
                 + "\"reasoning_content\":\"We need answer only JSON object. Need parse image...\"}}]}";
-        String message = MfgOrderScan.scanFailure(truncated, null);
+        String message = OirScan.scanFailure(truncated, null);
         assertTrue(message.contains("输出长度"));
         assertTrue(message.contains("再点一次"));
         assertFalse(message.contains("org.langhua"));
 
         // no call got through at all
-        String offline = MfgOrderScan.scanFailure(null, "Connection refused");
+        String offline = OirScan.scanFailure(null, "Connection refused");
         assertTrue(offline.contains("连不上"));
         assertTrue(offline.contains("Connection refused"));
 
         // the model answered something else entirely
-        String other = MfgOrderScan.scanFailure("{\"orders\":[]}", null);
+        String other = OirScan.scanFailure("{\"orders\":[]}", null);
         assertTrue(other.contains("没从截图里读出订单"));
         assertTrue(other.contains("再点一次"));
         // the swallowed retries are still part of the message, so nobody wonders why it took longer
-        assertTrue(other.contains("已自动重试 " + (MfgOrderScan.ATTEMPTS - 1) + " 次"));
+        assertTrue(other.contains("已自动重试 " + (OirScan.ATTEMPTS - 1) + " 次"));
 
         // an answer that names a count but holds no usable order was cut off, not "not an order"
         String cutOff = "{\"orderCount\":\"3\",\"orders\":[{\"orderNo\":\"3316358535012009372\",\"shop\":";
-        String cutMessage = MfgOrderScan.scanFailure(cutOff, null);
+        String cutMessage = OirScan.scanFailure(cutOff, null);
         assertTrue(cutMessage.contains("3 张单"));
         assertTrue(cutMessage.contains("截断"));
         assertFalse(cutMessage.contains("模型的原话"));
@@ -2058,18 +2060,18 @@ public class MfgServicesTest {
     @Test
     public void tellsWhichFieldTheVisionTestStillNeeds() {
         // the person is looking at the form: name the field, never a system property
-        String all = MfgOrderScan.testMissing(null, null, null);
+        String all = OirScan.testMissing(null, null, null);
         assertTrue(all.contains("接口地址"));
         assertTrue(all.contains("模型名"));
         assertTrue(all.contains("密钥"));
-        String onlyKey = MfgOrderScan.testMissing("https://api.deepseek.com/v1/chat/completions",
+        String onlyKey = OirScan.testMissing("https://api.deepseek.com/v1/chat/completions",
                 "deepseek-flash", null);
         assertTrue(onlyKey.contains("密钥"));
         assertFalse(onlyKey.contains("接口地址"));
         assertFalse(onlyKey.contains("模型名"));
         // the receipt page must point at the settings page, not at -D options
-        assertFalse(MfgOrderScan.missingSetting().contains("org.langhua"));
-        assertTrue(MfgOrderScan.missingSetting().contains("系统设置"));
+        assertFalse(OirScan.missingSetting().contains("org.langhua"));
+        assertTrue(OirScan.missingSetting().contains("系统设置"));
     }
 
     @Test

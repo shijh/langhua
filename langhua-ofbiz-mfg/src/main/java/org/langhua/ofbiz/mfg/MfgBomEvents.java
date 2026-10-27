@@ -104,7 +104,7 @@ public final class MfgBomEvents {
      * @param value the text, may be {@code null}
      * @return the quoted text, {@code null} for a null value
      */
-    static String jsonString(String value) {
+    public static String jsonString(String value) {
         if (value == null) {
             return "null";
         }
