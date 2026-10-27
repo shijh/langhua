@@ -1043,6 +1043,21 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   踩坑：批量改调用点的正则**别加"前面不是点"的负向断言**（`(?<!\.)`），`MfgServices.tidyOrder(` 这种
   带类名的写法会被漏掉；PowerShell 写出来的 java 文件要先去掉 BOM 再编译。
   `oir/README.md` 里也有这份分工表（`OirOrders` = 规则，`OirScan` = 问与切）。
+- **第三方审计意见的处理（Step 151）**：按「代码结构 / 算法稳健性 / 性能 / 可测试性 / 细节」十五条逐条定，
+  结论写在 `oir/README.md` §9（**改了哪些、哪些不改、为什么**）。改了的都是**行为不变**的：
+  ① `OirOrders` 顶部集中 `MONEY_TOLERANCE=0.06` / `HALF_A_FEN=0.005` / `PRACTICALLY_ZERO` /
+  `MAX_PACKS` / `MISSING_DIGITS_ALLOWED`（注释写清来源），全文不再有裸数字；
+  ② `TRADE_NOTE` / `PACK_SUFFIX` / `BLANKS` 三个正则改成 `static final Pattern`（`rowKey` / `bareCode` 用）；
+  ③ `orderListFrom(reply, anonymousOk)` 的参数改名 `partial`（与 `OirScan` 的切片标志同名）；
+  ④ `OirScan` 的切片线程池 `shutdownNow()` + `awaitTermination(5s)` 放进 `finally`（超时的切片要取消，
+  否则线程和图片会被挂着的 HTTP 调用留住）；⑤ `pause(attempt)` 指数退避 700/1400/2800 ms；
+  ⑥ 重发日志改成 `Attempt N of M scored X (kept Y, best Z), asking again: <原因>`，原因由 `whyAskAgain()`
+  给出（原来一律打「carried no lines」，明明有行只是少一行时看着像没读出来，误导排查）。
+  **没改的**（也写进 §9，别再反复提）：容差收紧（`0.005×件数` 是页面四舍五入到分的真实误差，
+  收紧会把 Step 129 修掉的「请核对」噪声带回来）、`BigDecimal`（误差来自页面舍入不是浮点）、
+  `refunded`/`closed` 改枚举（它是线格式）、块高多信号融合（切点已由按钮缝决定，动它风险大）、
+  `VisionClient` 接口注入、`tidyOrder` 拆小方法（**这十几步的顺序本身就是规则**）、切片先 PNG 再 JPEG。
+  实测：161 单测全过，真实长图仍是 23 张 / 23 个不重复单号 / 12 段，本轮的 `note` 为 0 条。
 - **PowerShell 写文件别用 `Set-Content -Encoding UTF8`**：PS 5.1 会带 BOM，javac 直接报
   `非法字符: '\ufeff'`（三个文件同时中招）。要改源码用 `create_file`/编辑工具，或写完后用
   `[System.IO.File]::WriteAllBytes` 去掉前 3 个字节。

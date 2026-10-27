@@ -168,6 +168,13 @@ public final class OirScan {
     public static final int SLICE_WAIT_SECONDS = 240;
 
     /**
+     * How long the first retry waits before asking again, in milliseconds. The wait doubles with every
+     * further attempt (700, 1400), so a service that is having a bad minute is not hit three times in
+     * a row - the first wait alone was enough for a hiccup.
+     */
+    private static final long RETRY_PAUSE_MILLIS = 700L;
+
+    /**
      * Room for the answer. A thinking model spends part of it on its reasoning, so a small budget
      * ends with an empty answer: 4000 was not enough for a screenshot holding three orders.
      */
@@ -364,26 +371,37 @@ public final class OirScan {
                     }
                 }));
             }
-            pool.shutdown();
-            for (Future<Read> future : running) {
-                Read read;
+            try {
+                for (Future<Read> future : running) {
+                    Read read;
+                    try {
+                        read = future.get(SLICE_WAIT_SECONDS, TimeUnit.SECONDS);
+                    } catch (InterruptedException | ExecutionException | TimeoutException e) {
+                        Debug.logError(e, "A slice of the screenshot was not read", MODULE);
+                        transportProblem = e.getMessage();
+                        answers.add(Collections.emptyList());
+                        blocksSaid.add(Integer.valueOf(0));
+                        continue;
+                    }
+                    if (read.reply != null) {
+                        reply = read.reply;
+                    }
+                    if (read.transportProblem != null) {
+                        transportProblem = read.transportProblem;
+                    }
+                    answers.add(read.orders);
+                    blocksSaid.add(Integer.valueOf(read.seen));
+                }
+            } finally {
+                // a slice whose call is still hanging is cancelled here, not left running: the page
+                // has already waited for its answer, and a worker thread would otherwise keep the
+                // pictures of this request alive until the socket times out on its own
+                pool.shutdownNow();
                 try {
-                    read = future.get(SLICE_WAIT_SECONDS, TimeUnit.SECONDS);
-                } catch (InterruptedException | ExecutionException | TimeoutException e) {
-                    Debug.logError(e, "A slice of the screenshot was not read", MODULE);
-                    transportProblem = e.getMessage();
-                    answers.add(Collections.emptyList());
-                    blocksSaid.add(Integer.valueOf(0));
-                    continue;
+                    pool.awaitTermination(5L, TimeUnit.SECONDS);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
                 }
-                if (read.reply != null) {
-                    reply = read.reply;
-                }
-                if (read.transportProblem != null) {
-                    transportProblem = read.transportProblem;
-                }
-                answers.add(read.orders);
-                blocksSaid.add(Integer.valueOf(read.seen));
             }
             orders = OirOrders.mergeOrders(giveTheRowsAnOrder(answers), blocksSaid);
             seen = orders.size();
@@ -566,7 +584,7 @@ public final class OirScan {
         int attempts = partial ? SLICE_ATTEMPTS : ATTEMPTS;
         for (int attempt = 1; attempt <= attempts; attempt++) {
             if (attempt > 1) {
-                pause();
+                pause(attempt);
             }
             String reply;
             try {
@@ -585,6 +603,7 @@ public final class OirScan {
             List<Map<String, String>> got = OirOrders.orderListFrom(reply, partial);
             int counted = OirOrders.orderCountIn(reply);
             int score = OirOrders.answerScore(got, counted);
+            int kept = bestScore;
             if (score > bestScore) {
                 bestScore = score;
                 bestOrders = got;
@@ -596,23 +615,64 @@ public final class OirScan {
             // while every line came back as one piece, or (on a whole screenshot) an order whose
             // goods plus freight is not the paid total: either way one more send is worth it
             boolean shortRead = !partial && counted > 0 && got.size() < counted;
-            if (!got.isEmpty() && !shortRead && !OirOrders.echoesTemplate(reply)
-                    && !OirOrders.anyUnreadable(got)
-                    && !OirOrders.ignoredThePackSize(reply, OirOrders.linesOfOrders(got))
-                    && !anyRowsMissing(got)
-                    && !OirOrders.repeatsAnotherOrder(got)
-                    && (partial || !anyTotalsDisagree(got))) {
+            String why = whyAskAgain(got, counted, partial, shortRead, reply);
+            if (why == null) {
                 bestOrders = got;
                 bestReply = reply;
                 bestSeen = counted;
                 break;
             }
-            Debug.logInfo("The vision answer carried no lines: " + reply, MODULE);
+            Debug.logInfo("Attempt " + attempt + " of " + attempts + " scored " + score
+                    + " (kept " + kept + ", best " + bestScore + "), asking again: " + why, MODULE);
+            if (got.isEmpty()) {
+                Debug.logInfo("The answer that carried no order was: " + reply, MODULE);
+            }
         }
         read.orders = bestOrders;
         read.reply = bestReply != null ? bestReply : read.reply;
         read.seen = bestSeen;
         return read;
+    }
+
+    /**
+     * Says what is wrong with one read of one picture, or {@code null} when it can be used as it
+     * stands. The reason is written to the log, so a page that needed two tries can be told apart from
+     * one the service answered badly.
+     *
+     * @param got the orders the answer was read into
+     * @param counted how many order blocks the model said the picture shows, zero when it did not say
+     * @param partial {@code true} for one slice of a long page, whose money is allowed not to add up
+     * @param shortRead {@code true} when fewer orders came back than the model said it saw
+     * @param reply the answer text
+     * @return why the picture should be asked again, {@code null} when it need not be
+     */
+    private static String whyAskAgain(List<Map<String, String>> got, int counted, boolean partial,
+            boolean shortRead, String reply) {
+        if (got.isEmpty()) {
+            return "no order came back";
+        }
+        if (shortRead) {
+            return "the model saw " + counted + " orders and answered " + got.size();
+        }
+        if (OirOrders.echoesTemplate(reply)) {
+            return "the answer is the answer format itself";
+        }
+        if (OirOrders.anyUnreadable(got)) {
+            return "a row has no readable quantity or amount";
+        }
+        if (OirOrders.ignoredThePackSize(reply, OirOrders.linesOfOrders(got))) {
+            return "the page prints a pack size and every line came back as one piece";
+        }
+        if (anyRowsMissing(got)) {
+            return "an order prints more rows than came back";
+        }
+        if (OirOrders.repeatsAnotherOrder(got)) {
+            return "two orders print the same articles to the cent";
+        }
+        if (!partial && anyTotalsDisagree(got)) {
+            return "the goods of an order and its freight are not its paid total";
+        }
+        return null;
     }
 
     /**
@@ -1053,10 +1113,15 @@ public final class OirScan {
         return false;
     }
 
-    /** Waits a moment before the retry, so a hiccup of the service is not hit twice in a row. */
-    private static void pause() {
+    /**
+     * Waits before a retry, twice as long for every further attempt, so a hiccup of the service is not
+     * hit twice in a row and a struggling endpoint gets a moment to itself.
+     *
+     * @param attempt the attempt that just failed, starting at one
+     */
+    private static void pause(int attempt) {
         try {
-            Thread.sleep(700L);
+            Thread.sleep(RETRY_PAUSE_MILLIS << Math.min(attempt - 1, 2));
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }

@@ -37,6 +37,42 @@ public final class OirOrders {
     private OirOrders() {
     }
 
+    /**
+     * How far two readings of the same block may be apart in money, in yuan: six fen.
+     *
+     * <p>A page prints its unit prices rounded to the fen, so a block of 100 pieces at 2.179 prints
+     * "¥2.18 x100" and its money can be a tenth off. The value is measured, not guessed: 0.06 is what
+     * let the 27 order page come back with no "请核对" row at all (Step 129), while a read that lost a
+     * whole article was still caught.
+     */
+    private static final double MONEY_TOLERANCE = 0.06;
+
+    /**
+     * Half a fen. That is the most one piece can be off by when the page rounds its unit price to the
+     * fen, so a row of {@code n} pieces can be off by {@code 0.005 * n} - see {@link #roundingSlack}.
+     * An amount below it is zero once rounded to the fen.
+     */
+    private static final double HALF_A_FEN = 0.005;
+
+    /** What counts as the same number when a quantity is compared with one. */
+    private static final double PRACTICALLY_ZERO = 0.0001;
+
+    /** How many packs of a row its money may be the price of (Step 145). */
+    private static final int MAX_PACKS = 20;
+
+    /** How many digits of an order number a second read may lose and still be the same order. */
+    private static final int MISSING_DIGITS_ALLOWED = 4;
+
+    /** The notes a shop prints behind an article code, which a second read may leave out. */
+    private static final Pattern TRADE_NOTE = Pattern.compile(
+            "\\s*[\\[【(（][^\\]】)）]{0,6}(交易快照|快照)[\\]】)）]");
+
+    /** A pack size a shop prints behind the code, e.g. {@code 黄色（5个）}. */
+    private static final Pattern PACK_SUFFIX = Pattern.compile(
+            "[（(]\\s*[0-9]+\\s*[只个块件套]\\s*[）)]\\s*$");
+
+    private static final Pattern BLANKS = Pattern.compile("\\s+");
+
     public static List<String[]> parseOrderArticleLines(String text) {
         List<String[]> rows = new ArrayList<>();
         if (text == null) {
@@ -120,11 +156,11 @@ public final class OirOrders {
     }
 
     /**
-     * Keeps the full part number searchable when the code had to be shortened.
+     * Reads the orders of one answer that must carry their order number, which is the key the import
+     * joins on and the one field a read may not invent.
      *
-     * @param name the name of the article
-     * @param fullCode the part number as it came in
-     * @return the name, with the full part number appended when it is not already there
+     * @param reply the answer text
+     * @return the orders of the answer, none of them allowed to have lost its order number
      */
     public static List<Map<String, String>> orderListFrom(String reply) {
         return orderListFrom(reply, false);
@@ -134,12 +170,12 @@ public final class OirOrders {
      * Reads the orders of one answer.
      *
      * @param reply the answer text
-     * @param anonymousOk {@code true} for one slice of a long page: a slice can start in the middle of
+     * @param partial {@code true} for one slice of a long page: a slice can start in the middle of
      *        an order, with its number printed above the cut, and the rows it reads are worth keeping -
      *        the scan hangs them on the order whose header the slice before it carried
      * @return one map per order that carries lines, empty when there is nothing usable
      */
-    public static List<Map<String, String>> orderListFrom(String reply, boolean anonymousOk) {
+    public static List<Map<String, String>> orderListFrom(String reply, boolean partial) {
         List<Map<String, String>> orders = new ArrayList<>();
         String text = orderAnswerText(reply);
         if (text == null) {
@@ -153,14 +189,14 @@ public final class OirOrders {
             return orders;
         }
         for (String object : objectTexts(text, from)) {
-            Map<String, String> fields = fieldsOfOneOrder(object, anonymousOk);
+            Map<String, String> fields = fieldsOfOneOrder(object, partial);
             if (fields != null) {
                 orders.add(fields);
             }
         }
         if (orders.isEmpty()) {
             // an answer without an object wrapper, e.g. the four values separated by commas
-            Map<String, String> flat = fieldsOfOneOrder(text, anonymousOk);
+            Map<String, String> flat = fieldsOfOneOrder(text, partial);
             if (flat != null) {
                 orders.add(flat);
             }
@@ -521,7 +557,7 @@ public final class OirOrders {
         for (String lines : linesByOrder) {
             for (String[] row : parseOrderArticleLines(lines)) {
                 sawLine = true;
-                if (Math.abs(toDouble(row[2], 0.0) - 1.0) > 0.0001) {
+                if (Math.abs(toDouble(row[2], 0.0) - 1.0) > PRACTICALLY_ZERO) {
                     return false;
                 }
             }
@@ -724,7 +760,7 @@ public final class OirOrders {
         for (String[] row : rows) {
             pieces += Math.max(1.0, toDouble(row[2], 1.0));
         }
-        return round2(0.005 * pieces + 0.005);
+        return round2(HALF_A_FEN * pieces + HALF_A_FEN);
     }
 
     /**
@@ -964,7 +1000,7 @@ public final class OirOrders {
         }
         double goods = round2(sumOfRows(rows));
         // only the shape "the rows are the paid total" is corrected: 9.99 rows and 9.99 paid
-        if (Math.abs(goods - paid) > 0.06) {
+        if (Math.abs(goods - paid) > MONEY_TOLERANCE) {
             return null;
         }
         double target = round2(paid - freight);
@@ -1023,7 +1059,7 @@ public final class OirOrders {
         List<String[]> best = rows;
         double bestGap = Math.abs(round2(sumOfRows(rows)) - wanted);
         List<String[]> current = new ArrayList<>(rows);
-        while (round2(sumOfRows(current)) > round2(wanted + 0.06)) {
+        while (round2(sumOfRows(current)) > round2(wanted + MONEY_TOLERANCE)) {
             String key = mostRepeatedKey(current);
             if (key == null) {
                 break;
@@ -1064,7 +1100,7 @@ public final class OirOrders {
         // a block that did cost money is not an article of that block
         List<String[]> kept = new ArrayList<>(rows);
         while (kept.size() > 1
-                && Math.abs(toDouble(kept.get(kept.size() - 1)[3], -1.0)) < 0.005) {
+                && Math.abs(toDouble(kept.get(kept.size() - 1)[3], -1.0)) < HALF_A_FEN) {
             kept.remove(kept.size() - 1);
         }
         if (addsUp(kept, wanted)) {
@@ -1128,9 +1164,6 @@ public final class OirOrders {
         return sum;
     }
 
-    /** The most packs behind one {@code x} the page may print for one row. */
-    private static final int MAX_PACKS = 20;
-
     /**
      * Drops the row that carries the whole paid total of the block: a page prints that number once, in
      * the header, so a row of exactly that money is the paid total read as an article (a block of four
@@ -1149,7 +1182,7 @@ public final class OirOrders {
         }
         int at = -1;
         for (int i = 0; i < rows.size(); i++) {
-            if (Math.abs(round2(toDouble(rows.get(i)[3], 0.0)) - paid) <= 0.06) {
+            if (Math.abs(round2(toDouble(rows.get(i)[3], 0.0)) - paid) <= MONEY_TOLERANCE) {
                 if (at >= 0) {
                     // two rows claim the whole money: nothing says which one is the summary
                     return null;
@@ -1187,7 +1220,7 @@ public final class OirOrders {
             return null;
         }
         double gap = round2(wanted - sumOfRows(rows));
-        if (gap <= 0.06) {
+        if (gap <= MONEY_TOLERANCE) {
             return null;
         }
         List<String[]> found = null;
@@ -1198,7 +1231,7 @@ public final class OirOrders {
                 continue;
             }
             for (int packs = 2; packs <= MAX_PACKS; packs++) {
-                if (Math.abs(round2(amount * (packs - 1)) - gap) > 0.06) {
+                if (Math.abs(round2(amount * (packs - 1)) - gap) > MONEY_TOLERANCE) {
                     continue;
                 }
                 List<String[]> fixed = new ArrayList<>(rows);
@@ -1222,7 +1255,7 @@ public final class OirOrders {
      * @return {@code true} when the rows add up
      */
     private static boolean addsUp(List<String[]> rows, double wanted) {
-        return Math.abs(round2(sumOfRows(rows)) - wanted) <= 0.06;
+        return Math.abs(round2(sumOfRows(rows)) - wanted) <= MONEY_TOLERANCE;
     }
 
     /**
@@ -1263,7 +1296,7 @@ public final class OirOrders {
      * @return the code without that bracket
      */
     private static String bareCode(String code) {
-        return rowKey(code).replaceAll("[（(]\\s*[0-9]+\\s*[只个块件套]\\s*[）)]\\s*$", "").trim();
+        return PACK_SUFFIX.matcher(rowKey(code)).replaceFirst("").trim();
     }
 
     /**
@@ -1274,8 +1307,7 @@ public final class OirOrders {
      * @return the code without those notes, blanks squeezed
      */
     private static String rowKey(String code) {
-        return code == null ? "" : code.replaceAll("\\s*[\\[【(（][^\\]】)）]{0,6}(交易快照|快照)[\\]】)）]", "")
-                .replaceAll("\\s+", " ").trim();
+        return code == null ? "" : BLANKS.matcher(TRADE_NOTE.matcher(code).replaceAll("")).replaceAll(" ").trim();
     }
 
     /**
@@ -1301,7 +1333,7 @@ public final class OirOrders {
                     double qty = toDouble(rows.get(i)[2], 0.0);
                     sum += asUnitPrice && qty > 0.0 ? amount * qty : amount;
                 }
-                if (Math.abs(round2(sum) - wanted) > 0.06) {
+                if (Math.abs(round2(sum) - wanted) > MONEY_TOLERANCE) {
                     continue;
                 }
                 List<String[]> picked = new ArrayList<>();
@@ -1643,11 +1675,8 @@ public final class OirOrders {
         Double paid = optionalAmount(kept.get("paidTotal"));
         Double otherPaid = optionalAmount(order.get("paidTotal"));
         return paid != null && otherPaid != null
-                && Math.abs(paid.doubleValue() - otherPaid.doubleValue()) <= 0.06;
+                && Math.abs(paid.doubleValue() - otherPaid.doubleValue()) <= MONEY_TOLERANCE;
     }
-
-    /** How many digits a read of one order number may be missing and still be the same number. */
-    private static final int MISSING_DIGITS_ALLOWED = 4;
 
     /**
      * @param first one order number
@@ -1743,7 +1772,7 @@ public final class OirOrders {
             // one of the two reads did not get the money: nothing says they are two blocks
             return true;
         }
-        return Math.abs(paid.doubleValue() - otherPaid.doubleValue()) <= 0.06;
+        return Math.abs(paid.doubleValue() - otherPaid.doubleValue()) <= MONEY_TOLERANCE;
     }
 
     /**
@@ -1784,7 +1813,7 @@ public final class OirOrders {
                 // the two reads have to disagree, and a piece price only makes a bigger number when
                 // there are pieces: one piece of 6.00 against one piece of 6.00 is the same row read
                 // twice in the overlap of two slices, not a price
-                if (bigger <= smaller + 0.06) {
+                if (bigger <= smaller + MONEY_TOLERANCE) {
                     continue;
                 }
                 // a piece price times the pieces is what the order was paid: the page rounds its unit
@@ -1807,7 +1836,7 @@ public final class OirOrders {
     private static boolean biggerMoney(Map<String, String> first, Map<String, String> second) {
         Double here = optionalAmount(first.get("paidTotal"));
         Double there = optionalAmount(second.get("paidTotal"));
-        return here != null && there != null && here.doubleValue() > there.doubleValue() + 0.06;
+        return here != null && there != null && here.doubleValue() > there.doubleValue() + MONEY_TOLERANCE;
     }
 
     /**
@@ -1896,7 +1925,7 @@ public final class OirOrders {
         Double otherPaid = optionalAmount(order.get("paidTotal"));
         if (paid != null && otherPaid != null) {
             // the money decides; a shop one read left empty does not spoil it
-            return Math.abs(paid.doubleValue() - otherPaid.doubleValue()) <= 0.06;
+            return Math.abs(paid.doubleValue() - otherPaid.doubleValue()) <= MONEY_TOLERANCE;
         }
         // one of the two reads has no money: then the shop has to say they are the same order
         return !shop.isEmpty() && shop.equals(otherShop);

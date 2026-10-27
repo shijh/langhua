@@ -92,7 +92,8 @@
 | 实付含运费被算两遍 | `goodsWithoutFreight` |
 | 整块只有一行 | 该行金额 = 实付 − 运费 |
 
-金额核对容差 `roundingSlack = 0.005 × 件数 + 0.005`（页面把单价四舍五入到分）。
+金额核对容差 `roundingSlack = 0.005 × 件数 + 0.005`（页面把单价四舍五入到分）。常量名 `HALF_A_FEN`，
+两份读数之间的容差是 `MONEY_TOLERANCE = 0.06`（六分），都带来源说明放在 `OirOrders` 顶部。
 
 ## 5. 已知失败模式（都是实测到的，不是猜想）
 
@@ -126,6 +127,9 @@ curl -k -s -b cookie.txt -F "image=@screenshot.png;type=image/png" ^
 ```
 
 日志：`F:\build-ofbiz\apache-ofbiz-24.09.07\runtime\logs\ofbiz.log`（`MfgOrderScan` / `OirScan` 模块名）。
+每次重发都会留一行 `Attempt 2 of 3 scored 4100 (kept 3100, best 4100), asking again: <原因>`，
+原因由 `whyAskAgain()` 给出（没单 / 张数对不上 / 答的是格式本身 / 数量或金额读不出 / 包装量没乘 /
+行数少于页面印的 / 两单金额一模一样 / 货款＋运费≠实付）。
 
 ## 8. 约束（改的时候别破坏）
 
@@ -133,3 +137,31 @@ curl -k -s -b cookie.txt -F "image=@screenshot.png;type=image/png" ^
 - **返回结构不能变**：`{"ok","message","count","orders":[{...}]}`，页面的核对表按它渲染。
 - **`MfgOrderScan` 这个类名不能删**：`controller.xml` 的 `<request-map uri="orderImage">` 指向它。
 - 判定阈值（容差、包数上限、段高上下限）都在类顶部，改了请同步本文件 §2 §4 的说明与 `AGENTS.md`。
+
+## 9. 外部审计意见的处理（2026-10-27）
+
+第三方按「代码结构 / 算法稳健性 / 性能 / 可测试性 / 细节」提了十五条，结论如下。
+
+**已改（行为不变，161 个单测 + 真实图片 23 张 / 12 段重跑一致）**
+
+| 意见 | 做法 |
+| --- | --- |
+| 魔法数字散落 | `OirOrders` 顶部集中为 `MONEY_TOLERANCE` / `HALF_A_FEN` / `PRACTICALLY_ZERO` / `MAX_PACKS` / `MISSING_DIGITS_ALLOWED`，注释写明来源与实测依据 |
+| 正则每次重编译 | `TRADE_NOTE` / `PACK_SUFFIX` / `BLANKS` 改成 `static final Pattern`（`bareCode` / `rowKey` 用） |
+| `anonymousOk` 含义模糊 | 参数改名 `partial`，与 `OirScan` 里那个切片标志同名 |
+| 线程池未优雅关闭 | `shutdownNow()` + `awaitTermination(5s)` 放进 `finally`（超时的切片会被取消，不留线程和图片） |
+| 重试固定间隔 | `pause(attempt)` 指数退避 700 / 1400 / 2800 ms |
+| 日志不够详细 | 每次重发记 `Attempt N of M scored X (kept Y, best Z), asking again: <原因>`，原因由 `whyAskAgain()` 给出 |
+| 悬空 javadoc | `orderListFrom(String)` 上面那段（`nameWithFullCode` 的）是搬迁留下的，已换成正确说明 |
+
+**没改（附理由，欢迎再挑战）**
+
+| 意见 | 为什么不改 |
+| --- | --- |
+| 容差收紧成 `max(0.01×件数, 0.05)` | `0.005×件数` 不是拍脑袋：页面把单价印到分，100 件 × 单价误差 0.005 = 0.5 元。收紧会让 Step 129 修掉的「请核对」噪声回来（27 张单从 7 条降到 0 条），那些差额都是页面四舍五入，不是漏读 |
+| 金额换 `BigDecimal` | 钱只在 `round2(...)`（两位）之后比较，误差来自**页面四舍五入**而不是二进制浮点；换 BigDecimal 要改每一处规则，且不改任何一次判定结果 |
+| `refunded` / `closed` 改枚举 | 这两个字段是给页面、`ordersJson`、`MfgRefundedOrder` 的**线格式**（字符串），枚举只会在边界反复转换 |
+| 块高多信号融合 | 切点是靠按钮缝定的（§2），块高只决定「一段放几块」；实测 12 段、10 连测 23/23，动它是拿已验证的结果赌未验证的收益。审计问题 2 仍然开放 |
+| `VisionClient` 接口注入 | `askVision` 已 `public static` 且只做一次 HTTP；端到端已有 `mock-vision.ps1` 假接口。抽接口会把静态工具类改成需要注入状态的对象 |
+| `tidyOrder` 拆小方法 | 这十几步的**顺序本身就是规则**（Step 129：`goodsWithoutFreight` 必须在丢汇总行之前）。拆进独立方法会让这个约束藏起来，而它正是出过错的地方；每步已有注释 |
+| 切片先 PNG 再 JPEG | 切片的大小主要来自商品图，PNG 重压收益很小；JPEG 只在 >4 MB 时走，实物小字实测可读 |
