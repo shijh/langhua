@@ -56,8 +56,6 @@ import org.apache.ofbiz.base.util.UtilGenerics;
 import org.apache.ofbiz.entity.Delegator;
 import org.apache.ofbiz.service.LocalDispatcher;
 
-import static org.langhua.ofbiz.mfg.MfgServices.isClosed;
-import static org.langhua.ofbiz.mfg.MfgServices.isRefunded;
 
 /**
  * Reads a shop order screenshot with a vision model and answers with the fields of the receipt
@@ -324,7 +322,7 @@ public final class OirScan {
         if (endpoint == null || model == null || key == null) {
             return answer(response, false, missingSetting(), null, UNCONFIGURED);
         }
-        endpoint = MfgServices.normalizeVisionEndpoint(endpoint);
+        endpoint = OirOrders.normalizeVisionEndpoint(endpoint);
         String contentType = text(parameters.get("_image_contentType"));
         if (contentType == null) {
             contentType = "image/png";
@@ -387,7 +385,7 @@ public final class OirScan {
                 answers.add(read.orders);
                 blocksSaid.add(Integer.valueOf(read.seen));
             }
-            orders = MfgServices.mergeOrders(giveTheRowsAnOrder(answers), blocksSaid);
+            orders = OirOrders.mergeOrders(giveTheRowsAnOrder(answers), blocksSaid);
             seen = orders.size();
             sliceNote = "（长图分 " + slices.size() + " 段逐段识别）";
         }
@@ -403,9 +401,9 @@ public final class OirScan {
         for (Map<String, String> order : orders) {
             // a package description as the part number does not fit the code field: short it here
             // so the page already shows the code that will be stored
-            MfgServices.tidyOrder(order);
-            order.put("lines", MfgServices.fitOrderLines(order.get("lines")));
-            if (isRefunded(order)) {
+            OirOrders.tidyOrder(order);
+            order.put("lines", OirOrders.fitOrderLines(order.get("lines")));
+            if (OirOrders.isRefunded(order)) {
                 // a refund is not booked in, but reading one is a guess like everything else: the model
                 // took 「7天无理由退货」 and 「退货宝」 for a refund and blocked a good order for good.
                 // So the order is only left out of this round, and the person puts a real refund on the
@@ -413,7 +411,7 @@ public final class OirScan {
                 order.put("note", "显示已退款，这一次不入库；货确实到了就手工粘明细建单，"
                         + "确实退了就把它登记到「退款 / 关闭的单」里");
                 refundedCount++;
-            } else if (isClosed(order)) {
+            } else if (OirOrders.isClosed(order)) {
                 // 交易关闭 means the deal never went through - the person confirmed it is usually an
                 // order they never paid. Nothing was shipped, so booking it would invent stock; a
                 // parcel that does turn up can still be typed in by hand (Step 109).
@@ -422,13 +420,13 @@ public final class OirScan {
                 closedCount++;
             } else {
                 // freight is what the page says, but goods plus freight must come to what was paid
-                String totals = MfgServices.checkOrderTotals(order);
+                String totals = OirOrders.checkOrderTotals(order);
                 // and the rows the block prints have to be there: six colours of one board read as a
                 // single item still adds up, so this one cannot be left to the money check
                 String rowsOff = null;
-                if (MfgServices.rowsMissing(order)) {
+                if (OirOrders.rowsMissing(order)) {
                     rowsOff = "截图印了 " + order.get("rowCount") + " 行明细，这次只读出 "
-                            + MfgServices.parseOrderArticleLines(order.get("lines")).size()
+                            + OirOrders.parseOrderArticleLines(order.get("lines")).size()
                             + " 行，请对着截图核对（也可以再点一次「识别并核对」）";
                 }
                 String note = totals == null ? rowsOff
@@ -444,8 +442,8 @@ public final class OirScan {
         Map<String, String> firstOfMoney = new LinkedHashMap<>();
         for (int i = 0; i < orders.size(); i++) {
             Map<String, String> order = orders.get(i);
-            String content = MfgServices.orderContentKey(order);
-            String money = MfgServices.moneyKeyOf(order);
+            String content = OirOrders.orderContentKey(order);
+            String money = OirOrders.moneyKeyOf(order);
             String other = content == null ? null : firstOfKind.get(content);
             String otherMoney = money == null ? null : firstOfMoney.get(money);
             if (content != null && other == null) {
@@ -584,9 +582,9 @@ public final class OirScan {
                 continue;
             }
             read.reply = reply;
-            List<Map<String, String>> got = MfgServices.orderListFrom(reply, partial);
-            int counted = MfgServices.orderCountIn(reply);
-            int score = MfgServices.answerScore(got, counted);
+            List<Map<String, String>> got = OirOrders.orderListFrom(reply, partial);
+            int counted = OirOrders.orderCountIn(reply);
+            int score = OirOrders.answerScore(got, counted);
             if (score > bestScore) {
                 bestScore = score;
                 bestOrders = got;
@@ -598,11 +596,11 @@ public final class OirScan {
             // while every line came back as one piece, or (on a whole screenshot) an order whose
             // goods plus freight is not the paid total: either way one more send is worth it
             boolean shortRead = !partial && counted > 0 && got.size() < counted;
-            if (!got.isEmpty() && !shortRead && !MfgServices.echoesTemplate(reply)
-                    && !MfgServices.anyUnreadable(got)
-                    && !MfgServices.ignoredThePackSize(reply, MfgServices.linesOfOrders(got))
+            if (!got.isEmpty() && !shortRead && !OirOrders.echoesTemplate(reply)
+                    && !OirOrders.anyUnreadable(got)
+                    && !OirOrders.ignoredThePackSize(reply, OirOrders.linesOfOrders(got))
                     && !anyRowsMissing(got)
-                    && !MfgServices.repeatsAnotherOrder(got)
+                    && !OirOrders.repeatsAnotherOrder(got)
                     && (partial || !anyTotalsDisagree(got))) {
                 bestOrders = got;
                 bestReply = reply;
@@ -1007,12 +1005,12 @@ public final class OirScan {
             return "识图服务连不上（已自动重试 " + (ATTEMPTS - 1) + " 次）：" + transportProblem
                     + "。过一会儿再点一次「识别并核对」，或者把明细粘进框里。";
         }
-        if ("length".equals(MfgServices.jsonStringField(reply, "finish_reason"))) {
+        if ("length".equals(OirOrders.jsonStringField(reply, "finish_reason"))) {
             // a thinking model that spends the whole output budget on reasoning answers with nothing
             return "模型这次想得太久、没把结果写完（输出长度到顶了），已经重试过。"
                     + "把截图截小一点（只框住订单那几行）再点一次「识别并核对」，或者直接把明细粘进框里。";
         }
-        int said = MfgServices.orderCountIn(reply);
+        int said = OirOrders.orderCountIn(reply);
         if (said > 0) {
             // the answer names a count but no order could be read out of it: it was cut off
             return "模型说看到 " + said + " 张单，但这次的回答被截断了（只写了一部分），已经重试过。"
@@ -1020,7 +1018,7 @@ public final class OirScan {
         }
         return "这次没从截图里读出订单（已自动重试 " + (ATTEMPTS - 1) + " 次）。"
                 + "再点一次「识别并核对」通常就好了；也可以把截图截小一点（只框住订单列表），或者手工填。"
-                + "模型的原话：" + MfgServices.visionReplyExcerpt(reply, 160);
+                + "模型的原话：" + OirOrders.visionReplyExcerpt(reply, 160);
     }
 
     /**
@@ -1031,7 +1029,7 @@ public final class OirScan {
      */
     private static boolean anyTotalsDisagree(List<Map<String, String>> orders) {
         for (Map<String, String> order : orders) {
-            if (MfgServices.totalsDisagree(order)) {
+            if (OirOrders.totalsDisagree(order)) {
                 return true;
             }
         }
@@ -1048,7 +1046,7 @@ public final class OirScan {
      */
     private static boolean anyRowsMissing(List<Map<String, String>> orders) {
         for (Map<String, String> order : orders) {
-            if (MfgServices.rowsMissing(order)) {
+            if (OirOrders.rowsMissing(order)) {
                 return true;
             }
         }
@@ -1088,9 +1086,9 @@ public final class OirScan {
             return answer(response, false, testMissing(endpoint, model, key), null, UNCONFIGURED);
         }
         try {
-            String reply = askVision(MfgServices.normalizeVisionEndpoint(endpoint), model, key,
+            String reply = askVision(OirOrders.normalizeVisionEndpoint(endpoint), model, key,
                     Base64.getDecoder().decode(TINY_PNG), "image/png");
-            String content = MfgServices.jsonStringField(reply, "content");
+            String content = OirOrders.jsonStringField(reply, "content");
             if (content == null) {
                 content = reply;
             }
@@ -1265,7 +1263,7 @@ public final class OirScan {
                             + " it: " + text, MODULE);
                     return send(endpoint, model, key, image, contentType, prompt, false);
                 }
-                throw new IOException(MfgServices.describeVisionError(status, text));
+                throw new IOException(OirOrders.describeVisionError(status, text));
             }
             return text;
         } finally {

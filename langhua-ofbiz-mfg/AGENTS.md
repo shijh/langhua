@@ -1028,6 +1028,21 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   跨包用到的 `MfgServices` 规则函数（`mergeOrders` / `tidyOrder` / `checkOrderTotals` / `orderListFrom` … 共 24 个）
   已改成 `public static`（javadoc 标了被 oir 使用），`MfgBomEvents.jsonString` 也改成 public。
   实测：搬完 161 个单测全过，真实图片识别 23 张 / 12 段，与搬之前一致。
+- **规则函数再拆一份 `oir/OirOrders`（Step 150）**：Step 149 只把"联网/切片"搬走了，**把答案变成订单**的那
+  2100 行还留在 `MfgServices`（`orderListFrom` / `mergeOrders` / `tidyOrder` / `checkOrderTotals` /
+  `moneyOfOnePack` / `withoutTheRowThatIsThePaidTotal` / `parseOrderArticleLines` / `jsonUnescape` /
+  `normalizeVisionEndpoint` … 共 60 多个），第三方审计仍要翻大文件。现在整段搬进 **`oir/OirOrders.java`**
+  （2170 行，`public final class` + 私有构造，**纯函数、不碰 dispatcher/DB**），`MfgServices` 16684 → **14592 行**。
+  三件要记住的事：
+  ① **只搬不写**：`MfgServices` 里剩下的调用点改成 `OirOrders.xxx(...)`，行为一字未改（161 单测全过、
+  真实图片 23 张 / 23 个不重复单号 / 12 段，与搬之前一致）。
+  ② `OirOrders` 自带 `round2` / `optionalAmount` / `toDouble` / `toText` 四个小工具（原来在 `MfgServices`，
+  为了不互相依赖复制了一份）；**料号规范化仍用 `MfgServices.fittingComponentCode` / `splitCsvLine` /
+  `nameWithFullCode`**，这三个已改 `public static`（它们不是识图规则，是零件号规则）。
+  ③ 搬完一定跑 `mfg-tests-all.bat`（只编 `MfgServices.java` 的 `mfg-tests.bat` 看不出 `OirOrders` 编译错）。
+  踩坑：批量改调用点的正则**别加"前面不是点"的负向断言**（`(?<!\.)`），`MfgServices.tidyOrder(` 这种
+  带类名的写法会被漏掉；PowerShell 写出来的 java 文件要先去掉 BOM 再编译。
+  `oir/README.md` 里也有这份分工表（`OirOrders` = 规则，`OirScan` = 问与切）。
 - **PowerShell 写文件别用 `Set-Content -Encoding UTF8`**：PS 5.1 会带 BOM，javac 直接报
   `非法字符: '\ufeff'`（三个文件同时中招）。要改源码用 `create_file`/编辑工具，或写完后用
   `[System.IO.File]::WriteAllBytes` 去掉前 3 个字节。

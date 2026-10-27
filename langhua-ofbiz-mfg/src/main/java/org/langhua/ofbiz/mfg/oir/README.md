@@ -4,9 +4,19 @@
 交给调用方填进"从订单建单并入库"的核对表。它**不写库**，也不改库存——入库是
 `MfgReceiptEvents` / `MfgReceiptEvents.ordersJson` 的事。
 
-拆出来的目的：让第三方可以**只看这一个包**就理解算法、指出更好的做法，不必先读懂 1.6 万行的
+拆出来的目的：让第三方可以**只看这一个包**就理解算法、指出更好的做法，不必先读懂 1.4 万行的
 `MfgServices`。对外入口仍是 `org.langhua.ofbiz.mfg.MfgOrderScan`（控制器的 java event 指向它），
 它只是把两个请求转发到这里。
+
+包里有三个文件：
+
+| 文件 | 做什么 | 依赖 |
+| --- | --- | --- |
+| `OirScan.java` | 联网、分段、提示词、重试、打分 | HTTP + AWT（读图）+ `MfgServices.setting` |
+| `OirOrders.java` | **纯函数**：读答案 → 订单列表 → 合并 → 整理 → 金额核对 | 只有 `java.util` + 零件号规范化（`MfgServices.fittingComponentCode` 等） |
+| `README.md` | 本文件 | — |
+
+**要审计算法，只看 `OirOrders`（2167 行）就够了**；`OirScan` 那 1388 行是"怎么问、怎么切、怎么重试"。
 
 ## 1. 处理流程
 
@@ -21,9 +31,9 @@
   │       每行都是 1 件但页面印了包量、两块明细完全相同、(整图时)实付与明细对不上
   ├─ 解析：orderListFrom(reply) → itemsIn() → 每单 {orderNo, shop, platform, orderDate,
   │        paidTotal, freight, discount, refunded, closed, rowCount, lines}
-  ├─ 合并：mergeOrders(answers, blocksSaid)（见 §3）
-  ├─ 整理：MfgServices.tidyOrder(order)（见 §4）
-  └─ 核对：MfgServices.checkOrderTotals / rowsMissing → 给每行写 note（页面上标"请核对"）
+  ├─ 合并：OirOrders.mergeOrders(answers, blocksSaid)（见 §3）
+  ├─ 整理：OirOrders.tidyOrder(order)（见 §4）
+  └─ 核对：OirOrders.checkOrderTotals / rowsMissing → 给每行写 note（页面上标"请核对"）
 ```
 
 返回结构是固定的，调用方按它渲染核对表：
@@ -66,12 +76,11 @@
 3. **两条不同块被读成同一个号**：实付**不同**时才拆开留着（宁可多一行让人删，也不吞单）。
 4. 跨段：同号且同实付 → 合并；同号不同实付 → 拆开。
 
-相关规则函数：`MfgServices.mergeOrders / numbersOfTheSameOrder / onePrintsThePriceOfTheOther`…
-（它们仍在 `MfgServices`，已在 javadoc 标注被本包使用。）
+相关规则函数：`OirOrders.mergeOrders / numbersOfTheSameOrder / onePrintsThePriceOfTheOther`…（都在本包 `OirOrders` 里，不再跨包）。
 
 ## 4. 整理：让每一单的"明细合计 = 实付 + 优惠 − 运费"
 
-`MfgServices.tidyOrder` 依次尝试（只用**能对上钱**的那种读法）：
+`OirOrders.tidyOrder` 依次尝试（只用**能对上钱**的那种读法）：
 
 | 场景 | 规则 |
 | --- | --- |

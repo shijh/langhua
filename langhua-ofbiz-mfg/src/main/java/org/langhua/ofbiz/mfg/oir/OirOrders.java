@@ -1,0 +1,2172 @@
+/*
+ * This library is part of OFBiz-MFG component of Langhua
+ *
+ * Copyright (C) 2010  Langhua Opensource Foundation (http://langhua.org)
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation; either
+ * version 3.0 of the License, or (at your option) any later version.
+ */
+
+package org.langhua.ofbiz.mfg.oir;
+
+import org.langhua.ofbiz.mfg.MfgServices;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+/**
+ * The rules that turn what the vision service answered into orders: reading the answer, joining the
+ * reads of one long page, and making the money of every order add up.
+ *
+ * <p>Nothing here talks to the network or to the database: the class is pure - a string in, orders
+ * out - so it can be read, tested and replaced on its own (see {@code oir/README.md}).
+ */
+public final class OirOrders {
+
+    private OirOrders() {
+    }
+
+    public static List<String[]> parseOrderArticleLines(String text) {
+        List<String[]> rows = new ArrayList<>();
+        if (text == null) {
+            return rows;
+        }
+        for (String raw : text.split("\r?\n")) {
+            String line = raw.trim();
+            if (line.isEmpty() || line.startsWith("#")) {
+                continue;
+            }
+            String[] cells = MfgServices.splitCsvLine(line, cellsSeparator(line));
+            if (cells.length < 4) {
+                continue;
+            }
+            String code = cells[0] == null ? "" : cells[0].trim();
+            if ("料号".equals(code)) {
+                continue;
+            }
+            if (code.isEmpty()) {
+                // a shop often prints no article code at all, and a model then answers with an
+                // empty first cell; the line is still worth keeping, so the code comes from the name
+                code = codeFromName(cells[1]);
+            }
+            rows.add(new String[] {code, cells[1], cells[2], cells[3]});
+        }
+        return rows;
+    }
+
+    private static char cellsSeparator(String line) {
+        return line.indexOf('\t') >= 0 ? '\t' : ',';
+    }
+
+    /**
+     * Builds a part number from the name of an article, for an order that prints no code: the
+     * printable ASCII of the name (5.5V1.5F C型 21*7.5 gives 5.5V1.5FC217.5), or a short stable code
+     * of the whole name when it holds no ASCII at all. The same name always gives the same code, so
+     * a second delivery still lands on the same lots.
+     *
+     * @param name the article name
+     * @return a code that fits the code fields, never empty
+     */
+    public static String codeFromName(String name) {
+        String text = name == null ? "" : name.trim().replaceAll("\\s+", " ");
+        if (text.isEmpty()) {
+            return "P-000000";
+        }
+        // the name itself is the clearest code a shop has: 5.5V1.5F C型 21*7.5 stays readable,
+        // joining the words would give 5.5V1.5FC217.5 where F, C型 and 21*7.5 run together
+        return MfgServices.fittingComponentCode(text);
+    }
+
+    /**
+     * Fits a part number into the 100 characters the code fields allow. A shop order can carry a
+     * whole package description as the part number, and a real one fits; anything longer is
+     * shortened with a short hash of the whole text ({@code QFN16-0.65-6f1a2b}) so that two similar
+     * parts never merge and the same text always gives the same code.
+     *
+     * @param code the part number as typed or recognised
+     * @return the code itself when it fits, otherwise a shorter but stable one
+     */
+    public static String fitOrderLines(String lines) {
+        List<String[]> rows = parseOrderArticleLines(lines);
+        if (rows.isEmpty()) {
+            return lines;
+        }
+        StringBuilder out = new StringBuilder();
+        for (String[] row : rows) {
+            if (out.length() > 0) {
+                out.append('\n');
+            }
+            // the note a shop prints behind the title ([交易快照]) is not part of the part number, and
+            // a model that has no code to copy often answers with the whole title
+            String fitted = MfgServices.fittingComponentCode(rowKey(row[0]));
+            // only a shortened code needs the full number kept in the name
+            String name = fitted.equals(row[0]) ? (row[1] == null ? "" : row[1])
+                    : MfgServices.nameWithFullCode(row[1], row[0]);
+            out.append(fitted).append('\t').append(name)
+                    .append('\t').append(row[2]).append('\t').append(row[3]);
+        }
+        return out.toString();
+    }
+
+    /**
+     * Keeps the full part number searchable when the code had to be shortened.
+     *
+     * @param name the name of the article
+     * @param fullCode the part number as it came in
+     * @return the name, with the full part number appended when it is not already there
+     */
+    public static List<Map<String, String>> orderListFrom(String reply) {
+        return orderListFrom(reply, false);
+    }
+
+    /**
+     * Reads the orders of one answer.
+     *
+     * @param reply the answer text
+     * @param anonymousOk {@code true} for one slice of a long page: a slice can start in the middle of
+     *        an order, with its number printed above the cut, and the rows it reads are worth keeping -
+     *        the scan hangs them on the order whose header the slice before it carried
+     * @return one map per order that carries lines, empty when there is nothing usable
+     */
+    public static List<Map<String, String>> orderListFrom(String reply, boolean anonymousOk) {
+        List<Map<String, String>> orders = new ArrayList<>();
+        String text = orderAnswerText(reply);
+        if (text == null) {
+            return orders;
+        }
+        // the objects of the "orders" array, or the answer itself when it is one flat object
+        int array = text.indexOf('[');
+        int key = text.indexOf("\"orders\"");
+        int from = key >= 0 && array > key ? array : text.indexOf('{');
+        if (from < 0) {
+            return orders;
+        }
+        for (String object : objectTexts(text, from)) {
+            Map<String, String> fields = fieldsOfOneOrder(object, anonymousOk);
+            if (fields != null) {
+                orders.add(fields);
+            }
+        }
+        if (orders.isEmpty()) {
+            // an answer without an object wrapper, e.g. the four values separated by commas
+            Map<String, String> flat = fieldsOfOneOrder(text, anonymousOk);
+            if (flat != null) {
+                orders.add(flat);
+            }
+        }
+        return orders;
+    }
+
+    /**
+     * How many order blocks the model says the picture shows. The number is asked for because a model
+     * that reads three orders and answers with two would otherwise be taken as a success, and the
+     * person would import what it got without noticing the missing one.
+     *
+     * @param reply the answer text
+     * @return the number it reported, 0 when the answer does not say
+     */
+    public static int orderCountIn(String reply) {
+        String text = orderAnswerText(reply);
+        if (text == null) {
+            return 0;
+        }
+        String count = jsonStringField(text, "orderCount");
+        if (count == null) {
+            return 0;
+        }
+        try {
+            return Integer.parseInt(count.trim());
+        } catch (NumberFormatException e) {
+            return 0;
+        }
+    }
+
+    /**
+     * The JSON of the answer itself: a chat envelope may wrap it as the message or as the reasoning
+     * of a model that thinks before it answers. Both are read from the raw reply so quotes survive.
+     *
+     * @param reply the answer text, may be {@code null}
+     * @return the JSON text, {@code null} when there is none
+     */
+    private static String orderAnswerText(String reply) {
+        if (reply == null) {
+            return null;
+        }
+        String inner = jsonStringField(reply, "content");
+        if (!carriesOrders(inner)) {
+            String reasoning = jsonStringField(reply, "reasoning_content");
+            if (carriesOrders(reasoning)) {
+                inner = reasoning;
+            }
+        }
+        if (carriesOrders(inner)) {
+            return inner;
+        }
+        return reply;
+    }
+
+    private static boolean carriesOrders(String text) {
+        return text != null && (text.contains("lines") || text.contains("\"orders\""));
+    }
+
+    /**
+     * Reads the fields of one order object, keeping it only when it prints its order number.
+     *
+     * @param text the JSON of that one order
+     * @return {@code orderNo}, {@code shop}, {@code orderDate}, {@code freight}, {@code paidTotal},
+     *         {@code refunded} and {@code lines}, {@code null} when the object is not an order
+     */
+    private static Map<String, String> fieldsOfOneOrder(String text) {
+        return fieldsOfOneOrder(text, false);
+    }
+
+    /**
+     * Reads the fields of one order object.
+     *
+     * @param text the JSON of that one order
+     * @param anonymousOk {@code true} to keep an object that carries articles but no order number
+     * @return {@code orderNo}, {@code shop}, {@code orderDate}, {@code freight}, {@code paidTotal},
+     *         {@code refunded} and {@code lines}, {@code null} when the object is not an order
+     */
+    private static Map<String, String> fieldsOfOneOrder(String text, boolean anonymousOk) {
+        Map<String, String> fields = new LinkedHashMap<>();
+        String orderNo = jsonStringField(text, "orderNo");
+        // an order always prints its number, and it is the key the import de-duplicates on: an object
+        // without one is the schema example or a stray brace, not an order (a model that talks a lot
+        // echoes the template, and that used to arrive as seven empty "orders")
+        if (orderNo == null || orderNo.trim().isEmpty()) {
+            orderNo = anonymousOk ? "" : null;
+        }
+        if (orderNo == null) {
+            return null;
+        }
+        fields.put("orderNo", orderNo.trim());
+        fields.put("shop", jsonStringField(text, "shop"));
+        // the shop platform the page names (淘宝 / 天猫 / 京东 / 拼多多 / 抖音): the fields are the same
+        // on all of them, so only the label travels with the answer
+        fields.put("platform", jsonStringField(text, "platform"));
+        // the date printed on a shop order is the day it was placed, not the day the parts arrive;
+        // older answers used the bare name date, so both are read
+        String orderDate = jsonStringField(text, "orderDate");
+        fields.put("orderDate", orderDate != null ? orderDate : jsonStringField(text, "date"));
+        fields.put("freight", jsonStringField(text, "freight"));
+        fields.put("paidTotal", jsonStringField(text, "paidTotal"));
+        // a Taobao red packet or coupon: the difference between the articles plus freight and what was paid
+        fields.put("discount", jsonStringField(text, "discount"));
+        // a refunded order must not be booked into stock, so the answer carries that too
+        fields.put("refunded", jsonStringField(text, "refunded"));
+        // and a closed one (交易关闭 / 已取消: the deal never went through, usually never paid) is
+        // not booked in either - the shop prints 交易关闭 on its own badge, next to 交易成功
+        fields.put("closed", jsonStringField(text, "closed"));
+        // how many article rows the block prints: six colours of one board are six rows that look
+        // the same, and a model that merges them into one item still adds up to what was paid
+        fields.put("rowCount", jsonStringField(text, "rowCount"));
+        String lines = itemsIn(text);
+        if (lines == null) {
+            lines = jsonStringField(text, "lines");
+        }
+        if (lines == null || lines.trim().isEmpty() || isLineTemplate(lines.trim())) {
+            return null;
+        }
+        fields.put("lines", lines.trim());
+        return fields;
+    }
+
+    /**
+     * Reads the articles of one order out of an answer that carries them as an array of objects,
+     * one object per product, and turns them into the tab separated rows the rest of the code uses.
+     *
+     * <p>This is the shape the prompt asks for: a model writing one long string has to escape tabs
+     * and line breaks itself, and on a page with two similar products it produced a single row whose
+     * amount was {@code 3.24;402530} - the second article swallowed by the first. One object per
+     * product cannot be merged that way.
+     *
+     * @param text the JSON of one order
+     * @return the rows, or {@code null} when the order carries no {@code items} array
+     */
+    private static String itemsIn(String text) {
+        int at = text.indexOf("\"items\"");
+        if (at < 0) {
+            return null;
+        }
+        int arrayStart = text.indexOf('[', at);
+        if (arrayStart < 0) {
+            return null;
+        }
+        int arrayEnd = matchingBracket(text, arrayStart);
+        if (arrayEnd < 0) {
+            return null;
+        }
+        List<String> rows = new ArrayList<>();
+        for (String item : objectTexts(text.substring(arrayStart + 1, arrayEnd), 0)) {
+            String code = jsonStringField(item, "code");
+            String name = jsonStringField(item, "name");
+            String qty = jsonStringField(item, "qty");
+            if (qty == null) {
+                qty = jsonStringField(item, "quantity");
+            }
+            String amount = jsonStringField(item, "amount");
+            if (code == null && name == null && qty == null && amount == null) {
+                continue;
+            }
+            if ((code == null || code.trim().isEmpty()) && name != null && !name.trim().isEmpty()) {
+                // the model left the code out: the import derives it from the name anyway, so the
+                // table shows the code that will really be stored instead of an empty cell
+                code = codeFromName(name);
+            }
+            String row = oneCell(code) + "\t" + oneCell(name) + "\t" + oneCell(qty) + "\t" + oneCell(amount);
+            if (isLineTemplate(row)) {
+                continue;
+            }
+            rows.add(row);
+        }
+        return rows.isEmpty() ? null : String.join("\n", rows);
+    }
+
+    /**
+     * One field of an article row, with tabs and line breaks flattened so they cannot break the row
+     * apart when it is turned back into a line.
+     *
+     * @param value the field, may be {@code null}
+     * @return the value, empty when there is none
+     */
+    private static String oneCell(String value) {
+        if (value == null) {
+            return "";
+        }
+        return value.replace('\t', ' ').replace('\r', ' ').replace('\n', ' ').trim();
+    }
+
+    /**
+     * Tells the placeholder row of the answer format ({@code code,name,quantity,amount}) from a real
+     * one, so the example a chatty model repeats never shows up as an article.
+     *
+     * @param lines the lines of one order
+     * @return {@code true} when every row is the placeholder
+     */
+    public static boolean isLineTemplate(String lines) {
+        if (lines == null || lines.trim().isEmpty()) {
+            return false;
+        }
+        boolean sawRow = false;
+        for (String row : lines.split("\r?\n")) {
+            String trimmed = row.trim();
+            if (trimmed.isEmpty()) {
+                continue;
+            }
+            sawRow = true;
+            String lower = trimmed.toLowerCase();
+            if (!lower.startsWith("code,") && !lower.startsWith("code\t") && !lower.startsWith("料号,")) {
+                return false;
+            }
+        }
+        return sawRow;
+    }
+
+    /**
+     * Says whether an order came back with fewer article rows than the block prints. The money
+     * cannot catch this one: one board in six colours read as a single item of 41.28 adds up exactly,
+     * so the model reports how many rows it counted and a shorter answer is sent once more.
+     *
+     * @param order one order of an answer
+     * @return {@code true} when the order counts more rows than were read
+     */
+    public static boolean rowsMissing(Map<String, String> order) {
+        if (order == null) {
+            return false;
+        }
+        double said = toDouble(order.get("rowCount"), 0.0);
+        if (said <= 0.0) {
+            return false;
+        }
+        return parseOrderArticleLines(order.get("lines")).size() < (int) said;
+    }
+
+    /**
+     * What two orders of one answer share when one of them was copied from the other: the same
+     * articles and the same money. A model reading a list block by block sometimes carries the
+     * articles of the block before into the next one; the copy adds up (its freight and its paid
+     * total come along too), so neither the money check nor the row count can see it.
+     *
+     * @param order one order of an answer
+     * @return the key two copies share, {@code null} when the order has no articles
+     */
+    public static String orderContentKey(Map<String, String> order) {
+        if (order == null) {
+            return null;
+        }
+        List<String[]> rows = parseOrderArticleLines(order.get("lines"));
+        if (rows.isEmpty()) {
+            return null;
+        }
+        List<String> parts = new ArrayList<>();
+        for (String[] row : rows) {
+            parts.add(rowIdentity(row));
+        }
+        java.util.Collections.sort(parts);
+        return String.join(";", parts) + "|" + order.get("paidTotal") + "|" + order.get("freight");
+    }
+
+    /**
+     * What two orders share when one of them was copied from the other, when the codes and names are
+     * not alike enough: the quantities, the amounts and the money of the order. Two reads of one
+     * printed line write the code differently now and then ({@code FC-135} beside {@code 无源贴片FC-135}),
+     * so the money is the only witness of a block that carried the articles of the block above.
+     *
+     * @param order one order of an answer
+     * @return the key two blocks of the same articles share, {@code null} when it has no articles
+     */
+    public static String moneyKeyOf(Map<String, String> order) {
+        if (order == null) {
+            return null;
+        }
+        List<String[]> rows = parseOrderArticleLines(order.get("lines"));
+        if (rows.isEmpty()) {
+            return null;
+        }
+        List<String> parts = new ArrayList<>();
+        for (String[] row : rows) {
+            parts.add(row[2] + "|" + row[3]);
+        }
+        java.util.Collections.sort(parts);
+        return String.join(";", parts) + "|" + order.get("paidTotal") + "|" + order.get("freight");
+    }
+
+    /**
+     * Says whether two different orders of one answer carry exactly the same articles and money.
+     *
+     * @param orders the orders of one answer
+     * @return {@code true} when one order looks copied from another
+     */
+    public static boolean repeatsAnotherOrder(List<Map<String, String>> orders) {        Set<String> seen = new LinkedHashSet<>();
+        for (Map<String, String> order : orders) {
+            String key = orderContentKey(order);
+            if (key != null && !seen.add(key)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Tells whether the answer repeats the answer format instead of the orders. A model that starts
+     * explaining the format usually read the picture badly, so the caller sends it once more.
+     *
+     * <p>Only the answer itself is looked at, not the reasoning: a thinking model almost always quotes
+     * the format while it thinks, and checking the whole reply would retry every single call.
+     *
+     * @param reply the answer text
+     * @return {@code true} when the placeholder row appears in the answer
+     */
+    public static boolean echoesTemplate(String reply) {
+        String text = orderAnswerText(reply);
+        if (text == null) {
+            return false;
+        }
+        return text.contains("code,name,quantity,amount") || text.contains("code\\tname\\tquantity\\tamount")
+                || text.contains("code\\tname\\tquantity");
+    }
+
+    /**
+     * How Taobao prints the pack size of a resistor or a capacitor: {@code 一件100只}, {@code （50只）},
+     * {@code 100只装}, {@code 1件=100个}.
+     */
+    private static final java.util.regex.Pattern PACK_SIZE = java.util.regex.Pattern.compile(
+            "一件\\s*[0-9]+\\s*[只个]|[（(]\\s*[0-9]+\\s*[只个]\\s*[）)]"
+                    + "|[0-9]+\\s*只装|1\\s*件\\s*[=＝]\\s*[0-9]+");
+
+    /**
+     * The {@code lines} text of every order in the answer, in the order the orders were read.
+     *
+     * @param orders the order maps built from one answer
+     * @return one entry per order, the tab separated article rows
+     */
+    public static List<String> linesOfOrders(List<Map<String, String>> orders) {
+        List<String> lines = new ArrayList<>();
+        if (orders == null) {
+            return lines;
+        }
+        for (Map<String, String> order : orders) {
+            lines.add(order == null ? null : order.get("lines"));
+        }
+        return lines;
+    }
+
+    /**
+     * Tells whether the answer counted packs instead of pieces: the picture prints a pack size
+     * ({@code 一件100只} and the like) yet every article came back as exactly one piece. That is the
+     * mistake a person notices last, because the money still adds up, so the caller sends the picture
+     * once more with the short request instead of showing a receipt with 1 piece of every part.
+     *
+     * @param reply the answer text, which carries the pack size when the model read it
+     * @param linesByOrder the article rows of the orders that were read
+     * @return {@code true} when a pack size was printed and no line counted more than one piece
+     */
+    public static boolean ignoredThePackSize(String reply, List<String> linesByOrder) {
+        if (reply == null || !PACK_SIZE.matcher(reply).find()) {
+            return false;
+        }
+        boolean sawLine = false;
+        for (String lines : linesByOrder) {
+            for (String[] row : parseOrderArticleLines(lines)) {
+                sawLine = true;
+                if (Math.abs(toDouble(row[2], 0.0) - 1.0) > 0.0001) {
+                    return false;
+                }
+            }
+        }
+        return sawLine;
+    }
+
+    /**
+     * Cuts the objects out of a JSON text, starting at the given offset. Braces inside strings do not
+     * count, so a product name with {@code {}} in it does not break the split.
+     *
+     * @param text the JSON text
+     * @param from the offset to start at
+     * @return the text of every object, in order
+     */
+    public static List<String> objectTexts(String text, int from) {
+        List<String> objects = new ArrayList<>();
+        int i = Math.max(0, from);
+        while (i < text.length()) {
+            if (text.charAt(i) == '{') {
+                int end = matchingBrace(text, i);
+                if (end > i) {
+                    objects.add(text.substring(i, end + 1));
+                    i = end + 1;
+                    continue;
+                }
+            }
+            i++;
+        }
+        return objects;
+    }
+
+    private static int matchingBrace(String text, int open) {
+        return matchingCloser(text, open, '{', '}');
+    }
+
+    /**
+     * Offset of the square bracket that closes the one at {@code open}. Brackets inside strings do not
+     * count, so a product name with {@code []} in it does not end the array early.
+     *
+     * @param text the JSON text
+     * @param open the offset of the opening bracket
+     * @return the offset of the closing bracket, {@code -1} when it is not closed
+     */
+    private static int matchingBracket(String text, int open) {
+        return matchingCloser(text, open, '[', ']');
+    }
+
+    /**
+     * Offset of the character that closes the bracket at {@code open}.
+     *
+     * @param text the JSON text
+     * @param open the offset of the opening bracket
+     * @param opening the opening character
+     * @param closing the closing character
+     * @return the offset of the closing bracket, {@code -1} when it is not closed
+     */
+    private static int matchingCloser(String text, int open, char opening, char closing) {
+        int depth = 0;
+        boolean inString = false;
+        for (int i = open; i < text.length(); i++) {
+            char c = text.charAt(i);
+            if (inString) {
+                if (c == '\\') {
+                    i++;
+                } else if (c == '"') {
+                    inString = false;
+                }
+                continue;
+            }
+            if (c == '"') {
+                inString = true;
+            } else if (c == opening) {
+                depth++;
+            } else if (c == closing) {
+                depth--;
+                if (depth == 0) {
+                    return i;
+                }
+            }
+        }
+        return -1;
+    }
+
+    /**
+     * Says whether a recognised shop order was refunded. Such an order never stayed in the shop, so
+     * booking it into stock would invent material that is not on the shelf.
+     *
+     * @param fields the recognised fields of {@link #orderFieldsFrom(String)}
+     * @return {@code true} when the screenshot said 退款成功 / 已退款 / 退款中 / 退货退款
+     */
+    public static boolean isRefunded(Map<String, String> fields) {
+        return fields != null && "Y".equalsIgnoreCase(toText(fields.get("refunded")));
+    }
+
+    /**
+     * Says whether a recognised shop order was closed without being paid (交易关闭 / 已取消).
+     *
+     * <p>The shop prints 交易关闭 right where a finished order prints 交易成功; the person confirmed
+     * it means the deal never went through (usually the money was never paid), so such an order is
+     * not booked in either - only a hand typed one is, for the rare parcel that turns up anyway.
+     *
+     * @param fields the recognised fields of {@link #orderFieldsFrom(String)}
+     * @return {@code true} when the screenshot said 交易关闭 / 已取消 / 交易失败
+     */
+    public static boolean isClosed(Map<String, String> fields) {
+        return fields != null && "Y".equalsIgnoreCase(toText(fields.get("closed")));
+    }
+
+    /**
+     * Says whether a recognised order is to be left out of the stock this time: it was refunded, or
+     * the deal never went through.
+     *
+     * @param fields the recognised fields of {@link #orderFieldsFrom(String)}
+     * @return {@code true} when the order must not be booked in
+     */
+    public static boolean notToBookIn(Map<String, String> fields) {
+        return isRefunded(fields) || isClosed(fields);
+    }
+
+    /**
+     * Checks the numbers of a recognised order against the amount paid: the goods plus the freight
+     * must come to the paid total.
+     *
+     * <p>The freight is only filled in when the answer carries none. A mismatch is reported, never
+     * repaired by inventing a freight: when a model reads one article of an order that holds two, the
+     * missing money looks exactly like a freight, and "helpfully" turning it into one hides the lost
+     * article (14.40 paid, 6.40 of goods, so 8.00 of "freight" that never existed).
+     *
+     * @param fields the recognised fields, {@code paidTotal}, {@code freight} and {@code lines}
+     * @return a sentence to show the person, {@code null} when the numbers agree or cannot be checked
+     */
+    public static String checkOrderTotals(Map<String, String> fields) {
+        Double paid = optionalAmount(fields.get("paidTotal"));
+        if (paid == null) {
+            return null;
+        }
+        Double freight = optionalAmount(fields.get("freight"));
+        Double discount = optionalAmount(fields.get("discount"));
+        List<String[]> rows = parseOrderArticleLines(fields.get("lines"));
+        double goods = 0.0;
+        for (String[] row : rows) {
+            goods += toDouble(row[3], 0.0);
+        }
+        goods = round2(goods);
+        if (goods <= 0.0) {
+            // no line could be read: there is nothing to check the freight against
+            return null;
+        }
+        // a page prints its unit prices rounded to the cent (0.095 shows as 0.10), so two pieces of
+        // 0.10 come to 1.20 where 1.19 was paid: that is rounding, not a missing article
+        double slack = roundingSlack(rows);
+        double freightValue = freight == null ? 0.0 : freight.doubleValue();
+        if (freight == null) {
+            // nothing printed next to 含运费 means there was no freight
+            fields.put("freight", "0.00");
+        }
+        if (discount != null && discount.doubleValue() > 0.0
+                && Math.abs(round2(goods + freightValue) - paid.doubleValue()) <= slack) {
+            // the articles and the freight already come to what was paid, so a discount the model
+            // reported (a struck through price read as one) would only break the balance
+            fields.put("discount", "0");
+            discount = Double.valueOf(0.0);
+        }
+        if (discount == null) {
+            double off = round2(goods + freightValue - paid.doubleValue());
+            if (off > 0.0 && off < goods) {
+                // the shop paid less than the goods and the freight: a red packet, a coupon, 满减
+                fields.put("discount", String.format(Locale.ROOT, "%.2f", off));
+                return "实付 " + money(paid) + " 比 货款 " + money(Double.valueOf(goods)) + " + 运费 "
+                        + money(Double.valueOf(freightValue)) + " 少 " + money(Double.valueOf(off))
+                        + "，按整单优惠（红包 / 满减）记下";
+            }
+        }
+        double discountValue = discount == null ? 0.0 : discount.doubleValue();
+        double expected = round2(goods + freightValue - discountValue);
+        if (Math.abs(expected - paid.doubleValue()) <= slack) {
+            return null;
+        }
+        if (expected < paid.doubleValue()) {
+            return "实付 " + money(paid) + "，但明细 " + money(Double.valueOf(goods)) + " + 运费 "
+                    + money(Double.valueOf(freightValue))
+                    + (discountValue > 0.0 ? " − 优惠 " + money(Double.valueOf(discountValue)) : "")
+                    + " 只有 " + money(Double.valueOf(expected)) + "（差了 "
+                    + money(Double.valueOf(round2(paid.doubleValue() - expected)))
+                    + "），可能漏了一件商品，请对着截图核对";
+        }
+        return "实付 " + money(paid) + "，但明细 " + money(Double.valueOf(goods)) + " + 运费 "
+                + money(Double.valueOf(freightValue))
+                + (discountValue > 0.0 ? " − 优惠 " + money(Double.valueOf(discountValue)) : "")
+                + " 是 " + money(Double.valueOf(expected)) + "，比实付还多，请核对";
+    }
+
+    /**
+     * @param rows the article rows of one order
+     * @return the few cents a page may lose by printing its unit prices rounded
+     */
+    private static double roundingSlack(List<String[]> rows) {
+        double pieces = 0.0;
+        for (String[] row : rows) {
+            pieces += Math.max(1.0, toDouble(row[2], 1.0));
+        }
+        return round2(0.005 * pieces + 0.005);
+    }
+
+    /**
+     * Says whether the money of one recognised order does not add up, which is the sign of a missing
+     * article or a misread amount. The scan sends the screenshot once more when this is true.
+     *
+     * @param order the recognised order
+     * @return {@code true} when goods plus freight is not the paid total
+     */
+    public static boolean totalsDisagree(Map<String, String> order) {
+        if (order == null) {
+            return false;
+        }
+        Double paid = optionalAmount(order.get("paidTotal"));
+        Double freight = optionalAmount(order.get("freight"));
+        if (paid == null || freight == null) {
+            return false;
+        }
+        List<String[]> rows = parseOrderArticleLines(order.get("lines"));
+        double goods = 0.0;
+        for (String[] row : rows) {
+            goods += toDouble(row[3], 0.0);
+        }
+        if (goods <= 0.0) {
+            return false;
+        }
+        Double discount = optionalAmount(order.get("discount"));
+        double discountValue = discount == null ? 0.0 : discount.doubleValue();
+        double total = round2(goods + freight.doubleValue() - discountValue);
+        // too little is a lost article, too much is an article read twice or at the wrong price; a few
+        // cents of rounded unit prices are no sign of anything
+        return Math.abs(total - paid.doubleValue()) > roundingSlack(rows);
+    }
+
+    /** @return the amount with two decimals, for a sentence */
+    private static String money(Double value) {
+        return value == null ? "" : String.format(Locale.ROOT, "%.2f", value.doubleValue());
+    }
+
+    /**
+     * Tells whether an answer holds a row that cannot be read: the quantity is not a number above
+     * zero, or the amount is not an amount. A model that squeezes two articles into one row leaves
+     * exactly that behind (an amount of {@code 3.24;402530}), and the money check cannot see it
+     * because the unreadable amount counts as zero.
+     *
+     * @param orders the orders of one answer
+     * @return {@code true} when any article row is unusable
+     */
+    public static boolean anyUnreadable(List<Map<String, String>> orders) {
+        if (orders == null) {
+            return false;
+        }
+        for (Map<String, String> order : orders) {
+            for (String[] row : parseOrderArticleLines(order == null ? null : order.get("lines"))) {
+                if (toDouble(row[2], 0.0) <= 0.0 || optionalAmount(row[3]) == null) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Grades one answer of the picture, so the best of several sends survives: the last send is not
+     * always the best one (a third attempt dropped a whole order the first one had read). The number
+     * of orders outweighs everything, then the number of article rows, then how many orders agree on
+     * the money.
+     *
+     * @param orders the orders of that answer
+     * @param seen how many orders the model said the picture shows, 0 when it did not say
+     * @return the grade, negative when the answer holds no order at all
+     */
+    public static int answerScore(List<Map<String, String>> orders, int seen) {
+        if (orders == null || orders.isEmpty()) {
+            return -1;
+        }
+        int rows = 0;
+        int agree = 0;
+        for (Map<String, String> order : orders) {
+            rows += parseOrderArticleLines(order == null ? null : order.get("lines")).size();
+            boolean readable = order != null && optionalAmount(order.get("paidTotal")) != null
+                    && !totalsDisagree(order);
+            if (readable && !anyUnreadable(java.util.Collections.singletonList(order))) {
+                agree++;
+            }
+        }
+        int score = orders.size() * 1000 + rows * 10 + agree;
+        if (seen > 0 && orders.size() == seen) {
+            score += 500;
+        }
+        return score;
+    }
+
+    /**
+     * Tidies what reading a long page adds on top of the articles: the same row printed twice because
+     * two slices overlapped (one of them with the {@code [交易快照]} note behind it), and a summary row
+     * that only repeats what was paid. Both would otherwise be booked into stock as extra material.
+     *
+     * <p>A shop that sells one board in six colours prints six rows that carry the same code, the same
+     * quantity and the same money; those are six articles, not one seen twice. Which of the two a set
+     * of equal rows is can only be told by the money, so copies are dropped one at a time while the
+     * rows still come to more than what was paid, and only a reading that adds up is used. Without a
+     * paid total nothing can tell them apart, so the rows are left as they were read - dropping them
+     * would silently lose material.
+     *
+     * @param order the order to clean, its {@code lines} are rewritten
+     */
+    public static void tidyOrder(Map<String, String> order) {
+        if (order == null) {
+            return;
+        }
+        List<String[]> rows = parseOrderArticleLines(order.get("lines"));
+        if (rows.isEmpty()) {
+            return;
+        }
+        List<String[]> kept = rows;
+        // the overlap shows one printed row twice and the two reads write the code differently
+        // (FC-135 beside 无源贴片FC-135…), so what makes a row an article cannot tell them apart: when
+        // the block says it prints fewer rows than were read, the extra ones share the quantity and the
+        // amount of a row already there and are dropped (Step 134)
+        kept = withoutExtraRows(rows, (int) toDouble(order.get("rowCount"), 0.0));
+        rows = kept;
+        // how many rows the block says it prints: a block that prints more rows than were read is
+        // missing an article, and then the money must not be moved onto the rows that were read
+        int printed = (int) toDouble(order.get("rowCount"), 0.0);
+        Double paid = optionalAmount(order.get("paidTotal"));
+        Double freight = optionalAmount(order.get("freight"));
+        if (paid != null) {
+            double freightValue = freight == null ? 0.0 : freight.doubleValue();
+            Double discount = optionalAmount(order.get("discount"));
+            double discountValue = discount == null ? 0.0 : discount.doubleValue();
+            double paidNet = round2(paid.doubleValue() - discountValue);
+            // the paid total already holds the freight: a block printing 实付款 9.99 and 含运费 2.99 is
+            // read as articles worth 9.99 beside a freight of 2.99, and the freight is counted twice.
+            // This has to happen before any row is dropped as a summary, or the money check "fixes" the
+            // block by throwing a real article away (Step 129)
+            if (freightValue > 0.0) {
+                List<String[]> withoutFreight = goodsWithoutFreight(rows, paidNet, freightValue);
+                if (withoutFreight != null) {
+                    rows = withoutFreight;
+                }
+            }
+            // what the articles alone should come to (paid = goods + freight - discount)
+            double wanted = round2(paid.doubleValue() - freightValue + discountValue);
+            kept = withoutRepeatedRows(rows, wanted);
+            // the pictures a page prints below its last order (猜你喜欢 / 为你推荐) are printed with
+            // prices too, and the model hands them to the order above (Step 131)
+            kept = withoutTheTailThatDoesNotFit(kept, wanted);
+            // the rows sometimes carry a summary row on top (the subtotal, or the paid total itself),
+            // and sometimes the price of one piece instead of the money of the row: the reading that
+            // adds up wins, so a row may be dropped and the amounts multiplied by the quantity
+            kept = readingThatAddsUp(kept, wanted);
+            if (discountValue > 0.0 && !addsUp(kept, wanted)) {
+                // the discount the model reported may be the struck through price of one piece (0.09
+                // beside 0.10): read the rows once more without it, and keep the reading that adds up
+                double plain = round2(paid.doubleValue() - freightValue);
+                List<String[]> withoutDiscount = readingThatAddsUp(
+                        withoutRepeatedRows(rows, plain), plain);
+                if (addsUp(withoutDiscount, plain)) {
+                    kept = withoutDiscount;
+                    order.put("discount", "0");
+                }
+            }
+            if (!addsUp(kept, wanted)) {
+                // a row whose money is the price of one pack: the block pays 14.00, the rows come to
+                // 12.00, and one of them is the 2.00 of a pack sold twice (Step 145)
+                double plain = round2(paid.doubleValue() - freightValue);
+                List<String[]> byPacks = moneyOfOnePack(kept, plain, printed);
+                if (byPacks != null) {
+                    kept = byPacks;
+                    if (discountValue > 0.0) {
+                        // a discount the model reported only balanced the books it could not read
+                        order.put("discount", "0");
+                    }
+                    order.put("note", "有一行的金额按「每包单价 × 包数」修正了（模型把一包的价钱当成了整行的钱），"
+                            + "请对着截图核对");
+                }
+            }
+            if (!addsUp(kept, wanted)) {
+                // a row whose money is the whole 实付款 is that number read as an article: the block of
+                // 4 rows was read as 2 rows plus one row of 16.00, which is what was paid (Step 146)
+                List<String[]> withoutSummary = withoutTheRowThatIsThePaidTotal(
+                        kept, round2(paid.doubleValue() - freightValue));
+                if (withoutSummary != null) {
+                    kept = withoutSummary;
+                    order.put("note", "有一行的金额正好是整单实付（那是实付款被当成了一行明细），已去掉；"
+                            + "还缺的明细请对着截图补上");
+                }
+            }
+            // a block that prints one article carries the whole money of that block: 实付款 6.60
+            // beside ¥3.30 x2 with （5条）a pack is one article of 10 pieces worth 6.60, and the model
+            // reads the price of one pack as the money of the row - or invents a discount of the
+            // difference to make the two add up. rowCount says the block prints one row, so nothing is
+            // missing from the read: the article cost what was paid for it less the freight (Step 132)
+            if (kept.size() == 1 && (int) toDouble(order.get("rowCount"), 0.0) == 1) {
+                double money = round2(paid.doubleValue() - freightValue);
+                if (money > 0.0 && !addsUp(kept, money)) {
+                    String[] row = kept.get(0);
+                    kept = new ArrayList<>();
+                    kept.add(new String[] {row[0], row[1], row[2],
+                        String.format(Locale.ROOT, "%.2f", Double.valueOf(money))});
+                    // a discount the model reported only balances the books it could not read; the
+                    // money of the one article is the money that was paid for it
+                    order.put("discount", "0");
+                }
+            }
+        }
+        StringBuilder lines = new StringBuilder();
+        for (String[] row : kept) {
+            if (lines.length() > 0) {
+                lines.append('\n');
+            }
+            lines.append(row[0]).append('\t').append(row[1]).append('\t').append(row[2])
+                    .append('\t').append(row[3]);
+        }
+        order.put("lines", lines.toString());
+    }
+
+    /**
+     * Takes the freight out of the article rows when the rows came to the whole paid total: a page
+     * prints 实付款 9.99 next to 含运费 2.99, and a model that reads the paid total as the money of
+     * the article carries the freight twice. The article then really costs 7.00 and the freight stands
+     * beside it, which is exactly what the receipt wants - the part price stays what was paid for the
+     * part and the freight stays a cost of the order.
+     *
+     * <p>Only applied when the rows already come to the paid total and the freight fits inside it;
+     * a page that prints the goods and the freight separately is left alone.
+     *
+     * @param rows the article rows of one order
+     * @param paid the paid total without the discount
+     * @param freight the freight the page printed, above zero
+     * @return the rows with the freight taken out, {@code null} when that reading does not fit
+     */
+    private static List<String[]> goodsWithoutFreight(List<String[]> rows, double paid, double freight) {
+        if (freight <= 0.0 || rows.isEmpty()) {
+            return null;
+        }
+        double goods = round2(sumOfRows(rows));
+        // only the shape "the rows are the paid total" is corrected: 9.99 rows and 9.99 paid
+        if (Math.abs(goods - paid) > 0.06) {
+            return null;
+        }
+        double target = round2(paid - freight);
+        if (target <= 0.0) {
+            return null;
+        }
+        List<String[]> out = new ArrayList<>(rows.size());
+        if (rows.size() == 1) {
+            String[] row = rows.get(0);
+            out.add(new String[] {row[0], row[1], row[2],
+                String.format(Locale.ROOT, "%.2f", Double.valueOf(target))});
+            return out;
+        }
+        // several rows: keep their share of the money, and put the rounding on the largest one
+        double factor = target / goods;
+        int biggest = 0;
+        double biggestAmount = -1.0;
+        double sum = 0.0;
+        for (int i = 0; i < rows.size(); i++) {
+            String[] row = rows.get(i);
+            double amount = round2(toDouble(row[3], 0.0) * factor);
+            if (amount < 0.0) {
+                amount = 0.0;
+            }
+            if (amount > biggestAmount) {
+                biggestAmount = amount;
+                biggest = i;
+            }
+            sum += amount;
+            out.add(new String[] {row[0], row[1], row[2],
+                String.format(Locale.ROOT, "%.2f", Double.valueOf(amount))});
+        }
+        double drift = round2(target - sum);
+        if (Math.abs(drift) > 0.0) {
+            String[] row = out.get(biggest);
+            double amount = round2(toDouble(row[3], 0.0) + drift);
+            out.set(biggest, new String[] {row[0], row[1], row[2],
+                String.format(Locale.ROOT, "%.2f", Double.valueOf(amount))});
+        }
+        return out;
+    }
+
+    /**
+     * Drops the copies of a row that two overlapping slices both read, and only those: a copy is
+     * removed while the rows add up to more than the shop charged. A page of six identical boards
+     * (6 x 6.88 = 41.28 paid) keeps all six while the eight copies two slices made of six are cut
+     * back to six; when the copies alone do not explain the difference the reading closest to what
+     * was paid is handed on, and the last row of a bad read (a slice that invented an article) is
+     * dropped afterwards by {@link #readingThatAddsUp}.
+     *
+     * @param rows the article rows of one order, as read
+     * @param wanted what the articles alone should come to
+     * @return the rows with the repeated copies removed
+     */
+    private static List<String[]> withoutRepeatedRows(List<String[]> rows, double wanted) {
+        List<String[]> best = rows;
+        double bestGap = Math.abs(round2(sumOfRows(rows)) - wanted);
+        List<String[]> current = new ArrayList<>(rows);
+        while (round2(sumOfRows(current)) > round2(wanted + 0.06)) {
+            String key = mostRepeatedKey(current);
+            if (key == null) {
+                break;
+            }
+            for (int i = current.size() - 1; i >= 0; i--) {
+                if (key.equals(rowIdentity(current.get(i)))) {
+                    current.remove(i);
+                    break;
+                }
+            }
+            double gap = Math.abs(round2(sumOfRows(current)) - wanted);
+            if (gap < bestGap) {
+                bestGap = gap;
+                best = new ArrayList<>(current);
+            }
+        }
+        return best;
+    }
+
+    /**
+     * Leaves out what a page prints under its last order: the product pictures of 猜你喜欢 / 为你推荐
+     * (and the like) sit right below the order block and carry prices of their own, so the model reads
+     * them as further articles of that order. They also cost nothing when the page only shows them as
+     * pictures, which is the other half of the rule below.
+     *
+     * <p>Only a reading that leaves rows out and then comes to exactly what was paid is used; a block
+     * that adds up as it is keeps every row (the six colours of one board are six articles).
+     *
+     * @param rows the article rows of one order
+     * @param wanted what the articles alone should come to
+     * @return the rows without the tail that is not part of the order
+     */
+    private static List<String[]> withoutTheTailThatDoesNotFit(List<String[]> rows, double wanted) {
+        if (rows.size() < 2 || wanted <= 0.0) {
+            return rows;
+        }
+        // a picture below the list carries no money of its own: a row without an amount at the end of
+        // a block that did cost money is not an article of that block
+        List<String[]> kept = new ArrayList<>(rows);
+        while (kept.size() > 1
+                && Math.abs(toDouble(kept.get(kept.size() - 1)[3], -1.0)) < 0.005) {
+            kept.remove(kept.size() - 1);
+        }
+        if (addsUp(kept, wanted)) {
+            return kept;
+        }
+        // the prices of those pictures are printed too, so the tail only shows itself in the money: a
+        // block that comes to more than was paid, but to exactly the paid total once its last rows are
+        // left out, is read without them
+        for (int drop = 1; drop < rows.size(); drop++) {
+            List<String[]> head = new ArrayList<>(rows.subList(0, rows.size() - drop));
+            if (addsUp(head, wanted)) {
+                return head;
+            }
+        }
+        return rows;
+    }
+
+    /**
+     * Drops the rows the overlap of two slices read twice when the block says how many rows it prints:
+     * the two reads often write the code of the row differently ({@code FC-135} and {@code 无源贴片FC-135…}),
+     * so two copies of one printed row look like two articles. A row is a copy when a row already kept
+     * has the same quantity and the same amount.
+     *
+     * @param rows the article rows of one order, as read
+     * @param printed how many rows the block says it prints, 0 when it did not say
+     * @return the rows cut back to the number the block prints, or the rows as they came when that
+     *     cannot be told apart
+     */
+    private static List<String[]> withoutExtraRows(List<String[]> rows, int printed) {
+        if (printed <= 0 || rows.size() <= printed) {
+            return rows;
+        }
+        List<String[]> out = new ArrayList<>();
+        for (String[] row : rows) {
+            if (out.size() >= printed) {
+                break;
+            }
+            boolean already = false;
+            for (String[] seen : out) {
+                if (seen[2].equals(row[2]) && seen[3].equals(row[3])) {
+                    already = true;
+                    break;
+                }
+            }
+            if (!already) {
+                out.add(row);
+            }
+        }
+        return out.size() >= printed ? out : rows;
+    }
+
+    /**
+     * @param rows the article rows of one order
+     * @return what the amounts of the rows come to
+     */
+    private static double sumOfRows(List<String[]> rows) {
+        double sum = 0.0;
+        for (String[] row : rows) {
+            sum += toDouble(row[3], 0.0);
+        }
+        return sum;
+    }
+
+    /** The most packs behind one {@code x} the page may print for one row. */
+    private static final int MAX_PACKS = 20;
+
+    /**
+     * Drops the row that carries the whole paid total of the block: a page prints that number once, in
+     * the header, so a row of exactly that money is the paid total read as an article (a block of four
+     * rows at 4.00 each came back as two rows plus one row of 16.00, Step 146).
+     *
+     * <p>Only a block of three rows or more is corrected, and only when one row says that money: two
+     * rows of one block are two articles, and one of them may cost what the block cost.
+     *
+     * @param rows the article rows of one order
+     * @param paid the paid total of the block without the freight
+     * @return the rows without that one, {@code null} when no single row carries it
+     */
+    private static List<String[]> withoutTheRowThatIsThePaidTotal(List<String[]> rows, double paid) {
+        if (rows.size() < 3 || paid <= 0.0) {
+            return null;
+        }
+        int at = -1;
+        for (int i = 0; i < rows.size(); i++) {
+            if (Math.abs(round2(toDouble(rows.get(i)[3], 0.0)) - paid) <= 0.06) {
+                if (at >= 0) {
+                    // two rows claim the whole money: nothing says which one is the summary
+                    return null;
+                }
+                at = i;
+            }
+        }
+        if (at < 0) {
+            return null;
+        }
+        List<String[]> out = new ArrayList<>(rows);
+        out.remove(at);
+        return out;
+    }
+
+    /**
+     * Reads the money of a row that was given as the price of one pack instead of the money of the
+     * whole row: a page prints {@code 0603叠层高频电感 … ¥2.00 x2} with {@code （50个）} in the grey
+     * spec line, so the row is 100 pieces for 4.00 (two packs at 2.00), while the model takes the 2.00
+     * of one pack as the money of that row. The block paid 14.00 and the rows come to 12.00, so
+     * multiplying that one row by 2 is the only reading that comes to what was paid (Step 145).
+     *
+     * <p>Only a gap that exactly one row explains is corrected: two rows of the same amount could
+     * both be the pack price, and then nothing says which of them the page sold in packs.
+     *
+     * @param rows the article rows of one order
+     * @param wanted what the articles alone should come to
+     * @param printed how many rows the block says it prints, 0 when it did not say
+     * @return the rows with that one amount multiplied, {@code null} when no single row explains it
+     */
+    private static List<String[]> moneyOfOnePack(List<String[]> rows, double wanted, int printed) {
+        // a block of one row is the case of Step 132 (the whole money belongs to that row), and a block
+        // that prints more rows than were read is missing an article: neither is a pack price
+        if (rows.size() < 2 || wanted <= 0.0 || printed > rows.size()) {
+            return null;
+        }
+        double gap = round2(wanted - sumOfRows(rows));
+        if (gap <= 0.06) {
+            return null;
+        }
+        List<String[]> found = null;
+        int fitting = 0;
+        for (int i = 0; i < rows.size(); i++) {
+            double amount = round2(toDouble(rows.get(i)[3], 0.0));
+            if (amount <= 0.0) {
+                continue;
+            }
+            for (int packs = 2; packs <= MAX_PACKS; packs++) {
+                if (Math.abs(round2(amount * (packs - 1)) - gap) > 0.06) {
+                    continue;
+                }
+                List<String[]> fixed = new ArrayList<>(rows);
+                String[] row = rows.get(i);
+                fixed.set(i, new String[] {row[0], row[1], row[2],
+                    String.format(Locale.ROOT, "%.2f", Double.valueOf(round2(amount * packs)))});
+                found = fixed;
+                fitting++;
+                break;
+            }
+        }
+        return fitting == 1 ? found : null;
+    }
+
+    /**
+     * Whether the amounts of the rows come to what they should. A page rounds its unit prices to the
+     * cent, so a few cents are allowed.
+     *
+     * @param rows the article rows
+     * @param wanted what the articles alone should come to
+     * @return {@code true} when the rows add up
+     */
+    private static boolean addsUp(List<String[]> rows, double wanted) {
+        return Math.abs(round2(sumOfRows(rows)) - wanted) <= 0.06;
+    }
+
+    /**
+     * @param rows the article rows
+     * @return the identity of a row that is printed more than once, {@code null} when none is
+     */
+    private static String mostRepeatedKey(List<String[]> rows) {
+        Map<String, Integer> counts = new LinkedHashMap<>();
+        for (String[] row : rows) {
+            String key = rowIdentity(row);
+            Integer seen = counts.get(key);
+            counts.put(key, Integer.valueOf(seen == null ? 1 : seen.intValue() + 1));
+        }
+        String best = null;
+        int most = 1;
+        for (Map.Entry<String, Integer> entry : counts.entrySet()) {
+            if (entry.getValue().intValue() > most) {
+                most = entry.getValue().intValue();
+                best = entry.getKey();
+            }
+        }
+        return best;
+    }
+
+    /**
+     * @param row one article row (code, name, quantity, amount)
+     * @return what two reads of the same printed row share
+     */
+    private static String rowIdentity(String[] row) {
+        return bareCode(row[0]) + "|" + row[2] + "|" + row[3];
+    }
+
+    /**
+     * The code of a row without the pack size in brackets a shop prints behind it: one slice reads
+     * {@code 黄色（5个）} and the next {@code 黄色}, and they are the same article.
+     *
+     * @param code the code of one row
+     * @return the code without that bracket
+     */
+    private static String bareCode(String code) {
+        return rowKey(code).replaceAll("[（(]\\s*[0-9]+\\s*[只个块件套]\\s*[）)]\\s*$", "").trim();
+    }
+
+    /**
+     * The code of an article without the notes a shop prints behind it ({@code [交易快照]} and the
+     * like), so two reads of the same article end up with the same key.
+     *
+     * @param code the code of one row
+     * @return the code without those notes, blanks squeezed
+     */
+    private static String rowKey(String code) {
+        return code == null ? "" : code.replaceAll("\\s*[\\[【(（][^\\]】)）]{0,6}(交易快照|快照)[\\]】)）]", "")
+                .replaceAll("\\s+", " ").trim();
+    }
+
+    /**
+     * Picks the reading of the article rows whose money comes to what the shop charged. The rows as
+     * they were read are tried first, then without one row (a summary row the model added), then with
+     * the amounts multiplied by the quantity (the model gave the price of one piece), and finally both.
+     * A page rounds its own unit prices, so a few cents are allowed; when nothing fits the rows are
+     * left as they are, and the money check on the page tells the person to look at them.
+     *
+     * @param rows the article rows of one order
+     * @param wanted what the articles alone should come to
+     * @return the rows of the reading that adds up, or the rows as they were
+     */
+    private static List<String[]> readingThatAddsUp(List<String[]> rows, double wanted) {
+        for (int dropAt = -1; dropAt < rows.size(); dropAt++) {
+            for (boolean asUnitPrice : new boolean[] {false, true}) {
+                double sum = 0.0;
+                for (int i = 0; i < rows.size(); i++) {
+                    if (i == dropAt) {
+                        continue;
+                    }
+                    double amount = toDouble(rows.get(i)[3], 0.0);
+                    double qty = toDouble(rows.get(i)[2], 0.0);
+                    sum += asUnitPrice && qty > 0.0 ? amount * qty : amount;
+                }
+                if (Math.abs(round2(sum) - wanted) > 0.06) {
+                    continue;
+                }
+                List<String[]> picked = new ArrayList<>();
+                for (int i = 0; i < rows.size(); i++) {
+                    if (i == dropAt) {
+                        continue;
+                    }
+                    String[] row = rows.get(i);
+                    if (asUnitPrice) {
+                        double qty = toDouble(row[2], 0.0);
+                        double amount = toDouble(row[3], 0.0) * (qty > 0.0 ? qty : 1.0);
+                        row = new String[] {row[0], row[1], row[2],
+                            String.format(Locale.ROOT, "%.2f", Double.valueOf(round2(amount)))};
+                    }
+                    picked.add(row);
+                }
+                return picked;
+            }
+        }
+        return rows;
+    }
+
+    /**
+     * Joins the orders read from the slices of one long page: the same order number is one order, the
+     * article rows of the slices are joined (a row that straddles two slices is seen twice and kept
+     * once), and a field the other slice read fills in what this one missed.
+     *
+     * @param answers what each slice answered, in the order the slices were read
+     * @return the orders of the whole page
+     */
+    public static List<Map<String, String>> mergeOrders(List<List<Map<String, String>>> answers) {
+        return mergeOrders(answers, null);
+    }
+
+    /**
+     * The same join, told how many order blocks the model said each picture shows. A model that splits
+     * one block into two objects (two articles, one number) says it saw one block and answers with two;
+     * a page never prints one order number on two blocks, so two objects of one picture that carry the
+     * same number and the same shop are the two halves of that block and are joined (a page of 23
+     * orders came back with 24, Step 143).
+     *
+     * @param answers what each slice answered, in the order the slices were read
+     * @param blocksSaid how many blocks the model said each slice shows, {@code null} when unknown
+     * @return the orders of the whole page
+     */
+    public static List<Map<String, String>> mergeOrders(List<List<Map<String, String>>> answers,
+            List<Integer> blocksSaid) {
+        Map<String, Map<String, String>> byNumber = new LinkedHashMap<>();
+        if (answers == null) {
+            return new ArrayList<>();
+        }
+        // the length the page prints its numbers at, so a read that added or lost a digit does not win
+        List<Map<String, String>> all = new ArrayList<>();
+        for (List<Map<String, String>> answer : answers) {
+            if (answer != null) {
+                all.addAll(answer);
+            }
+        }
+        int usual = usualNumberLength(all);
+        // which picture each order was read from: the overlap of two slices shows one block twice, but
+        // one picture shows a block once, so the same number twice in one answer is two blocks (Step 135)
+        Map<Map<String, String>, Integer> sliceOf = new java.util.IdentityHashMap<>();
+        for (int slice = 0; slice < answers.size(); slice++) {
+            List<Map<String, String>> answer = answers.get(slice);
+            if (answer == null) {
+                continue;
+            }
+            for (Map<String, String> order : answer) {
+                if (order == null) {
+                    continue;
+                }
+                String number = order.get("orderNo") == null ? "" : order.get("orderNo").trim();
+                Map<String, String> kept = byNumber.get(number);
+                if (kept != null && onePrintsThePriceOfTheOther(kept, order)) {
+                    // the block printed 原装正品 TPS63051RMWR … ¥2.18 x100 with 实付款 ¥217.90, and the
+                    // model answered that one row twice: once with the money of the order and once
+                    // with the price of a single piece. The price of a piece is not an order of its
+                    // own, so the read that carries the block's money stays alone (a page of 23
+                    // orders came back with 24, Step 144)
+                    if (biggerMoney(order, kept)) {
+                        kept.clear();
+                        kept.putAll(order);
+                    }
+                    String already = kept.get("note");
+                    String why = "同一块被读成了两张单（另一张把单价当成了实付），多出来的那条已去掉，请对着截图核对";
+                    kept.put("note", already == null || already.trim().isEmpty() ? why : already + "；" + why);
+                    continue;
+                }
+                boolean halvesOfOneBlock = kept != null && sameAnswer(kept, slice, sliceOf)
+                        && saysFewerBlocksThanItRead(blocksSaid, slice, answer.size())
+                        && sameShopOrMissing(kept, order);
+                if (kept != null && sameAnswer(kept, slice, sliceOf) && !sameMoneyAndArticles(kept, order)
+                        && !lostTheShop(kept, order) && !halvesOfOneBlock
+                        && hasMoney(kept) && hasMoney(order) && !samePaidMoney(kept, order)) {
+                    // a page never prints one order number on two blocks, and one picture shows each
+                    // block once: the two blocks were read with the same number, so keeping them apart
+                    // shows both orders. Merging them dropped the second one - a page of 29 orders with
+                    // two orders of the same articles and the same money came back with 28 (Step 135)
+                    String apart = freeNumber(byNumber, number);
+                    Map<String, String> stray = new LinkedHashMap<>(order);
+                    stray.put("note", "订单号与另一张单读成了一样（" + number
+                            + "）：一块只印一个号，这两行里可能有一行是同一块被拆开的，对不上就删掉多出来的那行");
+                    byNumber.put(apart, stray);
+                    sliceOf.put(stray, Integer.valueOf(slice));
+                    continue;
+                }
+                if (kept != null && !sameAnswer(kept, slice, sliceOf) && hasMoney(kept) && hasMoney(order)
+                        && !sameMoney(kept, order)) {
+                    // two slices, but two different block monies: this is not the same block either
+                    String apart = freeNumber(byNumber, number);
+                    Map<String, String> stray = new LinkedHashMap<>(order);
+                    stray.put("note", "订单号与另一张单读成了一样（" + number
+                            + "）：一块只印一个号，这两行里可能有一行是同一块被拆开的，对不上就删掉多出来的那行");
+                    byNumber.put(apart, stray);
+                    sliceOf.put(stray, Integer.valueOf(slice));
+                    continue;
+                }
+                if (kept == null) {
+                    // the second read of a block may come back with the number one digit short: the
+                    // price of one piece beside the paid total tells it is the same block, whatever
+                    // number the two reads wrote (Step 144)
+                    Map<String, String> priced = twinPrintingThePriceOfTheOther(byNumber, order);
+                    if (priced != null) {
+                        if (biggerMoney(order, priced)) {
+                            priced.clear();
+                            priced.putAll(order);
+                        }
+                        String already = priced.get("note");
+                        String why = "同一块被读成了两张单（另一张把单价当成了实付），多出来的那条已去掉，请对着截图核对";
+                        priced.put("note", already == null || already.trim().isEmpty() ? why : already + "；" + why);
+                        continue;
+                    }
+                    String twin = numberOneCharacterOff(byNumber, order);
+                    kept = twin == null ? null : byNumber.get(twin);
+                    if (kept != null && sameAnswer(kept, slice, sliceOf)
+                            && !sameMoneyAndArticles(kept, order)) {
+                        // the twin rule joined two blocks of one answer: they are two orders
+                        kept = null;
+                    }
+                }
+                if (kept == null) {
+                    Map<String, String> fresh = new LinkedHashMap<>(order);
+                    byNumber.put(number, fresh);
+                    sliceOf.put(fresh, Integer.valueOf(slice));
+                    continue;
+                }
+                kept.put("lines", joinRows(kept.get("lines"), order.get("lines")));
+                if (halvesOfOneBlock) {
+                    // the block printed one 实付款 and two article rows: the two objects carry that one
+                    // amount between them, and the note says where the second row came from
+                    addUpTheTwoHalves(kept, order);
+                    String already = kept.get("note");
+                    String why = "同一订单号被读成了两张单（一块的两段），已并回一张，实付按两笔相加，请对着截图核对";
+                    kept.put("note", already == null || already.trim().isEmpty() ? why : already + "；" + why);
+                }
+                for (String field : new String[] {"platform", "shop", "orderDate", "freight",
+                        "paidTotal", "discount", "refunded", "closed"}) {
+                    String value = kept.get(field);
+                    if (value == null || value.trim().isEmpty()) {
+                        kept.put(field, order.get(field));
+                    }
+                }
+                // the page prints one number for the order: keep the read that has the length the page
+                // writes, and only then prefer the longer one (a read that added a digit is the longer
+                // one as well, Step 134)
+                String keptNumber = kept.get("orderNo") == null ? "" : kept.get("orderNo").trim();
+                boolean takeNew = number.length() > keptNumber.length();
+                if (usual > 0 && !number.equals(keptNumber)) {
+                    if (keptNumber.length() == usual) {
+                        takeNew = false;
+                    } else if (number.length() == usual) {
+                        takeNew = true;
+                    }
+                }
+                if (takeNew) {
+                    kept.put("orderNo", number);
+                }
+            }
+        }
+        return withoutDoubleReads(new ArrayList<>(byNumber.values()), sliceOf);
+    }
+
+    /**
+     * @param order an order already read
+     * @param slice the picture the current read comes from
+     * @param sliceOf which picture each order already read comes from
+     * @return {@code true} when both reads come from the same picture, which shows a block only once
+     */
+    private static boolean sameAnswer(Map<String, String> order, int slice,
+            Map<Map<String, String>, Integer> sliceOf) {
+        Integer seen = sliceOf.get(order);
+        return seen != null && seen.intValue() == slice;
+    }
+
+    /**
+     * Collapses the reads of one order that came back with two very different numbers. A page prints
+     * its order numbers at one length (19 digits on Taobao), so a number much shorter than the rest of
+     * the page that carries exactly the articles, the shop and the money of another order is that
+     * order read twice with the middle digits lost (production read one block as 3141164514099372
+     * beside the same block read properly, Step 133).
+     *
+     * @param orders the orders of the whole page
+     * @param sliceOf which picture each order was read from
+     * @return the same orders without the shorter read of an order that is already there
+     */
+    private static List<Map<String, String>> withoutDoubleReads(List<Map<String, String>> orders,
+            Map<Map<String, String>, Integer> sliceOf) {
+        int usual = usualNumberLength(orders);
+        if (usual <= 0) {
+            return orders;
+        }
+        List<Map<String, String>> kept = new ArrayList<>();
+        for (Map<String, String> order : orders) {
+            String number = order.get("orderNo") == null ? "" : order.get("orderNo").trim();
+            if (number.length() > usual - 2) {
+                kept.add(order);
+                continue;
+            }
+            Map<String, String> full = null;
+            for (Map<String, String> other : kept) {
+                // two blocks of one picture are two orders, however alike their articles and money are
+                if (!sameAnswer(other, sliceOf.get(order) == null ? -1 : sliceOf.get(order).intValue(),
+                        sliceOf) && sameArticles(other, order) && sameShopAndMoney(other, order)) {
+                    full = other;
+                    break;
+                }
+            }
+            if (full == null) {
+                kept.add(order);
+                continue;
+            }
+            // a refund or a closed badge seen by either read is true of the order
+            for (String flag : new String[] {"refunded", "closed"}) {
+                if ("Y".equalsIgnoreCase(String.valueOf(order.get(flag)))
+                        && !"Y".equalsIgnoreCase(String.valueOf(full.get(flag)))) {
+                    full.put(flag, "Y");
+                }
+            }
+        }
+        return kept;
+    }
+
+    /**
+     * @param orders the orders of one page
+     * @return the length most of their order numbers have, 0 when the page does not agree on one
+     */
+    private static int usualNumberLength(List<Map<String, String>> orders) {
+        Map<Integer, Integer> counts = new LinkedHashMap<>();
+        for (Map<String, String> order : orders) {
+            String number = order.get("orderNo") == null ? "" : order.get("orderNo").trim();
+            if (number.length() < 8) {
+                continue;
+            }
+            Integer length = Integer.valueOf(number.length());
+            Integer seen = counts.get(length);
+            counts.put(length, Integer.valueOf(seen == null ? 1 : seen.intValue() + 1));
+        }
+        int usual = 0;
+        int most = 0;
+        for (Map.Entry<Integer, Integer> entry : counts.entrySet()) {
+            if (entry.getValue().intValue() > most) {
+                most = entry.getValue().intValue();
+                usual = entry.getKey().intValue();
+            }
+        }
+        // three numbers of one length are a habit of the page, two are a coincidence
+        return most >= 3 ? usual : 0;
+    }
+
+    /**
+     * @param first one order of a page
+     * @param second another order of the same page
+     * @return {@code true} when both print exactly the same articles
+     */
+    private static boolean sameArticles(Map<String, String> first, Map<String, String> second) {
+        List<String[]> rows = parseOrderArticleLines(first.get("lines"));
+        List<String[]> otherRows = parseOrderArticleLines(second.get("lines"));
+        if (rows.isEmpty() || rows.size() != otherRows.size()) {
+            return false;
+        }
+        List<String> keys = new ArrayList<>();
+        List<String> otherKeys = new ArrayList<>();
+        for (String[] row : rows) {
+            keys.add(rowIdentity(row));
+        }
+        for (String[] row : otherRows) {
+            otherKeys.add(rowIdentity(row));
+        }
+        java.util.Collections.sort(keys);
+        java.util.Collections.sort(otherKeys);
+        return keys.equals(otherKeys);
+    }
+
+    /**
+     * Finds the order already read whose number is the same one read with digits lost: a block that
+     * two overlapping slices both show comes back with a digit or three missing now and then
+     * (production read 3316453503083081392 once as 331645303083081392 and once as 3316453503081392),
+     * and the page would then show one order too many. The shop of the two reads is not asked: the
+     * number and the shop are printed on the same strip, so a misread hits either of them, and the
+     * money of the block is the witness that both reads are the same block.
+     *
+     * @param byNumber the orders read so far, by their number
+     * @param order the order just read
+     * @return the number the same order was filed under, {@code null} when it is a new one
+     */
+    private static String numberOneCharacterOff(Map<String, Map<String, String>> byNumber,
+            Map<String, String> order) {
+        String number = order.get("orderNo") == null ? "" : order.get("orderNo").trim();
+        if (number.isEmpty()) {
+            return null;
+        }
+        for (Map.Entry<String, Map<String, String>> entry : byNumber.entrySet()) {
+            if (numbersOfTheSameOrder(entry.getKey(), number)
+                    && samePaidMoney(entry.getValue(), order)) {
+                return entry.getKey();
+            }
+        }
+        return null;
+    }
+
+    /**
+     * @param kept an order read so far
+     * @param order one read of the same block
+     * @return {@code true} when the read got the money of the block at all: a block always prints a
+     *     实付款, so a read without one is a fragment of the block (the overlap of two slices shows the
+     *     articles without the header) and never a second order
+     */
+    private static boolean hasMoney(Map<String, String> order) {
+        Double paid = optionalAmount(order.get("paidTotal"));
+        return paid != null && paid.doubleValue() > 0.0;
+    }
+
+    /**
+     * @param kept an order read from one slice
+     * @param order the same part of the page read from another slice
+     * @return {@code true} when both print the same money (a read that got no money says nothing)
+     */
+    private static boolean samePaidMoney(Map<String, String> kept, Map<String, String> order) {
+        Double paid = optionalAmount(kept.get("paidTotal"));
+        Double otherPaid = optionalAmount(order.get("paidTotal"));
+        return paid != null && otherPaid != null
+                && Math.abs(paid.doubleValue() - otherPaid.doubleValue()) <= 0.06;
+    }
+
+    /** How many digits a read of one order number may be missing and still be the same number. */
+    private static final int MISSING_DIGITS_ALLOWED = 4;
+
+    /**
+     * @param first one order number
+     * @param second another order number
+     * @return {@code true} when one is the other read with a character written differently or with
+     *     digits missing (a long number is read digit by digit, and a digit is dropped now and then)
+     */
+    public static boolean numbersOfTheSameOrder(String first, String second) {
+        if (first == null || second == null) {
+            return false;
+        }
+        String a = first.trim();
+        String b = second.trim();
+        if (a.isEmpty() || b.isEmpty() || a.equals(b) || Math.abs(a.length() - b.length()) > MISSING_DIGITS_ALLOWED) {
+            return false;
+        }
+        if (a.length() == b.length()) {
+            int differ = 0;
+            int atFirst = -1;
+            int atSecond = -1;
+            for (int i = 0; i < a.length(); i++) {
+                if (a.charAt(i) != b.charAt(i)) {
+                    differ++;
+                    if (atFirst < 0) {
+                        atFirst = i;
+                    } else if (atSecond < 0) {
+                        atSecond = i;
+                    }
+                }
+            }
+            if (differ == 1) {
+                return true;
+            }
+            // two digits read the other way round: 3316115535567018554 came back once as
+            // 3316115553567018554 (Step 134)
+            return differ == 2 && atSecond == atFirst + 1
+                    && a.charAt(atFirst) == b.charAt(atSecond) && a.charAt(atSecond) == b.charAt(atFirst);
+        }
+        String longer = a.length() > b.length() ? a : b;
+        String shorter = a.length() > b.length() ? b : a;
+        // a handful of digits says nothing: the short read has to be a long number itself
+        return shorter.length() >= 12 && isSubsequence(shorter, longer);
+    }
+
+    /**
+     * @param shorter the shorter of two order numbers
+     * @param longer the longer of the two
+     * @return {@code true} when the digits of the shorter appear in the longer in the same order,
+     *     which is what dropping digits from a number leaves behind
+     */
+    private static boolean isSubsequence(String shorter, String longer) {
+        int at = 0;
+        for (int i = 0; i < longer.length() && at < shorter.length(); i++) {
+            if (longer.charAt(i) == shorter.charAt(at)) {
+                at++;
+            }
+        }
+        return at == shorter.length();
+    }
+
+    /**
+     * @param kept an order read from one slice
+     * @param order the same part of the page read from another slice
+     * @return {@code true} when one of the two reads lost the shop of the block: the shop is printed on
+     *     the same strip as the number, so a block with a number and no shop at all is the same block
+     *     read a second time, not another order
+     */
+    private static boolean lostTheShop(Map<String, String> kept, Map<String, String> order) {
+        String here = kept.get("shop") == null ? "" : kept.get("shop").trim();
+        String there = order.get("shop") == null ? "" : order.get("shop").trim();
+        return here.isEmpty() != there.isEmpty();
+    }
+
+    /**
+     * @param kept an order read from one slice
+     * @param order the same part of the page read from another slice
+     * @return {@code true} when both carry exactly the same articles, the same articles money and the
+     *     same paid total, which is one block read twice and not two orders
+     */
+    private static boolean sameMoneyAndArticles(Map<String, String> kept, Map<String, String> order) {
+        String here = moneyKeyOf(kept);
+        return here != null && here.equals(moneyKeyOf(order));
+    }
+
+    /**
+     * @param kept an order read from one slice
+     * @param order the same part of the page read from another slice
+     * @return {@code true} when both print the same money, which is what two reads of one block share
+     */
+    private static boolean sameMoney(Map<String, String> kept, Map<String, String> order) {        Double paid = optionalAmount(kept.get("paidTotal"));
+        Double otherPaid = optionalAmount(order.get("paidTotal"));
+        if (paid == null || otherPaid == null) {
+            // one of the two reads did not get the money: nothing says they are two blocks
+            return true;
+        }
+        return Math.abs(paid.doubleValue() - otherPaid.doubleValue()) <= 0.06;
+    }
+
+    /**
+     * @param byNumber the orders read so far
+     * @param number the number two blocks were read with
+     * @return a key for the second of them, so both are kept
+     */
+    private static String freeNumber(Map<String, Map<String, String>> byNumber, String number) {
+        String key = number + " #2";
+        for (int i = 3; byNumber.containsKey(key); i++) {
+            key = number + " #" + i;
+        }
+        return key;
+    }
+
+    /**
+     * Tells whether two reads of one block printed the same row, one of them carrying the price of a
+     * single piece where the other carries what the order was paid: the page printed
+     * {@code 原装正品 TPS63051RMWR … ¥2.18 x100} with 实付款 {@code ¥217.90}, and the model answered that
+     * row twice - 217.90 once and 2.18 once - because 217.90 is 100 x 2.18 (Step 144).
+     *
+     * @param kept one read of the block
+     * @param order the other read of it
+     * @return {@code true} when one row amount is the other one multiplied by a quantity of the row
+     */
+    private static boolean onePrintsThePriceOfTheOther(Map<String, String> kept, Map<String, String> order) {
+        for (String[] here : parseOrderArticleLines(kept.get("lines"))) {
+            double hereQty = toDouble(here[2], 0.0);
+            double hereAmount = toDouble(here[3], 0.0);
+            for (String[] there : parseOrderArticleLines(order.get("lines"))) {
+                double thereQty = toDouble(there[2], 0.0);
+                double thereAmount = toDouble(there[3], 0.0);
+                if (hereQty <= 0.0 || thereQty <= 0.0 || hereAmount <= 0.0 || thereAmount <= 0.0) {
+                    continue;
+                }
+                double bigger = Math.max(hereAmount, thereAmount);
+                double smaller = Math.min(hereAmount, thereAmount);
+                // the two reads have to disagree, and a piece price only makes a bigger number when
+                // there are pieces: one piece of 6.00 against one piece of 6.00 is the same row read
+                // twice in the overlap of two slices, not a price
+                if (bigger <= smaller + 0.06) {
+                    continue;
+                }
+                // a piece price times the pieces is what the order was paid: the page rounds its unit
+                // prices, so a few tenths of a cent per piece are allowed for
+                double slack = Math.max(0.05, 0.002 * bigger);
+                if ((hereQty >= 2.0 && Math.abs(round2(bigger - hereQty * smaller)) <= slack)
+                        || (thereQty >= 2.0 && Math.abs(round2(bigger - thereQty * smaller)) <= slack)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    /**
+     * @param first one read of a block
+     * @param second the other read of it
+     * @return {@code true} when the first carries the bigger money, which is the read of the order
+     */
+    private static boolean biggerMoney(Map<String, String> first, Map<String, String> second) {
+        Double here = optionalAmount(first.get("paidTotal"));
+        Double there = optionalAmount(second.get("paidTotal"));
+        return here != null && there != null && here.doubleValue() > there.doubleValue() + 0.06;
+    }
+
+    /**
+     * @param blocksSaid how many blocks the model said each picture shows, {@code null} when unknown
+     * @param slice the picture the read comes from
+     * @param objects how many objects that picture answered with
+     * @return {@code true} when the picture holds fewer blocks than the objects it came back with, so
+     *     one of them is a block read in two parts
+     */
+    private static boolean saysFewerBlocksThanItRead(List<Integer> blocksSaid, int slice, int objects) {
+        if (blocksSaid == null || slice < 0 || slice >= blocksSaid.size()) {
+            return false;
+        }
+        Integer said = blocksSaid.get(slice);
+        return said != null && said.intValue() > 0 && said.intValue() < objects;
+    }
+
+    /**
+     * @param byNumber the orders read so far, by their number
+     * @param order the order just read
+     * @return the read of the same block that carries the price of one piece where this one carries
+     *     the money of the order, {@code null} when there is none
+     */
+    private static Map<String, String> twinPrintingThePriceOfTheOther(
+            Map<String, Map<String, String>> byNumber, Map<String, String> order) {
+        String number = order.get("orderNo") == null ? "" : order.get("orderNo").trim();
+        if (number.isEmpty()) {
+            return null;
+        }
+        for (Map.Entry<String, Map<String, String>> entry : byNumber.entrySet()) {
+            if (numbersOfTheSameOrder(entry.getKey(), number)
+                    && sameShopOrMissing(entry.getValue(), order)
+                    && onePrintsThePriceOfTheOther(entry.getValue(), order)) {
+                return entry.getValue();
+            }
+        }
+        return null;
+    }
+
+    /**
+     * @param kept an order already read
+     * @param order the order just read
+     * @return {@code true} when both print the same shop, or one of them lost it: the shop sits on the
+     *     same strip as the number, so a missing shop says nothing against the same block
+     */
+    private static boolean sameShopOrMissing(Map<String, String> kept, Map<String, String> order) {
+        String here = kept.get("shop") == null ? "" : kept.get("shop").trim();
+        String there = order.get("shop") == null ? "" : order.get("shop").trim();
+        return here.isEmpty() || there.isEmpty() || here.equals(there);
+    }
+
+    /**
+     * The two halves of one block carry the block's one 实付款 between them: when the two amounts come
+     * to what the joined rows come to, and neither amount alone does, the order was paid that sum.
+     *
+     * @param kept the order the second half was just joined into
+     * @param order the second half
+     */
+    private static void addUpTheTwoHalves(Map<String, String> kept, Map<String, String> order) {
+        Double here = optionalAmount(kept.get("paidTotal"));
+        Double there = optionalAmount(order.get("paidTotal"));
+        if (here == null || there == null) {
+            return;
+        }
+        List<String[]> rows = parseOrderArticleLines(kept.get("lines"));
+        double goods = round2(sumOfRows(rows));
+        double slack = roundingSlack(rows);
+        double both = round2(here.doubleValue() + there.doubleValue());
+        if (Math.abs(round2(both) - goods) <= slack && Math.abs(round2(here.doubleValue()) - goods) > slack) {
+            kept.put("paidTotal", money(Double.valueOf(both)));
+        }
+    }
+
+    /**
+     * @param kept an order read from one slice
+     * @param order the same part of the page read from another slice
+     * @return {@code true} when both print the same shop and the same money
+     */
+    private static boolean sameShopAndMoney(Map<String, String> kept, Map<String, String> order) {
+        String shop = kept.get("shop") == null ? "" : kept.get("shop").trim();
+        String otherShop = order.get("shop") == null ? "" : order.get("shop").trim();
+        if (!shop.isEmpty() && !otherShop.isEmpty() && !shop.equals(otherShop)) {
+            return false;
+        }
+        Double paid = optionalAmount(kept.get("paidTotal"));
+        Double otherPaid = optionalAmount(order.get("paidTotal"));
+        if (paid != null && otherPaid != null) {
+            // the money decides; a shop one read left empty does not spoil it
+            return Math.abs(paid.doubleValue() - otherPaid.doubleValue()) <= 0.06;
+        }
+        // one of the two reads has no money: then the shop has to say they are the same order
+        return !shop.isEmpty() && shop.equals(otherShop);
+    }
+
+    /**
+     * Joins the article rows of two reads of the same order. The overlap of two slices shows a row
+     * twice, but a page may also print the same row twice on purpose (one board in six colours), so
+     * nothing is dropped here: {@code tidyOrder} removes the copies only when the money says which
+     * reading is the true one.
+     *
+     * @param first the rows read so far
+     * @param second the rows of the next read
+     * @return the rows of both reads, in order
+     */
+    private static String joinRows(String first, String second) {
+        List<String> rows = new ArrayList<>();
+        for (String text : new String[] {first, second}) {
+            if (text == null) {
+                continue;
+            }
+            for (String row : text.split("\r?\n")) {
+                String trimmed = row.trim();
+                if (trimmed.isEmpty()) {
+                    continue;
+                }
+                rows.add(trimmed);
+            }
+        }
+        return String.join("\n", rows);
+    }
+
+    /**
+     * Makes a short readable quote of what the model answered, so a scan that finds no fields can
+     * say why: "this is not an order" and "I cannot see images" look the same without it.
+     *
+     * @param reply the answer text of the vision service
+     * @param max length the quote is cut to
+     * @return one line, never empty
+     */
+    public static String visionReplyExcerpt(String reply, int max) {
+        if (reply == null) {
+            return "（空回答）";
+        }
+        String text = jsonStringField(reply, "content");
+        if (text == null || text.trim().isEmpty()) {
+            text = jsonStringField(reply, "reasoning_content");
+        }
+        if (text == null || text.trim().isEmpty()) {
+            text = reply;
+        }
+        text = text.replaceAll("\\s+", " ").trim();
+        if (text.isEmpty()) {
+            return "（空回答）";
+        }
+        return text.length() <= max ? text : text.substring(0, max) + "…";
+    }
+
+    /**
+     * Reads the value of one JSON string field, whatever surrounds it. Scanned by hand rather than
+     * matched with a pattern: an answer of a thinking model can hold several thousand characters, and
+     * a {@code (?:[^"\\]|\\.)*} of that length blows the stack of the request thread
+     * ({@code StackOverflowError} in {@code Pattern$Loop.match}, which the page shows as an empty
+     * answer).
+     *
+     * @param text the JSON like text
+     * @param name the field name
+     * @return the value with its escapes resolved, {@code null} when the field is missing
+     */
+    public static String jsonStringField(String text, String name) {
+        if (text == null || name == null || name.isEmpty()) {
+            return null;
+        }
+        String key = "\"" + name + "\"";
+        int at = text.indexOf(key);
+        while (at >= 0) {
+            int i = at + key.length();
+            while (i < text.length() && Character.isWhitespace(text.charAt(i))) {
+                i++;
+            }
+            if (i < text.length() && text.charAt(i) == ':') {
+                i++;
+                while (i < text.length() && Character.isWhitespace(text.charAt(i))) {
+                    i++;
+                }
+                if (i < text.length() && text.charAt(i) == '"') {
+                    int end = closingQuote(text, i + 1);
+                    if (end > i) {
+                        return jsonUnescape(text.substring(i + 1, end)).trim();
+                    }
+                }
+            }
+            at = text.indexOf(key, at + key.length());
+        }
+        return null;
+    }
+
+    /**
+     * Finds the quote that closes the string whose body starts at the given offset.
+     *
+     * @param text the text
+     * @param from the offset of the first character of the body
+     * @return the offset of the closing quote, -1 when the string is not closed
+     */
+    private static int closingQuote(String text, int from) {
+        boolean escaped = false;
+        for (int i = Math.max(0, from); i < text.length(); i++) {
+            char c = text.charAt(i);
+            if (escaped) {
+                escaped = false;
+            } else if (c == '\\') {
+                escaped = true;
+            } else if (c == '"') {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    /**
+     * Resolves the escapes of a JSON string in one pass. Chained replaces are not enough: a model
+     * that escapes a newline twice answers {@code \\n}, which a {@code replace("\\n", "\n")}
+     * turns into a lone backslash plus a real newline, and the field pattern then stops matching.
+     *
+     * @param raw the escaped text
+     * @return the text with its escapes resolved
+     */
+    public static String jsonUnescape(String raw) {
+        if (raw == null) {
+            return null;
+        }
+        StringBuilder out = new StringBuilder(raw.length());
+        for (int i = 0; i < raw.length(); i++) {
+            char c = raw.charAt(i);
+            if (c != '\\' || i + 1 >= raw.length()) {
+                out.append(c);
+                continue;
+            }
+            char next = raw.charAt(++i);
+            switch (next) {
+                case 'n':
+                    out.append('\n');
+                    break;
+                case 'r':
+                    out.append('\r');
+                    break;
+                case 't':
+                    out.append('\t');
+                    break;
+                case 'b':
+                    out.append('\b');
+                    break;
+                case 'f':
+                    out.append('\f');
+                    break;
+                case 'u':
+                    if (i + 4 < raw.length()) {
+                        try {
+                            out.append((char) Integer.parseInt(raw.substring(i + 1, i + 5), 16));
+                            i += 4;
+                            break;
+                        } catch (NumberFormatException e) {
+                            // a broken escape is kept as it is rather than losing the whole answer
+                        }
+                    }
+                    out.append('u');
+                    break;
+                default:
+                    // \\, \" and \/ all stand for the character itself
+                    out.append(next);
+                    break;
+            }
+        }
+        return out.toString();
+    }
+
+    public static String normalizeVisionEndpoint(String endpoint) {
+        if (endpoint == null) {
+            return null;
+        }
+        String url = endpoint.trim();
+        while (url.endsWith("/")) {
+            url = url.substring(0, url.length() - 1);
+        }
+        if (url.endsWith("/chat/completions")) {
+            return url;
+        }
+        int slash = url.lastIndexOf('/');
+        String last = slash < 0 ? url : url.substring(slash + 1);
+        if (last.matches("v\\d+") || last.matches("\\d.*")) {
+            // already at /v1, /v4 ...
+            return url + "/chat/completions";
+        }
+        return url + "/v1/chat/completions";
+    }
+
+    /**
+     * Says in plain words what a failed vision call means, with a short piece of the API answer.
+     *
+     * @param status the HTTP status
+     * @param body the answer body, may be {@code null}
+     * @return the message shown to the person
+     */
+    public static String describeVisionError(int status, String body) {
+        String hint;
+        if (status == 401 || status == 403) {
+            hint = "密钥不对或没有权限";
+        } else if (status == 404) {
+            hint = "接口地址不对，要填完整的 chat/completions 地址，例如 https://api.deepseek.com/v1/chat/completions";
+        } else if (status == 400) {
+            hint = "请求被拒：模型名可能不对，或者这个模型不支持看图（换一个能看图的模型）";
+        } else if (status == 429) {
+            hint = "调用太频繁，稍后再试";
+        } else if (status >= 500) {
+            hint = "识图服务自己出错，稍后再试";
+        } else {
+            hint = "调用失败";
+        }
+        String detail = body == null ? "" : body.replaceAll("\\s+", " ").trim();
+        if (detail.length() > 300) {
+            detail = detail.substring(0, 300) + "…";
+        }
+        return "HTTP " + status + "：" + hint + (detail.isEmpty() ? "" : "（" + detail + "）");
+    }
+
+    /**
+     * Writes one stock location: a warehouse, a zone or a shelf.
+     *
+     * @param dctx the dispatch context
+     * @param context service context, see {@code servicedef/services.xml#mfgLocationSave}
+     * @return the service result containing {@code locationId}
+     */
+
+    private static double round2(double value) {
+        return Math.round(value * 100.0) / 100.0;
+    }
+
+    private static Double optionalAmount(Object value) {
+        String text = toText(value);
+        if (text == null) {
+            return null;
+        }
+        double amount = toDouble(text, Double.NaN);
+        if (Double.isNaN(amount) || amount < 0.0) {
+            return null;
+        }
+        return Double.valueOf(amount);
+    }
+
+    private static double toDouble(Object value, double defaultValue) {
+        if (value instanceof Number) {
+            return ((Number) value).doubleValue();
+        }
+        if (value instanceof String) {
+            try {
+                String text = ((String) value).trim();
+                return text.isEmpty() ? defaultValue : Double.parseDouble(text);
+            } catch (NumberFormatException e) {
+                return defaultValue;
+            }
+        }
+        return defaultValue;
+    }
+
+    private static String toText(Object value) {
+        if (value == null) {
+            return null;
+        }
+        String text = value.toString().trim();
+        return text.isEmpty() ? null : text;
+    }
+}
+

@@ -11,6 +11,8 @@
 
 package org.langhua.ofbiz.mfg;
 
+import org.langhua.ofbiz.mfg.oir.OirOrders;
+
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
@@ -52,7 +54,7 @@ public class MfgServicesTest {
      * @return the first order, {@code null} when the answer carries none
      */
     private static Map<String, String> oneOrder(String reply) {
-        List<Map<String, String>> orders = MfgServices.orderListFrom(reply);
+        List<Map<String, String>> orders = OirOrders.orderListFrom(reply);
         return orders.isEmpty() ? null : orders.get(0);
     }
 
@@ -587,7 +589,7 @@ public class MfgServicesTest {
 
     @Test
     public void parsesTheLinesOfAShopOrder() {
-        List<String[]> rows = MfgServices.parseOrderArticleLines(
+        List<String[]> rows = OirOrders.parseOrderArticleLines(
                 "料号,名称,数量,实付金额\n"
                 + "CAP-104-50V,瓷片电容器 104 0.1uF 100NF 50V,100,2.91\n"
                 + "\n"
@@ -602,9 +604,9 @@ public class MfgServicesTest {
         assertEquals("1.50", rows.get(1)[3]);
 
         // a line that is not four columns is ignored instead of being half imported
-        assertEquals(0, MfgServices.parseOrderArticleLines("ONLY-A-CODE").size());
-        assertEquals(0, MfgServices.parseOrderArticleLines("").size());
-        assertEquals(0, MfgServices.parseOrderArticleLines(null).size());
+        assertEquals(0, OirOrders.parseOrderArticleLines("ONLY-A-CODE").size());
+        assertEquals(0, OirOrders.parseOrderArticleLines("").size());
+        assertEquals(0, OirOrders.parseOrderArticleLines(null).size());
     }
 
     @Test
@@ -673,17 +675,17 @@ public class MfgServicesTest {
         }
         String answer = "{\"choices\":[{\"message\":{\"content\":\"{\\\"lines\\\":\\\"" + longLines
                 + "\\\",\\\"orderNo\\\":\\\"123\\\"}\"}}]}";
-        List<Map<String, String>> orders = MfgServices.orderListFrom(answer);
+        List<Map<String, String>> orders = OirOrders.orderListFrom(answer);
         assertEquals(1, orders.size());
         assertEquals("123", orders.get(0).get("orderNo"));
         assertTrue(orders.get(0).get("lines").startsWith("A1,part,x\t0,x\t1"));
         assertEquals(4000 + 1, orders.get(0).get("lines").split("\t").length);
 
         // a value that is not a string is skipped, the next occurrence of the key is read
-        assertEquals("B", MfgServices.jsonStringField("{\"shop\":{\"a\":1},\"name\":\"B\"}", "name"));
-        assertNull(MfgServices.jsonStringField("{\"lines\": 5}", "lines"));
-        assertNull(MfgServices.jsonStringField("{\"lines\":\"open", "lines"));
-        assertEquals("v", MfgServices.jsonStringField("  \"k\" : \"v\" }", "k"));
+        assertEquals("B", OirOrders.jsonStringField("{\"shop\":{\"a\":1},\"name\":\"B\"}", "name"));
+        assertNull(OirOrders.jsonStringField("{\"lines\": 5}", "lines"));
+        assertNull(OirOrders.jsonStringField("{\"lines\":\"open", "lines"));
+        assertEquals("v", OirOrders.jsonStringField("  \"k\" : \"v\" }", "k"));
     }
 
     @Test
@@ -693,12 +695,12 @@ public class MfgServicesTest {
         order.put("paidTotal", "10.73");
         order.put("freight", "2.00");
         order.put("lines", "TS-D014,switch,100,6.00\nSKT-125,socket,100,3.00");
-        String note = MfgServices.checkOrderTotals(order);
+        String note = OirOrders.checkOrderTotals(order);
         assertEquals("0.27", order.get("discount"));
         assertTrue(note != null && note.contains("10.73") && note.contains("0.27"));
         assertEquals("2.00", order.get("freight"));
         // paying less than the goods and the freight is not a lost article: no retry for it
-        assertFalse(MfgServices.totalsDisagree(order));
+        assertFalse(OirOrders.totalsDisagree(order));
 
         // the model reported the discount itself: nothing to say
         Map<String, String> told = new HashMap<>();
@@ -706,7 +708,7 @@ public class MfgServicesTest {
         told.put("freight", "2.00");
         told.put("discount", "0.27");
         told.put("lines", "TS-D014,switch,100,6.00\nSKT-125,socket,100,3.00");
-        assertNull(MfgServices.checkOrderTotals(told));
+        assertNull(OirOrders.checkOrderTotals(told));
 
         // but paying MORE than the lines still means an article is missing
         Map<String, String> short_ = new HashMap<>();
@@ -714,8 +716,8 @@ public class MfgServicesTest {
         short_.put("freight", "0.00");
         short_.put("discount", "0.00");
         short_.put("lines", "PIN-40,header pin,2,6.40");
-        assertTrue(MfgServices.totalsDisagree(short_));
-        assertTrue(MfgServices.checkOrderTotals(short_).contains("可能漏了一件商品"));
+        assertTrue(OirOrders.totalsDisagree(short_));
+        assertTrue(OirOrders.checkOrderTotals(short_).contains("可能漏了一件商品"));
 
         // the summary takes the discount off the spend, not off the part prices
         java.util.List<Map<String, Object>> lines = new java.util.ArrayList<>();
@@ -739,26 +741,26 @@ public class MfgServicesTest {
         short_.put("paidTotal", "14.40");
         short_.put("freight", "0.00");
         short_.put("lines", "PIN-40,header pin,2,6.40");
-        String note = MfgServices.checkOrderTotals(short_);
+        String note = OirOrders.checkOrderTotals(short_);
         assertTrue(note != null && note.contains("14.40"));
         assertTrue(note.contains("8.00"));
         // the freight stays what the screenshot says: the missing money is not a shipping fee
         assertEquals("0.00", short_.get("freight"));
-        assertTrue(MfgServices.totalsDisagree(short_));
+        assertTrue(OirOrders.totalsDisagree(short_));
 
         // both articles read: the numbers agree and nothing is said
         Map<String, String> full = new HashMap<>();
         full.put("paidTotal", "14.40");
         full.put("freight", "0.00");
         full.put("lines", "PIN-40,header pin,2,6.40\nSOC-40,socket,2,8.00");
-        assertNull(MfgServices.checkOrderTotals(full));
-        assertFalse(MfgServices.totalsDisagree(full));
+        assertNull(OirOrders.checkOrderTotals(full));
+        assertFalse(OirOrders.totalsDisagree(full));
 
         // no freight printed at all is taken as 0, and the difference is treated as a discount
         Map<String, String> noFreight = new HashMap<>();
         noFreight.put("paidTotal", "9.84");
         noFreight.put("lines", "WIRE,wire,5,9.84");
-        assertNull(MfgServices.checkOrderTotals(noFreight));
+        assertNull(OirOrders.checkOrderTotals(noFreight));
         assertEquals("0.00", noFreight.get("freight"));
         assertNull(noFreight.get("discount"));
 
@@ -767,7 +769,7 @@ public class MfgServicesTest {
         withFreight.put("paidTotal", "8.88");
         withFreight.put("freight", "5.00");
         withFreight.put("lines", "CHIP,chip,5,3.88");
-        assertNull(MfgServices.checkOrderTotals(withFreight));
+        assertNull(OirOrders.checkOrderTotals(withFreight));
         assertEquals("5.00", withFreight.get("freight"));
     }
 
@@ -781,21 +783,21 @@ public class MfgServicesTest {
                 + "{\"orderNo\":\"3316868509015009372\",\"shop\":\"risym\",\"orderDate\":\"2026-09-16\","
                 + "\"freight\":\"0.00\",\"paidTotal\":\"9.84\",\"refunded\":\"N\","
                 + "\"lines\":\"10CM 母对母 2.54mm 1排40P\\t杜邦线\\t5\\t9.84\"}]}";
-        List<Map<String, String>> orders = MfgServices.orderListFrom(answer);
+        List<Map<String, String>> orders = OirOrders.orderListFrom(answer);
         assertEquals(1, orders.size());
         assertEquals("3316868509015009372", orders.get(0).get("orderNo"));
         // an order without a number cannot be imported anyway: it is the key the import de-dupes on
-        assertTrue(MfgServices.orderListFrom(
+        assertTrue(OirOrders.orderListFrom(
                 "{\"orders\":[{\"lines\":\"A,part,1,1.00\"}]}").isEmpty());
-        assertTrue(MfgServices.isLineTemplate("code,name,quantity,amount"));
-        assertTrue(MfgServices.isLineTemplate("Code\tName\tQuantity\tAmount"));
-        assertFalse(MfgServices.isLineTemplate("A1,part,1,1.00"));
-        assertFalse(MfgServices.isLineTemplate("code1,part,1,1.00"));
+        assertTrue(OirOrders.isLineTemplate("code,name,quantity,amount"));
+        assertTrue(OirOrders.isLineTemplate("Code\tName\tQuantity\tAmount"));
+        assertFalse(OirOrders.isLineTemplate("A1,part,1,1.00"));
+        assertFalse(OirOrders.isLineTemplate("code1,part,1,1.00"));
         // an answer that falls back to explaining the format is a poor read: the scan sends it again
-        assertTrue(MfgServices.echoesTemplate("{\"lines\":\"code\\tname\\tquantity\\tamount\"}"));
-        assertTrue(MfgServices.echoesTemplate("please answer code,name,quantity,amount"));
-        assertFalse(MfgServices.echoesTemplate("{\"orderNo\":\"1\",\"lines\":\"A,part,1,1.00\"}"));
-        assertFalse(MfgServices.echoesTemplate(null));
+        assertTrue(OirOrders.echoesTemplate("{\"lines\":\"code\\tname\\tquantity\\tamount\"}"));
+        assertTrue(OirOrders.echoesTemplate("please answer code,name,quantity,amount"));
+        assertFalse(OirOrders.echoesTemplate("{\"orderNo\":\"1\",\"lines\":\"A,part,1,1.00\"}"));
+        assertFalse(OirOrders.echoesTemplate(null));
     }
 
     @Test
@@ -807,7 +809,7 @@ public class MfgServicesTest {
                 + "\"freight\":\"2.50\",\"discount\":\"0\",\"refunded\":\"N\",\"items\":["
                 + "{\"code\":\"502035(350mah)\",\"name\":\"3.7v聚合物锂电池\",\"qty\":\"1\",\"amount\":\"3.24\"},"
                 + "{\"code\":\"402530(300mah)\",\"name\":\"3.7v聚合物锂电池\",\"qty\":\"1\",\"amount\":\"2.94\"}]}]}";
-        List<Map<String, String>> orders = MfgServices.orderListFrom(answer);
+        List<Map<String, String>> orders = OirOrders.orderListFrom(answer);
         assertEquals(1, orders.size());
         String lines = orders.get(0).get("lines");
         String[] rows = lines.split("\n");
@@ -815,53 +817,53 @@ public class MfgServicesTest {
         assertEquals("502035(350mah)\t3.7v聚合物锂电池\t1\t3.24", rows[0]);
         assertEquals("402530(300mah)\t3.7v聚合物锂电池\t1\t2.94", rows[1]);
         // the money of the two rows plus the freight is the paid total
-        assertFalse(MfgServices.totalsDisagree(orders.get(0)));
+        assertFalse(OirOrders.totalsDisagree(orders.get(0)));
 
         // quantity is read from either name, and a tab inside a field cannot break the row
         String withTabs = "{\"orders\":[{\"orderNo\":\"1\",\"items\":["
                 + "{\"code\":\"A\",\"name\":\"two\\twords\",\"quantity\":\"100\",\"amount\":\"1.20\"}]}]}";
-        List<Map<String, String>> tabbed = MfgServices.orderListFrom(withTabs);
+        List<Map<String, String>> tabbed = OirOrders.orderListFrom(withTabs);
         assertEquals(1, tabbed.size());
         assertEquals("A\ttwo words\t100\t1.20", tabbed.get(0).get("lines"));
 
         // an items array that only repeats the empty format is not an order
-        assertTrue(MfgServices.orderListFrom("{\"orders\":[{\"orderNo\":\"9\",\"items\":["
+        assertTrue(OirOrders.orderListFrom("{\"orders\":[{\"orderNo\":\"9\",\"items\":["
                 + "{\"code\":\"\",\"name\":\"\",\"qty\":\"\",\"amount\":\"\"}]}]}").isEmpty());
         // the old shape still reads, so old screenshots and the mock images keep working
-        assertEquals(1, MfgServices.orderListFrom(
+        assertEquals(1, OirOrders.orderListFrom(
                 "{\"orders\":[{\"orderNo\":\"7\",\"lines\":\"A,part,2,4.00\"}]}").size());
     }
 
     @Test
     public void gradesAnAnswerAndSpotsAnUnreadableRow() {
         // the best of several sends survives: two orders beat one, and more articles beat fewer
-        List<Map<String, String>> two = MfgServices.orderListFrom("{\"orders\":["
+        List<Map<String, String>> two = OirOrders.orderListFrom("{\"orders\":["
                 + "{\"orderNo\":\"1\",\"paidTotal\":\"8.68\",\"freight\":\"2.50\",\"items\":["
                 + "{\"code\":\"A\",\"name\":\"battery\",\"qty\":\"1\",\"amount\":\"3.24\"},"
                 + "{\"code\":\"B\",\"name\":\"battery\",\"qty\":\"1\",\"amount\":\"2.94\"}]},"
                 + "{\"orderNo\":\"2\",\"paidTotal\":\"77.99\",\"freight\":\"0.00\",\"items\":["
                 + "{\"code\":\"C\",\"name\":\"clip\",\"qty\":\"2\",\"amount\":\"77.99\"}]}]}");
-        List<Map<String, String>> one = MfgServices.orderListFrom("{\"orders\":["
+        List<Map<String, String>> one = OirOrders.orderListFrom("{\"orders\":["
                 + "{\"orderNo\":\"1\",\"paidTotal\":\"8.68\",\"freight\":\"2.50\",\"items\":["
                 + "{\"code\":\"A\",\"name\":\"battery\",\"qty\":\"1\",\"amount\":\"3.24\"}]}]}");
-        assertTrue(MfgServices.answerScore(two, 2) > MfgServices.answerScore(one, 2));
-        assertTrue(MfgServices.answerScore(two, 2) > MfgServices.answerScore(two, 1));
-        assertEquals(-1, MfgServices.answerScore(one.subList(0, 0), 2));
-        assertFalse(MfgServices.anyUnreadable(two));
+        assertTrue(OirOrders.answerScore(two, 2) > OirOrders.answerScore(one, 2));
+        assertTrue(OirOrders.answerScore(two, 2) > OirOrders.answerScore(two, 1));
+        assertEquals(-1, OirOrders.answerScore(one.subList(0, 0), 2));
+        assertFalse(OirOrders.anyUnreadable(two));
         // a row whose amount came back as "3.24;402530" is two articles squeezed into one
         Map<String, String> squeezed = new java.util.LinkedHashMap<>();
         squeezed.put("orderNo", "1");
         squeezed.put("paidTotal", "8.68");
         squeezed.put("freight", "2.50");
         squeezed.put("lines", "502035\tbattery\t1\t3.24;402530");
-        assertTrue(MfgServices.anyUnreadable(Arrays.asList(squeezed)));
+        assertTrue(OirOrders.anyUnreadable(Arrays.asList(squeezed)));
         // the squeezed answer is worth less than the same order read properly
-        List<Map<String, String>> readProperly = MfgServices.orderListFrom("{\"orders\":["
+        List<Map<String, String>> readProperly = OirOrders.orderListFrom("{\"orders\":["
                 + "{\"orderNo\":\"1\",\"paidTotal\":\"8.68\",\"freight\":\"2.50\",\"items\":["
                 + "{\"code\":\"A\",\"name\":\"battery\",\"qty\":\"1\",\"amount\":\"3.24\"},"
                 + "{\"code\":\"B\",\"name\":\"battery\",\"qty\":\"1\",\"amount\":\"2.94\"}]}]}");
-        assertTrue(MfgServices.answerScore(Arrays.asList(squeezed), 1)
-                < MfgServices.answerScore(readProperly, 1));
+        assertTrue(OirOrders.answerScore(Arrays.asList(squeezed), 1)
+                < OirOrders.answerScore(readProperly, 1));
     }
 
     @Test
@@ -869,31 +871,31 @@ public class MfgServicesTest {
         // a long page is read slice by slice: the same order number is one order, its rows are
         // joined and missing fields are filled; the row seen in the overlap of two slices stays in
         // the joined rows (a shop may print one row twice on purpose) and the money decides later
-        List<Map<String, String>> first = MfgServices.orderListFrom("{\"orders\":["
+        List<Map<String, String>> first = OirOrders.orderListFrom("{\"orders\":["
                 + "{\"orderNo\":\"1\",\"shop\":\"shop A\",\"paidTotal\":\"11.00\",\"items\":["
                 + "{\"code\":\"X\",\"name\":\"x\",\"qty\":\"1\",\"amount\":\"6.00\"}]}]}");
-        List<Map<String, String>> second = MfgServices.orderListFrom("{\"orders\":["
+        List<Map<String, String>> second = OirOrders.orderListFrom("{\"orders\":["
                 + "{\"orderNo\":\"1\",\"freight\":\"1.00\",\"items\":["
                 + "{\"code\":\"X\",\"name\":\"x\",\"qty\":\"1\",\"amount\":\"6.00\"},"
                 + "{\"code\":\"Y\",\"name\":\"y\",\"qty\":\"1\",\"amount\":\"4.00\"}]},"
                 + "{\"orderNo\":\"2\",\"items\":[{\"code\":\"Z\",\"name\":\"z\",\"qty\":\"1\",\"amount\":\"3.00\"}]}]}");
-        List<Map<String, String>> merged = MfgServices.mergeOrders(Arrays.asList(first, second));
+        List<Map<String, String>> merged = OirOrders.mergeOrders(Arrays.asList(first, second));
         assertEquals(2, merged.size());
         assertEquals("1", merged.get(0).get("orderNo"));
         assertEquals("shop A", merged.get(0).get("shop"));
         assertEquals("1.00", merged.get(0).get("freight"));
         assertEquals(3, merged.get(0).get("lines").split("\n").length);
         // 6.00 + 4.00 and 1.00 freight is the 11.00 paid: the copy the overlap read is dropped
-        MfgServices.tidyOrder(merged.get(0));
+        OirOrders.tidyOrder(merged.get(0));
         String[] rows = merged.get(0).get("lines").split("\n");
         assertEquals(2, rows.length);
         assertTrue(rows[0].startsWith("X"));
         assertTrue(rows[1].startsWith("Y"));
-        assertNull(MfgServices.checkOrderTotals(merged.get(0)));
+        assertNull(OirOrders.checkOrderTotals(merged.get(0)));
         assertEquals("2", merged.get(1).get("orderNo"));
         // nothing to merge is not an error
-        assertEquals(0, MfgServices.mergeOrders(Arrays.asList(Collections.emptyList())).size());
-        assertEquals(0, MfgServices.mergeOrders(null).size());
+        assertEquals(0, OirOrders.mergeOrders(Arrays.asList(Collections.emptyList())).size());
+        assertEquals(0, OirOrders.mergeOrders(null).size());
     }
 
     @Test
@@ -1002,54 +1004,54 @@ public class MfgServicesTest {
         // page prints 3316453503083081392 and it came back once as 331645303083081392. The same shop
         // and the same paid money say it is one order, so the page is not shown with one order too
         // many (a page of 29 blocks was reported as 30, Step 131)
-        List<Map<String, String>> whole = MfgServices.orderListFrom("{\"orders\":["
+        List<Map<String, String>> whole = OirOrders.orderListFrom("{\"orders\":["
                 + "{\"orderNo\":\"3316453503083081392\",\"shop\":\"华瑞芯城\",\"paidTotal\":\"22.24\","
                 + "\"freight\":\"2.80\",\"items\":[{\"code\":\"CH32V002J4M6\",\"name\":\"ch32\","
                 + "\"qty\":\"30\",\"amount\":\"19.44\"}]}]}");
-        List<Map<String, String>> shortened = MfgServices.orderListFrom("{\"orders\":["
+        List<Map<String, String>> shortened = OirOrders.orderListFrom("{\"orders\":["
                 + "{\"orderNo\":\"331645303083081392\",\"shop\":\"华瑞芯城\",\"paidTotal\":\"22.24\","
                 + "\"freight\":\"2.80\",\"items\":[{\"code\":\"CH32V002J4M6\",\"name\":\"ch32\","
                 + "\"qty\":\"30\",\"amount\":\"19.44\"}]}]}");
-        List<Map<String, String>> merged = MfgServices.mergeOrders(Arrays.asList(whole, shortened));
+        List<Map<String, String>> merged = OirOrders.mergeOrders(Arrays.asList(whole, shortened));
         assertEquals(1, merged.size());
         // the number the page prints stays, the short read only joins it
         assertEquals("3316453503083081392", merged.get(0).get("orderNo"));
         assertEquals(2, merged.get(0).get("lines").split("\n").length);
-        MfgServices.tidyOrder(merged.get(0));
+        OirOrders.tidyOrder(merged.get(0));
         assertEquals(1, merged.get(0).get("lines").split("\n").length);
-        assertNull(MfgServices.checkOrderTotals(merged.get(0)));
+        assertNull(OirOrders.checkOrderTotals(merged.get(0)));
         // the shop of the two reads is not asked: the number and the shop sit on the same strip, so a
         // misread hits either of them - the money of the block is what says both reads are one block
-        List<Map<String, String>> otherShop = MfgServices.orderListFrom("{\"orders\":["
+        List<Map<String, String>> otherShop = OirOrders.orderListFrom("{\"orders\":["
                 + "{\"orderNo\":\"331645303083081392\",\"shop\":\"别的店\",\"paidTotal\":\"22.24\","
                 + "\"freight\":\"2.80\",\"items\":[{\"code\":\"CH32V002J4M6\",\"name\":\"ch32\","
                 + "\"qty\":\"30\",\"amount\":\"19.44\"}]}]}");
-        assertEquals(1, MfgServices.mergeOrders(Arrays.asList(whole, otherShop)).size());
+        assertEquals(1, OirOrders.mergeOrders(Arrays.asList(whole, otherShop)).size());
         // a read that left the shop empty is still the same order when the money is the same
-        List<Map<String, String>> noShop = MfgServices.orderListFrom("{\"orders\":["
+        List<Map<String, String>> noShop = OirOrders.orderListFrom("{\"orders\":["
                 + "{\"orderNo\":\"331645303083081392\",\"shop\":\"\",\"paidTotal\":\"22.24\","
                 + "\"freight\":\"2.80\",\"items\":[{\"code\":\"CH32V002J4M6\",\"name\":\"ch32\","
                 + "\"qty\":\"30\",\"amount\":\"19.44\"}]}]}");
-        assertEquals(1, MfgServices.mergeOrders(Arrays.asList(whole, noShop)).size());
+        assertEquals(1, OirOrders.mergeOrders(Arrays.asList(whole, noShop)).size());
         // and so is other money
-        List<Map<String, String>> otherMoney = MfgServices.orderListFrom("{\"orders\":["
+        List<Map<String, String>> otherMoney = OirOrders.orderListFrom("{\"orders\":["
                 + "{\"orderNo\":\"331645303083081392\",\"shop\":\"华瑞芯城\",\"paidTotal\":\"9.99\","
                 + "\"items\":[{\"code\":\"CH32V002J4M6\",\"name\":\"ch32\",\"qty\":\"1\","
                 + "\"amount\":\"9.99\"}]}]}");
-        assertEquals(2, MfgServices.mergeOrders(Arrays.asList(whole, otherMoney)).size());
+        assertEquals(2, OirOrders.mergeOrders(Arrays.asList(whole, otherMoney)).size());
         // two numbers that differ by more than one character are never the same order
-        assertTrue(MfgServices.numbersOfTheSameOrder("3316453503083081392", "331645303083081392"));
+        assertTrue(OirOrders.numbersOfTheSameOrder("3316453503083081392", "331645303083081392"));
         // a read may also lose three digits: 3316453503083081392 came back once as 3316453503081392
-        assertTrue(MfgServices.numbersOfTheSameOrder("3316453503083081392", "3316453503081392"));
-        assertTrue(MfgServices.numbersOfTheSameOrder("3316453503083081392", "3316453503083081393"));
+        assertTrue(OirOrders.numbersOfTheSameOrder("3316453503083081392", "3316453503081392"));
+        assertTrue(OirOrders.numbersOfTheSameOrder("3316453503083081392", "3316453503083081393"));
         // and two neighbouring digits are read the other way round now and then
-        assertTrue(MfgServices.numbersOfTheSameOrder("3316115535567018554", "3316115553567018554"));
-        assertFalse(MfgServices.numbersOfTheSameOrder("3316115535567018554", "3316115535567099554"));
-        assertFalse(MfgServices.numbersOfTheSameOrder("3316452855010009372", "3316485867036009372"));
-        assertFalse(MfgServices.numbersOfTheSameOrder("3316453503083081392", "3316453503083081392"));
-        assertFalse(MfgServices.numbersOfTheSameOrder("3316453503083081392", "3453508"));
-        assertFalse(MfgServices.numbersOfTheSameOrder("", "3316453503083081392"));
-        assertFalse(MfgServices.numbersOfTheSameOrder(null, "3316453503083081392"));
+        assertTrue(OirOrders.numbersOfTheSameOrder("3316115535567018554", "3316115553567018554"));
+        assertFalse(OirOrders.numbersOfTheSameOrder("3316115535567018554", "3316115535567099554"));
+        assertFalse(OirOrders.numbersOfTheSameOrder("3316452855010009372", "3316485867036009372"));
+        assertFalse(OirOrders.numbersOfTheSameOrder("3316453503083081392", "3316453503083081392"));
+        assertFalse(OirOrders.numbersOfTheSameOrder("3316453503083081392", "3453508"));
+        assertFalse(OirOrders.numbersOfTheSameOrder("", "3316453503083081392"));
+        assertFalse(OirOrders.numbersOfTheSameOrder(null, "3316453503083081392"));
     }
 
     @Test
@@ -1057,28 +1059,28 @@ public class MfgServicesTest {
         // a page never prints one order number on two blocks: when two blocks of different money come
         // back with the same number one of the reads is wrong, and merging them would drop a whole
         // order into the other (a page of 31 blocks came back with 30, Step 134)
-        List<Map<String, String>> page = MfgServices.orderListFrom("{\"orders\":["
+        List<Map<String, String>> page = OirOrders.orderListFrom("{\"orders\":["
                 + "{\"orderNo\":\"3316374446353172593\",\"shop\":\"telesky\",\"paidTotal\":\"2.63\","
                 + "\"items\":[{\"code\":\"2.54mm 1*40\",\"name\":\"pin header\",\"qty\":\"5\","
                 + "\"amount\":\"0.63\"}]},"
                 + "{\"orderNo\":\"3316374446353172593\",\"shop\":\"telesky\",\"paidTotal\":\"3.87\","
                 + "\"items\":[{\"code\":\"SOP16\",\"name\":\"adapter\",\"qty\":\"10\","
                 + "\"amount\":\"3.87\"}]}]}");
-        List<Map<String, String>> merged = MfgServices.mergeOrders(Collections.singletonList(page));
+        List<Map<String, String>> merged = OirOrders.mergeOrders(Collections.singletonList(page));
         assertEquals(2, merged.size());
-        assertEquals(1, MfgServices.parseOrderArticleLines(merged.get(0).get("lines")).size());
-        assertEquals(1, MfgServices.parseOrderArticleLines(merged.get(1).get("lines")).size());
+        assertEquals(1, OirOrders.parseOrderArticleLines(merged.get(0).get("lines")).size());
+        assertEquals(1, OirOrders.parseOrderArticleLines(merged.get(1).get("lines")).size());
         // the second one says why it carries the same number
         assertNotNull(merged.get(1).get("note"));
         // two reads of one block still join: same number, same money, and read from two pictures (the
         // overlap of two slices), which is the only way one block is seen twice
-        List<Map<String, String>> first = MfgServices.orderListFrom("{\"orders\":["
+        List<Map<String, String>> first = OirOrders.orderListFrom("{\"orders\":["
                 + "{\"orderNo\":\"3316374446353172593\",\"paidTotal\":\"2.63\","
                 + "\"items\":[{\"code\":\"X\",\"name\":\"x\",\"qty\":\"5\",\"amount\":\"0.63\"}]}]}");
-        List<Map<String, String>> second = MfgServices.orderListFrom("{\"orders\":["
+        List<Map<String, String>> second = OirOrders.orderListFrom("{\"orders\":["
                 + "{\"orderNo\":\"3316374446353172593\",\"paidTotal\":\"2.63\","
                 + "\"items\":[{\"code\":\"Y\",\"name\":\"y\",\"qty\":\"2\",\"amount\":\"2.00\"}]}]}");
-        assertEquals(1, MfgServices.mergeOrders(Arrays.asList(first, second)).size());
+        assertEquals(1, OirOrders.mergeOrders(Arrays.asList(first, second)).size());
     }
 
     @Test
@@ -1087,7 +1089,7 @@ public class MfgServicesTest {
         // that one row twice: once with the money of the order and once with the price of one piece
         // (217.90 is 100 x 2.18). The piece price is not an order of its own - a page of 23 orders came
         // back with 24 - so only the read that carries the block's money stays
-        List<Map<String, String>> picture = MfgServices.orderListFrom("{\"orderCount\":\"1\",\"orders\":["
+        List<Map<String, String>> picture = OirOrders.orderListFrom("{\"orderCount\":\"1\",\"orders\":["
                 + "{\"orderNo\":\"3071465510024500570\",\"shop\":\"深圳市华胜特电子商城\","
                 + "\"paidTotal\":\"217.90\",\"freight\":\"0.00\",\"rowCount\":\"1\","
                 + "\"items\":[{\"code\":\"TPS63051RMWR\",\"name\":\"buck converter\",\"qty\":\"100\","
@@ -1099,50 +1101,50 @@ public class MfgServicesTest {
         // the count the model gives does not matter: the money says the second read is the piece price
         for (Integer said : new Integer[] {null, Integer.valueOf(1), Integer.valueOf(2)}) {
             List<Integer> counts = said == null ? null : Collections.singletonList(said);
-            List<Map<String, String>> merged = MfgServices.mergeOrders(Collections.singletonList(picture),
+            List<Map<String, String>> merged = OirOrders.mergeOrders(Collections.singletonList(picture),
                     counts);
             assertEquals(1, merged.size());
-            assertEquals(1, MfgServices.parseOrderArticleLines(merged.get(0).get("lines")).size());
+            assertEquals(1, OirOrders.parseOrderArticleLines(merged.get(0).get("lines")).size());
             assertEquals("217.90", merged.get(0).get("paidTotal"));
             assertNotNull(merged.get(0).get("note"));
-            assertNull(MfgServices.checkOrderTotals(merged.get(0)));
+            assertNull(OirOrders.checkOrderTotals(merged.get(0)));
         }
 
         // a block of two real articles that came back as two objects is joined again when the picture
         // says it holds one block: both rows stay and the money is the two halves added up
-        List<Map<String, String>> splitBlock = MfgServices.orderListFrom("{\"orderCount\":\"1\",\"orders\":["
+        List<Map<String, String>> splitBlock = OirOrders.orderListFrom("{\"orderCount\":\"1\",\"orders\":["
                 + "{\"orderNo\":\"3071465510024500571\",\"shop\":\"深圳市华胜特电子商城\","
                 + "\"paidTotal\":\"10.00\",\"freight\":\"0.00\",\"rowCount\":\"2\","
                 + "\"items\":[{\"code\":\"A\",\"name\":\"a\",\"qty\":\"1\",\"amount\":\"10.00\"}]},"
                 + "{\"orderNo\":\"3071465510024500571\",\"shop\":\"深圳市华胜特电子商城\","
                 + "\"paidTotal\":\"5.00\",\"freight\":\"0.00\",\"rowCount\":\"2\","
                 + "\"items\":[{\"code\":\"B\",\"name\":\"b\",\"qty\":\"3\",\"amount\":\"5.00\"}]}]}");
-        List<Map<String, String>> joined = MfgServices.mergeOrders(Collections.singletonList(splitBlock),
+        List<Map<String, String>> joined = OirOrders.mergeOrders(Collections.singletonList(splitBlock),
                 Collections.singletonList(Integer.valueOf(1)));
         assertEquals(1, joined.size());
-        assertEquals(2, MfgServices.parseOrderArticleLines(joined.get(0).get("lines")).size());
+        assertEquals(2, OirOrders.parseOrderArticleLines(joined.get(0).get("lines")).size());
         assertEquals("15.00", joined.get(0).get("paidTotal"));
 
         // a picture that says it holds two blocks keeps the two blocks
-        List<Map<String, String>> twoBlocks = MfgServices.orderListFrom("{\"orderCount\":\"2\",\"orders\":["
+        List<Map<String, String>> twoBlocks = OirOrders.orderListFrom("{\"orderCount\":\"2\",\"orders\":["
                 + "{\"orderNo\":\"3071465510024500571\",\"shop\":\"深圳市华胜特电子商城\","
                 + "\"paidTotal\":\"10.00\",\"rowCount\":\"1\","
                 + "\"items\":[{\"code\":\"A\",\"name\":\"a\",\"qty\":\"1\",\"amount\":\"10.00\"}]},"
                 + "{\"orderNo\":\"3071465510024500571\",\"shop\":\"深圳市华胜特电子商城\","
                 + "\"paidTotal\":\"5.00\",\"rowCount\":\"1\","
                 + "\"items\":[{\"code\":\"B\",\"name\":\"b\",\"qty\":\"3\",\"amount\":\"5.00\"}]}]}");
-        assertEquals(2, MfgServices.mergeOrders(Collections.singletonList(twoBlocks),
+        assertEquals(2, OirOrders.mergeOrders(Collections.singletonList(twoBlocks),
                 Collections.singletonList(Integer.valueOf(2))).size());
 
         // two shops are two orders however the count reads: the number and the shop sit on one strip
-        List<Map<String, String>> twoShops = MfgServices.orderListFrom("{\"orderCount\":\"1\",\"orders\":["
+        List<Map<String, String>> twoShops = OirOrders.orderListFrom("{\"orderCount\":\"1\",\"orders\":["
                 + "{\"orderNo\":\"3071465510024500571\",\"shop\":\"深圳市华胜特电子商城\","
                 + "\"paidTotal\":\"10.00\",\"rowCount\":\"1\","
                 + "\"items\":[{\"code\":\"A\",\"name\":\"a\",\"qty\":\"1\",\"amount\":\"10.00\"}]},"
                 + "{\"orderNo\":\"3071465510024500571\",\"shop\":\"深圳市德明电子贸易商\","
                 + "\"paidTotal\":\"5.00\",\"rowCount\":\"1\","
                 + "\"items\":[{\"code\":\"B\",\"name\":\"b\",\"qty\":\"3\",\"amount\":\"5.00\"}]}]}");
-        assertEquals(2, MfgServices.mergeOrders(Collections.singletonList(twoShops),
+        assertEquals(2, OirOrders.mergeOrders(Collections.singletonList(twoShops),
                 Collections.singletonList(Integer.valueOf(1))).size());
     }
 
@@ -1151,7 +1153,7 @@ public class MfgServicesTest {
         // the block prints four rows of 4.00 and 实付款 16.00; the model answered it as two objects of
         // the same number, the same shop and the same 16.00 - two rows of 4.00 and one row of 16.00.
         // A page prints one 实付款 per block, so the two objects are that one block (Step 146)
-        List<Map<String, String>> picture = MfgServices.orderListFrom("{\"orderCount\":\"2\",\"orders\":["
+        List<Map<String, String>> picture = OirOrders.orderListFrom("{\"orderCount\":\"2\",\"orders\":["
                 + "{\"orderNo\":\"3071440382104500570\",\"shop\":\"诚信达电子科技\",\"paidTotal\":\"16.00\","
                 + "\"freight\":\"0.00\",\"rowCount\":\"4\",\"items\":["
                 + "{\"code\":\"10K 50个\",\"name\":\"排阻\",\"qty\":\"100\",\"amount\":\"4.00\"},"
@@ -1159,18 +1161,18 @@ public class MfgServicesTest {
                 + "{\"orderNo\":\"3071440382104500570\",\"shop\":\"诚信达电子科技\",\"paidTotal\":\"16.00\","
                 + "\"freight\":\"0.00\",\"rowCount\":\"4\",\"items\":["
                 + "{\"code\":\"0603*4贴片排阻\",\"name\":\"排阻\",\"qty\":\"100\",\"amount\":\"16.00\"}]}]}");
-        List<Map<String, String>> merged = MfgServices.mergeOrders(Collections.singletonList(picture));
+        List<Map<String, String>> merged = OirOrders.mergeOrders(Collections.singletonList(picture));
         assertEquals(1, merged.size());
         // the row that carries the whole 实付款 is the header read as an article, so it is dropped and
         // what was really read of the block stays
-        MfgServices.tidyOrder(merged.get(0));
+        OirOrders.tidyOrder(merged.get(0));
         String[] rows = merged.get(0).get("lines").split("\n");
         assertEquals(2, rows.length);
         assertEquals("4.00", rows[0].split("\t")[3]);
         assertEquals("4.00", rows[1].split("\t")[3]);
         assertEquals("16.00", merged.get(0).get("paidTotal"));
         // the rest of the block was not read, and the page keeps saying so
-        assertNotNull(MfgServices.checkOrderTotals(merged.get(0)));
+        assertNotNull(OirOrders.checkOrderTotals(merged.get(0)));
     }
 
     @Test
@@ -1178,17 +1180,17 @@ public class MfgServicesTest {
         // the same block came back twice: 3071465510024500570 with 217.90 and 307146551002450570 (one
         // digit short) with the 2.18 of a single piece. The price does not change because the number
         // lost a digit: 100 x 2.18 is the 217.90 that was paid (Step 144)
-        List<Map<String, String>> picture = MfgServices.orderListFrom("{\"orderCount\":\"2\",\"orders\":["
+        List<Map<String, String>> picture = OirOrders.orderListFrom("{\"orderCount\":\"2\",\"orders\":["
                 + "{\"orderNo\":\"3071465510024500570\",\"shop\":\"深圳市华胜特电子商城\","
                 + "\"paidTotal\":\"217.90\",\"rowCount\":\"1\",\"items\":["
                 + "{\"code\":\"TPS63051RMWR\",\"name\":\"buck\",\"qty\":\"100\",\"amount\":\"217.90\"}]},"
                 + "{\"orderNo\":\"307146551002450570\",\"shop\":\"深圳市华胜特电子商城\","
                 + "\"paidTotal\":\"2.18\",\"rowCount\":\"1\",\"items\":["
                 + "{\"code\":\"TPS63051RMWR\",\"name\":\"buck\",\"qty\":\"100\",\"amount\":\"2.18\"}]}]}");
-        List<Map<String, String>> merged = MfgServices.mergeOrders(Collections.singletonList(picture));
+        List<Map<String, String>> merged = OirOrders.mergeOrders(Collections.singletonList(picture));
         assertEquals(1, merged.size());
         assertEquals("217.90", merged.get(0).get("paidTotal"));
-        assertEquals(1, MfgServices.parseOrderArticleLines(merged.get(0).get("lines")).size());
+        assertEquals(1, OirOrders.parseOrderArticleLines(merged.get(0).get("lines")).size());
     }
 
     @Test
@@ -1196,31 +1198,31 @@ public class MfgServicesTest {
         // the overlap of two slices showed the articles of the last block without its header, and the
         // second read came back with the same number and no 实付款 at all. A block always prints one,
         // so that read is a piece of the block and not a second order (Step 147)
-        List<Map<String, String>> picture = MfgServices.orderListFrom("{\"orderCount\":\"2\",\"orders\":["
+        List<Map<String, String>> picture = OirOrders.orderListFrom("{\"orderCount\":\"2\",\"orders\":["
                 + "{\"orderNo\":\"3071758657686500570\",\"shop\":\"深圳市芯信世纪电子\",\"paidTotal\":\"534.10\","
                 + "\"freight\":\"0.00\",\"rowCount\":\"1\",\"items\":["
                 + "{\"code\":\"STM32F103\",\"name\":\"mcu\",\"qty\":\"10\",\"amount\":\"534.10\"}]},"
                 + "{\"orderNo\":\"3071758657686500570\",\"shop\":\"\",\"paidTotal\":\"0.00\","
                 + "\"rowCount\":\"1\",\"items\":["
                 + "{\"code\":\"STM32F103\",\"name\":\"mcu\",\"qty\":\"10\",\"amount\":\"0.00\"}]}]}");
-        List<Map<String, String>> merged = MfgServices.mergeOrders(Collections.singletonList(picture));
+        List<Map<String, String>> merged = OirOrders.mergeOrders(Collections.singletonList(picture));
         assertEquals(1, merged.size());
         assertEquals("534.10", merged.get(0).get("paidTotal"));
         // the same fragment seen from another slice is joined as well
-        List<Map<String, String>> first = MfgServices.orderListFrom("{\"orders\":["
+        List<Map<String, String>> first = OirOrders.orderListFrom("{\"orders\":["
                 + "{\"orderNo\":\"3071758657686500570\",\"shop\":\"深圳市芯信世纪电子\",\"paidTotal\":\"534.10\","
                 + "\"rowCount\":\"1\",\"items\":[{\"code\":\"A\",\"name\":\"a\",\"qty\":\"10\",\"amount\":\"534.10\"}]}]}");
-        List<Map<String, String>> fragment = MfgServices.orderListFrom("{\"orders\":["
+        List<Map<String, String>> fragment = OirOrders.orderListFrom("{\"orders\":["
                 + "{\"orderNo\":\"3071758657686500570\",\"shop\":\"\",\"paidTotal\":\"0.00\","
                 + "\"rowCount\":\"1\",\"items\":[{\"code\":\"A\",\"name\":\"a\",\"qty\":\"10\",\"amount\":\"0.00\"}]}]}");
-        assertEquals(1, MfgServices.mergeOrders(Arrays.asList(first, fragment)).size());
+        assertEquals(1, OirOrders.mergeOrders(Arrays.asList(first, fragment)).size());
         // two blocks that both print a money stay apart
-        List<Map<String, String>> twoMonies = MfgServices.orderListFrom("{\"orders\":["
+        List<Map<String, String>> twoMonies = OirOrders.orderListFrom("{\"orders\":["
                 + "{\"orderNo\":\"3071758657686500570\",\"shop\":\"深圳市芯信世纪电子\",\"paidTotal\":\"534.10\","
                 + "\"rowCount\":\"1\",\"items\":[{\"code\":\"A\",\"name\":\"a\",\"qty\":\"1\",\"amount\":\"534.10\"}]},"
                 + "{\"orderNo\":\"3071758657686500570\",\"shop\":\"深圳市芯信世纪电子\",\"paidTotal\":\"8.00\","
                 + "\"rowCount\":\"1\",\"items\":[{\"code\":\"B\",\"name\":\"b\",\"qty\":\"1\",\"amount\":\"8.00\"}]}]}");
-        assertEquals(2, MfgServices.mergeOrders(Collections.singletonList(twoMonies)).size());
+        assertEquals(2, OirOrders.mergeOrders(Collections.singletonList(twoMonies)).size());
     }
 
     @Test
@@ -1238,16 +1240,16 @@ public class MfgServicesTest {
         second.put("paidTotal", "39.50");
         second.put("freight", "1.50");
         second.put("lines", "SYB-500\t400孔面包板线MB-102 SYB-500 [交易快照]\t2\t38.00");
-        assertFalse(MfgServices.orderContentKey(first).equals(MfgServices.orderContentKey(second)));
-        assertEquals(MfgServices.moneyKeyOf(first), MfgServices.moneyKeyOf(second));
+        assertFalse(OirOrders.orderContentKey(first).equals(OirOrders.orderContentKey(second)));
+        assertEquals(OirOrders.moneyKeyOf(first), OirOrders.moneyKeyOf(second));
         // another order of other articles is not the same block
         Map<String, String> other = new LinkedHashMap<>();
         other.put("orderNo", "3316999260043018554");
         other.put("paidTotal", "52.60");
         other.put("freight", "3.00");
         other.put("lines", "NanoDLA\tNanoDLA 逻辑分析仪\t1\t49.60");
-        assertFalse(MfgServices.moneyKeyOf(first).equals(MfgServices.moneyKeyOf(other)));
-        assertNull(MfgServices.moneyKeyOf(new LinkedHashMap<>()));
+        assertFalse(OirOrders.moneyKeyOf(first).equals(OirOrders.moneyKeyOf(other)));
+        assertNull(OirOrders.moneyKeyOf(new LinkedHashMap<>()));
     }
 
     @Test
@@ -1255,47 +1257,47 @@ public class MfgServicesTest {
         // the page holds two orders with the same articles and the same money and different numbers;
         // one picture shows each block once, so two blocks of one answer with two numbers are two
         // orders - merging them lost the second (29 orders came back as 28, Step 135)
-        List<Map<String, String>> picture = MfgServices.orderListFrom("{\"orders\":["
+        List<Map<String, String>> picture = OirOrders.orderListFrom("{\"orders\":["
                 + "{\"orderNo\":\"3316981944203136583\",\"shop\":\"欧贝特旗舰店\",\"paidTotal\":\"2.00\","
                 + "\"items\":[{\"code\":\"0603 200R\",\"name\":\"resistor\",\"qty\":\"100\","
                 + "\"amount\":\"2.00\"}]},"
                 + "{\"orderNo\":\"3316981944203136599\",\"shop\":\"欧贝特旗舰店\",\"paidTotal\":\"2.00\","
                 + "\"items\":[{\"code\":\"0603 200R\",\"name\":\"resistor\",\"qty\":\"100\","
                 + "\"amount\":\"2.00\"}]}]}");
-        List<Map<String, String>> merged = MfgServices.mergeOrders(Collections.singletonList(picture));
+        List<Map<String, String>> merged = OirOrders.mergeOrders(Collections.singletonList(picture));
         assertEquals(2, merged.size());
         // but the very same block read twice in one answer is one block: the same number with exactly
         // the same articles and the same money is not two orders (a page of 27 came back with 28)
-        List<Map<String, String>> twice = MfgServices.orderListFrom("{\"orders\":["
+        List<Map<String, String>> twice = OirOrders.orderListFrom("{\"orders\":["
                 + "{\"orderNo\":\"3111921698687500570\",\"shop\":\"安致二三极管\",\"paidTotal\":\"10.00\","
                 + "\"freight\":\"2.00\",\"items\":[{\"code\":\"0.5A\",\"name\":\"fuse\",\"qty\":\"200\","
                 + "\"amount\":\"8.00\"}]},"
                 + "{\"orderNo\":\"3111921698687500570\",\"shop\":\"\",\"paidTotal\":\"10.00\","
                 + "\"freight\":\"2.00\",\"items\":[{\"code\":\"0.5A\",\"name\":\"fuse\",\"qty\":\"200\","
                 + "\"amount\":\"8.00\"}]}]}");
-        List<Map<String, String>> one = MfgServices.mergeOrders(Collections.singletonList(twice));
+        List<Map<String, String>> one = OirOrders.mergeOrders(Collections.singletonList(twice));
         assertEquals(1, one.size());
         assertEquals("安致二三极管", one.get(0).get("shop"));
-        MfgServices.tidyOrder(one.get(0));
+        OirOrders.tidyOrder(one.get(0));
         assertEquals(1, one.get(0).get("lines").split("\n").length);
         // the shop is printed on the same strip as the number, so the same number with the shop lost
         // once is the same block - even when the two reads do not agree on the articles (Step 141)
-        List<Map<String, String>> fragment = MfgServices.orderListFrom("{\"orders\":["
+        List<Map<String, String>> fragment = OirOrders.orderListFrom("{\"orders\":["
                 + "{\"orderNo\":\"3111921698687500570\",\"shop\":\"安致二三极管\",\"paidTotal\":\"10.00\","
                 + "\"freight\":\"2.00\",\"items\":[{\"code\":\"0.5A\",\"name\":\"fuse\",\"qty\":\"500\","
                 + "\"amount\":\"8.00\"}]},"
                 + "{\"orderNo\":\"3111921698687500570\",\"shop\":\"\",\"paidTotal\":\"2.00\","
                 + "\"freight\":\"2.00\",\"items\":[{\"code\":\"0.5A\",\"name\":\"fuse\",\"qty\":\"200\","
                 + "\"amount\":\"2.00\"}]}]}");
-        assertEquals(1, MfgServices.mergeOrders(Collections.singletonList(fragment)).size());
+        assertEquals(1, OirOrders.mergeOrders(Collections.singletonList(fragment)).size());
         // two blocks that both print a shop stay apart when they came back with one number and two
         // different monies: that is two orders misnumbered, not one block read twice
-        List<Map<String, String>> misnumbered = MfgServices.orderListFrom("{\"orders\":["
+        List<Map<String, String>> misnumbered = OirOrders.orderListFrom("{\"orders\":["
                 + "{\"orderNo\":\"3316377687042009372\",\"shop\":\"优利德品牌企业店\",\"paidTotal\":\"3.87\","
                 + "\"items\":[{\"code\":\"SOP16\",\"name\":\"adapter\",\"qty\":\"10\",\"amount\":\"3.87\"}]},"
                 + "{\"orderNo\":\"3316377687042009372\",\"shop\":\"优利德品牌企业店\",\"paidTotal\":\"113.16\","
                 + "\"items\":[{\"code\":\"UT890C\",\"name\":\"meter\",\"qty\":\"1\",\"amount\":\"113.16\"}]}]}");
-        assertEquals(2, MfgServices.mergeOrders(Collections.singletonList(misnumbered)).size());
+        assertEquals(2, OirOrders.mergeOrders(Collections.singletonList(misnumbered)).size());
     }
 
     @Test
@@ -1303,7 +1305,7 @@ public class MfgServicesTest {
         // one block came back as 3141164514099372 beside the same block read in full: the page prints
         // its numbers at 19 digits, and the short read carries exactly the same articles, the same shop
         // and the same money, so it is the same order read twice (Step 133)
-        List<Map<String, String>> firstSlice = MfgServices.orderListFrom("{\"orders\":["
+        List<Map<String, String>> firstSlice = OirOrders.orderListFrom("{\"orders\":["
                 + "{\"orderNo\":\"3316900333085054564\",\"shop\":\"华瑞芯城\",\"paidTotal\":\"7.00\","
                 + "\"items\":[{\"code\":\"CH32V002J4M6\",\"name\":\"ch32\",\"qty\":\"10\","
                 + "\"amount\":\"6.44\"}]},"
@@ -1312,27 +1314,27 @@ public class MfgServicesTest {
                 + "\"amount\":\"6.44\"}]},"
                 + "{\"orderNo\":\"3316901197252018554\",\"shop\":\"优信电子\",\"paidTotal\":\"1.33\","
                 + "\"items\":[{\"code\":\"SH1.0\",\"name\":\"端子线\",\"qty\":\"10\",\"amount\":\"1.33\"}]}]}");
-        List<Map<String, String>> secondSlice = MfgServices.orderListFrom("{\"orders\":["
+        List<Map<String, String>> secondSlice = OirOrders.orderListFrom("{\"orders\":["
                 + "{\"orderNo\":\"3141164514099372\",\"shop\":\"华瑞芯城\",\"paidTotal\":\"9.24\","
                 + "\"items\":[{\"code\":\"CH32V002J4M6\",\"name\":\"ch32\",\"qty\":\"10\","
                 + "\"amount\":\"6.44\"}]}]}");
-        List<Map<String, String>> merged = MfgServices.mergeOrders(Arrays.asList(firstSlice, secondSlice));
+        List<Map<String, String>> merged = OirOrders.mergeOrders(Arrays.asList(firstSlice, secondSlice));
         assertEquals(3, merged.size());
         for (Map<String, String> order : merged) {
             assertFalse("3141164514099372".equals(order.get("orderNo")));
         }
         // the same articles of two different shops are two orders, however short one number is
-        List<Map<String, String>> otherShops = MfgServices.orderListFrom("{\"orders\":["
+        List<Map<String, String>> otherShops = OirOrders.orderListFrom("{\"orders\":["
                 + "{\"orderNo\":\"3316900333085054564\",\"shop\":\"华瑞芯城\",\"paidTotal\":\"7.00\","
                 + "\"items\":[{\"code\":\"A\",\"name\":\"a\",\"qty\":\"1\",\"amount\":\"7.00\"}]},"
                 + "{\"orderNo\":\"3316900549003018554\",\"shop\":\"别家\",\"paidTotal\":\"7.00\","
                 + "\"items\":[{\"code\":\"A\",\"name\":\"a\",\"qty\":\"1\",\"amount\":\"7.00\"}]},"
                 + "{\"orderNo\":\"3316901197252018554\",\"shop\":\"优信电子\",\"paidTotal\":\"1.33\","
                 + "\"items\":[{\"code\":\"B\",\"name\":\"b\",\"qty\":\"1\",\"amount\":\"1.33\"}]}]}");
-        List<Map<String, String>> thirdShop = MfgServices.orderListFrom("{\"orders\":["
+        List<Map<String, String>> thirdShop = OirOrders.orderListFrom("{\"orders\":["
                 + "{\"orderNo\":\"3141164514099372\",\"shop\":\"第三家\",\"paidTotal\":\"7.00\","
                 + "\"items\":[{\"code\":\"A\",\"name\":\"a\",\"qty\":\"1\",\"amount\":\"7.00\"}]}]}");
-        assertEquals(4, MfgServices.mergeOrders(Arrays.asList(otherShops, thirdShop)).size());
+        assertEquals(4, OirOrders.mergeOrders(Arrays.asList(otherShops, thirdShop)).size());
     }
 
     @Test
@@ -1346,14 +1348,14 @@ public class MfgServicesTest {
         order.put("rowCount", "1");
         order.put("lines", "FC-135\t无源贴片FC-135 32.768K 3215\t5\t2.25\n"
                 + "FC-135 32.768K 3215\t无源贴片FC-135 32.768K 3215 [交易快照]\t5\t2.25");
-        MfgServices.tidyOrder(order);
+        OirOrders.tidyOrder(order);
         String[] rows = order.get("lines").split("\n");
         assertEquals(1, rows.length);
         assertTrue(rows[0].startsWith("FC-135"));
         // the freight the model reported stands as it does for every other block (Step 129), so the
         // article is what was paid less the freight - what matters here is that the block adds up and
         // the page does not have to warn about a row that was read twice
-        assertNull(MfgServices.checkOrderTotals(order));
+        assertNull(OirOrders.checkOrderTotals(order));
         // a block that prints as many rows as were read is left alone, even when two of them share
         // their quantity and their money (six colours of one board are six rows)
         Map<String, String> colours = new LinkedHashMap<>();
@@ -1361,7 +1363,7 @@ public class MfgServicesTest {
         colours.put("rowCount", "6");
         colours.put("lines", "A\t白色\t5\t6.88\nB\t蓝色\t5\t6.88\nC\t绿色\t5\t6.88\n"
                 + "D\t黄色\t5\t6.88\nE\t红色\t5\t6.88\nF\t黑色\t5\t6.88");
-        MfgServices.tidyOrder(colours);
+        OirOrders.tidyOrder(colours);
         assertEquals(6, colours.get("lines").split("\n").length);
     }
 
@@ -1374,17 +1376,17 @@ public class MfgServicesTest {
         order.put("lines", "ATECC608B\tATECC608B 加密芯片\t5\t12.75\n"
                 + "面包板\t某面包板\t1\t9.90\n"
                 + "杜邦线\t某杜邦线\t1\t5.00");
-        MfgServices.tidyOrder(order);
+        OirOrders.tidyOrder(order);
         String[] rows = order.get("lines").split("\n");
         assertEquals(1, rows.length);
         assertTrue(rows[0].startsWith("ATECC608B"));
-        assertNull(MfgServices.checkOrderTotals(order));
+        assertNull(OirOrders.checkOrderTotals(order));
         // a picture carries no money of its own either: a row without an amount at the end of a block
         // that did cost money is not an article of it
         Map<String, String> free = new LinkedHashMap<>();
         free.put("paidTotal", "9.84");
         free.put("lines", "XH2.54\t杜邦线 200 根\t200\t9.84\n面包板\t某面包板\t1\t0");
-        MfgServices.tidyOrder(free);
+        OirOrders.tidyOrder(free);
         assertEquals(1, free.get("lines").split("\n").length);
         // a block that adds up as it is keeps every row: six colours of one board are six articles
         Map<String, String> colours = new LinkedHashMap<>();
@@ -1392,9 +1394,9 @@ public class MfgServicesTest {
         colours.put("lines", "面包板-白\t面包板 白色\t5\t6.88\n面包板-蓝\t面包板 蓝色\t5\t6.88\n"
                 + "面包板-绿\t面包板 绿色\t5\t6.88\n面包板-黄\t面包板 黄色\t5\t6.88\n"
                 + "面包板-红\t面包板 红色\t5\t6.88\n面包板-黑\t面包板 黑色\t5\t6.88");
-        MfgServices.tidyOrder(colours);
+        OirOrders.tidyOrder(colours);
         assertEquals(6, colours.get("lines").split("\n").length);
-        assertNull(MfgServices.checkOrderTotals(colours));
+        assertNull(OirOrders.checkOrderTotals(colours));
     }
 
     @Test
@@ -1407,13 +1409,13 @@ public class MfgServicesTest {
         order.put("freight", "0.00");
         order.put("rowCount", "1");
         order.put("lines", "SH1.0/3P/10CM\tSH1.0mm 2/3/4/5/6/7/8/9/10P 单/双头 电子端子线 长10CM连接线\t10\t3.30");
-        MfgServices.tidyOrder(order);
+        OirOrders.tidyOrder(order);
         String[] rows = order.get("lines").split("\n");
         assertEquals(1, rows.length);
         // the quantity the page printed stays, only the money of the row is the money of the order
         assertEquals("10", rows[0].split("\t")[2]);
         assertEquals("6.60", rows[0].split("\t")[3]);
-        assertNull(MfgServices.checkOrderTotals(order));
+        assertNull(OirOrders.checkOrderTotals(order));
         // a block that prints two rows but was read with one is left alone: the money is not moved on
         // to the row that was read, and the page goes on warning that an article may be missing
         Map<String, String> shortRead = new LinkedHashMap<>();
@@ -1421,33 +1423,33 @@ public class MfgServicesTest {
         shortRead.put("freight", "0.00");
         shortRead.put("rowCount", "2");
         shortRead.put("lines", "SH1.0/3P/10CM\tSH1.0mm 电子端子线\t10\t3.30");
-        MfgServices.tidyOrder(shortRead);
+        OirOrders.tidyOrder(shortRead);
         assertEquals("3.30", shortRead.get("lines").split("\n")[0].split("\t")[3]);
-        assertNotNull(MfgServices.checkOrderTotals(shortRead));
+        assertNotNull(OirOrders.checkOrderTotals(shortRead));
         // and without a row count nothing is assumed about the block either
         Map<String, String> noCount = new LinkedHashMap<>();
         noCount.put("paidTotal", "6.60");
         noCount.put("freight", "0.00");
         noCount.put("lines", "SH1.0/3P/10CM\tSH1.0mm 电子端子线\t10\t3.30");
-        MfgServices.tidyOrder(noCount);
+        OirOrders.tidyOrder(noCount);
         assertEquals("3.30", noCount.get("lines").split("\n")[0].split("\t")[3]);
         // a block of several rows keeps its own money: rowCount 2 with two rows is complete
         Map<String, String> twoRows = new LinkedHashMap<>();
         twoRows.put("paidTotal", "4.64");
         twoRows.put("rowCount", "2");
         twoRows.put("lines", "AT24C64\tEEPROM\t10\t3.22\nAT24C02\tEEPROM\t10\t1.42");
-        MfgServices.tidyOrder(twoRows);
+        OirOrders.tidyOrder(twoRows);
         assertEquals(2, twoRows.get("lines").split("\n").length);
-        assertNull(MfgServices.checkOrderTotals(twoRows));
+        assertNull(OirOrders.checkOrderTotals(twoRows));
         // the same shape the other way round: the row was read as more than what was paid
         Map<String, String> dearer = new LinkedHashMap<>();
         dearer.put("paidTotal", "2.00");
         dearer.put("freight", "0.00");
         dearer.put("rowCount", "1");
         dearer.put("lines", "0603 100NF\t0603 贴片电容 100NF 50只\t50\t3.00");
-        MfgServices.tidyOrder(dearer);
+        OirOrders.tidyOrder(dearer);
         assertEquals("2.00", dearer.get("lines").split("\n")[0].split("\t")[3]);
-        assertNull(MfgServices.checkOrderTotals(dearer));
+        assertNull(OirOrders.checkOrderTotals(dearer));
         // and the discount the model reports to balance a row it read too high is not a discount of
         // the order: one printed article is worth what was paid for it (Step 132)
         Map<String, String> invented = new LinkedHashMap<>();
@@ -1456,19 +1458,19 @@ public class MfgServicesTest {
         invented.put("discount", "1.00");
         invented.put("rowCount", "1");
         invented.put("lines", "0603 100NF\t0603 贴片电容 100NF 50只\t50\t3.00");
-        MfgServices.tidyOrder(invented);
+        OirOrders.tidyOrder(invented);
         assertEquals("2.00", invented.get("lines").split("\n")[0].split("\t")[3]);
         assertEquals("0", invented.get("discount"));
-        assertNull(MfgServices.checkOrderTotals(invented));
+        assertNull(OirOrders.checkOrderTotals(invented));
         // the freight stays beside the article: 实付 9.99 with 含运费 2.99 is 7.00 of goods
         Map<String, String> withFreight = new LinkedHashMap<>();
         withFreight.put("paidTotal", "9.99");
         withFreight.put("freight", "2.99");
         withFreight.put("rowCount", "1");
         withFreight.put("lines", "BAS70DW-04\t肖特基二极管\t20\t9.99");
-        MfgServices.tidyOrder(withFreight);
+        OirOrders.tidyOrder(withFreight);
         assertEquals("7.00", withFreight.get("lines").split("\n")[0].split("\t")[3]);
-        assertNull(MfgServices.checkOrderTotals(withFreight));
+        assertNull(OirOrders.checkOrderTotals(withFreight));
     }
 
     @Test
@@ -1482,7 +1484,7 @@ public class MfgServicesTest {
         order.put("rowCount", "2");
         order.put("lines", "0603 1.5nH 10%\t0603叠层高频电感1NH 1.5NH 2.2NH 4.7NH\t100\t2.00\n"
                 + "10UF 10V 6.3X5.4 20个\tSMD贴片铝电解电容器 10UF22UF33UF47UF\t100\t10.00");
-        MfgServices.tidyOrder(order);
+        OirOrders.tidyOrder(order);
         String[] rows = order.get("lines").split("\n");
         assertEquals(2, rows.length);
         // the quantity the page printed stays and the money of the row becomes two packs of 2.00
@@ -1490,7 +1492,7 @@ public class MfgServicesTest {
         assertEquals("4.00", rows[0].split("\t")[3]);
         assertEquals("100", rows[1].split("\t")[2]);
         assertEquals("10.00", rows[1].split("\t")[3]);
-        assertNull(MfgServices.checkOrderTotals(order));
+        assertNull(OirOrders.checkOrderTotals(order));
         assertNotNull(order.get("note"));
 
         // two rows of the same amount both explain the gap: nothing says which of them the page sold
@@ -1500,10 +1502,10 @@ public class MfgServicesTest {
         ambiguous.put("freight", "0.00");
         ambiguous.put("rowCount", "2");
         ambiguous.put("lines", "A\ta\t100\t2.00\nB\tb\t100\t2.00");
-        MfgServices.tidyOrder(ambiguous);
+        OirOrders.tidyOrder(ambiguous);
         assertEquals("2.00", ambiguous.get("lines").split("\n")[0].split("\t")[3]);
         assertEquals("2.00", ambiguous.get("lines").split("\n")[1].split("\t")[3]);
-        assertNotNull(MfgServices.checkOrderTotals(ambiguous));
+        assertNotNull(OirOrders.checkOrderTotals(ambiguous));
 
         // a block whose rows already come to what was paid is left alone
         Map<String, String> fine = new LinkedHashMap<>();
@@ -1511,7 +1513,7 @@ public class MfgServicesTest {
         fine.put("freight", "0.00");
         fine.put("rowCount", "2");
         fine.put("lines", "A\ta\t100\t4.00\nB\tb\t100\t10.00");
-        MfgServices.tidyOrder(fine);
+        OirOrders.tidyOrder(fine);
         assertEquals("4.00", fine.get("lines").split("\n")[0].split("\t")[3]);
         assertNull(fine.get("note"));
     }
@@ -1645,24 +1647,24 @@ public class MfgServicesTest {
         twice.put("paidTotal", "2.07");
         twice.put("freight", "0.00");
         twice.put("lines", "SOP转接板 10P\t名\t10\t2.07\nSOP转接板 10P [交易快照]\t名\t10\t2.07");
-        MfgServices.tidyOrder(twice);
-        assertEquals(1, MfgServices.parseOrderArticleLines(twice.get("lines")).size());
-        assertNull(MfgServices.checkOrderTotals(twice));
+        OirOrders.tidyOrder(twice);
+        assertEquals(1, OirOrders.parseOrderArticleLines(twice.get("lines")).size());
+        assertNull(OirOrders.checkOrderTotals(twice));
         // a row that only repeats the paid total is a summary, not an article
         Map<String, String> summary = new java.util.LinkedHashMap<>();
         summary.put("paidTotal", "3.40");
         summary.put("freight", "2.00");
         summary.put("lines", "原装富满 DW01A\t名\t1\t3.40\nDW01A\t名\t10\t0.60\n"
                 + "8205LA\t名\t5\t0.55\n8205HA\t名\t5\t0.30");
-        MfgServices.tidyOrder(summary);
-        assertEquals(3, MfgServices.parseOrderArticleLines(summary.get("lines")).size());
+        OirOrders.tidyOrder(summary);
+        assertEquals(3, OirOrders.parseOrderArticleLines(summary.get("lines")).size());
         // and a discount that would break an order that already adds up is dropped
         Map<String, String> invented = new java.util.LinkedHashMap<>();
         invented.put("paidTotal", "3.66");
         invented.put("freight", "0.00");
         invented.put("discount", "4.80");
         invented.put("lines", "3528钽电容\t名\t10\t3.66");
-        assertNull(MfgServices.checkOrderTotals(invented));
+        assertNull(OirOrders.checkOrderTotals(invented));
         assertEquals("0", invented.get("discount"));
     }
 
@@ -1676,30 +1678,30 @@ public class MfgServicesTest {
         order.put("freight", "2.99");
         order.put("discount", "0");
         order.put("lines", "0603\t0603贴片电容 100NF 104K\t100\t9.99");
-        MfgServices.tidyOrder(order);
+        OirOrders.tidyOrder(order);
         // the article is what was paid for it, the freight stands beside it
-        assertEquals("7.00", MfgServices.parseOrderArticleLines(order.get("lines")).get(0)[3]);
-        assertNull(MfgServices.checkOrderTotals(order));
+        assertEquals("7.00", OirOrders.parseOrderArticleLines(order.get("lines")).get(0)[3]);
+        assertNull(OirOrders.checkOrderTotals(order));
         // several rows keep their share of the money and still come to the same total
         Map<String, String> split = new java.util.LinkedHashMap<>();
         split.put("orderNo", "3317076120013109755");
         split.put("paidTotal", "9.40");
         split.put("freight", "5.00");
         split.put("lines", "A\t名\t10\t5.00\nB\t名\t10\t4.40");
-        MfgServices.tidyOrder(split);
-        java.util.List<String[]> afterSplit = MfgServices.parseOrderArticleLines(split.get("lines"));
+        OirOrders.tidyOrder(split);
+        java.util.List<String[]> afterSplit = OirOrders.parseOrderArticleLines(split.get("lines"));
         assertEquals(2, afterSplit.size());
         double sum = Double.parseDouble(afterSplit.get(0)[3]) + Double.parseDouble(afterSplit.get(1)[3]);
         assertEquals("4.40", String.format(java.util.Locale.ROOT, "%.2f", Double.valueOf(sum)));
-        assertNull(MfgServices.checkOrderTotals(split));
+        assertNull(OirOrders.checkOrderTotals(split));
         // a page that prints the goods and the freight apart is left alone: 7.00 + 2.99 = 9.99
         Map<String, String> apart = new java.util.LinkedHashMap<>();
         apart.put("paidTotal", "9.99");
         apart.put("freight", "2.99");
         apart.put("lines", "0603\t0603贴片电容\t100\t7.00");
-        MfgServices.tidyOrder(apart);
-        assertEquals("7.00", MfgServices.parseOrderArticleLines(apart.get("lines")).get(0)[3]);
-        assertNull(MfgServices.checkOrderTotals(apart));
+        OirOrders.tidyOrder(apart);
+        assertEquals("7.00", OirOrders.parseOrderArticleLines(apart.get("lines")).get(0)[3]);
+        assertNull(OirOrders.checkOrderTotals(apart));
     }
 
     /** The 面包板 page: one board sold in six colours, so six rows look exactly the same. */
@@ -1728,10 +1730,10 @@ public class MfgServicesTest {
         // six rows carry the same part number, the same quantity and the same money, and differ only
         // in the colour printed on the grey line: six articles, not one article read twice
         Map<String, String> order = boardOrder(boardRows(6));
-        MfgServices.tidyOrder(order);
-        assertEquals(6, MfgServices.parseOrderArticleLines(order.get("lines")).size());
+        OirOrders.tidyOrder(order);
+        assertEquals(6, OirOrders.parseOrderArticleLines(order.get("lines")).size());
         // and the money agrees, so the page shows no warning
-        assertNull(MfgServices.checkOrderTotals(order));
+        assertNull(OirOrders.checkOrderTotals(order));
     }
 
     @Test
@@ -1740,15 +1742,15 @@ public class MfgServicesTest {
         Map<String, String> left = new java.util.LinkedHashMap<>(boardOrder(boardRows(5)));
         Map<String, String> right = new java.util.LinkedHashMap<>(boardOrder(boardRows(3)));
         right.put("paidTotal", "");
-        List<Map<String, String>> merged = MfgServices.mergeOrders(
+        List<Map<String, String>> merged = OirOrders.mergeOrders(
                 Arrays.asList(Arrays.asList(left), Arrays.asList(right)));
         assertEquals(1, merged.size());
         Map<String, String> order = merged.get(0);
         // joining the two reads keeps every row; only the money can tell which of them are copies
-        assertEquals(8, MfgServices.parseOrderArticleLines(order.get("lines")).size());
-        MfgServices.tidyOrder(order);
-        assertEquals(6, MfgServices.parseOrderArticleLines(order.get("lines")).size());
-        assertNull(MfgServices.checkOrderTotals(order));
+        assertEquals(8, OirOrders.parseOrderArticleLines(order.get("lines")).size());
+        OirOrders.tidyOrder(order);
+        assertEquals(6, OirOrders.parseOrderArticleLines(order.get("lines")).size());
+        assertNull(OirOrders.checkOrderTotals(order));
     }
 
     @Test
@@ -1756,15 +1758,15 @@ public class MfgServicesTest {
         // as they were read; dropping them would lose material without a word
         Map<String, String> order = new java.util.LinkedHashMap<>();
         order.put("lines", boardRows(2));
-        MfgServices.tidyOrder(order);
-        assertEquals(2, MfgServices.parseOrderArticleLines(order.get("lines")).size());
+        OirOrders.tidyOrder(order);
+        assertEquals(2, OirOrders.parseOrderArticleLines(order.get("lines")).size());
         // rows that differ are never touched
         Map<String, String> different = boardOrder(
                 "A\t一件\t1\t1.00\nB\t另一件\t2\t4.00\nC\t第三件\t3\t2.00");
         different.put("paidTotal", "7.00");
-        MfgServices.tidyOrder(different);
-        assertEquals(3, MfgServices.parseOrderArticleLines(different.get("lines")).size());
-        assertNull(MfgServices.checkOrderTotals(different));
+        OirOrders.tidyOrder(different);
+        assertEquals(3, OirOrders.parseOrderArticleLines(different.get("lines")).size());
+        assertNull(OirOrders.checkOrderTotals(different));
     }
 
     @Test
@@ -1777,22 +1779,22 @@ public class MfgServicesTest {
         String again = "黄\t板\t5\t6.88\n黑\t板\t5\t6.88\n红\t板\t5\t6.88";
         String invented = "一次性雨衣\t雨衣\t1\t14.90";
         Map<String, String> order = boardOrder(six + "\n" + again + "\n" + invented);
-        MfgServices.tidyOrder(order);
-        assertEquals(6, MfgServices.parseOrderArticleLines(order.get("lines")).size());
-        assertNull(MfgServices.checkOrderTotals(order));
+        OirOrders.tidyOrder(order);
+        assertEquals(6, OirOrders.parseOrderArticleLines(order.get("lines")).size());
+        assertNull(OirOrders.checkOrderTotals(order));
     }
 
     @Test
     public void catchesAPageWhoseSixRowsCameBackAsOneItem() {
-        List<Map<String, String>> oneItem = MfgServices.orderListFrom("{\"orderCount\":\"1\",\"orders\":["
+        List<Map<String, String>> oneItem = OirOrders.orderListFrom("{\"orderCount\":\"1\",\"orders\":["
                 + "{\"orderNo\":\"2371626699152500570\",\"paidTotal\":\"41.28\",\"rowCount\":\"6\","
                 + "\"items\":[{\"code\":\"面包板 SYB-170\",\"name\":\"面包板 彩色小面包板\","
                 + "\"qty\":\"5\",\"amount\":\"41.28\"}]}]}");
         // the money adds up while five articles are missing, so only the printed row count finds it
-        assertNull(MfgServices.checkOrderTotals(oneItem.get(0)));
-        assertTrue(MfgServices.rowsMissing(oneItem.get(0)));
+        assertNull(OirOrders.checkOrderTotals(oneItem.get(0)));
+        assertTrue(OirOrders.rowsMissing(oneItem.get(0)));
         // six rows for six counted rows is what the page prints
-        List<Map<String, String>> six = MfgServices.orderListFrom("{\"orders\":[{"
+        List<Map<String, String>> six = OirOrders.orderListFrom("{\"orders\":[{"
                 + "\"orderNo\":\"1\",\"paidTotal\":\"41.28\",\"rowCount\":\"6\",\"items\":["
                 + "{\"code\":\"白\",\"name\":\"板\",\"qty\":\"5\",\"amount\":\"6.88\"},"
                 + "{\"code\":\"蓝\",\"name\":\"板\",\"qty\":\"5\",\"amount\":\"6.88\"},"
@@ -1800,50 +1802,50 @@ public class MfgServicesTest {
                 + "{\"code\":\"黄\",\"name\":\"板\",\"qty\":\"5\",\"amount\":\"6.88\"},"
                 + "{\"code\":\"黑\",\"name\":\"板\",\"qty\":\"5\",\"amount\":\"6.88\"},"
                 + "{\"code\":\"红\",\"name\":\"板\",\"qty\":\"5\",\"amount\":\"6.88\"}]}]}");
-        assertFalse(MfgServices.rowsMissing(six.get(0)));
-        assertEquals(6, MfgServices.parseOrderArticleLines(six.get(0).get("lines")).size());
+        assertFalse(OirOrders.rowsMissing(six.get(0)));
+        assertEquals(6, OirOrders.parseOrderArticleLines(six.get(0).get("lines")).size());
         // an answer that does not count its rows is taken as it is, and nothing is null
-        assertFalse(MfgServices.rowsMissing(MfgServices.orderListFrom(
+        assertFalse(OirOrders.rowsMissing(OirOrders.orderListFrom(
                 "{\"orders\":[{\"orderNo\":\"1\",\"items\":[{\"code\":\"A\",\"name\":\"a\","
                         + "\"qty\":\"1\",\"amount\":\"1.00\"}]}]}").get(0)));
-        assertFalse(MfgServices.rowsMissing(null));
+        assertFalse(OirOrders.rowsMissing(null));
     }
 
     @Test
     public void spotsAnOrderCopiedFromTheOneAbove() {
         // the page lists five blocks; the model carried the articles and the money of the fourth into
         // the fifth, which then adds up as well (0.19 + 1.00 = 1.19), so nothing else can see it
-        List<Map<String, String>> answer = MfgServices.orderListFrom("{\"orderCount\":\"2\",\"orders\":["
+        List<Map<String, String>> answer = OirOrders.orderListFrom("{\"orderCount\":\"2\",\"orders\":["
                 + "{\"orderNo\":\"2366688758496500570\",\"paidTotal\":\"1.19\",\"freight\":\"1.00\","
                 + "\"items\":[{\"code\":\"TP4056\",\"name\":\"充电芯片\",\"qty\":\"2\",\"amount\":\"0.19\"}]},"
                 + "{\"orderNo\":\"2366655602274500570\",\"paidTotal\":\"1.19\",\"freight\":\"1.00\","
                 + "\"items\":[{\"code\":\"TP4056\",\"name\":\"充电芯片\",\"qty\":\"2\",\"amount\":\"0.19\"}]}]}");
         assertEquals(2, answer.size());
-        assertTrue(MfgServices.repeatsAnotherOrder(answer));
+        assertTrue(OirOrders.repeatsAnotherOrder(answer));
         // two different orders are not a copy
-        List<Map<String, String>> different = MfgServices.orderListFrom("{\"orders\":["
+        List<Map<String, String>> different = OirOrders.orderListFrom("{\"orders\":["
                 + "{\"orderNo\":\"1\",\"paidTotal\":\"1.19\",\"freight\":\"1.00\","
                 + "\"items\":[{\"code\":\"TP4056\",\"name\":\"充电芯片\",\"qty\":\"2\",\"amount\":\"0.19\"}]},"
                 + "{\"orderNo\":\"2\",\"paidTotal\":\"17.90\",\"freight\":\"0.00\","
                 + "\"items\":[{\"code\":\"HFD1.9\",\"name\":\"串口屏\",\"qty\":\"1\",\"amount\":\"17.90\"}]}]}");
-        assertFalse(MfgServices.repeatsAnotherOrder(different));
+        assertFalse(OirOrders.repeatsAnotherOrder(different));
         // the same article bought twice for the same money is suspicious but the same key needs both
         // the articles and the money to match
-        List<Map<String, String>> sameArticle = MfgServices.orderListFrom("{\"orders\":["
+        List<Map<String, String>> sameArticle = OirOrders.orderListFrom("{\"orders\":["
                 + "{\"orderNo\":\"1\",\"paidTotal\":\"8.00\",\"freight\":\"0.00\","
                 + "\"items\":[{\"code\":\"A\",\"name\":\"a\",\"qty\":\"1\",\"amount\":\"8.00\"}]},"
                 + "{\"orderNo\":\"2\",\"paidTotal\":\"9.00\",\"freight\":\"0.00\","
                 + "\"items\":[{\"code\":\"A\",\"name\":\"a\",\"qty\":\"1\",\"amount\":\"8.00\"}]}]}");
-        assertFalse(MfgServices.repeatsAnotherOrder(sameArticle));
-        assertFalse(MfgServices.repeatsAnotherOrder(Collections.emptyList()));
-        assertNull(MfgServices.orderContentKey(null));
+        assertFalse(OirOrders.repeatsAnotherOrder(sameArticle));
+        assertFalse(OirOrders.repeatsAnotherOrder(Collections.emptyList()));
+        assertNull(OirOrders.orderContentKey(null));
     }
 
     @Test
     public void dropsTheSnapshotNoteFromThePartNumber() {
         // a model with no code to copy answers with the whole title; the note the shop prints behind
         // it is not part of the part number
-        String lines = MfgServices.fitOrderLines(
+        String lines = OirOrders.fitOrderLines(
                 "SYB-500 组合面包板 [交易快照]\tSYB-500 组合面包板 [交易快照]\t1\t16.00");
         assertTrue(lines, lines.startsWith("SYB-500 组合面包板\t"));
     }
@@ -1964,19 +1966,19 @@ public class MfgServicesTest {
         order.put("freight", "1.00");
         order.put("discount", "0.09");
         order.put("lines", "TP4056\t充电芯片\t2\t0.10");
-        MfgServices.tidyOrder(order);
+        OirOrders.tidyOrder(order);
         assertEquals("0", order.get("discount"));
-        assertEquals(1, MfgServices.parseOrderArticleLines(order.get("lines")).size());
-        assertNull(MfgServices.checkOrderTotals(order));
+        assertEquals(1, OirOrders.parseOrderArticleLines(order.get("lines")).size());
+        assertNull(OirOrders.checkOrderTotals(order));
         // a real red packet survives: 9.00 + 2.00 - 0.27 = 10.73
         Map<String, String> packet = new java.util.LinkedHashMap<>();
         packet.put("paidTotal", "10.73");
         packet.put("freight", "2.00");
         packet.put("discount", "0.27");
         packet.put("lines", "一条\t商品\t1\t9.00");
-        MfgServices.tidyOrder(packet);
+        OirOrders.tidyOrder(packet);
         assertEquals("0.27", packet.get("discount"));
-        assertNull(MfgServices.checkOrderTotals(packet));
+        assertNull(OirOrders.checkOrderTotals(packet));
     }
 
     @Test
@@ -1985,29 +1987,29 @@ public class MfgServicesTest {
         // answer that says 1 for every article read the number of packs, not the number of pieces
         String packLine = "30K\t0603贴片电阻\t1\t1.20\n1M\t0603贴片电阻\t1\t1.20";
         String reply = "{\"orders\":[{\"orderNo\":\"1\",\"lines\":\"30K(一件100只)\"}]}";
-        assertTrue(MfgServices.ignoredThePackSize(reply, Arrays.asList(packLine)));
+        assertTrue(OirOrders.ignoredThePackSize(reply, Arrays.asList(packLine)));
         // the same answer after the pack size was multiplied reads like a person would write it
         String counted = "30K\t0603贴片电阻\t100\t1.20\n1M\t0603贴片电阻\t100\t1.20";
-        assertFalse(MfgServices.ignoredThePackSize(reply, Arrays.asList(counted)));
+        assertFalse(OirOrders.ignoredThePackSize(reply, Arrays.asList(counted)));
         // one line with more than one piece is enough to accept the answer
         String mixed = "30K\t0603贴片电阻\t1\t1.20\n排针\t2.54mm\t5\t9.84";
-        assertFalse(MfgServices.ignoredThePackSize(reply, Arrays.asList(mixed)));
+        assertFalse(OirOrders.ignoredThePackSize(reply, Arrays.asList(mixed)));
         // no pack size in the picture: buying one piece of each is a normal order
-        assertFalse(MfgServices.ignoredThePackSize(
+        assertFalse(OirOrders.ignoredThePackSize(
                 "{\"orders\":[{\"orderNo\":\"1\",\"lines\":\"A,part,1,1.00\"}]}", Arrays.asList(packLine)));
-        assertFalse(MfgServices.ignoredThePackSize(null, Arrays.asList(packLine)));
-        assertFalse(MfgServices.ignoredThePackSize(reply, Arrays.asList("")));
+        assertFalse(OirOrders.ignoredThePackSize(null, Arrays.asList(packLine)));
+        assertFalse(OirOrders.ignoredThePackSize(reply, Arrays.asList("")));
         // the other spellings of a pack size are recognised too
-        assertTrue(MfgServices.ignoredThePackSize(
+        assertTrue(OirOrders.ignoredThePackSize(
                 "{\"lines\":\"1N5819W (50只)\"}", Arrays.asList(packLine)));
-        assertTrue(MfgServices.ignoredThePackSize(
+        assertTrue(OirOrders.ignoredThePackSize(
                 "{\"lines\":\"电容（100只）\"}", Arrays.asList(packLine)));
         // the lines of every order are looked at, not only the first
-        List<String> lines = MfgServices.linesOfOrders(MfgServices.orderListFrom(
+        List<String> lines = OirOrders.linesOfOrders(OirOrders.orderListFrom(
                 "{\"orders\":[{\"orderNo\":\"1\",\"lines\":\"A,part,1,1.00\"},"
                         + "{\"orderNo\":\"2\",\"lines\":\"B,part,1,1.00\"}]}"));
         assertEquals(2, lines.size());
-        assertTrue(MfgServices.ignoredThePackSize(reply, lines));
+        assertTrue(OirOrders.ignoredThePackSize(reply, lines));
     }
 
     @Test
@@ -2016,15 +2018,15 @@ public class MfgServicesTest {
         String answer = "{\"orderCount\":\"3\",\"orders\":["
                 + "{\"orderNo\":\"1\",\"lines\":\"A,part,1,1.00\"},"
                 + "{\"orderNo\":\"2\",\"lines\":\"B,part,2,2.00\"}]}";
-        assertEquals(3, MfgServices.orderCountIn(answer));
-        assertEquals(2, MfgServices.orderListFrom(answer).size());
+        assertEquals(3, OirOrders.orderCountIn(answer));
+        assertEquals(2, OirOrders.orderListFrom(answer).size());
         // an answer without the number is taken as it is
-        assertEquals(0, MfgServices.orderCountIn("{\"orders\":[{\"orderNo\":\"1\",\"lines\":\"A,part,1,1\"}]}"));
-        assertEquals(0, MfgServices.orderCountIn(null));
+        assertEquals(0, OirOrders.orderCountIn("{\"orders\":[{\"orderNo\":\"1\",\"lines\":\"A,part,1,1\"}]}"));
+        assertEquals(0, OirOrders.orderCountIn(null));
         // and it is found through the chat envelope as well
         String enveloped = "{\"choices\":[{\"message\":{\"content\":"
                 + "\"{\\\"orderCount\\\":\\\"2\\\",\\\"orders\\\":[]}\"}}]}";
-        assertEquals(2, MfgServices.orderCountIn(enveloped));
+        assertEquals(2, OirOrders.orderCountIn(enveloped));
     }
 
     @Test
@@ -2088,39 +2090,39 @@ public class MfgServicesTest {
                 + "\"orderDate\":\"2026-08-29\",\"paidTotal\":\"3.87\",\"freight\":\"0.00\","
                 + "\"refunded\":\"Y\",\"lines\":\"SOP16,SSOP16 贴片转直插,2,3.87\"}"
                 + "]}";
-        List<Map<String, String>> orders = MfgServices.orderListFrom(answer);
+        List<Map<String, String>> orders = OirOrders.orderListFrom(answer);
         assertEquals(3, orders.size());
         assertEquals("3316822177083054564", orders.get(0).get("orderNo"));
         assertEquals("1.50", orders.get(0).get("freight"));
         assertEquals("MB-102,400孔面包板线 830,2,38.00", orders.get(0).get("lines"));
         assertEquals("NanoDLA,NanoDLA 逻辑分析仪,1,49.60", orders.get(1).get("lines"));
         assertEquals("3316999260043018554", orders.get(2).get("orderNo"));
-        assertTrue(MfgServices.isRefunded(orders.get(2)));
-        assertFalse(MfgServices.isRefunded(orders.get(0)));
+        assertTrue(OirOrders.isRefunded(orders.get(2)));
+        assertFalse(OirOrders.isRefunded(orders.get(0)));
 
         // a single order still comes out as one row, whatever shape the model used
-        assertEquals(1, MfgServices.orderListFrom(
+        assertEquals(1, OirOrders.orderListFrom(
                 "{\"orders\":[{\"orderNo\":\"1\",\"lines\":\"A,part,1,1.00\"}]}").size());
-        assertEquals(1, MfgServices.orderListFrom(
+        assertEquals(1, OirOrders.orderListFrom(
                 "{\"orderNo\":\"42\",\"lines\":\"A,part,1,1.00\"}").size());
 
         // a chat envelope with the array escaped inside the message
         String enveloped = "{\"choices\":[{\"message\":{\"content\":"
                 + "\"{\\\"orders\\\":[{\\\"orderNo\\\":\\\"7\\\",\\\"lines\\\":\\\"A,part,2,2.00\\\"},"
                 + "{\\\"orderNo\\\":\\\"8\\\",\\\"lines\\\":\\\"B,part,3,3.00\\\"}]}\"}}]}";
-        List<Map<String, String>> fromEnvelope = MfgServices.orderListFrom(enveloped);
+        List<Map<String, String>> fromEnvelope = OirOrders.orderListFrom(enveloped);
         assertEquals(2, fromEnvelope.size());
         assertEquals("7", fromEnvelope.get(0).get("orderNo"));
         assertEquals("B,part,3,3.00", fromEnvelope.get(1).get("lines"));
 
         // braces inside a product name must not cut the object in half
-        List<Map<String, String>> braces = MfgServices.orderListFrom(
+        List<Map<String, String>> braces = OirOrders.orderListFrom(
                 "{\"orders\":[{\"orderNo\":\"9\",\"lines\":\"X,板 {带孔} 2个,1,5.00\"}]}");
         assertEquals(1, braces.size());
         assertEquals("X,板 {带孔} 2个,1,5.00", braces.get(0).get("lines"));
 
-        assertTrue(MfgServices.orderListFrom(null).isEmpty());
-        assertTrue(MfgServices.orderListFrom("{\"orderNo\":\"42\"}").isEmpty());
+        assertTrue(OirOrders.orderListFrom(null).isEmpty());
+        assertTrue(OirOrders.orderListFrom("{\"orderNo\":\"42\"}").isEmpty());
     }
 
     @Test
@@ -2128,16 +2130,16 @@ public class MfgServicesTest {
         Map<String, String> refunded = oneOrder(
                 "{\"orderNo\":\"3316900549003018554\",\"refunded\":\"Y\","
                 + "\"lines\":\"CH32V002J4M6,CH32V002J4M6 SOP8,10,6.44\"}");
-        assertTrue(MfgServices.isRefunded(refunded));
+        assertTrue(OirOrders.isRefunded(refunded));
         assertEquals("Y", refunded.get("refunded"));
 
         Map<String, String> normal = oneOrder(
                 "{\"orderNo\":\"42\",\"refunded\":\"N\",\"lines\":\"X,part,1,1.00\"}");
-        assertFalse(MfgServices.isRefunded(normal));
+        assertFalse(OirOrders.isRefunded(normal));
         // older answers do not carry the flag at all, which is not a refund either
-        assertFalse(MfgServices.isRefunded(oneOrder(
+        assertFalse(OirOrders.isRefunded(oneOrder(
                 "{\"orderNo\":\"42\",\"lines\":\"X,part,1,1.00\"}")));
-        assertFalse(MfgServices.isRefunded(null));
+        assertFalse(OirOrders.isRefunded(null));
     }
 
     @Test
@@ -2147,30 +2149,30 @@ public class MfgServicesTest {
                 "{\"orderNo\":\"1975537021797500570\",\"paidTotal\":\"79.00\",\"freight\":\"0.00\","
                 + "\"refunded\":\"N\",\"closed\":\"Y\","
                 + "\"lines\":\"FOGO激光测距仪,FOGO激光测距仪 旗舰款,1,79.00\"}");
-        assertTrue(MfgServices.isClosed(closed));
-        assertTrue(MfgServices.notToBookIn(closed));
-        assertFalse(MfgServices.isRefunded(closed));
+        assertTrue(OirOrders.isClosed(closed));
+        assertTrue(OirOrders.notToBookIn(closed));
+        assertFalse(OirOrders.isRefunded(closed));
 
         // 交易成功 with the same article is booked in
         Map<String, String> done = oneOrder(
                 "{\"orderNo\":\"1975568594158500570\",\"paidTotal\":\"69.00\",\"freight\":\"0.00\","
                 + "\"refunded\":\"N\",\"closed\":\"N\","
                 + "\"lines\":\"FOGO激光测距仪,FOGO激光测距仪 旗舰款,1,69.00\"}");
-        assertFalse(MfgServices.isClosed(done));
-        assertFalse(MfgServices.notToBookIn(done));
+        assertFalse(OirOrders.isClosed(done));
+        assertFalse(OirOrders.notToBookIn(done));
 
         // a refund is left out as well, but it is not a closed order
         Map<String, String> refunded = oneOrder(
                 "{\"orderNo\":\"42\",\"refunded\":\"Y\",\"lines\":\"X,part,1,1.00\"}");
-        assertTrue(MfgServices.notToBookIn(refunded));
-        assertFalse(MfgServices.isClosed(refunded));
+        assertTrue(OirOrders.notToBookIn(refunded));
+        assertFalse(OirOrders.isClosed(refunded));
 
         // answers read before the flag existed carry neither
-        assertFalse(MfgServices.isClosed(oneOrder(
+        assertFalse(OirOrders.isClosed(oneOrder(
                 "{\"orderNo\":\"42\",\"lines\":\"X,part,1,1.00\"}")));
-        assertFalse(MfgServices.notToBookIn(oneOrder(
+        assertFalse(OirOrders.notToBookIn(oneOrder(
                 "{\"orderNo\":\"42\",\"lines\":\"X,part,1,1.00\"}")));
-        assertFalse(MfgServices.isClosed(null));
+        assertFalse(OirOrders.isClosed(null));
     }
 
     @Test
@@ -2283,7 +2285,7 @@ public class MfgServicesTest {
         assertFalse(fitted.equals(MfgServices.fittingComponentCode(tooLong + "X")));
 
         // the lines of an order keep their codes and their four cells
-        String lines = MfgServices.fitOrderLines(long1 + ",转接板 2.54mm,2,12.60");
+        String lines = OirOrders.fitOrderLines(long1 + ",转接板 2.54mm,2,12.60");
         String[] cells = lines.split("\t");
         assertEquals(long1, cells[0]);
         assertEquals("转接板 2.54mm", cells[1]);
@@ -2300,7 +2302,7 @@ public class MfgServicesTest {
         wrong.put("paidTotal", "3.50");
         wrong.put("freight", "4.00");
         wrong.put("lines", "SK-12D02,switch,10,1.50");
-        String said = MfgServices.checkOrderTotals(wrong);
+        String said = OirOrders.checkOrderTotals(wrong);
         assertTrue(said != null && said.contains("3.50") && said.contains("4.00"));
         assertEquals("4.00", wrong.get("freight"));
 
@@ -2309,7 +2311,7 @@ public class MfgServicesTest {
         Map<String, String> missing = new HashMap<>();
         missing.put("paidTotal", "3.50");
         missing.put("lines", "SK-12D02,switch,10,1.50");
-        String missingNote = MfgServices.checkOrderTotals(missing);
+        String missingNote = OirOrders.checkOrderTotals(missing);
         assertTrue(missingNote != null && missingNote.contains("可能漏了一件商品"));
         assertEquals("0.00", missing.get("freight"));
 
@@ -2318,72 +2320,72 @@ public class MfgServicesTest {
         fine.put("paidTotal", "3.50");
         fine.put("freight", "2.00");
         fine.put("lines", "SK-12D02,switch,10,1.50");
-        assertNull(MfgServices.checkOrderTotals(fine));
+        assertNull(OirOrders.checkOrderTotals(fine));
         assertEquals("2.00", fine.get("freight"));
 
         Map<String, String> unknown = new HashMap<>();
         unknown.put("freight", "4.00");
         unknown.put("lines", "SK-12D02,switch,10,1.50");
-        assertNull(MfgServices.checkOrderTotals(unknown));
+        assertNull(OirOrders.checkOrderTotals(unknown));
         assertEquals("4.00", unknown.get("freight"));
     }
 
     @Test
     public void keepsAnOrderLineWithoutACode() {
         // a shop that prints no article code: the model answers with an empty first cell
-        List<String[]> rows = MfgServices.parseOrderArticleLines(
+        List<String[]> rows = OirOrders.parseOrderArticleLines(
                 ",超级法拉电容器 5.5V1.5F C型 21*7.5,2,9.28");
         assertEquals(1, rows.size());
         assertEquals("超级法拉电容器 5.5V1.5F C型 21*7.5", rows.get(0)[0]);
         assertEquals("2", rows.get(0)[2]);
 
         // a name without any numbers is still a code of its own, and the same every time
-        assertEquals("超级法拉电容器", MfgServices.codeFromName("超级法拉电容器"));
-        assertFalse(MfgServices.codeFromName("超级法拉电容器")
-                .equals(MfgServices.codeFromName("瓷片电容器")));
-        assertEquals("P-000000", MfgServices.codeFromName("  "));
+        assertEquals("超级法拉电容器", OirOrders.codeFromName("超级法拉电容器"));
+        assertFalse(OirOrders.codeFromName("超级法拉电容器")
+                .equals(OirOrders.codeFromName("瓷片电容器")));
+        assertEquals("P-000000", OirOrders.codeFromName("  "));
 
         // and nothing is checked against the paid total when no line could be read
         Map<String, String> unreadable = new HashMap<>();
         unreadable.put("paidTotal", "9.28");
         unreadable.put("lines", ",,,");
-        assertNull(MfgServices.checkOrderTotals(unreadable));
+        assertNull(OirOrders.checkOrderTotals(unreadable));
     }
 
     @Test
     public void quotesWhatTheVisionModelAnswered() {
         // the quote is what tells "this is not an order" from "the model cannot see images"
-        assertEquals("（空回答）", MfgServices.visionReplyExcerpt(null, 40));
-        assertEquals("This is a web page not an order", MfgServices.visionReplyExcerpt(
+        assertEquals("（空回答）", OirOrders.visionReplyExcerpt(null, 40));
+        assertEquals("This is a web page not an order", OirOrders.visionReplyExcerpt(
                 "{\"choices\":[{\"message\":{\"content\":\"This is a web page\\nnot an order\"}}]}", 40));
-        assertEquals("cannot see the image", MfgServices.visionReplyExcerpt(
+        assertEquals("cannot see the image", OirOrders.visionReplyExcerpt(
                 "{\"choices\":[{\"message\":{\"content\":\"\","
                 + "\"reasoning_content\":\"cannot see the image\"}}]}", 40));
-        assertEquals("abcd…", MfgServices.visionReplyExcerpt("abcdefgh", 4));
+        assertEquals("abcd…", OirOrders.visionReplyExcerpt("abcdefgh", 4));
     }
 
     @Test
     public void completesTheVisionEndpoint() {
         // people type only the host, or stop at the version: the API answers those with 404
         assertEquals("https://api.deepseek.com/v1/chat/completions",
-                MfgServices.normalizeVisionEndpoint("https://api.deepseek.com"));
+                OirOrders.normalizeVisionEndpoint("https://api.deepseek.com"));
         assertEquals("https://api.deepseek.com/v1/chat/completions",
-                MfgServices.normalizeVisionEndpoint("https://api.deepseek.com/"));
+                OirOrders.normalizeVisionEndpoint("https://api.deepseek.com/"));
         assertEquals("https://open.bigmodel.cn/api/paas/v4/chat/completions",
-                MfgServices.normalizeVisionEndpoint("https://open.bigmodel.cn/api/paas/v4"));
+                OirOrders.normalizeVisionEndpoint("https://open.bigmodel.cn/api/paas/v4"));
         // a complete address is left alone
         assertEquals("https://api.openai.com/v1/chat/completions",
-                MfgServices.normalizeVisionEndpoint("https://api.openai.com/v1/chat/completions"));
-        assertNull(MfgServices.normalizeVisionEndpoint(null));
+                OirOrders.normalizeVisionEndpoint("https://api.openai.com/v1/chat/completions"));
+        assertNull(OirOrders.normalizeVisionEndpoint(null));
     }
 
     @Test
     public void explainsAFailedVisionCall() {
-        assertTrue(MfgServices.describeVisionError(404, "").contains("chat/completions"));
-        assertTrue(MfgServices.describeVisionError(401, "{\"error\":\"bad key\"}").contains("密钥"));
-        assertTrue(MfgServices.describeVisionError(400, "").contains("不支持看图"));
+        assertTrue(OirOrders.describeVisionError(404, "").contains("chat/completions"));
+        assertTrue(OirOrders.describeVisionError(401, "{\"error\":\"bad key\"}").contains("密钥"));
+        assertTrue(OirOrders.describeVisionError(400, "").contains("不支持看图"));
         // the body is quoted but kept short
-        String longBody = MfgServices.describeVisionError(400,
+        String longBody = OirOrders.describeVisionError(400,
                 "{\"error\":\"" + "x".repeat(500) + "\"}");
         assertTrue(longBody.contains("…"));
         assertTrue(longBody.length() < 380);
