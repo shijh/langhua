@@ -1676,6 +1676,80 @@ public class MfgServicesTest {
     }
 
     @Test
+    public void cutsTheFeedOffBelowTheLastOrderHoweverTallItIs() {
+        // the tail of the page below the last order is the 猜你喜欢 strip, and it is cut off - but not
+        // one block below the last button: that height is measured on the blocks the page repeats, and
+        // the last order of the list need not look like them. A ten article order (20.00 yuan) lost
+        // eight of its rows that way, and the model then filled them in from the paid total - with the
+        // right ten rows once, with one or two the other times (Step 161)
+        BufferedImage image = orderPage(3400, 70, true);
+        int lastArticleEnd = 1400 + 9 * 70 + 20;
+        int cut = OirScan.tailCutOf(image, orderPageButtons(), 400);
+        assertTrue("the cut at " + cut + " is above the last article, which ends at " + lastArticleEnd,
+                cut >= lastArticleEnd);
+        assertTrue("the cut at " + cut + " reaches into the feed that starts at 2600", cut <= 2600);
+        // one block below the button (1350 + 400) would have cut eight of the ten articles away
+        assertTrue("the cut is still one block below the last button", cut > 1350 + 400);
+        // the empty band the page prints between two articles is not the end of the list
+        assertTrue(cut > 2030);
+    }
+
+    @Test
+    public void keepsOneBlockOfRoomWhenThePageSeparatesNoFeed() {
+        // cards with pictures of their own leave no wide empty band under the list (measured 18 to 40
+        // rows, like the space between two articles), so the room below the last button is the tallest
+        // block the page prints - never less than before, so this cannot cut away more than it did
+        BufferedImage image = orderPage(2200, 70, false);
+        assertEquals(1350 + 400, OirScan.tailCutOf(image, orderPageButtons(), 400));
+        // a page whose blocks are taller than the measured block height keeps that room
+        assertEquals(1350 + 400, OirScan.tailCutOf(image, orderPageButtons(), 0));
+        // a picture with no button of its own keeps all of it
+        assertEquals(2200, OirScan.tailCutOf(image, java.util.Collections.<Integer>emptyList(), 400));
+    }
+
+    /** @return the top row of the four buttons of the page {@link #orderPage} draws */
+    private static List<Integer> orderPageButtons() {
+        return java.util.Arrays.asList(Integer.valueOf(150), Integer.valueOf(550),
+                Integer.valueOf(950), Integer.valueOf(1350));
+    }
+
+    /**
+     * A page of four order blocks: three short ones, then a last one that prints ten articles as far
+     * apart as the page prints them, and optionally the recommendation strip below the list.
+     *
+     * @param height how tall the picture is
+     * @param articleGap the empty rows between two articles of the last order
+     * @param feed whether the page prints its 猜你喜欢 strip from row 2600 on
+     * @return the picture
+     */
+    private static BufferedImage orderPage(int height, int articleGap, boolean feed) {
+        BufferedImage image = new BufferedImage(300, height, BufferedImage.TYPE_INT_RGB);
+        java.awt.Graphics2D pen = image.createGraphics();
+        pen.setColor(java.awt.Color.WHITE);
+        pen.fillRect(0, 0, 300, height);
+        pen.setColor(java.awt.Color.BLACK);
+        int[] buttons = new int[] {150, 550, 950, 1350};
+        for (int i = 0; i < buttons.length; i++) {
+            // a block prints its header BUTTON_TO_HEADER rows above its own button
+            pen.fillRect(10, buttons[i] - 140, 280, 30);
+            pen.fillRect(240, buttons[i], 50, 20);
+        }
+        for (int i = 0; i < 3; i++) {
+            pen.fillRect(10, buttons[i] + 50, 200, 20);
+        }
+        for (int k = 0; k < 10; k++) {
+            pen.fillRect(10, 1400 + k * articleGap, 200, 20);
+        }
+        if (feed) {
+            for (int r = 0; r < 6; r++) {
+                pen.fillRect(10, 2600 + r * 40, 260, 20);
+            }
+        }
+        pen.dispose();
+        return image;
+    }
+
+    @Test
     public void tellsHowManyBlocksASliceShowsWhole() {
         // a block runs from the header above its own button (BUTTON_TO_HEADER rows up) to the header of
         // the block below it, so a block is whole in a slice when both of those rows are inside. This is

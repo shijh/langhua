@@ -178,6 +178,26 @@ public final class OirScan {
     public static final int BUTTON_TO_HEADER = 150;
 
     /**
+     * How wide a band of empty rows has to be before it is taken for the space below the order list
+     * instead of the space between two articles of one order, and how much wider than the widest band
+     * inside the list it has to be.
+     *
+     * <p>The page prints 30 to 80 empty rows between the articles of one order (measured: 56 to 78 on
+     * the page of sixteen orders), and 500 and more between the last order and the cards of 猜你喜欢
+     * below it. Cutting the tail at a fixed one block below the last button instead cut through the
+     * last order whenever that order was tall: a ten article order (20.00 yuan) had only its header and
+     * two rows inside the picture, and the model filled the rest in from the paid total - once with the
+     * right ten rows, twice with one or two (Step 161). Both a floor and the comparison are needed: a
+     * page that prints its articles far apart (180 empty rows between two of them) must not be cut at
+     * that spacing either.
+     */
+    public static final int MIN_TAIL_GAP = 300;
+    private static final int TAIL_GAP_RATIO = 2;
+
+    /** A row of the page counts as empty when fewer samples of it are dark than this. */
+    private static final int BLANK_ROW_DARK = 3;
+
+    /**
      * How often one slice is sent. A slice holds one or two order blocks and its money is allowed not
      * to add up (an order may be cut in two), so there is much less to go wrong than on a whole page.
      */
@@ -1030,10 +1050,11 @@ public final class OirScan {
         // audited page that feed was the bottom 4700 rows - three of twelve calls spent on
         // advertisements and a chance for the model to invent an order (Step 154)
         if (!list.isEmpty()) {
-            int lastButton = list.get(list.size() - 1).intValue();
-            // one block of room below the last button, so an order that prints no orange button of its
-            // own is still inside
-            int end = Math.min(height, lastButton + Math.max(300, blockHeightOf(full)));
+            // the feed is cut off where the page itself separates it from the last order, and below the
+            // tallest block the page prints when it separates nothing: a tall order (ten articles) ran
+            // past the old fixed room and lost the rows below the cut, and the model filled them in
+            // from the paid total (Step 161)
+            int end = tailCutOf(full, list, blockHeightOf(full));
             if (end < height) {
                 Debug.logInfo("The order list ends at row " + end + " of " + height
                         + ", the rest is the recommendation feed", MODULE);
@@ -1082,6 +1103,103 @@ public final class OirScan {
             top = next > top ? next : bottom;
         }
         return sliced;
+    }
+
+    /**
+     * The row below which the page prints its 猜你喜欢 cards instead of orders.
+     *
+     * <p>Preferred cut: the page separates the two itself. One order keeps its articles 30 to 80 empty
+     * rows apart (measured 56 to 78 on a page of sixteen orders), while the cards below a page whose
+     * pictures did not load start after a band of 500 empty rows and more. So the cut is the first band
+     * that is both wide enough on its own ({@link #MIN_TAIL_GAP}) and twice as wide as the widest band
+     * inside the list, which keeps a page that prints its articles far apart from being cut in the
+     * middle of its last order.
+     *
+     * <p>A page whose cards do load separates nothing (its bands are 18 to 40 rows, like the ones
+     * between two articles), so the room below the last button falls back to one block - the tallest
+     * block the page prints, which is never less than the block height measured on the page. A cut at
+     * one block below the last button used to be the only rule, and it cut the tallest order of the
+     * list whenever that order was taller than the room: a ten article order (20.00 yuan) had only its
+     * header and two rows inside the picture, and the model then filled the rest in from the paid total
+     * - the right ten rows once, one or two rows the other times (Step 161).
+     *
+     * @param image the picture being cut
+     * @param buttons the top row of every button of the list, top to bottom
+     * @param blockHeight the height of one block as the page measures itself, 0 when it does not say
+     * @return the row where the list ends, the height of the picture when nothing is cut
+     */
+    public static int tailCutOf(BufferedImage image, List<Integer> buttons, int blockHeight) {
+        int height = image.getHeight();
+        if (buttons == null || buttons.isEmpty()) {
+            return height;
+        }
+        int lastButton = buttons.get(buttons.size() - 1).intValue();
+        if (lastButton <= 0 || lastButton >= height - 1) {
+            return height;
+        }
+        int tallest = 0;
+        for (int i = 1; i < buttons.size(); i++) {
+            tallest = Math.max(tallest, buttons.get(i).intValue() - buttons.get(i - 1).intValue());
+        }
+        // one block of room below the last button, measured on the tallest block of the page: an order
+        // that prints no button of its own, or that prints more articles than the others, is still inside
+        int room = Math.max(Math.max(300, blockHeight), tallest);
+        int from = (int) Math.min((long) height, (long) lastButton + room);
+        boolean[] blank = blankRows(image);
+        // how wide the widest empty band of the list itself is: the articles of one order sit that far
+        // apart, and a band below it has to be much wider to be the feed
+        int widestInside = 0;
+        int start = -1;
+        for (int y = 0; y < lastButton; y++) {
+            if (blank[y]) {
+                if (start < 0) {
+                    start = y;
+                }
+            } else if (start >= 0) {
+                widestInside = Math.max(widestInside, y - start);
+                start = -1;
+            }
+        }
+        int least = Math.max(MIN_TAIL_GAP, TAIL_GAP_RATIO * widestInside);
+        start = -1;
+        for (int y = lastButton; y < height; y++) {
+            if (blank[y]) {
+                if (start < 0) {
+                    start = y;
+                }
+            } else if (start >= 0) {
+                if (start >= from && y - start >= least) {
+                    return start;
+                }
+                start = -1;
+            }
+        }
+        return from;
+    }
+
+    /**
+     * @param image the picture
+     * @return one entry per row, true when that row carries almost nothing printed on it
+     */
+    private static boolean[] blankRows(BufferedImage image) {
+        int height = image.getHeight();
+        int width = image.getWidth();
+        int step = Math.max(2, width / 200);
+        boolean[] blank = new boolean[height];
+        for (int y = 0; y < height; y++) {
+            int dark = 0;
+            for (int x = 0; x < width; x += step) {
+                int rgb = image.getRGB(x, y);
+                int r = (rgb >> 16) & 0xFF;
+                int g = (rgb >> 8) & 0xFF;
+                int b = rgb & 0xFF;
+                if (r + g + b < 3 * 200) {
+                    dark++;
+                }
+            }
+            blank[y] = dark < BLANK_ROW_DARK;
+        }
+        return blank;
     }
 
     /**
