@@ -1539,7 +1539,9 @@ public class MfgServicesTest {
             pen.setColor(new java.awt.Color(rgb));
             pen.fillRect(0, top, width, blockHeight);
             pen.setColor(new java.awt.Color(0xFF5000));
-            pen.fillRect(width - 100, top + blockHeight / 2, 60, 40);
+            // the button sits a header below the top of its block, as on a real page: that is what the
+            // cut is laid on
+            pen.fillRect(width - 100, top + OirScan.BUTTON_TO_HEADER, 60, 40);
         }
         pen.dispose();
         ByteArrayOutputStream out = new ByteArrayOutputStream();
@@ -1675,20 +1677,144 @@ public class MfgServicesTest {
 
     @Test
     public void tellsHowManyBlocksASliceShowsWhole() {
-        // a block ends with its button and starts below the button of the block above, so a block is
-        // whole in a slice when both buttons are well inside it. This is what a slice's answer is
-        // held against: one block less than it prints is a block the model dropped, and nothing else
-        // in the read notices it (Step 154)
+        // a block runs from the header above its own button (BUTTON_TO_HEADER rows up) to the header of
+        // the block below it, so a block is whole in a slice when both of those rows are inside. This is
+        // what a slice's answer is held against: one block less than it prints is a block the model
+        // dropped, and nothing else in the read notices it (Step 154)
         List<Integer> buttons = java.util.Arrays.asList(Integer.valueOf(118), Integer.valueOf(673),
                 Integer.valueOf(1037), Integer.valueOf(1445), Integer.valueOf(2148));
-        // the first slice holds the blocks that end at 673 and at 1037; the page header at 118 is not
-        // a block and the block ending at 1445 is cut by the bottom of the slice
-        assertEquals(2, OirScan.blocksInside(buttons, 0, 1241));
-        // the second slice starts below the 673 button, so that block is cut at its top
+        // in the first 1241 rows only the block ending at 1037 is whole: the one at 118 has no header
+        // inside the slice and the one at 1445 is cut by the bottom
+        assertEquals(1, OirScan.blocksInside(buttons, 0, 1241));
+        // the second slice starts below the 673 button, so that block is cut at its top and the two
+        // below it are whole
         assertEquals(2, OirScan.blocksInside(buttons, 741, 2352));
         // a slice that shows only one block says nothing: one is what the model is expected to answer
         assertEquals(0, OirScan.blocksInside(buttons, 1000, 1500));
         assertEquals(0, OirScan.blocksInside(null, 0, 100));
+    }
+
+    @Test
+    public void countsTheBlocksOfASliceByRowNotByThePlaceTheirButtonsWereGroupedUnder() {
+        // the buttons of the list are found place by place (a page prints 再买一单 two pixels beside
+        // 加入购物车, so neighbouring places are one place), and that order is not the order of the rows:
+        // everything that pairs the buttons up - how many blocks a slice shows whole, which block is
+        // the last of the list - needs them top to bottom (Step 158)
+        int width = 300;
+        int blockHeight = 300;
+        BufferedImage image = new BufferedImage(width, 5 * blockHeight + 400,
+                BufferedImage.TYPE_INT_RGB);
+        java.awt.Graphics2D pen = image.createGraphics();
+        pen.setColor(java.awt.Color.WHITE);
+        pen.fillRect(0, 0, width, image.getHeight());
+        pen.setColor(new java.awt.Color(0xFF5000));
+        for (int i = 0; i < 5; i++) {
+            pen.fillRect(i % 2 == 0 ? 238 : 240, i * blockHeight + 200, 50, 20);
+        }
+        pen.dispose();
+        List<Integer> buttons = OirScan.listButtonsOf(image);
+        assertEquals(5, buttons.size());
+        for (int i = 1; i < buttons.size(); i++) {
+            assertTrue("the buttons of the list are read top to bottom, not place by place",
+                    buttons.get(i).intValue() > buttons.get(i - 1).intValue());
+        }
+        // three blocks end well inside the first 1241 rows; the fourth one is cut by the bottom
+        assertEquals(3, OirScan.blocksInside(buttons, 0, 1241));
+        // the slice 741..2352 starts above the third block and reaches past the fourth, so those two
+        // are whole in it
+        assertEquals(2, OirScan.blocksInside(buttons, 741, 2352));
+    }
+
+    @Test
+    public void multipliesAPriceByItsQuantityWhenTheRowsAreUnitPrices() {
+        // the model answered the price of one piece for each of six rows of 210 pieces: 12.21 in all,
+        // where 2562.84 was paid. Multiplying by the quantity gives 2564.10 - the page's own rounding
+        // to 2.13 of a price of 2.124 - and that is the row money the receipt needs (Step 159)
+        Map<String, String> order = new LinkedHashMap<>();
+        order.put("paidTotal", "2562.84");
+        order.put("freight", "0.00");
+        order.put("discount", "0");
+        order.put("rowCount", "6");
+        order.put("lines", "黑色\tPB86 按键\t210\t1.94\n黄色\tPB86 按键\t210\t2.13\n"
+                + "绿色\tPB86 按键\t210\t2.13\n蓝色\tPB86 按键\t210\t1.94\n"
+                + "红色\tPB86 按键\t210\t2.13\n灰色\tPB86 按键\t210\t1.94");
+        OirOrders.tidyOrder(order);
+        double sum = 0.0;
+        for (String row : order.get("lines").split("\n")) {
+            sum += Double.parseDouble(row.split("\t")[3]);
+        }
+        assertEquals(2564.10, sum, 0.005);
+        // and the block is not called out: what is left is the rounding of the printed unit prices
+        assertNull(OirOrders.checkOrderTotals(order));
+    }
+
+    @Test
+    public void doesNotLetAPackRowSwallowAMissingRow() {
+        // a block of nine resistor rows of 100 pieces each: nine times 1.20 is 10.80, the page says
+        // 15.90. The room one row may be off by is a dime, not half a yuan for its hundred pieces, so
+        // the 5.10 the model never read is not taken for rounded unit prices (Step 159)
+        Map<String, String> order = new LinkedHashMap<>();
+        order.put("paidTotal", "15.90");
+        order.put("freight", "0.00");
+        order.put("rowCount", "9");
+        StringBuilder lines = new StringBuilder();
+        for (int i = 0; i < 9; i++) {
+            if (lines.length() > 0) {
+                lines.append('\n');
+            }
+            lines.append("R").append(i).append("\t0603 贴片电阻\t100\t1.20");
+        }
+        order.put("lines", lines.toString());
+        assertTrue(OirOrders.totalsDisagree(order));
+        assertNotNull(OirOrders.checkOrderTotals(order));
+        // the same block read to the fen is left alone
+        Map<String, String> exact = new LinkedHashMap<>();
+        exact.put("paidTotal", "15.90");
+        exact.put("freight", "0.00");
+        exact.put("rowCount", "2");
+        exact.put("lines", "R0\t0603\t100\t7.95\nR1\t0603\t100\t7.95");
+        assertFalse(OirOrders.totalsDisagree(exact));
+    }
+
+    @Test
+    public void keepsAWholeOrderBlockInOneSliceHoweverTallItIs() {
+        // the blocks of one page are 300 to 2700 rows tall, so a cut at a fixed height lands inside a
+        // block: a thirteen row order split in two is answered with a few rows of each half and its
+        // money adds up to nothing. One block per slice, cut on its header (Step 159)
+        List<Integer> buttons = java.util.Arrays.asList(Integer.valueOf(200), Integer.valueOf(900),
+                Integer.valueOf(4000), Integer.valueOf(4700));
+        List<Integer> cuts = OirScan.cutsBetweenBlocks(buttons, 1400, 5200);
+        assertEquals(3, cuts.size());
+        // every cut is the header of the next block, the tall one included: no block is cut in two
+        for (int i = 0; i < cuts.size(); i++) {
+            assertEquals(buttons.get(i + 1).intValue() - OirScan.BUTTON_TO_HEADER,
+                    cuts.get(i).intValue());
+        }
+        // so each slice shows one block whole, and the second of them is the tall one
+        assertEquals(1, OirScan.blocksInside(buttons, 0, cuts.get(0).intValue()));
+        assertEquals(1, OirScan.blocksInside(buttons, cuts.get(0).intValue(), cuts.get(1).intValue()));
+        assertEquals(1, OirScan.blocksInside(buttons, cuts.get(1).intValue(), 5200));
+        // nothing to cut when the page shows one block: it fits in a single call
+        assertTrue(OirScan.cutsBetweenBlocks(java.util.Arrays.asList(Integer.valueOf(200)), 1400, 5200)
+                .isEmpty());
+    }
+
+    @Test
+    public void holdsASliceToItsMoneyOnlyWhenEveryBlockInItIsWhole() {
+        // a slice of a long page may hold the top half of one block and the bottom half of the next, so
+        // its money cannot add up and says nothing. A slice that prints one block whole and answers
+        // one order holds nothing else, so the money is worth checking - a nine row block answered
+        // with five rows is short by exactly the rows it lost (Step 158)
+        assertTrue(OirScan.moneyCanBeChecked(false, 1, 0));
+        assertTrue(OirScan.moneyCanBeChecked(false, 3, 2));
+        assertTrue(OirScan.moneyCanBeChecked(true, 1, 1));
+        assertTrue(OirScan.moneyCanBeChecked(true, 3, 3));
+        // a slice that also carries a block the cut halved says nothing: its rows are partly in the
+        // slice above or below, and asking it again only cost time (a page of 14 orders came back
+        // noisier with it than without)
+        assertFalse(OirScan.moneyCanBeChecked(true, 2, 1));
+        assertFalse(OirScan.moneyCanBeChecked(true, 4, 3));
+        assertFalse(OirScan.moneyCanBeChecked(true, 1, 0));
     }
 
     @Test

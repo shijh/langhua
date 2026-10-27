@@ -54,6 +54,22 @@ public final class OirOrders {
      */
     private static final double HALF_A_FEN = 0.005;
 
+    /**
+     * What one row of an order may be off by at most, in yuan: a dime. The page prints its amounts in
+     * money, so a row is exact to the fen; the room is only there for a unit price the page rounded
+     * (2.179 printed as 2.18 over 100 pieces). Without the cap a hundred piece row leaves fifty cents
+     * of room, and nine of them hid 4.50 yuan of goods the model never read (Step 159).
+     */
+    private static final double MAX_ROW_SLACK = 0.10;
+
+    /**
+     * The share of a block the page may be off by when it prints its unit prices rounded to the fen: a
+     * sixth of a fen on a price of 2.12 is 0.05%, and a block of 210 piece rows reads 2564.10 where
+     * 2562.84 was paid. A row that was lost is off by a large share of the block (15.90 read as 11.40),
+     * so the two can be told apart by how much of the block is missing (Step 159).
+     */
+    private static final double RELATIVE_SLACK = 0.005;
+
     /** What counts as the same number when a quantity is compared with one. */
     private static final double PRACTICALLY_ZERO = 0.0001;
 
@@ -762,11 +778,20 @@ public final class OirOrders {
      * @return the few cents a page may lose by printing its unit prices rounded
      */
     private static double roundingSlack(List<String[]> rows) {
-        double pieces = 0.0;
+        double slack = HALF_A_FEN;
+        double goods = 0.0;
         for (String[] row : rows) {
-            pieces += Math.max(1.0, toDouble(row[2], 1.0));
+            double pieces = Math.max(1.0, toDouble(row[2], 1.0));
+            // a row may be off by the rounding of its own unit price, but a pack of a hundred pieces
+            // would leave fifty cents and swallow a missing row: the block of nine resistor rows made
+            // up 15.90 paid but only 11.40 read, and 4.50 of it was inside the tolerance (Step 159)
+            slack += Math.min(HALF_A_FEN * pieces, MAX_ROW_SLACK);
+            goods += Math.max(0.0, toDouble(row[3], 0.0));
         }
-        return round2(HALF_A_FEN * pieces + HALF_A_FEN);
+        // a block of expensive rows may still be off by a fraction of a percent of its money: the page
+        // prints 2.124 as 2.13, and six rows of 210 pieces come to 2564.10 where 2562.84 was paid. A
+        // lost or misread row is off by a large share of the block, not by a fraction of a percent
+        return round2(Math.max(slack, goods * RELATIVE_SLACK));
     }
 
     /**
@@ -804,6 +829,54 @@ public final class OirOrders {
     /** @return the amount with two decimals, for a sentence */
     private static String money(Double value) {
         return value == null ? "" : String.format(Locale.ROOT, "%.2f", value.doubleValue());
+    }
+
+    /**
+     * Says, in the page's own words, how far the articles of the worst order of one answer are from
+     * its paid total. Used as the tail of the question for the second read of a slice: a model that
+     * summarised thirteen rows of identical resistors into five answered a short total, and naming the
+     * money it lost is what makes it go back over the block (Step 158).
+     *
+     * @param orders the orders of one answer
+     * @return the sentence to append to the question, empty when every order adds up
+     */
+    public static String moneyGapOf(List<Map<String, String>> orders) {
+        if (orders == null) {
+            return "";
+        }
+        String worst = "";
+        double worstGap = 0.0;
+        for (Map<String, String> order : orders) {
+            Double paid = optionalAmount(order.get("paidTotal"));
+            if (paid == null || order.get("lines") == null) {
+                continue;
+            }
+            List<String[]> rows = parseOrderArticleLines(order.get("lines"));
+            if (rows.isEmpty()) {
+                continue;
+            }
+            Double freight = optionalAmount(order.get("freight"));
+            Double discount = optionalAmount(order.get("discount"));
+            double total = round2(sumOfRows(rows)
+                    + (freight == null ? 0.0 : freight.doubleValue())
+                    - (discount == null ? 0.0 : discount.doubleValue()));
+            double gap = round2(paid.doubleValue() - total);
+            if (Math.abs(gap) <= roundingSlack(rows) || Math.abs(gap) <= Math.abs(worstGap)) {
+                continue;
+            }
+            String owed = money(Double.valueOf(Math.abs(gap)));
+            worst = gap > 0.0
+                    ? " 有一单只读出 " + money(Double.valueOf(total)) + " 元，实付 " + money(paid)
+                            + "，还差 " + owed + " 元的商品没有读出。"
+                    : " 有一单读出 " + money(Double.valueOf(total)) + " 元，实付 " + money(paid)
+                            + "，多了 " + owed + " 元。";
+            worstGap = gap;
+        }
+        if (worst.isEmpty()) {
+            return "";
+        }
+        return worst + " 请把那一块里打印的每一行都读出来（行数要和块里印的行数一致），每行金额按"
+                + "打印的单价和数量算，不要为了让合计对上而改动某一行。";
     }
 
     /**
@@ -1648,6 +1721,15 @@ public final class OirOrders {
      * @return the rows of the reading that adds up, or the rows as they were
      */
     private static List<String[]> readingThatAddsUp(List<String[]> rows, double wanted) {
+        // the reading that multiplies by the quantity rebuilds each amount as a printed price times a
+        // quantity, so it may be off by half a fen a piece: six rows of 210 pieces of 2.12 are 2564.10
+        // where 2562.84 was paid, and that is the page's own rounding, not a lost row (Step 159)
+        double asUnitPriceSlack = MONEY_TOLERANCE;
+        double pieces = 0.0;
+        for (String[] row : rows) {
+            pieces += Math.max(1.0, toDouble(row[2], 1.0));
+        }
+        asUnitPriceSlack = Math.max(asUnitPriceSlack, round2(HALF_A_FEN * pieces) + MONEY_TOLERANCE);
         for (int dropAt = -1; dropAt < rows.size(); dropAt++) {
             for (boolean asUnitPrice : new boolean[] {false, true}) {
                 double sum = 0.0;
@@ -1659,7 +1741,8 @@ public final class OirOrders {
                     double qty = toDouble(rows.get(i)[2], 0.0);
                     sum += asUnitPrice && qty > 0.0 ? amount * qty : amount;
                 }
-                if (Math.abs(round2(sum) - wanted) > MONEY_TOLERANCE) {
+                double allowed = asUnitPrice ? asUnitPriceSlack : MONEY_TOLERANCE;
+                if (Math.abs(round2(sum) - wanted) > allowed) {
                     continue;
                 }
                 List<String[]> picked = new ArrayList<>();

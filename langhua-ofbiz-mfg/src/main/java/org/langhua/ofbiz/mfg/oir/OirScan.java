@@ -169,10 +169,25 @@ public final class OirScan {
     private static final int BUTTON_RUN_GAP = 90;
 
     /**
+     * How far above its own button a block prints its header line (订单号 / 下单时间 / 店铺名称 / 实付款).
+     * Every cut is laid on such a header row, so each slice starts at a block and goes on to the header
+     * of a later one: a cut anywhere else may fall inside a block, and the blocks of one page are 300 to
+     * 2700 pixels tall - a thirteen row order split in two is answered with a few rows of each half, and
+     * the money of the two halves adds up to neither the paid total nor anything else (Step 159).
+     */
+    public static final int BUTTON_TO_HEADER = 150;
+
+    /**
      * How often one slice is sent. A slice holds one or two order blocks and its money is allowed not
      * to add up (an order may be cut in two), so there is much less to go wrong than on a whole page.
      */
     public static final int SLICE_ATTEMPTS = 3;
+
+    /**
+     * The reason a picture is asked again because its money does not add up: the only one that can be
+     * put into words for the model (how much is missing), so the second read is asked with it.
+     */
+    private static final String MONEY_REASON = "the goods of an order and its freight are not its paid total";
 
     /** Seconds one call to the vision service may take, with room on top of the socket timeouts. */
     public static final int SLICE_WAIT_SECONDS = 240;
@@ -264,6 +279,9 @@ public final class OirScan {
             + " a piece count printed bare at the end of the title: IC测试板 … 5只 with x3 is 15 - but a set"
             + " sold as one article (brackets saying 套装 / 组合 / 套餐) does not: 实验板（4块组合套装）"
             + " with x1 is 1 set, so qty is 1."
+            + " Read every row's money as printed (the struck through price is never used): never change a"
+            + " row's amount to make the rows add up to paidTotal, and never write paidTotal as a row of"
+            + " its own - when the rows do not add up, answer the rows you can read as they are."
             + " Under the last order the page shows pictures of other products (猜你喜欢 / 为你推荐 /"
             + " 看了又看 / 广告): they have no order number and no 实付款, so they are not an order, and"
             + " their products are never items of the order above them."
@@ -305,7 +323,8 @@ public final class OirScan {
             + " money (paidTotal"
             + " minus freight for a block with one article, printed row price times the packs after x for"
             + " a block with several - the pack size changes the quantity, never the row money, so ¥2.00"
-            + " with x2 is 4.00). Pictures of other products below the order list (猜你喜欢 / 推荐 /"
+            + " with x2 is 4.00), as printed: never bend a row's amount so the rows add up, and never make"
+            + " paidTotal an item of its own. Pictures of other products below the order list (猜你喜欢 / 推荐 /"
             + " 广告) are not orders and are not items; the articles of one block are never items of the"
             + " block under it. No explanation.";
 
@@ -640,13 +659,11 @@ public final class OirScan {
     }
 
     /**
-     * How many order blocks a slice shows whole, told by the buttons of the page: a block ends with
-     * its button, and its header starts below the button of the block above, so a block is whole when
-     * the button above it is well inside the slice and its own button is too. The first block of the
-     * page has nothing above it to tell, and a block cut at the top or at the bottom is not counted -
-     * its rows may be the only thing the slice shows.
+     * How many order blocks a slice shows whole, told by the buttons of the page: a block starts at its
+     * header (a fixed number of rows above its own button) and ends where the next block's header
+     * starts, so a block is whole in a slice when both rows are inside it.
      *
-     * @param buttons the top row of every button of the page, top to bottom
+     * @param buttons the top row of every button of the list, top to bottom
      * @param top the first row of the slice
      * @param bottom the last row of the slice
      * @return how many blocks the slice shows whole
@@ -656,10 +673,17 @@ public final class OirScan {
         if (buttons == null) {
             return 0;
         }
-        for (int i = 1; i < buttons.size(); i++) {
-            int above = buttons.get(i - 1).intValue();
-            int button = buttons.get(i).intValue();
-            if (above >= top + 60 && button <= bottom - 60) {
+        for (int i = 0; i < buttons.size(); i++) {
+            int header = buttons.get(i).intValue() - BUTTON_TO_HEADER;
+            if (header < top) {
+                continue;
+            }
+            // the last block of the page has no button below it to end it, so it counts only when its
+            // own rows are well inside the slice
+            int end = i + 1 < buttons.size()
+                    ? buttons.get(i + 1).intValue() - BUTTON_TO_HEADER
+                    : buttons.get(i).intValue() + SLICE_HEIGHT;
+            if (end <= bottom) {
                 inside++;
             }
         }
@@ -769,7 +793,9 @@ public final class OirScan {
      * @param key the api key
      * @param contentType the content type of the picture
      * @param partial {@code true} for a slice of a long page: an order may be cut in two, so the money
-     *        of that slice is allowed not to add up
+     *        of that slice is allowed not to add up - unless the slice prints as many blocks whole as
+     *        it answered orders, which means it holds nothing but whole blocks (see
+     *        {@link #moneyCanBeChecked})
      * @param blocksHere how many order blocks the picture prints whole, {@code 0} when unknown: an
      *        answer with one block less is asked again, which is the only check that sees a block
      *        dropped in the middle of a slice
@@ -793,6 +819,9 @@ public final class OirScan {
         String bestReply = null;
         int bestSeen = 0;
         int bestScore = -1;
+        // what the first read lost, in money: the second read is asked with that named, which is what
+        // makes a model go back over a block of thirteen rows it had summarised into five
+        String gapHint = "";
         int attempts = partial ? SLICE_ATTEMPTS : ATTEMPTS;
         for (int attempt = 1; attempt <= attempts; attempt++) {
             if (attempt > 1) {
@@ -803,8 +832,8 @@ public final class OirScan {
                 // a slice is asked with the short request from the start: the long one makes a
                 // thinking model deliberate about every rule, and on a hard page it then spends the
                 // whole output budget on the thinking and answers with nothing at all
-                reply = askVision(endpoint, model, key, picture, contentType,
-                        partial || attempt > 1 ? SHORT_PROMPT : PROMPT);
+                String question = partial || attempt > 1 ? SHORT_PROMPT : PROMPT;
+                reply = askVision(endpoint, model, key, picture, contentType, question + gapHint);
                 read.transportProblem = null;
             } catch (IOException e) {
                 Debug.logError(e, "Could not ask the vision service (attempt " + attempt + ")", MODULE);
@@ -837,6 +866,14 @@ public final class OirScan {
             }
             Debug.logInfo("Attempt " + attempt + " of " + attempts + " scored " + score
                     + " (kept " + kept + ", best " + bestScore + "), asking again: " + why, MODULE);
+            if (MONEY_REASON.equals(why)) {
+                // the money says what went missing, and it is the only reason that can be put into
+                // words for the model: one more look with it named, not a third call
+                gapHint = OirOrders.moneyGapOf(got);
+                if (attempt >= 2) {
+                    break;
+                }
+            }
             if (got.isEmpty()) {
                 Debug.logInfo("The answer that carried no order was: " + reply, MODULE);
             }
@@ -895,10 +932,29 @@ public final class OirScan {
         if (OirOrders.repeatsAnotherOrder(got)) {
             return "two orders print the same articles to the cent";
         }
-        if (!partial && anyTotalsDisagree(got)) {
-            return "the goods of an order and its freight are not its paid total";
+        if (moneyCanBeChecked(partial, got.size(), blocksHere) && anyTotalsDisagree(got)) {
+            return MONEY_REASON;
         }
         return null;
+    }
+
+    /**
+     * Whether the money of an answer may be held against the page: it may, unless the picture is one
+     * slice of a long page, whose first and last block may be cut in two by the cut (their rows are
+     * partly in the slice above or below, so their money cannot add up).
+     *
+     * <p>A slice that prints {@code blocks} blocks whole and answered exactly that many orders holds
+     * nothing but whole blocks, so its money is worth checking: a nine row block answered with five
+     * rows adds up to neither the paid total nor anything else, and the first read looked fine
+     * otherwise - the row count the model reported was the five it answered (Step 158).
+     *
+     * @param partial {@code true} for one slice of a long page
+     * @param read how many orders the answer carried
+     * @param blocksHere how many blocks the slice prints whole, {@code 0} when unknown
+     * @return {@code true} when the money of the answer means something
+     */
+    public static boolean moneyCanBeChecked(boolean partial, int read, int blocksHere) {
+        return !partial || (blocksHere > 0 && read == blocksHere);
     }
 
     /**
@@ -988,8 +1044,10 @@ public final class OirScan {
         // the next step towards spotting a block the model never read (see oir/README.md, section 6)
         Debug.logInfo("The picture shows " + anchors.size() + " orange buttons in " + height + " rows",
                 MODULE);
-        List<Integer> cuts = cutsBetweenBlocks(anchors, target, height);
-        if (cuts.isEmpty()) {
+        List<Integer> cuts = cutsBetweenBlocks(list.isEmpty() ? anchors : list, target, height);
+        // a cut laid on a block header needs no overlap, a cut at a blank row does
+        boolean atHeaders = !cuts.isEmpty();
+        if (!atHeaders) {
             cuts = cutsAtBlankRows(full, target);
         }
         // the page prints between two columns and keeps an empty margin each side: cutting it away makes
@@ -1018,55 +1076,46 @@ public final class OirScan {
             if (bottom >= height) {
                 break;
             }
-            // the next slice starts a little before the cut, so nothing at the seam is lost; the rows
-            // read twice are joined by the order number
-            int next = bottom - SLICE_OVERLAP;
+            // a cut laid on a block header already starts the next slice at the block, so there is
+            // nothing to overlap: the rows of a block are never in two slices at once
+            int next = atHeaders ? bottom : bottom - SLICE_OVERLAP;
             top = next > top ? next : bottom;
         }
         return sliced;
     }
 
     /**
-     * Finds the rows where the page prints one order block less: the orange buttons of the blocks are
-     * the anchors, and the cut goes halfway through the <em>widest</em> stretch between two of them -
-     * a page prints two or three buttons per block, so the small stretches lie inside one block and
-     * only the wide one is the white gap between two blocks.
+     * The rows to cut at: the header of every order block, so every slice holds exactly one block.
      *
-     * @param image the picture being cut
-     * @param anchors the top row of every order button, in order
-     * @param target how tall one slice should be
+     * <p>A page prints one button per block, so the blocks are counted, not guessed: each cut lands on
+     * the header of the next block and the slice ends just above the block after it. One block per call
+     * is what the model reads best - it has one order number, one paid total and one list of articles in
+     * front of it, so it cannot hang rows on the wrong order and its money can be checked on every
+     * slice. A block taller than a slice is no problem at all: it is simply a tall slice, where a cut at
+     * a fixed height halved it and the model read a few rows of each half (a thirteen row order of
+     * resistors came back with five rows and 5.10 yuan missing - Step 159).
+     *
+     * @param buttons the top row of every block's own button, top to bottom
+     * @param target unused, kept so the call sites stay the same: the blocks themselves say where to cut
      * @param height the height of the picture
-     * @return the rows to cut at, empty when the picture shows no order buttons
+     * @return the rows to cut at, empty when the picture shows fewer than two blocks
      */
-    private static List<Integer> cutsBetweenBlocks(List<Integer> anchors, int target, int height) {
+    public static List<Integer> cutsBetweenBlocks(List<Integer> buttons, int target, int height) {
         List<Integer> cuts = new ArrayList<>();
-        if (anchors.size() < 4) {
+        if (buttons == null || buttons.size() < 2) {
             return cuts;
         }
         int top = 0;
-        while (true) {
-            int wanted = top + target;
-            if (wanted >= height) {
+        for (int i = 1; i < buttons.size(); i++) {
+            int row = buttons.get(i).intValue() - BUTTON_TO_HEADER;
+            if (row >= height) {
                 break;
             }
-            int best = -1;
-            int widest = -1;
-            // the cut may slide a quarter of a slice either way to land in a gap, and no further: a
-            // slice that drifts to twice the height is the slice this step is trying to avoid
-            for (int i = 1; i < anchors.size(); i++) {
-                int gap = anchors.get(i).intValue() - anchors.get(i - 1).intValue();
-                int mid = (anchors.get(i - 1).intValue() + anchors.get(i).intValue()) / 2;
-                if (mid <= top + target * 3 / 4 || mid > wanted + target / 4 || mid >= height) {
-                    continue;
-                }
-                if (gap > widest) {
-                    widest = gap;
-                    best = mid;
-                }
+            if (row <= top) {
+                continue;
             }
-            int cut = best >= 0 ? best : wanted;
-            cuts.add(Integer.valueOf(cut));
-            top = cut;
+            cuts.add(Integer.valueOf(row));
+            top = row;
         }
         return cuts;
     }
@@ -1295,6 +1344,10 @@ public final class OirScan {
             }
             previous = place.getKey();
         }
+        // the buttons of the list are read top to bottom, whatever place their left edge was grouped
+        // under: everything that holds a slice's answer against the blocks it prints walks them in
+        // pairs, and an unsorted list pairs a button of the last block with one of the second (Step 158)
+        java.util.Collections.sort(best);
         return best.size() >= 3 ? best : new ArrayList<>();
     }
 
