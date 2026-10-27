@@ -895,12 +895,46 @@ public class MfgServicesTest {
     }
 
     @Test
+    public void measuresTheHeightOfOneOrderBlock() throws IOException {
+        // a page of identical blocks: a header strip, a title, a price row, then white. The darkness of
+        // the page repeats with the height of the block, which is what the slicer measures instead of
+        // trusting one number picked on one screenshot (Step 148)
+        int block = 500;
+        int blocks = 8;
+        BufferedImage image = new BufferedImage(300, block * blocks, BufferedImage.TYPE_INT_RGB);
+        java.awt.Graphics2D pen = image.createGraphics();
+        pen.setColor(java.awt.Color.WHITE);
+        pen.fillRect(0, 0, 300, image.getHeight());
+        pen.setColor(java.awt.Color.BLACK);
+        for (int i = 0; i < blocks; i++) {
+            int top = i * block;
+            pen.fillRect(0, top + 10, 300, 40);
+            pen.fillRect(20, top + 80, 200, 120);
+            pen.fillRect(20, top + 260, 260, 20);
+            pen.fillRect(20, top + 300, 120, 20);
+        }
+        pen.dispose();
+        int measured = MfgOrderScan.blockHeightOf(image);
+        assertTrue("block height " + measured + " is not " + block, Math.abs(measured - block) <= 20);
+        // one slice holds two blocks
+        assertEquals(2 * block, MfgOrderScan.sliceTargetOf(image));
+        // a page that does not repeat (nothing printed on it) says nothing
+        BufferedImage blank = new BufferedImage(300, 1200, BufferedImage.TYPE_INT_RGB);
+        java.awt.Graphics2D empty = blank.createGraphics();
+        empty.setColor(java.awt.Color.WHITE);
+        empty.fillRect(0, 0, 300, 1200);
+        empty.dispose();
+        assertEquals(0, MfgOrderScan.blockHeightOf(blank));
+        assertEquals(MfgOrderScan.SLICE_HEIGHT, MfgOrderScan.sliceTargetOf(blank));
+    }
+
+    @Test
     public void cutsALongPageIntoOverlappingSlices() throws IOException {
         // a picture that already fits is sent as it is
         assertEquals(1, MfgOrderScan.slicesOf(png(300, 600)).size());
         assertEquals(1, MfgOrderScan.slicesOf(png(300, MfgOrderScan.SLICE_HEIGHT)).size());
         // a page taller than that is cut into slices, each one short enough to be read in one go
-        List<byte[]> slices = MfgOrderScan.slicesOf(png(300, MfgOrderScan.SLICE_HEIGHT * 2 + 400));
+        List<byte[]> slices = MfgOrderScan.slicesOf(png(300, MfgOrderScan.ONE_CALL_HEIGHT + MfgOrderScan.SLICE_HEIGHT));
         assertTrue(slices.size() >= 2);
         for (byte[] slice : slices) {
             BufferedImage image = ImageIO.read(new java.io.ByteArrayInputStream(slice));
@@ -1509,10 +1543,12 @@ public class MfgServicesTest {
         assertEquals(blocks, MfgOrderScan.blockAnchors(image).size());
         List<byte[]> slices = MfgOrderScan.slicesOf(out.toByteArray());
         assertTrue(slices.size() >= 2);
+        // a slice is one target plus the overlap, and the cut may slide a quarter of a target
+        int target = MfgOrderScan.sliceTargetOf(image);
         java.util.Set<Integer> whole = new java.util.HashSet<>();
         for (byte[] slice : slices) {
             BufferedImage picture = ImageIO.read(new java.io.ByteArrayInputStream(slice));
-            assertTrue(picture.getHeight() <= MfgOrderScan.SLICE_HEIGHT + MfgOrderScan.SLICE_OVERLAP);
+            assertTrue(picture.getHeight() <= target * 5 / 4 + MfgOrderScan.SLICE_OVERLAP);
             for (int i = 0; i < blocks; i++) {
                 int rows = 0;
                 for (int y = 0; y < picture.getHeight(); y++) {

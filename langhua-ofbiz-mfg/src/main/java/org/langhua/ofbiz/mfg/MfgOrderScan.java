@@ -105,17 +105,15 @@ public final class MfgOrderScan {
     static final int ATTEMPTS = 3;
 
     /**
-     * How tall a picture may be before it is cut into slices, and how far a cut may move to land on a
-     * blank row. A cut through the middle of an order block leaves its title in one slice and its
-     * articles in the next, and the model then hangs those articles on the block that follows (a page
-     * of five orders came back as four right ones and one written out of two).
+     * How tall a picture may be before it is cut into slices, used when the picture does not say how
+     * tall its blocks are. A cut through the middle of an order block leaves its title in one slice and
+     * its articles in the next, and the model then hangs those articles on the block that follows (a
+     * page of five orders came back as four right ones and one written out of two).
      *
      * <p>The walls of a shop page leave 30 to 40 pixels of white both inside a block and between two
-     * of them, so no cut can be trusted to fall between blocks; a slice is therefore cut where the
-     * page leaves the widest stretch between two buttons, and one slice is kept small (two blocks).
-     * A model handed four or five blocks in one picture drops a whole block now and then - a page of
-     * 23 orders came back with 21 once, the last three gone - while one or two blocks are read
-     * reliably (Step 147).
+     * of them, so no cut can be trusted to fall between blocks. The height of a block is therefore
+     * measured on the picture itself ({@link #blockHeightOf}) and one slice holds two of them; this
+     * value is only the answer for a picture whose blocks cannot be told apart (Step 148).
      */
     static final int SLICE_HEIGHT = 900;
 
@@ -123,7 +121,11 @@ public final class MfgOrderScan {
      * A picture up to this height is sent in one piece: cutting it in two would cost two calls and
      * lose the look at the whole page, which is what a short page needs.
      */
-    static final int ONE_CALL_HEIGHT = 2 * SLICE_HEIGHT;
+    static final int ONE_CALL_HEIGHT = 2400;
+
+    /** How tall a slice may get: one block may not be shorter than this, nor a slice longer. */
+    private static final int MIN_SLICE_HEIGHT = 600;
+    private static final int MAX_SLICE_HEIGHT = 2000;
 
     /** How far the cut may slide to find a row with no text, and how many pixels one row is sampled at. */
     static final int SLICE_SEARCH = 180;
@@ -638,12 +640,15 @@ public final class MfgOrderScan {
             return slices;
         }
         int height = full.getHeight();
+        // how tall one slice should be: two order blocks, measured on the picture itself, so the cuts
+        // suit the page in hand instead of one number picked for one screenshot (Step 148)
+        int target = sliceTargetOf(full);
         // the blocks of the page are found in the picture itself when it is a list of orders: cutting
         // between two blocks keeps every block whole, which is what the model needs most (Step 139)
         List<Integer> anchors = blockAnchors(full);
-        List<Integer> cuts = cutsBetweenBlocks(full, anchors);
+        List<Integer> cuts = cutsBetweenBlocks(anchors, target, height);
         if (cuts.isEmpty()) {
-            cuts = cutsAtBlankRows(full);
+            cuts = cutsAtBlankRows(full, target);
         }
         int top = 0;
         for (int i = 0; i <= cuts.size(); i++) {
@@ -674,26 +679,29 @@ public final class MfgOrderScan {
      *
      * @param image the picture being cut
      * @param anchors the top row of every order button, in order
+     * @param target how tall one slice should be
+     * @param height the height of the picture
      * @return the rows to cut at, empty when the picture shows no order buttons
      */
-    private static List<Integer> cutsBetweenBlocks(BufferedImage image, List<Integer> anchors) {
+    private static List<Integer> cutsBetweenBlocks(List<Integer> anchors, int target, int height) {
         List<Integer> cuts = new ArrayList<>();
         if (anchors.size() < 4) {
             return cuts;
         }
-        int height = image.getHeight();
         int top = 0;
         while (true) {
-            int target = top + SLICE_HEIGHT;
-            if (target >= height) {
+            int wanted = top + target;
+            if (wanted >= height) {
                 break;
             }
             int best = -1;
             int widest = -1;
+            // the cut may slide a quarter of a slice either way to land in a gap, and no further: a
+            // slice that drifts to twice the height is the slice this step is trying to avoid
             for (int i = 1; i < anchors.size(); i++) {
                 int gap = anchors.get(i).intValue() - anchors.get(i - 1).intValue();
                 int mid = (anchors.get(i - 1).intValue() + anchors.get(i).intValue()) / 2;
-                if (mid <= top + SLICE_HEIGHT / 2 || mid > target + SLICE_HEIGHT / 2 || mid >= height) {
+                if (mid <= top + target * 3 / 4 || mid > wanted + target / 4 || mid >= height) {
                     continue;
                 }
                 if (gap > widest) {
@@ -701,7 +709,7 @@ public final class MfgOrderScan {
                     best = mid;
                 }
             }
-            int cut = best >= 0 ? best : target;
+            int cut = best >= 0 ? best : wanted;
             cuts.add(Integer.valueOf(cut));
             top = cut;
         }
@@ -710,17 +718,18 @@ public final class MfgOrderScan {
 
     /**
      * The cuts of a page that shows no order buttons (another shop platform, or a cropped picture):
-     * every {@code SLICE_HEIGHT} rows, slid to the nearest row without text.
+     * every {@code target} rows, slid to the nearest row without text.
      *
      * @param image the picture being cut
+     * @param target how tall one slice should be
      * @return the rows to cut at
      */
-    private static List<Integer> cutsAtBlankRows(BufferedImage image) {
+    private static List<Integer> cutsAtBlankRows(BufferedImage image, int target) {
         List<Integer> cuts = new ArrayList<>();
         int height = image.getHeight();
         int top = 0;
         while (top < height) {
-            int bottom = Math.min(height, top + SLICE_HEIGHT);
+            int bottom = Math.min(height, top + target);
             if (bottom < height) {
                 bottom = blankRowNear(image, top, bottom);
                 cuts.add(Integer.valueOf(bottom));
@@ -729,9 +738,96 @@ public final class MfgOrderScan {
                 break;
             }
             int next = bottom - SLICE_OVERLAP;
-            top = next > top ? next : top + Math.max(1, SLICE_HEIGHT / 2);
+            top = next > top ? next : top + Math.max(1, target / 2);
         }
         return cuts;
+    }
+
+    /**
+     * How tall one slice should be: two order blocks, measured on the picture itself. A page cut for
+     * one screenshot does not suit the next one (another platform, another zoom level, another block
+     * layout), so the height comes from the page in hand; {@link #SLICE_HEIGHT} answers only when the
+     * blocks cannot be told apart (Step 148).
+     *
+     * @param image the picture being cut
+     * @return the height one slice should have
+     */
+    static int sliceTargetOf(BufferedImage image) {
+        int block = blockHeightOf(image);
+        if (block <= 0) {
+            return SLICE_HEIGHT;
+        }
+        int target = 2 * block;
+        return Math.max(MIN_SLICE_HEIGHT, Math.min(MAX_SLICE_HEIGHT, target));
+    }
+
+    /**
+     * Measures how tall one order block of a list is, on the picture itself: the rows of such a page
+     * repeat their shape block after block (a strip with the number and the shop, a picture, a title,
+     * a price row), so the darkness of the page repeats with the height of one block. The page is read
+     * as one darkness value per row and that profile is compared with itself at every distance between
+     * one fifth of a slice and half the picture; the distance that repeats best is the height of a
+     * block. A page without that repetition (one order, a picture of something else) answers 0.
+     *
+     * @param image the picture being cut
+     * @return the height of one block in rows, 0 when the picture does not repeat
+     */
+    static int blockHeightOf(BufferedImage image) {
+        int height = image.getHeight();
+        int width = image.getWidth();
+        if (height < 600 || width < 50) {
+            return 0;
+        }
+        int step = Math.max(2, width / 200);
+        int[] ink = new int[height];
+        for (int y = 0; y < height; y++) {
+            int dark = 0;
+            for (int x = 0; x < width; x += step) {
+                int rgb = image.getRGB(x, y);
+                int r = (rgb >> 16) & 0xFF;
+                int g = (rgb >> 8) & 0xFF;
+                int b = rgb & 0xFF;
+                if (r + g + b < 3 * 200) {
+                    dark++;
+                }
+            }
+            ink[y] = dark;
+        }
+        // a picture with nothing printed on it (all white, all black) has no repeating structure
+        long sum = 0L;
+        long squares = 0L;
+        for (int y = 0; y < height; y++) {
+            sum += ink[y];
+            squares += (long) ink[y] * ink[y];
+        }
+        double mean = (double) sum / height;
+        if ((double) squares / height - mean * mean < 4.0) {
+            return 0;
+        }
+        int lowest = Math.max(300, height / 40);
+        int highest = Math.min(height / 2, MAX_SLICE_HEIGHT);
+        double best = -1.0;
+        int bestLag = 0;
+        for (int lag = lowest; lag <= highest; lag++) {
+            long dot = 0L;
+            long here = 0L;
+            long there = 0L;
+            for (int y = 0; y + lag < height; y += 2) {
+                dot += (long) ink[y] * ink[y + lag];
+                here += (long) ink[y] * ink[y];
+                there += (long) ink[y + lag] * ink[y + lag];
+            }
+            if (here == 0L || there == 0L) {
+                continue;
+            }
+            double score = dot / Math.sqrt((double) here * (double) there);
+            if (score > best) {
+                best = score;
+                bestLag = lag;
+            }
+        }
+        // a page that does not repeat (one order, a picture of something else) has no block height
+        return best < 0.5 ? 0 : bestLag;
     }
 
     /**
