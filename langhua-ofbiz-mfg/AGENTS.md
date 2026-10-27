@@ -1070,6 +1070,16 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   量这个的工具在 `tools/oir-anchors/`（`run.bat "<截图>"` 打印锚点/切点/每条橙色带），**不在构建里**，
   别把编译出的 `.class` 提交。
   单测 `tellsAButtonFromTheOrangeWordsOfAHeader` 守着：只有文字行的那块不算按钮，有按钮的才算。
+- **按钮数可以当“块数”用（Step 153）**：`OirScan.blockCountOf(image)` 把锚点按「按钮左边缘落在哪个采样点」
+  分组、**取最多的一组**（**相邻采样点算同一组**——两种按钮样式会差一个采样点），真实 23 单那页得 **23**
+  （组 143+144 = 4+19；页头 149、页尾 97/98 各自成组只有 1~2 个）。**退款 / 交易关闭的单也印按钮**
+  （用户确认：可能印「再买一单」或「加入购物车」），所以不会少算。
+  `scan` 里拿它和读出的单数对账，但**只在相差 ≤ 2 时**在消息里点出来（`blockCountNote`：多了说“可能是同一块被拆开”，
+  少了说“可能漏了 N 张”）；差很多说明数到的是推荐区那一排按钮，**不要**提示，更**不要自动删行**——
+  删哪一行只有人知道。日志里有 `The picture shows N order buttons, M orders were read`。
+  实测 10 连测：9 次 23/23 无提示，1 次模型只读 21 张 → 消息自动多出“可能漏了 2 张”。
+  单测 `countsTheBlocksOfAPageByWhereTheirButtonsArePrinted`（含两种按钮样式、页头/页尾各一个、两块的页返回 0）
+  与 `blockCountNote` 的四种说法。
 - **PowerShell 写文件别用 `Set-Content -Encoding UTF8`**：PS 5.1 会带 BOM，javac 直接报
   `非法字符: '\ufeff'`（三个文件同时中招）。要改源码用 `create_file`/编辑工具，或写完后用
   `[System.IO.File]::WriteAllBytes` 去掉前 3 个字节。

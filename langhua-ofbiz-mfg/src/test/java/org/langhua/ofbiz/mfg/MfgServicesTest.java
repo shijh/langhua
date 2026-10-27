@@ -1628,6 +1628,52 @@ public class MfgServicesTest {
     }
 
     @Test
+    public void countsTheBlocksOfAPageByWhereTheirButtonsArePrinted() {
+        // every block of the list prints its button at the same place, so the buttons that share a
+        // place are the list's: the page header button and the ones of the recommendation strip below
+        // the list stand somewhere else and are not counted. A block keeps its button whatever became
+        // of the deal - a closed one offers 再买一单 or 加入购物车 too - so this count can be held
+        // against the number of orders read (Step 153)
+        int width = 300;
+        int blockHeight = 300;
+        int blocks = 5;
+        BufferedImage image = new BufferedImage(width, blocks * blockHeight + 400,
+                BufferedImage.TYPE_INT_RGB);
+        java.awt.Graphics2D pen = image.createGraphics();
+        pen.setColor(java.awt.Color.WHITE);
+        pen.fillRect(0, 0, width, image.getHeight());
+        pen.setColor(new java.awt.Color(0xFF5000));
+        // a second button style starts two pixels further left, as a shop prints 再买一单 beside 加入购物车
+        for (int i = 0; i < blocks; i++) {
+            pen.fillRect(i % 3 == 0 ? 238 : 240, i * blockHeight + 200, 50, 20);
+        }
+        pen.fillRect(100, 60, 50, 20);
+        pen.fillRect(60, blocks * blockHeight + 100, 50, 20);
+        pen.dispose();
+        assertEquals(blocks, OirScan.blockCountOf(image));
+
+        // two blocks say nothing: with so few there is nothing to compare against
+        BufferedImage pair = new BufferedImage(width, 2 * blockHeight, BufferedImage.TYPE_INT_RGB);
+        java.awt.Graphics2D pen2 = pair.createGraphics();
+        pen2.setColor(java.awt.Color.WHITE);
+        pen2.fillRect(0, 0, width, pair.getHeight());
+        pen2.setColor(new java.awt.Color(0xFF5000));
+        pen2.fillRect(240, 200, 50, 20);
+        pen2.fillRect(240, blockHeight + 200, 50, 20);
+        pen2.dispose();
+        assertEquals(0, OirScan.blockCountOf(pair));
+        assertEquals(0, OirScan.blockCountOf(new BufferedImage(width, 200, BufferedImage.TYPE_INT_RGB)));
+
+        // the count is only held against the read when the two are close: one order too many is a
+        // block read as two, and one too few is a block the model never answered
+        assertEquals("", OirScan.blockCountNote(23, 23));
+        assertEquals("", OirScan.blockCountNote(0, 23));
+        assertTrue(OirScan.blockCountNote(23, 24).contains("可能是同一块被拆开了"));
+        assertTrue(OirScan.blockCountNote(23, 21).contains("可能漏了 2 张"));
+        assertEquals("", OirScan.blockCountNote(20, 30));
+    }
+
+    @Test
     public void takesALongPageScreenshotAsItIs() {
         // a whole shop page captured in one picture runs to ten megabytes and more; the picture is
         // cut into slices anyway, so the upload is not refused for being long (Step 128)

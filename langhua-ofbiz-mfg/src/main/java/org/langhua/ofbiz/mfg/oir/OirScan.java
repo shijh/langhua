@@ -410,6 +410,15 @@ public final class OirScan {
         if (orders.isEmpty()) {
             return answer(response, false, scanFailure(reply, transportProblem), null, NO_ORDERS);
         }
+        // how many blocks the picture shows, told by the buttons and not by the model: a block keeps
+        // its button whatever became of the deal (a closed one offers 再买一单 or 加入购物车 as well),
+        // so this count can be held against the read - one order too many is a block read as two
+        // (Step 153). Only a near miss is reported: a count that is far off is counting something
+        // else on the page (a recommendation strip of twenty buttons) and says nothing about orders
+        int blocks = blockCountOf(image);
+        Debug.logInfo("The picture shows " + blocks + " order buttons, " + orders.size()
+                + " orders were read", MODULE);
+        String countOff = blockCountNote(blocks, orders.size());
         String shortfall = seen > orders.size()
                 ? "（截图上看上去有 " + seen + " 张单，这次只读出 " + orders.size()
                         + " 张，可能漏了；核对一下，也可以再点一次「识别并核对」）"
@@ -504,7 +513,28 @@ public final class OirScan {
         if (skipped < orders.size()) {
             message += "，核对后点「" + (orders.size() == 1 ? "导入这张单" : "导入这些单") + "」";
         }
-        return answer(response, true, message + sliceNote + shortfall, orders, null);
+        return answer(response, true, message + sliceNote + shortfall + countOff, orders, null);
+    }
+
+    /**
+     * Says what the button count makes of the number of orders read, in the words the page shows. Only
+     * a near miss is worth telling: a count far from the read is counting something else on the page
+     * (a recommendation strip of twenty buttons) and would only worry the person.
+     *
+     * @param blocks how many order buttons the picture shows, {@code 0} when the page does not say
+     * @param read how many orders came back
+     * @return the note to add to the message, empty when there is nothing to say
+     */
+    public static String blockCountNote(int blocks, int read) {
+        if (blocks <= 0 || blocks == read || Math.abs(blocks - read) > 2) {
+            return "";
+        }
+        if (read > blocks) {
+            return "（图上有 " + blocks + " 个「再买一单」，这次读出 " + read + " 张单；多出来的 "
+                    + (read - blocks) + " 张可能是同一块被拆开了，核对一下再导入）";
+        }
+        return "（图上有 " + blocks + " 个「再买一单」，这次只读出 " + read + " 张单，可能漏了 "
+                + (blocks - read) + " 张，核对一下）";
     }
 
     /** What one picture (the whole screenshot, or one slice of a long one) answered. */
@@ -927,13 +957,91 @@ public final class OirScan {
      * @return the top row of every button found, top to bottom; empty when the page has none
      */
     public static List<Integer> blockAnchors(BufferedImage image) {
-        List<Integer> runs = new ArrayList<>();
+        List<int[]> buttons = buttonsOf(image);
+        List<Integer> anchors = new ArrayList<>(buttons.size());
+        for (int[] button : buttons) {
+            anchors.add(Integer.valueOf(button[0]));
+        }
+        return anchors;
+    }
+
+    /**
+     * Counts the order blocks of a page without asking the model: every block of the list prints its
+     * button at the same place, so the buttons that repeat that place are the list's, while the page
+     * header and the recommendation strip below the list print their own and print it once.
+     *
+     * <p>A block keeps its button whatever became of the deal - a closed one offers 再买一单 or 加入购物车
+     * like an open one - so this count can be held against the number of orders read, which is the
+     * only way to notice a block the model never read ({@code oir/README.md} section 5).
+     *
+     * @param image the picture
+     * @return how many order blocks it shows, {@code 0} when the page does not say (fewer than three
+     *         buttons, or no place printed more than once)
+     */
+    public static int blockCountOf(BufferedImage image) {
+        List<int[]> buttons = buttonsOf(image);
+        if (buttons.size() < 3) {
+            return 0;
+        }
+        int step = Math.max(2, image.getWidth() / 200);
+        java.util.TreeMap<Integer, Integer> byPlace = new java.util.TreeMap<>();
+        for (int[] button : buttons) {
+            Integer place = Integer.valueOf(button[1] / step);
+            Integer there = byPlace.get(place);
+            byPlace.put(place, Integer.valueOf(there == null ? 1 : there.intValue() + 1));
+        }
+        // a shop may print two button styles that start a step or two apart, so neighbouring places
+        // are counted together
+        int most = 0;
+        int running = 0;
+        Integer previous = null;
+        for (Map.Entry<Integer, Integer> place : byPlace.entrySet()) {
+            running = previous != null && place.getKey().intValue() - previous.intValue() <= 2
+                    ? running + place.getValue().intValue()
+                    : place.getValue().intValue();
+            most = Math.max(most, running);
+            previous = place.getKey();
+        }
+        return most >= 3 ? most : 0;
+    }
+
+    /**
+     * The same count, for the picture as it was uploaded.
+     *
+     * @param image the picture bytes
+     * @return how many order blocks it shows, {@code 0} when the page does not say or the picture
+     *         cannot be read
+     */
+    public static int blockCountOf(byte[] image) {
+        if (image == null) {
+            return 0;
+        }
+        try {
+            BufferedImage picture = ImageIO.read(new ByteArrayInputStream(image));
+            return picture == null ? 0 : blockCountOf(picture);
+        } catch (IOException e) {
+            Debug.logError(e, "Could not read the screenshot to count its order blocks", MODULE);
+            return 0;
+        }
+    }
+
+    /**
+     * The buttons of the picture: the top row of each, with the left edge of its longest band.
+     *
+     * @param image the picture
+     * @return one entry {@code {top row, left edge}} per button, top to bottom
+     */
+    private static List<int[]> buttonsOf(BufferedImage image) {
+        List<int[]> runs = new ArrayList<>();
         int step = Math.max(2, image.getWidth() / 200);
         int needed = Math.max(3, (image.getWidth() / step) / 25);
         int runStart = -1;
+        int widest = 0;
+        int widestAt = 0;
         for (int y = 0; y < image.getHeight(); y++) {
             int band = 0;
             int longest = 0;
+            int longestAt = 0;
             for (int x = 0; x < image.getWidth(); x += step) {
                 int rgb = image.getRGB(x, y);
                 int r = (rgb >> 16) & 0xFF;
@@ -942,30 +1050,41 @@ public final class OirScan {
                 if (r >= BUTTON_RED && g >= BUTTON_GREEN_LOW && g <= BUTTON_GREEN_HIGH
                         && b <= BUTTON_BLUE) {
                     band++;
-                    longest = Math.max(longest, band);
+                    if (band > longest) {
+                        longest = band;
+                        longestAt = x - (band - 1) * step;
+                    }
                 } else {
                     band = 0;
                 }
             }
             boolean button = longest >= needed;
-            if (button && runStart < 0) {
-                runStart = y;
-            } else if (!button && runStart >= 0) {
+            if (button) {
+                if (runStart < 0) {
+                    runStart = y;
+                    widest = 0;
+                    widestAt = longestAt;
+                }
+                if (longest > widest) {
+                    widest = longest;
+                    widestAt = longestAt;
+                }
+            } else if (runStart >= 0) {
                 if (y - runStart >= 8) {
-                    runs.add(Integer.valueOf(runStart));
+                    runs.add(new int[] {runStart, widestAt});
                 }
                 runStart = -1;
             }
         }
-        List<Integer> anchors = new ArrayList<>();
-        for (Integer run : runs) {
-            if (!anchors.isEmpty()
-                    && run.intValue() - anchors.get(anchors.size() - 1).intValue() < BUTTON_RUN_GAP) {
+        List<int[]> buttons = new ArrayList<>();
+        for (int[] run : runs) {
+            if (!buttons.isEmpty()
+                    && run[0] - buttons.get(buttons.size() - 1)[0] < BUTTON_RUN_GAP) {
                 continue;
             }
-            anchors.add(run);
+            buttons.add(run);
         }
-        return anchors;
+        return buttons;
     }
 
 

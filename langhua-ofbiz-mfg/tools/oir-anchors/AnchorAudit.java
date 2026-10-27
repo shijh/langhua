@@ -31,6 +31,8 @@ public final class AnchorAudit {
         @SuppressWarnings("unchecked")
         List<Integer> anchors = (List<Integer>) scan.getMethod("blockAnchors", BufferedImage.class)
                 .invoke(null, image);
+        int blocks = ((Integer) scan.getMethod("blockCountOf", BufferedImage.class)
+                .invoke(null, image)).intValue();
         Method cutsM = scan.getDeclaredMethod("cutsBetweenBlocks", List.class, int.class, int.class);
         cutsM.setAccessible(true);
         @SuppressWarnings("unchecked")
@@ -38,6 +40,7 @@ public final class AnchorAudit {
                 Integer.valueOf(target), Integer.valueOf(image.getHeight()));
         System.out.println("blockHeight " + block + " sliceTarget " + target
                 + " anchors " + anchors.size() + " slices " + (cuts.size() + 1));
+        System.out.println("order blocks the page shows: " + blocks);
         System.out.println("anchors " + anchors);
         System.out.println("cuts " + cuts);
     }
