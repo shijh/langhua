@@ -871,6 +871,40 @@ public class MfgServicesTest {
     }
 
     @Test
+    public void keepsARowWhoseFirstCellIsEmpty() {
+        // a shop that prints no article code: the model answers with an empty first cell. Trimming the
+        // line ate the tab that held that cell, so the row came back with three cells, was dropped, and
+        // the import refused the whole order with "没有解析出明细" while the page showed the row happily
+        // (Step 163)
+        String line = "\tPCB打样电路板线路板pcb板打板打样批量生产加工源头厂家制作定制 [交易快照]\t1\t21.00";
+        List<String[]> rows = OirOrders.parseOrderArticleLines(line);
+        assertEquals(1, rows.size());
+        assertTrue("the code comes from the name: " + rows.get(0)[0], rows.get(0)[0].startsWith("PCB"));
+        assertEquals("1", rows.get(0)[2]);
+        assertEquals("21.00", rows.get(0)[3]);
+        // the same with spaces around the empty first cell, and with a comma
+        assertEquals(1, OirOrders.parseOrderArticleLines("  ,开关,2,3.20").size());
+        assertEquals(1, OirOrders.parseOrderArticleLines(",开关,2,3.20").size());
+        // and the shape it really arrives in: OFBiz trims every request parameter, so the empty first
+        // cell is gone before the service sees the text and the row has three cells
+        List<String[]> trimmed = OirOrders.parseOrderArticleLines("PCB sample board\t1\t21.00");
+        assertEquals(1, trimmed.size());
+        assertTrue(trimmed.get(0)[0].startsWith("PCB"));
+        assertEquals("1", trimmed.get(0)[2]);
+        assertEquals("21.00", trimmed.get(0)[3]);
+        // a row that is really code, name, quantity is not mistaken for one without a code
+        assertEquals(0, OirOrders.parseOrderArticleLines("PCB sample board\tswitch\t1").size());
+        // a line that really has too few cells is still skipped, and the header is not an article
+        assertEquals(0, OirOrders.parseOrderArticleLines("\t只有名称\t1").size());
+        assertEquals(0, OirOrders.parseOrderArticleLines("料号\t名称\t数量\t金额").size());
+        // the fitted lines carry the code, so the checklist shows one instead of an empty cell
+        String fitted = OirOrders.fitOrderLines(line);
+        assertTrue("fitted: " + fitted, fitted.startsWith("PCB"));
+        assertEquals(1, fitted.split("\n").length);
+        assertEquals("1", fitted.split("\t")[2]);
+    }
+
+    @Test
     public void keepsTheEchoedTemplateOutOfTheOrders() {
         // a chatty model repeated the answer format: seven placeholder objects around the real order
         String answer = "{\"orders\":["

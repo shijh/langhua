@@ -1149,6 +1149,19 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   **踩坑**：把仓库里那份（`https="true"`）直接 copy 到**测试实例**会冲掉 `relax-test-https.ps1` 的改动，
   页面立刻 302 到 `https://localhost:8443`（看着像“改坏了”）——copy 完要对测试实例重跑那个脚本
   （这次它报了 113 个 request map）。回归：m50 13 项、m49 14 项、m43 15 项全过。
+- **料号空着的行也能入库（Step 163）**：`(19).png` 第 11 单（`2623959120677500570`，淘宝深圳好又快PCB，实付 21.00）
+  点「导入这些单」回「没有解析出明细，一行一个料：料号,名称,数量,实付金额」，可核对表上那一行明明是好的。
+  原因是这一单**没有料号**（标题就是名称），模型给的空首列让整行是 `\t名称\t1\t21.00`——
+  而 **OFBiz 会把每个请求参数 `trim()`**（`UtilHttp.canonicalizeParameterMap` 先按空格切开再拼回、最后 `params.trim()`），
+  前导 Tab 到服务里就没了，行只剩**三格**，`parseOrderArticleLines` 判“格数不够”直接丢掉 → 整单被拒。
+  三处一起改：① `parseOrderArticleLines` **不再先 trim 整行**（只去行尾空白、逐格 trim）；
+  ② **三格也认**成「名称,数量,金额」（料号由 `codeFromName` 造），但要求**中间那格是数字、最后一格是钱**——
+  否则 `料号,名称,数量` 这种行也会被当成“没料号”；③ `receiptFromOrder` 与 `MfgReceiptEvents.value()`
+  不再对 `lines` 做 `trim()`（其它字段照旧 trim：**订单号是幂等键**，带空格会变成两张单）。
+  单测 `keepsARowWhoseFirstCellIsEmpty`；实测（测试实例，POST `receiptFromOrdersJson` 一行空料号）：
+  `已入库 PR-261028-01（新增 1 行…）`，改之前是 `ok:false` + 那句「没有解析出明细」。
+  **通用坑**：任何**以空白开头/结尾**的 POST 参数到了服务里都会被 `canonicalizeParameterMap` 弄掉，
+  所以别指望“用缩进/空列表达空值”——要么用三格，要么在行首用个占位符。
 - **没读到优惠就按恒等式补上（Step 162）**：淘宝的 `红包 / 满减` 不印在明细里，模型常答 `"discount":"0"`
   （而不是不填），于是 `checkOrderTotals` 里「差额反推优惠」那条只管 `discount == null`，红包单一律变成红字
   「实付 10.73，但明细 9.00 + 运费 2.00 是 11.00，比实付还多」。现在 `0` 和空一样算「没读到」：

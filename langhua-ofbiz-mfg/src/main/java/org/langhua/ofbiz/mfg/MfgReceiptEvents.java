@@ -343,7 +343,17 @@ public final class MfgReceiptEvents {
      */
     private static String value(Map<String, Object> parameters, int index, String field) {
         Object value = parameters.get("o" + index + "." + field);
-        String text = value == null ? null : String.valueOf(value);
-        return text == null || text.trim().isEmpty() ? null : text.trim();
+        if (value == null) {
+            return null;
+        }
+        String text = String.valueOf(value);
+        if (text.trim().isEmpty()) {
+            return null;
+        }
+        // the lines keep their leading tab: a row whose first cell is empty is a shop that prints no
+        // article code, and trimming the text took the tab of that empty cell with it, so the row came
+        // back with three cells and the order was refused with "没有解析出明细" (Step 163). The other
+        // fields are one value each (an order number, a shop, an amount) and are trimmed as before
+        return "lines".equals(field) ? text : text.trim();
     }
 }

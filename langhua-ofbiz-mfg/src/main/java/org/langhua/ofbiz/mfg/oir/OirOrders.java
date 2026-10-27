@@ -103,11 +103,28 @@ public final class OirOrders {
             return rows;
         }
         for (String raw : text.split("\r?\n")) {
-            String line = raw.trim();
-            if (line.isEmpty() || line.startsWith("#")) {
+            if (raw.trim().isEmpty() || raw.trim().startsWith("#")) {
                 continue;
             }
+            // the first cell may be empty - a shop that prints no article code - and trimming the line
+            // took the tab that held that empty cell with it: the row then had three cells, was
+            // dropped, and `mfgReceiptFromOrder` refused the whole order with "没有解析出明细" while the
+            // page showed the row quite happily (Step 163)
+            String line = raw.replaceAll("\\s+$", "");
             String[] cells = MfgServices.splitCsvLine(line, cellsSeparator(line));
+            if (cells.length == 3) {
+                // a shop that prints no article code: the model answers an empty first cell, and by the
+                // time the text reaches the service the first cell is gone - OFBiz trims every request
+                // parameter (UtilHttp.canonicalizeParameterMap), so the row arrives as name, quantity,
+                // amount. Read it as a row without a code rather than losing the order (Step 163)
+                if (optionalAmount(cells[1]) == null || optionalAmount(cells[2]) == null) {
+                    // a row of code, name, quantity reads the same way: only take three cells when the
+                    // middle one is a quantity and the last one is money
+                    continue;
+                }
+                cells = new String[] {"", trimmedCell(cells[0]), trimmedCell(cells[1]),
+                    trimmedCell(cells[2])};
+            }
             if (cells.length < 4) {
                 continue;
             }
@@ -120,9 +137,15 @@ public final class OirOrders {
                 // empty first cell; the line is still worth keeping, so the code comes from the name
                 code = codeFromName(cells[1]);
             }
-            rows.add(new String[] {code, cells[1], cells[2], cells[3]});
+            rows.add(new String[] {code, trimmedCell(cells[1]), trimmedCell(cells[2]),
+                trimmedCell(cells[3])});
         }
         return rows;
+    }
+
+    /** @return the cell without the spaces a copied line may hold around it */
+    private static String trimmedCell(String cell) {
+        return cell == null ? "" : cell.trim();
     }
 
     private static char cellsSeparator(String line) {

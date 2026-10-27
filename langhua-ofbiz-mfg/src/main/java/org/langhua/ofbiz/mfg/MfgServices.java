@@ -8630,7 +8630,15 @@ always
             return ServiceUtil.returnError(denied);
         }
         Delegator delegator = dctx.getDelegator();
-        String lines = toText(context.get("lines"));
+        // the lines are handed over as they were recognised: a row whose first cell is empty (a shop
+        // that prints no article code) starts with a tab, and trimming the whole text ate it, so the row
+        // came back with three cells and the whole order was refused with "没有解析出明细" while the page
+        // showed the row quite happily (Step 163). Only a text of nothing but blanks counts as empty.
+        Object rawLines = context.get("lines");
+        String lines = rawLines == null ? null : rawLines.toString();
+        if (lines != null && lines.trim().isEmpty()) {
+            lines = null;
+        }
         if (lines == null) {
             return ServiceUtil.returnError("请把订单明细粘进来（一行一个料：料号,名称,数量,实付金额）");
         }
