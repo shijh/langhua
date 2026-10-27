@@ -10083,6 +10083,17 @@ always
                             + "请对着截图核对");
                 }
             }
+            if (!addsUp(kept, wanted)) {
+                // a row whose money is the whole 实付款 is that number read as an article: the block of
+                // 4 rows was read as 2 rows plus one row of 16.00, which is what was paid (Step 146)
+                List<String[]> withoutSummary = withoutTheRowThatIsThePaidTotal(
+                        kept, round2(paid.doubleValue() - freightValue));
+                if (withoutSummary != null) {
+                    kept = withoutSummary;
+                    order.put("note", "有一行的金额正好是整单实付（那是实付款被当成了一行明细），已去掉；"
+                            + "还缺的明细请对着截图补上");
+                }
+            }
             // a block that prints one article carries the whole money of that block: 实付款 6.60
             // beside ¥3.30 x2 with （5条）a pack is one article of 10 pieces worth 6.60, and the model
             // reads the price of one pack as the money of the row - or invents a discount of the
@@ -10299,6 +10310,40 @@ always
 
     /** The most packs behind one {@code x} the page may print for one row. */
     private static final int MAX_PACKS = 20;
+
+    /**
+     * Drops the row that carries the whole paid total of the block: a page prints that number once, in
+     * the header, so a row of exactly that money is the paid total read as an article (a block of four
+     * rows at 4.00 each came back as two rows plus one row of 16.00, Step 146).
+     *
+     * <p>Only a block of three rows or more is corrected, and only when one row says that money: two
+     * rows of one block are two articles, and one of them may cost what the block cost.
+     *
+     * @param rows the article rows of one order
+     * @param paid the paid total of the block without the freight
+     * @return the rows without that one, {@code null} when no single row carries it
+     */
+    private static List<String[]> withoutTheRowThatIsThePaidTotal(List<String[]> rows, double paid) {
+        if (rows.size() < 3 || paid <= 0.0) {
+            return null;
+        }
+        int at = -1;
+        for (int i = 0; i < rows.size(); i++) {
+            if (Math.abs(round2(toDouble(rows.get(i)[3], 0.0)) - paid) <= 0.06) {
+                if (at >= 0) {
+                    // two rows claim the whole money: nothing says which one is the summary
+                    return null;
+                }
+                at = i;
+            }
+        }
+        if (at < 0) {
+            return null;
+        }
+        List<String[]> out = new ArrayList<>(rows);
+        out.remove(at);
+        return out;
+    }
 
     /**
      * Reads the money of a row that was given as the price of one pack instead of the money of the
@@ -10529,7 +10574,7 @@ always
                         && saysFewerBlocksThanItRead(blocksSaid, slice, answer.size())
                         && sameShopOrMissing(kept, order);
                 if (kept != null && sameAnswer(kept, slice, sliceOf) && !sameMoneyAndArticles(kept, order)
-                        && !lostTheShop(kept, order) && !halvesOfOneBlock) {
+                        && !lostTheShop(kept, order) && !halvesOfOneBlock && !samePaidMoney(kept, order)) {
                     // a page never prints one order number on two blocks, and one picture shows each
                     // block once: the two blocks were read with the same number, so keeping them apart
                     // shows both orders. Merging them dropped the second one - a page of 29 orders with
@@ -10553,6 +10598,20 @@ always
                     continue;
                 }
                 if (kept == null) {
+                    // the second read of a block may come back with the number one digit short: the
+                    // price of one piece beside the paid total tells it is the same block, whatever
+                    // number the two reads wrote (Step 144)
+                    Map<String, String> priced = twinPrintingThePriceOfTheOther(byNumber, order);
+                    if (priced != null) {
+                        if (biggerMoney(order, priced)) {
+                            priced.clear();
+                            priced.putAll(order);
+                        }
+                        String already = priced.get("note");
+                        String why = "同一块被读成了两张单（另一张把单价当成了实付），多出来的那条已去掉，请对着截图核对";
+                        priced.put("note", already == null || already.trim().isEmpty() ? why : already + "；" + why);
+                        continue;
+                    }
                     String twin = numberOneCharacterOff(byNumber, order);
                     kept = twin == null ? null : byNumber.get(twin);
                     if (kept != null && sameAnswer(kept, slice, sliceOf)
@@ -10930,6 +10989,28 @@ always
         }
         Integer said = blocksSaid.get(slice);
         return said != null && said.intValue() > 0 && said.intValue() < objects;
+    }
+
+    /**
+     * @param byNumber the orders read so far, by their number
+     * @param order the order just read
+     * @return the read of the same block that carries the price of one piece where this one carries
+     *     the money of the order, {@code null} when there is none
+     */
+    private static Map<String, String> twinPrintingThePriceOfTheOther(
+            Map<String, Map<String, String>> byNumber, Map<String, String> order) {
+        String number = order.get("orderNo") == null ? "" : order.get("orderNo").trim();
+        if (number.isEmpty()) {
+            return null;
+        }
+        for (Map.Entry<String, Map<String, String>> entry : byNumber.entrySet()) {
+            if (numbersOfTheSameOrder(entry.getKey(), number)
+                    && sameShopOrMissing(entry.getValue(), order)
+                    && onePrintsThePriceOfTheOther(entry.getValue(), order)) {
+                return entry.getValue();
+            }
+        }
+        return null;
     }
 
     /**

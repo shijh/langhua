@@ -1111,6 +1111,51 @@ public class MfgServicesTest {
     }
 
     @Test
+    public void joinsTwoReadsOfOneBlockThatPrintTheSamePaidTotal() {
+        // the block prints four rows of 4.00 and 实付款 16.00; the model answered it as two objects of
+        // the same number, the same shop and the same 16.00 - two rows of 4.00 and one row of 16.00.
+        // A page prints one 实付款 per block, so the two objects are that one block (Step 146)
+        List<Map<String, String>> picture = MfgServices.orderListFrom("{\"orderCount\":\"2\",\"orders\":["
+                + "{\"orderNo\":\"3071440382104500570\",\"shop\":\"诚信达电子科技\",\"paidTotal\":\"16.00\","
+                + "\"freight\":\"0.00\",\"rowCount\":\"4\",\"items\":["
+                + "{\"code\":\"10K 50个\",\"name\":\"排阻\",\"qty\":\"100\",\"amount\":\"4.00\"},"
+                + "{\"code\":\"100K 50个\",\"name\":\"排阻\",\"qty\":\"100\",\"amount\":\"4.00\"}]},"
+                + "{\"orderNo\":\"3071440382104500570\",\"shop\":\"诚信达电子科技\",\"paidTotal\":\"16.00\","
+                + "\"freight\":\"0.00\",\"rowCount\":\"4\",\"items\":["
+                + "{\"code\":\"0603*4贴片排阻\",\"name\":\"排阻\",\"qty\":\"100\",\"amount\":\"16.00\"}]}]}");
+        List<Map<String, String>> merged = MfgServices.mergeOrders(Collections.singletonList(picture));
+        assertEquals(1, merged.size());
+        // the row that carries the whole 实付款 is the header read as an article, so it is dropped and
+        // what was really read of the block stays
+        MfgServices.tidyOrder(merged.get(0));
+        String[] rows = merged.get(0).get("lines").split("\n");
+        assertEquals(2, rows.length);
+        assertEquals("4.00", rows[0].split("\t")[3]);
+        assertEquals("4.00", rows[1].split("\t")[3]);
+        assertEquals("16.00", merged.get(0).get("paidTotal"));
+        // the rest of the block was not read, and the page keeps saying so
+        assertNotNull(MfgServices.checkOrderTotals(merged.get(0)));
+    }
+
+    @Test
+    public void dropsTheSecondReadThatLostADigitAndCarriesThePriceOfOnePiece() {
+        // the same block came back twice: 3071465510024500570 with 217.90 and 307146551002450570 (one
+        // digit short) with the 2.18 of a single piece. The price does not change because the number
+        // lost a digit: 100 x 2.18 is the 217.90 that was paid (Step 144)
+        List<Map<String, String>> picture = MfgServices.orderListFrom("{\"orderCount\":\"2\",\"orders\":["
+                + "{\"orderNo\":\"3071465510024500570\",\"shop\":\"深圳市华胜特电子商城\","
+                + "\"paidTotal\":\"217.90\",\"rowCount\":\"1\",\"items\":["
+                + "{\"code\":\"TPS63051RMWR\",\"name\":\"buck\",\"qty\":\"100\",\"amount\":\"217.90\"}]},"
+                + "{\"orderNo\":\"307146551002450570\",\"shop\":\"深圳市华胜特电子商城\","
+                + "\"paidTotal\":\"2.18\",\"rowCount\":\"1\",\"items\":["
+                + "{\"code\":\"TPS63051RMWR\",\"name\":\"buck\",\"qty\":\"100\",\"amount\":\"2.18\"}]}]}");
+        List<Map<String, String>> merged = MfgServices.mergeOrders(Collections.singletonList(picture));
+        assertEquals(1, merged.size());
+        assertEquals("217.90", merged.get(0).get("paidTotal"));
+        assertEquals(1, MfgServices.parseOrderArticleLines(merged.get(0).get("lines")).size());
+    }
+
+    @Test
     public void seesABlockThatCarriedTheArticlesOfTheBlockAbove() {
         // the codes and names of one printed line are written differently by two reads, so the blocks
         // look different although the articles are the same: the money tells it (a block on the page
