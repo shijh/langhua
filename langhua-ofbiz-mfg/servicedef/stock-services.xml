@@ -40,6 +40,21 @@
     </service>
 
 
+    <service name="mfgLotEdit" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgStockServices" invoke="lotEdit"
+            auth="false" use-transaction="false">
+        <description>Rewrite the readable details of a lot (name, supplier, supplier batch, note); the part number moves with mfgPartCodeRename instead</description>
+        <attribute name="lotId" type="String" mode="IN" optional="false"/>
+        <attribute name="componentName" type="String" mode="IN" optional="true"/>
+        <attribute name="supplierName" type="String" mode="IN" optional="true"/>
+        <attribute name="supplierLot" type="String" mode="IN" optional="true"/>
+        <attribute name="note" type="String" mode="IN" optional="true"/>
+        <attribute name="lotId" type="String" mode="OUT" optional="true"/>
+        <attribute name="editedLot" type="String" mode="OUT" optional="true"/>
+        <attribute name="search" type="String" mode="OUT" optional="true"/>
+    </service>
+
+
     <service name="mfgLotRecount" engine="java"
             location="org.langhua.ofbiz.mfg.MfgStockServices" invoke="lotRecount"
             auth="false" use-transaction="false">

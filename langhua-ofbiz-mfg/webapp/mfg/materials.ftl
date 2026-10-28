@@ -79,7 +79,17 @@ C0402-100N,100nF 0402 电容,立创商城,DC2409B,500,2026-10-19</textarea>
             <tr>
                 <td>${lot.lotId!}</td>
                 <td>${lot.componentCode!}</td>
-                <td>${lot.componentName!}</td>
+                <td>
+                    <#-- a lot imported from a shop order carries the whole article title; a readable
+                         name is what makes the right lot recognizable in the BOM's part number list -->
+                    <form method="post" action="/mfg/control/lotEdit" class="inline">
+                        <input type="hidden" name="lotId" value="${lot.lotId}"/>
+                        <input type="text" name="componentName" size="22" value="${(lot.componentName)!}"
+                               title="名称（在 BOM 料号下拉、发料、追溯里都用这个名字）"/>
+                        <input type="text" name="note" size="10" value="${(lot.note)!}" placeholder="备注"/>
+                        <input type="submit" value="改"/>
+                    </form>
+                </td>
                 <td>${lot.supplierName!}</td>
                 <td>${lot.supplierLot!}</td>
                 <td class="num">${((lot.receivedQty)!0)?string("0.##")}</td>
@@ -124,9 +134,14 @@ C0402-100N,100nF 0402 电容,立创商城,DC2409B,500,2026-10-19</textarea>
     <#if parameters.recounted??>
         <p class="ok">批次 ${parameters.recounted} 已按点数改成 ${(parameters.recountQty)!''}：钱没变，单价跟着数量重算，库存按新数量算。流水里多了一条「调整」（备注写清了改前改后）。</p>
     </#if>
+    <#if parameters.editedLot??>
+        <p class="ok">批次 ${parameters.editedLot} 的名称/备注已保存（料号要改的话用上面的「料号重命名」）。</p>
+    </#if>
     <p class="hint">「点数修正」用在<b>一个订单里有几块/几片</b>的料上（PCB 打样最常见：订单写 ¥21.00 x1，实际发 3~5 块）：
         拆包点清楚后在这里填真实数量。金额不变，单价自动变成 实付 ÷ 数量（如 21 元 5 块 = 4.20/块），
-        到货单上那一行也跟着改。数量变多就多出库存，变少就少（流水里会多一条「调整」，谁数的、为什么改都在）。</p>
+        到货单上那一行也跟着改。数量变多就多出库存，变少就少（流水里会多一条「调整」，谁数的、为什么改都在）。
+        <br/><b>名称 / 备注</b>在「名称」格里直接改（改了之后 BOM 的料号下拉、发料、追溯里都是这个名字，好认）；
+        <b>料号</b>用上方的「料号重命名」（那是各表之间的键，要一次改全）。</p>
 <#else>
     <p class="hint">还没有批次记录。</p>
 </#if>

@@ -172,7 +172,10 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   **别用「补入库/盘点」去救数量**：那两条只改在库、不动 `receivedAmount ÷ receivedQty`，单价还是 21/块，
   材料成本会错（README 里写清了）。成品批次（`FG-…`）不能这么改。
   坑：`<redirect-parameter>` 只吃 String，所以 OUT 用 `recountQty` / `recounted` 这种字符串，
-  页面用 `${parameters.recounted}` 显示；巡检 `verify-m55-recount.ps1`（17 项，断言流水里的 `4.2000` / `+4` / `21.0000`）。
+  页面用 `${parameters.recounted}` 显示；巡检 `verify-m55-recount.ps1`（20 项，断言流水里的 `4.2000` / `+4` / `21.0000`）。
+  **名称 / 备注 / 供应商 / 批号用 `mfgLotEdit`**（批次台账行内改，`context.containsKey` 只写传了的字段）；
+  **料号不能用它改**——那是各表之间的键，走 `mfgPartCodeRename`（一次改全）。也**别拿 `lotSave` 改老批次**：
+  它只给新批次写 `receivedQty`，且没传 `unitPrice`/`amount` 时会把单价写成 null。
 
 - **研发 BOM：Fritzing 的 `bom.html` 直接进开发项目（Step 175）**：一块板从面包板开始，所以「研发 BOM」挂在
   **开发项目**（`/mfg/control/dev?projectCode=…` 的 `#devbom` 一段）而不是型号上。一次导入 = 一条

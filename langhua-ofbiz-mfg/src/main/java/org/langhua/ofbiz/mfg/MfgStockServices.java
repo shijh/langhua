@@ -110,6 +110,62 @@ public final class MfgStockServices {
     }
 
     /**
+     * Rewrites the readable details of a lot: its name, the supplier, the supplier's batch number and
+     * the note. The part number is not touched - it is the key that ties the lot to the BOM, the
+     * issues and the receipt, so it moves with {@code mfgPartCodeRename} instead.
+     *
+     * <p>Why a separate service: a lot imported from a shop order carries the whole article title as
+     * its name ("PCB打样电路板线路板pcb板打样批量生产加工源头厂家制作定制"), and that is what the page offers
+     * while a BOM row's part number is corrected - a name like "PCB 线圈板 v94" is what makes the right
+     * lot recognizable in that list.
+     *
+     * <p>Only the fields that were sent are written, so a form that shows one field cannot wipe the
+     * rest; a blank field clears the value.
+     *
+     * @param dctx the dispatch context
+     * @param context service context, see {@code servicedef/stock-services.xml#mfgLotEdit}
+     * @return the service result with {@code lotId}, {@code editedLot} and {@code search}
+     */
+    public static Map<String, Object> lotEdit(DispatchContext dctx, Map<String, ? extends Object> context) {
+        String denied = MfgSecurity.permissionProblem(dctx, context, MfgConstants.PERM_STOCK);
+        if (denied != null) {
+            return ServiceUtil.returnError(denied);
+        }
+        Delegator delegator = dctx.getDelegator();
+        String lotId = MfgSupport.toText(context.get("lotId"));
+        if (lotId == null) {
+            return ServiceUtil.returnError("lotId is required");
+        }
+        try {
+            GenericValue lot = EntityQuery.use(delegator).from("MfgMaterialLot").where("lotId", lotId).queryOne();
+            if (lot == null) {
+                return ServiceUtil.returnError("Unknown material lot [" + lotId + "]");
+            }
+            if (context.containsKey("componentName")) {
+                lot.set("componentName", MfgSupport.toText(context.get("componentName")));
+            }
+            if (context.containsKey("supplierName")) {
+                lot.set("supplierName", MfgSupport.toText(context.get("supplierName")));
+            }
+            if (context.containsKey("supplierLot")) {
+                lot.set("supplierLot", MfgSupport.toText(context.get("supplierLot")));
+            }
+            if (context.containsKey("note")) {
+                lot.set("note", MfgSupport.toText(context.get("note")));
+            }
+            delegator.store(lot);
+            Map<String, Object> result = ServiceUtil.returnSuccess();
+            result.put("lotId", lotId);
+            result.put("editedLot", lotId);
+            // come back to the page filtered by the part number, where the row is visible
+            result.put("search", lot.getString("componentCode"));
+            return result;
+        } catch (GenericEntityException e) {
+            return ServiceUtil.returnError("保存批次资料失败：" + e.getMessage());
+        }
+    }
+
+    /**
      * Records the incoming inspection of one lot.
      *
      * <p>A failed lot stays in the ledger (it has to be traced back to the supplier) but it cannot be

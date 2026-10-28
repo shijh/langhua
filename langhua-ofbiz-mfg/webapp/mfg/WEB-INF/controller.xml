@@ -402,6 +402,16 @@
         <response name="error" type="view" value="materials"/>
     </request-map>
 
+    <request-map uri="lotEdit">
+        <security https="true" auth="true"/>
+        <event type="service" invoke="mfgLotEdit"/>
+        <response name="success" type="request-redirect" value="materials">
+            <redirect-parameter name="search"/>
+            <redirect-parameter name="editedLot"/>
+        </response>
+        <response name="error" type="view" value="materials"/>
+    </request-map>
+
     <request-map uri="replacementSave">
         <security https="true" auth="true"/>
         <event type="service" invoke="mfgReplacementSave"/>
