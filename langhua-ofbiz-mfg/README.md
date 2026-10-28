@@ -145,24 +145,88 @@ flowchart LR
 
 ```
 langhua-ofbiz-mfg/
-├── ofbiz-component.xml                  # 组件描述符
-├── build.gradle                         # 无第三方依赖（仅用于纳入 Gradle 构建）
-├── config/
-│   └── MfgUiLabels.xml                  # 状态多语言标签
-├── data/
-│   └── MfgSecurityPermissionSeedData.xml # 权限与权限组种子数据
-├── entitydef/
-│   ├── entitymodel.xml                  # 25 个业务实体
-│   └── entitygroup.xml
-├── servicedef/
-│   └── services.xml                     # 65 个服务
-├── widget/
-│   ├── MfgCommonScreens.xml             # 登录/错误页 decorator + 页面布局装饰器 mfg-decorator
-│   └── MfgScreens.xml                   # 14 个页面（内容包在 mfg-decorator 里）
-├── webapp/mfg/                          # controller.xml + web.xml + 16 个 FTL + decorator.ftl + attachmentBlock.ftl + css/ + js/
+├── ofbiz-component.xml              # 组件描述符；14 条 service-resource 在这里登记
+├── config/                          # MfgUiLabels.xml（状态多语言）
+├── data/                            # MfgSecurityPermissionSeedData.xml（权限与角色种子）
+├── entitydef/                       # entitymodel.xml + entitygroup.xml
+├── servicedef/                      # 一个域一个服务定义文件（121 个服务）
+│   ├── account-services.xml         #   7：改密门禁、账号页、操作记录
+│   ├── security-services.xml        #   1：mfgPermissions（装饰器问导航用）
+│   ├── settings-services.xml        #   2：系统设置
+│   ├── software-services.xml        #   3：软件报价与台账
+│   ├── attachment-services.xml      #   3：任意单据的附件
+│   ├── product-services.xml         #  14：型号、BOM 版本、工艺、成本
+│   ├── workorder-services.xml       #  22：工单、发料/预留、报工、SN、外协、追溯
+│   ├── delivery-services.xml        #   3：出货
+│   ├── claim-services.xml           #  11：售后、买家名单、质量报表
+│   ├── salesorder-services.xml      #   7：销售单、两级预留、排产
+│   ├── purchase-services.xml        #  12：采购到货、导入、退款黑名单
+│   ├── stock-services.xml           #  14：批次、来料检验、库位、盘点
+│   ├── dev-services.xml             #  15：开发三线、步骤、问题清单、ECO
+│   └── report-services.xml          #   7：看板、告警、趋势、缺料、供应商
+├── widget/                          # MfgCommonScreens.xml（装饰器）+ MfgScreens.xml（页面）
+├── webapp/mfg/                      # controller.xml、web.xml、FTL、decorator.ftl、css/、js/
+├── script/                          # signIn.groovy（登录话术 + CSRF 隐藏域）
+├── docs/识图设计.md                  # 截图识别那一套的设计说明
+├── integration-test/MfgServiceIT.java  # 433 项服务级断言
+├── tools/                           # 旧库手工 ALTER 的 sql、图标生成脚本等
 ├── src/main/java/org/langhua/ofbiz/mfg/
+│   ├── 服务层（一个域一个类，服务入口只在这里）：
+│   │     MfgAccountServices / MfgSecurity / MfgSettingsServices / MfgSoftwareServices /
+│   │     MfgAttachmentServices / MfgProductServices / MfgWorkOrderServices / MfgDeliveryServices /
+│   │     MfgClaimServices / MfgSalesOrderServices / MfgPurchaseServices / MfgStockServices /
+│   │     MfgDevServices / MfgReportServices
+│   ├── 词汇层（跨域共享，只读不写回）：
+│   │     MfgConstants（190 个常量）/ MfgRecordMaps（实体→页面 map）/ MfgSecurity（权限）
+│   ├── 纯函数层（不碰库，可单测）：
+│   │     MfgSupport / MfgPaging / MfgCsv / MfgStockLedger
+│   ├── 事件层（controller 事件、文件上传、导出、登录）：
+│   │     Mfg*Events / MfgOrderScan / MfgOrderExcel / MfgAudit
+│   └── oir/                         # 截图识别：OirScan（问与切）+ OirOrders（规则）+ README.md
 └── src/test/java/org/langhua/ofbiz/mfg/
+    ├── MfgFormatRulesTest / MfgOrderReadRulesTest / MfgClaimRulesTest
+    ├── MfgAuditRulesTest / MfgProductRulesTest / MfgDomainRulesTest
+    └── （六个类共 177 个用例，一个 `mfg-tests-all.bat` 一次跑完）
 ```
+
+## 改代码时的地图（维护指南）
+
+服务代码曾经是一个 14 602 行的 `MfgServices.java`，现已按域拆开（Step 164–172），配套的服务定义拆成
+一域一个文件（Step 174），单测也按域拆成六个类（Step 173）。**改东西之前先看这张表**：
+
+| 我要改… | 动这些文件 | 验证 |
+| --- | --- | --- |
+| 一个页面的服务逻辑 | `Mfg<域>Services.java`；改了 IN/OUT 属性时同步 `servicedef/<域>-services.xml` | `mfg-tests-all.bat` + `mfg-it.bat` |
+| 加一个服务 | ① 类里加 `public static Map<String, Object> xxx(DispatchContext, Map)`；② `servicedef/<域>-services.xml` 加 `<service>`（**OUT 属性必须声明，否则值会被静默丢弃**）；③ 若是页面，再在 `controller.xml` 加 `<request-map>` **和** `<view-map>` | `mfg-it.bat` |
+| 加一个域（新类） | ① 新建 `Mfg<域>Services.java`；② 新建 `servicedef/<域>-services.xml`；③ **在 `ofbiz-component.xml` 加一条 `service-resource`**（漏了就是 “No such service”）；④ 加一个 `Mfg<域>RulesTest` 并把它加进 `mfg-tests-all.bat` 的 `CLASSES=` | `mfg-it.bat` |
+| 页面/模板 | `widget/MfgScreens.xml` + `controller.xml` + `webapp/mfg/*.ftl`（导航在 `decorator.ftl`） | `verify-m12.ps1` + `verify-m11.ps1` |
+| 一条纯规则（无数据库） | 放进对应域类的 `static` 方法（通用的小件进 `MfgSupport` / `MfgCsv` / `MfgStockLedger`），在对应 `*RulesTest` 补用例 | `mfg-tests-all.bat` |
+| 状态串 / 告警种类 / 默认值 | `MfgConstants`（一处定义、全组件引用） | `mfg-tests-all.bat` |
+| 页面行的字段名与格式 | `MfgRecordMaps`（列表页、详情页、CSV 共用同一份） | 对应 `verify-m*.ps1` |
+| 权限 | `MfgSecurity.permissionProblem(dctx, ctx, PERM_X)`；角色的种子数据在 `data/` | `verify-m41.ps1` |
+| 识图规则 / 提示词 / 切段 | `oir/OirOrders`（纯规则）与 `oir/OirScan`（联网与切图）；**先读 `docs/识图设计.md` 与 `oir/README.md`** | `MfgOrderReadRulesTest` |
+| 实体 / 字段 | `entitydef/entitymodel.xml`；旧库另写 `tools/*.sql`（停实例 → ij → 起） | `mfg-it.bat` |
+| 页面巡检脚本 | `%TEMP%\jup\verify-m*.ps1`（不进仓库） | 直接跑 |
+
+### 分类规则（为什么这么分）
+
+- **服务层**只做「校验参数 → 调规则 → 落库/组结果」，一个域一个类；服务入口**只在一个类里**，
+  跨域直接静态调用（例：`salesOrderPlan` → `MfgWorkOrderServices.workOrderCreate`）。
+- **词汇层**（`MfgConstants` / `MfgRecordMaps` / `MfgSecurity`）谁都可以读，但**不允许反过来依赖某个域的服务类**；
+  某个域自己才用的常量/映射就留在那个域里（如软件报价的费率在 `MfgSoftwareServices`）。
+- **纯函数层**不碰 `DispatchContext`，因此能在单测里直接覆盖：金额算式、窗口日期、库存流水算术都在这里。
+- **`oir` 是独立包**：第三方只读它就能审计算法；不能写库、返回结构不能变、`MfgOrderScan` 这个类名不能删
+  （`controller.xml` 指向它）。
+- 类的顺序/命名约定：`Mfg<域>Services`（服务）、`Mfg<域>Events`（controller 事件）、`Mfg<域>RulesTest`（单测）。
+
+### 拆分类时的经验（踩过的坑）
+
+- 先用脚本算**传递闭包**，再按「闭包外还有没有人调」分成 move / stay 两堆；**闭包 ≠ 能搬**：
+  跨域共享的行映射、销售单预留算术、告警助手通常要留下。
+- 重载方法**按名字搬全部**（`hoursLeft` / `summary` 之类），只搬第一个会编译失败。
+- 给搬走的代码加限定名时，**声明行自己不能加**（`static Map<..> MfgX.toLotMap(..)` 是错的）。
+- 搬完后 grep 一遍 **所有** `旧类.<方法>(` 的调用点——包括**已经搬走的类**（它们也会反向引用）。
+- 每搬完一步都要 `mfg-it.bat`：它按服务名调用，能抓住 `location=` / 服务定义的错。
 
 ## 部署
 
@@ -373,6 +437,9 @@ https://localhost:8443/mfg/control/main
 | `MfgSoftwareProject` | 软件项目台账：`projectCode`（SW-yyMMdd-NN）、`categoryId`（固件/外壳设计/上位机/平台）、`productCode`、`devProjectCode`、`statusId`、`deliverySeq`（同类第几次）、规模 `ilfCount`/`eifCount`/`ufp`、估算参数 `swfBase`/`swfReuse`/`swfPreInvest`/`swfQuality`/`rdf`/`pdrHoursPerFp`/`dayRate`/`taxRate`/`dncRate`、`plannedDays`（估算冻结）、`plannedStartDate`/`plannedEndDate`、实际 `actualHours`/`actualCost`、`quotedAmount` |
 
 ## 服务
+
+服务定义按域分成 14 个文件（`servicedef/<域>-services.xml`，见「目录结构」），Java 实现按域在
+`Mfg<域>Services` 里，两者靠 `location=` 关联；**加/改服务时两处都要动**（详见「改代码时的地图」）。
 
 | 服务名 | 说明 |
 | --- | --- |
@@ -787,18 +854,28 @@ java -cp build/it-classes MfgServiceIT
 
 ## 单元测试
 
+单测按域分成六个类（共 **177** 个用例），`mfg-tests-all.bat` 一次编全部源码 + 全部测试源码再跑六个类：
+
 ```bash
+# 关键点：先 cd 到一个临时目录再起 JVM —— OFBiz 的 log4j2 把日志写到相对路径 runtime/logs，
+# 不然日志会在你当前所在的仓库目录里长出来。
 javac --release 17 -encoding UTF-8 -cp "ofbiz.jar:junit-4.13.2.jar:hamcrest-core-1.3.jar" \
-      -d build/test-classes src/test/java/org/langhua/ofbiz/mfg/MfgServicesTest.java \
-      src/main/java/org/langhua/ofbiz/mfg/MfgServices.java
+      -d build/test-classes @sources.txt
 java -cp "build/test-classes:ofbiz.jar:junit-4.13.2.jar:hamcrest-core-1.3.jar" \
-      org.junit.runner.JUnitCore org.langhua.ofbiz.mfg.MfgServicesTest
+      org.junit.runner.JUnitCore \
+      org.langhua.ofbiz.mfg.MfgFormatRulesTest org.langhua.ofbiz.mfg.MfgOrderReadRulesTest \
+      org.langhua.ofbiz.mfg.MfgClaimRulesTest org.langhua.ofbiz.mfg.MfgAuditRulesTest \
+      org.langhua.ofbiz.mfg.MfgProductRulesTest org.langhua.ofbiz.mfg.MfgDomainRulesTest
 ```
 
-覆盖 BOM / 批次 / 测试结果 CSV 解析（引号、缺列、CRLF、注释行、大小写归一、Tab 分隔与 UTF-8 BOM）、SN 列表拆分、FIFO 推定切片、
-邮寄标签格式、SN / 工单编号格式，保修到期日、7 天 / 15 天窗口、剩余小时与运费承担，
-以及买家匹配键、手机号归一化与打码、风险等级建议、名单到期判定，还有百分比、日期差与失效分档、售后成本计算、红线判定、看板坐标轴与柱高缩放、关键词过滤与分页切片，
-以及 BOM 版本号生成与下一版号推导、开发阶段阶梯与关卡推进规则、变更单状态与类型校验、三条线路的步骤目录与首个未完成步骤推导、附件类型白名单（含 PDF）与 owner 类型白名单、文件名清洗、成本合计与目标差 / 毛利换算（含两位小数取整、目标售价为空时的处理）、CSV 单元格转义与数量格式化、软件报价四步公式与耗时率中位数、趋势期间的日/周/月标签与良率/单台工时、库存流水符号与不合格批次可用量为 0、预留怎么占掉可发量、成品批次命名与单位成本分摊、订单行欠货与待排产量、订单行文本解析、库位类型、外协费计价与单台分摊、问题排序与校验（共 82 个用例）。
+| 类 | 用例 | 覆盖 |
+| --- | --- | --- |
+| `MfgFormatRulesTest` | 29 | BOM / 批次 / 测试结果 CSV 解析（引号、缺列、CRLF、注释行、大小写归一、Tab 分隔、UTF-8 BOM）、SN 列表拆分、FIFO 切片、邮件标签、SN 与工单编号、翻页与关键词过滤、BOM 版本号、到货单汇总、订单行文本 |
+| `MfgOrderReadRulesTest` | 69 | 识图的一切：答案解析（裸 JSON / 围栏 / chat envelope / reasoning_content）、长回答不爆栈、优惠与运费、切段与重叠合并、同号两块、按钮与块数、金额对账、空料号与包装量 |
+| `MfgClaimRulesTest` | 20 | 保修到期、7 天 / 15 天窗口、剩余小时与即将到期、买家键与手机号归一化/打码、风险等级建议、名单到期、百分比、账龄分档、售后成本、红线 |
+| `MfgProductRulesTest` | 18 | BOM 版本号与下一版、开发阶段阶梯与关卡、变更单状态与类型、三条线路的步骤目录、首个未完成步骤、附件类型白名单与文件名清洗、两种 BOM 格式 |
+| `MfgAuditRulesTest` | 6 | 登录跳回（页面 vs 视图名）、审计动作中文名、单据请求名、行号与保留期 |
+| `MfgDomainRulesTest` | 35 | 来料检验、单台成本与毛利、CSV 单元格转义与数量格式、软件报价四步与耗时率中位数、趋势期间标签与良率/单台工时、库存流水符号与预留、成品批次与单位成本、订单行欠货与待排产、库位类型、外协费、账号名与导入失败话术 |
 
 ## 页面巡检（PowerShell）
 

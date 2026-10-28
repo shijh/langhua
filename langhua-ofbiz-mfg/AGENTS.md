@@ -70,6 +70,14 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
 - **FreeMarker 没有 `ge` / `le`**，比较只有 `gt` / `gte` / `lt` / `lte`；写成 `ge` 是解析期 `ParseException`，
   而且报的是**后一行的列号**，很难看出是哪一行（曾把 products.ftl:229 报成条件里的 `ge`）
 - 负数零会渲染成 `-0.00`：`${(-x)?string("0.00")}` 在 x=0 时就是它，用 `${((x)?abs)?string("0.00")}`
+- **跑单测会在“当前目录”长出 `runtime/logs/`**：`framework/base/config/log4j2.xml` 里写的是
+  `fileName="runtime/logs/ofbiz.log"`（**相对路径**），所以 JUnit 那个 JVM 从哪个目录起，就在那儿建 `runtime\logs`。
+  曾经在 `src\main\java\org\langhua\ofbiz\mfg\` 里跑过测试，于是**源码树里多了一整套日志**（`ofbiz.log`、`error.log`
+  和滚动文件）；根 `.gitignore` 里的 `runtime/` 与 `derby.log` 让它们没被提交，但目录一直躺在那儿。
+  现在 `mfg-tests-all.bat`（学习曲线的 `run-tests.bat` 同理）在起 JVM 之前 `cd /d "%TEMP%\<name>-test-run"`，
+  日志固定落在临时目录。已删掉的残留：`src/main/java/.../mfg/runtime`、仓库根 `runtime/`、两个组件根上的 `derby.log`。
+  **别把那个 `cd` 删掉**；在仓库里手工 `java -cp ... JUnitCore` 做试验同样会留下 `runtime/logs`。
+  `langhua-ofbiz-jbpm/core/src/main/runtime` 是 Maven 模块的源码目录，**不是**这类残留，别一起删。
 - **改 `.ftl` 后直接 `Copy-Item` 不生效**：OFBiz 的模板缓存命中后不会因为 mtime 变化重载（只有上次加载**失败**时才会重试），
   所以模板改动必须重新 `deploy-mfg.bat`（重启）；Java 改动本来就要重启
 - `EntityQuery...queryOne()` 在可能多行时抛 `Passed List had more than one value`（一个型号可以有多个开发项目），
