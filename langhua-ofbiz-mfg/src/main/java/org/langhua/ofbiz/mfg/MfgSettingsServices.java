@@ -15,7 +15,7 @@ import org.apache.ofbiz.service.ServiceUtil;
  * The settings the shop changes on the pages instead of in a start script.
  *
  * <p>They are rows of {@code SystemProperty} under the resource id {@code mfg}, read by
- * {@link MfgServices#setting}. The key of the vision service is only ever written here and never
+ * {@link MfgSettingsServices#setting}. The key of the vision service is only ever written here and never
  * read back to a page ({@code visionKeySet} says whether one is stored).
  *
  * <p>Moved out of {@code MfgServices} in Step 166.
@@ -35,7 +35,7 @@ public final class MfgSettingsServices {
      */
     static void storeSetting(Delegator delegator, String id, String value) throws GenericEntityException {
         GenericValue row = EntityQuery.use(delegator).from("SystemProperty")
-                .where("systemResourceId", MfgServices.SETTINGS_RESOURCE, "systemPropertyId", id).queryOne();
+                .where("systemResourceId", MfgConstants.SETTINGS_RESOURCE, "systemPropertyId", id).queryOne();
         if (value == null) {
             if (row != null) {
                 row.remove();
@@ -44,7 +44,7 @@ public final class MfgSettingsServices {
         }
         if (row == null) {
             row = delegator.makeValue("SystemProperty");
-            row.set("systemResourceId", MfgServices.SETTINGS_RESOURCE);
+            row.set("systemResourceId", MfgConstants.SETTINGS_RESOURCE);
             row.set("systemPropertyId", id);
             row.set("description", "MFG：在「系统设置」页维护");
             delegator.create(row);
@@ -72,9 +72,9 @@ public final class MfgSettingsServices {
         result.put("visionSource", "NONE");
         result.put("visionMessage", denied == null ? "" : denied);
         result.put("canManage", denied == null ? "Y" : "N");
-        String endpoint = MfgServices.setting(delegator, "org.langhua.mfg.vision.endpoint");
-        String model = MfgServices.setting(delegator, "org.langhua.mfg.vision.model");
-        String key = MfgServices.setting(delegator, "org.langhua.mfg.vision.key");
+        String endpoint = MfgSettingsServices.setting(delegator, "org.langhua.mfg.vision.endpoint");
+        String model = MfgSettingsServices.setting(delegator, "org.langhua.mfg.vision.model");
+        String key = MfgSettingsServices.setting(delegator, "org.langhua.mfg.vision.key");
         result.put("visionEndpoint", endpoint == null ? "" : endpoint);
         result.put("visionModel", model == null ? "" : model);
         result.put("visionKeySet", key == null ? "N" : "Y");
@@ -123,9 +123,36 @@ public final class MfgSettingsServices {
     static boolean settingsInDatabase(Delegator delegator) {
         try {
             return EntityQuery.use(delegator).from("SystemProperty")
-                    .where("systemResourceId", MfgServices.SETTINGS_RESOURCE).queryFirst() != null;
+                    .where("systemResourceId", MfgConstants.SETTINGS_RESOURCE).queryFirst() != null;
         } catch (GenericEntityException e) {
             return false;
         }
+    }
+
+    /**
+     * Reads one setting: the value saved on the settings page first, then the system property of
+     * the same name, so an existing start script keeps working.
+     *
+     * @param delegator the delegator, may be {@code null}
+     * @param id the property id, e.g. {@code org.langhua.mfg.vision.endpoint}
+     * @return the value, {@code null} when neither the database nor the JVM knows it
+     */
+    public static String setting(Delegator delegator, String id) {
+        if (delegator != null) {
+            try {
+                GenericValue row = EntityQuery.use(delegator).from("SystemProperty")
+                        .where("systemResourceId", MfgConstants.SETTINGS_RESOURCE, "systemPropertyId", id).queryOne();
+                if (row != null) {
+                    String value = MfgSupport.toText(row.getString("systemPropertyValue"));
+                    if (value != null) {
+                        return value;
+                    }
+                }
+            } catch (GenericEntityException e) {
+                // the table may not be there yet on a very old database: fall back to the JVM
+                return MfgSupport.toText(System.getProperty(id));
+            }
+        }
+        return MfgSupport.toText(System.getProperty(id));
     }
 }

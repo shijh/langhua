@@ -345,13 +345,13 @@ public final class MfgExportEvents {
     }
 
     private static String typeLabel(String typeId) {
-        if (MfgServices.ALERT_SHORTAGE.equals(typeId)) {
+        if (MfgConstants.ALERT_SHORTAGE.equals(typeId)) {
             return "欠料";
         }
-        if (MfgServices.ALERT_CLAIM_7DAY.equals(typeId)) {
+        if (MfgConstants.ALERT_CLAIM_7DAY.equals(typeId)) {
             return "7 天窗口";
         }
-        if (MfgServices.ALERT_CLAIM_AFTERSALE.equals(typeId)) {
+        if (MfgConstants.ALERT_CLAIM_AFTERSALE.equals(typeId)) {
             return "15 天窗口";
         }
         return typeId;

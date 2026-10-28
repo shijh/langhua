@@ -40,7 +40,7 @@ public final class MfgDeliveryServices {
      */
     public static Map<String, Object> deliverySave(DispatchContext dctx, Map<String, ? extends Object> context) {
         // shipping is done by the warehouse, and sales may send the goods themselves
-        String denied = MfgServices.permissionProblem(dctx, context, MfgServices.PERM_SALES, MfgServices.PERM_STOCK);
+        String denied = MfgSecurity.permissionProblem(dctx, context, MfgConstants.PERM_SALES, MfgConstants.PERM_STOCK);
         if (denied != null) {
             return ServiceUtil.returnError(denied);
         }
@@ -85,7 +85,7 @@ public final class MfgDeliveryServices {
                 if (isDelivered(delegator, sn)) {
                     return ServiceUtil.returnError("Serial number [" + sn + "] has already been delivered");
                 }
-                if (!MfgServices.SN_COMPLETED.equals(unit.getString("statusId"))) {
+                if (!MfgConstants.SN_COMPLETED.equals(unit.getString("statusId"))) {
                     return ServiceUtil.returnError("Serial number [" + sn + "] is not in the finished goods stock yet,"
                             + " complete work order [" + unit.getString("workOrderId") + "] first");
                 }
@@ -131,8 +131,8 @@ public final class MfgDeliveryServices {
                 if (salesOrder == null) {
                     return ServiceUtil.returnError("Unknown sales order [" + salesOrderId + "]");
                 }
-                if (MfgServices.SO_CLOSED.equals(salesOrder.getString("statusId"))
-                        || MfgServices.SO_CANCELLED.equals(salesOrder.getString("statusId"))) {
+                if (MfgConstants.SO_CLOSED.equals(salesOrder.getString("statusId"))
+                        || MfgConstants.SO_CANCELLED.equals(salesOrder.getString("statusId"))) {
                     return ServiceUtil.returnError("Sales order [" + salesOrderId + "] is "
                             + salesOrder.getString("statusId"));
                 }
@@ -178,7 +178,7 @@ public final class MfgDeliveryServices {
                 delegator.create(item);
                 GenericValue unit = EntityQuery.use(delegator).from("MfgSn").where("sn", sn).queryOne();
                 if (unit != null) {
-                    unit.set("statusId", MfgServices.SN_SHIPPED);
+                    unit.set("statusId", MfgConstants.SN_SHIPPED);
                     delegator.store(unit);
                 }
             }
@@ -194,7 +194,7 @@ public final class MfgDeliveryServices {
                     continue;
                 }
                 double units = entry.getValue().intValue();
-                MfgStockLedger.recordMovement(delegator, unitLot, MfgServices.MOVE_ISSUE, -units, unitLot.get("unitPrice"),
+                MfgStockLedger.recordMovement(delegator, unitLot, MfgConstants.MOVE_ISSUE, -units, unitLot.get("unitPrice"),
                         entry.getKey(), null, deliveryId, operator,
                         shippedDay == null ? null
                                 : Timestamp.valueOf(shippedDay.toLocalDate().atStartOfDay()),
@@ -241,7 +241,7 @@ public final class MfgDeliveryServices {
             List<Map<String, Object>> list = new ArrayList<>(deliveries.size());
             Map<String, List<String>> serials = new LinkedHashMap<>();
             for (GenericValue delivery : deliveries) {
-                Map<String, Object> map = MfgServices.toDeliveryMap(delivery);
+                Map<String, Object> map = MfgRecordMaps.toDeliveryMap(delivery);
                 List<GenericValue> items = EntityQuery.use(delegator).from("MfgDeliverySn")
                         .where("deliveryId", delivery.getString("deliveryId")).orderBy("sn").queryList();
                 map.put("snCount", Integer.valueOf(items.size()));
@@ -304,7 +304,7 @@ public final class MfgDeliveryServices {
                 units.add(map);
             }
             Map<String, Object> result = ServiceUtil.returnSuccess();
-            result.put("delivery", MfgServices.toDeliveryMap(delivery));
+            result.put("delivery", MfgRecordMaps.toDeliveryMap(delivery));
             result.put("units", units);
             return result;
         } catch (GenericEntityException e) {
@@ -317,17 +317,17 @@ public final class MfgDeliveryServices {
     }
 
     static String formatDeliveryId(LocalDate date, int sequence) {
-        return "DO-" + date.format(MfgServices.DAY) + "-" + String.format(Locale.ROOT, "%02d", sequence);
+        return "DO-" + date.format(MfgConstants.DAY) + "-" + String.format(Locale.ROOT, "%02d", sequence);
     }
 
     static String nextDeliveryId(Delegator delegator, LocalDate today) throws GenericEntityException {
-        String prefix = "DO-" + today.format(MfgServices.DAY) + "-";
+        String prefix = "DO-" + today.format(MfgConstants.DAY) + "-";
         List<GenericValue> existing = EntityQuery.use(delegator).from("MfgDelivery").queryList();
         int max = 0;
         for (GenericValue delivery : existing) {
             String id = delivery.getString("deliveryId");
             if (id != null && id.startsWith(prefix)) {
-                max = Math.max(max, MfgServices.parseTrailingNumber(id.substring(prefix.length())));
+                max = Math.max(max, MfgSupport.parseTrailingNumber(id.substring(prefix.length())));
             }
         }
         return formatDeliveryId(today, max + 1);
@@ -405,7 +405,7 @@ public final class MfgDeliveryServices {
         GenericValue order = EntityQuery.use(delegator).from("MfgSalesOrder")
                 .where("salesOrderId", salesOrderId).queryOne();
         if (order != null && done) {
-            order.set("statusId", MfgServices.SO_SHIPPED);
+            order.set("statusId", MfgConstants.SO_SHIPPED);
             delegator.store(order);
         }
     }
@@ -436,7 +436,7 @@ public final class MfgDeliveryServices {
                 continue;
             }
             double release = Math.min(remaining, reserved);
-            MfgSalesOrderServices.recordOrderReservation(delegator, lot, MfgServices.MOVE_RELEASE, -release, salesOrderId, lineSeq,
+            MfgSalesOrderServices.recordOrderReservation(delegator, lot, MfgConstants.MOVE_RELEASE, -release, salesOrderId, lineSeq,
                     operatorName, note);
             MfgStockLedger.recalcLotStock(delegator, lot);
             remaining = MfgSupport.round2(remaining - release);

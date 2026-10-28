@@ -12,7 +12,7 @@
 package org.langhua.ofbiz.mfg.oir;
 
 import org.langhua.ofbiz.mfg.MfgCsv;
-import org.langhua.ofbiz.mfg.MfgServices;
+import org.langhua.ofbiz.mfg.MfgProductServices;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -169,7 +169,7 @@ public final class OirOrders {
         }
         // the name itself is the clearest code a shop has: 5.5V1.5F C型 21*7.5 stays readable,
         // joining the words would give 5.5V1.5FC217.5 where F, C型 and 21*7.5 run together
-        return MfgServices.fittingComponentCode(text);
+        return MfgProductServices.fittingComponentCode(text);
     }
 
     /**
@@ -193,10 +193,10 @@ public final class OirOrders {
             }
             // the note a shop prints behind the title ([交易快照]) is not part of the part number, and
             // a model that has no code to copy often answers with the whole title
-            String fitted = MfgServices.fittingComponentCode(rowKey(row[0]));
+            String fitted = MfgProductServices.fittingComponentCode(rowKey(row[0]));
             // only a shortened code needs the full number kept in the name
             String name = fitted.equals(row[0]) ? (row[1] == null ? "" : row[1])
-                    : MfgServices.nameWithFullCode(row[1], row[0]);
+                    : MfgProductServices.nameWithFullCode(row[1], row[0]);
             out.append(fitted).append('\t').append(name)
                     .append('\t').append(row[2]).append('\t').append(row[3]);
         }

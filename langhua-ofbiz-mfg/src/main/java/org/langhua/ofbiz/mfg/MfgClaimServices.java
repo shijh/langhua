@@ -39,7 +39,7 @@ public final class MfgClaimServices {
      * @return the service result containing {@code claimId} and {@code inWarranty}
      */
     public static Map<String, Object> claimCreate(DispatchContext dctx, Map<String, ? extends Object> context) {
-        String denied = MfgServices.permissionProblem(dctx, context, MfgServices.PERM_SALES);
+        String denied = MfgSecurity.permissionProblem(dctx, context, MfgConstants.PERM_SALES);
         if (denied != null) {
             return ServiceUtil.returnError(denied);
         }
@@ -79,17 +79,17 @@ public final class MfgClaimServices {
             }
             String claimType = MfgSupport.toText(context.get("claimType"));
             if (claimType == null) {
-                claimType = MfgServices.CLAIM_RTN;
-            } else if (!MfgServices.CLAIM_RTN.equals(claimType) && !MfgServices.CLAIM_EXCH.equals(claimType)
-                    && !MfgServices.CLAIM_REPAIR.equals(claimType) && !MfgServices.CLAIM_REFUND_ONLY.equals(claimType)) {
-                return ServiceUtil.returnError("claimType must be " + MfgServices.CLAIM_RTN + ", " + MfgServices.CLAIM_EXCH
-                        + ", " + MfgServices.CLAIM_REPAIR + " or " + MfgServices.CLAIM_REFUND_ONLY);
+                claimType = MfgConstants.CLAIM_RTN;
+            } else if (!MfgConstants.CLAIM_RTN.equals(claimType) && !MfgConstants.CLAIM_EXCH.equals(claimType)
+                    && !MfgConstants.CLAIM_REPAIR.equals(claimType) && !MfgConstants.CLAIM_REFUND_ONLY.equals(claimType)) {
+                return ServiceUtil.returnError("claimType must be " + MfgConstants.CLAIM_RTN + ", " + MfgConstants.CLAIM_EXCH
+                        + ", " + MfgConstants.CLAIM_REPAIR + " or " + MfgConstants.CLAIM_REFUND_ONLY);
             }
             String freightPayer = MfgSupport.toText(context.get("freightPayer"));
-            if (freightPayer != null && !MfgServices.FREIGHT_SELLER.equals(freightPayer)
-                    && !MfgServices.FREIGHT_BUYER.equals(freightPayer)) {
-                return ServiceUtil.returnError("freightPayer must be " + MfgServices.FREIGHT_SELLER
-                        + " or " + MfgServices.FREIGHT_BUYER);
+            if (freightPayer != null && !MfgConstants.FREIGHT_SELLER.equals(freightPayer)
+                    && !MfgConstants.FREIGHT_BUYER.equals(freightPayer)) {
+                return ServiceUtil.returnError("freightPayer must be " + MfgConstants.FREIGHT_SELLER
+                        + " or " + MfgConstants.FREIGHT_BUYER);
             }
 
             String claimId = nextClaimId(delegator, LocalDate.now());
@@ -106,7 +106,7 @@ public final class MfgClaimServices {
             claim.set("inWarranty", isInWarranty(endDate, receivedDate) ? "Y" : "N");
             claim.set("receivedDate", receivedDate);
             claim.set("issueDesc", issueDesc);
-            claim.set("statusId", MfgServices.RMA_OPEN);
+            claim.set("statusId", MfgConstants.RMA_OPEN);
             claim.set("claimType", claimType);
             claim.set("tradeNo", MfgSupport.toText(context.get("tradeNo")));
             claim.set("buyerNick", buyerNick);
@@ -152,7 +152,7 @@ public final class MfgClaimServices {
      * @return the service result containing {@code claimId} and {@code statusId}
      */
     public static Map<String, Object> claimUpdate(DispatchContext dctx, Map<String, ? extends Object> context) {
-        String denied = MfgServices.permissionProblem(dctx, context, MfgServices.PERM_SALES);
+        String denied = MfgSecurity.permissionProblem(dctx, context, MfgConstants.PERM_SALES);
         if (denied != null) {
             return ServiceUtil.returnError(denied);
         }
@@ -169,13 +169,13 @@ public final class MfgClaimServices {
             }
             String statusId = MfgSupport.toText(context.get("statusId"));
             if (statusId != null) {
-                if (!MfgServices.RMA_OPEN.equals(statusId) && !MfgServices.RMA_REPAIRED.equals(statusId)
-                        && !MfgServices.RMA_REPLACED.equals(statusId) && !MfgServices.RMA_CLOSED.equals(statusId)) {
-                    return ServiceUtil.returnError("statusId must be " + MfgServices.RMA_OPEN + ", " + MfgServices.RMA_REPAIRED
-                            + ", " + MfgServices.RMA_REPLACED + " or " + MfgServices.RMA_CLOSED);
+                if (!MfgConstants.RMA_OPEN.equals(statusId) && !MfgConstants.RMA_REPAIRED.equals(statusId)
+                        && !MfgConstants.RMA_REPLACED.equals(statusId) && !MfgConstants.RMA_CLOSED.equals(statusId)) {
+                    return ServiceUtil.returnError("statusId must be " + MfgConstants.RMA_OPEN + ", " + MfgConstants.RMA_REPAIRED
+                            + ", " + MfgConstants.RMA_REPLACED + " or " + MfgConstants.RMA_CLOSED);
                 }
                 claim.set("statusId", statusId);
-                claim.set("closedDate", MfgServices.RMA_CLOSED.equals(statusId)
+                claim.set("closedDate", MfgConstants.RMA_CLOSED.equals(statusId)
                         ? java.sql.Date.valueOf(LocalDate.now()) : null);
             }
             String responsibility = MfgSupport.toText(context.get("responsibility"));
@@ -187,27 +187,27 @@ public final class MfgClaimServices {
             }
             String claimType = MfgSupport.toText(context.get("claimType"));
             if (claimType != null) {
-                if (!MfgServices.CLAIM_RTN.equals(claimType) && !MfgServices.CLAIM_EXCH.equals(claimType)
-                        && !MfgServices.CLAIM_REPAIR.equals(claimType) && !MfgServices.CLAIM_REFUND_ONLY.equals(claimType)) {
-                    return ServiceUtil.returnError("claimType must be " + MfgServices.CLAIM_RTN + ", " + MfgServices.CLAIM_EXCH
-                            + ", " + MfgServices.CLAIM_REPAIR + " or " + MfgServices.CLAIM_REFUND_ONLY);
+                if (!MfgConstants.CLAIM_RTN.equals(claimType) && !MfgConstants.CLAIM_EXCH.equals(claimType)
+                        && !MfgConstants.CLAIM_REPAIR.equals(claimType) && !MfgConstants.CLAIM_REFUND_ONLY.equals(claimType)) {
+                    return ServiceUtil.returnError("claimType must be " + MfgConstants.CLAIM_RTN + ", " + MfgConstants.CLAIM_EXCH
+                            + ", " + MfgConstants.CLAIM_REPAIR + " or " + MfgConstants.CLAIM_REFUND_ONLY);
                 }
                 claim.set("claimType", claimType);
             }
             String freightPayer = MfgSupport.toText(context.get("freightPayer"));
             if (freightPayer != null) {
-                if (!MfgServices.FREIGHT_SELLER.equals(freightPayer) && !MfgServices.FREIGHT_BUYER.equals(freightPayer)) {
-                    return ServiceUtil.returnError("freightPayer must be " + MfgServices.FREIGHT_SELLER
-                            + " or " + MfgServices.FREIGHT_BUYER);
+                if (!MfgConstants.FREIGHT_SELLER.equals(freightPayer) && !MfgConstants.FREIGHT_BUYER.equals(freightPayer)) {
+                    return ServiceUtil.returnError("freightPayer must be " + MfgConstants.FREIGHT_SELLER
+                            + " or " + MfgConstants.FREIGHT_BUYER);
                 }
                 claim.set("freightPayer", freightPayer);
             }
             String inspectResult = MfgSupport.toText(context.get("inspectResult"));
             if (inspectResult != null) {
-                if (!MfgServices.INSPECT_QUALITY.equals(inspectResult) && !MfgServices.INSPECT_NO_FAULT.equals(inspectResult)
-                        && !MfgServices.INSPECT_HUMAN.equals(inspectResult) && !MfgServices.INSPECT_UNKNOWN.equals(inspectResult)) {
-                    return ServiceUtil.returnError("inspectResult must be " + MfgServices.INSPECT_QUALITY + ", "
-                            + MfgServices.INSPECT_NO_FAULT + ", " + MfgServices.INSPECT_HUMAN + " or " + MfgServices.INSPECT_UNKNOWN);
+                if (!MfgConstants.INSPECT_QUALITY.equals(inspectResult) && !MfgConstants.INSPECT_NO_FAULT.equals(inspectResult)
+                        && !MfgConstants.INSPECT_HUMAN.equals(inspectResult) && !MfgConstants.INSPECT_UNKNOWN.equals(inspectResult)) {
+                    return ServiceUtil.returnError("inspectResult must be " + MfgConstants.INSPECT_QUALITY + ", "
+                            + MfgConstants.INSPECT_NO_FAULT + ", " + MfgConstants.INSPECT_HUMAN + " or " + MfgConstants.INSPECT_UNKNOWN);
                 }
                 claim.set("inspectResult", inspectResult);
             }
@@ -284,13 +284,13 @@ public final class MfgClaimServices {
             long expiringCount = 0;
             long sevenDayCount = 0;
             for (GenericValue claim : claims) {
-                Map<String, Object> map = MfgServices.toClaimMap(claim);
+                Map<String, Object> map = MfgRecordMaps.toClaimMap(claim);
                 list.add(map);
-                boolean open = MfgServices.RMA_OPEN.equals(claim.getString("statusId"));
+                boolean open = MfgConstants.RMA_OPEN.equals(claim.getString("statusId"));
                 if (open) {
                     openCount++;
-                    long sevenDay = MfgServices.hoursLeft(claim.getTimestamp("sevenDayDeadline"));
-                    long afterSale = MfgServices.hoursLeft(claim.getTimestamp("afterSaleDeadline"));
+                    long sevenDay = MfgSupport.hoursLeft(claim.getTimestamp("sevenDayDeadline"));
+                    long afterSale = MfgSupport.hoursLeft(claim.getTimestamp("afterSaleDeadline"));
                     if (sevenDay > 0) {
                         sevenDayCount++;
                     }
@@ -370,13 +370,13 @@ public final class MfgClaimServices {
             }
 
             Map<String, Object> result = ServiceUtil.returnSuccess();
-            result.put("claim", MfgServices.toClaimMap(claim));
-            result.put("snRecord", unit == null ? null : MfgServices.toSnMap(unit));
-            result.put("delivery", delivery == null ? null : MfgServices.toDeliveryMap(delivery));
-            result.put("exchangeDelivery", exchangeDelivery == null ? null : MfgServices.toDeliveryMap(exchangeDelivery));
+            result.put("claim", MfgRecordMaps.toClaimMap(claim));
+            result.put("snRecord", unit == null ? null : MfgRecordMaps.toSnMap(unit));
+            result.put("delivery", delivery == null ? null : MfgRecordMaps.toDeliveryMap(delivery));
+            result.put("exchangeDelivery", exchangeDelivery == null ? null : MfgRecordMaps.toDeliveryMap(exchangeDelivery));
             result.put("exchangeUnits", exchangeUnits);
-            result.put("repairOrder", repairOrder == null ? null : MfgServices.toWorkOrderMap(repairOrder));
-            result.put("replacements", MfgServices.toReplacementMaps(replacements));
+            result.put("repairOrder", repairOrder == null ? null : MfgRecordMaps.toWorkOrderMap(repairOrder));
+            result.put("replacements", MfgRecordMaps.toReplacementMaps(replacements));
             result.put("defectCount", Integer.valueOf(defects.size()));
             return result;
         } catch (GenericEntityException e) {
@@ -393,7 +393,7 @@ public final class MfgClaimServices {
      * @return the service result containing {@code claimId}, {@code deliveryId} and {@code newSn}
      */
     public static Map<String, Object> claimExchange(DispatchContext dctx, Map<String, ? extends Object> context) {
-        String denied = MfgServices.permissionProblem(dctx, context, MfgServices.PERM_SALES, MfgServices.PERM_PRODUCTION);
+        String denied = MfgSecurity.permissionProblem(dctx, context, MfgConstants.PERM_SALES, MfgConstants.PERM_PRODUCTION);
         if (denied != null) {
             return ServiceUtil.returnError(denied);
         }
@@ -430,7 +430,7 @@ public final class MfgClaimServices {
                     return ServiceUtil.returnError("Serial number [" + newSn + "] does not belong to model ["
                             + productCode + "]");
                 }
-                if (MfgServices.SN_SCRAPPED.equals(replacement.getString("statusId"))) {
+                if (MfgConstants.SN_SCRAPPED.equals(replacement.getString("statusId"))) {
                     return ServiceUtil.returnError("Serial number [" + newSn + "] is scrapped");
                 }
                 if (MfgDeliveryServices.isDelivered(delegator, newSn)) {
@@ -441,7 +441,7 @@ public final class MfgClaimServices {
                         .where("productCode", productCode).orderBy("sn").queryList();
                 for (GenericValue candidate : candidates) {
                     String sn = candidate.getString("sn");
-                    if (sn.equals(originalSn) || MfgServices.SN_SCRAPPED.equals(candidate.getString("statusId"))
+                    if (sn.equals(originalSn) || MfgConstants.SN_SCRAPPED.equals(candidate.getString("statusId"))
                             || MfgDeliveryServices.isDelivered(delegator, sn)) {
                         continue;
                     }
@@ -472,13 +472,13 @@ public final class MfgClaimServices {
             item.set("deliveryId", deliveryId);
             item.set("sn", newSn);
             delegator.create(item);
-            replacement.set("statusId", MfgServices.SN_SHIPPED);
+            replacement.set("statusId", MfgConstants.SN_SHIPPED);
             delegator.store(replacement);
 
             claim.set("exchangeDeliveryId", deliveryId);
-            claim.set("statusId", MfgServices.RMA_REPLACED);
+            claim.set("statusId", MfgConstants.RMA_REPLACED);
             if (claim.getString("claimType") == null) {
-                claim.set("claimType", MfgServices.CLAIM_EXCH);
+                claim.set("claimType", MfgConstants.CLAIM_EXCH);
             }
             delegator.store(claim);
 
@@ -486,7 +486,7 @@ public final class MfgClaimServices {
             result.put("claimId", claimId);
             result.put("deliveryId", deliveryId);
             result.put("newSn", newSn);
-            result.put("statusId", MfgServices.RMA_REPLACED);
+            result.put("statusId", MfgConstants.RMA_REPLACED);
             return result;
         } catch (GenericEntityException e) {
             return ServiceUtil.returnError("Could not exchange the unit: " + e.getMessage());
@@ -501,7 +501,7 @@ public final class MfgClaimServices {
      * @return the service result containing {@code claimId} and {@code workOrderId}
      */
     public static Map<String, Object> claimRepair(DispatchContext dctx, Map<String, ? extends Object> context) {
-        String denied = MfgServices.permissionProblem(dctx, context, MfgServices.PERM_SALES, MfgServices.PERM_PRODUCTION);
+        String denied = MfgSecurity.permissionProblem(dctx, context, MfgConstants.PERM_SALES, MfgConstants.PERM_PRODUCTION);
         if (denied != null) {
             return ServiceUtil.returnError(denied);
         }
@@ -533,7 +533,7 @@ public final class MfgClaimServices {
             order.set("workOrderId", workOrderId);
             order.set("productCode", unit.getString("productCode"));
             order.set("plannedQty", Long.valueOf(1));
-            order.set("statusId", MfgServices.WO_CREATED);
+            order.set("statusId", MfgConstants.WO_CREATED);
             order.set("dueDate", dueDate == null ? java.sql.Date.valueOf(today.plusDays(3)) : dueDate);
             String customerName = claim.getString("customerName");
             order.set("customerName", "售后返修" + (customerName == null ? "" : " " + customerName));
@@ -542,7 +542,7 @@ public final class MfgClaimServices {
 
             claim.set("repairWorkOrderId", workOrderId);
             if (claim.getString("claimType") == null) {
-                claim.set("claimType", MfgServices.CLAIM_REPAIR);
+                claim.set("claimType", MfgConstants.CLAIM_REPAIR);
             }
             delegator.store(claim);
 
@@ -596,7 +596,7 @@ public final class MfgClaimServices {
             return null;
         }
         LocalDateTime start = signedDate.toLocalDate().plusDays(1).atStartOfDay();
-        return java.sql.Timestamp.valueOf(start.plusHours(MfgServices.SEVEN_DAY_HOURS));
+        return java.sql.Timestamp.valueOf(start.plusHours(MfgConstants.SEVEN_DAY_HOURS));
     }
 
     /**
@@ -609,7 +609,7 @@ public final class MfgClaimServices {
         if (signedDate == null) {
             return null;
         }
-        LocalDateTime end = signedDate.toLocalDate().plusDays(MfgServices.AFTER_SALE_DAYS)
+        LocalDateTime end = signedDate.toLocalDate().plusDays(MfgConstants.AFTER_SALE_DAYS)
                 .atTime(23, 59, 59);
         return java.sql.Timestamp.valueOf(end);
     }
@@ -632,11 +632,11 @@ public final class MfgClaimServices {
     /**
      * Tells whether a deadline is close enough to be flagged in the list.
      *
-     * @param hours the hours left, as returned by {@link MfgServices#hoursLeft(java.sql.Timestamp)}
+     * @param hours the hours left, as returned by {@link MfgSupport#hoursLeft(java.sql.Timestamp)}
      * @return {@code true} when the deadline is inside the warning window but not yet passed
      */
     static boolean isExpiringSoon(long hours) {
-        return hours >= 0 && hours <= MfgServices.DEADLINE_WARNING_HOURS;
+        return hours >= 0 && hours <= MfgConstants.DEADLINE_WARNING_HOURS;
     }
 
     /**
@@ -644,25 +644,25 @@ public final class MfgClaimServices {
      * quality return is on us, a no-reason return is on the buyer.
      *
      * @param claimType the claim type
-     * @return either {@link MfgServices#FREIGHT_SELLER} or {@link MfgServices#FREIGHT_BUYER}
+     * @return either {@link MfgConstants#FREIGHT_SELLER} or {@link MfgConstants#FREIGHT_BUYER}
      */
     static String defaultFreightPayer(String claimType) {
-        return MfgServices.CLAIM_RTN.equals(claimType) || MfgServices.CLAIM_EXCH.equals(claimType)
-                ? MfgServices.FREIGHT_BUYER : MfgServices.FREIGHT_SELLER;
+        return MfgConstants.CLAIM_RTN.equals(claimType) || MfgConstants.CLAIM_EXCH.equals(claimType)
+                ? MfgConstants.FREIGHT_BUYER : MfgConstants.FREIGHT_SELLER;
     }
 
     static String formatClaimId(LocalDate date, int sequence) {
-        return "RMA-" + date.format(MfgServices.DAY) + "-" + String.format(Locale.ROOT, "%02d", sequence);
+        return "RMA-" + date.format(MfgConstants.DAY) + "-" + String.format(Locale.ROOT, "%02d", sequence);
     }
 
     static String nextClaimId(Delegator delegator, LocalDate today) throws GenericEntityException {
-        String prefix = "RMA-" + today.format(MfgServices.DAY) + "-";
+        String prefix = "RMA-" + today.format(MfgConstants.DAY) + "-";
         List<GenericValue> existing = EntityQuery.use(delegator).from("MfgWarrantyClaim").queryList();
         int max = 0;
         for (GenericValue claim : existing) {
             String id = claim.getString("claimId");
             if (id != null && id.startsWith(prefix)) {
-                max = Math.max(max, MfgServices.parseTrailingNumber(id.substring(prefix.length())));
+                max = Math.max(max, MfgSupport.parseTrailingNumber(id.substring(prefix.length())));
             }
         }
         return formatClaimId(today, max + 1);
@@ -677,14 +677,14 @@ public final class MfgClaimServices {
      * @return the service result containing {@code buyerKey}, {@code riskLevel} and {@code statusId}
      */
     public static Map<String, Object> buyerFlagSave(DispatchContext dctx, Map<String, ? extends Object> context) {
-        String denied = MfgServices.permissionProblem(dctx, context, MfgServices.PERM_SALES);
+        String denied = MfgSecurity.permissionProblem(dctx, context, MfgConstants.PERM_SALES);
         if (denied != null) {
             return ServiceUtil.returnError(denied);
         }
         Delegator delegator = dctx.getDelegator();
         String channelId = MfgSupport.toText(context.get("channelId"));
         if (channelId == null) {
-            channelId = MfgServices.CHANNEL_TAOBAO;
+            channelId = MfgConstants.CHANNEL_TAOBAO;
         }
         String rawMobile = MfgSupport.toText(context.get("receiverMobile"));
         String mobile = normalizeMobile(rawMobile);
@@ -699,15 +699,15 @@ public final class MfgClaimServices {
         }
         String riskLevel = MfgSupport.toText(context.get("riskLevel"));
         if (riskLevel == null) {
-            riskLevel = MfgServices.RISK_WATCH;
-        } else if (!MfgServices.RISK_WATCH.equals(riskLevel) && !MfgServices.RISK_BLOCK.equals(riskLevel)) {
-            return ServiceUtil.returnError("riskLevel must be " + MfgServices.RISK_WATCH + " or " + MfgServices.RISK_BLOCK);
+            riskLevel = MfgConstants.RISK_WATCH;
+        } else if (!MfgConstants.RISK_WATCH.equals(riskLevel) && !MfgConstants.RISK_BLOCK.equals(riskLevel)) {
+            return ServiceUtil.returnError("riskLevel must be " + MfgConstants.RISK_WATCH + " or " + MfgConstants.RISK_BLOCK);
         }
         String statusId = MfgSupport.toText(context.get("statusId"));
         if (statusId == null) {
-            statusId = MfgServices.FLAG_ACTIVE;
-        } else if (!MfgServices.FLAG_ACTIVE.equals(statusId) && !MfgServices.FLAG_RELEASED.equals(statusId)) {
-            return ServiceUtil.returnError("statusId must be " + MfgServices.FLAG_ACTIVE + " or " + MfgServices.FLAG_RELEASED);
+            statusId = MfgConstants.FLAG_ACTIVE;
+        } else if (!MfgConstants.FLAG_ACTIVE.equals(statusId) && !MfgConstants.FLAG_RELEASED.equals(statusId)) {
+            return ServiceUtil.returnError("statusId must be " + MfgConstants.FLAG_ACTIVE + " or " + MfgConstants.FLAG_RELEASED);
         }
         String reasonCode = MfgSupport.toText(context.get("reasonCode"));
         if (reasonCode != null && !isKnownReason(reasonCode)) {
@@ -760,11 +760,11 @@ public final class MfgClaimServices {
             }
             flag.set("riskLevel", riskLevel);
             flag.set("statusId", statusId);
-            flag.set("releasedDate", MfgServices.FLAG_RELEASED.equals(statusId)
+            flag.set("releasedDate", MfgConstants.FLAG_RELEASED.equals(statusId)
                     ? java.sql.Date.valueOf(LocalDate.now()) : null);
             java.sql.Date expiresDate = (java.sql.Date) MfgSupport.parseDate(context.get("expiresDate"));
             if (expiresDate == null && create) {
-                expiresDate = java.sql.Date.valueOf(LocalDate.now().plusMonths(MfgServices.RISK_VALID_MONTHS));
+                expiresDate = java.sql.Date.valueOf(LocalDate.now().plusMonths(MfgConstants.RISK_VALID_MONTHS));
             }
             if (expiresDate != null) {
                 flag.set("expiresDate", expiresDate);
@@ -819,7 +819,7 @@ public final class MfgClaimServices {
                     }
                 }
                 list.add(map);
-                if (MfgServices.RISK_BLOCK.equals(flag.getString("riskLevel"))
+                if (MfgConstants.RISK_BLOCK.equals(flag.getString("riskLevel"))
                         && isFlagLive(flag.getString("statusId"), flag.getDate("expiresDate"),
                                 java.sql.Date.valueOf(LocalDate.now()))) {
                     blockCount++;
@@ -869,8 +869,8 @@ public final class MfgClaimServices {
                 }
                 hits.add(toBuyerFlagMap(flag));
                 String level = flag.getString("riskLevel");
-                if (MfgServices.RISK_BLOCK.equals(level)) {
-                    bestLevel = MfgServices.RISK_BLOCK;
+                if (MfgConstants.RISK_BLOCK.equals(level)) {
+                    bestLevel = MfgConstants.RISK_BLOCK;
                 } else if (bestLevel == null) {
                     bestLevel = level;
                 }
@@ -920,7 +920,7 @@ public final class MfgClaimServices {
                 double refund = claim.getDouble("refundAmount") == null ? 0.0
                         : claim.getDouble("refundAmount").doubleValue();
                 row.put("refundTotal", Double.valueOf(((Double) row.get("refundTotal")).doubleValue() + refund));
-                if (MfgServices.RISK_BLOCK.equals(claim.getString("buyerRiskLevel"))) {
+                if (MfgConstants.RISK_BLOCK.equals(claim.getString("buyerRiskLevel"))) {
                     row.put("blockCount", Integer.valueOf(((Integer) row.get("blockCount")).intValue() + 1));
                 }
                 row.put("lastClaimDate", claim.getDate("receivedDate"));
@@ -985,7 +985,7 @@ always
      * @return the key, or {@code null} when neither is usable
      */
     static String buyerKey(String channelId, String mobile, String buyerNick) {
-        String prefix = MfgServices.CHANNEL_TAOBAO.equals(channelId) || channelId == null ? "TB" : channelId;
+        String prefix = MfgConstants.CHANNEL_TAOBAO.equals(channelId) || channelId == null ? "TB" : channelId;
         if (buyerNick != null && !buyerNick.trim().isEmpty()) {
             return prefix + ":N:" + buyerNick.trim().toLowerCase(Locale.ROOT);
         }
@@ -1017,7 +1017,7 @@ always
      * @return {@code true} only when the entry is active
      */
     static boolean isFlagActive(String statusId) {
-        return MfgServices.FLAG_ACTIVE.equals(statusId);
+        return MfgConstants.FLAG_ACTIVE.equals(statusId);
     }
 
     /**
@@ -1043,15 +1043,15 @@ always
      *
      * @param claimCount number of claims of the buyer
      * @param refundTotal amount refunded to the buyer
-     * @return {@link MfgServices#RISK_BLOCK}, {@link MfgServices#RISK_WATCH} or {@code null} when nothing stands
+     * @return {@link MfgConstants#RISK_BLOCK}, {@link MfgConstants#RISK_WATCH} or {@code null} when nothing stands
      *         out
      */
     static String suggestRiskLevel(int claimCount, double refundTotal) {
-        if (claimCount >= MfgServices.RISK_BLOCK_CLAIMS || refundTotal >= MfgServices.RISK_BLOCK_REFUND) {
-            return MfgServices.RISK_BLOCK;
+        if (claimCount >= MfgConstants.RISK_BLOCK_CLAIMS || refundTotal >= MfgConstants.RISK_BLOCK_REFUND) {
+            return MfgConstants.RISK_BLOCK;
         }
-        if (claimCount >= MfgServices.RISK_WATCH_CLAIMS || refundTotal >= MfgServices.RISK_WATCH_REFUND) {
-            return MfgServices.RISK_WATCH;
+        if (claimCount >= MfgConstants.RISK_WATCH_CLAIMS || refundTotal >= MfgConstants.RISK_WATCH_REFUND) {
+            return MfgConstants.RISK_WATCH;
         }
         return null;
     }
@@ -1090,8 +1090,8 @@ always
                     || !isFlagLive(flag.getString("statusId"), flag.getDate("expiresDate"), today)) {
                 continue;
             }
-            if (MfgServices.RISK_BLOCK.equals(flag.getString("riskLevel"))) {
-                return MfgServices.RISK_BLOCK;
+            if (MfgConstants.RISK_BLOCK.equals(flag.getString("riskLevel"))) {
+                return MfgConstants.RISK_BLOCK;
             }
             level = flag.getString("riskLevel");
         }
@@ -1130,7 +1130,7 @@ always
      */
     public static Map<String, Object> qualityReport(DispatchContext dctx, Map<String, ? extends Object> context) {
         // the report is built around the after sales cost rate, so it belongs to the cost area
-        String denied = MfgServices.permissionProblem(dctx, context, MfgServices.PERM_COST);
+        String denied = MfgSecurity.permissionProblem(dctx, context, MfgConstants.PERM_COST);
         if (denied != null) {
             return ServiceUtil.returnError(denied);
         }
@@ -1219,11 +1219,11 @@ always
                 }
                 claimCount++;
                 String claimType = claim.getString("claimType");
-                if (MfgServices.CLAIM_EXCH.equals(claimType)) {
+                if (MfgConstants.CLAIM_EXCH.equals(claimType)) {
                     exchCount++;
-                } else if (MfgServices.CLAIM_REPAIR.equals(claimType)) {
+                } else if (MfgConstants.CLAIM_REPAIR.equals(claimType)) {
                     repairCount++;
-                } else if (MfgServices.CLAIM_REFUND_ONLY.equals(claimType)) {
+                } else if (MfgConstants.CLAIM_REFUND_ONLY.equals(claimType)) {
                     refundOnlyCount++;
                 } else {
                     rtnCount++;
@@ -1233,9 +1233,9 @@ always
                         ? 0.0 : claim.getDouble("refundAmount").doubleValue();
                 double hours = claim.getDouble("repairHours") == null
                         ? 0.0 : claim.getDouble("repairHours").doubleValue();
-                double freight = MfgServices.FREIGHT_SELLER.equals(claim.getString("freightPayer"))
-                        ? MfgServices.QUALITY_FREIGHT_COST : 0.0;
-                double cost = MfgReportServices.claimCost(refund, freight, hours, MfgServices.QUALITY_HOURLY_RATE);
+                double freight = MfgConstants.FREIGHT_SELLER.equals(claim.getString("freightPayer"))
+                        ? MfgConstants.QUALITY_FREIGHT_COST : 0.0;
+                double cost = MfgReportServices.claimCost(refund, freight, hours, MfgConstants.QUALITY_HOURLY_RATE);
                 refundTotal += refund;
                 freightTotal += freight;
                 hoursTotal += hours;
@@ -1315,7 +1315,7 @@ always
                 row.put("supplierLot", lot == null ? null : lot.getString("supplierLot"));
                 row.put("claimCount", entry.getValue());
                 row.put("average", Double.valueOf(averageClaimsPerLot));
-                row.put("suspicious", entry.getValue().longValue() >= MfgServices.QUALITY_LOT_FACTOR * averageClaimsPerLot
+                row.put("suspicious", entry.getValue().longValue() >= MfgConstants.QUALITY_LOT_FACTOR * averageClaimsPerLot
                         && entry.getValue().longValue() > 1 ? "Y" : "N");
                 lotRows.add(row);
             }
@@ -1379,15 +1379,15 @@ always
             result.put("costPerUnit", Double.valueOf(shippedUnits == 0 ? 0.0 : costTotal / shippedUnits));
             result.put("salesTotal", Double.valueOf(salesTotal));
             result.put("costRate", costRate);
-            result.put("hourlyRate", Double.valueOf(MfgServices.QUALITY_HOURLY_RATE));
-            result.put("freightPerClaim", Double.valueOf(MfgServices.QUALITY_FREIGHT_COST));
-            result.put("repairRateLimit", Double.valueOf(MfgServices.QUALITY_REPAIR_RATE_LIMIT));
-            result.put("costRateLimit", Double.valueOf(MfgServices.QUALITY_COST_RATE_LIMIT));
-            result.put("lotFactor", Double.valueOf(MfgServices.QUALITY_LOT_FACTOR));
+            result.put("hourlyRate", Double.valueOf(MfgConstants.QUALITY_HOURLY_RATE));
+            result.put("freightPerClaim", Double.valueOf(MfgConstants.QUALITY_FREIGHT_COST));
+            result.put("repairRateLimit", Double.valueOf(MfgConstants.QUALITY_REPAIR_RATE_LIMIT));
+            result.put("costRateLimit", Double.valueOf(MfgConstants.QUALITY_COST_RATE_LIMIT));
+            result.put("lotFactor", Double.valueOf(MfgConstants.QUALITY_LOT_FACTOR));
             result.put("overRepairLimit", isOverLimit(claimsWithin30, shippedUnits,
-                    MfgServices.QUALITY_REPAIR_RATE_LIMIT) ? "Y" : "N");
+                    MfgConstants.QUALITY_REPAIR_RATE_LIMIT) ? "Y" : "N");
             result.put("overCostLimit", isOverLimit(costTotal, salesTotal,
-                    MfgServices.QUALITY_COST_RATE_LIMIT) ? "Y" : "N");
+                    MfgConstants.QUALITY_COST_RATE_LIMIT) ? "Y" : "N");
             result.put("products", productRows);
             result.put("responsibilities", responsibilityRows);
             result.put("lots", lotRows);

@@ -4,6 +4,7 @@ import java.sql.Timestamp;
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -286,5 +287,38 @@ public final class MfgSupport {
         }
         String text = value.toString().trim();
         return text.isEmpty() ? null : text;
+    }
+
+    /**
+     * Hours left until a deadline, negative when the deadline already passed.
+     *
+     * @param deadline the deadline
+     * @return whole hours left, {@code 0} when there is no deadline
+     */
+    static long hoursLeft(java.sql.Timestamp deadline) {
+        return hoursLeft(deadline, LocalDateTime.now());
+    }
+
+    /**
+     * Hours left until a deadline relative to a given moment, negative when it already passed.
+     *
+     * @param deadline the deadline
+     * @param now the moment to compare with
+     * @return whole hours left, rounded down, {@code 0} when there is no deadline
+     */
+    static long hoursLeft(java.sql.Timestamp deadline, LocalDateTime now) {
+        if (deadline == null || now == null) {
+            return 0L;
+        }
+        long minutes = java.time.Duration.between(now, deadline.toLocalDateTime()).toMinutes();
+        return minutes >= 0 ? minutes / 60 : -((-minutes + 59) / 60);
+    }
+
+    static int parseTrailingNumber(String text) {
+        try {
+            return Integer.parseInt(text.trim());
+        } catch (NumberFormatException e) {
+            return 0;
+        }
     }
 }

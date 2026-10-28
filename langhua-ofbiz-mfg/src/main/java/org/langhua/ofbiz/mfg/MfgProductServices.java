@@ -41,7 +41,7 @@ public final class MfgProductServices {
      */
     static Map<String, Object> costDenied(DispatchContext dctx, Map<String, ? extends Object> context) {
         GenericValue userLogin = (GenericValue) context.get("userLogin");
-        if (MfgServices.can(dctx, userLogin, MfgServices.PERM_COST)) {
+        if (MfgSecurity.can(dctx, userLogin, MfgConstants.PERM_COST)) {
             return null;
         }
         Map<String, Object> result = ServiceUtil.returnSuccess();
@@ -58,7 +58,7 @@ public final class MfgProductServices {
      * @return the service result containing {@code productCode}
      */
     public static Map<String, Object> productSave(DispatchContext dctx, Map<String, ? extends Object> context) {
-        String denied = MfgServices.permissionProblem(dctx, context, MfgServices.PERM_ENG);
+        String denied = MfgSecurity.permissionProblem(dctx, context, MfgConstants.PERM_ENG);
         if (denied != null) {
             return ServiceUtil.returnError(denied);
         }
@@ -91,14 +91,14 @@ public final class MfgProductServices {
                     .where("productCode", productCode).queryOne();
             double storedHours = existing == null ? 0.0 : MfgSupport.toDouble(existing.get("standardHours"), 0.0);
             if (existing == null || Math.abs(storedHours - newHours) > 0.000001) {
-                product.set("standardHoursSource", MfgServices.HOURS_SOURCE_MANUAL);
+                product.set("standardHoursSource", MfgConstants.HOURS_SOURCE_MANUAL);
             }
             product.set("laborRate", MfgSupport.optionalAmount(context.get("laborRate")));
             long warrantyMonths = MfgSupport.toLong(context.get("warrantyMonths"), 12);
             product.set("warrantyMonths", Long.valueOf(warrantyMonths <= 0 ? 12 : warrantyMonths));
             product.set("salePrice", Double.valueOf(MfgSupport.toDouble(context.get("salePrice"), 0.0)));
             String statusId = MfgSupport.toText(context.get("statusId"));
-            product.set("statusId", statusId == null ? MfgServices.STATUS_ACTIVE : statusId);
+            product.set("statusId", statusId == null ? MfgConstants.STATUS_ACTIVE : statusId);
             String devStageId = MfgSupport.toText(context.get("devStageId"));
             if (devStageId != null) {
                 product.set("devStageId", devStageId);
@@ -127,7 +127,7 @@ public final class MfgProductServices {
      * @return the service result containing {@code bomVersionId} and {@code importedCount}
      */
     public static Map<String, Object> bomImport(DispatchContext dctx, Map<String, ? extends Object> context) {
-        String denied = MfgServices.permissionProblem(dctx, context, MfgServices.PERM_ENG);
+        String denied = MfgSecurity.permissionProblem(dctx, context, MfgConstants.PERM_ENG);
         if (denied != null) {
             return ServiceUtil.returnError(denied);
         }
@@ -155,9 +155,9 @@ public final class MfgProductServices {
             if (row[0] == null || row[0].isEmpty()) {
                 return ServiceUtil.returnError("一行没有料号，导入中止");
             }
-            if (row[0].length() > MfgServices.MAX_COMPONENT_CODE) {
-                return ServiceUtil.returnError("料号太长（最多 " + MfgServices.MAX_COMPONENT_CODE + " 个字符）：" + row[0]
-                        + "；请在源文件里改用物料号，或改成短料号（例如 " + MfgServices.fittingComponentCode(row[0]) + "）");
+            if (row[0].length() > MfgConstants.MAX_COMPONENT_CODE) {
+                return ServiceUtil.returnError("料号太长（最多 " + MfgConstants.MAX_COMPONENT_CODE + " 个字符）：" + row[0]
+                        + "；请在源文件里改用物料号，或改成短料号（例如 " + MfgProductServices.fittingComponentCode(row[0]) + "）");
             }
         }
         try {
@@ -229,7 +229,7 @@ public final class MfgProductServices {
      * @return the service result containing {@code bomVersionId} and {@code lineSeq}
      */
     public static Map<String, Object> bomItemSave(DispatchContext dctx, Map<String, ? extends Object> context) {
-        String denied = MfgServices.permissionProblem(dctx, context, MfgServices.PERM_ENG);
+        String denied = MfgSecurity.permissionProblem(dctx, context, MfgConstants.PERM_ENG);
         if (denied != null) {
             return ServiceUtil.returnError(denied);
         }
@@ -277,9 +277,9 @@ public final class MfgProductServices {
                 if (componentCode == null) {
                     return ServiceUtil.returnError("料号不能为空");
                 }
-                if (componentCode.length() > MfgServices.MAX_COMPONENT_CODE) {
-                    return ServiceUtil.returnError("料号太长（最多 " + MfgServices.MAX_COMPONENT_CODE + " 个字符）：" + componentCode
-                            + "，可以改成 " + MfgServices.fittingComponentCode(componentCode));
+                if (componentCode.length() > MfgConstants.MAX_COMPONENT_CODE) {
+                    return ServiceUtil.returnError("料号太长（最多 " + MfgConstants.MAX_COMPONENT_CODE + " 个字符）：" + componentCode
+                            + "，可以改成 " + MfgProductServices.fittingComponentCode(componentCode));
                 }
                 lineSeq = nextBomLineSeq(delegator, versionId);
                 item = delegator.makeValue("MfgBomVersionItem");
@@ -289,7 +289,7 @@ public final class MfgProductServices {
                 String name = MfgSupport.toText(context.get("componentName"));
                 item.set("componentName", name == null ? componentCode : name);
                 item.set("isKeyPart", "N");
-            } else if (componentCode != null && componentCode.length() <= MfgServices.MAX_COMPONENT_CODE) {
+            } else if (componentCode != null && componentCode.length() <= MfgConstants.MAX_COMPONENT_CODE) {
                 item.set("componentCode", componentCode);
                 item.set("componentName", MfgSupport.toText(context.get("componentName")) == null
                         ? componentCode : MfgSupport.toText(context.get("componentName")));
@@ -339,7 +339,7 @@ public final class MfgProductServices {
      * @return the service result containing {@code productCode} and {@code opSeq}
      */
     public static Map<String, Object> routingSave(DispatchContext dctx, Map<String, ? extends Object> context) {
-        String denied = MfgServices.permissionProblem(dctx, context, MfgServices.PERM_ENG);
+        String denied = MfgSecurity.permissionProblem(dctx, context, MfgConstants.PERM_ENG);
         if (denied != null) {
             return ServiceUtil.returnError(denied);
         }
@@ -561,7 +561,7 @@ public final class MfgProductServices {
      * @return the service result containing the counts, {@code search} and {@code renamed}
      */
     public static Map<String, Object> partCodeRename(DispatchContext dctx, Map<String, ? extends Object> context) {
-        String denied = MfgServices.permissionProblem(dctx, context, MfgServices.PERM_STOCK);
+        String denied = MfgSecurity.permissionProblem(dctx, context, MfgConstants.PERM_STOCK);
         if (denied != null) {
             return ServiceUtil.returnError(denied);
         }
@@ -574,8 +574,8 @@ public final class MfgProductServices {
         if (oldCode.equals(newCode)) {
             return ServiceUtil.returnError("新旧料号一样，没有可改的");
         }
-        if (newCode.length() > MfgServices.MAX_COMPONENT_CODE) {
-            return ServiceUtil.returnError("新料号太长（最多 " + MfgServices.MAX_COMPONENT_CODE + " 个字符）：" + newCode);
+        if (newCode.length() > MfgConstants.MAX_COMPONENT_CODE) {
+            return ServiceUtil.returnError("新料号太长（最多 " + MfgConstants.MAX_COMPONENT_CODE + " 个字符）：" + newCode);
         }
         try {
             int lots = renameWhere(delegator, "MfgMaterialLot", oldCode, newCode);
@@ -649,7 +649,7 @@ public final class MfgProductServices {
      * @return the service result containing {@code replacementId}
      */
     public static Map<String, Object> replacementSave(DispatchContext dctx, Map<String, ? extends Object> context) {
-        String denied = MfgServices.permissionProblem(dctx, context, MfgServices.PERM_PRODUCTION);
+        String denied = MfgSecurity.permissionProblem(dctx, context, MfgConstants.PERM_PRODUCTION);
         if (denied != null) {
             return ServiceUtil.returnError(denied);
         }
@@ -764,7 +764,7 @@ public final class MfgProductServices {
                 }
                 double shipped = 0.0;
                 for (GenericValue movement : MfgStockLedger.movementsOf(delegator, lot.getString("lotId"))) {
-                    if (MfgServices.MOVE_ISSUE.equals(movement.getString("movementTypeId"))) {
+                    if (MfgConstants.MOVE_ISSUE.equals(movement.getString("movementTypeId"))) {
                         shipped += -MfgSupport.numberOrZero(movement.get("quantityDiff"));
                     }
                 }
@@ -841,7 +841,7 @@ public final class MfgProductServices {
                 map.put("versionCount", Integer.valueOf(bomVersionCount(delegator, productCode)));
                 MfgAttachmentServices.migrateProductPhotos(delegator, productCode);
                 List<GenericValue> attachments =
-                MfgAttachmentServices.attachmentRows(delegator, MfgServices.ATT_PRODUCT, productCode);
+                MfgAttachmentServices.attachmentRows(delegator, MfgConstants.ATT_PRODUCT, productCode);
                 map.put("imageCount", Integer.valueOf(attachments.size()));
                 map.put("latestImageSeq", attachments.isEmpty() ? null : attachments.get(0).getLong("seq"));
                 map.put("routingCount", Integer.valueOf(count(delegator, "MfgRouting", productCode)));
@@ -949,7 +949,7 @@ public final class MfgProductServices {
         map.put("standardHours", product.getDouble("standardHours"));
         String hoursSource = product.getString("standardHoursSource");
         // models created before the provenance was recorded are hand filled in by definition
-        map.put("standardHoursSource", hoursSource == null ? MfgServices.HOURS_SOURCE_MANUAL : hoursSource);
+        map.put("standardHoursSource", hoursSource == null ? MfgConstants.HOURS_SOURCE_MANUAL : hoursSource);
         map.put("standardHoursBaseQty", product.getDouble("standardHoursBaseQty"));
         map.put("standardHoursEstimateRef", product.getString("standardHoursEstimateRef"));
         map.put("laborRate", product.get("laborRate"));
@@ -965,7 +965,7 @@ public final class MfgProductServices {
     /**
      * Builds the identifier of one BOM version, {@code model-Vnumber}.
      *
-     * <p>The identifier has to fit the {@value MfgServices#MAX_BOM_VERSION_ID} characters of an {@code id}
+     * <p>The identifier has to fit the {@value MfgConstants#MAX_BOM_VERSION_ID} characters of an {@code id}
      * column, so a model code that uses the whole column is shortened — the version number is the
      * part that has to stay readable.
      *
@@ -975,12 +975,12 @@ public final class MfgProductServices {
      *         model code that is 20 characters long
      */
     static String formatBomVersionId(String productCode, long versionNo) {
-        String suffix = MfgServices.BOM_VERSION_SEPARATOR + versionNo;
+        String suffix = MfgConstants.BOM_VERSION_SEPARATOR + versionNo;
         String code = productCode == null ? "" : productCode;
-        if (code.length() + suffix.length() <= MfgServices.MAX_BOM_VERSION_ID) {
+        if (code.length() + suffix.length() <= MfgConstants.MAX_BOM_VERSION_ID) {
             return code + suffix;
         }
-        return code.substring(0, Math.max(1, MfgServices.MAX_BOM_VERSION_ID - suffix.length())) + suffix;
+        return code.substring(0, Math.max(1, MfgConstants.MAX_BOM_VERSION_ID - suffix.length())) + suffix;
     }
 
     /**
@@ -996,7 +996,7 @@ public final class MfgProductServices {
      */
     static String freeBomVersionId(Delegator delegator, String productCode, long versionNo)
             throws GenericEntityException {
-        String suffix = MfgServices.BOM_VERSION_SEPARATOR + versionNo;
+        String suffix = MfgConstants.BOM_VERSION_SEPARATOR + versionNo;
         String id = formatBomVersionId(productCode, versionNo);
         int attempt = 0;
         while (true) {
@@ -1007,7 +1007,7 @@ public final class MfgProductServices {
             }
             attempt++;
             String tag = "-" + attempt;
-            int room = MfgServices.MAX_BOM_VERSION_ID - suffix.length() - tag.length();
+            int room = MfgConstants.MAX_BOM_VERSION_ID - suffix.length() - tag.length();
             if (room < 1) {
                 return id;
             }
@@ -1119,7 +1119,7 @@ public final class MfgProductServices {
             version.set("bomVersionId", versionId);
             version.set("productCode", productCode);
             version.set("versionNo", Long.valueOf(versionNo));
-            version.set("statusId", MfgServices.BOM_RELEASED);
+            version.set("statusId", MfgConstants.BOM_RELEASED);
             version.set("effectiveDate", java.sql.Date.valueOf(LocalDate.now()));
             version.set("note", "Frozen from the single BOM table");
             delegator.create(version);
@@ -1164,7 +1164,7 @@ public final class MfgProductServices {
         GenericValue version = EntityQuery.use(delegator).from("MfgBomVersion")
                 .where("bomVersionId", versionId).queryOne();
         if (version != null) {
-            version.set("statusId", MfgServices.BOM_RELEASED);
+            version.set("statusId", MfgConstants.BOM_RELEASED);
             version.set("effectiveDate", java.sql.Date.valueOf(LocalDate.now()));
             version.store();
         }
@@ -1186,7 +1186,7 @@ public final class MfgProductServices {
         version.set("bomVersionId", versionId);
         version.set("productCode", productCode);
         version.set("versionNo", Long.valueOf(versionNo));
-        version.set("statusId", MfgServices.BOM_DRAFT);
+        version.set("statusId", MfgConstants.BOM_DRAFT);
         version.set("basisVersionId", basis);
         version.set("ecoId", ecoId);
         version.set("note", note);
@@ -1232,7 +1232,7 @@ public final class MfgProductServices {
      * @return the service result containing {@code bomVersionId}
      */
     public static Map<String, Object> bomVersionCreate(DispatchContext dctx, Map<String, ? extends Object> context) {
-        String denied = MfgServices.permissionProblem(dctx, context, MfgServices.PERM_ENG);
+        String denied = MfgSecurity.permissionProblem(dctx, context, MfgConstants.PERM_ENG);
         if (denied != null) {
             return ServiceUtil.returnError(denied);
         }
@@ -1269,7 +1269,7 @@ public final class MfgProductServices {
      * @return the service result containing {@code bomVersionId} and {@code replacedVersionId}
      */
     public static Map<String, Object> bomVersionActivate(DispatchContext dctx, Map<String, ? extends Object> context) {
-        String denied = MfgServices.permissionProblem(dctx, context, MfgServices.PERM_ENG);
+        String denied = MfgSecurity.permissionProblem(dctx, context, MfgConstants.PERM_ENG);
         if (denied != null) {
             return ServiceUtil.returnError(denied);
         }
@@ -1290,12 +1290,12 @@ public final class MfgProductServices {
             String replaced = product == null ? null : MfgSupport.toText(product.getString("currentBomVersionId"));
             for (GenericValue other : bomVersionsOf(delegator, productCode)) {
                 if (!bomVersionId.equals(other.getString("bomVersionId"))
-                        && MfgServices.BOM_RELEASED.equals(other.getString("statusId"))) {
-                    other.set("statusId", MfgServices.BOM_OBSOLETE);
+                        && MfgConstants.BOM_RELEASED.equals(other.getString("statusId"))) {
+                    other.set("statusId", MfgConstants.BOM_OBSOLETE);
                     other.store();
                 }
             }
-            version.set("statusId", MfgServices.BOM_RELEASED);
+            version.set("statusId", MfgConstants.BOM_RELEASED);
             version.set("effectiveDate", java.sql.Date.valueOf(LocalDate.now()));
             version.store();
             if (product != null) {
@@ -1350,7 +1350,7 @@ public final class MfgProductServices {
      * @return the service result containing the migrated model codes
      */
     public static Map<String, Object> bomMigrateLegacy(DispatchContext dctx, Map<String, ? extends Object> context) {
-        String denied = MfgServices.permissionProblem(dctx, context, MfgServices.PERM_ENG);
+        String denied = MfgSecurity.permissionProblem(dctx, context, MfgConstants.PERM_ENG);
         if (denied != null) {
             return ServiceUtil.returnError(denied);
         }
@@ -1376,5 +1376,45 @@ public final class MfgProductServices {
         } catch (GenericEntityException e) {
             return ServiceUtil.returnError("Could not migrate the legacy BOM: " + e.getMessage());
         }
+    }
+
+    /**
+     * Reads the order lines typed or pasted by the person: {@code code,name,quantity,amount} per
+     * line, separated by comma or tab; blank lines and lines starting with {@code #} are ignored.
+     *
+     * @param text the pasted text
+     * @return one array per line: code, name, quantity, amount (as text)
+     */
+    public static String fittingComponentCode(String code) {
+        // the spaces between the words are part of the number (5.5V1.5F C型 21*7.5); only runs of
+        // blanks are squeezed, so F, C型 and 21*7.5 do not run together
+        String trimmed = code == null ? "" : code.trim().replaceAll("\\s+", " ");
+        if (trimmed.length() <= MfgConstants.MAX_COMPONENT_CODE) {
+            return trimmed;
+        }
+        String hash = String.format(Locale.ROOT, "%06x", ((long) trimmed.hashCode()) & 0xffffffL);
+        int keep = MfgConstants.MAX_COMPONENT_CODE - hash.length() - 1;
+        String head = trimmed.substring(0, keep).trim();
+        int cut = head.lastIndexOf(' ');
+        if (cut >= keep - 8) {
+            head = head.substring(0, cut);
+        }
+        return head + "-" + hash;
+    }
+
+    /**
+     * Rewrites the code column of pasted order lines so every code fits the code field. A name may
+     * hold commas, so the rows are joined with tabs, which the parser accepts too.
+     *
+     * @param lines the pasted or recognised lines
+     * @return the same lines with fitting codes
+     */
+    public static String nameWithFullCode(String name, String fullCode) {
+        String base = name == null ? "" : name.trim();
+        if (fullCode == null || fullCode.isEmpty() || base.contains(fullCode)) {
+            return base;
+        }
+        String combined = base.isEmpty() ? fullCode : base + ' ' + fullCode;
+        return combined.length() <= 100 ? combined : combined.substring(0, 100);
     }
 }

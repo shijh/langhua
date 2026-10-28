@@ -39,7 +39,7 @@ import org.langhua.ofbiz.mfg.oir.OirScan;
 import org.junit.Test;
 
 /**
- * Unit tests of the pure helper functions of {@link MfgServices}.
+ * Unit tests of the pure helper functions of the component.
  *
  * <p>They cover the parts that do not need a database: BOM CSV parsing, the serial
  * number and work order number formats.
@@ -337,26 +337,26 @@ public class MfgServicesTest {
         java.sql.Timestamp deadline = java.sql.Timestamp.valueOf("2026-10-16 12:00:00");
         java.time.LocalDateTime now = java.time.LocalDateTime.of(2026, 10, 15, 10, 30);
 
-        assertEquals(25L, MfgServices.hoursLeft(deadline, now));
-        assertEquals(-2L, MfgServices.hoursLeft(deadline,
+        assertEquals(25L, MfgSupport.hoursLeft(deadline, now));
+        assertEquals(-2L, MfgSupport.hoursLeft(deadline,
                 java.time.LocalDateTime.of(2026, 10, 16, 13, 30)));
-        assertEquals(0L, MfgServices.hoursLeft(null, now));
+        assertEquals(0L, MfgSupport.hoursLeft(null, now));
     }
 
     @Test
     public void flagsDeadlinesThatExpireSoon() {
-        assertTrue(MfgClaimServices.isExpiringSoon(MfgServices.DEADLINE_WARNING_HOURS));
+        assertTrue(MfgClaimServices.isExpiringSoon(MfgConstants.DEADLINE_WARNING_HOURS));
         assertTrue(MfgClaimServices.isExpiringSoon(0L));
-        assertTrue(!MfgClaimServices.isExpiringSoon(MfgServices.DEADLINE_WARNING_HOURS + 1));
+        assertTrue(!MfgClaimServices.isExpiringSoon(MfgConstants.DEADLINE_WARNING_HOURS + 1));
         assertTrue(!MfgClaimServices.isExpiringSoon(-1L));
     }
 
     @Test
     public void picksTheDefaultFreightPayerByClaimType() {
-        assertEquals(MfgServices.FREIGHT_BUYER, MfgClaimServices.defaultFreightPayer(MfgServices.CLAIM_RTN));
-        assertEquals(MfgServices.FREIGHT_BUYER, MfgClaimServices.defaultFreightPayer(MfgServices.CLAIM_EXCH));
-        assertEquals(MfgServices.FREIGHT_SELLER, MfgClaimServices.defaultFreightPayer(MfgServices.CLAIM_REPAIR));
-        assertEquals(MfgServices.FREIGHT_SELLER, MfgClaimServices.defaultFreightPayer(MfgServices.CLAIM_REFUND_ONLY));
+        assertEquals(MfgConstants.FREIGHT_BUYER, MfgClaimServices.defaultFreightPayer(MfgConstants.CLAIM_RTN));
+        assertEquals(MfgConstants.FREIGHT_BUYER, MfgClaimServices.defaultFreightPayer(MfgConstants.CLAIM_EXCH));
+        assertEquals(MfgConstants.FREIGHT_SELLER, MfgClaimServices.defaultFreightPayer(MfgConstants.CLAIM_REPAIR));
+        assertEquals(MfgConstants.FREIGHT_SELLER, MfgClaimServices.defaultFreightPayer(MfgConstants.CLAIM_REFUND_ONLY));
     }
 
     @Test
@@ -374,12 +374,12 @@ public class MfgServicesTest {
     @Test
     public void buildsTheBuyerKeyFromMobileOrNick() {
         // the nickname wins: it is always available, the mobile is often masked
-        assertEquals("TB:N:nick", MfgClaimServices.buyerKey(MfgServices.CHANNEL_TAOBAO, "138-0000-2222", "nick"));
-        assertEquals("TB:N:buyer_1", MfgClaimServices.buyerKey(MfgServices.CHANNEL_TAOBAO, null, "Buyer_1"));
-        assertEquals("TB:13800002222", MfgClaimServices.buyerKey(MfgServices.CHANNEL_TAOBAO, "13800002222", null));
+        assertEquals("TB:N:nick", MfgClaimServices.buyerKey(MfgConstants.CHANNEL_TAOBAO, "138-0000-2222", "nick"));
+        assertEquals("TB:N:buyer_1", MfgClaimServices.buyerKey(MfgConstants.CHANNEL_TAOBAO, null, "Buyer_1"));
+        assertEquals("TB:13800002222", MfgClaimServices.buyerKey(MfgConstants.CHANNEL_TAOBAO, "13800002222", null));
         assertEquals("TB:13800002222", MfgClaimServices.buyerKey(null, "13800002222", "  "));
-        assertNull(MfgClaimServices.buyerKey(MfgServices.CHANNEL_TAOBAO, "138****2222", null));
-        assertNull(MfgClaimServices.buyerKey(MfgServices.CHANNEL_TAOBAO, null, "  "));
+        assertNull(MfgClaimServices.buyerKey(MfgConstants.CHANNEL_TAOBAO, "138****2222", null));
+        assertNull(MfgClaimServices.buyerKey(MfgConstants.CHANNEL_TAOBAO, null, "  "));
     }
 
     @Test
@@ -396,16 +396,16 @@ public class MfgServicesTest {
     public void suggestsARiskLevelFromTheHistory() {
         assertNull(MfgClaimServices.suggestRiskLevel(0, 0.0));
         assertNull(MfgClaimServices.suggestRiskLevel(2, 499.0));
-        assertEquals(MfgServices.RISK_WATCH, MfgClaimServices.suggestRiskLevel(3, 0.0));
-        assertEquals(MfgServices.RISK_WATCH, MfgClaimServices.suggestRiskLevel(1, 500.0));
-        assertEquals(MfgServices.RISK_BLOCK, MfgClaimServices.suggestRiskLevel(5, 0.0));
-        assertEquals(MfgServices.RISK_BLOCK, MfgClaimServices.suggestRiskLevel(1, 1000.0));
+        assertEquals(MfgConstants.RISK_WATCH, MfgClaimServices.suggestRiskLevel(3, 0.0));
+        assertEquals(MfgConstants.RISK_WATCH, MfgClaimServices.suggestRiskLevel(1, 500.0));
+        assertEquals(MfgConstants.RISK_BLOCK, MfgClaimServices.suggestRiskLevel(5, 0.0));
+        assertEquals(MfgConstants.RISK_BLOCK, MfgClaimServices.suggestRiskLevel(1, 1000.0));
     }
 
     @Test
     public void onlyActiveFlagsApply() {
-        assertTrue(MfgClaimServices.isFlagActive(MfgServices.FLAG_ACTIVE));
-        assertTrue(!MfgClaimServices.isFlagActive(MfgServices.FLAG_RELEASED));
+        assertTrue(MfgClaimServices.isFlagActive(MfgConstants.FLAG_ACTIVE));
+        assertTrue(!MfgClaimServices.isFlagActive(MfgConstants.FLAG_RELEASED));
         assertTrue(!MfgClaimServices.isFlagActive(null));
     }
 
@@ -413,12 +413,12 @@ public class MfgServicesTest {
     public void flagsStopApplyingWhenTheyExpire() {
         java.sql.Date today = java.sql.Date.valueOf("2026-10-21");
 
-        assertTrue(MfgClaimServices.isFlagLive(MfgServices.FLAG_ACTIVE, java.sql.Date.valueOf("2027-10-21"), today));
-        assertTrue(MfgClaimServices.isFlagLive(MfgServices.FLAG_ACTIVE, today, today));
-        assertTrue(!MfgClaimServices.isFlagLive(MfgServices.FLAG_ACTIVE, java.sql.Date.valueOf("2026-10-20"), today));
+        assertTrue(MfgClaimServices.isFlagLive(MfgConstants.FLAG_ACTIVE, java.sql.Date.valueOf("2027-10-21"), today));
+        assertTrue(MfgClaimServices.isFlagLive(MfgConstants.FLAG_ACTIVE, today, today));
+        assertTrue(!MfgClaimServices.isFlagLive(MfgConstants.FLAG_ACTIVE, java.sql.Date.valueOf("2026-10-20"), today));
         // no expiry means it keeps applying while active
-        assertTrue(MfgClaimServices.isFlagLive(MfgServices.FLAG_ACTIVE, null, today));
-        assertTrue(!MfgClaimServices.isFlagLive(MfgServices.FLAG_RELEASED, null, today));
+        assertTrue(MfgClaimServices.isFlagLive(MfgConstants.FLAG_ACTIVE, null, today));
+        assertTrue(!MfgClaimServices.isFlagLive(MfgConstants.FLAG_RELEASED, null, today));
     }
 
     @Test
@@ -2867,22 +2867,22 @@ public class MfgServicesTest {
     @Test
     public void fitsALongPartNumberIntoTheCodeField() {
         // a code that fits is kept, the blanks around it are not
-        assertEquals("CAP-104-50V", MfgServices.fittingComponentCode(" CAP-104-50V "));
+        assertEquals("CAP-104-50V", MfgProductServices.fittingComponentCode(" CAP-104-50V "));
 
         // the blanks inside the number stay: 5.5V1.5F C型 21*7.5 must not become 5.5V1.5FC217.5
-        assertEquals("5.5V1.5F C型 21*7.5", MfgServices.fittingComponentCode("5.5V1.5F  C型   21*7.5"));
+        assertEquals("5.5V1.5F C型 21*7.5", MfgProductServices.fittingComponentCode("5.5V1.5F  C型   21*7.5"));
 
         // the code field holds 100 characters, so a package description is stored as it is
         String long1 = "QFN16-0.65-QFN20-0.4-2.54";
-        assertEquals(long1, MfgServices.fittingComponentCode(long1));
+        assertEquals(long1, MfgProductServices.fittingComponentCode(long1));
 
         // only something longer than the column is shortened, always the same way
         String tooLong = "QFN16-0.65-QFN20-0.4-2.54-" + "1234567890".repeat(9);
-        String fitted = MfgServices.fittingComponentCode(tooLong);
+        String fitted = MfgProductServices.fittingComponentCode(tooLong);
         assertTrue(fitted.length() <= 100);
         assertTrue(fitted.startsWith("QFN16-0.65-QFN20"));
-        assertEquals(fitted, MfgServices.fittingComponentCode(tooLong));
-        assertFalse(fitted.equals(MfgServices.fittingComponentCode(tooLong + "X")));
+        assertEquals(fitted, MfgProductServices.fittingComponentCode(tooLong));
+        assertFalse(fitted.equals(MfgProductServices.fittingComponentCode(tooLong + "X")));
 
         // the lines of an order keep their codes and their four cells
         String lines = OirOrders.fitOrderLines(long1 + ",转接板 2.54mm,2,12.60");
@@ -3043,8 +3043,8 @@ public class MfgServicesTest {
         assertTrue(MfgDevServices.isKnownDevStatus("MFG_DEV_ONHOLD"));
         assertTrue(!MfgDevServices.isKnownDevStatus("MFG_DEV_BOGUS"));
 
-        assertTrue(MfgServices.isKnownEcoStatus("MFG_ECO_APPLIED"));
-        assertTrue(!MfgServices.isKnownEcoStatus("DRAFT"));
+        assertTrue(MfgDevServices.isKnownEcoStatus("MFG_ECO_APPLIED"));
+        assertTrue(!MfgDevServices.isKnownEcoStatus("DRAFT"));
 
         assertTrue(MfgDevServices.isKnownEcoType("MFG_ECO_MATERIAL"));
         assertTrue(!MfgDevServices.isKnownEcoType("MFG_ECO_PRICE"));
@@ -3070,24 +3070,24 @@ public class MfgServicesTest {
 
     @Test
     public void knowsTheStepsOfEachDevelopmentTrack() {
-        assertEquals(5, MfgDevServices.stepsOfTrack(MfgServices.TRACK_PCB).length);
-        assertEquals(3, MfgDevServices.stepsOfTrack(MfgServices.TRACK_FIRMWARE).length);
-        assertEquals(7, MfgDevServices.stepsOfTrack(MfgServices.TRACK_ENCLOSURE).length);
+        assertEquals(5, MfgDevServices.stepsOfTrack(MfgConstants.TRACK_PCB).length);
+        assertEquals(3, MfgDevServices.stepsOfTrack(MfgConstants.TRACK_FIRMWARE).length);
+        assertEquals(7, MfgDevServices.stepsOfTrack(MfgConstants.TRACK_ENCLOSURE).length);
         assertEquals(0, MfgDevServices.stepsOfTrack("").length);
         assertEquals(0, MfgDevServices.stepsOfTrack(null).length);
         assertEquals(0, MfgDevServices.stepsOfTrack("MFG_TRACK_BOGUS").length);
 
         // the PCB track starts on the breadboard and ends on the hand soldered test
-        assertEquals("MFG_PCB_BREADBOARD", MfgDevServices.stepsOfTrack(MfgServices.TRACK_PCB)[0]);
-        assertEquals("MFG_PCB_HAND_SOLDER", MfgDevServices.stepsOfTrack(MfgServices.TRACK_PCB)[4]);
+        assertEquals("MFG_PCB_BREADBOARD", MfgDevServices.stepsOfTrack(MfgConstants.TRACK_PCB)[0]);
+        assertEquals("MFG_PCB_HAND_SOLDER", MfgDevServices.stepsOfTrack(MfgConstants.TRACK_PCB)[4]);
         // the enclosure track ends with the product assembly
-        assertEquals("MFG_ENC_ASSEMBLY", MfgDevServices.stepsOfTrack(MfgServices.TRACK_ENCLOSURE)[6]);
+        assertEquals("MFG_ENC_ASSEMBLY", MfgDevServices.stepsOfTrack(MfgConstants.TRACK_ENCLOSURE)[6]);
 
-        assertTrue(MfgDevServices.isKnownTrack(MfgServices.TRACK_ENCLOSURE));
+        assertTrue(MfgDevServices.isKnownTrack(MfgConstants.TRACK_ENCLOSURE));
         assertTrue(!MfgDevServices.isKnownTrack("MFG_TRACK_BOGUS"));
 
-        assertTrue(MfgDevServices.isKnownStep(MfgServices.TRACK_FIRMWARE, "MFG_FW_FLASH"));
-        assertTrue(!MfgDevServices.isKnownStep(MfgServices.TRACK_PCB, "MFG_FW_FLASH"));
+        assertTrue(MfgDevServices.isKnownStep(MfgConstants.TRACK_FIRMWARE, "MFG_FW_FLASH"));
+        assertTrue(!MfgDevServices.isKnownStep(MfgConstants.TRACK_PCB, "MFG_FW_FLASH"));
         assertTrue(!MfgDevServices.isKnownStep("", "MFG_PCB_SCHEMATIC"));
     }
 
@@ -3095,13 +3095,13 @@ public class MfgServicesTest {
     public void findsTheFirstOpenStep() {
         // nothing done yet, so the first step of the track is still open
         assertEquals("MFG_PCB_BREADBOARD",
-                MfgDevServices.firstOpenStep(MfgServices.TRACK_PCB, new java.util.ArrayList<String>()));
+                MfgDevServices.firstOpenStep(MfgConstants.TRACK_PCB, new java.util.ArrayList<String>()));
 
         java.util.List<String> done = java.util.Arrays.asList("MFG_PCB_BREADBOARD", "MFG_PCB_SCHEMATIC");
-        assertEquals("MFG_PCB_LAYOUT", MfgDevServices.firstOpenStep(MfgServices.TRACK_PCB, done));
+        assertEquals("MFG_PCB_LAYOUT", MfgDevServices.firstOpenStep(MfgConstants.TRACK_PCB, done));
 
-        java.util.List<String> all = java.util.Arrays.asList(MfgServices.PCB_STEPS);
-        assertNull(MfgDevServices.firstOpenStep(MfgServices.TRACK_PCB, all));
+        java.util.List<String> all = java.util.Arrays.asList(MfgConstants.PCB_STEPS);
+        assertNull(MfgDevServices.firstOpenStep(MfgConstants.TRACK_PCB, all));
 
         // a track without steps has nothing to open
         assertNull(MfgDevServices.firstOpenStep("", done));
@@ -3181,24 +3181,24 @@ public class MfgServicesTest {
     @Test
     public void onlyAFailedLotBlocksIssuing() {
         assertTrue(MfgWorkOrderServices.isLotUsable(null));
-        assertTrue(MfgWorkOrderServices.isLotUsable(MfgServices.IQC_PENDING));
-        assertTrue(MfgWorkOrderServices.isLotUsable(MfgServices.IQC_PASS));
-        assertTrue(MfgWorkOrderServices.isLotUsable(MfgServices.IQC_CONCESSION));
-        assertTrue(!MfgWorkOrderServices.isLotUsable(MfgServices.IQC_FAIL));
+        assertTrue(MfgWorkOrderServices.isLotUsable(MfgConstants.IQC_PENDING));
+        assertTrue(MfgWorkOrderServices.isLotUsable(MfgConstants.IQC_PASS));
+        assertTrue(MfgWorkOrderServices.isLotUsable(MfgConstants.IQC_CONCESSION));
+        assertTrue(!MfgWorkOrderServices.isLotUsable(MfgConstants.IQC_FAIL));
         // the rule is "only a failure blocks", so an unknown status must not lock the shop floor out
         assertTrue(MfgWorkOrderServices.isLotUsable("MFG_IQC_BOGUS"));
     }
 
     @Test
     public void normalizesTheInspectionStatus() {        // an empty value means "not inspected yet", not an error
-        assertEquals(MfgServices.IQC_PENDING, MfgStockServices.normalizeInspectStatus(null));
-        assertEquals(MfgServices.IQC_PENDING, MfgStockServices.normalizeInspectStatus("   "));
-        assertEquals(MfgServices.IQC_PASS, MfgStockServices.normalizeInspectStatus("MFG_IQC_PASS"));
-        assertEquals(MfgServices.IQC_PASS, MfgStockServices.normalizeInspectStatus("mfg_iqc_pass"));
-        assertEquals(MfgServices.IQC_CONCESSION, MfgStockServices.normalizeInspectStatus("MFG_IQC_CONCESSION"));
-        assertEquals(MfgServices.IQC_FAIL, MfgStockServices.normalizeInspectStatus("MFG_IQC_FAIL"));
+        assertEquals(MfgConstants.IQC_PENDING, MfgStockServices.normalizeInspectStatus(null));
+        assertEquals(MfgConstants.IQC_PENDING, MfgStockServices.normalizeInspectStatus("   "));
+        assertEquals(MfgConstants.IQC_PASS, MfgStockServices.normalizeInspectStatus("MFG_IQC_PASS"));
+        assertEquals(MfgConstants.IQC_PASS, MfgStockServices.normalizeInspectStatus("mfg_iqc_pass"));
+        assertEquals(MfgConstants.IQC_CONCESSION, MfgStockServices.normalizeInspectStatus("MFG_IQC_CONCESSION"));
+        assertEquals(MfgConstants.IQC_FAIL, MfgStockServices.normalizeInspectStatus("MFG_IQC_FAIL"));
         assertNull(MfgStockServices.normalizeInspectStatus("MFG_IQC_BOGUS"));
-        assertEquals(4, MfgServices.INSPECT_STATUSES.length);
+        assertEquals(4, MfgConstants.INSPECT_STATUSES.length);
     }
 
     @Test
@@ -3321,42 +3321,42 @@ public class MfgServicesTest {
 
     @Test
     public void ranksIssuesSoTheOpenHighOnesComeFirst() {
-        assertTrue(MfgDevServices.isOpenIssue(MfgServices.ISSUE_OPEN));
-        assertTrue(MfgDevServices.isOpenIssue(MfgServices.ISSUE_DOING));
-        assertFalse(MfgDevServices.isOpenIssue(MfgServices.ISSUE_CLOSED));
+        assertTrue(MfgDevServices.isOpenIssue(MfgConstants.ISSUE_OPEN));
+        assertTrue(MfgDevServices.isOpenIssue(MfgConstants.ISSUE_DOING));
+        assertFalse(MfgDevServices.isOpenIssue(MfgConstants.ISSUE_CLOSED));
         assertFalse(MfgDevServices.isOpenIssue(null));
 
-        assertTrue(MfgDevServices.statusRank(MfgServices.ISSUE_OPEN)
-                < MfgDevServices.statusRank(MfgServices.ISSUE_DOING));
-        assertTrue(MfgDevServices.statusRank(MfgServices.ISSUE_DOING)
-                < MfgDevServices.statusRank(MfgServices.ISSUE_CLOSED));
-        assertTrue(MfgDevServices.severityRank(MfgServices.ISSUE_HIGH)
-                > MfgDevServices.severityRank(MfgServices.ISSUE_MEDIUM));
-        assertTrue(MfgDevServices.severityRank(MfgServices.ISSUE_MEDIUM)
-                > MfgDevServices.severityRank(MfgServices.ISSUE_LOW));
+        assertTrue(MfgDevServices.statusRank(MfgConstants.ISSUE_OPEN)
+                < MfgDevServices.statusRank(MfgConstants.ISSUE_DOING));
+        assertTrue(MfgDevServices.statusRank(MfgConstants.ISSUE_DOING)
+                < MfgDevServices.statusRank(MfgConstants.ISSUE_CLOSED));
+        assertTrue(MfgDevServices.severityRank(MfgConstants.ISSUE_HIGH)
+                > MfgDevServices.severityRank(MfgConstants.ISSUE_MEDIUM));
+        assertTrue(MfgDevServices.severityRank(MfgConstants.ISSUE_MEDIUM)
+                > MfgDevServices.severityRank(MfgConstants.ISSUE_LOW));
 
-        assertTrue(MfgDevServices.isKnownIssueStatus(MfgServices.ISSUE_DOING));
+        assertTrue(MfgDevServices.isKnownIssueStatus(MfgConstants.ISSUE_DOING));
         assertFalse(MfgDevServices.isKnownIssueStatus("MFG_ISSUE_WHATEVER"));
-        assertTrue(MfgDevServices.isKnownIssueSeverity(MfgServices.ISSUE_HIGH));
+        assertTrue(MfgDevServices.isKnownIssueSeverity(MfgConstants.ISSUE_HIGH));
         assertFalse(MfgDevServices.isKnownIssueSeverity("MFG_ISSUE_URGENT"));
     }
 
     @Test
     public void signsTheInventoryMovements() {
         // receipts and returns add, issues and scraps take away
-        assertEquals(5.0, MfgStockLedger.movementDiff(MfgServices.MOVE_RECEIPT, 5.0), 1e-9);
-        assertEquals(5.0, MfgStockLedger.movementDiff(MfgServices.MOVE_RETURN, 5.0), 1e-9);
-        assertEquals(-5.0, MfgStockLedger.movementDiff(MfgServices.MOVE_ISSUE, 5.0), 1e-9);
-        assertEquals(-5.0, MfgStockLedger.movementDiff(MfgServices.MOVE_SCRAP, 5.0), 1e-9);
+        assertEquals(5.0, MfgStockLedger.movementDiff(MfgConstants.MOVE_RECEIPT, 5.0), 1e-9);
+        assertEquals(5.0, MfgStockLedger.movementDiff(MfgConstants.MOVE_RETURN, 5.0), 1e-9);
+        assertEquals(-5.0, MfgStockLedger.movementDiff(MfgConstants.MOVE_ISSUE, 5.0), 1e-9);
+        assertEquals(-5.0, MfgStockLedger.movementDiff(MfgConstants.MOVE_SCRAP, 5.0), 1e-9);
         // a count and an adjustment carry their own sign
-        assertEquals(-2.0, MfgStockLedger.movementDiff(MfgServices.MOVE_COUNT, -2.0), 1e-9);
-        assertEquals(-2.0, MfgStockLedger.movementDiff(MfgServices.MOVE_ADJUST, -2.0), 1e-9);
+        assertEquals(-2.0, MfgStockLedger.movementDiff(MfgConstants.MOVE_COUNT, -2.0), 1e-9);
+        assertEquals(-2.0, MfgStockLedger.movementDiff(MfgConstants.MOVE_ADJUST, -2.0), 1e-9);
         // a reservation changes no quantity on hand
-        assertEquals(0.0, MfgStockLedger.movementDiff(MfgServices.MOVE_RESERVE, 5.0), 1e-9);
-        assertEquals(0.0, MfgStockLedger.movementDiff(MfgServices.MOVE_RELEASE, 5.0), 1e-9);
+        assertEquals(0.0, MfgStockLedger.movementDiff(MfgConstants.MOVE_RESERVE, 5.0), 1e-9);
+        assertEquals(0.0, MfgStockLedger.movementDiff(MfgConstants.MOVE_RELEASE, 5.0), 1e-9);
         assertEquals(0.0, MfgStockLedger.movementDiff(null, 5.0), 1e-9);
 
-        assertTrue(MfgStockLedger.isKnownMovement(MfgServices.MOVE_COUNT));
+        assertTrue(MfgStockLedger.isKnownMovement(MfgConstants.MOVE_COUNT));
         assertFalse(MfgStockLedger.isKnownMovement("MFG_MOVE_BOGUS"));
         assertFalse(MfgStockLedger.isKnownMovement(null));
     }
@@ -3364,13 +3364,13 @@ public class MfgServicesTest {
     @Test
     public void namesTheInventoryReasonsOfOfbiz() {
         // the ids are OFBiz's own IID_REASON list, so an export lines up with a standard install
-        assertEquals(8, MfgServices.MOVE_REASONS.length);
-        assertEquals("VAR_LOST", MfgServices.MOVE_REASONS[0]);
-        assertEquals("VAR_MISSHIP_SHIPPED", MfgServices.MOVE_REASONS[7]);
-        assertEquals("\u4e22\u5931", MfgStockLedger.reasonLabel(MfgServices.REASON_LOST));
-        assertEquals("\u88ab\u76d7", MfgStockLedger.reasonLabel(MfgServices.REASON_STOLEN));
-        assertEquals("\u635f\u574f", MfgStockLedger.reasonLabel(MfgServices.REASON_DAMAGED));
-        assertTrue(MfgStockLedger.reasonLabel(MfgServices.REASON_FOUND).contains("\u627e\u5230"));
+        assertEquals(8, MfgConstants.MOVE_REASONS.length);
+        assertEquals("VAR_LOST", MfgConstants.MOVE_REASONS[0]);
+        assertEquals("VAR_MISSHIP_SHIPPED", MfgConstants.MOVE_REASONS[7]);
+        assertEquals("\u4e22\u5931", MfgStockLedger.reasonLabel(MfgConstants.REASON_LOST));
+        assertEquals("\u88ab\u76d7", MfgStockLedger.reasonLabel(MfgConstants.REASON_STOLEN));
+        assertEquals("\u635f\u574f", MfgStockLedger.reasonLabel(MfgConstants.REASON_DAMAGED));
+        assertTrue(MfgStockLedger.reasonLabel(MfgConstants.REASON_FOUND).contains("\u627e\u5230"));
         assertEquals("", MfgStockLedger.reasonLabel(null));
         assertEquals("VAR_WHATEVER", MfgStockLedger.reasonLabel("VAR_WHATEVER"));
     }
@@ -3378,16 +3378,16 @@ public class MfgServicesTest {
     @Test
     public void picksTheMovementTypeFromTheReason() {
         // what left the stock is booked out, what came back in is booked in
-        assertEquals(MfgServices.MOVE_SCRAP, MfgStockLedger.movementTypeOfReason(MfgServices.REASON_LOST));
-        assertEquals(MfgServices.MOVE_SCRAP, MfgStockLedger.movementTypeOfReason(MfgServices.REASON_STOLEN));
-        assertEquals(MfgServices.MOVE_SCRAP, MfgStockLedger.movementTypeOfReason(MfgServices.REASON_DAMAGED));
-        assertEquals(MfgServices.MOVE_SCRAP, MfgStockLedger.movementTypeOfReason(MfgServices.REASON_SAMPLE));
-        assertEquals(MfgServices.MOVE_SCRAP,
-                MfgStockLedger.movementTypeOfReason(MfgServices.REASON_MISSHIP_SHIPPED));
-        assertEquals(MfgServices.MOVE_ISSUE, MfgStockLedger.movementTypeOfReason(MfgServices.REASON_INTEGR));
-        assertEquals(MfgServices.MOVE_RECEIPT, MfgStockLedger.movementTypeOfReason(MfgServices.REASON_FOUND));
-        assertEquals(MfgServices.MOVE_RECEIPT,
-                MfgStockLedger.movementTypeOfReason(MfgServices.REASON_MISSHIP_ORDERED));
+        assertEquals(MfgConstants.MOVE_SCRAP, MfgStockLedger.movementTypeOfReason(MfgConstants.REASON_LOST));
+        assertEquals(MfgConstants.MOVE_SCRAP, MfgStockLedger.movementTypeOfReason(MfgConstants.REASON_STOLEN));
+        assertEquals(MfgConstants.MOVE_SCRAP, MfgStockLedger.movementTypeOfReason(MfgConstants.REASON_DAMAGED));
+        assertEquals(MfgConstants.MOVE_SCRAP, MfgStockLedger.movementTypeOfReason(MfgConstants.REASON_SAMPLE));
+        assertEquals(MfgConstants.MOVE_SCRAP,
+                MfgStockLedger.movementTypeOfReason(MfgConstants.REASON_MISSHIP_SHIPPED));
+        assertEquals(MfgConstants.MOVE_ISSUE, MfgStockLedger.movementTypeOfReason(MfgConstants.REASON_INTEGR));
+        assertEquals(MfgConstants.MOVE_RECEIPT, MfgStockLedger.movementTypeOfReason(MfgConstants.REASON_FOUND));
+        assertEquals(MfgConstants.MOVE_RECEIPT,
+                MfgStockLedger.movementTypeOfReason(MfgConstants.REASON_MISSHIP_ORDERED));
         assertNull(MfgStockLedger.movementTypeOfReason(null));
         assertNull(MfgStockLedger.movementTypeOfReason("VAR_WHATEVER"));
     }
@@ -3395,51 +3395,51 @@ public class MfgServicesTest {
     @Test
     public void refusesAReasonThatFightsWithTheType() {
         // nothing to complain about: no reason, or a reason that agrees with the type
-        assertNull(MfgStockLedger.movementReasonProblem(MfgServices.MOVE_SCRAP, null, 3.0));
-        assertNull(MfgStockLedger.movementReasonProblem(MfgServices.MOVE_SCRAP,
-                MfgServices.REASON_LOST, 3.0));
-        assertNull(MfgStockLedger.movementReasonProblem(MfgServices.MOVE_ADJUST,
-                MfgServices.REASON_DAMAGED, -2.0));
-        assertNull(MfgStockLedger.movementReasonProblem(MfgServices.MOVE_RECEIPT,
-                MfgServices.REASON_FOUND, 4.0));
+        assertNull(MfgStockLedger.movementReasonProblem(MfgConstants.MOVE_SCRAP, null, 3.0));
+        assertNull(MfgStockLedger.movementReasonProblem(MfgConstants.MOVE_SCRAP,
+                MfgConstants.REASON_LOST, 3.0));
+        assertNull(MfgStockLedger.movementReasonProblem(MfgConstants.MOVE_ADJUST,
+                MfgConstants.REASON_DAMAGED, -2.0));
+        assertNull(MfgStockLedger.movementReasonProblem(MfgConstants.MOVE_RECEIPT,
+                MfgConstants.REASON_FOUND, 4.0));
         // a lost part may not be booked in, and a found one may not be booked out
-        assertTrue(present(MfgStockLedger.movementReasonProblem(MfgServices.MOVE_RECEIPT,
-                MfgServices.REASON_LOST, 3.0)));
-        assertTrue(present(MfgStockLedger.movementReasonProblem(MfgServices.MOVE_SCRAP,
-                MfgServices.REASON_FOUND, 3.0)));
+        assertTrue(present(MfgStockLedger.movementReasonProblem(MfgConstants.MOVE_RECEIPT,
+                MfgConstants.REASON_LOST, 3.0)));
+        assertTrue(present(MfgStockLedger.movementReasonProblem(MfgConstants.MOVE_SCRAP,
+                MfgConstants.REASON_FOUND, 3.0)));
         // an adjustment follows the sign of the quantity it carries
-        assertTrue(present(MfgStockLedger.movementReasonProblem(MfgServices.MOVE_ADJUST,
-                MfgServices.REASON_LOST, 2.0)));
-        assertNull(MfgStockLedger.movementReasonProblem(MfgServices.MOVE_ADJUST,
-                MfgServices.REASON_LOST, -2.0));
+        assertTrue(present(MfgStockLedger.movementReasonProblem(MfgConstants.MOVE_ADJUST,
+                MfgConstants.REASON_LOST, 2.0)));
+        assertNull(MfgStockLedger.movementReasonProblem(MfgConstants.MOVE_ADJUST,
+                MfgConstants.REASON_LOST, -2.0));
         // the message names the reason, so the person knows which one to keep
-        String message = MfgStockLedger.movementReasonProblem(MfgServices.MOVE_RECEIPT,
-                MfgServices.REASON_LOST, 3.0);
+        String message = MfgStockLedger.movementReasonProblem(MfgConstants.MOVE_RECEIPT,
+                MfgConstants.REASON_LOST, 3.0);
         assertTrue(message.contains("\u4e22\u5931"));
         assertTrue(message.contains("\u8865\u5165\u5e93") || message.contains("\u5230\u8d27\u5165\u5e93"));
         // an unknown reason is refused even when the type is fine
-        assertTrue(present(MfgStockLedger.movementReasonProblem(MfgServices.MOVE_SCRAP, "VAR_WHATEVER", 3.0)));
+        assertTrue(present(MfgStockLedger.movementReasonProblem(MfgConstants.MOVE_SCRAP, "VAR_WHATEVER", 3.0)));
     }
 
     @Test
     public void explainsAStockCountVarianceWithTheReasonItFits() {
         // a count carries its own sign, so the variance of -2 fits "lost" and clashes with "found"
-        assertNull(MfgStockLedger.movementReasonProblem(MfgServices.MOVE_COUNT,
-                MfgServices.REASON_LOST, -2.0));
-        assertNull(MfgStockLedger.movementReasonProblem(MfgServices.MOVE_COUNT,
-                MfgServices.REASON_FOUND, 2.0));
-        assertTrue(present(MfgStockLedger.movementReasonProblem(MfgServices.MOVE_COUNT,
-                MfgServices.REASON_FOUND, -2.0)));
-        assertTrue(present(MfgStockLedger.movementReasonProblem(MfgServices.MOVE_COUNT,
-                MfgServices.REASON_LOST, 2.0)));
+        assertNull(MfgStockLedger.movementReasonProblem(MfgConstants.MOVE_COUNT,
+                MfgConstants.REASON_LOST, -2.0));
+        assertNull(MfgStockLedger.movementReasonProblem(MfgConstants.MOVE_COUNT,
+                MfgConstants.REASON_FOUND, 2.0));
+        assertTrue(present(MfgStockLedger.movementReasonProblem(MfgConstants.MOVE_COUNT,
+                MfgConstants.REASON_FOUND, -2.0)));
+        assertTrue(present(MfgStockLedger.movementReasonProblem(MfgConstants.MOVE_COUNT,
+                MfgConstants.REASON_LOST, 2.0)));
         // a count that matches the book quantity explains nothing, so any reason goes
-        assertNull(MfgStockLedger.movementReasonProblem(MfgServices.MOVE_COUNT,
-                MfgServices.REASON_LOST, 0.0));
+        assertNull(MfgStockLedger.movementReasonProblem(MfgConstants.MOVE_COUNT,
+                MfgConstants.REASON_LOST, 0.0));
         // and no reason at all is still fine
-        assertNull(MfgStockLedger.movementReasonProblem(MfgServices.MOVE_COUNT, null, -2.0));
+        assertNull(MfgStockLedger.movementReasonProblem(MfgConstants.MOVE_COUNT, null, -2.0));
         // the refusal talks about 盘盈 / 盘亏, not about the bucket it lands in
-        String message = MfgStockLedger.movementReasonProblem(MfgServices.MOVE_COUNT,
-                MfgServices.REASON_LOST, 6.0);
+        String message = MfgStockLedger.movementReasonProblem(MfgConstants.MOVE_COUNT,
+                MfgConstants.REASON_LOST, 6.0);
         assertTrue(message.contains("\u76d8\u76c8"));
         assertTrue(message.contains("\u4e22\u5931"));
     }
@@ -3450,22 +3450,22 @@ public class MfgServicesTest {
 
     @Test
     public void blocksTheStockOfAFailedLot() {
-        assertEquals(10.0, MfgStockLedger.availableOf(10.0, MfgServices.IQC_PASS), 1e-9);
+        assertEquals(10.0, MfgStockLedger.availableOf(10.0, MfgConstants.IQC_PASS), 1e-9);
         // a pending lot may still be issued, a small workshop does not inspect everything
-        assertEquals(10.0, MfgStockLedger.availableOf(10.0, MfgServices.IQC_PENDING), 1e-9);
-        assertEquals(10.0, MfgStockLedger.availableOf(10.0, MfgServices.IQC_CONCESSION), 1e-9);
-        assertEquals(0.0, MfgStockLedger.availableOf(10.0, MfgServices.IQC_FAIL), 1e-9);
+        assertEquals(10.0, MfgStockLedger.availableOf(10.0, MfgConstants.IQC_PENDING), 1e-9);
+        assertEquals(10.0, MfgStockLedger.availableOf(10.0, MfgConstants.IQC_CONCESSION), 1e-9);
+        assertEquals(0.0, MfgStockLedger.availableOf(10.0, MfgConstants.IQC_FAIL), 1e-9);
         // an overdrawn lot never offers a negative quantity
-        assertEquals(0.0, MfgStockLedger.availableOf(-3.0, MfgServices.IQC_PASS), 1e-9);
+        assertEquals(0.0, MfgStockLedger.availableOf(-3.0, MfgConstants.IQC_PASS), 1e-9);
     }
 
     @Test
     public void takesTheReservationOutOfTheAvailableQuantity() {
-        assertEquals(6.0, MfgStockLedger.availableOf(10.0, 4.0, MfgServices.IQC_PASS), 1e-9);
+        assertEquals(6.0, MfgStockLedger.availableOf(10.0, 4.0, MfgConstants.IQC_PASS), 1e-9);
         // over reserved stock offers nothing, not a negative number
-        assertEquals(0.0, MfgStockLedger.availableOf(10.0, 12.0, MfgServices.IQC_PASS), 1e-9);
+        assertEquals(0.0, MfgStockLedger.availableOf(10.0, 12.0, MfgConstants.IQC_PASS), 1e-9);
         // a failed lot is not available at all
-        assertEquals(0.0, MfgStockLedger.availableOf(10.0, 4.0, MfgServices.IQC_FAIL), 1e-9);
+        assertEquals(0.0, MfgStockLedger.availableOf(10.0, 4.0, MfgConstants.IQC_FAIL), 1e-9);
     }
 
     @Test
@@ -3521,16 +3521,16 @@ public class MfgServicesTest {
 
     @Test
     public void knowsTheSalesOrderStatuses() {
-        assertTrue(MfgServices.isKnownSoStatus(MfgServices.SO_PLANNED));
-        assertFalse(MfgServices.isKnownSoStatus("MFG_SO_BOGUS"));
-        assertFalse(MfgServices.isKnownSoStatus(null));
+        assertTrue(MfgSalesOrderServices.isKnownSoStatus(MfgConstants.SO_PLANNED));
+        assertFalse(MfgSalesOrderServices.isKnownSoStatus("MFG_SO_BOGUS"));
+        assertFalse(MfgSalesOrderServices.isKnownSoStatus(null));
     }
 
     @Test
     public void knowsTheLocationTypes() {
-        assertTrue(MfgStockServices.isKnownLocationType(MfgServices.LOC_WAREHOUSE));
-        assertTrue(MfgStockServices.isKnownLocationType(MfgServices.LOC_ZONE));
-        assertTrue(MfgStockServices.isKnownLocationType(MfgServices.LOC_BIN));
+        assertTrue(MfgStockServices.isKnownLocationType(MfgConstants.LOC_WAREHOUSE));
+        assertTrue(MfgStockServices.isKnownLocationType(MfgConstants.LOC_ZONE));
+        assertTrue(MfgStockServices.isKnownLocationType(MfgConstants.LOC_BIN));
         assertFalse(MfgStockServices.isKnownLocationType("MFG_LOC_BOGUS"));
         assertFalse(MfgStockServices.isKnownLocationType(null));
     }
@@ -3538,14 +3538,14 @@ public class MfgServicesTest {
     @Test
     public void pricesTheOutsourcedFeeByItsBasis() {
         // per board: the price is multiplied by the units given
-        assertEquals(120.0, MfgWorkOrderServices.outsourceAmount(MfgServices.OUTSRC_PER_UNIT, 30.0, 4.0, 0.0, 0.0), 1e-9);
+        assertEquals(120.0, MfgWorkOrderServices.outsourceAmount(MfgConstants.OUTSRC_PER_UNIT, 30.0, 4.0, 0.0, 0.0), 1e-9);
         // per board without a quantity falls back to the good units, then to the planned ones
-        assertEquals(90.0, MfgWorkOrderServices.outsourceAmount(MfgServices.OUTSRC_PER_UNIT, 30.0, 0.0, 3.0, 10.0), 1e-9);
-        assertEquals(300.0, MfgWorkOrderServices.outsourceAmount(MfgServices.OUTSRC_PER_UNIT, 30.0, 0.0, 0.0, 10.0), 1e-9);
+        assertEquals(90.0, MfgWorkOrderServices.outsourceAmount(MfgConstants.OUTSRC_PER_UNIT, 30.0, 0.0, 3.0, 10.0), 1e-9);
+        assertEquals(300.0, MfgWorkOrderServices.outsourceAmount(MfgConstants.OUTSRC_PER_UNIT, 30.0, 0.0, 0.0, 10.0), 1e-9);
         // per placement point: always the points given
-        assertEquals(25.0, MfgWorkOrderServices.outsourceAmount(MfgServices.OUTSRC_PER_POINT, 0.05, 500.0, 3.0, 10.0), 1e-9);
+        assertEquals(25.0, MfgWorkOrderServices.outsourceAmount(MfgConstants.OUTSRC_PER_POINT, 0.05, 500.0, 3.0, 10.0), 1e-9);
         // a lump sum is its own amount, whatever else is given
-        assertEquals(88.5, MfgWorkOrderServices.outsourceAmount(MfgServices.OUTSRC_LUMP, 88.5, 7.0, 3.0, 10.0), 1e-9);
+        assertEquals(88.5, MfgWorkOrderServices.outsourceAmount(MfgConstants.OUTSRC_LUMP, 88.5, 7.0, 3.0, 10.0), 1e-9);
     }
 
     @Test
@@ -3560,9 +3560,9 @@ public class MfgServicesTest {
 
     @Test
     public void knowsTheOutsourcedFeeCodes() {
-        assertTrue(MfgWorkOrderServices.isKnownOutsourceType(MfgServices.OUTSRC_SMT));
+        assertTrue(MfgWorkOrderServices.isKnownOutsourceType(MfgConstants.OUTSRC_SMT));
         assertFalse(MfgWorkOrderServices.isKnownOutsourceType("MFG_OUTSRC_BOGUS"));
-        assertTrue(MfgWorkOrderServices.isKnownOutsourceBasis(MfgServices.OUTSRC_PER_POINT));
+        assertTrue(MfgWorkOrderServices.isKnownOutsourceBasis(MfgConstants.OUTSRC_PER_POINT));
         assertFalse(MfgWorkOrderServices.isKnownOutsourceBasis("MFG_OUTSRC_BOGUS"));
     }
 

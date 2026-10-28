@@ -70,7 +70,7 @@ public final class MfgSalesOrderServices {
      * @return the service result with the order number
      */
     public static Map<String, Object> salesOrderSave(DispatchContext dctx, Map<String, ? extends Object> context) {
-        String denied = MfgServices.permissionProblem(dctx, context, MfgServices.PERM_SALES);
+        String denied = MfgSecurity.permissionProblem(dctx, context, MfgConstants.PERM_SALES);
         if (denied != null) {
             return ServiceUtil.returnError(denied);
         }
@@ -104,7 +104,7 @@ public final class MfgSalesOrderServices {
                 salesOrderId = nextSalesOrderId(delegator, LocalDate.now());
                 order = delegator.makeValue("MfgSalesOrder");
                 order.set("salesOrderId", salesOrderId);
-                order.set("statusId", MfgServices.SO_OPEN);
+                order.set("statusId", MfgConstants.SO_OPEN);
                 delegator.create(order);
             } else {
                 order = EntityQuery.use(delegator).from("MfgSalesOrder")
@@ -112,8 +112,8 @@ public final class MfgSalesOrderServices {
                 if (order == null) {
                     return ServiceUtil.returnError("Unknown sales order [" + salesOrderId + "]");
                 }
-                if (MfgServices.SO_CLOSED.equals(order.getString("statusId"))
-                        || MfgServices.SO_CANCELLED.equals(order.getString("statusId"))) {
+                if (MfgConstants.SO_CLOSED.equals(order.getString("statusId"))
+                        || MfgConstants.SO_CANCELLED.equals(order.getString("statusId"))) {
                     return ServiceUtil.returnError("Sales order [" + salesOrderId + "] is "
                             + order.getString("statusId"));
                 }
@@ -184,7 +184,7 @@ public final class MfgSalesOrderServices {
      * @return the service result with what was reserved and what is still owed
      */
     public static Map<String, Object> salesOrderReserve(DispatchContext dctx, Map<String, ? extends Object> context) {
-        String denied = MfgServices.permissionProblem(dctx, context, MfgServices.PERM_SALES);
+        String denied = MfgSecurity.permissionProblem(dctx, context, MfgConstants.PERM_SALES);
         if (denied != null) {
             return ServiceUtil.returnError(denied);
         }
@@ -263,7 +263,7 @@ public final class MfgSalesOrderServices {
                 continue;
             }
             double take = Math.min(remaining, free);
-            recordOrderReservation(delegator, lot, MfgServices.MOVE_RESERVE, take, salesOrderId, lineSeq, operator,
+            recordOrderReservation(delegator, lot, MfgConstants.MOVE_RESERVE, take, salesOrderId, lineSeq, operator,
                     "订单 " + salesOrderId + " 第 " + lineSeq + " 行预留");
             MfgStockLedger.recalcLotStock(delegator, lot);
             remaining = MfgSupport.round2(remaining - take);
@@ -281,7 +281,7 @@ public final class MfgSalesOrderServices {
      * @return the service result with the planned quantity
      */
     public static Map<String, Object> salesOrderPlan(DispatchContext dctx, Map<String, ? extends Object> context) {
-        String denied = MfgServices.permissionProblem(dctx, context, MfgServices.PERM_SALES);
+        String denied = MfgSecurity.permissionProblem(dctx, context, MfgConstants.PERM_SALES);
         if (denied != null) {
             return ServiceUtil.returnError(denied);
         }
@@ -296,8 +296,8 @@ public final class MfgSalesOrderServices {
             if (order == null) {
                 return ServiceUtil.returnError("Unknown sales order [" + salesOrderId + "]");
             }
-            if (MfgServices.SO_CLOSED.equals(order.getString("statusId"))
-                    || MfgServices.SO_CANCELLED.equals(order.getString("statusId"))) {
+            if (MfgConstants.SO_CLOSED.equals(order.getString("statusId"))
+                    || MfgConstants.SO_CANCELLED.equals(order.getString("statusId"))) {
                 return ServiceUtil.returnError("Sales order [" + salesOrderId + "] is "
                         + order.getString("statusId"));
             }
@@ -318,8 +318,8 @@ public final class MfgSalesOrderServices {
                 GenericValue workOrder = workOrderId == null ? null
                         : EntityQuery.use(delegator).from("MfgWorkOrder")
                                 .where("workOrderId", workOrderId).queryOne();
-                if (workOrder != null && (MfgServices.WO_CLOSED.equals(workOrder.getString("statusId"))
-                        || MfgServices.WO_COMPLETED.equals(workOrder.getString("statusId")))) {
+                if (workOrder != null && (MfgConstants.WO_CLOSED.equals(workOrder.getString("statusId"))
+                        || MfgConstants.WO_COMPLETED.equals(workOrder.getString("statusId")))) {
                     // the order of that line is finished, so a new one has to make the rest
                     workOrder = null;
                 }
@@ -351,8 +351,8 @@ public final class MfgSalesOrderServices {
                 plannedTotal += Math.round(need);
                 plannedLines++;
             }
-            if (plannedLines > 0 && !MfgServices.SO_SHIPPED.equals(order.getString("statusId"))) {
-                order.set("statusId", MfgServices.SO_PLANNED);
+            if (plannedLines > 0 && !MfgConstants.SO_SHIPPED.equals(order.getString("statusId"))) {
+                order.set("statusId", MfgConstants.SO_PLANNED);
                 delegator.store(order);
             }
             Map<String, Object> result = ServiceUtil.returnSuccess();
@@ -374,7 +374,7 @@ public final class MfgSalesOrderServices {
      * @return the service result with the released quantity
      */
     public static Map<String, Object> salesOrderClose(DispatchContext dctx, Map<String, ? extends Object> context) {
-        String denied = MfgServices.permissionProblem(dctx, context, MfgServices.PERM_SALES);
+        String denied = MfgSecurity.permissionProblem(dctx, context, MfgConstants.PERM_SALES);
         if (denied != null) {
             return ServiceUtil.returnError(denied);
         }
@@ -391,12 +391,12 @@ public final class MfgSalesOrderServices {
             }
             double released = releaseSalesOrder(delegator, salesOrderId, MfgSupport.toText(context.get("operatorName")),
                     "订单 " + salesOrderId + " 关闭，释放预留");
-            order.set("statusId", MfgServices.SO_CLOSED);
+            order.set("statusId", MfgConstants.SO_CLOSED);
             delegator.store(order);
             Map<String, Object> result = ServiceUtil.returnSuccess();
             result.put("salesOrderId", salesOrderId);
             result.put("releasedQty", Double.valueOf(MfgSupport.round2(released)));
-            result.put("statusId", MfgServices.SO_CLOSED);
+            result.put("statusId", MfgConstants.SO_CLOSED);
             return result;
         } catch (GenericEntityException e) {
             return ServiceUtil.returnError("Could not close the sales order: " + e.getMessage());
@@ -433,7 +433,7 @@ public final class MfgSalesOrderServices {
                 row.put("items", orderLineMaps(delegator, (String) row.get("salesOrderId")));
             }
             result.put("statusId", statusId);
-            result.put("statuses", MfgServices.SO_STATUSES);
+            result.put("statuses", MfgConstants.SO_STATUSES);
             return result;
         } catch (GenericEntityException e) {
             return ServiceUtil.returnError("Could not read the sales orders: " + e.getMessage());
@@ -543,7 +543,7 @@ public final class MfgSalesOrderServices {
      * @return the service result with the numbers of the line and of the whole order
      */
     public static Map<String, Object> salesOrderLineQty(DispatchContext dctx, Map<String, ? extends Object> context) {
-        String denied = MfgServices.permissionProblem(dctx, context, MfgServices.PERM_SALES, MfgServices.PERM_ADMIN);
+        String denied = MfgSecurity.permissionProblem(dctx, context, MfgConstants.PERM_SALES, MfgConstants.PERM_ADMIN);
         if (denied != null) {
             return ServiceUtil.returnError(denied);
         }
@@ -564,8 +564,8 @@ public final class MfgSalesOrderServices {
                 return ServiceUtil.returnError("Unknown sales order [" + salesOrderId + "]");
             }
             String statusId = order.getString("statusId");
-            if (MfgServices.SO_CLOSED.equals(statusId) || MfgServices.SO_CANCELLED.equals(statusId)) {
-                return ServiceUtil.returnError("订单已" + (MfgServices.SO_CLOSED.equals(statusId) ? "关闭" : "取消")
+            if (MfgConstants.SO_CLOSED.equals(statusId) || MfgConstants.SO_CANCELLED.equals(statusId)) {
+                return ServiceUtil.returnError("订单已" + (MfgConstants.SO_CLOSED.equals(statusId) ? "关闭" : "取消")
                         + "，不能再改数量");
             }
             GenericValue item = EntityQuery.use(delegator).from("MfgSalesOrderItem")
@@ -661,7 +661,7 @@ public final class MfgSalesOrderServices {
      *
      * @param delegator the delegator
      * @param lot the finished goods lot
-     * @param movementTypeId {@link MfgServices#MOVE_RESERVE} or {@link MfgServices#MOVE_RELEASE}
+     * @param movementTypeId {@link MfgConstants#MOVE_RESERVE} or {@link MfgConstants#MOVE_RELEASE}
      * @param diff the signed change of the reserved quantity
      * @param salesOrderId the order
      * @param lineSeq the line of the order
@@ -713,7 +713,7 @@ public final class MfgSalesOrderServices {
             if (reserved <= 0.0001) {
                 continue;
             }
-            recordOrderReservation(delegator, lot, MfgServices.MOVE_RELEASE, -reserved, salesOrderId, lineSeq,
+            recordOrderReservation(delegator, lot, MfgConstants.MOVE_RELEASE, -reserved, salesOrderId, lineSeq,
                     operatorName, note);
             MfgStockLedger.recalcLotStock(delegator, lot);
             released += reserved;
@@ -792,7 +792,7 @@ public final class MfgSalesOrderServices {
         double planned = MfgSupport.numberOrZero(workOrder.get("plannedQty"));
         double booked = 0.0;
         for (GenericValue movement : MfgStockLedger.movementsOf(delegator, MfgStockLedger.productLotId(workOrderId))) {
-            if (MfgServices.MOVE_RECEIPT.equals(movement.getString("movementTypeId"))) {
+            if (MfgConstants.MOVE_RECEIPT.equals(movement.getString("movementTypeId"))) {
                 booked += MfgSupport.numberOrZero(movement.get("quantityDiff"));
             }
         }
@@ -801,14 +801,29 @@ public final class MfgSalesOrderServices {
     }
 
     static String nextSalesOrderId(Delegator delegator, LocalDate today) throws GenericEntityException {
-        String prefix = MfgServices.SO_PREFIX + today.format(MfgServices.DAY) + "-";
+        String prefix = MfgConstants.SO_PREFIX + today.format(MfgConstants.DAY) + "-";
         int max = 0;
         for (GenericValue order : EntityQuery.use(delegator).from("MfgSalesOrder").queryList()) {
             String id = order.getString("salesOrderId");
             if (id != null && id.startsWith(prefix)) {
-                max = Math.max(max, MfgServices.parseTrailingNumber(id.substring(prefix.length())));
+                max = Math.max(max, MfgSupport.parseTrailingNumber(id.substring(prefix.length())));
             }
         }
         return prefix + String.format(Locale.ROOT, "%02d", Integer.valueOf(max + 1));
+    }
+
+    /**
+     * Tells whether a status is one of the sales order statuses.
+     *
+     * @param statusId the status to test
+     * @return {@code true} when it is known
+     */
+    static boolean isKnownSoStatus(String statusId) {
+        for (String status : MfgConstants.SO_STATUSES) {
+            if (status.equals(statusId)) {
+                return true;
+            }
+        }
+        return false;
     }
 }

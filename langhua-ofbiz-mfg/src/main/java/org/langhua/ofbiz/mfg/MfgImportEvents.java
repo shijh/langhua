@@ -40,7 +40,7 @@ import org.apache.ofbiz.service.ServiceUtil;
  * of being copied into the text box.
  *
  * <p>The event only turns the request into the context of the service; the parsing, the format
- * detection and the validation stay in {@link MfgServices#bomImport}.
+ * detection and the validation stay in {@link MfgProductServices#bomImport}.
  */
 public final class MfgImportEvents {
 

@@ -62,10 +62,10 @@ public final class MfgSoftwareServices {
         double size = ufp == null ? 35.0 * ilf + 15.0 * eif : ufp.doubleValue();
         double swf = swfBase + swfReuse + swfPreInvest + swfQuality;
         double effort = pdr * size * swf * rdf;
-        double days = effort / MfgServices.HOURS_PER_DAY;
+        double days = effort / MfgConstants.HOURS_PER_DAY;
         double months = effort <= 0.0 ? 0.0
-                : MfgServices.SCHEDULE_FACTOR
-                        * Math.pow(effort / MfgServices.HOURS_PER_MONTH, MfgServices.SCHEDULE_EXPONENT);
+                : MfgConstants.SCHEDULE_FACTOR
+                        * Math.pow(effort / MfgConstants.HOURS_PER_MONTH, MfgConstants.SCHEDULE_EXPONENT);
         double beforeTax = days * dayRate;
         double tax = beforeTax * taxRate;
         double withTax = beforeTax + tax;
@@ -105,10 +105,10 @@ public final class MfgSoftwareServices {
                 MfgSupport.toDouble(context.get("swfPreInvest"), 0.0),
                 MfgSupport.toDouble(context.get("swfQuality"), 0.0),
                 MfgSupport.toDouble(context.get("rdf"), 1.0),
-                MfgSupport.toDouble(context.get("pdrHoursPerFp"), MfgServices.DEFAULT_PDR),
-                MfgSupport.toDouble(context.get("dayRate"), MfgServices.DEFAULT_DAY_RATE),
-                MfgSupport.toDouble(context.get("taxRate"), MfgServices.DEFAULT_TAX_RATE),
-                MfgSupport.toDouble(context.get("dncRate"), MfgServices.DEFAULT_DNC_RATE)));
+                MfgSupport.toDouble(context.get("pdrHoursPerFp"), MfgConstants.DEFAULT_PDR),
+                MfgSupport.toDouble(context.get("dayRate"), MfgConstants.DEFAULT_DAY_RATE),
+                MfgSupport.toDouble(context.get("taxRate"), MfgConstants.DEFAULT_TAX_RATE),
+                MfgSupport.toDouble(context.get("dncRate"), MfgConstants.DEFAULT_DNC_RATE)));
         return result;
     }
 
@@ -121,7 +121,7 @@ public final class MfgSoftwareServices {
      * @return the service result containing {@code projectCode} and the estimate values
      */
     public static Map<String, Object> softwareProjectSave(DispatchContext dctx, Map<String, ? extends Object> context) {
-        String denied = MfgServices.permissionProblem(dctx, context, MfgServices.PERM_ENG);
+        String denied = MfgSecurity.permissionProblem(dctx, context, MfgConstants.PERM_ENG);
         if (denied != null) {
             return ServiceUtil.returnError(denied);
         }
@@ -144,7 +144,7 @@ public final class MfgSoftwareServices {
                 }
                 project = delegator.makeValue("MfgSoftwareProject");
                 project.set("projectCode", projectCode);
-                project.set("statusId", MfgServices.SW_PLANNED);
+                project.set("statusId", MfgConstants.SW_PLANNED);
             }
             project.set("projectName", projectName);
             project.set("categoryId", MfgSupport.toText(context.get("categoryId")));
@@ -217,7 +217,7 @@ public final class MfgSoftwareServices {
                 Map<String, Object> row = toSoftwareProjectMap(project);
                 rows.add(row);
                 String statusId = project.getString("statusId");
-                boolean open = !MfgServices.SW_DONE.equals(statusId) && !MfgServices.SW_CANCELLED.equals(statusId);
+                boolean open = !MfgConstants.SW_DONE.equals(statusId) && !MfgConstants.SW_CANCELLED.equals(statusId);
                 if (open) {
                     openCount++;
                 }
@@ -226,7 +226,7 @@ public final class MfgSoftwareServices {
                 if (planned > 0.0 && actualDays > planned) {
                     overCount++;
                 }
-                if (MfgServices.SW_DONE.equals(statusId)) {
+                if (MfgConstants.SW_DONE.equals(statusId)) {
                     finishedCount++;
                     plannedTotal += planned;
                     actualTotal += actualDays;
@@ -249,10 +249,10 @@ public final class MfgSoftwareServices {
             result.put("actualDaysTotal", Double.valueOf(MfgSupport.round2(actualTotal)));
             result.put("pdrSampleCount", Integer.valueOf(pdrSamples.size()));
             result.put("pdrMedian", Double.valueOf(MfgSupport.round2(MfgSupport.median(pdrSamples))));
-            result.put("defaultPdr", Double.valueOf(MfgServices.DEFAULT_PDR));
-            result.put("defaultDayRate", Double.valueOf(MfgServices.DEFAULT_DAY_RATE));
-            result.put("defaultTaxRate", Double.valueOf(MfgServices.DEFAULT_TAX_RATE));
-            result.put("defaultDncRate", Double.valueOf(MfgServices.DEFAULT_DNC_RATE));
+            result.put("defaultPdr", Double.valueOf(MfgConstants.DEFAULT_PDR));
+            result.put("defaultDayRate", Double.valueOf(MfgConstants.DEFAULT_DAY_RATE));
+            result.put("defaultTaxRate", Double.valueOf(MfgConstants.DEFAULT_TAX_RATE));
+            result.put("defaultDncRate", Double.valueOf(MfgConstants.DEFAULT_DNC_RATE));
             return result;
         } catch (GenericEntityException e) {
             return ServiceUtil.returnError("Could not read the software projects: " + e.getMessage());
@@ -270,10 +270,10 @@ public final class MfgSoftwareServices {
         setDefault(project, "swfPreInvest", 0.0);
         setDefault(project, "swfQuality", 0.0);
         setDefault(project, "rdf", 1.0);
-        setDefault(project, "pdrHoursPerFp", MfgServices.DEFAULT_PDR);
-        setDefault(project, "dayRate", MfgServices.DEFAULT_DAY_RATE);
-        setDefault(project, "taxRate", MfgServices.DEFAULT_TAX_RATE);
-        setDefault(project, "dncRate", MfgServices.DEFAULT_DNC_RATE);
+        setDefault(project, "pdrHoursPerFp", MfgConstants.DEFAULT_PDR);
+        setDefault(project, "dayRate", MfgConstants.DEFAULT_DAY_RATE);
+        setDefault(project, "taxRate", MfgConstants.DEFAULT_TAX_RATE);
+        setDefault(project, "dncRate", MfgConstants.DEFAULT_DNC_RATE);
         setDefault(project, "ilfCount", 0.0);
         setDefault(project, "eifCount", 0.0);
     }
@@ -322,7 +322,7 @@ public final class MfgSoftwareServices {
         map.put("plannedStartDate", project.getDate("plannedStartDate"));
         map.put("plannedEndDate", project.getDate("plannedEndDate"));
         map.put("actualHours", project.get("actualHours"));
-        double actualDays = MfgSupport.numberOrZero(project.get("actualHours")) / MfgServices.HOURS_PER_DAY;
+        double actualDays = MfgSupport.numberOrZero(project.get("actualHours")) / MfgConstants.HOURS_PER_DAY;
         map.put("actualDays", Double.valueOf(MfgSupport.round2(actualDays)));
         map.put("actualCost", project.get("actualCost"));
         map.put("quotedAmount", project.get("quotedAmount"));
@@ -342,14 +342,14 @@ public final class MfgSoftwareServices {
 
     static String nextSoftwareProjectId(Delegator delegator, LocalDate today)
             throws GenericEntityException {
-        String prefix = "SW-" + today.format(MfgServices.DAY) + "-";
+        String prefix = "SW-" + today.format(MfgConstants.DAY) + "-";
         int max = 0;
         for (GenericValue project : EntityQuery.use(delegator).from("MfgSoftwareProject").queryList()) {
             String id = project.getString("projectCode");
             if (id != null && id.startsWith(prefix)) {
-                max = Math.max(max, MfgServices.parseTrailingNumber(id.substring(prefix.length())));
+                max = Math.max(max, MfgSupport.parseTrailingNumber(id.substring(prefix.length())));
             }
         }
-        return "SW-" + today.format(MfgServices.DAY) + "-" + String.format(Locale.ROOT, "%02d", max + 1);
+        return "SW-" + today.format(MfgConstants.DAY) + "-" + String.format(Locale.ROOT, "%02d", max + 1);
     }
 }

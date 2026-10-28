@@ -46,7 +46,7 @@ import org.xml.sax.SAXException;
  * <p>An xlsx is a zip of XML: the text lives in {@code xl/sharedStrings.xml} and the cells in
  * {@code xl/worksheets/sheet1.xml}. Apache POI is not on the classpath of this component and an
  * order export is plain (text cells, no formulas, one sheet), so the two parts are read with the
- * JDK alone - the same way {@link MfgServices#bomImport} reads a CSV by hand.
+ * JDK alone - the same way {@link MfgProductServices#bomImport} reads a CSV by hand.
  */
 public final class MfgOrderExcel {
 
@@ -200,7 +200,7 @@ public final class MfgOrderExcel {
             // 商品金额 is the price of one piece; the row's own money is that times the pieces
             double amount = round2(number(value(columns, row, COL_PRICE)) * qty);
             String code = spec.isEmpty() ? name : spec;
-            lines.add(MfgServices.fittingComponentCode(code) + "\t"
+            lines.add(MfgProductServices.fittingComponentCode(code) + "\t"
                     + (name.isEmpty() ? spec : name) + "\t" + count(qty) + "\t" + amount(amount));
             goods += amount;
             rowCount++;

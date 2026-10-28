@@ -142,7 +142,7 @@ public final class MfgAttachmentEvents {
         Delegator delegator = (Delegator) request.getAttribute("delegator");
         String ownerTypeId = text(request.getParameter("ownerTypeId"));
         if (ownerTypeId == null) {
-            ownerTypeId = MfgServices.ATT_PRODUCT;
+            ownerTypeId = MfgConstants.ATT_PRODUCT;
         }
         String ownerId = ownerIdOfQuery(request);
         String seqText = text(request.getParameter("seq"));

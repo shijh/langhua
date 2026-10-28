@@ -28,7 +28,7 @@ import org.apache.ofbiz.service.ServiceUtil;
 
 /**
  * Web events of the purchase receipt page. They only translate between the page and the services,
- * so the rules stay in {@link MfgServices}.
+ * so the rules stay in {@link MfgPurchaseServices}.
  *
  * <p>The page keeps the plain form post as a fallback and posts here instead when the browser can
  * save without reloading the whole page.

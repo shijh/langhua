@@ -12,7 +12,7 @@
 package org.langhua.ofbiz.mfg.oir;
 
 import org.langhua.ofbiz.mfg.MfgBomEvents;
-import org.langhua.ofbiz.mfg.MfgServices;
+import org.langhua.ofbiz.mfg.MfgSettingsServices;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -138,7 +138,7 @@ public final class OirScan {
      * slice and its articles in the next, and when the model did not hang the rows on the block above
      * that order was gone (production lost the fourth block of a page this way, Step 130). The rows
      * the overlap reads twice are merged by the order number and cut back to one copy by
-     * {@code MfgServices.tidyOrder}.
+     * {@code OirOrders#tidyOrder}.
      */
     public static final int SLICE_OVERLAP = 500;
 
@@ -385,9 +385,9 @@ public final class OirScan {
         if (image.length > MAX_IMAGE_BYTES) {
             return answer(response, false, imageSizeProblem(image.length), null, TOO_LARGE);
         }
-        String endpoint = text(MfgServices.setting(delegatorOf(request), VISION_ENDPOINT));
-        String model = text(MfgServices.setting(delegatorOf(request), VISION_MODEL));
-        String key = text(MfgServices.setting(delegatorOf(request), VISION_KEY));
+        String endpoint = text(MfgSettingsServices.setting(delegatorOf(request), VISION_ENDPOINT));
+        String model = text(MfgSettingsServices.setting(delegatorOf(request), VISION_MODEL));
+        String key = text(MfgSettingsServices.setting(delegatorOf(request), VISION_KEY));
         if (endpoint == null || model == null || key == null) {
             return answer(response, false, missingSetting(), null, UNCONFIGURED);
         }
@@ -1739,11 +1739,11 @@ public final class OirScan {
         // what is on the form wins: the person has just typed it and should not have to save
         // before the test, which used to answer "not configured" to a filled in form
         String endpoint = firstOf(text(parameters.get("visionEndpoint")),
-                text(MfgServices.setting(delegator, VISION_ENDPOINT)));
+                text(MfgSettingsServices.setting(delegator, VISION_ENDPOINT)));
         String model = firstOf(text(parameters.get("visionModel")),
-                text(MfgServices.setting(delegator, VISION_MODEL)));
+                text(MfgSettingsServices.setting(delegator, VISION_MODEL)));
         String key = firstOf(text(parameters.get("visionKey")),
-                text(MfgServices.setting(delegator, VISION_KEY)));
+                text(MfgSettingsServices.setting(delegator, VISION_KEY)));
         if (endpoint == null || model == null || key == null) {
             return answer(response, false, testMissing(endpoint, model, key), null, UNCONFIGURED);
         }

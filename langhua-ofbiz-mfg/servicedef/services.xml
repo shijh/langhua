@@ -37,7 +37,7 @@
         the cost blocks are hidden instead of showing a permission error.
     -->
     <service name="mfgPermissions" engine="java"
-            location="org.langhua.ofbiz.mfg.MfgServices" invoke="permissions"
+            location="org.langhua.ofbiz.mfg.MfgSecurity" invoke="permissions"
             auth="true" use-transaction="false">
         <description>Areas the logged in account may work in</description>
         <attribute name="canView" type="String" mode="OUT" optional="true"/>

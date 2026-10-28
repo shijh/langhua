@@ -39,7 +39,7 @@ public final class MfgStockServices {
      * @return the service result containing {@code lotId}
      */
     public static Map<String, Object> lotSave(DispatchContext dctx, Map<String, ? extends Object> context) {
-        String denied = MfgServices.permissionProblem(dctx, context, MfgServices.PERM_STOCK);
+        String denied = MfgSecurity.permissionProblem(dctx, context, MfgConstants.PERM_STOCK);
         if (denied != null) {
             return ServiceUtil.returnError(denied);
         }
@@ -56,7 +56,7 @@ public final class MfgStockServices {
             String lotId = MfgSupport.toText(context.get("lotId"));
             boolean isNew = false;
             if (lotId == null) {
-                lotId = MfgServices.nextLotId(delegator, LocalDate.now());
+                lotId = MfgStockServices.nextLotId(delegator, LocalDate.now());
                 isNew = true;
             } else if (EntityQuery.use(delegator).from("MfgMaterialLot")
                     .where("lotId", lotId).queryOne() == null) {
@@ -85,13 +85,13 @@ public final class MfgStockServices {
             String inspectStatus = normalizeInspectStatus(context.get("inspectStatusId"));
             if (inspectStatus == null) {
                 return ServiceUtil.returnError("Unknown inspection status [" + context.get("inspectStatusId")
-                        + "], expected " + String.join(" / ", MfgServices.INSPECT_STATUSES));
+                        + "], expected " + String.join(" / ", MfgConstants.INSPECT_STATUSES));
             }
             lot.set("inspectStatusId", inspectStatus);
             lot.set("note", MfgSupport.toText(context.get("note")));
             delegator.createOrStore(lot);
             if (isNew) {
-                MfgStockLedger.recordMovement(delegator, lot, MfgServices.MOVE_RECEIPT, receivedQty, lot.get("unitPrice"), null, null,
+                MfgStockLedger.recordMovement(delegator, lot, MfgConstants.MOVE_RECEIPT, receivedQty, lot.get("unitPrice"), null, null,
                         lot.getString("supplierLot"), null,
                         Timestamp.valueOf(lot.getDate("receivedDate").toLocalDate().atStartOfDay()),
                         "到货入库", MfgSupport.toText(context.get("locationId")));
@@ -122,7 +122,7 @@ public final class MfgStockServices {
      * @return the service result containing {@code lotId} and the stored status
      */
     public static Map<String, Object> lotInspect(DispatchContext dctx, Map<String, ? extends Object> context) {
-        String denied = MfgServices.permissionProblem(dctx, context, MfgServices.PERM_STOCK);
+        String denied = MfgSecurity.permissionProblem(dctx, context, MfgConstants.PERM_STOCK);
         if (denied != null) {
             return ServiceUtil.returnError(denied);
         }
@@ -134,7 +134,7 @@ public final class MfgStockServices {
         String status = normalizeInspectStatus(context.get("inspectStatusId"));
         if (status == null) {
             return ServiceUtil.returnError("Unknown inspection status [" + context.get("inspectStatusId")
-                    + "], expected " + String.join(" / ", MfgServices.INSPECT_STATUSES));
+                    + "], expected " + String.join(" / ", MfgConstants.INSPECT_STATUSES));
         }
         double rejectedQty = MfgSupport.toDouble(context.get("rejectedQty"), 0.0);
         if (rejectedQty < 0.0) {
@@ -158,7 +158,7 @@ public final class MfgStockServices {
             lot.set("rejectedQty", Double.valueOf(rejectedQty));
             lot.set("inspector", MfgSupport.toText(context.get("inspector")));
             lot.set("inspectNote", MfgSupport.toText(context.get("inspectNote")));
-            lot.set("inspectDate", MfgServices.IQC_PENDING.equals(status) ? null : java.sql.Date.valueOf(LocalDate.now()));
+            lot.set("inspectDate", MfgConstants.IQC_PENDING.equals(status) ? null : java.sql.Date.valueOf(LocalDate.now()));
             delegator.store(lot);
 
             Map<String, Object> result = ServiceUtil.returnSuccess();
@@ -184,7 +184,7 @@ public final class MfgStockServices {
         String kind = MfgSupport.toText(context.get("kind"));
         if (kind == null) {
             // the material page lists the purchased parts; the finished goods have their own page
-            kind = MfgServices.LOT_COMPONENT;
+            kind = MfgConstants.LOT_COMPONENT;
         } else if ("ALL".equalsIgnoreCase(kind)) {
             // the count screen inspects every lot, purchased or finished
             kind = null;
@@ -203,7 +203,7 @@ public final class MfgStockServices {
             Map<String, Double> issued = MfgWorkOrderServices.issuedQtyByLot(delegator);
             List<Map<String, Object>> list = new ArrayList<>(lots.size());
             for (GenericValue lot : lots) {
-                list.add(MfgServices.toLotMap(lot, issued.get(lot.getString("lotId"))));
+                list.add(MfgRecordMaps.toLotMap(lot, issued.get(lot.getString("lotId"))));
             }
             Map<String, Object> result = ServiceUtil.returnSuccess();
             MfgPaging.putPage(result, "lots",
@@ -222,15 +222,15 @@ public final class MfgStockServices {
      * Maps the incoming inspection status, defaulting an empty value to {@code PENDING}.
      *
      * @param value the raw input
-     * @return one of {@link MfgServices#INSPECT_STATUSES}, or {@code null} when the value is not a known status
+     * @return one of {@link MfgConstants#INSPECT_STATUSES}, or {@code null} when the value is not a known status
      */
     static String normalizeInspectStatus(Object value) {
         String text = MfgSupport.toText(value);
         if (text == null) {
-            return MfgServices.IQC_PENDING;
+            return MfgConstants.IQC_PENDING;
         }
         String upper = text.toUpperCase(Locale.ROOT);
-        for (String status : MfgServices.INSPECT_STATUSES) {
+        for (String status : MfgConstants.INSPECT_STATUSES) {
             if (status.equals(upper)) {
                 return status;
             }
@@ -247,7 +247,7 @@ public final class MfgStockServices {
      * @return the service result containing {@code importedCount}
      */
     public static Map<String, Object> lotImportCsv(DispatchContext dctx, Map<String, ? extends Object> context) {
-        String denied = MfgServices.permissionProblem(dctx, context, MfgServices.PERM_STOCK);
+        String denied = MfgSecurity.permissionProblem(dctx, context, MfgConstants.PERM_STOCK);
         if (denied != null) {
             return ServiceUtil.returnError(denied);
         }
@@ -269,7 +269,7 @@ public final class MfgStockServices {
                 if (qty <= 0.0) {
                     continue;
                 }
-                String lotId = MfgServices.nextLotId(delegator, LocalDate.now());
+                String lotId = MfgStockServices.nextLotId(delegator, LocalDate.now());
                 GenericValue lot = delegator.makeValue("MfgMaterialLot");
                 lot.set("lotId", lotId);
                 lot.set("componentCode", row[0]);
@@ -281,7 +281,7 @@ public final class MfgStockServices {
                 lot.set("receivedDate", receivedDate == null
                         ? java.sql.Date.valueOf(LocalDate.now()) : receivedDate);
                 delegator.create(lot);
-                MfgStockLedger.recordMovement(delegator, lot, MfgServices.MOVE_RECEIPT, qty, null, null, null, row[3], null,
+                MfgStockLedger.recordMovement(delegator, lot, MfgConstants.MOVE_RECEIPT, qty, null, null, null, row[3], null,
                         Timestamp.valueOf(lot.getDate("receivedDate").toLocalDate().atStartOfDay()),
                         "CSV 导入到货", MfgSupport.toText(context.get("locationId")));
                 MfgStockLedger.recalcLotStock(delegator, lot);
@@ -307,7 +307,7 @@ public final class MfgStockServices {
      * @return {@code true} when it is known
      */
     static boolean isKnownLocationType(String locationTypeId) {
-        for (String type : MfgServices.LOC_TYPES) {
+        for (String type : MfgConstants.LOC_TYPES) {
             if (type.equals(locationTypeId)) {
                 return true;
             }
@@ -323,7 +323,7 @@ public final class MfgStockServices {
      * @return the chat completions URL, {@code null} for a null input
      */
     public static Map<String, Object> locationSave(DispatchContext dctx, Map<String, ? extends Object> context) {
-        String denied = MfgServices.permissionProblem(dctx, context, MfgServices.PERM_STOCK);
+        String denied = MfgSecurity.permissionProblem(dctx, context, MfgConstants.PERM_STOCK);
         if (denied != null) {
             return ServiceUtil.returnError(denied);
         }
@@ -334,11 +334,11 @@ public final class MfgStockServices {
             return ServiceUtil.returnError("locationId is required, it is the code printed on the shelf");
         }
         if (locationTypeId == null) {
-            locationTypeId = MfgServices.LOC_BIN;
+            locationTypeId = MfgConstants.LOC_BIN;
         }
         if (!isKnownLocationType(locationTypeId)) {
             return ServiceUtil.returnError("Unknown location type [" + locationTypeId + "], expected "
-                    + String.join(" / ", MfgServices.LOC_TYPES));
+                    + String.join(" / ", MfgConstants.LOC_TYPES));
         }
         try {
             GenericValue location = EntityQuery.use(delegator).from("MfgStockLocation")
@@ -467,7 +467,7 @@ public final class MfgStockServices {
                 Map<String, Object> row = new LinkedHashMap<>();
                 row.put("lotId", lotId);
                 row.put("locationId", rowLocation.isEmpty() ? null : rowLocation);
-                row.put("lotKindId", lot == null ? MfgServices.LOT_COMPONENT : MfgStockLedger.lotKindOf(lot));
+                row.put("lotKindId", lot == null ? MfgConstants.LOT_COMPONENT : MfgStockLedger.lotKindOf(lot));
                 row.put("componentCode", rowComponent);
                 row.put("componentName", lot == null ? null : lot.getString("componentName"));
                 row.put("onHandQty", Double.valueOf(MfgSupport.round2(entry.getValue().doubleValue())));
@@ -492,7 +492,7 @@ public final class MfgStockServices {
      * @return the service result with the transfer number
      */
     public static Map<String, Object> stockTransfer(DispatchContext dctx, Map<String, ? extends Object> context) {
-        String denied = MfgServices.permissionProblem(dctx, context, MfgServices.PERM_STOCK);
+        String denied = MfgSecurity.permissionProblem(dctx, context, MfgConstants.PERM_STOCK);
         if (denied != null) {
             return ServiceUtil.returnError(denied);
         }
@@ -536,11 +536,11 @@ public final class MfgStockServices {
             String transferId = nextTransferId(delegator, LocalDate.now());
             String operator = MfgSupport.toText(context.get("operatorName"));
             String note = MfgSupport.toText(context.get("note"));
-            MfgStockLedger.recordMovement(delegator, lot, MfgServices.MOVE_TRANSFER, -qty, lot.get("unitPrice"), null, null,
+            MfgStockLedger.recordMovement(delegator, lot, MfgConstants.MOVE_TRANSFER, -qty, lot.get("unitPrice"), null, null,
                     transferId, operator, null,
                     "移库 " + transferId + "：" + (fromLocationId == null ? "未分配" : fromLocationId)
                             + " → " + toLocationId + (note == null ? "" : "，" + note), fromLocationId);
-            MfgStockLedger.recordMovement(delegator, lot, MfgServices.MOVE_TRANSFER, qty, lot.get("unitPrice"), null, null,
+            MfgStockLedger.recordMovement(delegator, lot, MfgConstants.MOVE_TRANSFER, qty, lot.get("unitPrice"), null, null,
                     transferId, operator, null,
                     "移库 " + transferId + "：" + (fromLocationId == null ? "未分配" : fromLocationId)
                             + " → " + toLocationId + (note == null ? "" : "，" + note), toLocationId);
@@ -563,13 +563,13 @@ public final class MfgStockServices {
     }
 
     static String nextTransferId(Delegator delegator, LocalDate today) throws GenericEntityException {
-        String prefix = MfgServices.TRANSFER_PREFIX + today.format(MfgServices.DAY) + "-";
+        String prefix = MfgConstants.TRANSFER_PREFIX + today.format(MfgConstants.DAY) + "-";
         int max = 0;
         for (GenericValue movement : EntityQuery.use(delegator).from("MfgInventoryDetail")
-                .where("movementTypeId", MfgServices.MOVE_TRANSFER).queryList()) {
+                .where("movementTypeId", MfgConstants.MOVE_TRANSFER).queryList()) {
             String reference = movement.getString("referenceNo");
             if (reference != null && reference.startsWith(prefix)) {
-                max = Math.max(max, MfgServices.parseTrailingNumber(reference.substring(prefix.length())));
+                max = Math.max(max, MfgSupport.parseTrailingNumber(reference.substring(prefix.length())));
             }
         }
         return prefix + String.format(Locale.ROOT, "%02d", Integer.valueOf(max + 1));
@@ -585,7 +585,7 @@ public final class MfgStockServices {
      * @return the service result containing the new totals of the lot
      */
     public static Map<String, Object> inventoryMove(DispatchContext dctx, Map<String, ? extends Object> context) {
-        String denied = MfgServices.permissionProblem(dctx, context, MfgServices.PERM_STOCK);
+        String denied = MfgSecurity.permissionProblem(dctx, context, MfgConstants.PERM_STOCK);
         if (denied != null) {
             return ServiceUtil.returnError(denied);
         }
@@ -609,12 +609,12 @@ public final class MfgStockServices {
         }
         if (!MfgStockLedger.isKnownMovement(movementTypeId)) {
             return ServiceUtil.returnError("Unknown movement type [" + movementTypeId
-                    + "], expected " + String.join(" / ", MfgServices.MOVE_TYPES));
+                    + "], expected " + String.join(" / ", MfgConstants.MOVE_TYPES));
         }
         if (qty == 0.0) {
             return ServiceUtil.returnError("qty must not be zero");
         }
-        if (MfgServices.MOVE_COUNT.equals(movementTypeId)) {
+        if (MfgConstants.MOVE_COUNT.equals(movementTypeId)) {
             return ServiceUtil.returnError("Use the stock count screen to book a count");
         }
         try {
@@ -635,7 +635,7 @@ public final class MfgStockServices {
                 }
             }
             if (workOrderId != null
-                    && (MfgServices.MOVE_ISSUE.equals(movementTypeId) || MfgServices.MOVE_RETURN.equals(movementTypeId))) {
+                    && (MfgConstants.MOVE_ISSUE.equals(movementTypeId) || MfgConstants.MOVE_RETURN.equals(movementTypeId))) {
                 if (EntityQuery.use(delegator).from("MfgWorkOrder")
                         .where("workOrderId", workOrderId).queryOne() == null) {
                     return ServiceUtil.returnError("Unknown work order [" + workOrderId + "]");
@@ -647,7 +647,7 @@ public final class MfgStockServices {
                     MfgSupport.parseTimestamp(context.get("effectiveDate")), MfgSupport.toText(context.get("note")),
                     MfgSupport.toText(context.get("locationId")), reasonEnumId);
             if (workOrderId != null
-                    && (MfgServices.MOVE_ISSUE.equals(movementTypeId) || MfgServices.MOVE_RETURN.equals(movementTypeId))) {
+                    && (MfgConstants.MOVE_ISSUE.equals(movementTypeId) || MfgConstants.MOVE_RETURN.equals(movementTypeId))) {
                 GenericValue issue = delegator.makeValue("MfgMaterialIssue");
                 issue.set("issueId", delegator.getNextSeqId("MfgMaterialIssue"));
                 issue.set("workOrderId", workOrderId);
@@ -659,7 +659,7 @@ public final class MfgStockServices {
                 issue.set("note", MfgSupport.toText(context.get("note")));
                 delegator.create(issue);
             }
-            if (MfgServices.MOVE_ISSUE.equals(movementTypeId) && workOrderId != null) {
+            if (MfgConstants.MOVE_ISSUE.equals(movementTypeId) && workOrderId != null) {
                 MfgStockLedger.releaseReservation(delegator, lot, workOrderId, -diff, MfgSupport.toText(context.get("operatorName")));
             }
             MfgStockLedger.recalcLotStock(delegator, lot);
@@ -732,10 +732,10 @@ public final class MfgStockServices {
                         + MfgSupport.numberOrZero(lot.get("availableQty"))));
                 row.put("lotCount", Integer.valueOf(((Integer) row.get("lotCount")).intValue() + 1));
                 String inspect = lot.getString("inspectStatusId");
-                if (MfgServices.IQC_PENDING.equals(inspect)) {
+                if (MfgConstants.IQC_PENDING.equals(inspect)) {
                     row.put("pendingQty", Double.valueOf(MfgSupport.numberOrZero(row.get("pendingQty")) + onHand));
                 }
-                if (MfgServices.IQC_FAIL.equals(inspect)) {
+                if (MfgConstants.IQC_FAIL.equals(inspect)) {
                     row.put("failedQty", Double.valueOf(MfgSupport.numberOrZero(row.get("failedQty")) + onHand));
                 }
                 Object price = lot.get("unitPrice");
@@ -874,7 +874,7 @@ public final class MfgStockServices {
                 Map<String, Object> row = new LinkedHashMap<>();
                 row.put("lotId", movementLot);
                 row.put("seqId", movement.get("seqId"));
-                row.put("lotKindId", lot == null ? MfgServices.LOT_COMPONENT : MfgStockLedger.lotKindOf(lot));
+                row.put("lotKindId", lot == null ? MfgConstants.LOT_COMPONENT : MfgStockLedger.lotKindOf(lot));
                 row.put("locationId", movement.getString("locationId"));
                 row.put("componentCode", lot == null ? null : lot.getString("componentCode"));
                 row.put("componentName", lot == null ? null : lot.getString("componentName"));
@@ -882,8 +882,8 @@ public final class MfgStockServices {
                 row.put("quantityDiff", Double.valueOf(MfgSupport.round2(diff)));
                 row.put("reservedDiff", Double.valueOf(MfgSupport.round2(MfgSupport.numberOrZero(movement.get("reservedDiff")))));
                 row.put("displayQty", Double.valueOf(MfgSupport.round2(
-                        MfgServices.MOVE_RESERVE.equals(movement.getString("movementTypeId"))
-                                || MfgServices.MOVE_RELEASE.equals(movement.getString("movementTypeId"))
+                        MfgConstants.MOVE_RESERVE.equals(movement.getString("movementTypeId"))
+                                || MfgConstants.MOVE_RELEASE.equals(movement.getString("movementTypeId"))
                                 ? MfgSupport.numberOrZero(movement.get("reservedDiff")) : diff)));
                 row.put("balanceQty", Double.valueOf(MfgSupport.round2(balance)));
                 row.put("unitCost", movement.get("unitCost"));
@@ -919,7 +919,7 @@ public final class MfgStockServices {
      * @return the service result containing {@code componentCode}
      */
     public static Map<String, Object> stockSettingSave(DispatchContext dctx, Map<String, ? extends Object> context) {
-        String denied = MfgServices.permissionProblem(dctx, context, MfgServices.PERM_STOCK);
+        String denied = MfgSecurity.permissionProblem(dctx, context, MfgConstants.PERM_STOCK);
         if (denied != null) {
             return ServiceUtil.returnError(denied);
         }
@@ -974,7 +974,7 @@ public final class MfgStockServices {
      * @return the service result containing the count number and the variance
      */
     public static Map<String, Object> stockCount(DispatchContext dctx, Map<String, ? extends Object> context) {
-        String denied = MfgServices.permissionProblem(dctx, context, MfgServices.PERM_STOCK);
+        String denied = MfgSecurity.permissionProblem(dctx, context, MfgConstants.PERM_STOCK);
         if (denied != null) {
             return ServiceUtil.returnError(denied);
         }
@@ -1003,7 +1003,7 @@ public final class MfgStockServices {
             // the reason is optional, but when it is given it has to fit the direction of the variance:
             // a count that lost material may not be explained with "找到"
             String reasonEnumId = MfgSupport.toText(context.get("reasonEnumId"));
-            String reasonProblem = MfgStockLedger.movementReasonProblem(MfgServices.MOVE_COUNT, reasonEnumId, variance);
+            String reasonProblem = MfgStockLedger.movementReasonProblem(MfgConstants.MOVE_COUNT, reasonEnumId, variance);
             if (reasonProblem != null) {
                 return ServiceUtil.returnError(reasonProblem);
             }
@@ -1023,7 +1023,7 @@ public final class MfgStockServices {
             count.set("note", MfgSupport.toText(context.get("note")));
             delegator.create(count);
             if (Math.abs(variance) > 0.0001) {
-                MfgStockLedger.recordMovement(delegator, lot, MfgServices.MOVE_COUNT, variance, lot.get("unitPrice"), null,
+                MfgStockLedger.recordMovement(delegator, lot, MfgConstants.MOVE_COUNT, variance, lot.get("unitPrice"), null,
                         physicalInventoryId, null, counterName, null,
                         "盘点 " + physicalInventoryId + "：" + MfgSupport.formatQty(bookQty) + " → " + MfgSupport.formatQty(countedQty),
                         null, reasonEnumId);
@@ -1078,7 +1078,7 @@ public final class MfgStockServices {
                 map.put("countDate", count.get("countDate"));
                 map.put("counterName", count.getString("counterName"));
                 map.put("lotId", count.getString("lotId"));
-                map.put("lotKindId", lot == null ? MfgServices.LOT_COMPONENT : MfgStockLedger.lotKindOf(lot));
+                map.put("lotKindId", lot == null ? MfgConstants.LOT_COMPONENT : MfgStockLedger.lotKindOf(lot));
                 map.put("componentCode", lot == null ? null : lot.getString("componentCode"));
                 map.put("componentName", lot == null ? null : lot.getString("componentName"));
                 map.put("bookQty", count.get("bookQty"));
@@ -1104,12 +1104,12 @@ public final class MfgStockServices {
      */
     static String nextStockCountId(Delegator delegator, LocalDate today)
             throws GenericEntityException {
-        String prefix = "CNT-" + today.format(MfgServices.DAY) + "-";
+        String prefix = "CNT-" + today.format(MfgConstants.DAY) + "-";
         int max = 0;
         for (GenericValue count : EntityQuery.use(delegator).from("MfgStockCount").queryList()) {
             String id = count.getString("physicalInventoryId");
             if (id != null && id.startsWith(prefix)) {
-                max = Math.max(max, MfgServices.parseTrailingNumber(id.substring(prefix.length())));
+                max = Math.max(max, MfgSupport.parseTrailingNumber(id.substring(prefix.length())));
             }
         }
         return prefix + String.format(Locale.ROOT, "%02d", Integer.valueOf(max + 1));
@@ -1127,9 +1127,9 @@ public final class MfgStockServices {
      */
     static String createStockInLot(Delegator delegator, GenericValue project, GenericValue step)
             throws GenericEntityException {
-        if (!MfgServices.TRACK_ENCLOSURE.equals(project.getString("trackId"))
-                || !MfgServices.STEP_ENCLOSURE_STOCK_IN.equals(step.getString("stepId"))
-                || !MfgServices.STEP_DONE.equals(step.getString("statusId"))
+        if (!MfgConstants.TRACK_ENCLOSURE.equals(project.getString("trackId"))
+                || !MfgConstants.STEP_ENCLOSURE_STOCK_IN.equals(step.getString("stepId"))
+                || !MfgConstants.STEP_DONE.equals(step.getString("statusId"))
                 || MfgSupport.toText(step.getString("lotId")) != null) {
             return null;
         }
@@ -1141,7 +1141,7 @@ public final class MfgStockServices {
         if (qty == null || qty.doubleValue() <= 0) {
             return "Set the quantity of the stock in step first, it becomes the received quantity of the lot";
         }
-        String lotId = MfgServices.nextLotId(delegator, LocalDate.now());
+        String lotId = MfgStockServices.nextLotId(delegator, LocalDate.now());
         GenericValue lot = delegator.makeValue("MfgMaterialLot");
         lot.set("lotId", lotId);
         lot.set("componentCode", partCode);
@@ -1152,11 +1152,28 @@ public final class MfgStockServices {
         lot.set("receivedDate", java.sql.Date.valueOf(LocalDate.now()));
         lot.set("note", "Enclosure stock in of project " + project.getString("projectCode"));
         delegator.create(lot);
-        MfgStockLedger.recordMovement(delegator, lot, MfgServices.MOVE_RECEIPT, qty.doubleValue(), null, null, null,
+        MfgStockLedger.recordMovement(delegator, lot, MfgConstants.MOVE_RECEIPT, qty.doubleValue(), null, null, null,
                 step.getString("referenceNo"), null,
                 Timestamp.valueOf(LocalDate.now().atStartOfDay()), "外壳入库");
         MfgStockLedger.recalcLotStock(delegator, lot);
         step.set("lotId", lotId);
         return null;
+    }
+
+    private static String formatLotId(LocalDate date, int sequence) {
+        return "LOT-" + date.format(MfgConstants.DAY) + "-" + String.format(Locale.ROOT, "%02d", sequence);
+    }
+
+    static String nextLotId(Delegator delegator, LocalDate today) throws GenericEntityException {
+        String prefix = "LOT-" + today.format(MfgConstants.DAY) + "-";
+        List<GenericValue> existing = EntityQuery.use(delegator).from("MfgMaterialLot").queryList();
+        int max = 0;
+        for (GenericValue lot : existing) {
+            String id = lot.getString("lotId");
+            if (id != null && id.startsWith(prefix)) {
+                max = Math.max(max, MfgSupport.parseTrailingNumber(id.substring(prefix.length())));
+            }
+        }
+        return formatLotId(today, max + 1);
     }
 }

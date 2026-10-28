@@ -69,7 +69,7 @@ public final class MfgStockLedger {
      * @return {@code true} when it is known
      */
     static boolean isKnownMovement(String movementTypeId) {
-        for (String known : MfgServices.MOVE_TYPES) {
+        for (String known : MfgConstants.MOVE_TYPES) {
             if (known.equals(movementTypeId)) {
                 return true;
             }
@@ -89,16 +89,16 @@ public final class MfgStockLedger {
         if (movementTypeId == null) {
             return 0.0;
         }
-        if (MfgServices.MOVE_RESERVE.equals(movementTypeId)
-                || MfgServices.MOVE_RELEASE.equals(movementTypeId)) {
+        if (MfgConstants.MOVE_RESERVE.equals(movementTypeId)
+                || MfgConstants.MOVE_RELEASE.equals(movementTypeId)) {
             return 0.0;
         }
-        for (String in : MfgServices.MOVE_IN_TYPES) {
+        for (String in : MfgConstants.MOVE_IN_TYPES) {
             if (in.equals(movementTypeId)) {
                 return Math.abs(qty);
             }
         }
-        for (String out : MfgServices.MOVE_OUT_TYPES) {
+        for (String out : MfgConstants.MOVE_OUT_TYPES) {
             if (out.equals(movementTypeId)) {
                 return -Math.abs(qty);
             }
@@ -116,7 +116,7 @@ public final class MfgStockLedger {
      * @return the quantity that may be issued, never negative
      */
     static double availableOf(double onHand, double reserved, String inspectStatusId) {
-        if (MfgServices.IQC_FAIL.equals(inspectStatusId)) {
+        if (MfgConstants.IQC_FAIL.equals(inspectStatusId)) {
             return 0.0;
         }
         double free = onHand - reserved;
@@ -134,21 +134,21 @@ public final class MfgStockLedger {
             return "";
         }
         switch (reasonEnumId) {
-            case MfgServices.REASON_LOST:
+            case MfgConstants.REASON_LOST:
                 return "丢失";
-            case MfgServices.REASON_STOLEN:
+            case MfgConstants.REASON_STOLEN:
                 return "被盗";
-            case MfgServices.REASON_FOUND:
+            case MfgConstants.REASON_FOUND:
                 return "找到（盘盈）";
-            case MfgServices.REASON_DAMAGED:
+            case MfgConstants.REASON_DAMAGED:
                 return "损坏";
-            case MfgServices.REASON_SAMPLE:
+            case MfgConstants.REASON_SAMPLE:
                 return "样品 / 赠送";
-            case MfgServices.REASON_INTEGR:
+            case MfgConstants.REASON_INTEGR:
                 return "生产领用（组装）";
-            case MfgServices.REASON_MISSHIP_ORDERED:
+            case MfgConstants.REASON_MISSHIP_ORDERED:
                 return "供方少发（应到）";
-            case MfgServices.REASON_MISSHIP_SHIPPED:
+            case MfgConstants.REASON_MISSHIP_SHIPPED:
                 return "我方多发（已发）";
             default:
                 return reasonEnumId;
@@ -168,17 +168,17 @@ public final class MfgStockLedger {
             return null;
         }
         switch (reasonEnumId) {
-            case MfgServices.REASON_LOST:
-            case MfgServices.REASON_STOLEN:
-            case MfgServices.REASON_DAMAGED:
-            case MfgServices.REASON_SAMPLE:
-            case MfgServices.REASON_MISSHIP_SHIPPED:
-                return MfgServices.MOVE_SCRAP;
-            case MfgServices.REASON_INTEGR:
-                return MfgServices.MOVE_ISSUE;
-            case MfgServices.REASON_FOUND:
-            case MfgServices.REASON_MISSHIP_ORDERED:
-                return MfgServices.MOVE_RECEIPT;
+            case MfgConstants.REASON_LOST:
+            case MfgConstants.REASON_STOLEN:
+            case MfgConstants.REASON_DAMAGED:
+            case MfgConstants.REASON_SAMPLE:
+            case MfgConstants.REASON_MISSHIP_SHIPPED:
+                return MfgConstants.MOVE_SCRAP;
+            case MfgConstants.REASON_INTEGR:
+                return MfgConstants.MOVE_ISSUE;
+            case MfgConstants.REASON_FOUND:
+            case MfgConstants.REASON_MISSHIP_ORDERED:
+                return MfgConstants.MOVE_RECEIPT;
             default:
                 return null;
         }
@@ -195,23 +195,23 @@ public final class MfgStockLedger {
             return "";
         }
         switch (movementTypeId) {
-            case MfgServices.MOVE_RECEIPT:
+            case MfgConstants.MOVE_RECEIPT:
                 return "到货入库";
-            case MfgServices.MOVE_ISSUE:
+            case MfgConstants.MOVE_ISSUE:
                 return "发料";
-            case MfgServices.MOVE_RETURN:
+            case MfgConstants.MOVE_RETURN:
                 return "退料";
-            case MfgServices.MOVE_SCRAP:
+            case MfgConstants.MOVE_SCRAP:
                 return "报废";
-            case MfgServices.MOVE_COUNT:
+            case MfgConstants.MOVE_COUNT:
                 return "盘盈亏";
-            case MfgServices.MOVE_ADJUST:
+            case MfgConstants.MOVE_ADJUST:
                 return "调整";
-            case MfgServices.MOVE_TRANSFER:
+            case MfgConstants.MOVE_TRANSFER:
                 return "移库";
-            case MfgServices.MOVE_RESERVE:
+            case MfgConstants.MOVE_RESERVE:
                 return "预留";
-            case MfgServices.MOVE_RELEASE:
+            case MfgConstants.MOVE_RELEASE:
                 return "释放预留";
             default:
                 return movementTypeId;
@@ -230,7 +230,7 @@ public final class MfgStockLedger {
      */
     static String movementReasonProblem(String movementTypeId, String reasonEnumId, double qty) {
         if (reasonEnumId != null && movementTypeOfReason(reasonEnumId) == null) {
-            return "未知的库存原因 [" + reasonEnumId + "]，可选：" + String.join(" / ", MfgServices.MOVE_REASONS);
+            return "未知的库存原因 [" + reasonEnumId + "]，可选：" + String.join(" / ", MfgConstants.MOVE_REASONS);
         }
         if (movementTypeId == null || reasonEnumId == null) {
             return null;
@@ -240,7 +240,7 @@ public final class MfgStockLedger {
         if (byType != 0.0 && byReason != 0.0 && (byType > 0.0) != (byReason > 0.0)) {
             // a count or an adjustment carries its own sign, so the message talks about the sign of
             // the quantity instead of the bucket it lands in
-            boolean counted = MfgServices.MOVE_COUNT.equals(movementTypeId);
+            boolean counted = MfgConstants.MOVE_COUNT.equals(movementTypeId);
             String what = counted
                     ? (byType > 0.0 ? "可这次盘点是盘盈（多了）" : "可这次盘点是盘亏（少了）")
                     : "可类型「" + movementLabel(movementTypeId) + "」是"
@@ -272,7 +272,7 @@ public final class MfgStockLedger {
      * @return {@code true} for the goods of a work order
      */
     static boolean isProductLot(GenericValue lot) {
-        return lot != null && MfgServices.LOT_PRODUCT.equals(lot.getString("lotKindId"));
+        return lot != null && MfgConstants.LOT_PRODUCT.equals(lot.getString("lotKindId"));
     }
 
     /**
@@ -280,10 +280,10 @@ public final class MfgStockLedger {
      * purchased component.
      *
      * @param lot the lot, may be {@code null}
-     * @return {@link MfgServices#LOT_COMPONENT} or {@link MfgServices#LOT_PRODUCT}
+     * @return {@link MfgConstants#LOT_COMPONENT} or {@link MfgConstants#LOT_PRODUCT}
      */
     static String lotKindOf(GenericValue lot) {
-        return isProductLot(lot) ? MfgServices.LOT_PRODUCT : MfgServices.LOT_COMPONENT;
+        return isProductLot(lot) ? MfgConstants.LOT_PRODUCT : MfgConstants.LOT_COMPONENT;
     }
 
     /**
@@ -304,7 +304,7 @@ public final class MfgStockLedger {
      * @return {@code FG-WO-yyMMdd-NN}, or {@code null} without a work order
      */
     static String productLotId(String workOrderId) {
-        return workOrderId == null ? null : MfgServices.PRODUCT_LOT_PREFIX + workOrderId;
+        return workOrderId == null ? null : MfgConstants.PRODUCT_LOT_PREFIX + workOrderId;
     }
 
     /**
@@ -450,7 +450,7 @@ public final class MfgStockLedger {
         double receivedQty = MfgSupport.numberOrZero(lot.get("receivedQty"));
         if (receivedQty > 0.0) {
             java.sql.Date receivedDate = lot.getDate("receivedDate");
-            recordMovement(delegator, lot, MfgServices.MOVE_RECEIPT, receivedQty,
+            recordMovement(delegator, lot, MfgConstants.MOVE_RECEIPT, receivedQty,
                     lot.get("unitPrice"), null, null,
                     lot.getString("supplierLot"), null,
                     receivedDate == null ? null
@@ -461,7 +461,7 @@ public final class MfgStockLedger {
                 .where("lotId", lotId).orderBy("issuedDate").queryList();
         for (GenericValue issue : issues) {
             java.sql.Date issuedDate = issue.getDate("issuedDate");
-            recordMovement(delegator, lot, MfgServices.MOVE_ISSUE, -MfgSupport.numberOrZero(issue.get("qty")),
+            recordMovement(delegator, lot, MfgConstants.MOVE_ISSUE, -MfgSupport.numberOrZero(issue.get("qty")),
                     lot.get("unitPrice"), issue.getString("workOrderId"), null, null, null,
                     issuedDate == null ? null
                             : Timestamp.valueOf(issuedDate.toLocalDate().atStartOfDay()),
@@ -506,7 +506,7 @@ public final class MfgStockLedger {
      *
      * @param delegator the delegator
      * @param lot the lot
-     * @param movementTypeId {@link MfgServices#MOVE_RESERVE} or {@link MfgServices#MOVE_RELEASE}
+     * @param movementTypeId {@link MfgConstants#MOVE_RESERVE} or {@link MfgConstants#MOVE_RELEASE}
      * @param diff the signed change of the reserved quantity
      * @param workOrderId the work order that reserves or gives the material back
      * @param operatorName who did it
@@ -550,7 +550,7 @@ public final class MfgStockLedger {
         if (release <= 0.0001) {
             return;
         }
-        recordReservation(delegator, lot, MfgServices.MOVE_RELEASE, -release, workOrderId, operatorName,
+        recordReservation(delegator, lot, MfgConstants.MOVE_RELEASE, -release, workOrderId, operatorName,
                 "发料时释放预留");
     }
 

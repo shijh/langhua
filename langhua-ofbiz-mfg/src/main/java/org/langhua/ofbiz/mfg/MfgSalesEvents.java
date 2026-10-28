@@ -27,7 +27,7 @@ import org.apache.ofbiz.service.ServiceUtil;
 
 /**
  * Web events of the sales order page. They only translate between the page and the services, so the
- * rules stay in {@link MfgServices}.
+ * rules stay in {@link MfgSalesOrderServices}.
  *
  * <p>The list unfolds its lines in place; correcting the quantity of a line posts here and the
  * answer is a small JSON document, so the page can refresh the block instead of reloading.

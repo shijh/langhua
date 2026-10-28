@@ -41,7 +41,7 @@ public final class MfgReportServices {
      */
     public static Map<String, Object> dashboard(DispatchContext dctx, Map<String, ? extends Object> context) {
         Delegator delegator = dctx.getDelegator();
-        boolean costDenied = !MfgServices.can(dctx, (GenericValue) context.get("userLogin"), MfgServices.PERM_COST);
+        boolean costDenied = !MfgSecurity.can(dctx, (GenericValue) context.get("userLogin"), MfgConstants.PERM_COST);
         Timestamp todayStart = Timestamp.valueOf(LocalDate.now().atStartOfDay());
         try {
             List<GenericValue> orders = EntityQuery.use(delegator).from("MfgWorkOrder").queryList();
@@ -49,7 +49,7 @@ public final class MfgReportServices {
             long plannedQty = 0;
             for (GenericValue order : orders) {
                 String statusId = order.getString("statusId");
-                if (!MfgServices.WO_CLOSED.equals(statusId) && !MfgServices.WO_COMPLETED.equals(statusId)) {
+                if (!MfgConstants.WO_CLOSED.equals(statusId) && !MfgConstants.WO_COMPLETED.equals(statusId)) {
                     openOrders++;
                     plannedQty += order.getLong("plannedQty") == null ? 0 : order.getLong("plannedQty").longValue();
                 }
@@ -71,7 +71,7 @@ public final class MfgReportServices {
                     todayNg += report.getLong("qtyNg") == null ? 0 : report.getLong("qtyNg").longValue();
                 }
                 if (recent.size() < 15) {
-                    recent.add(MfgServices.toReportMap(report));
+                    recent.add(MfgRecordMaps.toReportMap(report));
                 }
             }
             long totalQty = todayOk + todayNg;
@@ -213,7 +213,7 @@ public final class MfgReportServices {
             long shortageOrders = 0;
             for (GenericValue order : orders) {
                 String statusId = order.getString("statusId");
-                if (MfgServices.WO_CLOSED.equals(statusId) || MfgServices.WO_COMPLETED.equals(statusId)) {
+                if (MfgConstants.WO_CLOSED.equals(statusId) || MfgConstants.WO_COMPLETED.equals(statusId)) {
                     continue;
                 }
                 List<Map<String, Object>> lines = MfgWorkOrderServices.kittingLines(delegator, order);
@@ -226,7 +226,7 @@ public final class MfgReportServices {
                         totalShortage += shortage.doubleValue();
                     }
                 }
-                Map<String, Object> row = MfgServices.toWorkOrderMap(order);
+                Map<String, Object> row = MfgRecordMaps.toWorkOrderMap(order);
                 row.put("lineCount", Integer.valueOf(lines.size()));
                 row.put("shortageLineCount", Integer.valueOf(shortages.size()));
                 row.put("shortageQty", Double.valueOf(totalShortage));
@@ -258,7 +258,7 @@ public final class MfgReportServices {
      * @return the service result containing {@code vendorId}
      */
     public static Map<String, Object> vendorSave(DispatchContext dctx, Map<String, ? extends Object> context) {
-        String denied = MfgServices.permissionProblem(dctx, context, MfgServices.PERM_PRODUCTION);
+        String denied = MfgSecurity.permissionProblem(dctx, context, MfgConstants.PERM_PRODUCTION);
         if (denied != null) {
             return ServiceUtil.returnError(denied);
         }
@@ -281,7 +281,7 @@ public final class MfgReportServices {
             vendor.set("addressText", MfgSupport.toText(context.get("addressText")));
             vendor.set("customerCode", MfgSupport.toText(context.get("customerCode")));
             String statusId = MfgSupport.toText(context.get("statusId"));
-            vendor.set("statusId", statusId == null ? MfgServices.STATUS_ACTIVE : statusId);
+            vendor.set("statusId", statusId == null ? MfgConstants.STATUS_ACTIVE : statusId);
             vendor.set("note", MfgSupport.toText(context.get("note")));
             delegator.createOrStore(vendor);
 
@@ -305,7 +305,7 @@ public final class MfgReportServices {
         try {
             Map<String, Object> result = ServiceUtil.returnSuccess();
             MfgPaging.putPage(result, "vendors",
-                    MfgPaging.filterByKeyword(MfgServices.vendorMaps(delegator),
+                    MfgPaging.filterByKeyword(MfgRecordMaps.vendorMaps(delegator),
                             MfgSupport.toText(context.get("search")), "vendorName",
                             "vendorType", "contactName", "contactMobile", "customerCode", "vendorId"),
                     MfgPaging.pageOf(context), MfgPaging.pageSizeOf(context), MfgSupport.toText(context.get("search")));
@@ -316,17 +316,17 @@ public final class MfgReportServices {
     }
 
     static String formatVendorId(LocalDate date, int sequence) {
-        return "V-" + date.format(MfgServices.DAY) + "-" + String.format(Locale.ROOT, "%02d", sequence);
+        return "V-" + date.format(MfgConstants.DAY) + "-" + String.format(Locale.ROOT, "%02d", sequence);
     }
 
     static String nextVendorId(Delegator delegator, LocalDate today) throws GenericEntityException {
-        String prefix = "V-" + today.format(MfgServices.DAY) + "-";
+        String prefix = "V-" + today.format(MfgConstants.DAY) + "-";
         List<GenericValue> existing = EntityQuery.use(delegator).from("MfgVendor").queryList();
         int max = 0;
         for (GenericValue vendor : existing) {
             String id = vendor.getString("vendorId");
             if (id != null && id.startsWith(prefix)) {
-                max = Math.max(max, MfgServices.parseTrailingNumber(id.substring(prefix.length())));
+                max = Math.max(max, MfgSupport.parseTrailingNumber(id.substring(prefix.length())));
             }
         }
         return formatVendorId(today, max + 1);
@@ -368,7 +368,7 @@ public final class MfgReportServices {
                 if (note != null && note.startsWith("换货")) {
                     continue;
                 }
-                String label = deliveryDate.toLocalDate().format(MfgServices.MONTH_DAY);
+                String label = deliveryDate.toLocalDate().format(MfgConstants.MONTH_DAY);
                 if (!shippedByDay.containsKey(label)) {
                     continue;
                 }
@@ -386,7 +386,7 @@ public final class MfgReportServices {
             Map<String, Double> costByResponsibility = new LinkedHashMap<>();
             Map<String, Long> countByResponsibility = new LinkedHashMap<>();
             for (GenericValue claim : EntityQuery.use(delegator).from("MfgWarrantyClaim").queryList()) {
-                if (MfgServices.RMA_OPEN.equals(claim.getString("statusId"))) {
+                if (MfgConstants.RMA_OPEN.equals(claim.getString("statusId"))) {
                     openClaims++;
                 }
                 java.sql.Date receivedDate = claim.getDate("receivedDate");
@@ -394,7 +394,7 @@ public final class MfgReportServices {
                     continue;
                 }
                 claimCount++;
-                String label = receivedDate.toLocalDate().format(MfgServices.MONTH_DAY);
+                String label = receivedDate.toLocalDate().format(MfgConstants.MONTH_DAY);
                 if (claimsByDay.containsKey(label)) {
                     claimsByDay.put(label, Long.valueOf(claimsByDay.get(label).longValue() + 1));
                 }
@@ -402,9 +402,9 @@ public final class MfgReportServices {
                         ? 0.0 : claim.getDouble("refundAmount").doubleValue();
                 double hours = claim.getDouble("repairHours") == null
                         ? 0.0 : claim.getDouble("repairHours").doubleValue();
-                double freight = MfgServices.FREIGHT_SELLER.equals(claim.getString("freightPayer"))
-                        ? MfgServices.QUALITY_FREIGHT_COST : 0.0;
-                double cost = claimCost(refund, freight, hours, MfgServices.QUALITY_HOURLY_RATE);
+                double freight = MfgConstants.FREIGHT_SELLER.equals(claim.getString("freightPayer"))
+                        ? MfgConstants.QUALITY_FREIGHT_COST : 0.0;
+                double cost = claimCost(refund, freight, hours, MfgConstants.QUALITY_HOURLY_RATE);
                 refundTotal += refund;
                 hoursTotal += hours;
                 costTotal += cost;
@@ -501,10 +501,10 @@ public final class MfgReportServices {
             int errors = 0;
             int shortages = 0;
             for (Map<String, Object> alert : alerts) {
-                if (MfgServices.ALERT_ERROR.equals(alert.get("level"))) {
+                if (MfgConstants.ALERT_ERROR.equals(alert.get("level"))) {
                     errors++;
                 }
-                if (MfgServices.ALERT_SHORTAGE.equals(alert.get("typeId"))) {
+                if (MfgConstants.ALERT_SHORTAGE.equals(alert.get("typeId"))) {
                     shortages++;
                 }
             }
@@ -555,11 +555,11 @@ public final class MfgReportServices {
             java.sql.Date dueDate = (java.sql.Date) first.get("dueDate");
             long dueHours = 0L;
             if (dueDate != null) {
-                dueHours = MfgServices.hoursLeft(java.sql.Timestamp.valueOf(dueDate.toLocalDate().atTime(23, 59, 59)));
+                dueHours = MfgSupport.hoursLeft(java.sql.Timestamp.valueOf(dueDate.toLocalDate().atTime(23, 59, 59)));
             }
             Map<String, Object> alert = new LinkedHashMap<>();
-            alert.put("typeId", MfgServices.ALERT_SHORTAGE);
-            alert.put("level", MfgServices.ALERT_ERROR);
+            alert.put("typeId", MfgConstants.ALERT_SHORTAGE);
+            alert.put("level", MfgConstants.ALERT_ERROR);
             alert.put("refId", entry.getKey());
             alert.put("subject", first.get("productCode"));
             alert.put("dueDate", dueDate);
@@ -570,10 +570,10 @@ public final class MfgReportServices {
         }
 
         List<GenericValue> openClaims = EntityQuery.use(delegator).from("MfgWarrantyClaim")
-                .where("statusId", MfgServices.RMA_OPEN).orderBy("sevenDayDeadline").queryList();
+                .where("statusId", MfgConstants.RMA_OPEN).orderBy("sevenDayDeadline").queryList();
         for (GenericValue claim : openClaims) {
-            addClaimAlert(alerts, claim, "sevenDayDeadline", MfgServices.ALERT_CLAIM_7DAY);
-            addClaimAlert(alerts, claim, "afterSaleDeadline", MfgServices.ALERT_CLAIM_AFTERSALE);
+            addClaimAlert(alerts, claim, "sevenDayDeadline", MfgConstants.ALERT_CLAIM_7DAY);
+            addClaimAlert(alerts, claim, "afterSaleDeadline", MfgConstants.ALERT_CLAIM_AFTERSALE);
         }
 
         addSoftwareAlerts(alerts, delegator);
@@ -585,7 +585,7 @@ public final class MfgReportServices {
                 String leftLevel = String.valueOf(left.get("level"));
                 String rightLevel = String.valueOf(right.get("level"));
                 if (!leftLevel.equals(rightLevel)) {
-                    return MfgServices.ALERT_ERROR.equals(leftLevel) ? -1 : 1;
+                    return MfgConstants.ALERT_ERROR.equals(leftLevel) ? -1 : 1;
                 }
                 return ((Long) left.get("hoursLeft")).compareTo((Long) right.get("hoursLeft"));
             }
@@ -607,11 +607,11 @@ public final class MfgReportServices {
         if (deadline == null) {
             return;
         }
-        long hours = MfgServices.hoursLeft(deadline);
-        if (hours > MfgServices.DEADLINE_WARNING_HOURS) {
+        long hours = MfgSupport.hoursLeft(deadline);
+        if (hours > MfgConstants.DEADLINE_WARNING_HOURS) {
             return;
         }
-        StringBuilder detail = new StringBuilder(MfgServices.ALERT_CLAIM_7DAY.equals(typeId)
+        StringBuilder detail = new StringBuilder(MfgConstants.ALERT_CLAIM_7DAY.equals(typeId)
                 ? "7 天无理由窗口" : "15 天售后窗口");
         detail.append(hours < 0 ? "已经过期 " + (-hours) + " 小时" : "还有 " + hours + " 小时");
         if (claim.getString("claimType") != null) {
@@ -622,7 +622,7 @@ public final class MfgReportServices {
         }
         Map<String, Object> alert = new LinkedHashMap<>();
         alert.put("typeId", typeId);
-        alert.put("level", hours < 0 ? MfgServices.ALERT_ERROR : MfgServices.ALERT_WARN);
+        alert.put("level", hours < 0 ? MfgConstants.ALERT_ERROR : MfgConstants.ALERT_WARN);
         alert.put("refId", claim.getString("claimId"));
         alert.put("subject", claim.getString("sn"));
         alert.put("dueDate", deadline);
@@ -646,11 +646,11 @@ public final class MfgReportServices {
         LocalDate today = LocalDate.now();
         for (GenericValue project : projects) {
             String statusId = project.getString("statusId");
-            if (MfgServices.SW_DONE.equals(statusId) || MfgServices.SW_CANCELLED.equals(statusId)) {
+            if (MfgConstants.SW_DONE.equals(statusId) || MfgConstants.SW_CANCELLED.equals(statusId)) {
                 continue;
             }
             double planned = MfgSupport.numberOrZero(project.get("plannedDays"));
-            double actualDays = MfgSupport.numberOrZero(project.get("actualHours")) / MfgServices.HOURS_PER_DAY;
+            double actualDays = MfgSupport.numberOrZero(project.get("actualHours")) / MfgConstants.HOURS_PER_DAY;
             boolean overEffort = planned > 0.0 && actualDays > planned;
             java.sql.Date end = project.getDate("plannedEndDate");
             Long daysLeft = end == null ? null
@@ -674,8 +674,8 @@ public final class MfgReportServices {
                         : "距计划结束 " + daysLeft.longValue() + " 天");
             }
             Map<String, Object> alert = new LinkedHashMap<>();
-            alert.put("typeId", MfgServices.ALERT_SOFTWARE);
-            alert.put("level", overEffort || late ? MfgServices.ALERT_ERROR : MfgServices.ALERT_WARN);
+            alert.put("typeId", MfgConstants.ALERT_SOFTWARE);
+            alert.put("level", overEffort || late ? MfgConstants.ALERT_ERROR : MfgConstants.ALERT_WARN);
             alert.put("refId", project.getString("projectCode"));
             alert.put("subject", project.getString("projectName"));
             alert.put("dueDate", end);
@@ -700,7 +700,7 @@ public final class MfgReportServices {
                 .orderBy("dueDate").queryList();
         for (GenericValue order : orders) {
             String statusId = order.getString("statusId");
-            if (MfgServices.WO_CLOSED.equals(statusId) || MfgServices.WO_COMPLETED.equals(statusId)) {
+            if (MfgConstants.WO_CLOSED.equals(statusId) || MfgConstants.WO_COMPLETED.equals(statusId)) {
                 continue;
             }
             for (Map<String, Object> line : MfgWorkOrderServices.kittingLines(delegator, order)) {
@@ -762,8 +762,8 @@ public final class MfgReportServices {
             double reorder = MfgSupport.numberOrZero(entry.getValue().get("reorderQty"));
             double suggested = reorder > 0.0 ? reorder : MfgSupport.round2(minimum - current);
             Map<String, Object> alert = new LinkedHashMap<>();
-            alert.put("typeId", MfgServices.ALERT_STOCK);
-            alert.put("level", current <= 0.0 ? MfgServices.ALERT_ERROR : MfgServices.ALERT_WARN);
+            alert.put("typeId", MfgConstants.ALERT_STOCK);
+            alert.put("level", current <= 0.0 ? MfgConstants.ALERT_ERROR : MfgConstants.ALERT_WARN);
             alert.put("refId", entry.getKey());
             alert.put("subject", entry.getValue().getString("componentName"));
             alert.put("dueDate", null);
@@ -789,7 +789,7 @@ public final class MfgReportServices {
             return labels;
         }
         for (int i = days - 1; i >= 0; i--) {
-            labels.add(end.minusDays(i).format(MfgServices.MONTH_DAY));
+            labels.add(end.minusDays(i).format(MfgConstants.MONTH_DAY));
         }
         return labels;
     }

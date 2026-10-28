@@ -47,7 +47,7 @@ public final class MfgWorkOrderServices {
      */
     public static Map<String, Object> workOrderCreate(DispatchContext dctx, Map<String, ? extends Object> context) {
         // sales planning creates work orders too, so the sales area is accepted here
-        String denied = MfgServices.permissionProblem(dctx, context, MfgServices.PERM_PRODUCTION, MfgServices.PERM_SALES);
+        String denied = MfgSecurity.permissionProblem(dctx, context, MfgConstants.PERM_PRODUCTION, MfgConstants.PERM_SALES);
         if (denied != null) {
             return ServiceUtil.returnError(denied);
         }
@@ -70,7 +70,7 @@ public final class MfgWorkOrderServices {
             order.set("workOrderId", workOrderId);
             order.set("productCode", productCode);
             order.set("plannedQty", Long.valueOf(plannedQty));
-            order.set("statusId", MfgServices.WO_CREATED);
+            order.set("statusId", MfgConstants.WO_CREATED);
             order.set("dueDate", MfgSupport.parseDate(context.get("dueDate")));
             order.set("customerName", MfgSupport.toText(context.get("customerName")));
             order.set("smtVendor", MfgSupport.toText(context.get("smtVendor")));
@@ -116,7 +116,7 @@ public final class MfgWorkOrderServices {
             List<Map<String, Object>> list = new ArrayList<>(orders.size());
             Map<String, GenericValue> ordersById = new LinkedHashMap<>();
             for (GenericValue order : orders) {
-                Map<String, Object> map = MfgServices.toWorkOrderMap(order);
+                Map<String, Object> map = MfgRecordMaps.toWorkOrderMap(order);
                 map.put("reportedHours", Double.valueOf(sumHours(delegator, order.getString("workOrderId"))));
                 list.add(map);
                 ordersById.put(order.getString("workOrderId"), order);
@@ -128,7 +128,7 @@ public final class MfgWorkOrderServices {
                     MfgPaging.pageOf(context), MfgPaging.pageSizeOf(context), MfgSupport.toText(context.get("search")));
             // the list unfolds its rows in place: the kitting gaps and the progress of the visible
             // page only, so a long list does not cost a query per order
-            boolean showCost = MfgServices.can(dctx, (GenericValue) context.get("userLogin"), MfgServices.PERM_COST);
+            boolean showCost = MfgSecurity.can(dctx, (GenericValue) context.get("userLogin"), MfgConstants.PERM_COST);
             for (Map<String, Object> row : MfgPaging.rowsOf(result, "workOrders")) {
                 String workOrderId = (String) row.get("workOrderId");
                 GenericValue order = ordersById.get(workOrderId);
@@ -193,7 +193,7 @@ public final class MfgWorkOrderServices {
                     .where("productCode", order.getString("productCode")).orderBy("opSeq").queryList();
 
             Map<String, Object> result = ServiceUtil.returnSuccess();
-            result.put("workOrder", MfgServices.toWorkOrderMap(order));
+            result.put("workOrder", MfgRecordMaps.toWorkOrderMap(order));
             result.put("operations", toOperationMaps(routings, reports));
             result.put("sns", toSnMaps(units));
             result.put("defects", toDefectMaps(defects));
@@ -235,7 +235,7 @@ public final class MfgWorkOrderServices {
                 }
             }
             result.put("vendor", vendor == null ? null : toVendorMap(vendor));
-            result.put("vendors", MfgServices.vendorMaps(delegator));
+            result.put("vendors", MfgRecordMaps.vendorMaps(delegator));
 
             // the finished goods lot of this order, once it was completed
             GenericValue productLot = EntityQuery.use(delegator).from("MfgMaterialLot")
@@ -243,7 +243,7 @@ public final class MfgWorkOrderServices {
             if (productLot != null) {
                 MfgStockLedger.ensureLotLedger(delegator, productLot);
             }
-            result.put("productLot", productLot == null ? null : MfgServices.toLotMap(productLot, null));
+            result.put("productLot", productLot == null ? null : MfgRecordMaps.toLotMap(productLot, null));
             return result;
         } catch (GenericEntityException e) {
             return ServiceUtil.returnError("Could not read the work order: " + e.getMessage());
@@ -258,7 +258,7 @@ public final class MfgWorkOrderServices {
      * @return the service result containing {@code reportId}
      */
     public static Map<String, Object> reportCreate(DispatchContext dctx, Map<String, ? extends Object> context) {
-        String denied = MfgServices.permissionProblem(dctx, context, MfgServices.PERM_PRODUCTION);
+        String denied = MfgSecurity.permissionProblem(dctx, context, MfgConstants.PERM_PRODUCTION);
         if (denied != null) {
             return ServiceUtil.returnError(denied);
         }
@@ -299,9 +299,9 @@ public final class MfgWorkOrderServices {
             report.set("note", MfgSupport.toText(context.get("note")));
             delegator.create(report);
 
-            if (!MfgServices.WO_CLOSED.equals(order.getString("statusId"))
-                && !MfgServices.WO_COMPLETED.equals(order.getString("statusId"))) {
-                order.set("statusId", MfgServices.WO_IN_PROGRESS);
+            if (!MfgConstants.WO_CLOSED.equals(order.getString("statusId"))
+                && !MfgConstants.WO_COMPLETED.equals(order.getString("statusId"))) {
+                order.set("statusId", MfgConstants.WO_IN_PROGRESS);
                 delegator.store(order);
             }
 
@@ -322,7 +322,7 @@ public final class MfgWorkOrderServices {
      * @return the service result containing {@code sns}, {@code firstSn} and {@code lastSn}
      */
     public static Map<String, Object> snRegister(DispatchContext dctx, Map<String, ? extends Object> context) {
-        String denied = MfgServices.permissionProblem(dctx, context, MfgServices.PERM_PRODUCTION);
+        String denied = MfgSecurity.permissionProblem(dctx, context, MfgConstants.PERM_PRODUCTION);
         if (denied != null) {
             return ServiceUtil.returnError(denied);
         }
@@ -360,7 +360,7 @@ public final class MfgWorkOrderServices {
                 unit.set("sn", sn);
                 unit.set("workOrderId", workOrderId);
                 unit.set("productCode", productCode);
-                unit.set("statusId", MfgServices.SN_IN_PROGRESS);
+                unit.set("statusId", MfgConstants.SN_IN_PROGRESS);
                 delegator.create(unit);
                 created.add(sn);
             }
@@ -432,7 +432,7 @@ public final class MfgWorkOrderServices {
             for (GenericValue issue : issues) {
                 GenericValue lot = EntityQuery.use(delegator).from("MfgMaterialLot")
                         .where("lotId", issue.getString("lotId")).queryOne();
-                lotMaps.add(MfgServices.toIssueMap(issue, lot));
+                lotMaps.add(MfgRecordMaps.toIssueMap(issue, lot));
             }
             List<GenericValue> replacements = EntityQuery.use(delegator).from("MfgReplacement")
                     .where("sn", sn).orderBy("createdStamp").queryList();
@@ -443,7 +443,7 @@ public final class MfgWorkOrderServices {
                 GenericValue delivery = EntityQuery.use(delegator).from("MfgDelivery")
                         .where("deliveryId", deliveryItems.get(0).getString("deliveryId")).queryOne();
                 if (delivery != null) {
-                    deliveryMap = MfgServices.toDeliveryMap(delivery);
+                    deliveryMap = MfgRecordMaps.toDeliveryMap(delivery);
                 }
             }
             List<GenericValue> tests = EntityQuery.use(delegator).from("MfgTestResult")
@@ -452,12 +452,12 @@ public final class MfgWorkOrderServices {
                     .where("sn", sn).orderBy("-createdStamp").queryList();
 
             Map<String, Object> result = ServiceUtil.returnSuccess();
-            result.put("snRecord", MfgServices.toSnMap(unit));
-            result.put("workOrder", order == null ? null : MfgServices.toWorkOrderMap(order));
+            result.put("snRecord", MfgRecordMaps.toSnMap(unit));
+            result.put("workOrder", order == null ? null : MfgRecordMaps.toWorkOrderMap(order));
             result.put("reports", toReportMaps(unitReports));
             result.put("defects", toDefectMaps(unitDefects));
             result.put("lots", lotMaps);
-            result.put("replacements", MfgServices.toReplacementMaps(replacements));
+            result.put("replacements", MfgRecordMaps.toReplacementMaps(replacements));
             result.put("delivery", deliveryMap);
             result.put("tests", toTestResultMaps(tests));
             result.put("claims", toClaimMaps(claims));
@@ -475,7 +475,7 @@ public final class MfgWorkOrderServices {
      * @return the service result containing {@code defectId}
      */
     public static Map<String, Object> defectCreate(DispatchContext dctx, Map<String, ? extends Object> context) {
-        String denied = MfgServices.permissionProblem(dctx, context, MfgServices.PERM_PRODUCTION);
+        String denied = MfgSecurity.permissionProblem(dctx, context, MfgConstants.PERM_PRODUCTION);
         if (denied != null) {
             return ServiceUtil.returnError(denied);
         }
@@ -725,7 +725,7 @@ public final class MfgWorkOrderServices {
      * @return the service result containing {@code issueId}
      */
     public static Map<String, Object> issueSave(DispatchContext dctx, Map<String, ? extends Object> context) {
-        String denied = MfgServices.permissionProblem(dctx, context, MfgServices.PERM_STOCK);
+        String denied = MfgSecurity.permissionProblem(dctx, context, MfgConstants.PERM_STOCK);
         if (denied != null) {
             return ServiceUtil.returnError(denied);
         }
@@ -782,7 +782,7 @@ public final class MfgWorkOrderServices {
             issue.set("componentCode", componentCode);
             issue.set("lotId", lotId);
             issue.set("qty", Double.valueOf(qty));
-            issue.set("directionId", MfgServices.MOVE_ISSUE);
+            issue.set("directionId", MfgConstants.MOVE_ISSUE);
             Object issuedDate = MfgSupport.parseDate(context.get("issuedDate"));
             issue.set("issuedDate", issuedDate == null
                     ? java.sql.Date.valueOf(LocalDate.now()) : issuedDate);
@@ -791,7 +791,7 @@ public final class MfgWorkOrderServices {
             issue.set("snTo", MfgSupport.toText(context.get("snTo")));
             issue.set("note", MfgSupport.toText(context.get("note")));
             delegator.create(issue);
-            MfgStockLedger.recordMovement(delegator, lot, MfgServices.MOVE_ISSUE, -qty, lot.get("unitPrice"), workOrderId, null,
+            MfgStockLedger.recordMovement(delegator, lot, MfgConstants.MOVE_ISSUE, -qty, lot.get("unitPrice"), workOrderId, null,
                     null, null,
                     Timestamp.valueOf(issue.getDate("issuedDate").toLocalDate().atStartOfDay()),
                     "发料给工单 " + workOrderId);
@@ -854,7 +854,7 @@ public final class MfgWorkOrderServices {
             for (GenericValue issue : issues) {
                 GenericValue lot = EntityQuery.use(delegator).from("MfgMaterialLot")
                         .where("lotId", issue.getString("lotId")).queryOne();
-                issueMaps.add(MfgServices.toIssueMap(issue, lot));
+                issueMaps.add(MfgRecordMaps.toIssueMap(issue, lot));
             }
             List<Map<String, Object>> shipmentMaps = new ArrayList<>(shipments.size());
             double outQty = 0.0;
@@ -865,7 +865,7 @@ public final class MfgWorkOrderServices {
                 double qty = shipment.getDouble("qty") == null ? 0.0 : shipment.getDouble("qty").doubleValue();
                 double defectQty = shipment.getDouble("defectQty") == null
                         ? 0.0 : shipment.getDouble("defectQty").doubleValue();
-                if (MfgServices.SHIP_IN.equals(shipment.getString("directionId"))) {
+                if (MfgConstants.SHIP_IN.equals(shipment.getString("directionId"))) {
                     inQty += qty;
                     inDefectQty += defectQty;
                 } else {
@@ -874,7 +874,7 @@ public final class MfgWorkOrderServices {
             }
 
             Map<String, Object> result = ServiceUtil.returnSuccess();
-            result.put("workOrder", MfgServices.toWorkOrderMap(order));
+            result.put("workOrder", MfgRecordMaps.toWorkOrderMap(order));
             result.put("lines", lines);
             result.put("issues", issueMaps);
             result.put("shipments", shipmentMaps);
@@ -896,7 +896,7 @@ public final class MfgWorkOrderServices {
      * @return the service result containing {@code shipmentId}
      */
     public static Map<String, Object> shipmentSave(DispatchContext dctx, Map<String, ? extends Object> context) {
-        String denied = MfgServices.permissionProblem(dctx, context, MfgServices.PERM_PRODUCTION);
+        String denied = MfgSecurity.permissionProblem(dctx, context, MfgConstants.PERM_PRODUCTION);
         if (denied != null) {
             return ServiceUtil.returnError(denied);
         }
@@ -907,10 +907,10 @@ public final class MfgWorkOrderServices {
             return ServiceUtil.returnError("workOrderId is required");
         }
         if (directionId == null) {
-            directionId = MfgServices.SHIP_OUT;
+            directionId = MfgConstants.SHIP_OUT;
         }
-        if (!MfgServices.SHIP_IN.equals(directionId) && !MfgServices.SHIP_OUT.equals(directionId)) {
-            return ServiceUtil.returnError("directionId must be " + MfgServices.SHIP_OUT + " or " + MfgServices.SHIP_IN);
+        if (!MfgConstants.SHIP_IN.equals(directionId) && !MfgConstants.SHIP_OUT.equals(directionId)) {
+            return ServiceUtil.returnError("directionId must be " + MfgConstants.SHIP_OUT + " or " + MfgConstants.SHIP_IN);
         }
         double qty = MfgSupport.toDouble(context.get("qty"), 0.0);
         double defectQty = MfgSupport.toDouble(context.get("defectQty"), 0.0);
@@ -985,7 +985,7 @@ public final class MfgWorkOrderServices {
             List<Map<String, Object>> lotMaps = new ArrayList<>(lots.size());
             Map<String, Double> issuedByLot = issuedQtyByLot(delegator);
             for (GenericValue lot : lots) {
-                lotMaps.add(MfgServices.toLotMap(lot, issuedByLot.get(lot.getString("lotId"))));
+                lotMaps.add(MfgRecordMaps.toLotMap(lot, issuedByLot.get(lot.getString("lotId"))));
             }
 
             List<String> lotIds = new ArrayList<>(lots.size());
@@ -1127,7 +1127,7 @@ public final class MfgWorkOrderServices {
      * @return {@code true} unless the lot failed the inspection
      */
     static boolean isLotUsable(String inspectStatusId) {
-        return !MfgServices.IQC_FAIL.equals(inspectStatusId);
+        return !MfgConstants.IQC_FAIL.equals(inspectStatusId);
     }
 
     static Map<String, Object> toShipmentMap(GenericValue shipment) {
@@ -1253,7 +1253,7 @@ public final class MfgWorkOrderServices {
      * @return the service result containing {@code importedCount} and {@code skippedCount}
      */
     public static Map<String, Object> testImportCsv(DispatchContext dctx, Map<String, ? extends Object> context) {
-        String denied = MfgServices.permissionProblem(dctx, context, MfgServices.PERM_PRODUCTION);
+        String denied = MfgSecurity.permissionProblem(dctx, context, MfgConstants.PERM_PRODUCTION);
         if (denied != null) {
             return ServiceUtil.returnError(denied);
         }
@@ -1355,7 +1355,7 @@ public final class MfgWorkOrderServices {
      * @return the service result containing {@code workOrderId} and {@code vendorId}
      */
     public static Map<String, Object> workOrderVendor(DispatchContext dctx, Map<String, ? extends Object> context) {
-        String denied = MfgServices.permissionProblem(dctx, context, MfgServices.PERM_PRODUCTION);
+        String denied = MfgSecurity.permissionProblem(dctx, context, MfgConstants.PERM_PRODUCTION);
         if (denied != null) {
             return ServiceUtil.returnError(denied);
         }
@@ -1440,7 +1440,7 @@ public final class MfgWorkOrderServices {
     static List<Map<String, Object>> toClaimMaps(List<GenericValue> claims) {
         List<Map<String, Object>> list = new ArrayList<>(claims.size());
         for (GenericValue claim : claims) {
-            list.add(MfgServices.toClaimMap(claim));
+            list.add(MfgRecordMaps.toClaimMap(claim));
         }
         return list;
     }
@@ -1455,7 +1455,7 @@ public final class MfgWorkOrderServices {
      * @return the service result with what was reserved and what is still missing
      */
     public static Map<String, Object> reserveMaterial(DispatchContext dctx, Map<String, ? extends Object> context) {
-        String denied = MfgServices.permissionProblem(dctx, context, MfgServices.PERM_PRODUCTION, MfgServices.PERM_SALES);
+        String denied = MfgSecurity.permissionProblem(dctx, context, MfgConstants.PERM_PRODUCTION, MfgConstants.PERM_SALES);
         if (denied != null) {
             return ServiceUtil.returnError(denied);
         }
@@ -1501,7 +1501,7 @@ public final class MfgWorkOrderServices {
                         continue;
                     }
                     double take = Math.min(missing, free);
-                    MfgStockLedger.recordReservation(delegator, lot, MfgServices.MOVE_RESERVE, take, workOrderId, operator,
+                    MfgStockLedger.recordReservation(delegator, lot, MfgConstants.MOVE_RESERVE, take, workOrderId, operator,
                             "工单 " + workOrderId + " 预留");
                     MfgStockLedger.recalcLotStock(delegator, lot);
                     missing = MfgSupport.round2(missing - take);
@@ -1528,7 +1528,7 @@ public final class MfgWorkOrderServices {
      */
     public static Map<String, Object> releaseMaterialReservation(DispatchContext dctx,
             Map<String, ? extends Object> context) {
-        String denied = MfgServices.permissionProblem(dctx, context, MfgServices.PERM_PRODUCTION, MfgServices.PERM_SALES);
+        String denied = MfgSecurity.permissionProblem(dctx, context, MfgConstants.PERM_PRODUCTION, MfgConstants.PERM_SALES);
         if (denied != null) {
             return ServiceUtil.returnError(denied);
         }
@@ -1558,7 +1558,7 @@ public final class MfgWorkOrderServices {
                 if (reserved <= 0.0001) {
                     continue;
                 }
-                MfgStockLedger.recordReservation(delegator, lot, MfgServices.MOVE_RELEASE, -reserved, workOrderId, operator,
+                MfgStockLedger.recordReservation(delegator, lot, MfgConstants.MOVE_RELEASE, -reserved, workOrderId, operator,
                         "释放工单 " + workOrderId + " 的预留");
                 MfgStockLedger.recalcLotStock(delegator, lot);
                 released += reserved;
@@ -1583,7 +1583,7 @@ public final class MfgWorkOrderServices {
      * @return the service result with the lot and its quantity
      */
     public static Map<String, Object> workOrderComplete(DispatchContext dctx, Map<String, ? extends Object> context) {
-        String denied = MfgServices.permissionProblem(dctx, context, MfgServices.PERM_PRODUCTION);
+        String denied = MfgSecurity.permissionProblem(dctx, context, MfgConstants.PERM_PRODUCTION);
         if (denied != null) {
             return ServiceUtil.returnError(denied);
         }
@@ -1598,7 +1598,7 @@ public final class MfgWorkOrderServices {
             if (order == null) {
                 return ServiceUtil.returnError("Unknown work order [" + workOrderId + "]");
             }
-            if (MfgServices.WO_CLOSED.equals(order.getString("statusId"))) {
+            if (MfgConstants.WO_CLOSED.equals(order.getString("statusId"))) {
                 return ServiceUtil.returnError("Work order [" + workOrderId + "] is already closed");
             }
             double qtyOk = 0.0;
@@ -1629,20 +1629,20 @@ public final class MfgWorkOrderServices {
             if (lot == null) {
                 lot = delegator.makeValue("MfgMaterialLot");
                 lot.set("lotId", lotId);
-                lot.set("lotKindId", MfgServices.LOT_PRODUCT);
+                lot.set("lotKindId", MfgConstants.LOT_PRODUCT);
                 lot.set("workOrderId", workOrderId);
                 lot.set("componentCode", productCode);
                 lot.set("componentName", product == null ? null : product.getString("productName"));
                 lot.set("receivedQty", Double.valueOf(0.0));
                 lot.set("receivedDate", day);
-                lot.set("inspectStatusId", MfgServices.IQC_PASS);
+                lot.set("inspectStatusId", MfgConstants.IQC_PASS);
                 lot.set("note", "工单 " + workOrderId + " 的成品");
                 delegator.create(lot);
             }
 
             double booked = 0.0;
             for (GenericValue movement : MfgStockLedger.movementsOf(delegator, lotId)) {
-                if (MfgServices.MOVE_RECEIPT.equals(movement.getString("movementTypeId"))) {
+                if (MfgConstants.MOVE_RECEIPT.equals(movement.getString("movementTypeId"))) {
                     booked += MfgSupport.numberOrZero(movement.get("quantityDiff"));
                 }
             }
@@ -1651,7 +1651,7 @@ public final class MfgWorkOrderServices {
             String message = null;
             if (added > 0.0001) {
                 String operator = MfgSupport.toText(context.get("operatorName"));
-                MfgStockLedger.recordMovement(delegator, lot, MfgServices.MOVE_RECEIPT, added, Double.valueOf(unitCost), workOrderId,
+                MfgStockLedger.recordMovement(delegator, lot, MfgConstants.MOVE_RECEIPT, added, Double.valueOf(unitCost), workOrderId,
                         null, workOrderId, operator,
                         Timestamp.valueOf(day.toLocalDate().atStartOfDay()),
                         "完工入库：" + MfgSupport.formatQty(added) + " 台");
@@ -1662,7 +1662,7 @@ public final class MfgWorkOrderServices {
             lot.set("receivedQty", Double.valueOf(MfgSupport.round2(Math.max(booked, qtyOk))));
             lot.set("unitPrice", Double.valueOf(unitCost));
             if (lot.get("inspectStatusId") == null) {
-                lot.set("inspectStatusId", MfgServices.IQC_PASS);
+                lot.set("inspectStatusId", MfgConstants.IQC_PASS);
             }
             delegator.store(lot);
             MfgStockLedger.recalcLotStock(delegator, lot);
@@ -1680,15 +1680,15 @@ public final class MfgWorkOrderServices {
                 }
             }
 
-            order.set("statusId", MfgServices.WO_COMPLETED);
+            order.set("statusId", MfgConstants.WO_COMPLETED);
             if (order.get("completeDate") == null) {
                 order.set("completeDate", day);
             }
             delegator.store(order);
             for (GenericValue unit : EntityQuery.use(delegator).from("MfgSn")
                     .where("workOrderId", workOrderId).queryList()) {
-                if (MfgServices.SN_IN_PROGRESS.equals(unit.getString("statusId"))) {
-                    unit.set("statusId", MfgServices.SN_COMPLETED);
+                if (MfgConstants.SN_IN_PROGRESS.equals(unit.getString("statusId"))) {
+                    unit.set("statusId", MfgConstants.SN_COMPLETED);
                     delegator.store(unit);
                 }
             }
@@ -1718,7 +1718,7 @@ public final class MfgWorkOrderServices {
      * @return the formatted serial number
      */
     static String formatSn(String prefix, LocalDate date, int sequence) {
-        return prefix + "-" + date.format(MfgServices.DAY) + "-" + String.format(Locale.ROOT, "%04d", sequence);
+        return prefix + "-" + date.format(MfgConstants.DAY) + "-" + String.format(Locale.ROOT, "%04d", sequence);
     }
 
     /**
@@ -1729,30 +1729,30 @@ public final class MfgWorkOrderServices {
      * @return the formatted work order identifier
      */
     static String formatWorkOrderId(LocalDate date, int sequence) {
-        return "WO-" + date.format(MfgServices.DAY) + "-" + String.format(Locale.ROOT, "%03d", sequence);
+        return "WO-" + date.format(MfgConstants.DAY) + "-" + String.format(Locale.ROOT, "%03d", sequence);
     }
 
     static String nextWorkOrderId(Delegator delegator, LocalDate today) throws GenericEntityException {
-        String prefix = "WO-" + today.format(MfgServices.DAY) + "-";
+        String prefix = "WO-" + today.format(MfgConstants.DAY) + "-";
         List<GenericValue> existing = EntityQuery.use(delegator).from("MfgWorkOrder").queryList();
         int max = 0;
         for (GenericValue order : existing) {
             String id = order.getString("workOrderId");
             if (id != null && id.startsWith(prefix)) {
-                max = Math.max(max, MfgServices.parseTrailingNumber(id.substring(prefix.length())));
+                max = Math.max(max, MfgSupport.parseTrailingNumber(id.substring(prefix.length())));
             }
         }
         return formatWorkOrderId(today, max + 1);
     }
 
     static int nextSnSequence(Delegator delegator, String prefix) throws GenericEntityException {
-        String stem = prefix + "-" + LocalDate.now().format(MfgServices.DAY) + "-";
+        String stem = prefix + "-" + LocalDate.now().format(MfgConstants.DAY) + "-";
         List<GenericValue> existing = EntityQuery.use(delegator).from("MfgSn").queryList();
         int max = 0;
         for (GenericValue unit : existing) {
             String sn = unit.getString("sn");
             if (sn != null && sn.startsWith(stem)) {
-                max = Math.max(max, MfgServices.parseTrailingNumber(sn.substring(stem.length())));
+                max = Math.max(max, MfgSupport.parseTrailingNumber(sn.substring(stem.length())));
             }
         }
         return max + 1;
@@ -1823,7 +1823,7 @@ public final class MfgWorkOrderServices {
     static List<Map<String, Object>> toSnMaps(List<GenericValue> units) {
         List<Map<String, Object>> list = new ArrayList<>(units.size());
         for (GenericValue unit : units) {
-            list.add(MfgServices.toSnMap(unit));
+            list.add(MfgRecordMaps.toSnMap(unit));
         }
         return list;
     }
@@ -1831,7 +1831,7 @@ public final class MfgWorkOrderServices {
     static List<Map<String, Object>> toReportMaps(List<GenericValue> reports) {
         List<Map<String, Object>> list = new ArrayList<>(reports.size());
         for (GenericValue report : reports) {
-            list.add(MfgServices.toReportMap(report));
+            list.add(MfgRecordMaps.toReportMap(report));
         }
         return list;
     }
@@ -1880,7 +1880,7 @@ public final class MfgWorkOrderServices {
      * @return the service result containing {@code workOrderId} and the stored amount
      */
     public static Map<String, Object> workOrderOutsourceSave(DispatchContext dctx, Map<String, ? extends Object> context) {
-        String denied = MfgServices.permissionProblem(dctx, context, MfgServices.PERM_PRODUCTION, MfgServices.PERM_COST);
+        String denied = MfgSecurity.permissionProblem(dctx, context, MfgConstants.PERM_PRODUCTION, MfgConstants.PERM_COST);
         if (denied != null) {
             return ServiceUtil.returnError(denied);
         }
@@ -1924,7 +1924,7 @@ public final class MfgWorkOrderServices {
      * @return {@code true} when it is known
      */
     static boolean isKnownOutsourceType(String feeTypeId) {
-        for (String type : MfgServices.OUTSRC_TYPES) {
+        for (String type : MfgConstants.OUTSRC_TYPES) {
             if (type.equals(feeTypeId)) {
                 return true;
             }
@@ -1939,7 +1939,7 @@ public final class MfgWorkOrderServices {
      * @return {@code true} when it is known
      */
     static boolean isKnownOutsourceBasis(String basisId) {
-        for (String basis : MfgServices.OUTSRC_BASES) {
+        for (String basis : MfgConstants.OUTSRC_BASES) {
             if (basis.equals(basisId)) {
                 return true;
             }
@@ -1960,12 +1960,12 @@ public final class MfgWorkOrderServices {
      * @return the line amount
      */
     static double outsourceAmount(String basisId, double rate, double qty, double qtyOk, double plannedQty) {
-        if (MfgServices.OUTSRC_LUMP.equals(basisId)) {
+        if (MfgConstants.OUTSRC_LUMP.equals(basisId)) {
             return MfgSupport.round2(rate);
         }
         double count = qty;
         if (count <= 0.0) {
-            count = MfgServices.OUTSRC_PER_UNIT.equals(basisId) ? (qtyOk > 0.0 ? qtyOk : plannedQty) : 0.0;
+            count = MfgConstants.OUTSRC_PER_UNIT.equals(basisId) ? (qtyOk > 0.0 ? qtyOk : plannedQty) : 0.0;
         }
         return MfgSupport.round2(rate * count);
     }
@@ -1992,7 +1992,7 @@ public final class MfgWorkOrderServices {
      * @return the service result with the line amount and the new totals
      */
     public static Map<String, Object> outsourceFeeSave(DispatchContext dctx, Map<String, ? extends Object> context) {
-        String denied = MfgServices.permissionProblem(dctx, context, MfgServices.PERM_PRODUCTION, MfgServices.PERM_COST);
+        String denied = MfgSecurity.permissionProblem(dctx, context, MfgConstants.PERM_PRODUCTION, MfgConstants.PERM_COST);
         if (denied != null) {
             return ServiceUtil.returnError(denied);
         }
@@ -2004,18 +2004,18 @@ public final class MfgWorkOrderServices {
             return ServiceUtil.returnError("workOrderId is required");
         }
         if (feeTypeId == null) {
-            feeTypeId = MfgServices.OUTSRC_OTHER;
+            feeTypeId = MfgConstants.OUTSRC_OTHER;
         }
         if (!isKnownOutsourceType(feeTypeId)) {
             return ServiceUtil.returnError("Unknown fee type [" + feeTypeId + "], expected "
-                    + String.join(" / ", MfgServices.OUTSRC_TYPES));
+                    + String.join(" / ", MfgConstants.OUTSRC_TYPES));
         }
         if (basisId == null) {
-            basisId = MfgServices.OUTSRC_LUMP;
+            basisId = MfgConstants.OUTSRC_LUMP;
         }
         if (!isKnownOutsourceBasis(basisId)) {
             return ServiceUtil.returnError("Unknown pricing basis [" + basisId + "], expected "
-                    + String.join(" / ", MfgServices.OUTSRC_BASES));
+                    + String.join(" / ", MfgConstants.OUTSRC_BASES));
         }
         double rate = MfgSupport.round2(MfgSupport.toDouble(context.get("rate"), 0.0));
         double qty = MfgSupport.round2(MfgSupport.toDouble(context.get("qty"), 0.0));
@@ -2037,7 +2037,7 @@ public final class MfgWorkOrderServices {
                 qtyOk += MfgSupport.numberOrZero(report.get("qtyOk"));
             }
             double plannedQty = MfgSupport.numberOrZero(order.get("plannedQty"));
-            if (MfgServices.OUTSRC_LUMP.equals(basisId)) {
+            if (MfgConstants.OUTSRC_LUMP.equals(basisId)) {
                 qty = 1.0;
             } else if (qty <= 0.0) {
                 qty = qtyOk > 0.0 ? qtyOk : plannedQty;
@@ -2092,7 +2092,7 @@ public final class MfgWorkOrderServices {
      * @return the service result with the new total
      */
     public static Map<String, Object> outsourceFeeDelete(DispatchContext dctx, Map<String, ? extends Object> context) {
-        String denied = MfgServices.permissionProblem(dctx, context, MfgServices.PERM_PRODUCTION, MfgServices.PERM_COST);
+        String denied = MfgSecurity.permissionProblem(dctx, context, MfgConstants.PERM_PRODUCTION, MfgConstants.PERM_COST);
         if (denied != null) {
             return ServiceUtil.returnError(denied);
         }

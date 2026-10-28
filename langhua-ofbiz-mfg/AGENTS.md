@@ -1149,6 +1149,26 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   **踩坑**：把仓库里那份（`https="true"`）直接 copy 到**测试实例**会冲掉 `relax-test-https.ps1` 的改动，
   页面立刻 302 到 `https://localhost:8443`（看着像“改坏了”）——copy 完要对测试实例重跑那个脚本
   （这次它报了 113 个 request map）。回归：m50 13 项、m49 14 项、m43 15 项全过。
+- **`MfgServices` 退场，拆完（Step 172）**：剩下的 885 行再分成三个类后**删掉了这个文件**：
+  - `MfgConstants`（507 行）：**190 个常量**，全组件唯一的“词汇表”——状态、movement 类型、权限名、告警种类、
+    成本模型默认值；`MODULE` 也在这里（初值改成 `MfgConstants.class.getName()`）；
+  - `MfgRecordMaps`（224 行）：`toWorkOrderMap` / `toClaimMap` / `toDeliveryMap` / `toSnMap` / `toLotMap` /
+    `toIssueMap`（两个重载）/ `toReportMap` / `toReplacementMaps` / `vendorMaps` / `toVendorMap`；
+  - `MfgSecurity`（103 行）：`mfgPermissions` 服务（`services.xml` 里唯一改指新类的服务）+ `can` /
+    `permissionProblem` / `yesNo`。
+  剩下的小件回到它们该在的地方：`setting` → `MfgSettingsServices`，`parseTrailingNumber` / `hoursLeft` → `MfgSupport`，
+  `formatLotId` / `nextLotId` → `MfgStockServices`，`fittingComponentCode` / `nameWithFullCode` → `MfgProductServices`，
+  `isKnownSoStatus` → `MfgSalesOrderServices`，`isKnownEcoStatus` → `MfgDevServices`。
+  **调用点全改成 `新类.名字`**（18 个文件），`oir` 包的两个 `import org.langhua.ofbiz.mfg.MfgServices` 也要换掉
+  （`OirOrders` → `MfgProductServices`、`OirScan` → `MfgSettingsServices`）——**`oir` 是另一个包，动了这几个类要同步改 import**。
+  验证：编译 0 错、单测 177、`mfg-it.bat` 433/433、`verify-m12` 102、`verify-m11` 55、`verify-m36` 84、
+  `verify-m33` 30、`verify-m13` 49 全过，三套实例都换了新 jar。
+  **踩坑**：① 抽取脚本必须按**方法名**取全部块（`toIssueMap` / `hoursLeft` 各有两个重载，只写 `[0]` 会少搬两个，
+  编译报“找不到符号”）；② 给搬走的方法做限定时**要传“当前类”**，否则声明行自己也会被加上前缀
+  （`static Map<String,Object> MfgRecordMaps.toLotMap(...)`）；③ 多行数组常量的 `{` 会让花括号深度错位，
+  记完一个常量块后要把 `$i` 跳到块尾。
+  现在 `MfgServicesTest.java`（约 5 000 行、177 个用例）名字已经名不副实——**`mfg-tests-all.bat` 按类名跑它**，
+  改名要同时改那个脚本。
 - **库存 / 开发 / 报表搬完，`MfgServices` 只剩 885 行（Step 171）**：78 个方法、`MfgServices` **4197 → 885 行**，
   `services.xml` 里 **36 个服务**改指三个新类，服务总数仍是 121：
   - `MfgStockServices`（1161 行，14 个服务）：`mfgLotList` / `LotSave` / `LotImportCsv` / `LotInspect`、

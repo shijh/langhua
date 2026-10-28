@@ -89,7 +89,7 @@ public final class MfgPurchaseServices {
             for (GenericValue receipt : EntityQuery.use(delegator).from("MfgPurchaseReceipt")
                     .orderBy("receiptDate").queryList()) {
                 // a voided receipt was never really bought: it stays out of the freight report
-                if (MfgServices.RECEIPT_VOID.equals(statusOfReceipt(receipt))) {
+                if (MfgConstants.RECEIPT_VOID.equals(statusOfReceipt(receipt))) {
                     continue;
                 }
                 java.sql.Date day = receipt.getDate("receiptDate");
@@ -214,7 +214,7 @@ public final class MfgPurchaseServices {
      * @return the service result containing {@code receiptId}
      */
     public static Map<String, Object> purchaseReceiptSave(DispatchContext dctx, Map<String, ? extends Object> context) {
-        String denied = MfgServices.permissionProblem(dctx, context, MfgServices.PERM_STOCK);
+        String denied = MfgSecurity.permissionProblem(dctx, context, MfgConstants.PERM_STOCK);
         if (denied != null) {
             return ServiceUtil.returnError(denied);
         }
@@ -222,10 +222,10 @@ public final class MfgPurchaseServices {
         String receiptId = MfgSupport.toText(context.get("receiptId"));
         String allocationId = MfgSupport.toText(context.get("allocationId"));
         if (allocationId == null) {
-            allocationId = MfgServices.ALLOC_NONE;
+            allocationId = MfgConstants.ALLOC_NONE;
         }
-        if (!MfgServices.ALLOC_NONE.equals(allocationId)) {
-            return ServiceUtil.returnError("运费暂时只记期间费用（" + MfgServices.ALLOC_NONE + "），按比例分摊还没有打开");
+        if (!MfgConstants.ALLOC_NONE.equals(allocationId)) {
+            return ServiceUtil.returnError("运费暂时只记期间费用（" + MfgConstants.ALLOC_NONE + "），按比例分摊还没有打开");
         }
         String freightText = MfgSupport.toText(context.get("freightAmount"));
         Double freight = MfgSupport.optionalAmount(freightText);
@@ -249,10 +249,10 @@ public final class MfgPurchaseServices {
                 receipt.set("freightAmount", Double.valueOf(0.0));
                 // the column is NOT NULL: an insert that leaves it out fails on Derby
                 receipt.set("discountAmount", Double.valueOf(0.0));
-                receipt.set("allocationId", MfgServices.ALLOC_NONE);
+                receipt.set("allocationId", MfgConstants.ALLOC_NONE);
                 receipt.set("receiptDate", java.sql.Date.valueOf(LocalDate.now()));
-                receipt.set("statusId", MfgServices.RECEIPT_ACTIVE);
-            } else if (MfgServices.RECEIPT_VOID.equals(statusOfReceipt(receipt))) {
+                receipt.set("statusId", MfgConstants.RECEIPT_ACTIVE);
+            } else if (MfgConstants.RECEIPT_VOID.equals(statusOfReceipt(receipt))) {
                 return ServiceUtil.returnError("到货单 [" + receiptId + "] 已经作废，要改先点「恢复这张单」");
             }
             if (context.containsKey("supplierName")) {
@@ -297,7 +297,7 @@ public final class MfgPurchaseServices {
      * @return the service result containing {@code receiptId}, {@code lineSeq} and {@code goodsAmount}
      */
     public static Map<String, Object> purchaseReceiptLineSave(DispatchContext dctx, Map<String, ? extends Object> context) {
-        String denied = MfgServices.permissionProblem(dctx, context, MfgServices.PERM_STOCK);
+        String denied = MfgSecurity.permissionProblem(dctx, context, MfgConstants.PERM_STOCK);
         if (denied != null) {
             return ServiceUtil.returnError(denied);
         }
@@ -314,7 +314,7 @@ public final class MfgPurchaseServices {
             if (receipt == null) {
                 return ServiceUtil.returnError("Unknown receipt [" + receiptId + "]");
             }
-            if (MfgServices.RECEIPT_VOID.equals(statusOfReceipt(receipt))) {
+            if (MfgConstants.RECEIPT_VOID.equals(statusOfReceipt(receipt))) {
                 return ServiceUtil.returnError("到货单 [" + receiptId + "] 已经作废，料和金额都不再算进去");
             }
             GenericValue line = lineSeq > 0L ? EntityQuery.use(delegator).from("MfgPurchaseReceiptLine")
@@ -345,7 +345,7 @@ public final class MfgPurchaseServices {
                 }
                 GenericValue other = EntityQuery.use(delegator).from("MfgPurchaseReceiptLine")
                         .where("lotId", lotId).queryOne();
-                if (other != null && !MfgServices.RECEIPT_VOID.equals(statusOfReceipt(EntityQuery.use(delegator)
+                if (other != null && !MfgConstants.RECEIPT_VOID.equals(statusOfReceipt(EntityQuery.use(delegator)
                         .from("MfgPurchaseReceipt")
                         .where("receiptId", other.getString("receiptId")).queryOne()))) {
                     return ServiceUtil.returnError("批次 [" + lotId + "] 已经在到货单 ["
@@ -410,7 +410,7 @@ public final class MfgPurchaseServices {
      * @return the service result containing {@code receiptId}, {@code statusId} and {@code voidedReceipt}
      */
     public static Map<String, Object> purchaseReceiptVoid(DispatchContext dctx, Map<String, ? extends Object> context) {
-        String denied = MfgServices.permissionProblem(dctx, context, MfgServices.PERM_STOCK);
+        String denied = MfgSecurity.permissionProblem(dctx, context, MfgConstants.PERM_STOCK);
         if (denied != null) {
             return ServiceUtil.returnError(denied);
         }
@@ -425,11 +425,11 @@ public final class MfgPurchaseServices {
             if (receipt == null) {
                 return ServiceUtil.returnError("Unknown receipt [" + receiptId + "]");
             }
-            if (MfgServices.RECEIPT_VOID.equals(statusOfReceipt(receipt))) {
+            if (MfgConstants.RECEIPT_VOID.equals(statusOfReceipt(receipt))) {
                 return ServiceUtil.returnError("到货单 [" + receiptId + "] 已经作废了");
             }
             String reason = MfgSupport.toText(context.get("voidReason"));
-            receipt.set("statusId", MfgServices.RECEIPT_VOID);
+            receipt.set("statusId", MfgConstants.RECEIPT_VOID);
             receipt.set("voidedDate", new Timestamp(System.currentTimeMillis()));
             GenericValue userLogin = (GenericValue) context.get("userLogin");
             receipt.set("voidedByUserLoginId", userLogin == null ? null : userLogin.getString("userLoginId"));
@@ -438,10 +438,10 @@ public final class MfgPurchaseServices {
             Map<String, Object> result = ServiceUtil.returnSuccess();
             result.put("receiptId", receiptId);
             result.put("voidedReceipt", receiptId);
-            result.put("statusId", MfgServices.RECEIPT_VOID);
+            result.put("statusId", MfgConstants.RECEIPT_VOID);
             return result;
         } catch (GenericEntityException e) {
-            Debug.logError(e, "Could not void the receipt [" + receiptId + "]", MfgServices.MODULE);
+            Debug.logError(e, "Could not void the receipt [" + receiptId + "]", MfgConstants.MODULE);
             return ServiceUtil.returnError("作废失败：" + e.getMessage());
         }
     }
@@ -454,7 +454,7 @@ public final class MfgPurchaseServices {
      * @return the service result containing {@code receiptId} and {@code statusId}
      */
     public static Map<String, Object> purchaseReceiptRestore(DispatchContext dctx, Map<String, ? extends Object> context) {
-        String denied = MfgServices.permissionProblem(dctx, context, MfgServices.PERM_STOCK);
+        String denied = MfgSecurity.permissionProblem(dctx, context, MfgConstants.PERM_STOCK);
         if (denied != null) {
             return ServiceUtil.returnError(denied);
         }
@@ -469,17 +469,17 @@ public final class MfgPurchaseServices {
             if (receipt == null) {
                 return ServiceUtil.returnError("Unknown receipt [" + receiptId + "]");
             }
-            receipt.set("statusId", MfgServices.RECEIPT_ACTIVE);
+            receipt.set("statusId", MfgConstants.RECEIPT_ACTIVE);
             receipt.set("voidedDate", null);
             receipt.set("voidedByUserLoginId", null);
             receipt.set("voidReason", null);
             receipt.store();
             Map<String, Object> result = ServiceUtil.returnSuccess();
             result.put("receiptId", receiptId);
-            result.put("statusId", MfgServices.RECEIPT_ACTIVE);
+            result.put("statusId", MfgConstants.RECEIPT_ACTIVE);
             return result;
         } catch (GenericEntityException e) {
-            Debug.logError(e, "Could not restore the receipt [" + receiptId + "]", MfgServices.MODULE);
+            Debug.logError(e, "Could not restore the receipt [" + receiptId + "]", MfgConstants.MODULE);
             return ServiceUtil.returnError("恢复失败：" + e.getMessage());
         }
     }
@@ -517,7 +517,7 @@ public final class MfgPurchaseServices {
                     .orderBy("-receiptDate", "-createdStamp").queryList()) {
                 // a voided receipt keeps its paper but is not a purchase any more: the list hides it
                 // unless the person asks for it as well
-                if (!withVoid && MfgServices.RECEIPT_VOID.equals(statusOfReceipt(receipt))) {
+                if (!withVoid && MfgConstants.RECEIPT_VOID.equals(statusOfReceipt(receipt))) {
                     continue;
                 }
                 Map<String, Object> row = toReceiptMap(receipt);
@@ -587,7 +587,7 @@ public final class MfgPurchaseServices {
             }
             // a lot on a voided receipt is free again: that is how a receipt typed wrong is rebuilt
             for (GenericValue voided : EntityQuery.use(delegator).from("MfgPurchaseReceipt")
-                    .where("statusId", MfgServices.RECEIPT_VOID).queryList()) {
+                    .where("statusId", MfgConstants.RECEIPT_VOID).queryList()) {
                 for (GenericValue line : EntityQuery.use(delegator).from("MfgPurchaseReceiptLine")
                         .where("receiptId", voided.getString("receiptId")).queryList()) {
                     onReceipt.remove(line.getString("lotId"));
@@ -599,7 +599,7 @@ public final class MfgPurchaseServices {
                 if (MfgStockLedger.isProductLot(lot) || onReceipt.containsKey(lot.getString("lotId"))) {
                     continue;
                 }
-                if (!MfgStockLedger.matchesLotKind(lot, MfgServices.LOT_COMPONENT)) {
+                if (!MfgStockLedger.matchesLotKind(lot, MfgConstants.LOT_COMPONENT)) {
                     continue;
                 }
                 Map<String, Object> map = new LinkedHashMap<>();
@@ -611,7 +611,7 @@ public final class MfgPurchaseServices {
                 map.put("unitPrice", lot.get("unitPrice"));
                 map.put("receivedDate", lot.get("receivedDate"));
                 freeLots.add(map);
-                if (freeLots.size() >= MfgServices.MAX_FREE_LOTS) {
+                if (freeLots.size() >= MfgConstants.MAX_FREE_LOTS) {
                     break;
                 }
             }
@@ -659,7 +659,7 @@ public final class MfgPurchaseServices {
      *         {@code skippedCount} and the totals
      */
     public static Map<String, Object> receiptFromOrder(DispatchContext dctx, Map<String, ? extends Object> context) {
-        String denied = MfgServices.permissionProblem(dctx, context, MfgServices.PERM_STOCK);
+        String denied = MfgSecurity.permissionProblem(dctx, context, MfgConstants.PERM_STOCK);
         if (denied != null) {
             return ServiceUtil.returnError(denied);
         }
@@ -705,12 +705,12 @@ public final class MfgPurchaseServices {
         }
         int shortened = 0;
         for (String[] row : rows) {
-            if (row[0].length() > MfgServices.MAX_COMPONENT_CODE) {
+            if (row[0].length() > MfgConstants.MAX_COMPONENT_CODE) {
                 // a shop order often carries a package description as the part number, which is
                 // longer than the code field; short it instead of refusing the whole order
                 String fullCode = row[0];
-                row[0] = MfgServices.fittingComponentCode(fullCode);
-                row[1] = MfgServices.nameWithFullCode(row[1], fullCode);
+                row[0] = MfgProductServices.fittingComponentCode(fullCode);
+                row[1] = MfgProductServices.nameWithFullCode(row[1], fullCode);
                 shortened++;
             }
             if (MfgSupport.toDouble(row[2], 0.0) <= 0.0) {
@@ -740,14 +740,14 @@ public final class MfgPurchaseServices {
                 receipt.set("receiptDate", receiptDate);
                 receipt.set("freightAmount", Double.valueOf(freight == null ? 0.0 : freight.doubleValue()));
                 receipt.set("discountAmount", Double.valueOf(discount == null ? 0.0 : discount.doubleValue()));
-                receipt.set("allocationId", MfgServices.ALLOC_NONE);
+                receipt.set("allocationId", MfgConstants.ALLOC_NONE);
                 receipt.set("note", MfgSupport.toText(context.get("note")));
-                receipt.set("statusId", MfgServices.RECEIPT_ACTIVE);
+                receipt.set("statusId", MfgConstants.RECEIPT_ACTIVE);
                 delegator.create(receipt);
-            } else if (MfgServices.RECEIPT_VOID.equals(statusOfReceipt(receipt))) {
+            } else if (MfgConstants.RECEIPT_VOID.equals(statusOfReceipt(receipt))) {
                 // the order number is the key: importing it again means it was wanted after all, so
                 // the voided receipt of that order comes back into force instead of staying dead
-                receipt.set("statusId", MfgServices.RECEIPT_ACTIVE);
+                receipt.set("statusId", MfgConstants.RECEIPT_ACTIVE);
                 receipt.set("voidedDate", null);
                 receipt.set("voidedByUserLoginId", null);
                 receipt.set("voidReason", null);
@@ -826,7 +826,7 @@ public final class MfgPurchaseServices {
                     updated++;
                     continue;
                 }
-                String lotId = MfgServices.nextLotId(delegator, LocalDate.now());
+                String lotId = MfgStockServices.nextLotId(delegator, LocalDate.now());
                 GenericValue lot = delegator.makeValue("MfgMaterialLot");
                 lot.set("lotId", lotId);
                 lot.set("componentCode", componentCode);
@@ -839,7 +839,7 @@ public final class MfgPurchaseServices {
                 lot.set("receivedDate", receiptDate);
                 lot.set("note", MfgSupport.toText(context.get("note")));
                 delegator.create(lot);
-                MfgStockLedger.recordMovement(delegator, lot, MfgServices.MOVE_RECEIPT, qty, lot.get("unitPrice"), null, null,
+                MfgStockLedger.recordMovement(delegator, lot, MfgConstants.MOVE_RECEIPT, qty, lot.get("unitPrice"), null, null,
                         supplierOrderNo, null,
                         Timestamp.valueOf(receiptDate.toLocalDate().atStartOfDay()),
                         "订单到货入库", MfgSupport.toText(context.get("locationId")));
@@ -897,7 +897,7 @@ public final class MfgPurchaseServices {
             result.putAll(summary);
             return result;
         } catch (GenericEntityException e) {
-            Debug.logError(e, "Could not book the shop order [" + supplierOrderNo + "]", MfgServices.MODULE);
+            Debug.logError(e, "Could not book the shop order [" + supplierOrderNo + "]", MfgConstants.MODULE);
             return ServiceUtil.returnError(receiptImportFailure(e));
         }
     }
@@ -962,7 +962,7 @@ public final class MfgPurchaseServices {
             row.set("recordedDate", Timestamp.valueOf(LocalDateTime.now()));
             delegator.createOrStore(row);
         } catch (GenericEntityException e) {
-            Debug.logError(e, "Could not remember the refunded order [" + orderNo + "]", MfgServices.MODULE);
+            Debug.logError(e, "Could not remember the refunded order [" + orderNo + "]", MfgConstants.MODULE);
         }
     }
 
@@ -987,7 +987,7 @@ public final class MfgPurchaseServices {
         try {
             dctx.getDispatcher().runSync("mfgRefundedOrderSave", ask, -1, true);
         } catch (GenericServiceException e) {
-            Debug.logError(e, "Could not remember the refunded order [" + orderNo + "]", MfgServices.MODULE);
+            Debug.logError(e, "Could not remember the refunded order [" + orderNo + "]", MfgConstants.MODULE);
         }
     }
 
@@ -1025,7 +1025,7 @@ public final class MfgPurchaseServices {
      * @return the service result containing {@code orderNo}
      */
     public static Map<String, Object> refundedOrderSave(DispatchContext dctx, Map<String, ? extends Object> context) {
-        String denied = MfgServices.permissionProblem(dctx, context, MfgServices.PERM_STOCK);
+        String denied = MfgSecurity.permissionProblem(dctx, context, MfgConstants.PERM_STOCK);
         if (denied != null) {
             return ServiceUtil.returnError(denied);
         }
@@ -1053,7 +1053,7 @@ public final class MfgPurchaseServices {
      * @return the service result containing {@code orderNo}
      */
     public static Map<String, Object> refundedOrderDelete(DispatchContext dctx, Map<String, ? extends Object> context) {
-        String denied = MfgServices.permissionProblem(dctx, context, MfgServices.PERM_STOCK);
+        String denied = MfgSecurity.permissionProblem(dctx, context, MfgConstants.PERM_STOCK);
         if (denied != null) {
             return ServiceUtil.returnError(denied);
         }
@@ -1092,7 +1092,7 @@ public final class MfgPurchaseServices {
                 list.add(map);
             }
         } catch (GenericEntityException e) {
-            Debug.logError(e, "Could not read the refunded orders", MfgServices.MODULE);
+            Debug.logError(e, "Could not read the refunded orders", MfgConstants.MODULE);
         }
         Map<String, Object> result = ServiceUtil.returnSuccess();
         result.put("refundedOrders", list);
@@ -1124,7 +1124,7 @@ public final class MfgPurchaseServices {
                 lot.set("receivedDate", receiptDate);
                 lot.store();
                 GenericValue movement = EntityQuery.use(delegator).from("MfgInventoryDetail")
-                        .where("lotId", lotId, "movementTypeId", MfgServices.MOVE_RECEIPT).queryFirst();
+                        .where("lotId", lotId, "movementTypeId", MfgConstants.MOVE_RECEIPT).queryFirst();
                 if (movement != null) {
                     movement.set("quantityDiff", Double.valueOf(qty));
                     movement.store();
@@ -1157,7 +1157,7 @@ public final class MfgPurchaseServices {
         try {
             GenericValue receipt = EntityQuery.use(delegator).from("MfgPurchaseReceipt")
                     .where("supplierOrderNo", supplierOrderNo).queryFirst();
-            if (receipt == null || MfgServices.RECEIPT_VOID.equals(statusOfReceipt(receipt))) {
+            if (receipt == null || MfgConstants.RECEIPT_VOID.equals(statusOfReceipt(receipt))) {
                 // a voided receipt is not “already in”: the page should not ask about overwriting it
                 return result;
             }
@@ -1220,12 +1220,12 @@ public final class MfgPurchaseServices {
      * @return one map per order that carries lines, empty when there is nothing usable
      */
     static String nextReceiptId(Delegator delegator, LocalDate today) throws GenericEntityException {
-        String prefix = "PR-" + today.format(MfgServices.DAY) + "-";
+        String prefix = "PR-" + today.format(MfgConstants.DAY) + "-";
         int max = 0;
         for (GenericValue receipt : EntityQuery.use(delegator).from("MfgPurchaseReceipt").queryList()) {
             String id = receipt.getString("receiptId");
             if (id != null && id.startsWith(prefix)) {
-                max = Math.max(max, MfgServices.parseTrailingNumber(id.substring(prefix.length())));
+                max = Math.max(max, MfgSupport.parseTrailingNumber(id.substring(prefix.length())));
             }
         }
         return prefix + String.format(Locale.ROOT, "%02d", max + 1);
@@ -1296,14 +1296,14 @@ public final class MfgPurchaseServices {
      * The state of a receipt: rows written before voiding existed carry no status and are active.
      *
      * @param receipt the receipt row
-     * @return {@link MfgServices#RECEIPT_VOID} or {@link MfgServices#RECEIPT_ACTIVE}
+     * @return {@link MfgConstants#RECEIPT_VOID} or {@link MfgConstants#RECEIPT_ACTIVE}
      */
     static String statusOfReceipt(GenericValue receipt) {
         if (receipt == null) {
-            return MfgServices.RECEIPT_ACTIVE;
+            return MfgConstants.RECEIPT_ACTIVE;
         }
         String status = receipt.getString("statusId");
-        return MfgServices.RECEIPT_VOID.equals(status) ? MfgServices.RECEIPT_VOID : MfgServices.RECEIPT_ACTIVE;
+        return MfgConstants.RECEIPT_VOID.equals(status) ? MfgConstants.RECEIPT_VOID : MfgConstants.RECEIPT_ACTIVE;
     }
 
     static Map<String, Object> toReceiptLineMap(GenericValue line) {

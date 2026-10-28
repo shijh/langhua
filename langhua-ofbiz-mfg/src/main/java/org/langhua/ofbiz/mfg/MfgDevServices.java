@@ -38,9 +38,9 @@ public final class MfgDevServices {
      * @return the next stage, {@code null} when the stage is unknown or is already the last one
      */
     static String nextDevStage(String stageId) {
-        for (int i = 0; i < MfgServices.DEV_STAGES.length - 1; i++) {
-            if (MfgServices.DEV_STAGES[i].equals(stageId)) {
-                return MfgServices.DEV_STAGES[i + 1];
+        for (int i = 0; i < MfgConstants.DEV_STAGES.length - 1; i++) {
+            if (MfgConstants.DEV_STAGES[i].equals(stageId)) {
+                return MfgConstants.DEV_STAGES[i + 1];
             }
         }
         return null;
@@ -53,8 +53,8 @@ public final class MfgDevServices {
      * @return the position, -1 when the stage is unknown
      */
     static int devStageIndex(String stageId) {
-        for (int i = 0; i < MfgServices.DEV_STAGES.length; i++) {
-            if (MfgServices.DEV_STAGES[i].equals(stageId)) {
+        for (int i = 0; i < MfgConstants.DEV_STAGES.length; i++) {
+            if (MfgConstants.DEV_STAGES[i].equals(stageId)) {
                 return i;
             }
         }
@@ -68,7 +68,7 @@ public final class MfgDevServices {
      * @return {@code true} for a pass and for a conditional pass
      */
     static boolean stageAdvancesOn(String resultId) {
-        return MfgServices.REVIEW_PASS.equals(resultId) || MfgServices.REVIEW_CONDITIONAL.equals(resultId);
+        return MfgConstants.REVIEW_PASS.equals(resultId) || MfgConstants.REVIEW_CONDITIONAL.equals(resultId);
     }
 
     static boolean isKnownDevStage(String stageId) {
@@ -76,13 +76,13 @@ public final class MfgDevServices {
     }
 
     static boolean isKnownReviewResult(String resultId) {
-        return MfgServices.REVIEW_PASS.equals(resultId) || MfgServices.REVIEW_CONDITIONAL.equals(resultId)
-                || MfgServices.REVIEW_FAIL.equals(resultId);
+        return MfgConstants.REVIEW_PASS.equals(resultId) || MfgConstants.REVIEW_CONDITIONAL.equals(resultId)
+                || MfgConstants.REVIEW_FAIL.equals(resultId);
     }
 
     static boolean isKnownDevStatus(String statusId) {
-        return MfgServices.DEV_ACTIVE.equals(statusId) || MfgServices.DEV_ONHOLD.equals(statusId)
-                || MfgServices.DEV_DONE.equals(statusId) || MfgServices.DEV_CANCELLED.equals(statusId);
+        return MfgConstants.DEV_ACTIVE.equals(statusId) || MfgConstants.DEV_ONHOLD.equals(statusId)
+                || MfgConstants.DEV_DONE.equals(statusId) || MfgConstants.DEV_CANCELLED.equals(statusId);
     }
 
     static boolean isKnownEcoType(String ecoTypeId) {
@@ -97,7 +97,7 @@ public final class MfgDevServices {
      * @return {@code true} when applying it is allowed
      */
     static boolean ecoAppliable(String statusId) {
-        return MfgServices.ECO_APPROVED.equals(statusId);
+        return MfgConstants.ECO_APPROVED.equals(statusId);
     }
 
     /**
@@ -107,21 +107,21 @@ public final class MfgDevServices {
      * @return the step identifiers, empty when the track is unknown or has no steps
      */
     static String[] stepsOfTrack(String trackId) {
-        if (MfgServices.TRACK_PCB.equals(trackId)) {
-            return MfgServices.PCB_STEPS;
+        if (MfgConstants.TRACK_PCB.equals(trackId)) {
+            return MfgConstants.PCB_STEPS;
         }
-        if (MfgServices.TRACK_FIRMWARE.equals(trackId)) {
-            return MfgServices.FIRMWARE_STEPS;
+        if (MfgConstants.TRACK_FIRMWARE.equals(trackId)) {
+            return MfgConstants.FIRMWARE_STEPS;
         }
-        if (MfgServices.TRACK_ENCLOSURE.equals(trackId)) {
-            return MfgServices.ENCLOSURE_STEPS;
+        if (MfgConstants.TRACK_ENCLOSURE.equals(trackId)) {
+            return MfgConstants.ENCLOSURE_STEPS;
         }
         return new String[0];
     }
 
     static boolean isKnownTrack(String trackId) {
-        return MfgServices.TRACK_PCB.equals(trackId) || MfgServices.TRACK_FIRMWARE.equals(trackId)
-                || MfgServices.TRACK_ENCLOSURE.equals(trackId);
+        return MfgConstants.TRACK_PCB.equals(trackId) || MfgConstants.TRACK_FIRMWARE.equals(trackId)
+                || MfgConstants.TRACK_ENCLOSURE.equals(trackId);
     }
 
     /**
@@ -141,8 +141,8 @@ public final class MfgDevServices {
     }
 
     static boolean isKnownStepStatus(String statusId) {
-        return MfgServices.STEP_TODO.equals(statusId) || MfgServices.STEP_DOING.equals(statusId)
-                || MfgServices.STEP_DONE.equals(statusId) || MfgServices.STEP_SKIPPED.equals(statusId);
+        return MfgConstants.STEP_TODO.equals(statusId) || MfgConstants.STEP_DOING.equals(statusId)
+                || MfgConstants.STEP_DONE.equals(statusId) || MfgConstants.STEP_SKIPPED.equals(statusId);
     }
 
     /**
@@ -152,7 +152,7 @@ public final class MfgDevServices {
      * @return {@code true} for done and for skipped
      */
     static boolean stepFinished(String statusId) {
-        return MfgServices.STEP_DONE.equals(statusId) || MfgServices.STEP_SKIPPED.equals(statusId);
+        return MfgConstants.STEP_DONE.equals(statusId) || MfgConstants.STEP_SKIPPED.equals(statusId);
     }
 
     /**
@@ -179,7 +179,7 @@ public final class MfgDevServices {
      * @return the formatted project number
      */
     static String formatDevProjectId(LocalDate date, int sequence) {
-        return "DEV-" + date.format(MfgServices.DAY) + "-" + String.format(Locale.ROOT, "%02d", sequence);
+        return "DEV-" + date.format(MfgConstants.DAY) + "-" + String.format(Locale.ROOT, "%02d", sequence);
     }
 
     /**
@@ -190,40 +190,40 @@ public final class MfgDevServices {
      * @return the formatted change order number
      */
     static String formatEcoId(LocalDate date, int sequence) {
-        return "ECO-" + date.format(MfgServices.DAY) + "-" + String.format(Locale.ROOT, "%02d", sequence);
+        return "ECO-" + date.format(MfgConstants.DAY) + "-" + String.format(Locale.ROOT, "%02d", sequence);
     }
 
     static String nextDevProjectId(Delegator delegator, LocalDate today) throws GenericEntityException {
-        String prefix = "DEV-" + today.format(MfgServices.DAY) + "-";
+        String prefix = "DEV-" + today.format(MfgConstants.DAY) + "-";
         int max = 0;
         for (GenericValue project : EntityQuery.use(delegator).from("MfgDevProject").queryList()) {
             String id = project.getString("projectCode");
             if (id != null && id.startsWith(prefix)) {
-                max = Math.max(max, MfgServices.parseTrailingNumber(id.substring(prefix.length())));
+                max = Math.max(max, MfgSupport.parseTrailingNumber(id.substring(prefix.length())));
             }
         }
         return formatDevProjectId(today, max + 1);
     }
 
     static String nextEcoId(Delegator delegator, LocalDate today) throws GenericEntityException {
-        String prefix = "ECO-" + today.format(MfgServices.DAY) + "-";
+        String prefix = "ECO-" + today.format(MfgConstants.DAY) + "-";
         int max = 0;
         for (GenericValue eco : EntityQuery.use(delegator).from("MfgDevEco").queryList()) {
             String id = eco.getString("ecoId");
             if (id != null && id.startsWith(prefix)) {
-                max = Math.max(max, MfgServices.parseTrailingNumber(id.substring(prefix.length())));
+                max = Math.max(max, MfgSupport.parseTrailingNumber(id.substring(prefix.length())));
             }
         }
         return formatEcoId(today, max + 1);
     }
 
     static String nextIssueId(Delegator delegator, LocalDate today) throws GenericEntityException {
-        String prefix = "ISSUE-" + today.format(MfgServices.DAY) + "-";
+        String prefix = "ISSUE-" + today.format(MfgConstants.DAY) + "-";
         int max = 0;
         for (GenericValue issue : EntityQuery.use(delegator).from("MfgDevStepIssue").queryList()) {
             String id = issue.getString("issueId");
             if (id != null && id.startsWith(prefix)) {
-                max = Math.max(max, MfgServices.parseTrailingNumber(id.substring(prefix.length())));
+                max = Math.max(max, MfgSupport.parseTrailingNumber(id.substring(prefix.length())));
             }
         }
         return prefix + String.format(Locale.ROOT, "%02d", Integer.valueOf(max + 1));
@@ -236,7 +236,7 @@ public final class MfgDevServices {
      * @return {@code true} when it is known
      */
     static boolean isKnownIssueStatus(String statusId) {
-        for (String known : MfgServices.ISSUE_STATUSES) {
+        for (String known : MfgConstants.ISSUE_STATUSES) {
             if (known.equals(statusId)) {
                 return true;
             }
@@ -251,7 +251,7 @@ public final class MfgDevServices {
      * @return {@code true} when it is known
      */
     static boolean isKnownIssueSeverity(String severityId) {
-        for (String known : MfgServices.ISSUE_SEVERITIES) {
+        for (String known : MfgConstants.ISSUE_SEVERITIES) {
             if (known.equals(severityId)) {
                 return true;
             }
@@ -266,10 +266,10 @@ public final class MfgDevServices {
      * @return a small number for open issues, a big one for closed ones
      */
     static int statusRank(String statusId) {
-        if (MfgServices.ISSUE_CLOSED.equals(statusId)) {
+        if (MfgConstants.ISSUE_CLOSED.equals(statusId)) {
             return 2;
         }
-        if (MfgServices.ISSUE_DOING.equals(statusId)) {
+        if (MfgConstants.ISSUE_DOING.equals(statusId)) {
             return 1;
         }
         return 0;
@@ -282,10 +282,10 @@ public final class MfgDevServices {
      * @return 3 for high, 2 for medium and 1 for low or unknown
      */
     static int severityRank(String severityId) {
-        if (MfgServices.ISSUE_HIGH.equals(severityId)) {
+        if (MfgConstants.ISSUE_HIGH.equals(severityId)) {
             return 3;
         }
-        if (MfgServices.ISSUE_MEDIUM.equals(severityId)) {
+        if (MfgConstants.ISSUE_MEDIUM.equals(severityId)) {
             return 2;
         }
         return 1;
@@ -298,7 +298,7 @@ public final class MfgDevServices {
      * @return {@code true} when it is neither closed nor empty
      */
     static boolean isOpenIssue(String statusId) {
-        return statusId != null && !MfgServices.ISSUE_CLOSED.equals(statusId);
+        return statusId != null && !MfgConstants.ISSUE_CLOSED.equals(statusId);
     }
 
     static Map<String, Object> toDevProjectMap(Delegator delegator, GenericValue project)
@@ -332,7 +332,7 @@ public final class MfgDevServices {
         for (GenericValue eco : EntityQuery.use(delegator).from("MfgDevEco")
                 .where("projectCode", projectCode).queryList()) {
             String status = eco.getString("statusId");
-            if (MfgServices.ECO_DRAFT.equals(status) || MfgServices.ECO_APPROVED.equals(status)) {
+            if (MfgConstants.ECO_DRAFT.equals(status) || MfgConstants.ECO_APPROVED.equals(status)) {
                 openEcos++;
             }
         }
@@ -407,7 +407,7 @@ public final class MfgDevServices {
      * @return the service result containing {@code projectCode}
      */
     public static Map<String, Object> devProjectSave(DispatchContext dctx, Map<String, ? extends Object> context) {
-        String denied = MfgServices.permissionProblem(dctx, context, MfgServices.PERM_ENG);
+        String denied = MfgSecurity.permissionProblem(dctx, context, MfgConstants.PERM_ENG);
         if (denied != null) {
             return ServiceUtil.returnError(denied);
         }
@@ -436,8 +436,8 @@ public final class MfgDevServices {
                 projectCode = nextDevProjectId(delegator, LocalDate.now());
                 project = delegator.makeValue("MfgDevProject");
                 project.set("projectCode", projectCode);
-                project.set("stageId", stageId == null ? MfgServices.DEV_STAGES[0] : stageId);
-                project.set("statusId", statusId == null ? MfgServices.DEV_ACTIVE : statusId);
+                project.set("stageId", stageId == null ? MfgConstants.DEV_STAGES[0] : stageId);
+                project.set("statusId", statusId == null ? MfgConstants.DEV_ACTIVE : statusId);
                 isNew = "Y";
             } else {
                 project = EntityQuery.use(delegator).from("MfgDevProject")
@@ -445,8 +445,8 @@ public final class MfgDevServices {
                 if (project == null) {
                     project = delegator.makeValue("MfgDevProject");
                     project.set("projectCode", projectCode);
-                    project.set("stageId", stageId == null ? MfgServices.DEV_STAGES[0] : stageId);
-                    project.set("statusId", statusId == null ? MfgServices.DEV_ACTIVE : statusId);
+                    project.set("stageId", stageId == null ? MfgConstants.DEV_STAGES[0] : stageId);
+                    project.set("statusId", statusId == null ? MfgConstants.DEV_ACTIVE : statusId);
                     isNew = "Y";
                 } else {
                     if (stageId != null) {
@@ -522,8 +522,8 @@ public final class MfgDevServices {
                 }
                 list.add(toDevProjectMap(delegator, project));
             }
-            List<Map<String, Object>> stages = new ArrayList<>(MfgServices.DEV_STAGES.length);
-            for (String stage : MfgServices.DEV_STAGES) {
+            List<Map<String, Object>> stages = new ArrayList<>(MfgConstants.DEV_STAGES.length);
+            for (String stage : MfgConstants.DEV_STAGES) {
                 Map<String, Object> map = new LinkedHashMap<>();
                 map.put("stageId", stage);
                 map.put("stageIndex", Integer.valueOf(devStageIndex(stage)));
@@ -571,8 +571,8 @@ public final class MfgDevServices {
             for (GenericValue review : stored) {
                 byStage.put(review.getString("stageId"), review);
             }
-            List<Map<String, Object>> reviews = new ArrayList<>(MfgServices.DEV_STAGES.length);
-            for (String stage : MfgServices.DEV_STAGES) {
+            List<Map<String, Object>> reviews = new ArrayList<>(MfgConstants.DEV_STAGES.length);
+            for (String stage : MfgConstants.DEV_STAGES) {
                 GenericValue review = byStage.get(stage);
                 Map<String, Object> map = new LinkedHashMap<>();
                 map.put("stageId", stage);
@@ -608,7 +608,7 @@ public final class MfgDevServices {
                 if (storedStep == null) {
                     map = new LinkedHashMap<>();
                     map.put("stepId", catalog[i]);
-                    map.put("statusId", MfgServices.STEP_TODO);
+                    map.put("statusId", MfgConstants.STEP_TODO);
                     map.put("plannedDate", null);
                     map.put("doneDate", null);
                     map.put("ownerName", null);
@@ -663,7 +663,7 @@ public final class MfgDevServices {
      * @return the service result containing {@code stageId} and the new {@code projectStageId}
      */
     public static Map<String, Object> devStageSave(DispatchContext dctx, Map<String, ? extends Object> context) {
-        String denied = MfgServices.permissionProblem(dctx, context, MfgServices.PERM_ENG);
+        String denied = MfgSecurity.permissionProblem(dctx, context, MfgConstants.PERM_ENG);
         if (denied != null) {
             return ServiceUtil.returnError(denied);
         }
@@ -702,11 +702,11 @@ public final class MfgDevServices {
                     && devStageIndex(next) > devStageIndex(projectStageId)) {
                 projectStageId = next;
                 project.set("stageId", next);
-                if (MfgServices.DEV_STAGES[MfgServices.DEV_STAGES.length - 1].equals(next)) {
+                if (MfgConstants.DEV_STAGES[MfgConstants.DEV_STAGES.length - 1].equals(next)) {
                     if (project.get("actualLaunchDate") == null) {
                         project.set("actualLaunchDate", java.sql.Date.valueOf(LocalDate.now()));
                     }
-                    project.set("statusId", MfgServices.DEV_DONE);
+                    project.set("statusId", MfgConstants.DEV_DONE);
                 }
                 project.store();
             }
@@ -748,7 +748,7 @@ public final class MfgDevServices {
      * @return the service result containing {@code stepId} and the {@code lotId} when one was created
      */
     public static Map<String, Object> devStepSave(DispatchContext dctx, Map<String, ? extends Object> context) {
-        String denied = MfgServices.permissionProblem(dctx, context, MfgServices.PERM_ENG);
+        String denied = MfgSecurity.permissionProblem(dctx, context, MfgConstants.PERM_ENG);
         if (denied != null) {
             return ServiceUtil.returnError(denied);
         }
@@ -774,7 +774,7 @@ public final class MfgDevServices {
                 step = delegator.makeValue("MfgDevTrackStep");
                 step.set("projectCode", projectCode);
                 step.set("stepId", stepId);
-                step.set("statusId", MfgServices.STEP_TODO);
+                step.set("statusId", MfgConstants.STEP_TODO);
             }
             step.set("plannedDate", MfgSupport.parseDate(context.get("plannedDate")));
             step.set("doneDate", MfgSupport.parseDate(context.get("doneDate")));
@@ -813,7 +813,7 @@ public final class MfgDevServices {
      * @return the service result containing {@code stepId} and the {@code lotId} when one was created
      */
     public static Map<String, Object> devStepStatus(DispatchContext dctx, Map<String, ? extends Object> context) {
-        String denied = MfgServices.permissionProblem(dctx, context, MfgServices.PERM_ENG);
+        String denied = MfgSecurity.permissionProblem(dctx, context, MfgConstants.PERM_ENG);
         if (denied != null) {
             return ServiceUtil.returnError(denied);
         }
@@ -841,7 +841,7 @@ public final class MfgDevServices {
                 step.set("stepId", stepId);
             }
             step.set("statusId", statusId);
-            if (MfgServices.STEP_DONE.equals(statusId) && step.get("doneDate") == null) {
+            if (MfgConstants.STEP_DONE.equals(statusId) && step.get("doneDate") == null) {
                 step.set("doneDate", java.sql.Date.valueOf(LocalDate.now()));
             }
             String error = MfgStockServices.createStockInLot(delegator, project, step);
@@ -870,7 +870,7 @@ public final class MfgDevServices {
      * @return the service result containing {@code issueId} and {@code statusId}
      */
     public static Map<String, Object> devStepIssueSave(DispatchContext dctx, Map<String, ? extends Object> context) {
-        String denied = MfgServices.permissionProblem(dctx, context, MfgServices.PERM_ENG);
+        String denied = MfgSecurity.permissionProblem(dctx, context, MfgConstants.PERM_ENG);
         if (denied != null) {
             return ServiceUtil.returnError(denied);
         }
@@ -901,7 +901,7 @@ public final class MfgDevServices {
                 issue = delegator.makeValue("MfgDevStepIssue");
                 issue.set("issueId", issueId);
                 issue.set("projectCode", storedProject);
-                issue.set("statusId", statusId == null ? MfgServices.ISSUE_OPEN : statusId);
+                issue.set("statusId", statusId == null ? MfgConstants.ISSUE_OPEN : statusId);
                 issue.set("foundDate", MfgSupport.parseDate(context.get("foundDate")));
                 if (issue.get("foundDate") == null) {
                     issue.set("foundDate", java.sql.Date.valueOf(LocalDate.now()));
@@ -916,7 +916,7 @@ public final class MfgDevServices {
                         return ServiceUtil.returnError("projectCode is required for a new issue");
                     }
                     issue.set("projectCode", projectCode);
-                    issue.set("statusId", statusId == null ? MfgServices.ISSUE_OPEN : statusId);
+                    issue.set("statusId", statusId == null ? MfgConstants.ISSUE_OPEN : statusId);
                     issue.set("foundDate", MfgSupport.parseDate(context.get("foundDate")));
                     if (issue.get("foundDate") == null) {
                         issue.set("foundDate", java.sql.Date.valueOf(LocalDate.now()));
@@ -955,14 +955,14 @@ public final class MfgDevServices {
             if (context.containsKey("resolution")) {
                 issue.set("resolution", MfgSupport.toText(context.get("resolution")));
             }
-            if (MfgServices.ISSUE_CLOSED.equals(issue.getString("statusId")) && issue.get("closedDate") == null) {
+            if (MfgConstants.ISSUE_CLOSED.equals(issue.getString("statusId")) && issue.get("closedDate") == null) {
                 issue.set("closedDate", java.sql.Date.valueOf(LocalDate.now()));
             }
-            if (!MfgServices.ISSUE_CLOSED.equals(issue.getString("statusId"))) {
+            if (!MfgConstants.ISSUE_CLOSED.equals(issue.getString("statusId"))) {
                 issue.set("closedDate", null);
             }
             if (issue.getString("severityId") == null) {
-                issue.set("severityId", MfgServices.ISSUE_MEDIUM);
+                issue.set("severityId", MfgConstants.ISSUE_MEDIUM);
             }
             delegator.createOrStore(issue);
 
@@ -985,7 +985,7 @@ public final class MfgDevServices {
      * @return the service result containing {@code issueId} and the new {@code statusId}
      */
     public static Map<String, Object> devStepIssueStatus(DispatchContext dctx, Map<String, ? extends Object> context) {
-        String denied = MfgServices.permissionProblem(dctx, context, MfgServices.PERM_ENG);
+        String denied = MfgSecurity.permissionProblem(dctx, context, MfgConstants.PERM_ENG);
         if (denied != null) {
             return ServiceUtil.returnError(denied);
         }
@@ -1005,7 +1005,7 @@ public final class MfgDevServices {
                 return ServiceUtil.returnError("Unknown issue [" + issueId + "]");
             }
             issue.set("statusId", statusId);
-            if (MfgServices.ISSUE_CLOSED.equals(statusId)) {
+            if (MfgConstants.ISSUE_CLOSED.equals(statusId)) {
                 if (issue.get("closedDate") == null) {
                     issue.set("closedDate", java.sql.Date.valueOf(LocalDate.now()));
                 }
@@ -1059,11 +1059,11 @@ public final class MfgDevServices {
             int open = 0;
             int high = 0;
             for (GenericValue issue : stored) {
-                Map<String, Object> map = MfgServices.toIssueMap(issue);
-                boolean closed = MfgServices.ISSUE_CLOSED.equals(issue.getString("statusId"));
+                Map<String, Object> map = MfgRecordMaps.toIssueMap(issue);
+                boolean closed = MfgConstants.ISSUE_CLOSED.equals(issue.getString("statusId"));
                 if (!closed) {
                     open++;
-                    if (MfgServices.ISSUE_HIGH.equals(issue.getString("severityId"))) {
+                    if (MfgConstants.ISSUE_HIGH.equals(issue.getString("severityId"))) {
                         high++;
                     }
                 }
@@ -1111,7 +1111,7 @@ public final class MfgDevServices {
      * @return the service result containing {@code ecoId}
      */
     public static Map<String, Object> devEcoSave(DispatchContext dctx, Map<String, ? extends Object> context) {
-        String denied = MfgServices.permissionProblem(dctx, context, MfgServices.PERM_ENG);
+        String denied = MfgSecurity.permissionProblem(dctx, context, MfgConstants.PERM_ENG);
         if (denied != null) {
             return ServiceUtil.returnError(denied);
         }
@@ -1147,7 +1147,7 @@ public final class MfgDevServices {
                 eco = delegator.makeValue("MfgDevEco");
                 eco.set("ecoId", ecoId);
                 eco.set("productCode", productCode);
-                eco.set("statusId", MfgServices.ECO_DRAFT);
+                eco.set("statusId", MfgConstants.ECO_DRAFT);
                 eco.set("requestedDate", java.sql.Date.valueOf(LocalDate.now()));
                 isNew = "Y";
             } else {
@@ -1156,10 +1156,10 @@ public final class MfgDevServices {
                     eco = delegator.makeValue("MfgDevEco");
                     eco.set("ecoId", ecoId);
                     eco.set("productCode", productCode);
-                    eco.set("statusId", MfgServices.ECO_DRAFT);
+                    eco.set("statusId", MfgConstants.ECO_DRAFT);
                     eco.set("requestedDate", java.sql.Date.valueOf(LocalDate.now()));
                     isNew = "Y";
-                } else if (MfgServices.ECO_APPLIED.equals(eco.getString("statusId"))) {
+                } else if (MfgConstants.ECO_APPLIED.equals(eco.getString("statusId"))) {
                     return ServiceUtil.returnError("Change order [" + ecoId + "] is already applied");
                 } else {
                     eco.set("productCode", productCode);
@@ -1229,7 +1229,7 @@ public final class MfgDevServices {
             long open = 0;
             for (GenericValue eco : ecos) {
                 String status = eco.getString("statusId");
-                if (MfgServices.ECO_DRAFT.equals(status) || MfgServices.ECO_APPROVED.equals(status)) {
+                if (MfgConstants.ECO_DRAFT.equals(status) || MfgConstants.ECO_APPROVED.equals(status)) {
                     open++;
                 }
                 if (statusId != null && !statusId.equals(status)) {
@@ -1311,7 +1311,7 @@ public final class MfgDevServices {
      * @return the service result containing the new {@code statusId}
      */
     public static Map<String, Object> devEcoApprove(DispatchContext dctx, Map<String, ? extends Object> context) {
-        String denied = MfgServices.permissionProblem(dctx, context, MfgServices.PERM_ENG);
+        String denied = MfgSecurity.permissionProblem(dctx, context, MfgConstants.PERM_ENG);
         if (denied != null) {
             return ServiceUtil.returnError(denied);
         }
@@ -1325,16 +1325,16 @@ public final class MfgDevServices {
             if (eco == null) {
                 return ServiceUtil.returnError("Unknown change order [" + ecoId + "]");
             }
-            if (!MfgServices.ECO_DRAFT.equals(eco.getString("statusId"))) {
+            if (!MfgConstants.ECO_DRAFT.equals(eco.getString("statusId"))) {
                 return ServiceUtil.returnError("Only a draft change order can be approved, [" + ecoId
                         + "] is " + eco.getString("statusId"));
             }
-            eco.set("statusId", MfgServices.ECO_APPROVED);
+            eco.set("statusId", MfgConstants.ECO_APPROVED);
             eco.set("approvedBy", MfgSupport.toText(context.get("approvedBy")));
             eco.store();
             Map<String, Object> result = ServiceUtil.returnSuccess();
             result.put("ecoId", ecoId);
-            result.put("statusId", MfgServices.ECO_APPROVED);
+            result.put("statusId", MfgConstants.ECO_APPROVED);
             return result;
         } catch (GenericEntityException e) {
             return ServiceUtil.returnError("Could not approve the change order: " + e.getMessage());
@@ -1350,7 +1350,7 @@ public final class MfgDevServices {
      * @return the service result containing the new {@code statusId}
      */
     public static Map<String, Object> devEcoApply(DispatchContext dctx, Map<String, ? extends Object> context) {
-        String denied = MfgServices.permissionProblem(dctx, context, MfgServices.PERM_ENG);
+        String denied = MfgSecurity.permissionProblem(dctx, context, MfgConstants.PERM_ENG);
         if (denied != null) {
             return ServiceUtil.returnError(denied);
         }
@@ -1381,12 +1381,12 @@ public final class MfgDevServices {
                         .where("productCode", productCode).queryOne();
                 for (GenericValue other : MfgProductServices.bomVersionsOf(delegator, productCode)) {
                     if (!toVersionId.equals(other.getString("bomVersionId"))
-                            && MfgServices.BOM_RELEASED.equals(other.getString("statusId"))) {
-                        other.set("statusId", MfgServices.BOM_OBSOLETE);
+                            && MfgConstants.BOM_RELEASED.equals(other.getString("statusId"))) {
+                        other.set("statusId", MfgConstants.BOM_OBSOLETE);
                         other.store();
                     }
                 }
-                version.set("statusId", MfgServices.BOM_RELEASED);
+                version.set("statusId", MfgConstants.BOM_RELEASED);
                 version.set("effectiveDate", java.sql.Date.valueOf(LocalDate.now()));
                 version.store();
                 if (product != null) {
@@ -1394,12 +1394,12 @@ public final class MfgDevServices {
                     product.store();
                 }
             }
-            eco.set("statusId", MfgServices.ECO_APPLIED);
+            eco.set("statusId", MfgConstants.ECO_APPLIED);
             eco.set("effectiveDate", java.sql.Date.valueOf(LocalDate.now()));
             eco.store();
             Map<String, Object> result = ServiceUtil.returnSuccess();
             result.put("ecoId", ecoId);
-            result.put("statusId", MfgServices.ECO_APPLIED);
+            result.put("statusId", MfgConstants.ECO_APPLIED);
             result.put("bomVersionId", toVersionId);
             return result;
         } catch (GenericEntityException e) {
@@ -1415,7 +1415,7 @@ public final class MfgDevServices {
      * @return the service result containing the new {@code statusId}
      */
     public static Map<String, Object> devEcoCancel(DispatchContext dctx, Map<String, ? extends Object> context) {
-        String denied = MfgServices.permissionProblem(dctx, context, MfgServices.PERM_ENG);
+        String denied = MfgSecurity.permissionProblem(dctx, context, MfgConstants.PERM_ENG);
         if (denied != null) {
             return ServiceUtil.returnError(denied);
         }
@@ -1429,17 +1429,22 @@ public final class MfgDevServices {
             if (eco == null) {
                 return ServiceUtil.returnError("Unknown change order [" + ecoId + "]");
             }
-            if (MfgServices.ECO_APPLIED.equals(eco.getString("statusId"))) {
+            if (MfgConstants.ECO_APPLIED.equals(eco.getString("statusId"))) {
                 return ServiceUtil.returnError("Change order [" + ecoId + "] is already applied, it cannot be cancelled");
             }
-            eco.set("statusId", MfgServices.ECO_CANCELLED);
+            eco.set("statusId", MfgConstants.ECO_CANCELLED);
             eco.store();
             Map<String, Object> result = ServiceUtil.returnSuccess();
             result.put("ecoId", ecoId);
-            result.put("statusId", MfgServices.ECO_CANCELLED);
+            result.put("statusId", MfgConstants.ECO_CANCELLED);
             return result;
         } catch (GenericEntityException e) {
             return ServiceUtil.returnError("Could not cancel the change order: " + e.getMessage());
         }
+    }
+
+    static boolean isKnownEcoStatus(String statusId) {
+        return MfgConstants.ECO_DRAFT.equals(statusId) || MfgConstants.ECO_APPROVED.equals(statusId) || MfgConstants.ECO_APPLIED.equals(statusId)
+                || MfgConstants.ECO_CANCELLED.equals(statusId);
     }
 }

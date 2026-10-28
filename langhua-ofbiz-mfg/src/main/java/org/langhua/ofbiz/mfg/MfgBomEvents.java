@@ -27,7 +27,7 @@ import org.apache.ofbiz.service.ServiceUtil;
 
 /**
  * Web events of the BOM editor. They only translate between the page and the services, so the
- * rules stay in {@link MfgServices}.
+ * rules stay in {@link MfgProductServices}.
  *
  * <p>The page keeps the plain form posts as a fallback and posts here instead when the browser can
  * do it without reloading the whole page.

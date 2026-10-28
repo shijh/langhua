@@ -42,7 +42,7 @@ public final class MfgAttachmentServices {
             return false;
         }
         String type = contentType.trim().toLowerCase(Locale.ROOT);
-        for (String allowed : MfgServices.IMAGE_TYPES) {
+        for (String allowed : MfgConstants.IMAGE_TYPES) {
             if (allowed.equals(type)) {
                 return true;
             }
@@ -58,20 +58,20 @@ public final class MfgAttachmentServices {
      */
     static boolean isAllowedAttachmentType(String contentType) {
         return isAllowedImageType(contentType)
-                || (contentType != null && MfgServices.PDF_TYPE.equals(contentType.trim().toLowerCase(Locale.ROOT)));
+                || (contentType != null && MfgConstants.PDF_TYPE.equals(contentType.trim().toLowerCase(Locale.ROOT)));
     }
 
     /**
      * Tells whether an owner type is known.
      *
      * @param ownerTypeId the owner type
-     * @return {@code true} for a type of {@link MfgServices#ATTACHMENT_OWNER_TYPES}
+     * @return {@code true} for a type of {@link MfgConstants#ATTACHMENT_OWNER_TYPES}
      */
     static boolean isKnownAttachmentOwnerType(String ownerTypeId) {
         if (ownerTypeId == null) {
             return false;
         }
-        for (String type : MfgServices.ATTACHMENT_OWNER_TYPES) {
+        for (String type : MfgConstants.ATTACHMENT_OWNER_TYPES) {
             if (type.equals(ownerTypeId)) {
                 return true;
             }
@@ -101,7 +101,7 @@ public final class MfgAttachmentServices {
             return "image/gif";
         }
         if (name.endsWith(".pdf")) {
-            return MfgServices.PDF_TYPE;
+            return MfgConstants.PDF_TYPE;
         }
         return null;
     }
@@ -151,7 +151,7 @@ public final class MfgAttachmentServices {
             return 0;
         }
         Set<Long> existing = new LinkedHashSet<>();
-        for (GenericValue attachment : attachmentRows(delegator, MfgServices.ATT_PRODUCT, productCode)) {
+        for (GenericValue attachment : attachmentRows(delegator, MfgConstants.ATT_PRODUCT, productCode)) {
             existing.add(attachment.getLong("seq"));
         }
         int copied = 0;
@@ -161,7 +161,7 @@ public final class MfgAttachmentServices {
                 continue;
             }
             GenericValue attachment = delegator.makeValue("MfgAttachment");
-            attachment.set("ownerTypeId", MfgServices.ATT_PRODUCT);
+            attachment.set("ownerTypeId", MfgConstants.ATT_PRODUCT);
             attachment.set("ownerId", productCode);
             attachment.set("seq", seq);
             attachment.set("fileName", image.getString("fileName"));
@@ -230,8 +230,8 @@ public final class MfgAttachmentServices {
         if (type == null) {
             return attachmentError("type", "Only JPG, PNG, GIF and PDF files are supported");
         }
-        boolean pdf = MfgServices.PDF_TYPE.equals(type);
-        long limit = pdf ? MfgServices.PDF_MAX_BYTES : MfgServices.IMAGE_MAX_BYTES;
+        boolean pdf = MfgConstants.PDF_TYPE.equals(type);
+        long limit = pdf ? MfgConstants.PDF_MAX_BYTES : MfgConstants.IMAGE_MAX_BYTES;
         if (data.length > limit) {
             return attachmentError("size",
                     (pdf ? "The PDF is larger than 8 MB" : "The image is larger than 4 MB")
@@ -270,8 +270,8 @@ public final class MfgAttachmentServices {
      * @return the service result containing {@code seq}
      */
     public static Map<String, Object> attachmentSave(DispatchContext dctx, Map<String, ? extends Object> context) {
-        String denied = MfgServices.permissionProblem(dctx, context,
-                MfgServices.PERM_ENG, MfgServices.PERM_STOCK, MfgServices.PERM_PRODUCTION, MfgServices.PERM_SALES);
+        String denied = MfgSecurity.permissionProblem(dctx, context,
+                MfgConstants.PERM_ENG, MfgConstants.PERM_STOCK, MfgConstants.PERM_PRODUCTION, MfgConstants.PERM_SALES);
         if (denied != null) {
             return ServiceUtil.returnError(denied);
         }
@@ -304,7 +304,7 @@ public final class MfgAttachmentServices {
         List<Map<String, Object>> list = new ArrayList<>();
         if (ownerTypeId != null && ownerId != null) {
             try {
-                if (MfgServices.ATT_PRODUCT.equals(ownerTypeId)) {
+                if (MfgConstants.ATT_PRODUCT.equals(ownerTypeId)) {
                     // photos of the old single table are moved over the first time they are read
                     migrateProductPhotos(delegator, ownerId);
                 }
@@ -370,8 +370,8 @@ public final class MfgAttachmentServices {
      * @return the service result containing the owner keys and {@code seq}
      */
     public static Map<String, Object> attachmentDelete(DispatchContext dctx, Map<String, ? extends Object> context) {
-        String denied = MfgServices.permissionProblem(dctx, context,
-                MfgServices.PERM_ENG, MfgServices.PERM_STOCK, MfgServices.PERM_PRODUCTION, MfgServices.PERM_SALES);
+        String denied = MfgSecurity.permissionProblem(dctx, context,
+                MfgConstants.PERM_ENG, MfgConstants.PERM_STOCK, MfgConstants.PERM_PRODUCTION, MfgConstants.PERM_SALES);
         if (denied != null) {
             return ServiceUtil.returnError(denied);
         }

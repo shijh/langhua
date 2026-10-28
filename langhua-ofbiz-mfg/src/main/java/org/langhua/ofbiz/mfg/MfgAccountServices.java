@@ -33,7 +33,7 @@ import org.apache.ofbiz.service.ServiceUtil;
  * disabling the login instead of deleting a row other applications point at, and every change of a
  * password leaves a line in the audit log, so "who changed whose password" has one answer.
  *
- * <p>The permission vocabulary ({@code PERM_*}, {@link MfgServices#permissionProblem}) stays in
+ * <p>The permission vocabulary ({@code PERM_*}, {@link MfgSecurity#permissionProblem}) stays in
  * {@code MfgServices}: every area of the component speaks it, and this class only asks it
  * questions. Moved out of {@code MfgServices} in Step 166.
  */
@@ -59,7 +59,7 @@ public final class MfgAccountServices {
         result.put("mustChange", "N");
         result.put("userLoginId", "");
         result.put("message", "");
-        if (!"Y".equalsIgnoreCase(System.getProperty(MfgServices.FORCE_PASSWORD_CHANGE_PROPERTY, "Y"))) {
+        if (!"Y".equalsIgnoreCase(System.getProperty(MfgConstants.FORCE_PASSWORD_CHANGE_PROPERTY, "Y"))) {
             return result;
         }
         GenericValue userLogin = (GenericValue) context.get("userLogin");
@@ -180,7 +180,7 @@ public final class MfgAccountServices {
      * @return {@code true} when the account still uses the default password
      */
     static boolean isDefaultPassword(Delegator delegator, String storedPassword) {
-        return matchesPassword(delegator, storedPassword, MfgServices.DEFAULT_PASSWORD);
+        return matchesPassword(delegator, storedPassword, MfgConstants.DEFAULT_PASSWORD);
     }
 
     /**
@@ -254,9 +254,9 @@ public final class MfgAccountServices {
                 public int compare(Map<String, Object> left, Map<String, Object> right) {
                     String leftId = String.valueOf(left.get("groupId"));
                     String rightId = String.valueOf(right.get("groupId"));
-                    if (MfgServices.ACCOUNT_ADMIN_GROUP.equals(leftId)
-                            != MfgServices.ACCOUNT_ADMIN_GROUP.equals(rightId)) {
-                        return MfgServices.ACCOUNT_ADMIN_GROUP.equals(leftId) ? -1 : 1;
+                    if (MfgConstants.ACCOUNT_ADMIN_GROUP.equals(leftId)
+                            != MfgConstants.ACCOUNT_ADMIN_GROUP.equals(rightId)) {
+                        return MfgConstants.ACCOUNT_ADMIN_GROUP.equals(leftId) ? -1 : 1;
                     }
                     return leftId.compareTo(rightId);
                 }
@@ -325,13 +325,13 @@ public final class MfgAccountServices {
             if (created) {
                 String password = MfgSupport.toText(context.get("password"));
                 if (password == null) {
-                    password = MfgServices.DEFAULT_PASSWORD;
+                    password = MfgConstants.DEFAULT_PASSWORD;
                 }
                 if (password.length() < 5) {
                     return ServiceUtil.returnError("初始密码至少 5 个字符");
                 }
                 if (groupId == null) {
-                    groupId = MfgServices.ACCOUNT_ADMIN_GROUP;
+                    groupId = MfgConstants.ACCOUNT_ADMIN_GROUP;
                 }
                 if (!shopGroupIds(delegator).contains(groupId)) {
                     return ServiceUtil.returnError("安全组不属于本系统：" + groupId);
@@ -429,8 +429,8 @@ public final class MfgAccountServices {
             Map<String, Object> updateContext = new HashMap<>();
             updateContext.put("userLogin", userLogin);
             updateContext.put("userLoginId", target.getString("userLoginId"));
-            updateContext.put("newPassword", MfgServices.DEFAULT_PASSWORD);
-            updateContext.put("newPasswordVerify", MfgServices.DEFAULT_PASSWORD);
+            updateContext.put("newPassword", MfgConstants.DEFAULT_PASSWORD);
+            updateContext.put("newPasswordVerify", MfgConstants.DEFAULT_PASSWORD);
             updateContext.put("requirePasswordChange", "N");
             Map<String, Object> updated = dctx.getDispatcher().runSync("updatePassword", updateContext, -1, true);
             if (ServiceUtil.isError(updated)) {
@@ -535,7 +535,7 @@ public final class MfgAccountServices {
      * @return the service result with {@code purged}
      */
     public static Map<String, Object> auditPurge(DispatchContext dctx, Map<String, ? extends Object> context) {
-        String denied = MfgServices.permissionProblem(dctx, context, MfgServices.PERM_ADMIN);
+        String denied = MfgSecurity.permissionProblem(dctx, context, MfgConstants.PERM_ADMIN);
         if (denied != null) {
             return ServiceUtil.returnError(denied);
         }
@@ -559,7 +559,7 @@ public final class MfgAccountServices {
      * @return {@code yyyy-MM-dd HH:mm} or an empty string
      */
     static String stampText(Timestamp value) {
-        return value == null ? "" : value.toLocalDateTime().format(MfgServices.STAMP);
+        return value == null ? "" : value.toLocalDateTime().format(MfgConstants.STAMP);
     }
 
     /**
@@ -585,8 +585,8 @@ public final class MfgAccountServices {
         if (userLoginId == null) {
             return "账号不能为空";
         }
-        if (userLoginId.length() > MfgServices.MAX_ACCOUNT_NAME) {
-            return "账号最多 " + MfgServices.MAX_ACCOUNT_NAME + " 个字符";
+        if (userLoginId.length() > MfgConstants.MAX_ACCOUNT_NAME) {
+            return "账号最多 " + MfgConstants.MAX_ACCOUNT_NAME + " 个字符";
         }
         if (!userLoginId.matches("[a-z0-9._-]+")) {
             return "账号只能用字母、数字、点、下划线、短横线";
@@ -650,11 +650,11 @@ public final class MfgAccountServices {
      */
     static Set<String> shopGroupIds(Delegator delegator) throws GenericEntityException {
         Set<String> groupIds = new LinkedHashSet<>();
-        groupIds.add(MfgServices.ACCOUNT_ADMIN_GROUP);
+        groupIds.add(MfgConstants.ACCOUNT_ADMIN_GROUP);
         List<Object> permissions = new ArrayList<>();
-        permissions.add(MfgServices.PERM_VIEW);
-        permissions.add(MfgServices.PERM_ADMIN);
-        for (String permission : MfgServices.AREA_PERMISSIONS) {
+        permissions.add(MfgConstants.PERM_VIEW);
+        permissions.add(MfgConstants.PERM_ADMIN);
+        for (String permission : MfgConstants.AREA_PERMISSIONS) {
             permissions.add(permission);
         }
         permissions.add("LEARNINGCURVE_VIEW");
@@ -841,6 +841,6 @@ public final class MfgAccountServices {
      * @return {@code yyyy-MM-dd} or an empty string
      */
     static String dayText(Timestamp value) {
-        return value == null ? "" : value.toLocalDateTime().format(MfgServices.FULL_DAY);
+        return value == null ? "" : value.toLocalDateTime().format(MfgConstants.FULL_DAY);
     }
 }
