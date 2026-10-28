@@ -144,7 +144,7 @@ public final class MfgProductServices {
         MfgCsv.BomFormat forced = MfgCsv.BomFormat.of(requestedFormat);
         if (requestedFormat != null && forced == null) {
             return ServiceUtil.returnError("Unknown BOM format [" + requestedFormat
-                    + "], expected MFG or FRITZING");
+                    + "], expected MFG, FRITZING or FRITZING_HTML");
         }
         MfgCsv.BomFormat format = forced == null ? MfgCsv.detectBomFormat(csv) : forced;
         List<String[]> rows = MfgCsv.parseBom(csv, format);

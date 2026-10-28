@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="https://ofbiz.apache.org/dtds/services.xsd">
+    <!-- Design BOM of a development project: importing a Fritzing sketch, comparing versions,
+         locking the parts and listing what has to be bought. -->
+
+
+    <!-- ==================== design BOM (Fritzing) ==================== -->
+
+    <service name="mfgDevBomImport" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgDevBomServices" invoke="devBomImport"
+            auth="false" use-transaction="true">
+        <description>Import one version of the design BOM of a development project: parse the Fritzing HTML report (or a CSV), compare it with the version before, lock the parts on the shelf and list what is short</description>
+        <attribute name="projectCode" type="String" mode="IN" optional="true"/>
+        <attribute name="bomText" type="String" mode="IN" optional="true" allow-html="any"/>
+        <attribute name="fileName" type="String" mode="IN" optional="true"/>
+        <attribute name="bomVersion" type="String" mode="IN" optional="true"/>
+        <attribute name="format" type="String" mode="IN" optional="true"/>
+        <attribute name="lock" type="String" mode="IN" optional="true"/>
+        <attribute name="consumeDropped" type="String" mode="IN" optional="true"/>
+        <attribute name="operatorName" type="String" mode="IN" optional="true"/>
+        <attribute name="projectCode" type="String" mode="OUT" optional="true"/>
+        <attribute name="importSeq" type="Long" mode="OUT" optional="true"/>
+        <attribute name="bomVersion" type="String" mode="OUT" optional="true"/>
+        <attribute name="bomFormat" type="String" mode="OUT" optional="true"/>
+        <attribute name="itemCount" type="String" mode="OUT" optional="true"/>
+        <attribute name="newCount" type="String" mode="OUT" optional="true"/>
+        <attribute name="changedCount" type="String" mode="OUT" optional="true"/>
+        <attribute name="sameCount" type="String" mode="OUT" optional="true"/>
+        <attribute name="droppedCount" type="String" mode="OUT" optional="true"/>
+        <attribute name="shortCount" type="String" mode="OUT" optional="true"/>
+        <attribute name="shortQty" type="String" mode="OUT" optional="true"/>
+        <attribute name="lockedQty" type="String" mode="OUT" optional="true"/>
+        <attribute name="consumedQty" type="String" mode="OUT" optional="true"/>
+    </service>
+
+    <service name="mfgDevBomDetail" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgDevBomServices" invoke="devBomDetail"
+            auth="false" use-transaction="false">
+        <description>The current design BOM of a development project with the stock of today, the parts the version no longer uses, the shopping list and the import history</description>
+        <attribute name="projectCode" type="String" mode="IN" optional="true"/>
+        <attribute name="items" type="java.util.List" mode="OUT" optional="true"/>
+        <attribute name="dropped" type="java.util.List" mode="OUT" optional="true"/>
+        <attribute name="shortages" type="java.util.List" mode="OUT" optional="true"/>
+        <attribute name="imports" type="java.util.List" mode="OUT" optional="true"/>
+        <attribute name="latest" type="java.util.Map" mode="OUT" optional="true"/>
+        <attribute name="shortCount" type="Integer" mode="OUT" optional="true"/>
+        <attribute name="shortQty" type="Double" mode="OUT" optional="true"/>
+    </service>
+
+    <service name="mfgDevBomItemSave" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgDevBomServices" invoke="devBomItemSave"
+            auth="false" use-transaction="true">
+        <description>Correct the part number or the quantity of one part of the latest import and move the lock with it</description>
+        <attribute name="projectCode" type="String" mode="IN" optional="true"/>
+        <attribute name="lineSeq" type="Long" mode="IN" optional="true"/>
+        <attribute name="componentCode" type="String" mode="IN" optional="true"/>
+        <attribute name="qty" type="Double" mode="IN" optional="true"/>
+        <attribute name="lock" type="String" mode="IN" optional="true"/>
+        <attribute name="operatorName" type="String" mode="IN" optional="true"/>
+        <attribute name="componentCode" type="String" mode="OUT" optional="true"/>
+        <attribute name="lockedQty" type="String" mode="OUT" optional="true"/>
+        <attribute name="shortQty" type="String" mode="OUT" optional="true"/>
+    </service>
+
+    <service name="mfgDevBomRelease" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgDevBomServices" invoke="devBomRelease"
+            auth="false" use-transaction="true">
+        <description>Give back every part a development project has locked; the stock itself does not change</description>
+        <attribute name="projectCode" type="String" mode="IN" optional="true"/>
+        <attribute name="operatorName" type="String" mode="IN" optional="true"/>
+        <attribute name="releasedQty" type="String" mode="OUT" optional="true"/>
+    </service>
+
+</services>

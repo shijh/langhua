@@ -190,7 +190,9 @@ public final class MfgCsv {
         /** The format of this component: {@code componentCode,componentName,qty,designators,isKeyPart,unitPrice}. */
         MFG("本系统"),
         /** The export of Fritzing: {@code Label;Part Type;mn;mpn;part number;} plus an {@code Amount;} block. */
-        FRITZING("Fritzing");
+        FRITZING("Fritzing"),
+        /** The HTML report Fritzing writes next to the sketch: two tables, Assembly List and Shopping List. */
+        FRITZING_HTML("Fritzing HTML");
 
         private final String label;
 
@@ -237,6 +239,10 @@ public final class MfgCsv {
         if (csv == null) {
             return BomFormat.MFG;
         }
+        String head = csv.replace("\uFEFF", "").trim().toLowerCase(Locale.ROOT);
+        if (head.contains("<html") || head.contains("<!doctype html") || head.startsWith("<table")) {
+            return BomFormat.FRITZING_HTML;
+        }
         for (String line : csv.replace("\uFEFF", "").replace("\r\n", "\n").replace('\r', '\n').split("\n")) {
             String trimmed = line.trim();
             if (trimmed.isEmpty()) {
@@ -261,6 +267,9 @@ public final class MfgCsv {
      */
     static List<String[]> parseBom(String csv, BomFormat format) {
         BomFormat used = format == null ? detectBomFormat(csv) : format;
+        if (used == BomFormat.FRITZING_HTML) {
+            return parseFritzingHtmlBom(csv);
+        }
         if (used == BomFormat.FRITZING) {
             return parseFritzingBom(csv);
         }
@@ -344,6 +353,529 @@ public final class MfgCsv {
                     qty, row[3], "N", null});
         }
         return rows;
+    }
+
+    /**
+     * Parses the HTML report Fritzing writes next to the sketch (面包板 → {@code Export → Bill of
+     * Materials}, the {@code <sketch>_bom.html} file).
+     *
+     * <p>The page prints two tables: the <em>Assembly List</em>, one row per reference designator
+     * ({@code Label | MN | MPN | Part Type | Properties}), and the <em>Shopping List</em>, one row
+     * per part with its amount ({@code Amount | MN | MPN | Part Type | Properties}). The columns are
+     * located by their header, so their order does not matter and an extra column does no harm. Rows
+     * of both tables are merged per part: the amount gives the quantity, the labels give the
+     * reference designators.
+     *
+     * <p>The component code is taken from, in this order: the manufacturer part number, the
+     * manufacturer number, the {@code 元件号} property, the part type when it is a single word
+     * ({@code WS2812B-1010}), a code built from part type and properties ({@code 10kΩ Resistor} in
+     * 0603 becomes {@code R-10K-0603}), or a stable {@code P-…} stand-in. The page lets every code
+     * be corrected afterwards, because the codes of the shop are the ones stock is booked under.
+     *
+     * @param html the HTML report
+     * @return rows of {@code code, name, qty, designators, isKeyPart, unitPrice, properties}; the
+     *         seventh cell is the Fritzing properties line, other formats leave it {@code null}
+     */
+    static List<String[]> parseFritzingHtmlBom(String html) {
+        List<String[]> rows = new ArrayList<>();
+        if (html == null) {
+            return rows;
+        }
+        String text = html.replace("\uFEFF", "");
+        Map<String, HtmlPart> parts = new LinkedHashMap<>();
+        Map<String, Integer> columns = null;
+        int pos = 0;
+        while (true) {
+            int open = indexOfIgnoreCase(text, "<tr", pos);
+            if (open < 0) {
+                break;
+            }
+            int close = indexOfIgnoreCase(text, "</tr>", open);
+            if (close < 0) {
+                close = text.length();
+            }
+            String rowHtml = text.substring(open, close);
+            pos = close + 5;
+            List<String> cells = htmlCells(rowHtml);
+            if (cells.isEmpty()) {
+                continue;
+            }
+            if (isHtmlHeader(cells)) {
+                columns = htmlColumns(cells);
+                continue;
+            }
+            if (columns == null) {
+                // a table without a header: nothing tells us which cell is the quantity
+                continue;
+            }
+            String partType = cell(cells, columns, "partType");
+            String properties = cell(cells, columns, "properties");
+            String mn = cell(cells, columns, "mn");
+            String mpn = cell(cells, columns, "mpn");
+            if (partType == null && properties == null) {
+                continue;
+            }
+            String key = (mpn == null ? "" : mpn) + '|' + (mn == null ? "" : mn) + '|'
+                    + (partType == null ? "" : partType) + '|' + (properties == null ? "" : properties);
+            HtmlPart part = parts.get(key);
+            if (part == null) {
+                part = new HtmlPart(partType, properties, mn, mpn);
+                parts.put(key, part);
+            }
+            String label = cell(cells, columns, "label");
+            if (label != null && !label.isEmpty()) {
+                part.labels.add(label);
+            }
+            String amount = cell(cells, columns, "amount");
+            if (amount != null) {
+                double qty = MfgSupport.toDouble(amount.replace(',', '.'), 0.0);
+                if (qty > 0.0) {
+                    part.amount = qty;
+                }
+            }
+        }
+        for (HtmlPart part : parts.values()) {
+            String name = part.partType == null ? part.codeHint() : part.partType;
+            double qty = part.amount > 0.0 ? part.amount
+                    : (part.labels.isEmpty() ? 1.0 : part.labels.size());
+            rows.add(new String[] {part.codeHint(), name, String.valueOf((long) qty),
+                    part.labels.isEmpty() ? null : join(part.labels), "N", null, part.properties});
+        }
+        return rows;
+    }
+
+    /** One part of a Fritzing HTML report, filled from both of its tables. */
+    private static final class HtmlPart {
+
+        private final String partType;
+        private final String properties;
+        private final String mn;
+        private final String mpn;
+        private final List<String> labels = new ArrayList<>();
+        private double amount;
+
+        HtmlPart(String partType, String properties, String mn, String mpn) {
+            this.partType = partType;
+            this.properties = properties;
+            this.mn = mn;
+            this.mpn = mpn;
+        }
+
+        String codeHint() {
+            String code = firstNonEmpty(mpn, mn, propertyValue(properties, "元件号"));
+            if (code == null && partType != null && partType.indexOf(' ') < 0) {
+                code = partType;
+            }
+            if (code == null) {
+                code = syntheticComponentCode(partType, properties);
+            }
+            return code.toUpperCase(Locale.ROOT);
+        }
+    }
+
+    /**
+     * Whether a table row is the header of its table. Fritzing prints
+     * {@code Label | MN (manufacturer number) | MPN (manufacturer part number) | Part Type | Properties}
+     * over the Assembly List and the same with {@code Amount} first over the Shopping List.
+     *
+     * @param cells the cleaned cells of the row
+     * @return {@code true} when the row names the columns
+     */
+    private static boolean isHtmlHeader(List<String> cells) {
+        for (String text : cells) {
+            String lower = text.toLowerCase(Locale.ROOT);
+            if (lower.startsWith("part type") || lower.startsWith("mpn") || lower.startsWith("mn (")
+                    || (lower.equals("amount") && cells.size() > 2)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Maps the header names of one table to their column index.
+     *
+     * @param cells the header cells
+     * @return the column index per known column
+     */
+    private static Map<String, Integer> htmlColumns(List<String> cells) {
+        Map<String, Integer> columns = new LinkedHashMap<>();
+        for (int i = 0; i < cells.size(); i++) {
+            String lower = cells.get(i).toLowerCase(Locale.ROOT);
+            if (lower.startsWith("mpn")) {
+                columns.put("mpn", Integer.valueOf(i));
+            } else if (lower.startsWith("mn")) {
+                columns.put("mn", Integer.valueOf(i));
+            } else if (lower.equals("label")) {
+                columns.put("label", Integer.valueOf(i));
+            } else if (lower.equals("amount")) {
+                columns.put("amount", Integer.valueOf(i));
+            } else if (lower.startsWith("part type")) {
+                columns.put("partType", Integer.valueOf(i));
+            } else if (lower.startsWith("properties")) {
+                columns.put("properties", Integer.valueOf(i));
+            }
+        }
+        return columns;
+    }
+
+    private static String cell(List<String> cells, Map<String, Integer> columns, String name) {
+        Integer index = columns.get(name);
+        if (index == null || index.intValue() >= cells.size()) {
+            return null;
+        }
+        String value = cells.get(index.intValue());
+        return value == null || value.isEmpty() ? null : value;
+    }
+
+    /**
+     * The cells of one {@code <tr>}, in order, with tags removed, entities decoded and whitespace
+     * collapsed. Both {@code <td>} and {@code <th>} count as a cell.
+     *
+     * @param rowHtml the markup of the row
+     * @return the cleaned cells
+     */
+    static List<String> htmlCells(String rowHtml) {
+        List<String> cells = new ArrayList<>();
+        if (rowHtml == null) {
+            return cells;
+        }
+        int pos = 0;
+        while (true) {
+            int td = indexOfIgnoreCase(rowHtml, "<td", pos);
+            int th = indexOfIgnoreCase(rowHtml, "<th", pos);
+            int open = td < 0 ? th : (th < 0 ? td : Math.min(td, th));
+            if (open < 0) {
+                break;
+            }
+            boolean cellIsTd = td >= 0 && td == open;
+            int tagEnd = rowHtml.indexOf('>', open);
+            if (tagEnd < 0) {
+                break;
+            }
+            String closer = cellIsTd ? "</td>" : "</th>";
+            int end = indexOfIgnoreCase(rowHtml, closer, tagEnd);
+            if (end < 0) {
+                end = rowHtml.length();
+            }
+            cells.add(cleanHtml(rowHtml.substring(tagEnd + 1, end)));
+            pos = end + closer.length();
+        }
+        return cells;
+    }
+
+    /**
+     * Removes the tags of a fragment, decodes the HTML entities and collapses whitespace, so a cell
+     * reads the same as the text on the page.
+     *
+     * @param html the fragment
+     * @return the plain text
+     */
+    static String cleanHtml(String html) {
+        if (html == null) {
+            return null;
+        }
+        StringBuilder out = new StringBuilder(html.length());
+        boolean inTag = false;
+        for (int i = 0; i < html.length(); i++) {
+            char c = html.charAt(i);
+            if (c == '<') {
+                inTag = true;
+                out.append(' ');
+            } else if (c == '>') {
+                inTag = false;
+            } else if (!inTag) {
+                out.append(c);
+            }
+        }
+        return collapse(decodeEntities(out.toString()));
+    }
+
+    /**
+     * Decodes the named and numeric entities an HTML report uses.
+     *
+     * @param text the text to decode
+     * @return the decoded text
+     */
+    static String decodeEntities(String text) {
+        if (text == null || text.indexOf('&') < 0) {
+            return text;
+        }
+        StringBuilder out = new StringBuilder(text.length());
+        int i = 0;
+        while (i < text.length()) {
+            char c = text.charAt(i);
+            if (c != '&') {
+                out.append(c);
+                i++;
+                continue;
+            }
+            int semi = text.indexOf(';', i + 1);
+            String plain = semi < 0 || semi - i > 10 ? null : plainEntity(text.substring(i + 1, semi));
+            if (plain == null) {
+                out.append(c);
+                i++;
+                continue;
+            }
+            out.append(plain);
+            i = semi + 1;
+        }
+        return out.toString();
+    }
+
+    private static String plainEntity(String name) {
+        if (name == null || name.isEmpty()) {
+            return null;
+        }
+        if (name.charAt(0) == '#') {
+            try {
+                int code = name.length() > 1 && (name.charAt(1) == 'x' || name.charAt(1) == 'X')
+                        ? Integer.parseInt(name.substring(2), 16)
+                        : Integer.parseInt(name.substring(1));
+                if (code <= 0 || code > 0xFFFF) {
+                    return null;
+                }
+                return String.valueOf((char) code);
+            } catch (NumberFormatException e) {
+                return null;
+            }
+        }
+        switch (name.toLowerCase(Locale.ROOT)) {
+            case "nbsp":
+                return " ";
+            case "amp":
+                return "&";
+            case "lt":
+                return "<";
+            case "gt":
+                return ">";
+            case "quot":
+                return "\"";
+            case "apos":
+                return "'";
+            default:
+                return null;
+        }
+    }
+
+    /**
+     * Reads one {@code key value} pair out of the properties line of a Fritzing part, e.g.
+     * {@code 电容 100 nF; 电压 16V; 包 [SMD] 0603} answers {@code 100 nF} for {@code 电容}.
+     *
+     * @param properties the properties line
+     * @param name the key to look for
+     * @return the value, {@code null} when the key is not there
+     */
+    static String propertyValue(String properties, String name) {
+        if (properties == null || name == null) {
+            return null;
+        }
+        for (String piece : properties.split(";")) {
+            String trimmed = piece.trim();
+            if (!trimmed.startsWith(name)) {
+                continue;
+            }
+            String rest = trimmed.substring(name.length()).trim();
+            if (!rest.isEmpty()) {
+                return rest;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Builds a component code for a Fritzing part that prints no manufacturer number, so a resistor
+     * of 10 kΩ in 0603 becomes {@code R-10K-0603} and a 100 nF / 16 V capacitor in 0603 becomes
+     * {@code C-100NF-16V-0603}.
+     *
+     * @param partType the part type of the sketch, e.g. {@code Capacitor 0603}
+     * @param properties its properties line
+     * @return the code, never {@code null}
+     */
+    static String syntheticComponentCode(String partType, String properties) {
+        List<String> bits = new ArrayList<>();
+        String kind = partKind(partType);
+        if (kind != null) {
+            bits.add(kind);
+        }
+        String value = firstNonEmpty(propertyValue(properties, "电阻"), propertyValue(properties, "阻值"),
+                propertyValue(properties, "电容"), propertyValue(properties, "电感"),
+                propertyValue(properties, "晶振"));
+        if (value != null) {
+            bits.add(unitOf(value));
+        }
+        String voltage = propertyValue(properties, "电压");
+        if (voltage != null) {
+            bits.add(unitOf(voltage));
+        }
+        String devicePackage = packageOf(propertyValue(properties, "包"));
+        if (devicePackage != null) {
+            bits.add(devicePackage);
+        }
+        StringBuilder code = new StringBuilder();
+        for (String bit : bits) {
+            if (bit == null || bit.isEmpty()) {
+                continue;
+            }
+            if (code.length() > 0) {
+                code.append('-');
+            }
+            code.append(bit);
+        }
+        if (code.length() == 0) {
+            // nothing identifies the part: a stand-in that stays the same across imports
+            String seed = (partType == null ? "" : partType) + '|' + (properties == null ? "" : properties);
+            return "P-" + Integer.toHexString(seed.hashCode()).toUpperCase(Locale.ROOT);
+        }
+        return code.toString();
+    }
+
+    /**
+     * The one letter (or short word) a part type is known by, so a resistor and a capacitor with the
+     * same value do not end up under one code. Fritzing prints the value first for some parts
+     * ({@code 10kΩ Resistor}), so every word of the part type is looked at, not just the first.
+     *
+     * @param partType the part type of the sketch
+     * @return the prefix, {@code null} when the part type says nothing useful
+     */
+    private static String partKind(String partType) {
+        if (partType == null || partType.isEmpty()) {
+            return null;
+        }
+        String[] words = partType.trim().split("\\s+");
+        for (String word : words) {
+            String kind = kindOfWord(word);
+            if (kind != null) {
+                return kind;
+            }
+        }
+        String cleaned = words[0].replaceAll("[^A-Za-z0-9-]", "");
+        if (cleaned.isEmpty()) {
+            return null;
+        }
+        return (cleaned.length() > 8 ? cleaned.substring(0, 8) : cleaned).toUpperCase(Locale.ROOT);
+    }
+
+    private static String kindOfWord(String word) {
+        switch (word.toLowerCase(Locale.ROOT)) {
+            case "resistor":
+                return "R";
+            case "capacitor":
+                return "C";
+            case "inductor":
+            case "coil":
+                return "L";
+            case "diode":
+            case "schottky":
+                return "D";
+            case "transistor":
+            case "mosfet":
+                return "Q";
+            case "crystal":
+                return "Y";
+            case "switch":
+            case "button":
+                return "SW";
+            case "connector":
+            case "socket":
+            case "header":
+                return "J";
+            case "battery":
+                return "BT";
+            case "relay":
+                return "K";
+            case "fuse":
+                return "F";
+            default:
+                return null;
+        }
+    }
+
+    /**
+     * Normalises a value so it can go into a code: {@code 100 nF} becomes {@code 100NF},
+     * {@code 10kΩ} becomes {@code 10K} and {@code 100Ω} becomes {@code 100R}.
+     *
+     * @param value the value as printed
+     * @return the normalised value
+     */
+    static String unitOf(String value) {
+        String text = value.replace(" ", "").replace("\u03BC", "u").replace("\u00B5", "u");
+        boolean ohm = text.indexOf('\u03A9') >= 0;
+        text = text.replace("\u03A9", "");
+        if (ohm && !text.matches(".*[kKmMgG].*")) {
+            text = text + "R";
+        }
+        return text.toUpperCase(Locale.ROOT);
+    }
+
+    /**
+     * Turns a Fritzing package description into something a code can hold:
+     * {@code [SMD] 0603} becomes {@code 0603}, {@code SOD323[SMD]} becomes {@code SOD323}. A
+     * description that is longer than a code can carry is dropped.
+     *
+     * @param devicePackage the {@code 包} property
+     * @return the package, {@code null} when there is none or it is too long
+     */
+    private static String packageOf(String devicePackage) {
+        if (devicePackage == null) {
+            return null;
+        }
+        String text = devicePackage.replaceAll("\\[[^\\]]*\\]", "").replace(" ", "").trim();
+        if (text.isEmpty() || text.length() > 12 || text.indexOf(',') >= 0) {
+            return null;
+        }
+        return text.toUpperCase(Locale.ROOT);
+    }
+
+    private static String firstNonEmpty(String... values) {
+        for (String value : values) {
+            if (value != null && !value.trim().isEmpty()) {
+                return value.trim();
+            }
+        }
+        return null;
+    }
+
+    private static String join(List<String> values) {
+        StringBuilder out = new StringBuilder();
+        for (String value : values) {
+            if (value == null || value.isEmpty()) {
+                continue;
+            }
+            if (out.length() > 0) {
+                out.append(',');
+            }
+            out.append(value);
+        }
+        return out.toString();
+    }
+
+    private static String collapse(String text) {
+        StringBuilder out = new StringBuilder(text.length());
+        boolean space = false;
+        for (int i = 0; i < text.length(); i++) {
+            char c = text.charAt(i);
+            if (Character.isWhitespace(c)) {
+                space = out.length() > 0;
+                continue;
+            }
+            if (space) {
+                out.append(' ');
+                space = false;
+            }
+            out.append(c);
+        }
+        return out.toString();
+    }
+
+    private static int indexOfIgnoreCase(String text, String needle, int from) {
+        int last = text.length() - needle.length();
+        for (int i = Math.max(0, from); i <= last; i++) {
+            if (text.regionMatches(true, i, needle, 0, needle.length())) {
+                return i;
+            }
+        }
+        return -1;
     }
 
     /**

@@ -722,6 +722,64 @@
         </index>
     </entity>
 
+    <entity entity-name="MfgDevBom"
+            package-name="org.langhua.ofbiz.mfg"
+            title="Design BOM imported from a Fritzing sketch">
+        <description>One import of a Fritzing bill of materials into a development project. Every import is a snapshot, so two versions can be compared and the parts a version no longer uses stay on record</description>
+        <field name="projectCode" type="id"><description>Development project the sketch belongs to</description></field>
+        <field name="importSeq" type="numeric"><description>Import number inside the project, oldest first</description></field>
+        <field name="bomVersion" type="name"><description>Label of the sketch version, e.g. v94; taken from the file name when left empty</description></field>
+        <field name="sourceFile" type="name"><description>File the rows came from, e.g. pixel-flash-v94_bom.html</description></field>
+        <field name="importedStamp" type="date-time"><description>When the import ran</description></field>
+        <field name="itemCount" type="numeric"><description>Parts the version uses</description></field>
+        <field name="newCount" type="numeric"><description>Parts that were not in the previous version</description></field>
+        <field name="changedCount" type="numeric"><description>Parts whose quantity changed</description></field>
+        <field name="droppedCount" type="numeric"><description>Parts the previous version had and this one does not</description></field>
+        <field name="shortCount" type="numeric"><description>Parts that were short when the version was imported</description></field>
+        <field name="lockedQty" type="floating-point"><description>Units this version locked for the project</description></field>
+        <field name="note" type="description"/>
+        <field name="createdStamp" type="date-time"/>
+        <field name="createdTxStamp" type="date-time"/>
+        <field name="lastUpdatedStamp" type="date-time"/>
+        <field name="lastUpdatedTxStamp" type="date-time"/>
+        <prim-key field="projectCode"/>
+        <prim-key field="importSeq"/>
+        <relation type="one" fk-name="MFG_DEVBOM_PROJECT" rel-entity-name="MfgDevProject">
+            <key-map field-name="projectCode"/>
+        </relation>
+    </entity>
+
+    <entity entity-name="MfgDevBomItem"
+            package-name="org.langhua.ofbiz.mfg"
+            title="Part of one imported design BOM">
+        <description>One part of one imported version of a development BOM, with what the version means for it: new, unchanged, another quantity, or no longer used. A part that is no longer used keeps its row and how much of it was used up as development material</description>
+        <field name="projectCode" type="id"><description>Development project</description></field>
+        <field name="importSeq" type="numeric"><description>Import this row belongs to</description></field>
+        <field name="lineSeq" type="numeric"><description>Line number inside the import</description></field>
+        <field name="componentCode" type="name"><description>Part number, up to 100 characters; the page lets it be corrected to the one stock is booked under</description></field>
+        <field name="componentName" type="name"><description>Description as the sketch prints it</description></field>
+        <field name="partType" type="name"><description>Part type of the sketch, e.g. Capacitor 0603</description></field>
+        <field name="properties" type="description"><description>Properties line of the sketch: value, tolerance, package</description></field>
+        <field name="designators" type="description"><description>Reference designators, e.g. C1,C2</description></field>
+        <field name="qty" type="floating-point"><description>How many this version needs</description></field>
+        <field name="previousQty" type="floating-point"><description>How many the previous version needed, empty for a new part</description></field>
+        <field name="changeId" type="id"><description>MFG_BOM_NEW, MFG_BOM_SAME, MFG_BOM_CHANGED or MFG_BOM_DROPPED</description></field>
+        <field name="lockedQty" type="floating-point"><description>Units locked for this project on this part when the version was imported</description></field>
+        <field name="shortQty" type="floating-point"><description>Units that were missing when the version was imported</description></field>
+        <field name="consumedQty" type="floating-point"><description>Units booked as development material because a later version no longer uses the part</description></field>
+        <field name="note" type="description"/>
+        <prim-key field="projectCode"/>
+        <prim-key field="importSeq"/>
+        <prim-key field="lineSeq"/>
+        <relation type="one" fk-name="MFG_DBOMITEM_HEAD" rel-entity-name="MfgDevBom">
+            <key-map field-name="projectCode"/>
+            <key-map field-name="importSeq"/>
+        </relation>
+        <index name="MFG_DBOMITEM_CODE" unique="false">
+            <index-field name="componentCode"/>
+        </index>
+    </entity>
+
     <entity entity-name="MfgDevEco"
             package-name="org.langhua.ofbiz.mfg"
             title="Engineering change order">
@@ -810,6 +868,7 @@
         <field name="workOrderId" type="id"><description>Work order the material was issued to or returned from</description></field>
         <field name="salesOrderId" type="id"><description>Sales order the goods are reserved for, empty for a work order reservation</description></field>
         <field name="salesOrderItemSeq" type="numeric"><description>Line of the sales order the reservation belongs to</description></field>
+        <field name="devProjectCode" type="id"><description>Development project the goods are locked for, empty for a work order or sales order reservation. A project lock reduces what a work order can reserve, so the parts of a running prototype are not taken away</description></field>
         <field name="locationId" type="id"><description>Warehouse location the movement happened in, empty when it was not recorded</description></field>
         <field name="physicalInventoryId" type="id"><description>Stock count that produced the movement</description></field>
         <field name="referenceNo" type="short-varchar"><description>Voucher, tracking number or count sheet</description></field>
@@ -834,6 +893,9 @@
         </index>
         <index name="MFG_INVDET_WO" unique="false">
             <index-field name="workOrderId"/>
+        </index>
+        <index name="MFG_INVDET_DEV" unique="false">
+            <index-field name="devProjectCode"/>
         </index>
     </entity>
     <entity entity-name="MfgStockLocation"

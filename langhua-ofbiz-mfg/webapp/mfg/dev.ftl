@@ -23,6 +23,14 @@
 <#assign issues = ((issueResult).issues)![]>
 <#assign issueOpen = ((issueResult).openCount)!0>
 <#assign issueHigh = ((issueResult).highOpenCount)!0>
+<#assign bom = (bomResult)!{}>
+<#assign bomLatest = (bom.latest)!{}>
+<#assign bomItems = (bom.items)![]>
+<#assign bomDropped = (bom.dropped)![]>
+<#assign bomShortages = (bom.shortages)![]>
+<#assign bomImports = (bom.imports)![]>
+<#assign bomShortCount = (bom.shortCount)!0>
+<#assign bomShortQty = (bom.shortQty)!0>
 <#assign errList = (errorMessageList)![]>
 
 <#function stageLabel stageId>
@@ -93,6 +101,13 @@
     <#if (statusId!'') == 'MFG_ISSUE_CLOSED'><#return '已关闭'>
     <#elseif (statusId!'') == 'MFG_ISSUE_DOING'><#return '处理中'>
     <#else><#return '未处理'>
+    </#if>
+</#function>
+<#function bomChangeLabel changeId>
+    <#if (changeId!'') == 'MFG_BOM_NEW'><#return '新增'>
+    <#elseif (changeId!'') == 'MFG_BOM_CHANGED'><#return '数量变化'>
+    <#elseif (changeId!'') == 'MFG_BOM_DROPPED'><#return '不再使用'>
+    <#else><#return '不变'>
     </#if>
 </#function>
 
@@ -286,6 +301,155 @@
         </fieldset>
         <p class="hint">外壳开发线把「外壳入库」置为已完成时，会按项目的料号和本步骤填的数量自动生成一个物料批次；组装时按正常流程开工单。</p>
     </#if>
+
+    <h3 id="devbom">研发 BOM（Fritzing）与缺货外购清单</h3>
+    <#if parameters.bomVersion??>
+        <p class="ok">已导入 ${parameters.bomVersion}：${(parameters.bomItemCount)!0} 个元件（新增 ${(parameters.bomNewCount)!0} / 数量变化 ${(parameters.bomChangedCount)!0} / 不再使用 ${(parameters.bomDroppedCount)!0}），锁料 ${(parameters.bomLockedQty)!'0'} 件，缺货 ${(parameters.bomShortCount)!0} 项<#if (parameters.bomConsumedQty!'0') != '0'>，记作研发消耗 ${parameters.bomConsumedQty} 件</#if></p>
+    </#if>
+    <#if parameters.releasedQty??>
+        <p class="ok">已释放本项目的锁料 ${parameters.releasedQty} 件（库存数量没有变）</p>
+    </#if>
+    <#if parameters.componentCode??>
+        <p class="ok">第 ${(parameters.lineSeq)!''} 行已按料号 ${parameters.componentCode} 重新锁料：已锁 ${(parameters.lockedQty)!'0'}，缺 ${(parameters.shortQty)!'0'}</p>
+    </#if>
+
+    <#if bomLatest?has_content>
+        <p class="hint">
+            当前版本 <b>${bomLatest.bomVersion!}</b>（第 ${bomLatest.importSeq} 次导入<#if bomLatest.sourceFile??>，来自 ${bomLatest.sourceFile}</#if><#if bomLatest.importedStamp??>，${bomLatest.importedStamp?string("yyyy-MM-dd HH:mm")}</#if>）：
+            ${(bomLatest.itemCount)!0} 个元件，缺货 <b>${bomShortCount}</b> 项 / ${bomShortQty?string("0.##")} 件。
+            导入时这一版的记录：${bomLatest.note!''}
+        </p>
+    </#if>
+
+    <#if bomShortages?has_content>
+        <h4>缺货外购清单（${bomShortCount} 项 / ${bomShortQty?string("0.##")} 件）
+            <a href="/mfg/control/devBomCsv?projectCode=${project.projectCode}">下载 CSV</a></h4>
+        <table id="devShortageTable">
+            <tr>
+                <th>料号</th><th>名称</th><th class="num">需求</th><th class="num">已锁</th>
+                <th class="num">在库</th><th class="num">缺口</th><th class="num">建议采购</th><th>位号</th>
+            </tr>
+            <#list bomShortages as r>
+                <tr data-bom-short="${r.componentCode}">
+                    <td>${r.componentCode}</td>
+                    <td>${r.componentName!}<#if r.properties??><br/><span class="hint">${r.properties}</span></#if></td>
+                    <td class="num">${r.qty?string("0.##")}</td>
+                    <td class="num">${(r.lockedQty)?string("0.##")}</td>
+                    <td class="num">${(r.onHandQty)?string("0.##")}</td>
+                    <td class="num"><span class="warn">${(r.shortQty)?string("0.##")}</span></td>
+                    <td class="num">${(r.suggestQty)?string("0.####")}</td>
+                    <td>${r.designators!}</td>
+                </tr>
+            </#list>
+        </table>
+    <#elseif bomItems?has_content>
+        <p class="hint">这一版的料都锁齐了，没有要买的。</p>
+    </#if>
+
+    <#if bomItems?has_content>
+        <h4>本版元件（${bomItems?size} 个）</h4>
+        <table id="devBomTable">
+            <tr>
+                <th class="num">#</th><th>料号</th><th>名称</th><th class="num">数量</th>
+                <th>位号</th><th>相对上一版</th><th class="num">已锁</th><th class="num">在库</th><th>操作</th>
+            </tr>
+            <#list bomItems as r>
+                <tr data-bom-line="${r.lineSeq}" data-bom-change="${r.changeId}">
+                    <td class="num">${r_index + 1}</td>
+                    <td><input type="text" name="componentCode" form="bomRow${r.lineSeq}" size="20" value="${r.componentCode}"/></td>
+                    <td>${r.componentName!}<#if r.properties??><br/><span class="hint">${r.properties}</span></#if></td>
+                    <td class="num"><input type="text" name="qty" form="bomRow${r.lineSeq}" size="5" value="${r.qty?string("0.##")}"/></td>
+                    <td>${r.designators!}</td>
+                    <td><#if r.changeId == 'MFG_BOM_NEW'><span class="ok">${bomChangeLabel(r.changeId)}</span><#elseif r.changeId == 'MFG_BOM_CHANGED'><span class="warn">${bomChangeLabel(r.changeId)}<#if r.previousQty??>（原 ${(r.previousQty)?string("0.##")}）</#if></span><#else>${bomChangeLabel(r.changeId)}</#if></td>
+                    <td class="num">${(r.lockedQty)?string("0.##")}</td>
+                    <td class="num">${(r.onHandQty)?string("0.##")}</td>
+                    <td>
+                        <input type="submit" form="bomRow${r.lineSeq}" value="保存"/>
+                        <#if ((r.shortQty)!0) gt 0><br/><span class="warn">缺 ${(r.shortQty)?string("0.##")}</span></#if>
+                    </td>
+                </tr>
+            </#list>
+        </table>
+        <#list bomItems as r>
+            <form id="bomRow${r.lineSeq}" method="post" action="/mfg/control/devBomItemSave">
+                <input type="hidden" name="projectCode" value="${project.projectCode}"/>
+                <input type="hidden" name="lineSeq" value="${r.lineSeq}"/>
+            </form>
+        </#list>
+        <p class="hint">料号可以和库存对不上：Fritzing 用的是它自己的名字，库存是按买回来的型号记的。
+            改这一行的料号（数量也可以改），保存后会按新料号重新锁料，缺多少立刻算出来。</p>
+        <form method="post" action="/mfg/control/devBomRelease" class="inline">
+            <input type="hidden" name="projectCode" value="${project.projectCode}"/>
+            <input type="submit" value="释放本项目的锁料"/>
+        </form>
+        <span class="hint">板子下单或项目暂停时用：只把锁放掉，库存不动。</span>
+    </#if>
+
+    <#if bomDropped?has_content>
+        <h4>本版不再使用的元件（${bomDropped?size} 个，按研发消耗处理）</h4>
+        <table id="devBomDroppedTable">
+            <tr><th>料号</th><th>名称</th><th class="num">上一版数量</th><th class="num">已记研发消耗</th><th>处理</th></tr>
+            <#list bomDropped as r>
+                <tr data-bom-dropped="${r.componentCode}">
+                    <td>${r.componentCode}</td>
+                    <td>${r.componentName!}</td>
+                    <td class="num"><#if r.previousQty??>${(r.previousQty)?string("0.##")}</#if></td>
+                    <td class="num"><#if r.consumedQty??>${(r.consumedQty)?string("0.##")}</#if></td>
+                    <td>${r.note!}</td>
+                </tr>
+            </#list>
+        </table>
+    </#if>
+
+    <#if bomImports?has_content>
+        <h4>导入记录（${bomImports?size} 次）</h4>
+        <table id="devBomImportTable">
+            <tr>
+                <th class="num">#</th><th>版本</th><th>文件</th><th>时间</th><th class="num">元件</th>
+                <th class="num">新增</th><th class="num">数量变化</th><th class="num">不再使用</th>
+                <th class="num">缺货</th><th class="num">锁料</th>
+            </tr>
+            <#list bomImports as h>
+                <tr data-bom-import="${h.importSeq}">
+                    <td class="num">${h.importSeq}</td>
+                    <td>${h.bomVersion!}</td>
+                    <td>${h.sourceFile!}</td>
+                    <td><#if h.importedStamp??>${h.importedStamp?string("MM-dd HH:mm")}</#if></td>
+                    <td class="num">${(h.itemCount)!0}</td>
+                    <td class="num">${(h.newCount)!0}</td>
+                    <td class="num">${(h.changedCount)!0}</td>
+                    <td class="num">${(h.droppedCount)!0}</td>
+                    <td class="num">${(h.shortCount)!0}</td>
+                    <td class="num">${(h.lockedQty)!0}</td>
+                </tr>
+            </#list>
+        </table>
+    </#if>
+
+    <form method="post" action="/mfg/control/devBomImport" enctype="multipart/form-data" id="devBomImportForm">
+        <input type="hidden" name="projectCode" value="${project.projectCode}"/>
+        <fieldset>
+            <legend>导入 Fritzing 的 BOM（bom.html 或 CSV）</legend>
+            <p>
+                文件 <input type="file" name="file" size="46"/>
+                <span class="hint">Fritzing 里「导出 → 作为图片 → 物料清单」生成的 &lt;项目&gt;_bom.html</span>
+            </p>
+            <p>
+                版本号 <input type="text" name="bomVersion" size="8" placeholder="v94"/>
+                <span class="hint">留空就从文件名里取 vNN</span>
+                <label><input type="checkbox" name="lock" value="Y" checked="checked"/> 锁库存</label>
+                <label><input type="checkbox" name="consumeDropped" value="Y" checked="checked"/> 不再使用的元件记研发消耗</label>
+            </p>
+            <p>
+                或粘贴内容<br/>
+                <textarea name="bomText" rows="6" cols="100" placeholder="也可以把 bom.html 的内容整段粘进来"></textarea>
+            </p>
+            <p><input type="submit" value="导入这一版 BOM"/></p>
+        </fieldset>
+    </form>
+    <p class="hint">每次导入都会存一份快照并按上一版比对：新出现的元件进缺货清单；数量变大的补锁；
+        不再使用的元件<b>不退回库存</b>，按研发消耗（样品）记一笔——面包板和连线阶段的东西已经用掉了。
+        锁料是预留，不影响在库数量，但工单就抢不走这几颗料；缺货清单里的「建议采购」= 需求 − 已锁。</p>
 
     <h3 id="issues">问题清单（未结 ${issueOpen} 个<#if issueHigh gt 0>，其中严重 ${issueHigh} 个</#if> / 共 ${issues?size} 条）</h3>
     <#if issues?has_content>

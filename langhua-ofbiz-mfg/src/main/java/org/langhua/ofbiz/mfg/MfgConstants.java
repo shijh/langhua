@@ -238,6 +238,22 @@ public final class MfgConstants {
     public static final String[] MOVE_REASONS = {REASON_LOST, REASON_STOLEN, REASON_FOUND,
         REASON_DAMAGED, REASON_SAMPLE, REASON_INTEGR, REASON_MISSHIP_ORDERED, REASON_MISSHIP_SHIPPED};
 
+    /**
+     * What one import of a design BOM (Fritzing) means for one part, compared with the version before
+     * it. A part that is no longer used keeps its row with {@link #BOM_DROPPED} and the quantity that
+     * was used up as development material, so the history of a sketch stays readable.
+     */
+    public static final String BOM_NEW = "MFG_BOM_NEW";
+
+    public static final String BOM_SAME = "MFG_BOM_SAME";
+
+    public static final String BOM_CHANGED = "MFG_BOM_CHANGED";
+
+    public static final String BOM_DROPPED = "MFG_BOM_DROPPED";
+
+    /** The change states a part row can have, in the order the page explains them. */
+    public static final String[] BOM_CHANGES = {BOM_NEW, BOM_CHANGED, BOM_SAME, BOM_DROPPED};
+
     /** What kind of place a stock location is. */
     public static final String LOC_WAREHOUSE = "MFG_LOC_WAREHOUSE";
 

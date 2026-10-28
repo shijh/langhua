@@ -591,6 +591,267 @@ public final class MfgStockLedger {
     }
 
     /**
+     * The purchased lots of one component, oldest first, the order material is taken in.
+     *
+     * @param delegator the delegator
+     * @param componentCode the part number
+     * @return the lots, an empty list when nothing of that part was ever received
+     * @throws GenericEntityException when they cannot be read
+     */
+    static List<GenericValue> lotsOfComponent(Delegator delegator, String componentCode)
+            throws GenericEntityException {
+        List<GenericValue> lots = new ArrayList<>();
+        if (componentCode == null) {
+            return lots;
+        }
+        for (GenericValue lot : componentLots(delegator)) {
+            if (!componentCode.equals(lot.getString("componentCode"))) {
+                continue;
+            }
+            if (lot.get("onHandQty") == null) {
+                ensureLotLedger(delegator, lot);
+            }
+            lots.add(lot);
+        }
+        lots.sort((left, right) -> {
+            java.sql.Date leftDate = left.getDate("receivedDate");
+            java.sql.Date rightDate = right.getDate("receivedDate");
+            if (leftDate == null && rightDate != null) {
+                return 1;
+            }
+            if (leftDate != null && rightDate == null) {
+                return -1;
+            }
+            if (leftDate != null && rightDate != null && leftDate.compareTo(rightDate) != 0) {
+                return leftDate.compareTo(rightDate);
+            }
+            return String.valueOf(left.getString("lotId")).compareTo(String.valueOf(right.getString("lotId")));
+        });
+        return lots;
+    }
+
+    /**
+     * What one lot can still take on top of the lock a development project already holds on it: the
+     * quantity on hand, minus everything reserved, plus its own reservation, which is not in its way.
+     *
+     * @param delegator the delegator
+     * @param lot the material lot
+     * @param projectCode the development project
+     * @return the quantity that may still be locked, never negative
+     * @throws GenericEntityException when the ledger cannot be read
+     */
+    static double spareOf(Delegator delegator, GenericValue lot, String projectCode)
+            throws GenericEntityException {
+        if (MfgConstants.IQC_FAIL.equals(lot.getString("inspectStatusId"))) {
+            return 0.0;
+        }
+        double onHand = MfgSupport.numberOrZero(lot.get("onHandQty"));
+        double reserved = MfgSupport.numberOrZero(lot.get("reservedQty"));
+        double mine = projectReservationOf(delegator, lot.getString("lotId"), projectCode);
+        double spare = onHand - (reserved - mine);
+        return spare <= 0.0 ? 0.0 : MfgSupport.round2(spare);
+    }
+
+    /**
+     * What one lot has locked for one development project right now.
+     *
+     * @param delegator the delegator
+     * @param lotId the lot
+     * @param projectCode the development project
+     * @return the locked quantity, {@code 0} when nothing is locked
+     * @throws GenericEntityException when the movements cannot be read
+     */
+    static double projectReservationOf(Delegator delegator, String lotId, String projectCode)
+            throws GenericEntityException {
+        if (projectCode == null) {
+            return 0.0;
+        }
+        double locked = 0.0;
+        for (GenericValue movement : movementsOf(delegator, lotId)) {
+            if (!projectCode.equals(movement.getString("devProjectCode"))) {
+                continue;
+            }
+            locked += MfgSupport.numberOrZero(movement.get("reservedDiff"));
+        }
+        return locked <= 0.0 ? 0.0 : locked;
+    }
+
+    /**
+     * Appends a reservation row that belongs to a development project instead of a work order. Like
+     * every reservation it changes nothing on hand, only what is earmarked, so a part locked by a
+     * running prototype cannot be reserved by a work order.
+     *
+     * @param delegator the delegator
+     * @param lot the lot
+     * @param movementTypeId {@link MfgConstants#MOVE_RESERVE} or {@link MfgConstants#MOVE_RELEASE}
+     * @param diff the signed change of the locked quantity
+     * @param projectCode the development project
+     * @param operatorName who did it
+     * @param note a remark
+     * @throws GenericEntityException when it cannot be stored
+     */
+    static void recordProjectReservation(Delegator delegator, GenericValue lot, String movementTypeId,
+            double diff, String projectCode, String operatorName, String note)
+            throws GenericEntityException {
+        GenericValue movement = delegator.makeValue("MfgInventoryDetail");
+        movement.set("lotId", lot.getString("lotId"));
+        movement.set("seqId", Long.valueOf(nextMovementSeq(delegator, lot.getString("lotId"))));
+        movement.set("movementTypeId", movementTypeId);
+        movement.set("quantityDiff", Double.valueOf(0.0));
+        movement.set("reservedDiff", Double.valueOf(MfgSupport.round2(diff)));
+        movement.set("devProjectCode", projectCode);
+        movement.set("operatorName", operatorName);
+        movement.set("effectiveDate", new Timestamp(System.currentTimeMillis()));
+        movement.set("note", note);
+        delegator.create(movement);
+    }
+
+    /**
+     * Locked quantity per component of one development project.
+     *
+     * @param delegator the delegator
+     * @param projectCode the development project
+     * @return the locked quantity by component code, only the components that have some
+     * @throws GenericEntityException when the ledger cannot be read
+     */
+    static Map<String, Double> lockedByProjectComponent(Delegator delegator, String projectCode)
+            throws GenericEntityException {
+        Map<String, Double> byComponent = new LinkedHashMap<>();
+        if (projectCode == null) {
+            return byComponent;
+        }
+        Map<String, GenericValue> lots = new LinkedHashMap<>();
+        for (GenericValue lot : componentLots(delegator)) {
+            lots.put(lot.getString("lotId"), lot);
+        }
+        for (GenericValue movement : EntityQuery.use(delegator).from("MfgInventoryDetail")
+                .where("devProjectCode", projectCode).queryList()) {
+            double locked = MfgSupport.numberOrZero(movement.get("reservedDiff"));
+            if (locked == 0.0) {
+                continue;
+            }
+            GenericValue lot = lots.get(movement.getString("lotId"));
+            if (lot == null) {
+                continue;
+            }
+            String componentCode = lot.getString("componentCode");
+            byComponent.put(componentCode, Double.valueOf(
+                    MfgSupport.numberOrZero(byComponent.get(componentCode)) + locked));
+        }
+        return byComponent;
+    }
+
+    /**
+     * Locks up to {@code wanted} units of one component for a development project, oldest lot first.
+     * Whatever is not on the shelves stays unlocked and shows up as the shortage.
+     *
+     * @param delegator the delegator
+     * @param projectCode the development project
+     * @param componentCode the part number
+     * @param wanted how many units the project needs
+     * @param operatorName who did it
+     * @param note a remark
+     * @return how many units this call locked
+     * @throws GenericEntityException when the ledger cannot be written
+     */
+    static double reserveForProject(Delegator delegator, String projectCode, String componentCode,
+            double wanted, String operatorName, String note) throws GenericEntityException {
+        if (projectCode == null || componentCode == null || wanted <= 0.0001) {
+            return 0.0;
+        }
+        double locked = 0.0;
+        for (GenericValue lot : lotsOfComponent(delegator, componentCode)) {
+            if (locked >= wanted - 0.0001) {
+                break;
+            }
+            double add = Math.min(wanted - locked, spareOf(delegator, lot, projectCode));
+            if (add <= 0.0001) {
+                continue;
+            }
+            recordProjectReservation(delegator, lot, MfgConstants.MOVE_RESERVE, add, projectCode,
+                    operatorName, note);
+            recalcLotStock(delegator, lot);
+            locked += add;
+        }
+        return MfgSupport.round2(locked);
+    }
+
+    /**
+     * Gives back what a development project has locked on one component, at most {@code qty}.
+     *
+     * @param delegator the delegator
+     * @param projectCode the development project
+     * @param componentCode the part number
+     * @param qty how much to give back, the whole lock when it is larger than the lock
+     * @param operatorName who did it
+     * @param note a remark
+     * @return how much was given back
+     * @throws GenericEntityException when the ledger cannot be written
+     */
+    static double releaseProjectReservation(Delegator delegator, String projectCode, String componentCode,
+            double qty, String operatorName, String note) throws GenericEntityException {
+        if (projectCode == null || componentCode == null || qty <= 0.0001) {
+            return 0.0;
+        }
+        double released = 0.0;
+        for (GenericValue lot : lotsOfComponent(delegator, componentCode)) {
+            if (released >= qty - 0.0001) {
+                break;
+            }
+            double mine = projectReservationOf(delegator, lot.getString("lotId"), projectCode);
+            double give = Math.min(mine, qty - released);
+            if (give <= 0.0001) {
+                continue;
+            }
+            recordProjectReservation(delegator, lot, MfgConstants.MOVE_RELEASE, -give, projectCode,
+                    operatorName, note);
+            recalcLotStock(delegator, lot);
+            released += give;
+        }
+        return MfgSupport.round2(released);
+    }
+
+    /**
+     * Turns what a development project holds of one component into development material: the lock is
+     * given back and the same quantity leaves the shelf as a sample the prototype used up. The parts
+     * therefore do not become available again - a version that dropped a part must not put it back
+     * into stock, it was already soldered, stripped or lost while breadboarding.
+     *
+     * @param delegator the delegator
+     * @param projectCode the development project
+     * @param componentCode the part number
+     * @param operatorName who did it
+     * @param note a remark, e.g. which version dropped the part
+     * @return how many units were booked as used up
+     * @throws GenericEntityException when the ledger cannot be written
+     */
+    static double consumeForProject(Delegator delegator, String projectCode, String componentCode,
+            String operatorName, String note) throws GenericEntityException {
+        if (projectCode == null || componentCode == null) {
+            return 0.0;
+        }
+        double consumed = 0.0;
+        for (GenericValue lot : lotsOfComponent(delegator, componentCode)) {
+            double mine = projectReservationOf(delegator, lot.getString("lotId"), projectCode);
+            if (mine <= 0.0001) {
+                continue;
+            }
+            double onHand = MfgSupport.numberOrZero(lot.get("onHandQty"));
+            double usedUp = Math.min(mine, onHand <= 0.0 ? 0.0 : onHand);
+            recordProjectReservation(delegator, lot, MfgConstants.MOVE_RELEASE, -mine, projectCode,
+                    operatorName, note);
+            if (usedUp > 0.0001) {
+                recordMovement(delegator, lot, MfgConstants.MOVE_SCRAP, -usedUp, lotUnitCost(lot),
+                        null, null, projectCode, operatorName, null, note, null,
+                        MfgConstants.REASON_SAMPLE);
+            }
+            recalcLotStock(delegator, lot);
+            consumed += usedUp;
+        }
+        return MfgSupport.round2(consumed);
+    }
+
+    /**
      * How much of one lot sits in one location; a {@code null} location counts the movements that
      * were booked without one, which is where the lots created before locations ended up.
      *

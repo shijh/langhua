@@ -1,0 +1,672 @@
+/*
+ * This library is part of OFBiz-MFG component of Langhua
+ *
+ * Copyright (C) 2010  Langhua Opensource Foundation (http://langhua.org)
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation; either
+ * version 3.0 of the License, or (at your option) any later version.
+ */
+
+package org.langhua.ofbiz.mfg;
+
+import java.sql.Timestamp;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
+
+import org.apache.ofbiz.entity.Delegator;
+import org.apache.ofbiz.entity.GenericEntityException;
+import org.apache.ofbiz.entity.GenericValue;
+import org.apache.ofbiz.entity.util.EntityQuery;
+import org.apache.ofbiz.service.DispatchContext;
+import org.apache.ofbiz.service.ServiceUtil;
+
+/**
+ * The design bill of materials of a development project: importing the HTML report Fritzing writes
+ * next to a breadboard sketch, comparing it with the version before it, locking the parts a version
+ * needs and listing what has to be bought.
+ *
+ * <p>Why it exists: a board is born on a breadboard. The sketch prints which parts it uses, so the
+ * import turns that into three things the shop otherwise works out by hand - how much of every part
+ * the version needs, what of it is already on the shelf (and therefore locked for the project), and
+ * what has to be bought. Because the sketch changes every evening, every import is kept as a
+ * snapshot and compared with the one before it: a part that appears is new and goes on the shopping
+ * list, a part whose quantity grew is topped up, and a part the version no longer uses is written off
+ * as development material instead of being put back on the shelf (it was soldered, stripped or lost
+ * while breadboarding - see {@link MfgStockLedger#consumeForProject}).
+ *
+ * <p>The parts of one version live in {@code MfgDevBom} (one row per import) and
+ * {@code MfgDevBomItem} (one row per part of that import, with what the version means for it). The
+ * lock is a reservation of the inventory ledger, exactly like the one a work order takes, only with
+ * {@code devProjectCode} instead of {@code workOrderId}.
+ */
+public final class MfgDevBomServices {
+
+    private MfgDevBomServices() {
+    }
+
+    /**
+     * Imports one version of the design BOM of a development project.
+     *
+     * <p>The text is parsed by {@link MfgCsv#parseBom}, so the Fritzing HTML report, the Fritzing CSV
+     * export and the CSV of this component all work, and the format is detected when it is not given.
+     * The rows are compared with the parts the previous import of the same project used, every part
+     * of this version is locked on the shelf as far as there is stock
+     * ({@link MfgStockLedger#reserveForProject}), and the parts the previous version had are written
+     * off as development material when {@code consumeDropped} is not {@code N}.
+     *
+     * @param dctx the dispatch context
+     * @param context service context, see {@code servicedef/devbom-services.xml#mfgDevBomImport}
+     * @return the service result with the counts of the import and the shortage it found
+     */
+    public static Map<String, Object> devBomImport(DispatchContext dctx, Map<String, ? extends Object> context) {
+        String denied = MfgSecurity.permissionProblem(dctx, context, MfgConstants.PERM_ENG);
+        if (denied != null) {
+            return ServiceUtil.returnError(denied);
+        }
+        Delegator delegator = dctx.getDelegator();
+        String projectCode = MfgSupport.toText(context.get("projectCode"));
+        String text = MfgSupport.toText(context.get("bomText"));
+        if (projectCode == null) {
+            return ServiceUtil.returnError("projectCode is required");
+        }
+        if (text == null) {
+            return ServiceUtil.returnError("请粘贴 Fritzing 导出的 BOM 内容，或选择一个 bom.html / CSV 文件");
+        }
+        String requestedFormat = MfgSupport.toText(context.get("format"));
+        MfgCsv.BomFormat forced = MfgCsv.BomFormat.of(requestedFormat);
+        if (requestedFormat != null && forced == null) {
+            return ServiceUtil.returnError("Unknown BOM format [" + requestedFormat
+                    + "], expected MFG, FRITZING or FRITZING_HTML");
+        }
+        MfgCsv.BomFormat format = forced == null ? MfgCsv.detectBomFormat(text) : forced;
+        List<String[]> parsed = MfgCsv.parseBom(text, format);
+        if (parsed.isEmpty()) {
+            return ServiceUtil.returnError("这个文件里没读到元件：Fritzing 的 bom.html 请用「导出 → 作为图片 → 物料清单」那一份");
+        }
+        boolean lock = !"N".equals(MfgSupport.toText(context.get("lock")));
+        boolean consumeDropped = !"N".equals(MfgSupport.toText(context.get("consumeDropped")));
+        String operatorName = MfgSupport.toText(context.get("operatorName"));
+        String fileName = MfgSupport.toText(context.get("fileName"));
+        try {
+            GenericValue project = EntityQuery.use(delegator).from("MfgDevProject")
+                    .where("projectCode", projectCode).queryOne();
+            if (project == null) {
+                return ServiceUtil.returnError("Unknown development project [" + projectCode
+                        + "], create it first");
+            }
+            GenericValue previousImport = lastImport(delegator, projectCode);
+            Map<String, Double> previousQty = new LinkedHashMap<>();
+            if (previousImport != null) {
+                for (GenericValue item : itemsOf(delegator, projectCode,
+                        previousImport.getLong("importSeq").longValue())) {
+                    if (MfgConstants.BOM_DROPPED.equals(item.getString("changeId"))) {
+                        continue;
+                    }
+                    previousQty.put(item.getString("componentCode"),
+                            Double.valueOf(MfgSupport.numberOrZero(item.get("qty"))));
+                }
+            }
+            List<DevBomRow> rows = devBomRows(previousQty, parsed);
+            long importSeq = previousImport == null ? 1L
+                    : previousImport.getLong("importSeq").longValue() + 1L;
+            String version = versionOf(MfgSupport.toText(context.get("bomVersion")), fileName, importSeq);
+
+            Map<String, Double> lockedByComponent = MfgStockLedger.lockedByProjectComponent(delegator, projectCode);
+            int newCount = 0;
+            int sameCount = 0;
+            int changedCount = 0;
+            int droppedCount = 0;
+            int shortCount = 0;
+            int itemCount = 0;
+            double lockedTotal = 0.0;
+            double shortTotal = 0.0;
+            double consumedTotal = 0.0;
+            long lineSeq = 10L;
+            // the rows carry a foreign key to the head, so the head comes first and the counts are
+            // written back once the loop is done
+            GenericValue head = delegator.makeValue("MfgDevBom");
+            head.set("projectCode", projectCode);
+            head.set("importSeq", Long.valueOf(importSeq));
+            head.set("bomVersion", version);
+            head.set("sourceFile", fileName);
+            head.set("importedStamp", new Timestamp(System.currentTimeMillis()));
+            head.set("itemCount", Long.valueOf(0));
+            head.set("newCount", Long.valueOf(0));
+            head.set("changedCount", Long.valueOf(0));
+            head.set("droppedCount", Long.valueOf(0));
+            head.set("shortCount", Long.valueOf(0));
+            head.set("lockedQty", Double.valueOf(0.0));
+            delegator.create(head);
+            for (DevBomRow row : rows) {
+                double held = MfgSupport.numberOrZero(lockedByComponent.get(row.componentCode));
+                double qty = row.qty;
+                double lockedQty = 0.0;
+                double shortQty = 0.0;
+                double consumedQty = 0.0;
+                String note = null;
+                if (MfgConstants.BOM_DROPPED.equals(row.changeId)) {
+                    droppedCount++;
+                    if (held > 0.0001) {
+                        if (consumeDropped) {
+                            consumedQty = MfgStockLedger.consumeForProject(delegator, projectCode,
+                                    row.componentCode, operatorName,
+                                    "研发消耗：" + version + " 起不再使用");
+                            note = "记作研发消耗 " + MfgSupport.formatQty(consumedQty) + "（不退回库存）";
+                        } else {
+                            double released = MfgStockLedger.releaseProjectReservation(delegator, projectCode,
+                                    row.componentCode, held, operatorName,
+                                    "释放锁料：" + version + " 起不再使用");
+                            note = "只释放了锁料 " + MfgSupport.formatQty(released) + "，库存不动";
+                        }
+                        lockedByComponent.put(row.componentCode, Double.valueOf(0.0));
+                        consumedTotal += consumedQty;
+                    } else {
+                        note = "没有锁到料，无需处理";
+                    }
+                } else {
+                    itemCount++;
+                    if (MfgConstants.BOM_NEW.equals(row.changeId)) {
+                        newCount++;
+                    } else if (MfgConstants.BOM_CHANGED.equals(row.changeId)) {
+                        changedCount++;
+                    } else {
+                        sameCount++;
+                    }
+                    if (lock) {
+                        double gap = qty - held;
+                        if (gap > 0.0001) {
+                            held += MfgStockLedger.reserveForProject(delegator, projectCode,
+                                    row.componentCode, gap, operatorName, "锁料：" + version);
+                            lockedByComponent.put(row.componentCode, Double.valueOf(held));
+                        }
+                    }
+                    lockedQty = Math.min(held, qty);
+                    shortQty = Math.max(0.0, qty - held);
+                    if (shortQty > 0.0001) {
+                        shortCount++;
+                        shortTotal += shortQty;
+                    }
+                    lockedTotal += lockedQty;
+                }
+                GenericValue item = delegator.makeValue("MfgDevBomItem");
+                item.set("projectCode", projectCode);
+                item.set("importSeq", Long.valueOf(importSeq));
+                item.set("lineSeq", Long.valueOf(lineSeq));
+                item.set("componentCode", row.componentCode);
+                item.set("componentName", row.componentName);
+                item.set("partType", row.partType);
+                item.set("properties", row.properties);
+                item.set("designators", row.designators);
+                item.set("qty", Double.valueOf(MfgSupport.round2(qty)));
+                item.set("previousQty", row.previousQty == null ? null
+                        : Double.valueOf(MfgSupport.round2(row.previousQty.doubleValue())));
+                item.set("changeId", row.changeId);
+                item.set("lockedQty", Double.valueOf(MfgSupport.round2(lockedQty)));
+                item.set("shortQty", Double.valueOf(MfgSupport.round2(shortQty)));
+                item.set("consumedQty", Double.valueOf(MfgSupport.round2(consumedQty)));
+                item.set("note", note);
+                delegator.create(item);
+                lineSeq += 10L;
+            }
+
+            head.set("itemCount", Long.valueOf(itemCount));
+            head.set("newCount", Long.valueOf(newCount));
+            head.set("changedCount", Long.valueOf(changedCount));
+            head.set("droppedCount", Long.valueOf(droppedCount));
+            head.set("shortCount", Long.valueOf(shortCount));
+            head.set("lockedQty", Double.valueOf(MfgSupport.round2(lockedTotal)));
+            head.set("note", "导入格式 " + format.label() + "，与上一版相比：新增 " + newCount + " / 数量变化 "
+                    + changedCount + " / 不变 " + sameCount + " / 不再使用 " + droppedCount);
+            delegator.store(head);
+
+            logImport(logMessage(projectCode, version, importSeq, itemCount, newCount, changedCount,
+                    droppedCount, shortCount, lockedTotal, consumedTotal));
+            Map<String, Object> result = ServiceUtil.returnSuccess();
+            result.put("projectCode", projectCode);
+            result.put("importSeq", Long.valueOf(importSeq));
+            result.put("bomVersion", version);
+            result.put("bomFormat", format.name());
+            // strings, so that a redirect can carry them
+            result.put("itemCount", String.valueOf(itemCount));
+            result.put("newCount", String.valueOf(newCount));
+            result.put("changedCount", String.valueOf(changedCount));
+            result.put("sameCount", String.valueOf(sameCount));
+            result.put("droppedCount", String.valueOf(droppedCount));
+            result.put("shortCount", String.valueOf(shortCount));
+            result.put("shortQty", MfgSupport.formatQty(shortTotal));
+            result.put("lockedQty", MfgSupport.formatQty(lockedTotal));
+            result.put("consumedQty", MfgSupport.formatQty(consumedTotal));
+            return result;
+        } catch (GenericEntityException e) {
+            return ServiceUtil.returnError("导入研发 BOM 失败：" + e.getMessage());
+        }
+    }
+
+    /**
+     * Reads the current design BOM of a development project: the parts of the latest import with the
+     * stock numbers of today, the parts it no longer uses, the shopping list (every part that is
+     * short) and the history of imports.
+     *
+     * <p>The stock numbers are recomputed on every call instead of being taken from the import, so a
+     * part that was bought in the meantime drops off the shopping list by itself.
+     *
+     * @param dctx the dispatch context
+     * @param context service context, see {@code servicedef/devbom-services.xml#mfgDevBomDetail}
+     * @return the service result, empty lists when the project imported nothing yet
+     */
+    public static Map<String, Object> devBomDetail(DispatchContext dctx, Map<String, ? extends Object> context) {
+        Delegator delegator = dctx.getDelegator();
+        String projectCode = MfgSupport.toText(context.get("projectCode"));
+        Map<String, Object> result = ServiceUtil.returnSuccess();
+        List<Map<String, Object>> items = new ArrayList<>();
+        List<Map<String, Object>> dropped = new ArrayList<>();
+        List<Map<String, Object>> shortages = new ArrayList<>();
+        List<Map<String, Object>> imports = new ArrayList<>();
+        result.put("items", items);
+        result.put("dropped", dropped);
+        result.put("shortages", shortages);
+        result.put("imports", imports);
+        if (projectCode == null) {
+            return result;
+        }
+        try {
+            Map<String, double[]> stock = componentStock(delegator);
+            Map<String, Double> lockedByComponent = MfgStockLedger.lockedByProjectComponent(delegator, projectCode);
+            GenericValue latest = lastImport(delegator, projectCode);
+            double shortTotal = 0.0;
+            int shortCount = 0;
+            if (latest != null) {
+                long importSeq = latest.getLong("importSeq").longValue();
+                for (GenericValue item : itemsOf(delegator, projectCode, importSeq)) {
+                    String code = item.getString("componentCode");
+                    double qty = MfgSupport.numberOrZero(item.get("qty"));
+                    double locked = MfgSupport.numberOrZero(lockedByComponent.get(code));
+                    double[] sums = stock.get(code);
+                    double onHand = sums == null ? 0.0 : sums[0];
+                    double available = sums == null ? 0.0 : sums[2];
+                    double shortQty = Math.max(0.0, qty - locked);
+                    Map<String, Object> row = new LinkedHashMap<>();
+                    row.put("lineSeq", item.get("lineSeq"));
+                    row.put("componentCode", code);
+                    row.put("componentName", item.getString("componentName"));
+                    row.put("partType", item.getString("partType"));
+                    row.put("properties", item.getString("properties"));
+                    row.put("designators", item.getString("designators"));
+                    row.put("qty", Double.valueOf(MfgSupport.round2(qty)));
+                    row.put("changeId", item.getString("changeId"));
+                    row.put("previousQty", item.get("previousQty"));
+                    row.put("lockedQty", Double.valueOf(MfgSupport.round2(locked)));
+                    row.put("onHandQty", Double.valueOf(MfgSupport.round2(onHand)));
+                    row.put("availableQty", Double.valueOf(MfgSupport.round2(available)));
+                    row.put("shortQty", Double.valueOf(MfgSupport.round2(shortQty)));
+                    row.put("suggestQty", Double.valueOf(Math.ceil(shortQty - 0.0001)));
+                    row.put("note", item.getString("note"));
+                    if (MfgConstants.BOM_DROPPED.equals(item.getString("changeId"))) {
+                        row.put("consumedQty", item.get("consumedQty"));
+                        dropped.add(row);
+                    } else {
+                        if (shortQty > 0.0001) {
+                            shortCount++;
+                            shortTotal += shortQty;
+                            shortages.add(row);
+                        }
+                        items.add(row);
+                    }
+                }
+                Map<String, Object> head = new LinkedHashMap<>();
+                head.put("importSeq", latest.get("importSeq"));
+                head.put("bomVersion", latest.getString("bomVersion"));
+                head.put("sourceFile", latest.getString("sourceFile"));
+                head.put("importedStamp", latest.get("importedStamp"));
+                head.put("itemCount", latest.get("itemCount"));
+                head.put("newCount", latest.get("newCount"));
+                head.put("changedCount", latest.get("changedCount"));
+                head.put("droppedCount", latest.get("droppedCount"));
+                head.put("shortCount", Long.valueOf(shortCount));
+                head.put("note", latest.getString("note"));
+                result.put("latest", head);
+            }
+            for (GenericValue head : EntityQuery.use(delegator).from("MfgDevBom")
+                    .where("projectCode", projectCode).orderBy("-importSeq").queryList()) {
+                Map<String, Object> row = new LinkedHashMap<>();
+                row.put("importSeq", head.get("importSeq"));
+                row.put("bomVersion", head.getString("bomVersion"));
+                row.put("sourceFile", head.getString("sourceFile"));
+                row.put("importedStamp", head.get("importedStamp"));
+                row.put("itemCount", head.get("itemCount"));
+                row.put("newCount", head.get("newCount"));
+                row.put("changedCount", head.get("changedCount"));
+                row.put("droppedCount", head.get("droppedCount"));
+                row.put("shortCount", head.get("shortCount"));
+                row.put("lockedQty", head.get("lockedQty"));
+                imports.add(row);
+            }
+            result.put("shortCount", Integer.valueOf(shortCount));
+            result.put("shortQty", Double.valueOf(MfgSupport.round2(shortTotal)));
+            return result;
+        } catch (GenericEntityException e) {
+            return ServiceUtil.returnError("读取研发 BOM 失败：" + e.getMessage());
+        }
+    }
+
+    /**
+     * Corrects one part of the latest import: its part number (the code stock is booked under) and
+     * its quantity. Correcting the code moves the lock from the old code to the new one, because the
+     * sketch names a part differently from the shop that sells it.
+     *
+     * @param dctx the dispatch context
+     * @param context service context, see {@code servicedef/devbom-services.xml#mfgDevBomItemSave}
+     * @return the service result with {@code componentCode}, {@code lockedQty} and {@code shortQty}
+     */
+    public static Map<String, Object> devBomItemSave(DispatchContext dctx, Map<String, ? extends Object> context) {
+        String denied = MfgSecurity.permissionProblem(dctx, context, MfgConstants.PERM_ENG);
+        if (denied != null) {
+            return ServiceUtil.returnError(denied);
+        }
+        Delegator delegator = dctx.getDelegator();
+        String projectCode = MfgSupport.toText(context.get("projectCode"));
+        long lineSeq = MfgSupport.toLong(context.get("lineSeq"), 0L);
+        if (projectCode == null || lineSeq <= 0L) {
+            return ServiceUtil.returnError("projectCode 和 lineSeq 都是必填的");
+        }
+        String operatorName = MfgSupport.toText(context.get("operatorName"));
+        try {
+            GenericValue latest = lastImport(delegator, projectCode);
+            if (latest == null) {
+                return ServiceUtil.returnError("这个项目还没导入过研发 BOM");
+            }
+            long importSeq = latest.getLong("importSeq").longValue();
+            GenericValue item = EntityQuery.use(delegator).from("MfgDevBomItem")
+                    .where("projectCode", projectCode, "importSeq", Long.valueOf(importSeq),
+                            "lineSeq", Long.valueOf(lineSeq))
+                    .queryOne();
+            if (item == null) {
+                return ServiceUtil.returnError("第 " + lineSeq + " 行不存在（可能已经被下一次导入替换）");
+            }
+            String oldCode = item.getString("componentCode");
+            String typedCode = MfgSupport.toText(context.get("componentCode"));
+            String newCode = MfgProductServices
+                    .fittingComponentCode(typedCode == null ? oldCode : typedCode)
+                    .toUpperCase(Locale.ROOT);
+            double qty = MfgSupport.toDouble(context.get("qty"), MfgSupport.numberOrZero(item.get("qty")));
+            if (qty < 0.0) {
+                return ServiceUtil.returnError("数量不能是负数");
+            }
+            if (!newCode.equals(oldCode)) {
+                MfgStockLedger.releaseProjectReservation(delegator, projectCode, oldCode,
+                        Double.MAX_VALUE, operatorName, "料号改成 " + newCode + "，先释放旧料号的锁");
+            }
+            double held = MfgSupport.numberOrZero(
+                    MfgStockLedger.lockedByProjectComponent(delegator, projectCode).get(newCode));
+            double gap = qty - held;
+            if (!"N".equals(MfgSupport.toText(context.get("lock"))) && gap > 0.0001) {
+                held += MfgStockLedger.reserveForProject(delegator, projectCode, newCode, gap,
+                        operatorName, "锁料：改正第 " + lineSeq + " 行");
+            }
+            double shortQty = Math.max(0.0, qty - held);
+            item.set("componentCode", newCode);
+            item.set("qty", Double.valueOf(MfgSupport.round2(qty)));
+            item.set("lockedQty", Double.valueOf(MfgSupport.round2(Math.min(held, qty))));
+            item.set("shortQty", Double.valueOf(MfgSupport.round2(shortQty)));
+            delegator.store(item);
+            Map<String, Object> result = ServiceUtil.returnSuccess();
+            result.put("componentCode", newCode);
+            result.put("lockedQty", MfgSupport.formatQty(Math.min(held, qty)));
+            result.put("shortQty", MfgSupport.formatQty(shortQty));
+            return result;
+        } catch (GenericEntityException e) {
+            return ServiceUtil.returnError("改正研发 BOM 行失败：" + e.getMessage());
+        }
+    }
+
+    /**
+     * Gives back every part the project has locked, for when the board is ordered or the project is
+     * put aside. The stock itself does not change - only what is earmarked.
+     *
+     * @param dctx the dispatch context
+     * @param context service context, see {@code servicedef/devbom-services.xml#mfgDevBomRelease}
+     * @return the service result with the released quantity
+     */
+    public static Map<String, Object> devBomRelease(DispatchContext dctx, Map<String, ? extends Object> context) {
+        String denied = MfgSecurity.permissionProblem(dctx, context, MfgConstants.PERM_ENG);
+        if (denied != null) {
+            return ServiceUtil.returnError(denied);
+        }
+        Delegator delegator = dctx.getDelegator();
+        String projectCode = MfgSupport.toText(context.get("projectCode"));
+        if (projectCode == null) {
+            return ServiceUtil.returnError("projectCode is required");
+        }
+        String operatorName = MfgSupport.toText(context.get("operatorName"));
+        try {
+            double released = 0.0;
+            for (Map.Entry<String, Double> entry : MfgStockLedger
+                    .lockedByProjectComponent(delegator, projectCode).entrySet()) {
+                double qty = MfgSupport.numberOrZero(entry.getValue());
+                if (qty <= 0.0001) {
+                    continue;
+                }
+                released += MfgStockLedger.releaseProjectReservation(delegator, projectCode,
+                        entry.getKey(), qty, operatorName, "手工释放研发锁料");
+            }
+            Map<String, Object> result = ServiceUtil.returnSuccess();
+            result.put("releasedQty", MfgSupport.formatQty(released));
+            return result;
+        } catch (GenericEntityException e) {
+            return ServiceUtil.returnError("释放研发锁料失败：" + e.getMessage());
+        }
+    }
+
+    /**
+     * One part of one imported version, with what the version means for it. Pure data, so the diff can
+     * be tested without a database.
+     */
+    static final class DevBomRow {
+
+        final String componentCode;
+        final String componentName;
+        final String partType;
+        final String properties;
+        final String designators;
+        final double qty;
+        final Double previousQty;
+        final String changeId;
+
+        DevBomRow(String componentCode, String componentName, String partType, String properties,
+                String designators, double qty, Double previousQty, String changeId) {
+            this.componentCode = componentCode;
+            this.componentName = componentName;
+            this.partType = partType;
+            this.properties = properties;
+            this.designators = designators;
+            this.qty = qty;
+            this.previousQty = previousQty;
+            this.changeId = changeId;
+        }
+    }
+
+    /**
+     * Compares the rows of one import with the parts of the version before it.
+     *
+     * <p>Rows of the same part are merged first (a sketch can print one part twice), then every part
+     * is compared with the previous quantity: absent before is {@link MfgConstants#BOM_NEW}, another
+     * quantity is {@link MfgConstants#BOM_CHANGED}, the same is {@link MfgConstants#BOM_SAME}. Parts
+     * the previous version used and this one does not follow as {@link MfgConstants#BOM_DROPPED} with
+     * quantity {@code 0} and the old quantity remembered, so the caller can write the material off.
+     *
+     * @param previous part number to quantity of the version before, empty for the first import
+     * @param parsed the rows of this import, as {@link MfgCsv#parseBom} returns them
+     * @return the parts of this version, then the dropped ones, in the order they appeared
+     */
+    static List<DevBomRow> devBomRows(Map<String, Double> previous, List<String[]> parsed) {
+        Map<String, double[]> merged = new LinkedHashMap<>();
+        Map<String, String[]> details = new LinkedHashMap<>();
+        List<String> order = new ArrayList<>();
+        if (parsed != null) {
+            for (String[] row : parsed) {
+                if (row == null || row.length == 0 || row[0] == null) {
+                    continue;
+                }
+                String code = MfgProductServices.fittingComponentCode(row[0].trim()).toUpperCase(Locale.ROOT);
+                if (code.isEmpty()) {
+                    continue;
+                }
+                double qty = MfgSupport.toDouble(row.length > 2 ? row[2] : null, 1.0);
+                if (qty <= 0.0) {
+                    qty = 1.0;
+                }
+                double[] sum = merged.get(code);
+                if (sum == null) {
+                    sum = new double[] {0.0};
+                    merged.put(code, sum);
+                    details.put(code, row);
+                    order.add(code);
+                } else {
+                    String designators = row.length > 3 ? row[3] : null;
+                    String[] kept = details.get(code);
+                    if (designators != null && !designators.trim().isEmpty()) {
+                        String joined = kept.length > 3 && kept[3] != null && !kept[3].isEmpty()
+                                ? kept[3] + "," + designators.trim() : designators.trim();
+                        String[] bigger = new String[Math.max(kept.length, 7)];
+                        System.arraycopy(kept, 0, bigger, 0, kept.length);
+                        bigger[3] = joined;
+                        details.put(code, bigger);
+                    }
+                }
+                sum[0] += qty;
+            }
+        }
+        List<DevBomRow> rows = new ArrayList<>(order.size());
+        Set<String> seen = new LinkedHashSet<>(order);
+        for (String code : order) {
+            String[] row = details.get(code);
+            Double before = previous == null ? null : previous.get(code);
+            String changeId;
+            if (before == null) {
+                changeId = MfgConstants.BOM_NEW;
+            } else if (Math.abs(before.doubleValue() - merged.get(code)[0]) > 0.0001) {
+                changeId = MfgConstants.BOM_CHANGED;
+            } else {
+                changeId = MfgConstants.BOM_SAME;
+            }
+            rows.add(new DevBomRow(code,
+                    row.length > 1 && row[1] != null && !row[1].trim().isEmpty() ? row[1].trim() : code,
+                    row.length > 1 && row[1] != null && !row[1].trim().isEmpty() ? row[1].trim() : code,
+                    row.length > 6 ? row[6] : null,
+                    row.length > 3 ? row[3] : null,
+                    merged.get(code)[0], before, changeId));
+        }
+        if (previous != null) {
+            for (Map.Entry<String, Double> entry : previous.entrySet()) {
+                if (seen.contains(entry.getKey())) {
+                    continue;
+                }
+                rows.add(new DevBomRow(entry.getKey(), entry.getKey(), entry.getKey(), null, null,
+                        0.0, entry.getValue(), MfgConstants.BOM_DROPPED));
+            }
+        }
+        return rows;
+    }
+
+    /**
+     * On hand, reserved and available quantity per part number, summed over the lots.
+     *
+     * @param delegator the delegator
+     * @return the three numbers per part number
+     * @throws GenericEntityException when the lots cannot be read
+     */
+    static Map<String, double[]> componentStock(Delegator delegator) throws GenericEntityException {
+        Map<String, double[]> byCode = new LinkedHashMap<>();
+        for (GenericValue lot : MfgStockLedger.componentLots(delegator)) {
+            if (lot.get("onHandQty") == null) {
+                MfgStockLedger.ensureLotLedger(delegator, lot);
+            }
+            String code = lot.getString("componentCode");
+            double[] sums = byCode.get(code);
+            if (sums == null) {
+                sums = new double[3];
+                byCode.put(code, sums);
+            }
+            sums[0] += MfgSupport.numberOrZero(lot.get("onHandQty"));
+            sums[1] += MfgSupport.numberOrZero(lot.get("reservedQty"));
+            sums[2] += MfgSupport.numberOrZero(lot.get("availableQty"));
+        }
+        return byCode;
+    }
+
+    /**
+     * The newest import of a project.
+     *
+     * @param delegator the delegator
+     * @param projectCode the development project
+     * @return the import, {@code null} when the project imported nothing yet
+     * @throws GenericEntityException when it cannot be read
+     */
+    static GenericValue lastImport(Delegator delegator, String projectCode) throws GenericEntityException {
+        if (projectCode == null) {
+            return null;
+        }
+        List<GenericValue> imports = EntityQuery.use(delegator).from("MfgDevBom")
+                .where("projectCode", projectCode).orderBy("-importSeq").queryList();
+        return imports.isEmpty() ? null : imports.get(0);
+    }
+
+    /**
+     * The parts of one import.
+     *
+     * @param delegator the delegator
+     * @param projectCode the development project
+     * @param importSeq the import number
+     * @return the rows, in import order
+     * @throws GenericEntityException when they cannot be read
+     */
+    static List<GenericValue> itemsOf(Delegator delegator, String projectCode, long importSeq)
+            throws GenericEntityException {
+        return EntityQuery.use(delegator).from("MfgDevBomItem")
+                .where("projectCode", projectCode, "importSeq", Long.valueOf(importSeq))
+                .orderBy("lineSeq").queryList();
+    }
+
+    /**
+     * The label of a version: what the person typed, otherwise the {@code vNN} of the file name,
+     * otherwise the import number.
+     *
+     * @param typed the version typed in, may be {@code null}
+     * @param fileName the name of the uploaded file, may be {@code null}
+     * @param importSeq the number of the import
+     * @return the label
+     */
+    static String versionOf(String typed, String fileName, long importSeq) {
+        if (typed != null) {
+            return typed.length() > 100 ? typed.substring(0, 100) : typed;
+        }
+        if (fileName != null) {
+            java.util.regex.Matcher matcher = java.util.regex.Pattern
+                    .compile("(?i)v[0-9]+").matcher(fileName);
+            if (matcher.find()) {
+                return matcher.group().toLowerCase(Locale.ROOT);
+            }
+        }
+        return "import-" + importSeq;
+    }
+
+    private static String logMessage(String projectCode, String version, long importSeq, int itemCount,
+            int newCount, int changedCount, int droppedCount, int shortCount, double locked,
+            double consumed) {
+        return "Design BOM " + projectCode + " " + version + " (import " + importSeq + "): " + itemCount
+                + " parts, " + newCount + " new, " + changedCount + " changed, " + droppedCount
+                + " dropped, " + shortCount + " short, locked " + MfgSupport.formatQty(locked)
+                + ", used up as development material " + MfgSupport.formatQty(consumed);
+    }
+
+    private static void logImport(String message) {
+        org.apache.ofbiz.base.util.Debug.logInfo(message, MfgDevBomServices.class.getName());
+    }
+}

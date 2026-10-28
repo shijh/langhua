@@ -201,6 +201,7 @@ BAT-18650,18650 电池,1,BT1,Y,12</textarea></p>
                     <option value="">自动识别</option>
                     <option value="MFG">本系统 CSV</option>
                     <option value="FRITZING">Fritzing 导出</option>
+                    <option value="FRITZING_HTML">Fritzing HTML（bom.html）</option>
                 </select>
                 <label><input type="checkbox" name="replace" value="N"/> 追加（不勾选则先清空该版本的行）</label>
                 <input type="submit" value="导入 BOM"/>
@@ -209,6 +210,8 @@ BAT-18650,18650 电池,1,BT1,Y,12</textarea></p>
                 位号里有逗号要加引号，例如 <code>"R1,R2"</code>；料号最多 20 个字符。</p>
             <p class="hint">Fritzing 导出（<code>Label;Part Type;mn;mpn;part number;</code> 加一段 <code>Amount;</code>）可以直接选文件，也可以粘贴：
                 用量取 <code>Amount</code> 块、位号取 <code>Label</code> 块合成一行，料号用 <code>part number</code>（没有物料号时用名称）。</p>
+            <p class="hint">Fritzing 的 <code>bom.html</code>（导出 → 作为图片 → 物料清单）也能直接选：料号取 MPN / MN / <code>元件号</code>，
+                都没有就按型号与参数拼（如 <code>R-10K-0603</code>），导入后可以逐行改。</p>
         </form>
     </fieldset>
 

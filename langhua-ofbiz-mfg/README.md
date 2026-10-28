@@ -104,6 +104,7 @@ flowchart LR
 | **附件（通用）** | 任意业务单据挂文件：产品照片、开发项目资料、工单照片、出货签收单、售后凭证；JPG/PNG/GIF（≤ 4 MB）与 PDF（≤ 8 MB），存数据库不丢；图片显示 200px 缩略图，点开看原图，可删除 |
 | BOM | CSV 批量导入元件行：`料号,名称,用量,位号,是否关键件,单价`（单价可空） |
 | **BOM 版本** | 型号可保留多个 BOM 版本（`型号-V1`、`-V2`…），每个版本独立存行；型号指向“当前使用”的版本，启用新版本时旧版本自动废止；工单创建时冻结所用版本 |
+| **研发 BOM（Fritzing）** | 开发项目里直接导入 Fritzing 的 `bom.html`（面包板阶段）：认出每个元件、与上一版比对（新增 / 数量变化 / 不再使用）、把库里已有的料**锁给这个项目**、把缺的生成**缺货外购清单**（可导 CSV）；不再使用的元件**不退回库存**，按研发消耗（样品）记一笔 |
 | **产品开发** | 开发项目立项（可选线路：**PCB / 固件 / 外壳**，带料号；目标成本/售价/计划上市日），五道阶段关卡（概念→设计→打样→试产→量产），评审通过自动进入下一阶段 |
 | **三条开发线** | 每个项目按线路带自己的步骤清单，逐步打勾，每步可记负责人、供应商、金额、数量、单号与备注；外壳线「外壳入库」完成时自动生成物料批次 |
 | **步骤问题清单** | 每一步（或整个项目）可以登记问题：标题、说明、严重度（轻微/一般/严重）、负责人、发现日、截止日；未处理 / 处理中 / 已关闭三态，一键关闭时记处理结果与关闭日；项目列表与步骤表直接显示未结数量 |
@@ -145,11 +146,11 @@ flowchart LR
 
 ```
 langhua-ofbiz-mfg/
-├── ofbiz-component.xml              # 组件描述符；14 条 service-resource 在这里登记
+├── ofbiz-component.xml              # 组件描述符；15 条 service-resource 在这里登记
 ├── config/                          # MfgUiLabels.xml（状态多语言）
 ├── data/                            # MfgSecurityPermissionSeedData.xml（权限与角色种子）
 ├── entitydef/                       # entitymodel.xml + entitygroup.xml
-├── servicedef/                      # 一个域一个服务定义文件（121 个服务）
+├── servicedef/                      # 一个域一个服务定义文件（125 个服务）
 │   ├── account-services.xml         #   7：改密门禁、账号页、操作记录
 │   ├── security-services.xml        #   1：mfgPermissions（装饰器问导航用）
 │   ├── settings-services.xml        #   2：系统设置
@@ -163,6 +164,7 @@ langhua-ofbiz-mfg/
 │   ├── purchase-services.xml        #  12：采购到货、导入、退款黑名单
 │   ├── stock-services.xml           #  14：批次、来料检验、库位、盘点
 │   ├── dev-services.xml             #  15：开发三线、步骤、问题清单、ECO
+│   ├── devbom-services.xml          #   4：研发 BOM（Fritzing）导入、比对、锁料、缺货清单
 │   └── report-services.xml          #   7：看板、告警、趋势、缺料、供应商
 ├── widget/                          # MfgCommonScreens.xml（装饰器）+ MfgScreens.xml（页面）
 ├── webapp/mfg/                      # controller.xml、web.xml、FTL、decorator.ftl、css/、js/
@@ -175,7 +177,7 @@ langhua-ofbiz-mfg/
 │   │     MfgAccountServices / MfgSecurity / MfgSettingsServices / MfgSoftwareServices /
 │   │     MfgAttachmentServices / MfgProductServices / MfgWorkOrderServices / MfgDeliveryServices /
 │   │     MfgClaimServices / MfgSalesOrderServices / MfgPurchaseServices / MfgStockServices /
-│   │     MfgDevServices / MfgReportServices
+│   │     MfgDevServices / MfgDevBomServices / MfgReportServices
 │   ├── 词汇层（跨域共享，只读不写回）：
 │   │     MfgConstants（190 个常量）/ MfgRecordMaps（实体→页面 map）/ MfgSecurity（权限）
 │   ├── 纯函数层（不碰库，可单测）：
@@ -185,8 +187,8 @@ langhua-ofbiz-mfg/
 │   └── oir/                         # 截图识别：OirScan（问与切）+ OirOrders（规则）+ README.md
 └── src/test/java/org/langhua/ofbiz/mfg/
     ├── MfgFormatRulesTest / MfgOrderReadRulesTest / MfgClaimRulesTest
-    ├── MfgAuditRulesTest / MfgProductRulesTest / MfgDomainRulesTest
-    └── （六个类共 177 个用例，一个 `mfg-tests-all.bat` 一次跑完）
+    ├── MfgAuditRulesTest / MfgProductRulesTest / MfgDomainRulesTest / MfgDevBomRulesTest
+    └── （七个类共 186 个用例，一个 `mfg-tests-all.bat` 一次跑完）
 ```
 
 ## 改代码时的地图（维护指南）
@@ -434,11 +436,13 @@ https://localhost:8443/mfg/control/main
 | `MfgDevStageReview` | 阶段关卡评审：`projectCode` + `stageId`（联合主键）、`plannedDate`、`doneDate`、`resultId`（PASS/CONDITIONAL/FAIL）、`reviewer`、`note` |
 | `MfgDevEco` | 设计变更单：`ecoId`（ECO-yyMMdd-NN）、`productCode`、`projectCode`、`ecoTypeId`（BOM/工艺/设计/物料）、`reason`、`changeSummary`、`statusId`（DRAFT/APPROVED/APPLIED/CANCELLED）、`fromBomVersionId` → `toBomVersionId`、`requestedBy`、`approvedBy`、`effectiveDate` |
 | `MfgDevStepIssue` | 步骤问题：`issueId`（ISSUE-yyMMdd-NN）、`projectCode`、`stepId`（可为空 = 项目级）、`title`、`detail`、`severityId`（LOW/MEDIUM/HIGH）、`statusId`（OPEN/DOING/CLOSED）、`ownerName`、`foundDate`、`dueDate`、`closedDate`、`resolution` |
+| `MfgDevBom` | 一次研发 BOM 导入（Fritzing）：`projectCode` + `importSeq`（联合主键）、`bomVersion`、`sourceFile`、`importedStamp`、`itemCount`/`newCount`/`changedCount`/`droppedCount`/`shortCount`、`lockedQty` |
+| `MfgDevBomItem` | 某一版的元件：`projectCode` + `importSeq` + `lineSeq`（联合主键）、`componentCode`、`componentName`、`partType`、`properties`、`designators`、`qty`、`previousQty`、`changeId`（NEW/SAME/CHANGED/DROPPED）、`lockedQty`、`shortQty`、`consumedQty` |
 | `MfgSoftwareProject` | 软件项目台账：`projectCode`（SW-yyMMdd-NN）、`categoryId`（固件/外壳设计/上位机/平台）、`productCode`、`devProjectCode`、`statusId`、`deliverySeq`（同类第几次）、规模 `ilfCount`/`eifCount`/`ufp`、估算参数 `swfBase`/`swfReuse`/`swfPreInvest`/`swfQuality`/`rdf`/`pdrHoursPerFp`/`dayRate`/`taxRate`/`dncRate`、`plannedDays`（估算冻结）、`plannedStartDate`/`plannedEndDate`、实际 `actualHours`/`actualCost`、`quotedAmount` |
 
 ## 服务
 
-服务定义按域分成 14 个文件（`servicedef/<域>-services.xml`，见「目录结构」），Java 实现按域在
+服务定义按域分成 15 个文件（`servicedef/<域>-services.xml`，见「目录结构」），Java 实现按域在
 `Mfg<域>Services` 里，两者靠 `location=` 关联；**加/改服务时两处都要动**（详见「改代码时的地图」）。
 
 | 服务名 | 说明 |
@@ -854,7 +858,7 @@ java -cp build/it-classes MfgServiceIT
 
 ## 单元测试
 
-单测按域分成六个类（共 **177** 个用例），`mfg-tests-all.bat` 一次编全部源码 + 全部测试源码再跑六个类：
+单测按域分成七个类（共 **186** 个用例），`mfg-tests-all.bat` 一次编全部源码 + 全部测试源码再跑七个类：
 
 ```bash
 # 关键点：先 cd 到一个临时目录再起 JVM —— OFBiz 的 log4j2 把日志写到相对路径 runtime/logs，
@@ -865,7 +869,8 @@ java -cp "build/test-classes:ofbiz.jar:junit-4.13.2.jar:hamcrest-core-1.3.jar" \
       org.junit.runner.JUnitCore \
       org.langhua.ofbiz.mfg.MfgFormatRulesTest org.langhua.ofbiz.mfg.MfgOrderReadRulesTest \
       org.langhua.ofbiz.mfg.MfgClaimRulesTest org.langhua.ofbiz.mfg.MfgAuditRulesTest \
-      org.langhua.ofbiz.mfg.MfgProductRulesTest org.langhua.ofbiz.mfg.MfgDomainRulesTest
+      org.langhua.ofbiz.mfg.MfgProductRulesTest org.langhua.ofbiz.mfg.MfgDomainRulesTest \
+      org.langhua.ofbiz.mfg.MfgDevBomRulesTest
 ```
 
 | 类 | 用例 | 覆盖 |
@@ -876,6 +881,7 @@ java -cp "build/test-classes:ofbiz.jar:junit-4.13.2.jar:hamcrest-core-1.3.jar" \
 | `MfgProductRulesTest` | 18 | BOM 版本号与下一版、开发阶段阶梯与关卡、变更单状态与类型、三条线路的步骤目录、首个未完成步骤、附件类型白名单与文件名清洗、两种 BOM 格式 |
 | `MfgAuditRulesTest` | 6 | 登录跳回（页面 vs 视图名）、审计动作中文名、单据请求名、行号与保留期 |
 | `MfgDomainRulesTest` | 35 | 来料检验、单台成本与毛利、CSV 单元格转义与数量格式、软件报价四步与耗时率中位数、趋势期间标签与良率/单台工时、库存流水符号与预留、成品批次与单位成本、订单行欠货与待排产、库位类型、外协费、账号名与导入失败话术 |
+| `MfgDevBomRulesTest` | 9 | Fritzing `bom.html` 解析（两表合并、表头认列、位号合并、数量取 Amount）、HTML 实体与标签清理、料号取法（MPN / MN / 元件号 / 单词型号 / 型号+参数拼 / 哈希兑底）、版本间的 新增/变化/不变/停用 判定、同料行合并、版本号从文件名取 |
 
 ## 页面巡检（PowerShell）
 
@@ -898,6 +904,7 @@ java -cp "build/test-classes:ofbiz.jar:junit-4.13.2.jar:hamcrest-core-1.3.jar" \
 | `verify-m37.ps1` | 销售订单：列表（导航、新建表单、状态过滤）、下单后详情（行明细、三个按钮、出货表单）、先锁在库、排产（生工单）、关单（状态转 CLOSED） | 26 |
 | `verify-m38.ps1` | 库位与移库：库位页（导航、卡片、两个表单）、新建两个库位、到货放到库位 A、按库位看结存、移 4 到 B（两边余额对、流水两条同单号、备注）、超量移库被拒 | 24 |
 | `verify-m39.ps1` | 外协费按单分摊：工单页三个表单、加一条按台明细（0.00 金额与对账单号）、删除后消失、非法计价方式被拒 | 16 |
+| `verify-m52-devbom.ps1` | 研发 BOM（Fritzing HTML）：导入真截图工程的 `pixel-flash-v94_bom.html` → 11 个元件与料号（`R-10K-0603`、`C-100NF-16V-0603`、`MPN` / `元件号` 优先）、有库存的不进缺货清单、没库存的进；第二版（换格式 CSV）1 个数量变化 / 9 个不变 / 1 个不再使用，停用件记成 `VAR_SAMPLE` 并离开货架；缺货清单 CSV（`text/csv` + BOM）；改料号后按新料号重新锁料；释放锁料后重新变缺 | 33 |
 
 > 这些脚本在断言页面内容，不只是看 HTTP 200：OFBiz 的模板错误也是 200 + 一页堆栈，
 > 所以每个页面都要扫 `FTL stack trace` / `FreeMarker template error`。
@@ -1031,6 +1038,69 @@ SMT 为外协，且对方**不提供上料 / 换料记录**，因此追溯精度
 - 生效时如果指定了目标 BOM 版本，会做一次“启用该版本”的动作（旧版本转废止），
   变更单与版本双向可查：版本上有 `ecoId`，变更单上有 `fromBomVersionId → toBomVersionId`；
 - 没指定目标版本的变更（比如工艺、外观）只记录说明与生效日，不动 BOM。
+
+## 研发 BOM：从面包板到缺货外购清单（Fritzing）
+
+一块板子是从面包板和连线开始的，Fritzing 的 **`bom.html`** 就是那一刻的物料清单。开发项目页的
+「研发 BOM（Fritzing）与缺货外购清单」一块把它变成三件事：**这一版要用什么、库里已经有的是不是锁住了、还差多少要买**。
+
+### 怎么用
+
+1. `/mfg/control/dev` 立项（线路选 PCB）；
+2. 项目页下面的「导入 Fritzing 的 BOM」：选 `<项目>_bom.html`（Fritzing 里「导出 → 作为图片 → 物料清单」生成），
+   或者把内容整段粘进文本框；版本号留空就从文件名取 `vNN`；两个勾选框决定「锁库存」与「不再使用的记研发消耗」（默认都勾）；
+3. 页面立刻给出四张表：**缺货外购清单**（带建议采购数，可导 CSV）、**本版元件**（每行可改料号与数量）、
+   **本版不再使用的元件**、**导入记录**（每次导入的新增 / 变化 / 停用 / 缺货计数）。
+
+### 格式与料号怎么定
+
+`bom.html` 里有两张表：**Assembly List**（一个位号一行）与 **Shopping List**（一个元件一行，带 `Amount`）。
+导入按**表头**认列，所以多一列、换顺序都不会错；两表的行按「MPN / MN / Part Type / Properties」合成一条，
+数量取 `Amount`、位号取 `Label`。料号按这个顺序取（一律大写，最长 100 字符）：
+
+| 顺序 | 来源 | 例子 |
+| --- | --- | --- |
+| 1 | MPN（制造商料号） | `CH32V003F4U6` |
+| 2 | MN（制造商编号） | — |
+| 3 | Properties 里的 `元件号` | `BAS70BRW`、`1N5819`、`SH1.0-3P-LT`、`NFC-Coil-20-6T` |
+| 4 | Part Type 只有一个词 | `WS2812B-1010` |
+| 5 | 型号 + 参数拼 | `10kΩ Resistor` + `包 [SMD] 0603` → `R-10K-0603`；`Capacitor 0603` 100 nF/16 V → `C-100NF-16V-0603` |
+| 6 | 什么都没有 | `P-<哈希>`（同一颗料每次导入都一样，不会越导越多料号） |
+
+**料号和库存对不上就改**：本版元件表里每行的料号、数量都能改，保存后按新料号重新锁料。
+Fritzing 用它自己的名字，库存是按买回来的型号记的，这一行就是两边的桥（改料号会把旧料号上的锁一起挪过去）。
+
+### 锁料、缺货清单、版本差异
+
+- **锁料就是预留**：写一条 `MFG_MOVE_RESERVE` 流水（`devProjectCode` = 项目），在库数量不变，
+  但这几颗料**工单就抢不走**了；`缺口 = 需求 − 已锁`，`建议采购` 向上取整。
+- **首次导入**：每个元件都算「新增」，按批次先后（FIFO）能锁多少锁多少，锁不到的进缺货清单。
+- **后续导入**：与上一次导入的快照按料号比对——
+  - 新出现的元件 → **新增**：锁料，进缺货清单（这就是“继续生成新的外购清单”）；
+  - 数量变大 → **数量变化**：补锁差额；
+  - 数量变小 → 记「数量变化」，**已锁的不退回**（已经买回来了）；
+  - 这一版不再出现 → **不再使用**：把该料在这个项目上的锁**全部释放**，并按同样数量记一笔
+    `MFG_MOVE_SCRAP` + 原因 `VAR_SAMPLE`（样品）——**不退回库存**，按研发消耗处理。
+    面包板和连线阶段的东西已经用掉了；不想记消耗就把勾去掉（只放锁，库存不动）。
+- **释放本项目的锁料**：板子下单或项目暂停时点一下，只放锁、不动库存。
+- **缺货清单是实时算的**：买回来入库后缺口自己消失；「导入时缺几项」留在导入记录里做对照。
+
+### 数据与代码
+
+| 东西 | 在哪 |
+| --- | --- |
+| 每次导入 | `MfgDevBom`（`projectCode` + `importSeq`；版本号、文件、元件/新增/变化/停用/缺货计数、锁料合计） |
+| 每版的元件 | `MfgDevBomItem`（料号、名称、型号、参数、位号、数量、上一版数量、`changeId`、已锁、缺口、研发消耗） |
+| 锁料 | `MfgInventoryDetail.devProjectCode`（配 `reservedDiff`），与工单预留同一套口径 |
+| 解析 | `MfgCsv.parseFritzingHtmlBom`（`BomFormat.FRITZING_HTML`；纯函数、离线可测） |
+| 比对 | `MfgDevBomServices.devBomRows`（纯函数：合并同料行 → 新增/变化/不变 → 补上不再使用的） |
+| 服务 | `mfgDevBomImport` / `mfgDevBomDetail` / `mfgDevBomItemSave` / `mfgDevBomRelease`（`servicedef/devbom-services.xml`） |
+| 事件 | `MfgDevBomEvents.importHtml`（选文件或粘贴）/ `shortageCsv`（缺货清单 CSV，UTF-8 带 BOM） |
+| 页面 | `webapp/mfg/dev.ftl` 的 `#devbom` 一段（`/mfg/control/dev?projectCode=…`） |
+| 巡检 | `verify-m52-devbom.ps1`（33 项，指向测试实例 8095） |
+
+产品的 BOM 导入（`/mfg/control/products`）也能直接吃这份 `bom.html`（格式选「自动识别」即可），
+用于把面包板阶段验证过的料同步进型号主数据。
 
 ## 成本核算：标准成本与实际成本
 
@@ -1599,6 +1669,18 @@ $R^2$ 低于期望值（默认 0.95）时逐点剔除误差最大的批次重拟
 | 完工回锁 | 工单完工入库后，属于该订单行的数量自动再锁一次（同一套预留流水） |
 | 关单释放 | 该订单所有行的预留全部写反向 `MFG_MOVE_RELEASE`，可用量回到货架 |
 | 订单状态 | MFG_SO_OPEN（待料/待排）→ PLANNED（有工单在做）→ SHIPPED（全出完）→ CLOSED / CANCELLED |
+
+### 13. 研发 BOM 的锁料与缺货（`devBomImport` / `devBomDetail`，见「研发 BOM」一节）
+
+| 项 | 公式 |
+| --- | --- |
+| 缺口 | $\text{缺口} = \max(0,\ \text{需求} - \text{已锁})$ |
+| 建议采购 | $\lceil \text{缺口} \rceil$（元件按个买） |
+| 每批能锁多少 | $\min(\text{还差}, \text{在库} - (\text{已预留} - \text{本项目在该批的锁}))$，批次按到货日先后取；来料判不合格的批次不给锁 |
+| 补锁（数量变大） | 只补差额 $\text{需求} - \text{已锁}$，已有的锁不动 |
+| 数量变小 | **不释放**（货已经买回来了），只改需求数与缺口 |
+| 不再使用 | 释放该料全部锁料 $L$，同时记一笔 $-L$ 的报废（`VAR_SAMPLE`，研发消耗），于是可用量不变、在库 $L$ 减少 |
+| 料号改正 | 先释放旧料号上的锁，再按新料号补锁到需求量 |
 
 ## 前端选型：为什么看板不上框架
 

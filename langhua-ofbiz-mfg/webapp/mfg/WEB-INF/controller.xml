@@ -810,6 +810,54 @@
         <response name="error" type="view" value="dev"/>
     </request-map>
 
+    <request-map uri="devBomImport">
+        <security https="true" auth="true"/>
+        <event type="java" path="org.langhua.ofbiz.mfg.MfgDevBomEvents" invoke="importHtml"/>
+        <response name="success" type="request-redirect" value="dev">
+            <redirect-parameter name="projectCode"/>
+            <redirect-parameter name="bomVersion"/>
+            <redirect-parameter name="bomItemCount"/>
+            <redirect-parameter name="bomNewCount"/>
+            <redirect-parameter name="bomChangedCount"/>
+            <redirect-parameter name="bomDroppedCount"/>
+            <redirect-parameter name="bomShortCount"/>
+            <redirect-parameter name="bomLockedQty"/>
+            <redirect-parameter name="bomConsumedQty"/>
+        </response>
+        <response name="error" type="view" value="dev"/>
+    </request-map>
+
+    <request-map uri="devBomItemSave">
+        <security https="true" auth="true"/>
+        <event type="service" invoke="mfgDevBomItemSave"/>
+        <response name="success" type="request-redirect" value="dev">
+            <redirect-parameter name="projectCode"/>
+            <redirect-parameter name="componentCode"/>
+            <redirect-parameter name="lockedQty"/>
+            <redirect-parameter name="shortQty"/>
+        </response>
+        <response name="error" type="view" value="dev"/>
+    </request-map>
+
+    <request-map uri="devBomRelease">
+        <security https="true" auth="true"/>
+        <event type="service" invoke="mfgDevBomRelease"/>
+        <response name="success" type="request-redirect" value="dev">
+            <redirect-parameter name="projectCode"/>
+            <redirect-parameter name="releasedQty"/>
+        </response>
+        <response name="error" type="view" value="dev"/>
+    </request-map>
+
+    <request-map uri="devBomCsv">
+        <security https="true" auth="true"/>
+        <event type="java" path="org.langhua.ofbiz.mfg.MfgDevBomEvents" invoke="shortageCsv"/>
+        <response name="success" type="none"/>
+        <response name="error" type="request-redirect" value="dev">
+            <redirect-parameter name="projectCode"/>
+        </response>
+    </request-map>
+
     <request-map uri="workOrderOutsource">
         <security https="true" auth="true"/>
         <event type="service" invoke="mfgWorkOrderOutsourceSave"/>

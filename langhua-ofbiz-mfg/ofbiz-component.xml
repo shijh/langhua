@@ -17,6 +17,7 @@
     <service-resource type="model" loader="main" location="servicedef/claim-services.xml"/>
     <service-resource type="model" loader="main" location="servicedef/delivery-services.xml"/>
     <service-resource type="model" loader="main" location="servicedef/dev-services.xml"/>
+    <service-resource type="model" loader="main" location="servicedef/devbom-services.xml"/>
     <service-resource type="model" loader="main" location="servicedef/product-services.xml"/>
     <service-resource type="model" loader="main" location="servicedef/purchase-services.xml"/>
     <service-resource type="model" loader="main" location="servicedef/report-services.xml"/>

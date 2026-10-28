@@ -57,7 +57,7 @@
             auth="false" use-transaction="false">
         <description>Import BOM lines from CSV: componentCode,componentName,qty,designators,isKeyPart,unitPrice</description>
         <attribute name="productCode" type="String" mode="IN" optional="false"/>
-        <attribute name="csv" type="String" mode="IN" optional="false"/>
+        <attribute name="csv" type="String" mode="IN" optional="false" allow-html="any"/>
         <attribute name="replace" type="String" mode="IN" optional="true"/>
         <attribute name="bomVersionId" type="String" mode="IN" optional="true"/>
         <attribute name="format" type="String" mode="IN" optional="true"/>

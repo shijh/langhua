@@ -95,6 +95,23 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   `To do URL encoding, the framework that encloses FreeMarker must specify the "output_encoding" setting ...`；
   `workOrderDetail.ftl` 没有这个 setting，所以在那里用 `?url` 会让整页报错，而且 POST 后的 302 目标页报错时
   巡检看到的是「200 + template error」；批次号这类安全字符直接拼，不要 `?url`
+- **服务参数里有 `<` / `>` 要给 `allow-html="any"`（Step 175 踩的）**：OFBiz 的 `ModelService` 校验 IN 参数，
+  默认 `allow-html="none"`，于是「一段 HTML」进不了服务——`mfgDevBomImport` 第一次跑就回
+  `In field [bomText] less-than (<) and greater-than (>) symbols are not allowed.`，日志里只看到
+  `Incoming context (in runSync : mfgDevBomImport) does not match expected requirements`（**看起来像缺参数，
+  其实是内容被拒**）。所以 `bomText`、以及产品 BOM 导入的 `csv`（也能粘 `bom.html`）都写成了
+  `<attribute name="bomText" type="String" mode="IN" optional="true" allow-html="any"/>`。
+- **先建父行再建子行（Step 175 踩的）**：`MfgDevBomItem` 上有指向 `MfgDevBom` 的联合外键
+  （`projectCode` + `importSeq`），第一版先插明细后插表头，Derby 直接报
+  `violation of foreign key constraint 'MFG_DEVBOMITEM_HEAD'`。现在表头先建（计数先写 0），循环结束后
+  `delegator.store(head)` 回写；服务是 `use-transaction="true"`，所以失败不会留下半截数据与锁料。
+- **新实体的索引名与外键名 ≤ 18 字符**：`MFG_DEVBOMITEM_CODE`（19）会刷 `[IndexNameGT18]` 警告、
+  `MFG_DEVBOMITEM_HEAD`（19）刷 `[RelFKNameGT18]`，已改成 `MFG_DBOMITEM_CODE` / `MFG_DBOMITEM_HEAD`。
+- **勾选框「不勾」= 参数不发送**：`<input type="checkbox" name="lock" value="Y"/>` 不勾时请求里没有 `lock`，
+  而服务的默认值是「不传就锁」，于是取消勾选反而照样锁。现在事件里显式翻成 `"Y"`/`"N"`：
+  `context.put("lock", parameters.get("lock") == null ? "N" : "Y")`。
+- **`Invoke-WebRequest -Body @{...}` 适合几 KB 的文本 POST**：巡检导入 `bom.html` 不必手拼 multipart
+  （那份只在真选文件时才需要），把整个 HTML 放进 `bomText` 字段即可。
 
 ## 测试与巡检
 
@@ -110,6 +127,7 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
 | `MfgProductRulesTest` | BOM 版本编号、开发三线与阶段阶梯、ECO、附件类型、BOM 格式（18） | 18 |
 | `MfgAuditRulesTest` | 登录跳回、审计动作中文名、单据请求名、行号与保留期（6） | 6 |
 | `MfgDomainRulesTest` | 来料检验、单台成本、软件报价、趋势、库存流水与原因、销售单算术、库位、外协费、账号名与导入失败话术（37） | 37 |
+| `MfgDevBomRulesTest` | Fritzing `bom.html` 解析（两表合并、表头认列、位号合并、数量取 Amount）、HTML 实体与标签清理、料号取法（MPN / MN / 元件号 / 单词型号 / 型号+参数拼 / 哈希兑底）、版本间的 新增/变化/不变/停用、同料行合并、版本号从文件名取（9） | 9 |
 | `MfgServiceIT` | 全链路服务调用（含 BOM 版本、Fritzing BOM 导入、三条开发线、ECO、附件、来料检验、成本、告警、软件报价与台账、成本细化与外协费明细、步骤问题清单、良率/工时趋势、库存流水与盘点、工单预留/发料释放、完工入库与出货扣减、销售订单两级预留与核销、库位与移库、用户账号） | 398 |
 | `verify-m11.ps1` | 列表页搜索/过滤/翻页/编码 | 55 |
 | `verify-m12.ps1` | 装饰器布局（1 个 html、1 条导航、1 个高亮、样式表、无内联 style、无 FTL 报错） | 102 |
@@ -134,9 +152,22 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
 | `verify-m46.ps1` | 采购到货单（Step 58）：汇总表与 `data-allocation`、建单与运费、批次下拉、挂批次后的行与金额、合计含运费、同一批次不能挂两张单、负运费被拒、行可以移出、**整单优惠（红包 / 满减）四项断言**、列表翻页、行内展开与就地改行、删行、料号重命名（日志 `mfg-m46.txt`） | 63 |
 | `verify-m47.ps1` | 照淘宝订单一步入库（Step 60/65/110）：订单表单、两行明细 → 建单+入库、订单号已存、货款 4.41、便宜料单价 0.0291、重复提交不重复入库、补运费累加、不满四列/数量 0 被拒、**长料号被缩短且全称留在名称里**、识图按钮与 `/mfg/control/orderImage` 降级回答、**淘宝导出的 xlsx 导入块（`#excelForm` / multipart / `#excelNoteTable` / 空提交回 JSON）**（日志 `mfg-m47.txt`；识图那几项要求实例上没配识图，跑完 m48 会清掉） | 42 |
 | `verify-m48.ps1` | 系统设置页（Step 61）：识图配置块与状态、密钥不回显、接口必须 http(s)、空密钥保留旧的、保存后状态变 DATABASE、`clear=Y` 恢复未配置、没配/配了两种 scan 回答（日志 `mfg-m48.txt`） | 26 |
+| `verify-m52-devbom.ps1` | 研发 BOM（Step 175，测试实例）：导入真工程的 `pixel-flash-v94_bom.html` → 11 个元件与料号、有库存的不进缺货清单、没库存的进；第二版（CSV）1 个数量变化 / 9 不变 / 1 停用 + `VAR_SAMPLE` 离开货架；缺货清单 CSV；改料号重锁；释放锁料后又变缺（日志 `mfg-m52-test.txt`） | 33 |
 
 ## 设计决策
 
+- **研发 BOM：Fritzing 的 `bom.html` 直接进开发项目（Step 175）**：一块板从面包板开始，所以「研发 BOM」挂在
+  **开发项目**（`/mfg/control/dev?projectCode=…` 的 `#devbom` 一段）而不是型号上。一次导入 = 一条
+  `MfgDevBom`（`projectCode` + `importSeq`）+ 每版每个元件一条 `MfgDevBomItem`（带 `changeId`
+  NEW/SAME/CHANGED/DROPPED）。三件事：
+  ① **锁库存**：写 `MfgInventoryDetail` 的 `MFG_MOVE_RESERVE`（`devProjectCode` = 项目），可用量与工单预留同一套；
+  ② **缺货外购清单**：`缺口 = 需求 − 已锁`，实时按库存算，买回来入库就自动消失，可导 CSV；
+  ③ **版本差异**：新元件 → 新增并锁料；数量变大 → 补锁；数量变小 → 不退回；不再出现 → **释放该料全部锁料 +
+     记一笔 `MFG_MOVE_SCRAP` + `VAR_SAMPLE`（研发消耗）**，于是可用量不变、在库减少——这就是用户要的
+     “不退回库里，作为研发消耗品处理”。
+  料号取法是 `MfgCsv` 里的分层次（MPN → MN → `元件号` → 单词型号 → 型号+参数拼 → `P-<哈希>`），
+  **同一颗料每次导入必须得到同一个料号**，否则每晚一个新料号、库存永远对不上；页面每行可改料号/数量
+  （改料号会把锁一起挪过去）。参数 `allow-html="any"`、先父后子、勾选框三件事见上面的「约定与坑」。
 - **三个实例：开发 8443 / 生产 8453 / 测试 8095（只有 http）**：`verify-m*.ps1` 用 `Invoke-WebRequest` +
   `ServerCertificateValidationCallback` 能过自签证书，但**浏览器自动化不行**，所以另起一个不用 TLS 的测试实例。
   端口：开发 http 8080 + https 8443（admin 10523）、生产 http 8090 + https 8453（admin 10623）、

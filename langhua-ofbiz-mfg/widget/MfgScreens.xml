@@ -96,6 +96,9 @@
                 <service service-name="mfgDevStepIssueList" result-map="issueResult" auto-field-map="false">
                     <field-map field-name="projectCode" from-field="parameters.projectCode"/>
                 </service>
+                <service service-name="mfgDevBomDetail" result-map="bomResult" auto-field-map="false">
+                    <field-map field-name="projectCode" from-field="parameters.projectCode"/>
+                </service>
             </actions>
             <widgets>
                 <decorator-screen name="mfg-decorator" location="component://mfg/widget/MfgCommonScreens.xml">
