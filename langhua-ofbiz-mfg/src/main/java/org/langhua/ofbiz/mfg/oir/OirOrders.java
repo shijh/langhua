@@ -11,6 +11,7 @@
 
 package org.langhua.ofbiz.mfg.oir;
 
+import org.langhua.ofbiz.mfg.MfgCsv;
 import org.langhua.ofbiz.mfg.MfgServices;
 
 import java.util.ArrayList;
@@ -111,7 +112,7 @@ public final class OirOrders {
             // dropped, and `mfgReceiptFromOrder` refused the whole order with "没有解析出明细" while the
             // page showed the row quite happily (Step 163)
             String line = raw.replaceAll("\\s+$", "");
-            String[] cells = MfgServices.splitCsvLine(line, cellsSeparator(line));
+            String[] cells = MfgCsv.splitCsvLine(line, cellsSeparator(line));
             if (cells.length == 3) {
                 // a shop that prints no article code: the model answers an empty first cell, and by the
                 // time the text reaches the service the first cell is gone - OFBiz trims every request

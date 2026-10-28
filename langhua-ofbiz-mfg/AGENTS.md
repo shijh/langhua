@@ -717,7 +717,7 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
 - **看板告警 + CSV 导出**：服务 `mfgAlerts` 收集「欠料工单」（`shortageRows()`，一行一个缺料元件）与「售后窗口」  （未结售后单的 `sevenDayDeadline` / `afterSaleDeadline`，已过期=ERROR、≤24h=WARN；`hoursLeft` 为 0 表示没设截止，
   所以**判断有没有截止要看 Timestamp 是否为 null**）；排序 ERROR 优先、再按剩余小时升序，页面只列前 20 条；
   三个下载 `dashboardCsv` / `alertsCsv` / `shortageCsv` 在 `MfgExportEvents`（事件 + `<response type="none"/>`），
-  文件带 UTF-8 BOM（中文 Excel 否则按 ANSI 读），数字用 `.` 小数点；CSV 转义用 `MfgServices.csvCell/csvLine`（有单测）
+  文件带 UTF-8 BOM（中文 Excel 否则按 ANSI 读），数字用 `.` 小数点；CSV 转义用 `MfgCsv.csvCell/csvLine`（有单测）
 - **软件项目（功能点口径）**：`MfgSoftwareProject` 一台账两用——自用记实际工时、对外报价算价格。
   纯函数 `softwareCost(ilf, eif, ufp, swf四项, rdf, pdr, dayRate, taxRate, dncRate)`：
   未调整功能点=35×内部逻辑文件+15×外部接口文件、工作量=耗时率×功能点×软件因素×开发因素、
@@ -1037,7 +1037,7 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   ① **只搬不写**：`MfgServices` 里剩下的调用点改成 `OirOrders.xxx(...)`，行为一字未改（161 单测全过、
   真实图片 23 张 / 23 个不重复单号 / 12 段，与搬之前一致）。
   ② `OirOrders` 自带 `round2` / `optionalAmount` / `toDouble` / `toText` 四个小工具（原来在 `MfgServices`，
-  为了不互相依赖复制了一份）；**料号规范化仍用 `MfgServices.fittingComponentCode` / `splitCsvLine` /
+  为了不互相依赖复制了一份）；**料号规范化仍用 `MfgServices.fittingComponentCode` / `MfgCsv.splitCsvLine` /
   `nameWithFullCode`**，这三个已改 `public static`（它们不是识图规则，是零件号规则）。
   ③ 搬完一定跑 `mfg-tests-all.bat`（只编 `MfgServices.java` 的 `mfg-tests.bat` 看不出 `OirOrders` 编译错）。
   踩坑：批量改调用点的正则**别加"前面不是点"的负向断言**（`(?<!\.)`），`MfgServices.tidyOrder(` 这种
@@ -1149,6 +1149,21 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   **踩坑**：把仓库里那份（`https="true"`）直接 copy 到**测试实例**会冲掉 `relax-test-https.ps1` 的改动，
   页面立刻 302 到 `https://localhost:8443`（看着像“改坏了”）——copy 完要对测试实例重跑那个脚本
   （这次它报了 113 个 request map）。回归：m50 13 项、m49 14 项、m43 15 项全过。
+- **三大块纯助手先搬出 `MfgServices`（Step 164）**：`MfgServices.java` 原来 14602 行、410 个方法（121 个是服务入口），
+  改一次要翻半天。第一步把**不碰数据库、不碰 DispatchContext** 的三块搬走：
+  - `MfgSupport`（290 行）：`toText/toDouble/toLong/parseDate/parseTimestamp/newMap/round2/numberOrZero/optionalAmount`
+    + `formatQty/percent/percentOf/daysBetween/ageBucket/median/periodKey/yieldRate/hoursPerUnit/percentOfMax`；
+  - `MfgPaging`（149 行）：`filterByKeyword/pageCount/pageNumber/pageSlice/putPage/rowsOf/pageOf/pageSizeOf`
+    + `PAGE_SIZE`（`MfgServices.PAGE_SIZE` 还在，指的是它）；
+  - `MfgCsv`（442 行）：`csvCell/csvLine/splitCsvLine/unquote` + `BomFormat` 枚举 + `detectBomFormat/parseBom/parseFritzingBom/parseBomCsv`
+    + `parseLotCsv/parseTestCsv/parseSnList/parseOrderLines`。
+  结果 `MfgServices` **14602 → 13792 行**，三者都是 `public final class` + 私有构造（`oir` 包要用 `MfgCsv.splitCsvLine`，
+  所以必须 public；同包的服务直接 `MfgSupport.toText(...)` 调）。**服务入口一个没动**，`services.xml` 一行没改。
+  验证：单测 177 个全过、集成 433 项全过（`mfg-it.bat`，它按服务名调用，能抓住搬错的入口）。
+  **下次搬域服务（第 3~5 步）要动 `services.xml` 的 `location=`**（一条服务一行），所以那几步必须跑 `mfg-it.bat`。
+  **踩坑**：批量改调用点必须先剥字符串字面量再找 `//` 注释——`startsWith("http://")` 会把后半行当注释吃掉，
+  于是花括号计数少一个、后面所有方法的定位全错（折腾了三轮）；多人签名（`filterByKeyword`/`putPage`）要按**字符**数花括号，
+  否则首行没有 `{` 就立刻判定“结束”。
 - **料号空着的行也能入库（Step 163）**：`(19).png` 第 11 单（`2623959120677500570`，淘宝深圳好又快PCB，实付 21.00）
   点「导入这些单」回「没有解析出明细，一行一个料：料号,名称,数量,实付金额」，可核对表上那一行明明是好的。
   原因是这一单**没有料号**（标题就是名称），模型给的空首列让整行是 `\t名称\t1\t21.00`——

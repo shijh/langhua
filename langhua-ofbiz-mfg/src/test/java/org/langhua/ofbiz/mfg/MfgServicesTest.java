@@ -79,7 +79,7 @@ public class MfgServicesTest {
                 + "# a comment line\n"
                 + "\n"
                 + "U1-BT5-SOC,主控 SoC,1,U1,y\n";
-        List<String[]> rows = MfgServices.parseBomCsv(csv);
+        List<String[]> rows = MfgCsv.parseBomCsv(csv);
 
         assertEquals(2, rows.size());
         assertEquals("R0402-10K", rows.get(0)[0]);
@@ -93,7 +93,7 @@ public class MfgServicesTest {
 
     @Test
     public void parsesBomCsvWithMissingColumns() {
-        List<String[]> rows = MfgServices.parseBomCsv("C0402-100N\n");
+        List<String[]> rows = MfgCsv.parseBomCsv("C0402-100N\n");
 
         assertEquals(1, rows.size());
         assertEquals("C0402-100N", rows.get(0)[0]);
@@ -105,13 +105,13 @@ public class MfgServicesTest {
 
     @Test
     public void parsesEmptyCsvAsEmptyList() {
-        assertTrue(MfgServices.parseBomCsv(null).isEmpty());
-        assertTrue(MfgServices.parseBomCsv("   \n\n").isEmpty());
+        assertTrue(MfgCsv.parseBomCsv(null).isEmpty());
+        assertTrue(MfgCsv.parseBomCsv("   \n\n").isEmpty());
     }
 
     @Test
     public void keepsQuotedCellContent() {
-        List<String[]> rows = MfgServices.parseBomCsv("\"R1,R2\",\"1/4W 电阻\",2,R1 R2,Y");
+        List<String[]> rows = MfgCsv.parseBomCsv("\"R1,R2\",\"1/4W 电阻\",2,R1 R2,Y");
 
         assertEquals(1, rows.size());
         assertEquals("R1,R2", rows.get(0)[0]);
@@ -123,7 +123,7 @@ public class MfgServicesTest {
 
     @Test
     public void splitsCsvLineWithEscapedQuotes() {
-        String[] cells = MfgServices.splitCsvLine("a,\"b\"\"c\",d");
+        String[] cells = MfgCsv.splitCsvLine("a,\"b\"\"c\",d");
 
         assertEquals(3, cells.length);
         assertEquals("a", cells[0]);
@@ -134,20 +134,20 @@ public class MfgServicesTest {
     @Test
     public void acceptsTabsSoASpreadsheetRangeCanBePasted() {
         // a range copied out of Excel is tab separated; both import boxes take it as it comes
-        List<String[]> bom = MfgServices.parseBomCsv("R0402-10K\t10K 电阻\t4\tR1-R4\tN\t0.05");
+        List<String[]> bom = MfgCsv.parseBomCsv("R0402-10K\t10K 电阻\t4\tR1-R4\tN\t0.05");
         assertEquals(1, bom.size());
         assertEquals("R0402-10K", bom.get(0)[0]);
         assertEquals("10K 电阻", bom.get(0)[1]);
         assertEquals("4", bom.get(0)[2]);
         assertEquals("0.05", bom.get(0)[5]);
 
-        List<String[]> lots = MfgServices.parseLotCsv("U1-BT5-SOC\t主控 SoC\t立创商城\tDC2410A\t120\t2026-10-20");
+        List<String[]> lots = MfgCsv.parseLotCsv("U1-BT5-SOC\t主控 SoC\t立创商城\tDC2410A\t120\t2026-10-20");
         assertEquals(1, lots.size());
         assertEquals("U1-BT5-SOC", lots.get(0)[0]);
         assertEquals("120", lots.get(0)[4]);
         assertEquals("2026-10-20", lots.get(0)[5]);
 
-        String[] cells = MfgServices.splitCsvLine("a\t\"b,c\"\td");
+        String[] cells = MfgCsv.splitCsvLine("a\t\"b,c\"\td");
         assertEquals(3, cells.length);
         assertEquals("b,c", cells[1]);
     }
@@ -155,18 +155,18 @@ public class MfgServicesTest {
     @Test
     public void ignoresTheByteOrderMarkOfAnExcelUtf8File() {
         // "CSV UTF-8" saves a BOM in front of the first cell, which must not end up in the part number
-        List<String[]> bom = MfgServices.parseBomCsv("\uFEFFR0402-10K,10K 电阻,4,R1-R4,N,0.05");
+        List<String[]> bom = MfgCsv.parseBomCsv("\uFEFFR0402-10K,10K 电阻,4,R1-R4,N,0.05");
         assertEquals(1, bom.size());
         assertEquals("R0402-10K", bom.get(0)[0]);
 
-        List<String[]> lots = MfgServices.parseLotCsv("\uFEFFU1-BT5-SOC,主控 SoC,立创商城,DC2410A,120,2026-10-20");
+        List<String[]> lots = MfgCsv.parseLotCsv("\uFEFFU1-BT5-SOC,主控 SoC,立创商城,DC2410A,120,2026-10-20");
         assertEquals(1, lots.size());
         assertEquals("U1-BT5-SOC", lots.get(0)[0]);
     }
 
     @Test
     public void parsesCrlfAndUppercasesComponentCode() {
-        List<String[]> rows = MfgServices.parseBomCsv(
+        List<String[]> rows = MfgCsv.parseBomCsv(
                 "r0402-10k,10K 电阻,4,\"R1,R2\",y\r\nb-conn,电池座,1,BAT1,n\r\n");
 
         assertEquals(2, rows.size());
@@ -192,7 +192,7 @@ public class MfgServicesTest {
                 + "# a comment line\n"
                 + "BAT-18650,电池,某电池厂,2026W40,50\n";
 
-        List<String[]> rows = MfgServices.parseLotCsv(csv);
+        List<String[]> rows = MfgCsv.parseLotCsv(csv);
 
         assertEquals(2, rows.size());
         assertEquals("U1-BT5-SOC", rows.get(0)[0]);
@@ -207,8 +207,8 @@ public class MfgServicesTest {
 
     @Test
     public void parsesEmptyLotCsvAsEmptyList() {
-        assertTrue(MfgServices.parseLotCsv(null).isEmpty());
-        assertTrue(MfgServices.parseLotCsv("   \n\r\n").isEmpty());
+        assertTrue(MfgCsv.parseLotCsv(null).isEmpty());
+        assertTrue(MfgCsv.parseLotCsv("   \n\r\n").isEmpty());
     }
 
     @Test
@@ -234,14 +234,14 @@ public class MfgServicesTest {
 
     @Test
     public void splitsSerialNumberLists() {
-        List<String> sns = MfgServices.parseSnList("SN-1, SN-2\nSN-3\tSN-1");
+        List<String> sns = MfgCsv.parseSnList("SN-1, SN-2\nSN-3\tSN-1");
 
         assertEquals(3, sns.size());
         assertEquals("SN-1", sns.get(0));
         assertEquals("SN-2", sns.get(1));
         assertEquals("SN-3", sns.get(2));
-        assertTrue(MfgServices.parseSnList(null).isEmpty());
-        assertTrue(MfgServices.parseSnList("  ,  \n").isEmpty());
+        assertTrue(MfgCsv.parseSnList(null).isEmpty());
+        assertTrue(MfgCsv.parseSnList("  ,  \n").isEmpty());
     }
 
     @Test
@@ -250,7 +250,7 @@ public class MfgServicesTest {
                 + "# comment\n"
                 + "ITMFG-261021-0002,AGEING,CURRENT,12.5,mA,N\n";
 
-        List<String[]> rows = MfgServices.parseTestCsv(csv);
+        List<String[]> rows = MfgCsv.parseTestCsv(csv);
 
         assertEquals(2, rows.size());
         assertEquals("ITMFG-261021-0001", rows.get(0)[0]);
@@ -260,7 +260,7 @@ public class MfgServicesTest {
         assertEquals("V", rows.get(0)[4]);
         assertEquals("Y", rows.get(0)[5]);
         assertEquals("N", rows.get(1)[5]);
-        assertTrue(MfgServices.parseTestCsv(null).isEmpty());
+        assertTrue(MfgCsv.parseTestCsv(null).isEmpty());
     }
 
     @Test
@@ -423,29 +423,29 @@ public class MfgServicesTest {
 
     @Test
     public void formatsPercentages() {
-        assertEquals("2.5", MfgServices.percent(1, 40));
-        assertEquals("0.0", MfgServices.percent(0, 40));
-        assertEquals("100.0", MfgServices.percent(7, 7));
+        assertEquals("2.5", MfgSupport.percent(1, 40));
+        assertEquals("0.0", MfgSupport.percent(0, 40));
+        assertEquals("100.0", MfgSupport.percent(7, 7));
         // no denominator, no percentage
-        assertEquals("-", MfgServices.percent(3, 0));
-        assertEquals("5.0", MfgServices.percentOf(50.0, 1000.0));
-        assertEquals("-", MfgServices.percentOf(50.0, 0.0));
+        assertEquals("-", MfgSupport.percent(3, 0));
+        assertEquals("5.0", MfgSupport.percentOf(50.0, 1000.0));
+        assertEquals("-", MfgSupport.percentOf(50.0, 0.0));
     }
 
     @Test
     public void agesClaimsAndBucketsThem() {
-        assertEquals(0, MfgServices.daysBetween(java.sql.Date.valueOf("2026-10-01"),
+        assertEquals(0, MfgSupport.daysBetween(java.sql.Date.valueOf("2026-10-01"),
                 java.sql.Date.valueOf("2026-10-01")));
-        assertEquals(30, MfgServices.daysBetween(java.sql.Date.valueOf("2026-10-01"),
+        assertEquals(30, MfgSupport.daysBetween(java.sql.Date.valueOf("2026-10-01"),
                 java.sql.Date.valueOf("2026-10-31")));
-        assertEquals(-1, MfgServices.daysBetween(null, java.sql.Date.valueOf("2026-10-31")));
+        assertEquals(-1, MfgSupport.daysBetween(null, java.sql.Date.valueOf("2026-10-31")));
 
-        assertEquals("0-30", MfgServices.ageBucket(0));
-        assertEquals("0-30", MfgServices.ageBucket(30));
-        assertEquals("31-90", MfgServices.ageBucket(31));
-        assertEquals("91-180", MfgServices.ageBucket(180));
-        assertEquals(">180", MfgServices.ageBucket(181));
-        assertEquals("未知", MfgServices.ageBucket(-1));
+        assertEquals("0-30", MfgSupport.ageBucket(0));
+        assertEquals("0-30", MfgSupport.ageBucket(30));
+        assertEquals("31-90", MfgSupport.ageBucket(31));
+        assertEquals("91-180", MfgSupport.ageBucket(180));
+        assertEquals(">180", MfgSupport.ageBucket(181));
+        assertEquals("未知", MfgSupport.ageBucket(-1));
     }
 
     @Test
@@ -479,12 +479,12 @@ public class MfgServicesTest {
 
     @Test
     public void scalesBarsAgainstTheLargestValue() {
-        assertEquals(100L, MfgServices.percentOfMax(10, 10));
-        assertEquals(50L, MfgServices.percentOfMax(5, 10));
-        assertEquals(0L, MfgServices.percentOfMax(0, 10));
+        assertEquals(100L, MfgSupport.percentOfMax(10, 10));
+        assertEquals(50L, MfgSupport.percentOfMax(5, 10));
+        assertEquals(0L, MfgSupport.percentOfMax(0, 10));
         // a value that exists is always visible, even when it is tiny
-        assertEquals(2L, MfgServices.percentOfMax(1, 1000));
-        assertEquals(100L, MfgServices.percentOfMax(3, 0));
+        assertEquals(2L, MfgSupport.percentOfMax(1, 1000));
+        assertEquals(100L, MfgSupport.percentOfMax(3, 0));
     }
 
     @Test
@@ -494,35 +494,35 @@ public class MfgServicesTest {
         rows.add(row("workOrderId", "WO-261021-002", "customerName", "Beta"));
         rows.add(row("workOrderId", "WO-261021-003", "customerName", "acme labs"));
 
-        assertEquals(2, MfgServices.filterByKeyword(rows, "acme", "customerName").size());
-        assertEquals(1, MfgServices.filterByKeyword(rows, "002", "workOrderId").size());
+        assertEquals(2, MfgPaging.filterByKeyword(rows, "acme", "customerName").size());
+        assertEquals(1, MfgPaging.filterByKeyword(rows, "002", "workOrderId").size());
         // no keyword means no filtering
-        assertEquals(3, MfgServices.filterByKeyword(rows, "  ", "customerName").size());
-        assertEquals(3, MfgServices.filterByKeyword(rows, null, "customerName").size());
-        assertEquals(0, MfgServices.filterByKeyword(rows, "zzz", "customerName").size());
+        assertEquals(3, MfgPaging.filterByKeyword(rows, "  ", "customerName").size());
+        assertEquals(3, MfgPaging.filterByKeyword(rows, null, "customerName").size());
+        assertEquals(0, MfgPaging.filterByKeyword(rows, "zzz", "customerName").size());
     }
 
     @Test
     public void splitsRowsIntoTewntyRowPages() {
-        assertEquals(1L, MfgServices.pageCount(0, 20));
-        assertEquals(1L, MfgServices.pageCount(20, 20));
-        assertEquals(2L, MfgServices.pageCount(21, 20));
-        assertEquals(3L, MfgServices.pageCount(60, 20));
+        assertEquals(1L, MfgPaging.pageCount(0, 20));
+        assertEquals(1L, MfgPaging.pageCount(20, 20));
+        assertEquals(2L, MfgPaging.pageCount(21, 20));
+        assertEquals(3L, MfgPaging.pageCount(60, 20));
 
         // an out of range page falls back to the closest available one
-        assertEquals(3L, MfgServices.pageNumber(99, 60, 20));
-        assertEquals(1L, MfgServices.pageNumber(0, 60, 20));
-        assertEquals(2L, MfgServices.pageNumber(2, 60, 20));
+        assertEquals(3L, MfgPaging.pageNumber(99, 60, 20));
+        assertEquals(1L, MfgPaging.pageNumber(0, 60, 20));
+        assertEquals(2L, MfgPaging.pageNumber(2, 60, 20));
 
         java.util.List<String> rows = new java.util.ArrayList<>();
         for (int i = 0; i < 45; i++) {
             rows.add("row" + i);
         }
-        assertEquals(20, MfgServices.pageSlice(rows, 1, 20).size());
-        assertEquals("row20", MfgServices.pageSlice(rows, 2, 20).get(0));
-        assertEquals(5, MfgServices.pageSlice(rows, 3, 20).size());
-        assertEquals("row40", MfgServices.pageSlice(rows, 9, 20).get(0));
-        assertEquals(0, MfgServices.pageSlice(new java.util.ArrayList<String>(), 1, 20).size());
+        assertEquals(20, MfgPaging.pageSlice(rows, 1, 20).size());
+        assertEquals("row20", MfgPaging.pageSlice(rows, 2, 20).get(0));
+        assertEquals(5, MfgPaging.pageSlice(rows, 3, 20).size());
+        assertEquals("row40", MfgPaging.pageSlice(rows, 9, 20).get(0));
+        assertEquals(0, MfgPaging.pageSlice(new java.util.ArrayList<String>(), 1, 20).size());
     }
 
     private static java.util.Map<String, Object> row(String keyOne, String valueOne, String keyTwo,
@@ -3228,25 +3228,25 @@ public class MfgServicesTest {
 
     @Test
     public void quotesCsvCellsThatWouldBreakTheLine() {
-        assertEquals("B5X", MfgServices.csvCell("B5X"));
-        assertEquals("", MfgServices.csvCell(null));
+        assertEquals("B5X", MfgCsv.csvCell("B5X"));
+        assertEquals("", MfgCsv.csvCell(null));
         // a comma, a quote and a line break all force the quotes, and quotes are doubled
-        assertEquals("\"a,b\"", MfgServices.csvCell("a,b"));
-        assertEquals("\"say \"\"hi\"\"\"", MfgServices.csvCell("say \"hi\""));
-        assertEquals("\"two\nlines\"", MfgServices.csvCell("two\nlines"));
-        assertEquals("B5X,12,0.5", MfgServices.csvLine(
+        assertEquals("\"a,b\"", MfgCsv.csvCell("a,b"));
+        assertEquals("\"say \"\"hi\"\"\"", MfgCsv.csvCell("say \"hi\""));
+        assertEquals("\"two\nlines\"", MfgCsv.csvCell("two\nlines"));
+        assertEquals("B5X,12,0.5", MfgCsv.csvLine(
                 java.util.Arrays.asList("B5X", "12", "0.5")));
         // null cells become empty cells, so the columns stay aligned
-        assertEquals("B5X,,12", MfgServices.csvLine(
+        assertEquals("B5X,,12", MfgCsv.csvLine(
                 java.util.Arrays.asList("B5X", null, "12")));
     }
 
     @Test
     public void formatsQuantitiesForTheAlertTexts() {
-        assertEquals("0", MfgServices.formatQty(0.0));
-        assertEquals("12", MfgServices.formatQty(12.0));
-        assertEquals("12.5", MfgServices.formatQty(12.5));
-        assertEquals("1.234", MfgServices.formatQty(1.23449));
+        assertEquals("0", MfgSupport.formatQty(0.0));
+        assertEquals("12", MfgSupport.formatQty(12.0));
+        assertEquals("12.5", MfgSupport.formatQty(12.5));
+        assertEquals("1.234", MfgSupport.formatQty(1.23449));
     }
 
     @Test
@@ -3282,11 +3282,11 @@ public class MfgServicesTest {
 
     @Test
     public void knowsTheMedianOfTheProductivitySamples() {
-        assertEquals(0.0, MfgServices.median(null), 1e-9);
-        assertEquals(0.0, MfgServices.median(java.util.Collections.<Double>emptyList()), 1e-9);
-        assertEquals(45.0, MfgServices.median(java.util.Arrays.asList(
+        assertEquals(0.0, MfgSupport.median(null), 1e-9);
+        assertEquals(0.0, MfgSupport.median(java.util.Collections.<Double>emptyList()), 1e-9);
+        assertEquals(45.0, MfgSupport.median(java.util.Arrays.asList(
                 Double.valueOf(45.0), Double.valueOf(40.0), Double.valueOf(50.0))), 1e-9);
-        assertEquals(45.0, MfgServices.median(java.util.Arrays.asList(
+        assertEquals(45.0, MfgSupport.median(java.util.Arrays.asList(
                 Double.valueOf(40.0), Double.valueOf(50.0))), 1e-9);
     }
 
@@ -3294,29 +3294,29 @@ public class MfgServicesTest {
     public void labelsThePeriodOfATrendBucket() {
         java.sql.Date date = java.sql.Date.valueOf(java.time.LocalDate.of(2026, 10, 21));
 
-        assertEquals("2026-10-21", MfgServices.periodKey(date, "DAY"));
+        assertEquals("2026-10-21", MfgSupport.periodKey(date, "DAY"));
         // 21 October 2026 is in ISO week 43
-        assertEquals("2026-W43", MfgServices.periodKey(date, "WEEK"));
-        assertEquals("2026-10", MfgServices.periodKey(date, "MONTH"));
+        assertEquals("2026-W43", MfgSupport.periodKey(date, "WEEK"));
+        assertEquals("2026-10", MfgSupport.periodKey(date, "MONTH"));
         // an unknown grouping falls back to the month, a missing date has no period
-        assertEquals("2026-10", MfgServices.periodKey(date, "YEAR"));
-        assertEquals("-", MfgServices.periodKey(null, "MONTH"));
+        assertEquals("2026-10", MfgSupport.periodKey(date, "YEAR"));
+        assertEquals("-", MfgSupport.periodKey(null, "MONTH"));
     }
 
     @Test
     public void countsYieldFromGoodAndRejectedUnits() {
-        assertEquals(95.0, MfgServices.yieldRate(95.0, 5.0), 1e-9);
-        assertEquals(100.0, MfgServices.yieldRate(10.0, 0.0), 1e-9);
-        assertEquals(0.0, MfgServices.yieldRate(0.0, 4.0), 1e-9);
+        assertEquals(95.0, MfgSupport.yieldRate(95.0, 5.0), 1e-9);
+        assertEquals(100.0, MfgSupport.yieldRate(10.0, 0.0), 1e-9);
+        assertEquals(0.0, MfgSupport.yieldRate(0.0, 4.0), 1e-9);
         // nothing reported is not a division by zero
-        assertEquals(0.0, MfgServices.yieldRate(0.0, 0.0), 1e-9);
+        assertEquals(0.0, MfgSupport.yieldRate(0.0, 0.0), 1e-9);
     }
 
     @Test
     public void countsHoursPerGoodUnit() {
-        assertEquals(0.5, MfgServices.hoursPerUnit(5.0, 10.0), 1e-9);
-        assertEquals(0.0, MfgServices.hoursPerUnit(5.0, 0.0), 1e-9);
-        assertEquals(0.0, MfgServices.hoursPerUnit(0.0, 10.0), 1e-9);
+        assertEquals(0.5, MfgSupport.hoursPerUnit(5.0, 10.0), 1e-9);
+        assertEquals(0.0, MfgSupport.hoursPerUnit(5.0, 0.0), 1e-9);
+        assertEquals(0.0, MfgSupport.hoursPerUnit(0.0, 10.0), 1e-9);
     }
 
     @Test
@@ -3506,7 +3506,7 @@ public class MfgServicesTest {
 
     @Test
     public void readsTheOrderLinesOfTheForm() {
-        List<Map<String, Object>> lines = MfgServices.parseOrderLines(
+        List<Map<String, Object>> lines = MfgCsv.parseOrderLines(
                 "# 型号,数量\r\nBT5-PRO,20,2026-11-30\n\n  BT5-LITE , 5 \nbadline,0\n");
         assertEquals(3, lines.size());
         assertEquals("BT5-PRO", lines.get(0).get("productCode"));
@@ -3599,14 +3599,14 @@ public class MfgServicesTest {
     @Test
     public void detectsTheBomFormat() {
         // Fritzing writes a header with a semicolon; everything else stays the component format
-        assertTrue(MfgServices.detectBomFormat("Label;Part Type;mn;mpn;part number;\nBT1;Supercapacitor;;;SE-5R5;\n")
-                == MfgServices.BomFormat.FRITZING);
-        assertTrue(MfgServices.detectBomFormat("\uFEFFAmount;Part Type;mn;mpn;part number;\n1;Resistor;;;;\n")
-                == MfgServices.BomFormat.FRITZING);
-        assertTrue(MfgServices.detectBomFormat("R0402-10K,10K 电阻,4,R1-R4,N,0.01\n")
-                == MfgServices.BomFormat.MFG);
-        assertTrue(MfgServices.detectBomFormat("") == MfgServices.BomFormat.MFG);
-        assertTrue(MfgServices.detectBomFormat(null) == MfgServices.BomFormat.MFG);
+        assertTrue(MfgCsv.detectBomFormat("Label;Part Type;mn;mpn;part number;\nBT1;Supercapacitor;;;SE-5R5;\n")
+                == MfgCsv.BomFormat.FRITZING);
+        assertTrue(MfgCsv.detectBomFormat("\uFEFFAmount;Part Type;mn;mpn;part number;\n1;Resistor;;;;\n")
+                == MfgCsv.BomFormat.FRITZING);
+        assertTrue(MfgCsv.detectBomFormat("R0402-10K,10K 电阻,4,R1-R4,N,0.01\n")
+                == MfgCsv.BomFormat.MFG);
+        assertTrue(MfgCsv.detectBomFormat("") == MfgCsv.BomFormat.MFG);
+        assertTrue(MfgCsv.detectBomFormat(null) == MfgCsv.BomFormat.MFG);
     }
 
     @Test
@@ -3622,7 +3622,7 @@ public class MfgServicesTest {
                 + "1;Supercapacitor 1.5F 5.5V;;;SE-5R5-D155VYC3G;\n"
                 + "2;PIN HEADER 1x4;;;PinHeader-1x4;\n"
                 + "2;4.7kΩ Resistor;;;;\n";
-        List<String[]> rows = MfgServices.parseFritzingBom(csv);
+        List<String[]> rows = MfgCsv.parseFritzingBom(csv);
 
         assertEquals(3, rows.size());
         // the part number becomes the code, the amount block the quantity
@@ -3646,7 +3646,7 @@ public class MfgServicesTest {
         String csv = "Label;Part Type;mn;mpn;part number;\n"
                 + "J1;PIN HEADER 1x4;;;PinHeader-1x4;\n"
                 + "J3;PIN HEADER 1x4;;;PinHeader-1x4;\n";
-        List<String[]> rows = MfgServices.parseFritzingBom(csv);
+        List<String[]> rows = MfgCsv.parseFritzingBom(csv);
 
         assertEquals(1, rows.size());
         assertEquals("2", rows.get(0)[2]);
@@ -3656,12 +3656,12 @@ public class MfgServicesTest {
     @Test
     public void parsesTheBomAfterDetectingTheFormat() {
         String fritzing = "Label;Part Type;mn;mpn;part number;\nU1;CH32V203F8U6;;;CH32V203F8U6;\n";
-        List<String[]> detected = MfgServices.parseBom(fritzing, null);
+        List<String[]> detected = MfgCsv.parseBom(fritzing, null);
         assertEquals(1, detected.size());
         assertEquals("CH32V203F8U6", detected.get(0)[0]);
 
         // the format can be forced, which also works for text that looks like neither
-        List<String[]> forced = MfgServices.parseBom("U9;SoC;;;U9-CHIP;\n", MfgServices.BomFormat.FRITZING);
+        List<String[]> forced = MfgCsv.parseBom("U9;SoC;;;U9-CHIP;\n", MfgCsv.BomFormat.FRITZING);
         assertEquals(1, forced.size());
         assertEquals("U9-CHIP", forced.get(0)[0]);
     }

@@ -63,10 +63,10 @@ public final class MfgExportEvents {
         }
         try {
             List<String> lines = new ArrayList<>();
-            lines.add(MfgServices.csvLine(Arrays.asList("级别", "类型", "编号", "对象", "截止",
+            lines.add(MfgCsv.csvLine(Arrays.asList("级别", "类型", "编号", "对象", "截止",
                     "剩余小时", "说明")));
             for (Map<String, Object> alert : MfgServices.buildAlerts(delegator)) {
-                lines.add(MfgServices.csvLine(Arrays.asList(
+                lines.add(MfgCsv.csvLine(Arrays.asList(
                         text(alert.get("level")),
                         typeLabel(text(alert.get("typeId"))),
                         text(alert.get("refId")),
@@ -97,10 +97,10 @@ public final class MfgExportEvents {
         }
         try {
             List<String> lines = new ArrayList<>();
-            lines.add(MfgServices.csvLine(Arrays.asList("工单", "型号", "交期", "客户", "料号", "名称",
+            lines.add(MfgCsv.csvLine(Arrays.asList("工单", "型号", "交期", "客户", "料号", "名称",
                     "需求", "已发", "欠料")));
             for (Map<String, Object> row : MfgServices.shortageRows(delegator)) {
-                lines.add(MfgServices.csvLine(Arrays.asList(
+                lines.add(MfgCsv.csvLine(Arrays.asList(
                         text(row.get("workOrderId")),
                         text(row.get("productCode")),
                         text(row.get("dueDate")),
@@ -142,7 +142,7 @@ public final class MfgExportEvents {
             Map<String, Object> trends = dispatcher.runSync("mfgDashboardTrends", context);
 
             List<String> lines = new ArrayList<>();
-            lines.add(MfgServices.csvLine(Arrays.asList("区段", "名称", "数值")));
+            lines.add(MfgCsv.csvLine(Arrays.asList("区段", "名称", "数值")));
             addKpi(lines, "生产", "在制工单", board.get("openOrderCount"));
             addKpi(lines, "生产", "在制计划台数", board.get("openPlannedQty"));
             addKpi(lines, "生产", "今日工时", board.get("todayHours"));
@@ -192,7 +192,7 @@ public final class MfgExportEvents {
     }
 
     private static void addKpi(List<String> lines, String section, String name, Object value) {
-        lines.add(MfgServices.csvLine(Arrays.asList(section, name, text(value))));
+        lines.add(MfgCsv.csvLine(Arrays.asList(section, name, text(value))));
     }
 
     /**
@@ -209,10 +209,10 @@ public final class MfgExportEvents {
         }
         List<Map<String, Object>> rows = UtilGenerics.cast(report.get("rows"));
         List<String> lines = new ArrayList<>();
-        lines.add(MfgServices.csvLine(Arrays.asList("期间", "汇总方式", "良品", "不良", "良率%", "工单数")));
+        lines.add(MfgCsv.csvLine(Arrays.asList("期间", "汇总方式", "良品", "不良", "良率%", "工单数")));
         if (rows != null) {
             for (Map<String, Object> row : rows) {
-                lines.add(MfgServices.csvLine(Arrays.asList(
+                lines.add(MfgCsv.csvLine(Arrays.asList(
                         text(row.get("period")),
                         text(report.get("groupBy")),
                         text(row.get("qtyOk")),
@@ -221,7 +221,7 @@ public final class MfgExportEvents {
                         text(row.get("orderCount")))));
             }
         }
-        lines.add(MfgServices.csvLine(Arrays.asList("合计", text(report.get("groupBy")),
+        lines.add(MfgCsv.csvLine(Arrays.asList("合计", text(report.get("groupBy")),
                 text(report.get("qtyOkTotal")), text(report.get("qtyNgTotal")),
                 text(report.get("yieldRate")), "")));
         writeCsv(response, "mfg-yield-trend", lines);
@@ -242,10 +242,10 @@ public final class MfgExportEvents {
         }
         List<Map<String, Object>> rows = UtilGenerics.cast(report.get("rows"));
         List<String> lines = new ArrayList<>();
-        lines.add(MfgServices.csvLine(Arrays.asList("期间", "汇总方式", "工时", "良品", "单台工时", "工单数")));
+        lines.add(MfgCsv.csvLine(Arrays.asList("期间", "汇总方式", "工时", "良品", "单台工时", "工单数")));
         if (rows != null) {
             for (Map<String, Object> row : rows) {
-                lines.add(MfgServices.csvLine(Arrays.asList(
+                lines.add(MfgCsv.csvLine(Arrays.asList(
                         text(row.get("period")),
                         text(report.get("groupBy")),
                         text(row.get("hours")),
@@ -254,7 +254,7 @@ public final class MfgExportEvents {
                         text(row.get("orderCount")))));
             }
         }
-        lines.add(MfgServices.csvLine(Arrays.asList("合计", text(report.get("groupBy")),
+        lines.add(MfgCsv.csvLine(Arrays.asList("合计", text(report.get("groupBy")),
                 text(report.get("hoursTotal")), text(report.get("qtyOkTotal")),
                 text(report.get("hoursPerUnit")), "")));
         writeCsv(response, "mfg-hours-trend", lines);
@@ -299,11 +299,11 @@ public final class MfgExportEvents {
         }
         List<Map<String, Object>> rows = UtilGenerics.cast(report.get("rows"));
         List<String> lines = new ArrayList<>();
-        lines.add(MfgServices.csvLine(Arrays.asList("期间", "汇总方式", "单据数",
+        lines.add(MfgCsv.csvLine(Arrays.asList("期间", "汇总方式", "单据数",
                 "货款", "运费", "采购支出", "运费占货款%")));
         if (rows != null) {
             for (Map<String, Object> row : rows) {
-                lines.add(MfgServices.csvLine(Arrays.asList(
+                lines.add(MfgCsv.csvLine(Arrays.asList(
                         text(row.get("period")),
                         text(report.get("groupBy")),
                         text(row.get("receiptCount")),
@@ -313,7 +313,7 @@ public final class MfgExportEvents {
                         text(row.get("freightShare")))));
             }
         }
-        lines.add(MfgServices.csvLine(Arrays.asList("合计", text(report.get("groupBy")),
+        lines.add(MfgCsv.csvLine(Arrays.asList("合计", text(report.get("groupBy")),
                 text(report.get("receiptCount")), text(report.get("goodsTotal")),
                 text(report.get("freightTotal")), text(report.get("spendTotal")),
                 text(report.get("freightShare")))));
@@ -370,7 +370,7 @@ public final class MfgExportEvents {
             return ((java.math.BigDecimal) value).stripTrailingZeros().toPlainString();
         }
         if (value instanceof Double || value instanceof Float) {
-            return MfgServices.formatQty(((Number) value).doubleValue());
+            return MfgSupport.formatQty(((Number) value).doubleValue());
         }
         return value.toString();
     }

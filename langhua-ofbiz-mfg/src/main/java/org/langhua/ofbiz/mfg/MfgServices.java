@@ -411,12 +411,12 @@ public final class MfgServices {
             return ServiceUtil.returnError("请先登录再改密码");
         }
         String userLoginId = userLogin.getString("userLoginId");
-        String currentPassword = toText(context.get("currentPassword"));
+        String currentPassword = MfgSupport.toText(context.get("currentPassword"));
         if (currentPassword == null || !matchesStoredPassword(delegator, userLoginId, currentPassword)) {
             return ServiceUtil.returnError("当前密码不对");
         }
-        String newPassword = toText(context.get("newPassword"));
-        String newPasswordVerify = toText(context.get("newPasswordVerify"));
+        String newPassword = MfgSupport.toText(context.get("newPassword"));
+        String newPasswordVerify = MfgSupport.toText(context.get("newPasswordVerify"));
         // checked here as well: OFBiz skips the "must differ" rule for an administrator
         String problem = passwordProblem(currentPassword, newPassword, newPasswordVerify);
         if (problem != null) {
@@ -428,7 +428,7 @@ public final class MfgServices {
         updateContext.put("currentPassword", currentPassword);
         updateContext.put("newPassword", newPassword);
         updateContext.put("newPasswordVerify", newPasswordVerify);
-        updateContext.put("passwordHint", toText(context.get("passwordHint")));
+        updateContext.put("passwordHint", MfgSupport.toText(context.get("passwordHint")));
         try {
             Map<String, Object> updated = dctx.getDispatcher().runSync("updatePassword", updateContext, -1, true);
             if (ServiceUtil.isError(updated)) {
@@ -685,8 +685,8 @@ public final class MfgServices {
                 }
                 Map<String, Object> option = new LinkedHashMap<>();
                 option.put("groupId", groupId);
-                String description = toText(group.getString("description"));
-                option.put("description", description == null ? toText(group.getString("groupName")) : description);
+                String description = MfgSupport.toText(group.getString("description"));
+                option.put("description", description == null ? MfgSupport.toText(group.getString("groupName")) : description);
                 groups.add(option);
             }
             // the administrator group first: that is what almost every new account needs
@@ -714,7 +714,7 @@ public final class MfgServices {
                 }
                 Map<String, Object> row = new LinkedHashMap<>();
                 row.put("userLoginId", userLoginId);
-                row.put("partyId", toText(login.getString("partyId")));
+                row.put("partyId", MfgSupport.toText(login.getString("partyId")));
                 row.put("personName", personNameOf(delegator, login.getString("partyId")));
                 row.put("enabled", "N".equals(login.getString("enabled")) ? "N" : "Y");
                 row.put("groups", groupIds.isEmpty() ? "" : String.join(" / ", groupIds));
@@ -756,14 +756,14 @@ public final class MfgServices {
         if (problem != null) {
             return ServiceUtil.returnError(problem);
         }
-        String personName = toText(context.get("personName"));
-        String groupId = toText(context.get("groupId"));
+        String personName = MfgSupport.toText(context.get("personName"));
+        String groupId = MfgSupport.toText(context.get("groupId"));
         String enabled = "N".equalsIgnoreCase(String.valueOf(context.get("enabled"))) ? "N" : "Y";
         try {
             GenericValue existing = findUserLogin(delegator, userLoginId);
             boolean created = existing == null;
             if (created) {
-                String password = toText(context.get("password"));
+                String password = MfgSupport.toText(context.get("password"));
                 if (password == null) {
                     password = DEFAULT_PASSWORD;
                 }
@@ -783,7 +783,7 @@ public final class MfgServices {
                 createContext.put("lastName", "");
                 createContext.put("currentPassword", password);
                 createContext.put("currentPasswordVerify", password);
-                createContext.put("passwordHint", toText(context.get("passwordHint")));
+                createContext.put("passwordHint", MfgSupport.toText(context.get("passwordHint")));
                 createContext.put("enabled", enabled);
                 createContext.put("requirePasswordChange", "N");
                 Map<String, Object> createdResult =
@@ -911,7 +911,7 @@ public final class MfgServices {
         result.put("totalCount", Integer.valueOf(0));
         result.put("page", Long.valueOf(1));
         result.put("pageCount", Long.valueOf(1));
-        result.put("pageSize", Long.valueOf(pageSizeOf(context)));
+        result.put("pageSize", Long.valueOf(MfgPaging.pageSizeOf(context)));
         result.put("keepingDays", Long.valueOf(MfgAudit.KEEP_DAYS));
         result.put("lastPurge", "");
         GenericValue userLogin = (GenericValue) context.get("userLogin");
@@ -928,11 +928,11 @@ public final class MfgServices {
             GenericValue purgeDay = EntityQuery.use(delegator).from("SystemProperty")
                     .where("systemResourceId", "mfg", "systemPropertyId", "mfg.audit.lastPurge").queryOne();
             if (purgeDay != null) {
-                result.put("lastPurge", toText(purgeDay.getString("systemPropertyValue")) == null
+                result.put("lastPurge", MfgSupport.toText(purgeDay.getString("systemPropertyValue")) == null
                         ? "" : purgeDay.getString("systemPropertyValue"));
             }
-            String search = toText(context.get("search"));
-            String actionId = toText(context.get("actionId"));
+            String search = MfgSupport.toText(context.get("search"));
+            String actionId = MfgSupport.toText(context.get("actionId"));
             List<EntityCondition> conditions = new ArrayList<>();
             if (actionId != null) {
                 conditions.add(EntityCondition.makeCondition("actionId", EntityOperator.EQUALS, actionId));
@@ -948,17 +948,17 @@ public final class MfgServices {
                     .where(where).orderBy("-createdStamp", "-auditId").queryList();
             for (GenericValue entry : found) {
                 Map<String, Object> row = new LinkedHashMap<>();
-                row.put("auditId", toText(entry.getString("auditId")));
-                row.put("actionId", toText(entry.getString("actionId")));
+                row.put("auditId", MfgSupport.toText(entry.getString("auditId")));
+                row.put("actionId", MfgSupport.toText(entry.getString("actionId")));
                 row.put("actionLabel", MfgAudit.label(entry.getString("actionId")));
-                row.put("userLoginId", toText(entry.getString("userLoginId")));
-                row.put("targetId", toText(entry.getString("targetId")));
-                row.put("remoteAddr", toText(entry.getString("remoteAddr")));
-                row.put("note", toText(entry.getString("note")));
+                row.put("userLoginId", MfgSupport.toText(entry.getString("userLoginId")));
+                row.put("targetId", MfgSupport.toText(entry.getString("targetId")));
+                row.put("remoteAddr", MfgSupport.toText(entry.getString("remoteAddr")));
+                row.put("note", MfgSupport.toText(entry.getString("note")));
                 row.put("when", stampText(entry.getTimestamp("createdStamp")));
                 rows.add(row);
             }
-            putPage(result, "rows", rows, pageOf(context), pageSizeOf(context), search);
+            MfgPaging.putPage(result, "rows", rows, MfgPaging.pageOf(context), MfgPaging.pageSizeOf(context), search);
             result.put("actionId", actionId == null ? "" : actionId);
             return result;
         } catch (GenericEntityException e) {
@@ -1010,7 +1010,7 @@ public final class MfgServices {
      * @return the normalized name or {@code null} when it is empty
      */
     static String normalizeAccountName(Object raw) {
-        String text = toText(raw);
+        String text = MfgSupport.toText(raw);
         return text == null ? null : text.toLowerCase(Locale.ROOT);
     }
 
@@ -1045,7 +1045,7 @@ public final class MfgServices {
     static String displayNameOf(String firstName, String middleName, String lastName) {
         StringBuilder name = new StringBuilder();
         for (String part : new String[] {firstName, middleName, lastName}) {
-            String text = toText(part);
+            String text = MfgSupport.toText(part);
             if (text != null) {
                 if (name.length() > 0) {
                     name.append(' ');
@@ -1297,15 +1297,15 @@ public final class MfgServices {
             return ServiceUtil.returnError(denied);
         }
         Delegator delegator = dctx.getDelegator();
-        String productCode = toText(context.get("productCode"));
+        String productCode = MfgSupport.toText(context.get("productCode"));
         if (productCode == null) {
             return ServiceUtil.returnError("productCode is required");
         }
         try {
             GenericValue product = delegator.makeValue("MfgProduct");
             product.set("productCode", productCode);
-            product.set("productName", toText(context.get("productName")));
-            String snPrefix = toText(context.get("snPrefix"));
+            product.set("productName", MfgSupport.toText(context.get("productName")));
+            String snPrefix = MfgSupport.toText(context.get("snPrefix"));
             if (snPrefix == null) {
                 snPrefix = productCode;
             }
@@ -1316,28 +1316,28 @@ public final class MfgServices {
                         + "\"）：不带前缀时它默认取型号编码，型号编码超过 10 位就要自己给一个短前缀");
             }
             product.set("snPrefix", snPrefix);
-            double newHours = toDouble(context.get("standardHours"), 0.0);
+            double newHours = MfgSupport.toDouble(context.get("standardHours"), 0.0);
             product.set("standardHours", Double.valueOf(newHours));
             // hours changed by hand come from the shop floor again, not from a learning curve;
             // the base quantity and the estimate reference are left as they are, the page only
             // shows them while the source still says LEARNING_CURVE
             GenericValue existing = EntityQuery.use(delegator).from("MfgProduct")
                     .where("productCode", productCode).queryOne();
-            double storedHours = existing == null ? 0.0 : toDouble(existing.get("standardHours"), 0.0);
+            double storedHours = existing == null ? 0.0 : MfgSupport.toDouble(existing.get("standardHours"), 0.0);
             if (existing == null || Math.abs(storedHours - newHours) > 0.000001) {
                 product.set("standardHoursSource", HOURS_SOURCE_MANUAL);
             }
-            product.set("laborRate", optionalAmount(context.get("laborRate")));
-            long warrantyMonths = toLong(context.get("warrantyMonths"), 12);
+            product.set("laborRate", MfgSupport.optionalAmount(context.get("laborRate")));
+            long warrantyMonths = MfgSupport.toLong(context.get("warrantyMonths"), 12);
             product.set("warrantyMonths", Long.valueOf(warrantyMonths <= 0 ? 12 : warrantyMonths));
-            product.set("salePrice", Double.valueOf(toDouble(context.get("salePrice"), 0.0)));
-            String statusId = toText(context.get("statusId"));
+            product.set("salePrice", Double.valueOf(MfgSupport.toDouble(context.get("salePrice"), 0.0)));
+            String statusId = MfgSupport.toText(context.get("statusId"));
             product.set("statusId", statusId == null ? STATUS_ACTIVE : statusId);
-            String devStageId = toText(context.get("devStageId"));
+            String devStageId = MfgSupport.toText(context.get("devStageId"));
             if (devStageId != null) {
                 product.set("devStageId", devStageId);
             }
-            product.set("note", toText(context.get("note")));
+            product.set("note", MfgSupport.toText(context.get("note")));
             delegator.createOrStore(product);
 
             Map<String, Object> result = ServiceUtil.returnSuccess();
@@ -1366,22 +1366,22 @@ public final class MfgServices {
             return ServiceUtil.returnError(denied);
         }
         Delegator delegator = dctx.getDelegator();
-        String productCode = toText(context.get("productCode"));
-        String csv = toText(context.get("csv"));
+        String productCode = MfgSupport.toText(context.get("productCode"));
+        String csv = MfgSupport.toText(context.get("csv"));
         if (productCode == null) {
             return ServiceUtil.returnError("productCode is required");
         }
         if (csv == null) {
             return ServiceUtil.returnError("csv is required");
         }
-        String requestedFormat = toText(context.get("format"));
-        BomFormat forced = BomFormat.of(requestedFormat);
+        String requestedFormat = MfgSupport.toText(context.get("format"));
+        MfgCsv.BomFormat forced = MfgCsv.BomFormat.of(requestedFormat);
         if (requestedFormat != null && forced == null) {
             return ServiceUtil.returnError("Unknown BOM format [" + requestedFormat
                     + "], expected MFG or FRITZING");
         }
-        BomFormat format = forced == null ? detectBomFormat(csv) : forced;
-        List<String[]> rows = parseBom(csv, format);
+        MfgCsv.BomFormat format = forced == null ? MfgCsv.detectBomFormat(csv) : forced;
+        List<String[]> rows = MfgCsv.parseBom(csv, format);
         if (rows.isEmpty()) {
             return ServiceUtil.returnError("No BOM line could be parsed, expected componentCode,componentName,qty,designators,isKeyPart");
         }
@@ -1398,7 +1398,7 @@ public final class MfgServices {
             if (EntityQuery.use(delegator).from("MfgProduct").where("productCode", productCode).queryOne() == null) {
                 return ServiceUtil.returnError("Unknown product model [" + productCode + "], create it first");
             }
-            String bomVersionId = toText(context.get("bomVersionId"));
+            String bomVersionId = MfgSupport.toText(context.get("bomVersionId"));
             if (bomVersionId != null) {
                 if (EntityQuery.use(delegator).from("MfgBomVersion")
                         .where("bomVersionId", bomVersionId).queryOne() == null) {
@@ -1407,7 +1407,7 @@ public final class MfgServices {
             } else {
                 bomVersionId = currentOrNewBomVersion(delegator, productCode, "Imported BOM");
             }
-            if (!"N".equals(toText(context.get("replace")))) {
+            if (!"N".equals(MfgSupport.toText(context.get("replace")))) {
                 delegator.removeByAnd("MfgBomVersionItem", "bomVersionId", bomVersionId);
             }
             long lineSeq = nextBomLineSeq(delegator, bomVersionId);
@@ -1418,10 +1418,10 @@ public final class MfgServices {
                 item.set("lineSeq", Long.valueOf(lineSeq));
                 item.set("componentCode", row[0]);
                 item.set("componentName", row[1] == null ? row[0] : row[1]);
-                item.set("qty", Double.valueOf(toDouble(row[2], 1.0)));
+                item.set("qty", Double.valueOf(MfgSupport.toDouble(row[2], 1.0)));
                 item.set("designators", row[3]);
                 item.set("isKeyPart", "Y".equalsIgnoreCase(row[4]) ? "Y" : "N");
-                item.set("unitPrice", optionalAmount(row[5]));
+                item.set("unitPrice", MfgSupport.optionalAmount(row[5]));
                 delegator.create(item);
                 lineSeq += 10;
                 imported++;
@@ -1468,17 +1468,17 @@ public final class MfgServices {
             return ServiceUtil.returnError(denied);
         }
         Delegator delegator = dctx.getDelegator();
-        String productCode = toText(context.get("productCode"));
+        String productCode = MfgSupport.toText(context.get("productCode"));
         if (productCode == null) {
             return ServiceUtil.returnError("productCode is required");
         }
-        boolean removing = "Y".equals(toText(context.get("delete")));
-        long lineSeq = toLong(context.get("lineSeq"), 0L);
+        boolean removing = "Y".equals(MfgSupport.toText(context.get("delete")));
+        long lineSeq = MfgSupport.toLong(context.get("lineSeq"), 0L);
         try {
             if (EntityQuery.use(delegator).from("MfgProduct").where("productCode", productCode).queryOne() == null) {
                 return ServiceUtil.returnError("Unknown product model [" + productCode + "], create it first");
             }
-            String versionId = toText(context.get("bomVersionId"));
+            String versionId = MfgSupport.toText(context.get("bomVersionId"));
             if (versionId != null && EntityQuery.use(delegator).from("MfgBomVersion")
                     .where("bomVersionId", versionId).queryOne() == null) {
                 versionId = null;
@@ -1505,7 +1505,7 @@ public final class MfgServices {
             if (versionId == null) {
                 versionId = currentOrNewBomVersion(delegator, productCode, "BOM maintained by hand");
             }
-            String componentCode = toText(context.get("componentCode"));
+            String componentCode = MfgSupport.toText(context.get("componentCode"));
             boolean created = item == null;
             if (created) {
                 if (componentCode == null) {
@@ -1520,28 +1520,28 @@ public final class MfgServices {
                 item.set("bomVersionId", versionId);
                 item.set("lineSeq", Long.valueOf(lineSeq));
                 item.set("componentCode", componentCode);
-                String name = toText(context.get("componentName"));
+                String name = MfgSupport.toText(context.get("componentName"));
                 item.set("componentName", name == null ? componentCode : name);
                 item.set("isKeyPart", "N");
             } else if (componentCode != null && componentCode.length() <= MAX_COMPONENT_CODE) {
                 item.set("componentCode", componentCode);
-                item.set("componentName", toText(context.get("componentName")) == null
-                        ? componentCode : toText(context.get("componentName")));
+                item.set("componentName", MfgSupport.toText(context.get("componentName")) == null
+                        ? componentCode : MfgSupport.toText(context.get("componentName")));
             }
-            double qty = toDouble(context.get("qty"), created ? 1.0 : toDouble(item.get("qty"), 1.0));
+            double qty = MfgSupport.toDouble(context.get("qty"), created ? 1.0 : MfgSupport.toDouble(item.get("qty"), 1.0));
             if (qty <= 0.0) {
                 return ServiceUtil.returnError("用量要大于 0");
             }
-            String keyPart = toText(context.get("isKeyPart"));
+            String keyPart = MfgSupport.toText(context.get("isKeyPart"));
             if (keyPart != null) {
                 item.set("isKeyPart", "Y".equalsIgnoreCase(keyPart) ? "Y" : "N");
             }
             item.set("qty", Double.valueOf(qty));
-            item.set("designators", toText(context.get("designators")));
+            item.set("designators", MfgSupport.toText(context.get("designators")));
             // an empty price box clears the price, a missing one leaves it alone
             if (context.containsKey("unitPrice")) {
-                String priceText = toText(context.get("unitPrice"));
-                Double price = optionalAmount(priceText);
+                String priceText = MfgSupport.toText(context.get("unitPrice"));
+                Double price = MfgSupport.optionalAmount(priceText);
                 if (priceText != null && price == null) {
                     return ServiceUtil.returnError("单价要填非负数字，或留空：" + priceText);
                 }
@@ -1578,9 +1578,9 @@ public final class MfgServices {
             return ServiceUtil.returnError(denied);
         }
         Delegator delegator = dctx.getDelegator();
-        String productCode = toText(context.get("productCode"));
-        long opSeq = toLong(context.get("opSeq"), 0);
-        String opName = toText(context.get("opName"));
+        String productCode = MfgSupport.toText(context.get("productCode"));
+        long opSeq = MfgSupport.toLong(context.get("opSeq"), 0);
+        String opName = MfgSupport.toText(context.get("opName"));
         if (productCode == null) {
             return ServiceUtil.returnError("productCode is required");
         }
@@ -1595,9 +1595,9 @@ public final class MfgServices {
             operation.set("productCode", productCode);
             operation.set("opSeq", Long.valueOf(opSeq));
             operation.set("opName", opName);
-            operation.set("workCenter", toText(context.get("workCenter")));
-            operation.set("stdHours", Double.valueOf(toDouble(context.get("stdHours"), 0.0)));
-            operation.set("note", toText(context.get("note")));
+            operation.set("workCenter", MfgSupport.toText(context.get("workCenter")));
+            operation.set("stdHours", Double.valueOf(MfgSupport.toDouble(context.get("stdHours"), 0.0)));
+            operation.set("note", MfgSupport.toText(context.get("note")));
             delegator.createOrStore(operation);
 
             Map<String, Object> result = ServiceUtil.returnSuccess();
@@ -1623,11 +1623,11 @@ public final class MfgServices {
             return ServiceUtil.returnError(denied);
         }
         Delegator delegator = dctx.getDelegator();
-        String productCode = toText(context.get("productCode"));
+        String productCode = MfgSupport.toText(context.get("productCode"));
         if (productCode == null) {
             return ServiceUtil.returnError("productCode is required");
         }
-        long plannedQty = toLong(context.get("plannedQty"), 0);
+        long plannedQty = MfgSupport.toLong(context.get("plannedQty"), 0);
         if (plannedQty <= 0) {
             return ServiceUtil.returnError("plannedQty must be a positive number");
         }
@@ -1642,17 +1642,17 @@ public final class MfgServices {
             order.set("productCode", productCode);
             order.set("plannedQty", Long.valueOf(plannedQty));
             order.set("statusId", WO_CREATED);
-            order.set("dueDate", parseDate(context.get("dueDate")));
-            order.set("customerName", toText(context.get("customerName")));
-            order.set("smtVendor", toText(context.get("smtVendor")));
+            order.set("dueDate", MfgSupport.parseDate(context.get("dueDate")));
+            order.set("customerName", MfgSupport.toText(context.get("customerName")));
+            order.set("smtVendor", MfgSupport.toText(context.get("smtVendor")));
             order.set("bomVersionId", currentBomVersionId(delegator, productCode));
-            order.set("note", toText(context.get("note")));
+            order.set("note", MfgSupport.toText(context.get("note")));
             delegator.create(order);
 
             // reserve what the warehouse can cover, the rest stays a shortage on the kitting page
             Map<String, Object> reserveContext = new HashMap<>();
             reserveContext.put("workOrderId", workOrderId);
-            reserveContext.put("operatorName", toText(context.get("customerName")));
+            reserveContext.put("operatorName", MfgSupport.toText(context.get("customerName")));
             reserveContext.put("userLogin", context.get("userLogin"));
             Map<String, Object> reservation = reserveMaterial(dctx, reserveContext);
 
@@ -1677,7 +1677,7 @@ public final class MfgServices {
      */
     public static Map<String, Object> workOrderList(DispatchContext dctx, Map<String, ? extends Object> context) {
         Delegator delegator = dctx.getDelegator();
-        String statusId = toText(context.get("statusId"));
+        String statusId = MfgSupport.toText(context.get("statusId"));
         try {
             EntityQuery query = EntityQuery.use(delegator).from("MfgWorkOrder");
             if (statusId != null) {
@@ -1693,14 +1693,14 @@ public final class MfgServices {
                 ordersById.put(order.getString("workOrderId"), order);
             }
             Map<String, Object> result = ServiceUtil.returnSuccess();
-            putPage(result, "workOrders",
-                    filterByKeyword(list, toText(context.get("search")), "workOrderId", "productCode",
+            MfgPaging.putPage(result, "workOrders",
+                    MfgPaging.filterByKeyword(list, MfgSupport.toText(context.get("search")), "workOrderId", "productCode",
                             "customerName", "smtVendor", "statusId"),
-                    pageOf(context), pageSizeOf(context), toText(context.get("search")));
+                    MfgPaging.pageOf(context), MfgPaging.pageSizeOf(context), MfgSupport.toText(context.get("search")));
             // the list unfolds its rows in place: the kitting gaps and the progress of the visible
             // page only, so a long list does not cost a query per order
             boolean showCost = can(dctx, (GenericValue) context.get("userLogin"), PERM_COST);
-            for (Map<String, Object> row : rowsOf(result, "workOrders")) {
+            for (Map<String, Object> row : MfgPaging.rowsOf(result, "workOrders")) {
                 String workOrderId = (String) row.get("workOrderId");
                 GenericValue order = ordersById.get(workOrderId);
                 if (order == null) {
@@ -1736,7 +1736,7 @@ public final class MfgServices {
      */
     public static Map<String, Object> workOrderDetail(DispatchContext dctx, Map<String, ? extends Object> context) {
         Delegator delegator = dctx.getDelegator();
-        String workOrderId = toText(context.get("workOrderId"));
+        String workOrderId = MfgSupport.toText(context.get("workOrderId"));
         if (workOrderId == null) {
             Map<String, Object> empty = ServiceUtil.returnSuccess();
             empty.put("operations", new ArrayList<Map<String, Object>>());
@@ -1834,17 +1834,17 @@ public final class MfgServices {
             return ServiceUtil.returnError(denied);
         }
         Delegator delegator = dctx.getDelegator();
-        String workOrderId = toText(context.get("workOrderId"));
-        long opSeq = toLong(context.get("opSeq"), 0);
+        String workOrderId = MfgSupport.toText(context.get("workOrderId"));
+        long opSeq = MfgSupport.toLong(context.get("opSeq"), 0);
         if (workOrderId == null) {
             return ServiceUtil.returnError("workOrderId is required");
         }
         if (opSeq <= 0) {
             return ServiceUtil.returnError("opSeq is required");
         }
-        double workHours = toDouble(context.get("workHours"), 0.0);
-        long qtyOk = toLong(context.get("qtyOk"), 0);
-        long qtyNg = toLong(context.get("qtyNg"), 0);
+        double workHours = MfgSupport.toDouble(context.get("workHours"), 0.0);
+        long qtyOk = MfgSupport.toLong(context.get("qtyOk"), 0);
+        long qtyNg = MfgSupport.toLong(context.get("qtyNg"), 0);
         if (workHours <= 0.0) {
             return ServiceUtil.returnError("workHours must be greater than zero");
         }
@@ -1861,13 +1861,13 @@ public final class MfgServices {
             report.set("reportId", delegator.getNextSeqId("MfgReport"));
             report.set("workOrderId", workOrderId);
             report.set("opSeq", Long.valueOf(opSeq));
-            report.set("sn", toText(context.get("sn")));
-            report.set("operatorName", toText(context.get("operatorName")));
+            report.set("sn", MfgSupport.toText(context.get("sn")));
+            report.set("operatorName", MfgSupport.toText(context.get("operatorName")));
             report.set("workHours", Double.valueOf(workHours));
             report.set("qtyOk", Long.valueOf(qtyOk));
             report.set("qtyNg", Long.valueOf(qtyNg));
             report.set("reportDate", new Timestamp(System.currentTimeMillis()));
-            report.set("note", toText(context.get("note")));
+            report.set("note", MfgSupport.toText(context.get("note")));
             delegator.create(report);
 
             if (!WO_CLOSED.equals(order.getString("statusId")) && !WO_COMPLETED.equals(order.getString("statusId"))) {
@@ -1897,8 +1897,8 @@ public final class MfgServices {
             return ServiceUtil.returnError(denied);
         }
         Delegator delegator = dctx.getDelegator();
-        String workOrderId = toText(context.get("workOrderId"));
-        long qty = toLong(context.get("qty"), 0);
+        String workOrderId = MfgSupport.toText(context.get("workOrderId"));
+        long qty = MfgSupport.toLong(context.get("qty"), 0);
         if (workOrderId == null) {
             return ServiceUtil.returnError("workOrderId is required");
         }
@@ -1953,7 +1953,7 @@ public final class MfgServices {
      */
     public static Map<String, Object> snDetail(DispatchContext dctx, Map<String, ? extends Object> context) {
         Delegator delegator = dctx.getDelegator();
-        String sn = toText(context.get("sn"));
+        String sn = MfgSupport.toText(context.get("sn"));
         try {
             List<Map<String, Object>> empty = new ArrayList<>();
             if (sn == null) {
@@ -2049,15 +2049,15 @@ public final class MfgServices {
             return ServiceUtil.returnError(denied);
         }
         Delegator delegator = dctx.getDelegator();
-        String workOrderId = toText(context.get("workOrderId"));
-        String defectCode = toText(context.get("defectCode"));
+        String workOrderId = MfgSupport.toText(context.get("workOrderId"));
+        String defectCode = MfgSupport.toText(context.get("defectCode"));
         if (workOrderId == null) {
             return ServiceUtil.returnError("workOrderId is required");
         }
         if (defectCode == null) {
             return ServiceUtil.returnError("defectCode is required");
         }
-        long qty = toLong(context.get("qty"), 1);
+        long qty = MfgSupport.toLong(context.get("qty"), 1);
         if (qty <= 0) {
             return ServiceUtil.returnError("qty must be a positive number");
         }
@@ -2065,14 +2065,14 @@ public final class MfgServices {
             GenericValue defect = delegator.makeValue("MfgDefect");
             defect.set("defectId", delegator.getNextSeqId("MfgDefect"));
             defect.set("workOrderId", workOrderId);
-            defect.set("sn", toText(context.get("sn")));
-            defect.set("opSeq", Long.valueOf(toLong(context.get("opSeq"), 0)));
+            defect.set("sn", MfgSupport.toText(context.get("sn")));
+            defect.set("opSeq", Long.valueOf(MfgSupport.toLong(context.get("opSeq"), 0)));
             defect.set("defectCode", defectCode);
             defect.set("qty", Long.valueOf(qty));
-            String responsibility = toText(context.get("responsibility"));
+            String responsibility = MfgSupport.toText(context.get("responsibility"));
             defect.set("responsibility", responsibility == null ? "HOUSE" : responsibility);
-            defect.set("repairHours", Double.valueOf(toDouble(context.get("repairHours"), 0.0)));
-            defect.set("note", toText(context.get("note")));
+            defect.set("repairHours", Double.valueOf(MfgSupport.toDouble(context.get("repairHours"), 0.0)));
+            defect.set("note", MfgSupport.toText(context.get("note")));
             delegator.create(defect);
 
             Map<String, Object> result = ServiceUtil.returnSuccess();
@@ -2162,7 +2162,7 @@ public final class MfgServices {
             return denied;
         }
         Delegator delegator = dctx.getDelegator();
-        String productCode = toText(context.get("productCode"));
+        String productCode = MfgSupport.toText(context.get("productCode"));
         Map<String, Object> empty = costSummary(0.0, 0.0, 1.0, null, null);
         empty.put("lines", new ArrayList<Map<String, Object>>());
         empty.put("productCode", productCode);
@@ -2176,11 +2176,11 @@ public final class MfgServices {
                 empty.put("message", "Unknown product model [" + productCode + "]");
                 return empty;
             }
-            double qty = toDouble(context.get("qty"), 1.0);
+            double qty = MfgSupport.toDouble(context.get("qty"), 1.0);
             if (qty <= 0.0) {
                 qty = 1.0;
             }
-            String versionId = toText(context.get("bomVersionId"));
+            String versionId = MfgSupport.toText(context.get("bomVersionId"));
             if (versionId == null) {
                 versionId = currentBomVersionId(delegator, productCode);
             }
@@ -2214,7 +2214,7 @@ public final class MfgServices {
             double laborRate = rateInput == null
                     ? (product.get("laborRate") instanceof Number
                             ? ((Number) product.get("laborRate")).doubleValue() : 0.0)
-                    : toDouble(rateInput, 0.0);
+                    : MfgSupport.toDouble(rateInput, 0.0);
             double productHours = product.getDouble("standardHours") == null
                     ? 0.0 : product.getDouble("standardHours").doubleValue();
 
@@ -2231,7 +2231,7 @@ public final class MfgServices {
                 line.put("opName", operation.getString("opName"));
                 line.put("workCenter", operation.getString("workCenter"));
                 line.put("stdHours", Double.valueOf(hours));
-                line.put("amount", Double.valueOf(round2(hours * laborRate)));
+                line.put("amount", Double.valueOf(MfgSupport.round2(hours * laborRate)));
                 routingLines.add(line);
             }
             String hoursSource = routing.isEmpty() ? "PRODUCT" : "ROUTING";
@@ -2293,7 +2293,7 @@ public final class MfgServices {
      */
     private static Map<String, Object> workOrderCostOf(DispatchContext dctx, Map<String, ? extends Object> context) {
         Delegator delegator = dctx.getDelegator();
-        String workOrderId = toText(context.get("workOrderId"));
+        String workOrderId = MfgSupport.toText(context.get("workOrderId"));
         Map<String, Object> result = ServiceUtil.returnSuccess();
         result.put("workOrderId", workOrderId);
         if (workOrderId == null) {
@@ -2364,12 +2364,12 @@ public final class MfgServices {
             double reportedHours = 0.0;
             double qtyOk = 0.0;
             for (GenericValue report : reports) {
-                reportedHours += numberOrZero(report.get("workHours"));
-                qtyOk += numberOrZero(report.get("qtyOk"));
+                reportedHours += MfgSupport.numberOrZero(report.get("workHours"));
+                qtyOk += MfgSupport.numberOrZero(report.get("qtyOk"));
             }
-            double plannedQty = toLong(order.get("plannedQty"), 0);
+            double plannedQty = MfgSupport.toLong(order.get("plannedQty"), 0);
             double actualLabor = reportedHours * laborRate;
-            double outsourceAmount = numberOrZero(order.get("outsourceAmount"));
+            double outsourceAmount = MfgSupport.numberOrZero(order.get("outsourceAmount"));
             double standardLaborTotal = standardHours * laborRate * qtyOk;
 
             result.put("productCode", productCode);
@@ -2424,23 +2424,23 @@ public final class MfgServices {
         double unit = materialPerUnit + laborPerUnit;
         Map<String, Object> map = ServiceUtil.returnSuccess();
         map.put("qty", Double.valueOf(qty));
-        map.put("materialPerUnit", Double.valueOf(round2(materialPerUnit)));
-        map.put("laborPerUnit", Double.valueOf(round2(laborPerUnit)));
-        map.put("unitCost", Double.valueOf(round2(unit)));
-        map.put("materialCost", Double.valueOf(round2(materialPerUnit * qty)));
-        map.put("laborCost", Double.valueOf(round2(laborPerUnit * qty)));
-        map.put("totalCost", Double.valueOf(round2(unit * qty)));
+        map.put("materialPerUnit", Double.valueOf(MfgSupport.round2(materialPerUnit)));
+        map.put("laborPerUnit", Double.valueOf(MfgSupport.round2(laborPerUnit)));
+        map.put("unitCost", Double.valueOf(MfgSupport.round2(unit)));
+        map.put("materialCost", Double.valueOf(MfgSupport.round2(materialPerUnit * qty)));
+        map.put("laborCost", Double.valueOf(MfgSupport.round2(laborPerUnit * qty)));
+        map.put("totalCost", Double.valueOf(MfgSupport.round2(unit * qty)));
         map.put("targetCost", targetCost);
         map.put("targetPrice", targetPrice);
         map.put("targetDifference", targetCost == null
-                ? null : Double.valueOf(round2(unit - targetCost.doubleValue())));
+                ? null : Double.valueOf(MfgSupport.round2(unit - targetCost.doubleValue())));
         if (targetPrice == null || targetPrice.doubleValue() <= 0.0) {
             map.put("unitMargin", null);
             map.put("marginRate", null);
         } else {
             double margin = targetPrice.doubleValue() - unit;
-            map.put("unitMargin", Double.valueOf(round2(margin)));
-            map.put("marginRate", Double.valueOf(round2(margin / targetPrice.doubleValue() * 100.0)));
+            map.put("unitMargin", Double.valueOf(MfgSupport.round2(margin)));
+            map.put("marginRate", Double.valueOf(MfgSupport.round2(margin / targetPrice.doubleValue() * 100.0)));
         }
         return map;
     }
@@ -2455,15 +2455,15 @@ public final class MfgServices {
      */
     public static Map<String, Object> trendReport(DispatchContext dctx, Map<String, ? extends Object> context) {
         Delegator delegator = dctx.getDelegator();
-        java.sql.Date toDate = (java.sql.Date) parseDate(context.get("toDate"));
+        java.sql.Date toDate = (java.sql.Date) MfgSupport.parseDate(context.get("toDate"));
         if (toDate == null) {
             toDate = java.sql.Date.valueOf(LocalDate.now());
         }
-        java.sql.Date fromDate = (java.sql.Date) parseDate(context.get("fromDate"));
+        java.sql.Date fromDate = (java.sql.Date) MfgSupport.parseDate(context.get("fromDate"));
         if (fromDate == null) {
             fromDate = java.sql.Date.valueOf(toDate.toLocalDate().minusDays(179));
         }
-        String groupBy = toText(context.get("groupBy"));
+        String groupBy = MfgSupport.toText(context.get("groupBy"));
         groupBy = groupBy == null ? "MONTH" : groupBy.toUpperCase(Locale.ROOT);
         if (!"DAY".equals(groupBy) && !"WEEK".equals(groupBy) && !"MONTH".equals(groupBy)) {
             groupBy = "MONTH";
@@ -2496,23 +2496,23 @@ public final class MfgServices {
                 if (reportedDate.before(fromDate) || reportedDate.after(toDate)) {
                     continue;
                 }
-                String key = periodKey(reportedDate, groupBy);
+                String key = MfgSupport.periodKey(reportedDate, groupBy);
                 double[] bucket = buckets.get(key);
                 if (bucket == null) {
                     bucket = new double[3];
                     buckets.put(key, bucket);
                     ordersOfBucket.put(key, new LinkedHashSet<String>());
                 }
-                bucket[0] += numberOrZero(report.get("qtyOk"));
-                bucket[1] += numberOrZero(report.get("qtyNg"));
-                bucket[2] += numberOrZero(report.get("workHours"));
+                bucket[0] += MfgSupport.numberOrZero(report.get("qtyOk"));
+                bucket[1] += MfgSupport.numberOrZero(report.get("qtyNg"));
+                bucket[2] += MfgSupport.numberOrZero(report.get("workHours"));
                 String workOrderId = report.getString("workOrderId");
                 if (workOrderId != null) {
                     ordersOfBucket.get(key).add(workOrderId);
                 }
-                qtyOkTotal += numberOrZero(report.get("qtyOk"));
-                qtyNgTotal += numberOrZero(report.get("qtyNg"));
-                hoursTotal += numberOrZero(report.get("workHours"));
+                qtyOkTotal += MfgSupport.numberOrZero(report.get("qtyOk"));
+                qtyNgTotal += MfgSupport.numberOrZero(report.get("qtyNg"));
+                hoursTotal += MfgSupport.numberOrZero(report.get("workHours"));
             }
             List<Map<String, Object>> rows = new ArrayList<>(buckets.size());
             Map<String, Object> worst = null;
@@ -2520,11 +2520,11 @@ public final class MfgServices {
                 double[] bucket = entry.getValue();
                 Map<String, Object> row = new LinkedHashMap<>();
                 row.put("period", entry.getKey());
-                row.put("qtyOk", Double.valueOf(round2(bucket[0])));
-                row.put("qtyNg", Double.valueOf(round2(bucket[1])));
-                row.put("yieldRate", Double.valueOf(yieldRate(bucket[0], bucket[1])));
-                row.put("hours", Double.valueOf(round2(bucket[2])));
-                row.put("hoursPerUnit", Double.valueOf(hoursPerUnit(bucket[2], bucket[0])));
+                row.put("qtyOk", Double.valueOf(MfgSupport.round2(bucket[0])));
+                row.put("qtyNg", Double.valueOf(MfgSupport.round2(bucket[1])));
+                row.put("yieldRate", Double.valueOf(MfgSupport.yieldRate(bucket[0], bucket[1])));
+                row.put("hours", Double.valueOf(MfgSupport.round2(bucket[2])));
+                row.put("hoursPerUnit", Double.valueOf(MfgSupport.hoursPerUnit(bucket[2], bucket[0])));
                 row.put("orderCount", Integer.valueOf(ordersOfBucket.get(entry.getKey()).size()));
                 rows.add(row);
                 if (bucket[0] + bucket[1] > 0.0
@@ -2536,9 +2536,9 @@ public final class MfgServices {
             result.put("rows", rows);
             result.put("qtyOkTotal", Long.valueOf(Math.round(qtyOkTotal)));
             result.put("qtyNgTotal", Long.valueOf(Math.round(qtyNgTotal)));
-            result.put("hoursTotal", Double.valueOf(round2(hoursTotal)));
-            result.put("yieldRate", Double.valueOf(yieldRate(qtyOkTotal, qtyNgTotal)));
-            result.put("hoursPerUnit", Double.valueOf(hoursPerUnit(hoursTotal, qtyOkTotal)));
+            result.put("hoursTotal", Double.valueOf(MfgSupport.round2(hoursTotal)));
+            result.put("yieldRate", Double.valueOf(MfgSupport.yieldRate(qtyOkTotal, qtyNgTotal)));
+            result.put("hoursPerUnit", Double.valueOf(MfgSupport.hoursPerUnit(hoursTotal, qtyOkTotal)));
             result.put("rowCount", Integer.valueOf(rows.size()));
             if (worst != null) {
                 result.put("worstRow", worst);
@@ -2560,15 +2560,15 @@ public final class MfgServices {
      */
     public static Map<String, Object> purchaseFreightTrend(DispatchContext dctx, Map<String, ? extends Object> context) {
         Delegator delegator = dctx.getDelegator();
-        java.sql.Date toDate = (java.sql.Date) parseDate(context.get("toDate"));
+        java.sql.Date toDate = (java.sql.Date) MfgSupport.parseDate(context.get("toDate"));
         if (toDate == null) {
             toDate = java.sql.Date.valueOf(LocalDate.now());
         }
-        java.sql.Date fromDate = (java.sql.Date) parseDate(context.get("fromDate"));
+        java.sql.Date fromDate = (java.sql.Date) MfgSupport.parseDate(context.get("fromDate"));
         if (fromDate == null) {
             fromDate = java.sql.Date.valueOf(toDate.toLocalDate().minusDays(179));
         }
-        String groupBy = toText(context.get("groupBy"));
+        String groupBy = MfgSupport.toText(context.get("groupBy"));
         groupBy = groupBy == null ? "MONTH" : groupBy.toUpperCase(Locale.ROOT);
         if (!"DAY".equals(groupBy) && !"WEEK".equals(groupBy) && !"MONTH".equals(groupBy)) {
             groupBy = "MONTH";
@@ -2612,20 +2612,20 @@ public final class MfgServices {
                 List<Map<String, Object>> lines = linesOf.get(receipt.getString("receiptId"));
                 Map<String, Object> summary = receiptSummary(
                         lines == null ? new ArrayList<Map<String, Object>>() : lines,
-                        numberOrZero(receipt.get("freightAmount")),
-                        numberOrZero(receipt.get("discountAmount")));
-                String key = periodKey(day, groupBy);
+                        MfgSupport.numberOrZero(receipt.get("freightAmount")),
+                        MfgSupport.numberOrZero(receipt.get("discountAmount")));
+                String key = MfgSupport.periodKey(day, groupBy);
                 double[] bucket = buckets.get(key);
                 if (bucket == null) {
                     bucket = new double[4];
                     buckets.put(key, bucket);
                 }
                 bucket[0] += 1.0;
-                bucket[1] += numberOrZero(summary.get("goodsTotal"));
-                bucket[2] += numberOrZero(summary.get("freightTotal"));
+                bucket[1] += MfgSupport.numberOrZero(summary.get("goodsTotal"));
+                bucket[2] += MfgSupport.numberOrZero(summary.get("freightTotal"));
                 // a red packet comes off the period spend too, otherwise the report would claim more
                 // money was spent than really left the bank
-                bucket[3] += numberOrZero(summary.get("discountTotal"));
+                bucket[3] += MfgSupport.numberOrZero(summary.get("discountTotal"));
             }
             List<Map<String, Object>> rows = new ArrayList<>(buckets.size());
             double receipts = 0.0;
@@ -2637,12 +2637,12 @@ public final class MfgServices {
                 Map<String, Object> row = new LinkedHashMap<>();
                 row.put("period", entry.getKey());
                 row.put("receiptCount", Integer.valueOf((int) Math.round(bucket[0])));
-                row.put("goodsTotal", Double.valueOf(round2(bucket[1])));
-                row.put("freightTotal", Double.valueOf(round2(bucket[2])));
-                row.put("discountTotal", Double.valueOf(round2(bucket[3])));
-                row.put("spendTotal", Double.valueOf(round2(bucket[1] + bucket[2] - bucket[3])));
+                row.put("goodsTotal", Double.valueOf(MfgSupport.round2(bucket[1])));
+                row.put("freightTotal", Double.valueOf(MfgSupport.round2(bucket[2])));
+                row.put("discountTotal", Double.valueOf(MfgSupport.round2(bucket[3])));
+                row.put("spendTotal", Double.valueOf(MfgSupport.round2(bucket[1] + bucket[2] - bucket[3])));
                 row.put("freightShare", Double.valueOf(bucket[1] <= 0.0
-                        ? 0.0 : round2(bucket[2] / bucket[1] * 100.0)));
+                        ? 0.0 : MfgSupport.round2(bucket[2] / bucket[1] * 100.0)));
                 rows.add(row);
                 receipts += bucket[0];
                 goods += bucket[1];
@@ -2651,11 +2651,11 @@ public final class MfgServices {
             }
             result.put("rows", rows);
             result.put("receiptCount", Integer.valueOf((int) Math.round(receipts)));
-            result.put("goodsTotal", Double.valueOf(round2(goods)));
-            result.put("freightTotal", Double.valueOf(round2(freight)));
-            result.put("discountTotal", Double.valueOf(round2(discount)));
-            result.put("spendTotal", Double.valueOf(round2(goods + freight - discount)));
-            result.put("freightShare", Double.valueOf(goods <= 0.0 ? 0.0 : round2(freight / goods * 100.0)));
+            result.put("goodsTotal", Double.valueOf(MfgSupport.round2(goods)));
+            result.put("freightTotal", Double.valueOf(MfgSupport.round2(freight)));
+            result.put("discountTotal", Double.valueOf(MfgSupport.round2(discount)));
+            result.put("spendTotal", Double.valueOf(MfgSupport.round2(goods + freight - discount)));
+            result.put("freightShare", Double.valueOf(goods <= 0.0 ? 0.0 : MfgSupport.round2(freight / goods * 100.0)));
             result.put("rowCount", Integer.valueOf(rows.size()));
             return result;
         } catch (GenericEntityException e) {
@@ -2702,7 +2702,7 @@ public final class MfgServices {
             }
             Double current = hoursByOp.get(opSeq);
             hoursByOp.put(opSeq, Double.valueOf((current == null ? 0.0 : current.doubleValue())
-                    + numberOrZero(report.get("workHours"))));
+                    + MfgSupport.numberOrZero(report.get("workHours"))));
         }
         for (GenericValue operation : routing) {
             Long opSeq = operation.getLong("opSeq");
@@ -2725,95 +2725,20 @@ public final class MfgServices {
 
     private static Map<String, Object> operationCostRow(Long opSeq, String opName, String workCenter,
             double stdHours, double actualHours, double laborRate, double qtyOk, boolean inRouting) {
-        double standardCost = round2(stdHours * laborRate * qtyOk);
-        double actualCost = round2(actualHours * laborRate);
+        double standardCost = MfgSupport.round2(stdHours * laborRate * qtyOk);
+        double actualCost = MfgSupport.round2(actualHours * laborRate);
         Map<String, Object> row = new LinkedHashMap<>();
         row.put("opSeq", opSeq);
         row.put("opName", opName);
         row.put("workCenter", workCenter);
         row.put("stdHours", Double.valueOf(stdHours));
-        row.put("stdHoursTotal", Double.valueOf(round2(stdHours * qtyOk)));
-        row.put("actualHours", Double.valueOf(round2(actualHours)));
+        row.put("stdHoursTotal", Double.valueOf(MfgSupport.round2(stdHours * qtyOk)));
+        row.put("actualHours", Double.valueOf(MfgSupport.round2(actualHours)));
         row.put("standardCost", Double.valueOf(standardCost));
         row.put("actualCost", Double.valueOf(actualCost));
-        row.put("variance", Double.valueOf(round2(actualCost - standardCost)));
+        row.put("variance", Double.valueOf(MfgSupport.round2(actualCost - standardCost)));
         row.put("inRouting", Boolean.valueOf(inRouting));
         return row;
-    }
-
-    /**
-     * Turns a date into the label of the bucket it belongs to.
-     *
-     * @param date the date, may be {@code null}
-     * @param groupBy {@code DAY}, {@code WEEK} or {@code MONTH}
-     * @return the label, e.g. {@code 2026-10-21}, {@code 2026-W43} or {@code 2026-10}
-     */
-    static String periodKey(java.sql.Date date, String groupBy) {
-        if (date == null) {
-            return "-";
-        }
-        LocalDate day = date.toLocalDate();
-        if ("DAY".equals(groupBy)) {
-            return day.toString();
-        }
-        if ("WEEK".equals(groupBy)) {
-            int year = day.get(java.time.temporal.IsoFields.WEEK_BASED_YEAR);
-            int week = day.get(java.time.temporal.IsoFields.WEEK_OF_WEEK_BASED_YEAR);
-            return String.format(Locale.ROOT, "%04d-W%02d",
-                    Integer.valueOf(year), Integer.valueOf(week));
-        }
-        return String.format(Locale.ROOT, "%04d-%02d",
-                Integer.valueOf(day.getYear()), Integer.valueOf(day.getMonthValue()));
-    }
-
-    /**
-     * Yield as a percentage of everything that was reported.
-     *
-     * @param qtyOk good quantity
-     * @param qtyNg rejected quantity
-     * @return the yield in percent, {@code 0} when nothing was reported
-     */
-    static double yieldRate(double qtyOk, double qtyNg) {
-        double total = qtyOk + qtyNg;
-        return total <= 0.0 ? 0.0 : round2(qtyOk * 100.0 / total);
-    }
-
-    /**
-     * Hours spent per good unit.
-     *
-     * @param hours reported hours
-     * @param qtyOk good quantity
-     * @return the hours per unit, {@code 0} when there is no good unit
-     */
-    static double hoursPerUnit(double hours, double qtyOk) {
-        return qtyOk <= 0.0 ? 0.0 : round2(hours / qtyOk);
-    }
-
-    private static double round2(double value) {
-        return Math.round(value * 100.0) / 100.0;
-    }
-
-    private static double numberOrZero(Object value) {
-        return value instanceof Number ? ((Number) value).doubleValue() : 0.0;
-    }
-
-    /**
-     * Reads an optional amount: an empty or unparsable value stays {@code null} instead of zero, so
-     * the cost report can tell "no price yet" from "free".
-     *
-     * @param value the raw input
-     * @return the amount, or {@code null} when there is none
-     */
-    private static Double optionalAmount(Object value) {
-        String text = toText(value);
-        if (text == null) {
-            return null;
-        }
-        double amount = toDouble(text, Double.NaN);
-        if (Double.isNaN(amount) || amount < 0.0) {
-            return null;
-        }
-        return Double.valueOf(amount);
     }
 
     // ------------------------------------------------------------ material and outsourcing
@@ -2833,8 +2758,8 @@ public final class MfgServices {
             return ServiceUtil.returnError(denied);
         }
         Delegator delegator = dctx.getDelegator();
-        String oldCode = toText(context.get("oldCode"));
-        String newCode = toText(context.get("newCode"));
+        String oldCode = MfgSupport.toText(context.get("oldCode"));
+        String newCode = MfgSupport.toText(context.get("newCode"));
         if (oldCode == null || newCode == null) {
             return ServiceUtil.returnError("旧料号与新料号都要填");
         }
@@ -2921,16 +2846,16 @@ public final class MfgServices {
             return ServiceUtil.returnError(denied);
         }
         Delegator delegator = dctx.getDelegator();
-        String componentCode = toText(context.get("componentCode"));
+        String componentCode = MfgSupport.toText(context.get("componentCode"));
         if (componentCode == null) {
             return ServiceUtil.returnError("componentCode is required");
         }
-        double receivedQty = toDouble(context.get("receivedQty"), 0.0);
+        double receivedQty = MfgSupport.toDouble(context.get("receivedQty"), 0.0);
         if (receivedQty <= 0.0) {
             return ServiceUtil.returnError("receivedQty must be greater than zero");
         }
         try {
-            String lotId = toText(context.get("lotId"));
+            String lotId = MfgSupport.toText(context.get("lotId"));
             boolean isNew = false;
             if (lotId == null) {
                 lotId = nextLotId(delegator, LocalDate.now());
@@ -2942,22 +2867,22 @@ public final class MfgServices {
             GenericValue lot = delegator.makeValue("MfgMaterialLot");
             lot.set("lotId", lotId);
             lot.set("componentCode", componentCode);
-            lot.set("componentName", toText(context.get("componentName")));
-            lot.set("supplierName", toText(context.get("supplierName")));
-            lot.set("supplierLot", toText(context.get("supplierLot")));
+            lot.set("componentName", MfgSupport.toText(context.get("componentName")));
+            lot.set("supplierName", MfgSupport.toText(context.get("supplierName")));
+            lot.set("supplierLot", MfgSupport.toText(context.get("supplierLot")));
             if (isNew) {
                 lot.set("receivedQty", Double.valueOf(receivedQty));
             }
-            Object receivedDate = parseDate(context.get("receivedDate"));
+            Object receivedDate = MfgSupport.parseDate(context.get("receivedDate"));
             lot.set("receivedDate", receivedDate == null
                     ? java.sql.Date.valueOf(LocalDate.now()) : receivedDate);
-            Double amount = optionalAmount(context.get("amount"));
+            Double amount = MfgSupport.optionalAmount(context.get("amount"));
             if (amount != null) {
                 // the amount is exact, the unit price column only keeps two decimals
                 lot.set("receivedAmount", amount);
-                lot.set("unitPrice", Double.valueOf(round2(amount.doubleValue() / receivedQty)));
+                lot.set("unitPrice", Double.valueOf(MfgSupport.round2(amount.doubleValue() / receivedQty)));
             } else {
-                lot.set("unitPrice", optionalAmount(context.get("unitPrice")));
+                lot.set("unitPrice", MfgSupport.optionalAmount(context.get("unitPrice")));
             }
             String inspectStatus = normalizeInspectStatus(context.get("inspectStatusId"));
             if (inspectStatus == null) {
@@ -2965,13 +2890,13 @@ public final class MfgServices {
                         + "], expected " + String.join(" / ", INSPECT_STATUSES));
             }
             lot.set("inspectStatusId", inspectStatus);
-            lot.set("note", toText(context.get("note")));
+            lot.set("note", MfgSupport.toText(context.get("note")));
             delegator.createOrStore(lot);
             if (isNew) {
                 recordMovement(delegator, lot, MOVE_RECEIPT, receivedQty, lot.get("unitPrice"), null, null,
                         lot.getString("supplierLot"), null,
                         Timestamp.valueOf(lot.getDate("receivedDate").toLocalDate().atStartOfDay()),
-                        "到货入库", toText(context.get("locationId")));
+                        "到货入库", MfgSupport.toText(context.get("locationId")));
             }
             recalcLotStock(delegator, lot);
 
@@ -3004,7 +2929,7 @@ public final class MfgServices {
             return ServiceUtil.returnError(denied);
         }
         Delegator delegator = dctx.getDelegator();
-        String lotId = toText(context.get("lotId"));
+        String lotId = MfgSupport.toText(context.get("lotId"));
         if (lotId == null) {
             return ServiceUtil.returnError("lotId is required");
         }
@@ -3013,7 +2938,7 @@ public final class MfgServices {
             return ServiceUtil.returnError("Unknown inspection status [" + context.get("inspectStatusId")
                     + "], expected " + String.join(" / ", INSPECT_STATUSES));
         }
-        double rejectedQty = toDouble(context.get("rejectedQty"), 0.0);
+        double rejectedQty = MfgSupport.toDouble(context.get("rejectedQty"), 0.0);
         if (rejectedQty < 0.0) {
             return ServiceUtil.returnError("rejectedQty cannot be negative");
         }
@@ -3026,15 +2951,15 @@ public final class MfgServices {
                 return ServiceUtil.returnError("Lot [" + lotId + "] holds finished goods, ship them through a"
                         + " delivery order instead of issuing them to a work order");
             }
-            double received = toDouble(lot.get("receivedQty"), 0.0);
+            double received = MfgSupport.toDouble(lot.get("receivedQty"), 0.0);
             if (rejectedQty > received) {
                 return ServiceUtil.returnError("rejectedQty [" + rejectedQty
                         + "] is larger than the received quantity [" + received + "]");
             }
             lot.set("inspectStatusId", status);
             lot.set("rejectedQty", Double.valueOf(rejectedQty));
-            lot.set("inspector", toText(context.get("inspector")));
-            lot.set("inspectNote", toText(context.get("inspectNote")));
+            lot.set("inspector", MfgSupport.toText(context.get("inspector")));
+            lot.set("inspectNote", MfgSupport.toText(context.get("inspectNote")));
             lot.set("inspectDate", IQC_PENDING.equals(status) ? null : java.sql.Date.valueOf(LocalDate.now()));
             delegator.store(lot);
 
@@ -3057,8 +2982,8 @@ public final class MfgServices {
      */
     public static Map<String, Object> lotList(DispatchContext dctx, Map<String, ? extends Object> context) {
         Delegator delegator = dctx.getDelegator();
-        String componentCode = toText(context.get("componentCode"));
-        String kind = toText(context.get("kind"));
+        String componentCode = MfgSupport.toText(context.get("componentCode"));
+        String kind = MfgSupport.toText(context.get("kind"));
         if (kind == null) {
             // the material page lists the purchased parts; the finished goods have their own page
             kind = LOT_COMPONENT;
@@ -3083,10 +3008,10 @@ public final class MfgServices {
                 list.add(toLotMap(lot, issued.get(lot.getString("lotId"))));
             }
             Map<String, Object> result = ServiceUtil.returnSuccess();
-            putPage(result, "lots",
-                    filterByKeyword(list, toText(context.get("search")), "lotId", "componentCode",
+            MfgPaging.putPage(result, "lots",
+                    MfgPaging.filterByKeyword(list, MfgSupport.toText(context.get("search")), "lotId", "componentCode",
                             "componentName", "supplierName", "supplierLot"),
-                    pageOf(context), pageSizeOf(context), toText(context.get("search")));
+                    MfgPaging.pageOf(context), MfgPaging.pageSizeOf(context), MfgSupport.toText(context.get("search")));
             result.put("componentCode", componentCode);
             result.put("kind", kind);
             return result;
@@ -3109,10 +3034,10 @@ public final class MfgServices {
             return ServiceUtil.returnError(denied);
         }
         Delegator delegator = dctx.getDelegator();
-        String workOrderId = toText(context.get("workOrderId"));
-        String componentCode = toText(context.get("componentCode"));
-        String lotId = toText(context.get("lotId"));
-        double qty = toDouble(context.get("qty"), 0.0);
+        String workOrderId = MfgSupport.toText(context.get("workOrderId"));
+        String componentCode = MfgSupport.toText(context.get("componentCode"));
+        String lotId = MfgSupport.toText(context.get("lotId"));
+        double qty = MfgSupport.toDouble(context.get("qty"), 0.0);
         if (workOrderId == null) {
             return ServiceUtil.returnError("workOrderId is required");
         }
@@ -3149,10 +3074,10 @@ public final class MfgServices {
             ensureLotLedger(delegator, lot);
             // material reserved by this very work order may of course be issued to it
             double ownReservation = reservationOf(delegator, lotId, workOrderId);
-            double available = numberOrZero(lot.get("availableQty")) + ownReservation;
+            double available = MfgSupport.numberOrZero(lot.get("availableQty")) + ownReservation;
             if (available + 0.0001 < qty) {
-                return ServiceUtil.returnError("Only " + formatQty(available) + " left in lot [" + lotId
-                        + "], cannot issue " + formatQty(qty));
+                return ServiceUtil.returnError("Only " + MfgSupport.formatQty(available) + " left in lot [" + lotId
+                        + "], cannot issue " + MfgSupport.formatQty(qty));
             }
             String issueId = delegator.getNextSeqId("MfgMaterialIssue");
             GenericValue issue = delegator.makeValue("MfgMaterialIssue");
@@ -3162,13 +3087,13 @@ public final class MfgServices {
             issue.set("lotId", lotId);
             issue.set("qty", Double.valueOf(qty));
             issue.set("directionId", MOVE_ISSUE);
-            Object issuedDate = parseDate(context.get("issuedDate"));
+            Object issuedDate = MfgSupport.parseDate(context.get("issuedDate"));
             issue.set("issuedDate", issuedDate == null
                     ? java.sql.Date.valueOf(LocalDate.now()) : issuedDate);
-            issue.set("designators", toText(context.get("designators")));
-            issue.set("snFrom", toText(context.get("snFrom")));
-            issue.set("snTo", toText(context.get("snTo")));
-            issue.set("note", toText(context.get("note")));
+            issue.set("designators", MfgSupport.toText(context.get("designators")));
+            issue.set("snFrom", MfgSupport.toText(context.get("snFrom")));
+            issue.set("snTo", MfgSupport.toText(context.get("snTo")));
+            issue.set("note", MfgSupport.toText(context.get("note")));
             delegator.create(issue);
             recordMovement(delegator, lot, MOVE_ISSUE, -qty, lot.get("unitPrice"), workOrderId, null,
                     null, null,
@@ -3197,7 +3122,7 @@ public final class MfgServices {
      */
     public static Map<String, Object> workOrderMaterials(DispatchContext dctx, Map<String, ? extends Object> context) {
         Delegator delegator = dctx.getDelegator();
-        String workOrderId = toText(context.get("workOrderId"));
+        String workOrderId = MfgSupport.toText(context.get("workOrderId"));
         Map<String, Object> empty = ServiceUtil.returnSuccess();
         empty.put("lines", new ArrayList<Map<String, Object>>());
         empty.put("issues", new ArrayList<Map<String, Object>>());
@@ -3280,8 +3205,8 @@ public final class MfgServices {
             return ServiceUtil.returnError(denied);
         }
         Delegator delegator = dctx.getDelegator();
-        String workOrderId = toText(context.get("workOrderId"));
-        String directionId = toText(context.get("directionId"));
+        String workOrderId = MfgSupport.toText(context.get("workOrderId"));
+        String directionId = MfgSupport.toText(context.get("directionId"));
         if (workOrderId == null) {
             return ServiceUtil.returnError("workOrderId is required");
         }
@@ -3291,8 +3216,8 @@ public final class MfgServices {
         if (!SHIP_IN.equals(directionId) && !SHIP_OUT.equals(directionId)) {
             return ServiceUtil.returnError("directionId must be " + SHIP_OUT + " or " + SHIP_IN);
         }
-        double qty = toDouble(context.get("qty"), 0.0);
-        double defectQty = toDouble(context.get("defectQty"), 0.0);
+        double qty = MfgSupport.toDouble(context.get("qty"), 0.0);
+        double defectQty = MfgSupport.toDouble(context.get("defectQty"), 0.0);
         if (qty <= 0.0) {
             return ServiceUtil.returnError("qty must be greater than zero");
         }
@@ -3311,14 +3236,14 @@ public final class MfgServices {
             shipment.set("shipmentId", shipmentId);
             shipment.set("workOrderId", workOrderId);
             shipment.set("directionId", directionId);
-            Object shipmentDate = parseDate(context.get("shipmentDate"));
+            Object shipmentDate = MfgSupport.parseDate(context.get("shipmentDate"));
             shipment.set("shipmentDate", shipmentDate == null
                     ? java.sql.Date.valueOf(LocalDate.now()) : shipmentDate);
             shipment.set("qty", Double.valueOf(qty));
             shipment.set("defectQty", Double.valueOf(defectQty));
-            shipment.set("carrier", toText(context.get("carrier")));
-            shipment.set("trackingNo", toText(context.get("trackingNo")));
-            shipment.set("note", toText(context.get("note")));
+            shipment.set("carrier", MfgSupport.toText(context.get("carrier")));
+            shipment.set("trackingNo", MfgSupport.toText(context.get("trackingNo")));
+            shipment.set("note", MfgSupport.toText(context.get("note")));
             delegator.create(shipment);
 
             Map<String, Object> result = ServiceUtil.returnSuccess();
@@ -3339,8 +3264,8 @@ public final class MfgServices {
      */
     public static Map<String, Object> traceByLot(DispatchContext dctx, Map<String, ? extends Object> context) {
         Delegator delegator = dctx.getDelegator();
-        String lotId = toText(context.get("lotId"));
-        String supplierLot = toText(context.get("supplierLot"));
+        String lotId = MfgSupport.toText(context.get("lotId"));
+        String supplierLot = MfgSupport.toText(context.get("supplierLot"));
         if (lotId == null && supplierLot == null) {
             // the material page always calls this service, an empty query is not an error
             Map<String, Object> empty = ServiceUtil.returnSuccess();
@@ -3516,7 +3441,7 @@ public final class MfgServices {
      * @return one of {@link #INSPECT_STATUSES}, or {@code null} when the value is not a known status
      */
     static String normalizeInspectStatus(Object value) {
-        String text = toText(value);
+        String text = MfgSupport.toText(value);
         if (text == null) {
             return IQC_PENDING;
         }
@@ -3553,8 +3478,8 @@ public final class MfgServices {
         // what is really left comes from the ledger, so a scrap or an adjustment shows up here;
         // received minus issued only knows about issuing, which made a scrapped lot look full
         double onHand = lot.getDouble("onHandQty") == null
-                ? round2(received - issued) : lot.getDouble("onHandQty").doubleValue();
-        map.put("remainingQty", Double.valueOf(round2(onHand)));
+                ? MfgSupport.round2(received - issued) : lot.getDouble("onHandQty").doubleValue();
+        map.put("remainingQty", Double.valueOf(MfgSupport.round2(onHand)));
         String inspectStatus = lot.getString("inspectStatusId");
         map.put("inspectStatusId", inspectStatus == null ? IQC_PENDING : inspectStatus);
         map.put("inspectDate", lot.get("inspectDate"));
@@ -3635,8 +3560,8 @@ public final class MfgServices {
      * @return the cost of one unit, {@code 0} when neither is known
      */
     static double lotUnitCost(GenericValue lot) {
-        return unitCostOf(numberOrZero(lot.get("receivedQty")), numberOrZero(lot.get("receivedAmount")),
-                numberOrZero(lot.get("unitPrice")));
+        return unitCostOf(MfgSupport.numberOrZero(lot.get("receivedQty")), MfgSupport.numberOrZero(lot.get("receivedAmount")),
+                MfgSupport.numberOrZero(lot.get("unitPrice")));
     }
 
     /**
@@ -3681,11 +3606,11 @@ public final class MfgServices {
             return ServiceUtil.returnError(denied);
         }
         Delegator delegator = dctx.getDelegator();
-        String csv = toText(context.get("csv"));
+        String csv = MfgSupport.toText(context.get("csv"));
         if (csv == null) {
             return ServiceUtil.returnError("csv is required");
         }
-        List<String[]> rows = parseLotCsv(csv);
+        List<String[]> rows = MfgCsv.parseLotCsv(csv);
         if (rows.isEmpty()) {
             return ServiceUtil.returnError("No lot line could be parsed, expected "
                     + "componentCode,componentName,supplierName,supplierLot,qty,receivedDate");
@@ -3694,7 +3619,7 @@ public final class MfgServices {
             int imported = 0;
             List<String> lotIds = new ArrayList<>();
             for (String[] row : rows) {
-                double qty = toDouble(row[4], 0.0);
+                double qty = MfgSupport.toDouble(row[4], 0.0);
                 if (qty <= 0.0) {
                     continue;
                 }
@@ -3706,13 +3631,13 @@ public final class MfgServices {
                 lot.set("supplierName", row[2]);
                 lot.set("supplierLot", row[3]);
                 lot.set("receivedQty", Double.valueOf(qty));
-                Object receivedDate = parseDate(row[5]);
+                Object receivedDate = MfgSupport.parseDate(row[5]);
                 lot.set("receivedDate", receivedDate == null
                         ? java.sql.Date.valueOf(LocalDate.now()) : receivedDate);
                 delegator.create(lot);
                 recordMovement(delegator, lot, MOVE_RECEIPT, qty, null, null, null, row[3], null,
                         Timestamp.valueOf(lot.getDate("receivedDate").toLocalDate().atStartOfDay()),
-                        "CSV 导入到货", toText(context.get("locationId")));
+                        "CSV 导入到货", MfgSupport.toText(context.get("locationId")));
                 recalcLotStock(delegator, lot);
                 lotIds.add(lotId);
                 imported++;
@@ -3769,10 +3694,10 @@ public final class MfgServices {
                 rows.add(row);
             }
             Map<String, Object> result = ServiceUtil.returnSuccess();
-            putPage(result, "orders",
-                    filterByKeyword(rows, toText(context.get("search")), "workOrderId", "productCode",
+            MfgPaging.putPage(result, "orders",
+                    MfgPaging.filterByKeyword(rows, MfgSupport.toText(context.get("search")), "workOrderId", "productCode",
                             "customerName"),
-                    pageOf(context), pageSizeOf(context), toText(context.get("search")));
+                    MfgPaging.pageOf(context), MfgPaging.pageSizeOf(context), MfgSupport.toText(context.get("search")));
             result.put("orderCount", Integer.valueOf(rows.size()));
             result.put("shortageOrderCount", Long.valueOf(shortageOrders));
             return result;
@@ -3795,15 +3720,15 @@ public final class MfgServices {
             return ServiceUtil.returnError(denied);
         }
         Delegator delegator = dctx.getDelegator();
-        String sn = toText(context.get("sn"));
-        String componentCode = toText(context.get("componentCode"));
+        String sn = MfgSupport.toText(context.get("sn"));
+        String componentCode = MfgSupport.toText(context.get("componentCode"));
         if (sn == null) {
             return ServiceUtil.returnError("sn is required");
         }
         if (componentCode == null) {
             return ServiceUtil.returnError("componentCode is required");
         }
-        double qty = toDouble(context.get("qty"), 1.0);
+        double qty = MfgSupport.toDouble(context.get("qty"), 1.0);
         if (qty <= 0.0) {
             return ServiceUtil.returnError("qty must be greater than zero");
         }
@@ -3812,8 +3737,8 @@ public final class MfgServices {
             if (unit == null) {
                 return ServiceUtil.returnError("Unknown serial number [" + sn + "]");
             }
-            String oldLotId = toText(context.get("oldLotId"));
-            String newLotId = toText(context.get("newLotId"));
+            String oldLotId = MfgSupport.toText(context.get("oldLotId"));
+            String newLotId = MfgSupport.toText(context.get("newLotId"));
             if (newLotId != null
                     && EntityQuery.use(delegator).from("MfgMaterialLot").where("lotId", newLotId).queryOne() == null) {
                 return ServiceUtil.returnError("Unknown material lot [" + newLotId + "]");
@@ -3824,16 +3749,16 @@ public final class MfgServices {
             replacement.set("sn", sn);
             replacement.set("workOrderId", unit.getString("workOrderId"));
             replacement.set("componentCode", componentCode);
-            replacement.set("opSeq", Long.valueOf(toLong(context.get("opSeq"), 0)));
+            replacement.set("opSeq", Long.valueOf(MfgSupport.toLong(context.get("opSeq"), 0)));
             replacement.set("oldLotId", oldLotId);
             replacement.set("newLotId", newLotId);
             replacement.set("qty", Double.valueOf(qty));
-            Object replacedDate = parseDate(context.get("replacedDate"));
+            Object replacedDate = MfgSupport.parseDate(context.get("replacedDate"));
             replacement.set("replacedDate", replacedDate == null
                     ? java.sql.Date.valueOf(LocalDate.now()) : replacedDate);
-            replacement.set("reason", toText(context.get("reason")));
-            replacement.set("hours", Double.valueOf(toDouble(context.get("hours"), 0.0)));
-            replacement.set("note", toText(context.get("note")));
+            replacement.set("reason", MfgSupport.toText(context.get("reason")));
+            replacement.set("hours", Double.valueOf(MfgSupport.toDouble(context.get("hours"), 0.0)));
+            replacement.set("note", MfgSupport.toText(context.get("note")));
             delegator.create(replacement);
 
             Map<String, Object> result = ServiceUtil.returnSuccess();
@@ -3854,7 +3779,7 @@ public final class MfgServices {
      */
     private static List<Map<String, Object>> kittingLines(Delegator delegator, GenericValue order)
             throws GenericEntityException {
-        long plannedQty = toLong(order.get("plannedQty"), 0);
+        long plannedQty = MfgSupport.toLong(order.get("plannedQty"), 0);
         List<GenericValue> bomItems = bomItemsForOrder(delegator, order);
         List<GenericValue> issues = EntityQuery.use(delegator).from("MfgMaterialIssue")
                 .where("workOrderId", order.getString("workOrderId")).queryList();
@@ -3884,7 +3809,7 @@ public final class MfgServices {
             line.put("isKeyPart", item.getString("isKeyPart"));
             line.put("requiredQty", Double.valueOf(required));
             line.put("issuedQty", Double.valueOf(issuedQty));
-            line.put("reservedQty", Double.valueOf(round2(reservedQty)));
+            line.put("reservedQty", Double.valueOf(MfgSupport.round2(reservedQty)));
             line.put("shortage", Double.valueOf(Math.max(0.0, required - issuedQty - reservedQty)));
             lines.add(line);
         }
@@ -3945,41 +3870,6 @@ public final class MfgServices {
         return new int[] {start, end};
     }
 
-    /**
-     * Parses material lot CSV text into rows of
-     * {@code componentCode, componentName, supplierName, supplierLot, qty, receivedDate}.
-     * Empty lines and lines starting with {@code #} are ignored.
-     *
-     * @param csv the CSV text
-     * @return the parsed rows, never {@code null}
-     */
-    static List<String[]> parseLotCsv(String csv) {
-        List<String[]> rows = new ArrayList<>();
-        if (csv == null) {
-            return rows;
-        }
-        for (String line : csv.replace("\uFEFF", "").replace("\r\n", "\n").replace('\r', '\n').split("\n")) {
-            String trimmed = line.trim();
-            if (trimmed.isEmpty() || trimmed.startsWith("#")) {
-                continue;
-            }
-            String[] cells = splitCsvLine(trimmed);
-            String code = unquote(cells[0]).toUpperCase(Locale.ROOT);
-            if (code.isEmpty()) {
-                continue;
-            }
-            String[] row = new String[6];
-            row[0] = code;
-            row[1] = cells.length > 1 ? unquote(cells[1]) : null;
-            row[2] = cells.length > 2 ? unquote(cells[2]) : null;
-            row[3] = cells.length > 3 ? unquote(cells[3]) : null;
-            row[4] = cells.length > 4 ? unquote(cells[4]) : null;
-            row[5] = cells.length > 5 ? unquote(cells[5]) : null;
-            rows.add(row);
-        }
-        return rows;
-    }
-
     // ------------------------------------------------------------- delivery and testing
 
     /**
@@ -3998,15 +3888,15 @@ public final class MfgServices {
             return ServiceUtil.returnError(denied);
         }
         Delegator delegator = dctx.getDelegator();
-        String customerName = toText(context.get("customerName"));
-        String salesOrderId = toText(context.get("salesOrderId"));
+        String customerName = MfgSupport.toText(context.get("customerName"));
+        String salesOrderId = MfgSupport.toText(context.get("salesOrderId"));
         if (customerName == null) {
             return ServiceUtil.returnError("customerName is required");
         }
         try {
-            List<String> sns = parseSnList(toText(context.get("sns")));
-            String workOrderId = toText(context.get("workOrderId"));
-            long qty = toLong(context.get("qty"), 0);
+            List<String> sns = MfgCsv.parseSnList(MfgSupport.toText(context.get("sns")));
+            String workOrderId = MfgSupport.toText(context.get("workOrderId"));
+            long qty = MfgSupport.toLong(context.get("qty"), 0);
             if (sns.isEmpty()) {
                 if (workOrderId == null) {
                     return ServiceUtil.returnError("sns or workOrderId is required");
@@ -4055,13 +3945,13 @@ public final class MfgServices {
             for (Map.Entry<String, Integer> entry : toShip.entrySet()) {
                 GenericValue unitLot = EntityQuery.use(delegator).from("MfgMaterialLot")
                         .where("lotId", productLotId(entry.getKey())).queryOne();
-                double available = unitLot == null ? 0.0 : numberOrZero(unitLot.get("availableQty"));
+                double available = unitLot == null ? 0.0 : MfgSupport.numberOrZero(unitLot.get("availableQty"));
                 // what this very order reserved on the lot is not somebody else taking it
                 if (salesOrderId != null) {
                     available += orderReservedOnLot(delegator, productLotId(entry.getKey()), salesOrderId);
                 }
                 if (available + 0.0001 < entry.getValue().intValue()) {
-                    return ServiceUtil.returnError("Only " + formatQty(available) + " unit(s) left in the finished"
+                    return ServiceUtil.returnError("Only " + MfgSupport.formatQty(available) + " unit(s) left in the finished"
                             + " goods lot [" + productLotId(entry.getKey()) + "], cannot ship "
                             + entry.getValue().intValue());
                 }
@@ -4099,12 +3989,12 @@ public final class MfgServices {
                         long lineSeq = item.getLong("lineSeq").longValue();
                         double lineReserved = orderLineReserved(delegator, salesOrderId, lineSeq);
                         // what the order already locked counts as shippable, its open quantity too
-                        shippable += lineReserved + openQtyOf(numberOrZero(item.get("qty")), lineReserved,
-                                numberOrZero(item.get("shippedQty")));
+                        shippable += lineReserved + openQtyOf(MfgSupport.numberOrZero(item.get("qty")), lineReserved,
+                                MfgSupport.numberOrZero(item.get("shippedQty")));
                     }
                     if (shippable + 0.0001 < entry.getValue().intValue()) {
                         return ServiceUtil.returnError("Sales order [" + salesOrderId + "] only has "
-                                + formatQty(shippable) + " unit(s) of [" + entry.getKey() + "], cannot ship "
+                                + MfgSupport.formatQty(shippable) + " unit(s) of [" + entry.getKey() + "], cannot ship "
                                 + entry.getValue().intValue());
                     }
                 }
@@ -4114,14 +4004,14 @@ public final class MfgServices {
             GenericValue delivery = delegator.makeValue("MfgDelivery");
             delivery.set("deliveryId", deliveryId);
             delivery.set("customerName", customerName);
-            delivery.set("customerPo", toText(context.get("customerPo")));
-            Object deliveryDate = parseDate(context.get("deliveryDate"));
+            delivery.set("customerPo", MfgSupport.toText(context.get("customerPo")));
+            Object deliveryDate = MfgSupport.parseDate(context.get("deliveryDate"));
             delivery.set("deliveryDate", deliveryDate == null
                     ? java.sql.Date.valueOf(LocalDate.now()) : deliveryDate);
-            delivery.set("carrier", toText(context.get("carrier")));
-            delivery.set("trackingNo", toText(context.get("trackingNo")));
+            delivery.set("carrier", MfgSupport.toText(context.get("carrier")));
+            delivery.set("trackingNo", MfgSupport.toText(context.get("trackingNo")));
             delivery.set("workOrderId", workOrderId);
-            delivery.set("note", toText(context.get("note")));
+            delivery.set("note", MfgSupport.toText(context.get("note")));
             delegator.create(delivery);
 
             for (String sn : sns) {
@@ -4137,7 +4027,7 @@ public final class MfgServices {
             }
 
             // the goods leave the finished stock of the work order that built them
-            String operator = toText(context.get("operatorName"));
+            String operator = MfgSupport.toText(context.get("operatorName"));
             java.sql.Date shippedDay = delivery.getDate("deliveryDate");
             double issuedQty = 0.0;
             for (Map.Entry<String, Integer> entry : toShip.entrySet()) {
@@ -4164,7 +4054,7 @@ public final class MfgServices {
             Map<String, Object> result = ServiceUtil.returnSuccess();
             result.put("deliveryId", deliveryId);
             result.put("snCount", String.valueOf(sns.size()));
-            result.put("issuedQty", Double.valueOf(round2(issuedQty)));
+            result.put("issuedQty", Double.valueOf(MfgSupport.round2(issuedQty)));
             result.put("productLotCount", Integer.valueOf(toShip.size()));
             if (salesOrderId != null) {
                 result.put("salesOrderId", salesOrderId);
@@ -4184,7 +4074,7 @@ public final class MfgServices {
      */
     public static Map<String, Object> deliveryList(DispatchContext dctx, Map<String, ? extends Object> context) {
         Delegator delegator = dctx.getDelegator();
-        String customerName = toText(context.get("customerName"));
+        String customerName = MfgSupport.toText(context.get("customerName"));
         try {
             EntityQuery query = EntityQuery.use(delegator).from("MfgDelivery");
             if (customerName != null) {
@@ -4206,12 +4096,12 @@ public final class MfgServices {
                 list.add(map);
             }
             Map<String, Object> result = ServiceUtil.returnSuccess();
-            putPage(result, "deliveries",
-                    filterByKeyword(list, toText(context.get("search")), "deliveryId", "customerName",
+            MfgPaging.putPage(result, "deliveries",
+                    MfgPaging.filterByKeyword(list, MfgSupport.toText(context.get("search")), "deliveryId", "customerName",
                             "customerPo", "carrier", "trackingNo"),
-                    pageOf(context), pageSizeOf(context), toText(context.get("search")));
+                    MfgPaging.pageOf(context), MfgPaging.pageSizeOf(context), MfgSupport.toText(context.get("search")));
             // the list unfolds the shipped serial numbers of the visible page in place
-            for (Map<String, Object> row : rowsOf(result, "deliveries")) {
+            for (Map<String, Object> row : MfgPaging.rowsOf(result, "deliveries")) {
                 List<String> sns = serials.get((String) row.get("deliveryId"));
                 row.put("snList", sns == null ? new ArrayList<String>() : sns);
             }
@@ -4231,7 +4121,7 @@ public final class MfgServices {
      */
     public static Map<String, Object> deliveryDetail(DispatchContext dctx, Map<String, ? extends Object> context) {
         Delegator delegator = dctx.getDelegator();
-        String deliveryId = toText(context.get("deliveryId"));
+        String deliveryId = MfgSupport.toText(context.get("deliveryId"));
         Map<String, Object> empty = ServiceUtil.returnSuccess();
         empty.put("units", new ArrayList<Map<String, Object>>());
         if (deliveryId == null) {
@@ -4279,11 +4169,11 @@ public final class MfgServices {
             return ServiceUtil.returnError(denied);
         }
         Delegator delegator = dctx.getDelegator();
-        String csv = toText(context.get("csv"));
+        String csv = MfgSupport.toText(context.get("csv"));
         if (csv == null) {
             return ServiceUtil.returnError("csv is required");
         }
-        List<String[]> rows = parseTestCsv(csv);
+        List<String[]> rows = MfgCsv.parseTestCsv(csv);
         if (rows.isEmpty()) {
             return ServiceUtil.returnError("No test line could be parsed, expected sn,station,item,value,unit,pass");
         }
@@ -4304,7 +4194,7 @@ public final class MfgServices {
                 result.set("workOrderId", unit.getString("workOrderId"));
                 result.set("station", row[1] == null ? "FCT" : row[1].toUpperCase(Locale.ROOT));
                 result.set("testItem", row[2]);
-                result.set("measureValue", Double.valueOf(toDouble(row[3], 0.0)));
+                result.set("measureValue", Double.valueOf(MfgSupport.toDouble(row[3], 0.0)));
                 result.set("unitOfMeasure", row[4]);
                 result.set("passFail", "N".equalsIgnoreCase(row[5]) ? "N" : "Y");
                 result.set("testDate", now);
@@ -4318,7 +4208,7 @@ public final class MfgServices {
             result.put("importedCount", String.valueOf(imported));
             result.put("skippedCount", String.valueOf(skipped));
             // carried through the redirect so the page returns to the work order
-            result.put("workOrderId", toText(context.get("workOrderId")));
+            result.put("workOrderId", MfgSupport.toText(context.get("workOrderId")));
             return result;
         } catch (GenericEntityException e) {
             return ServiceUtil.returnError("Could not import the test results: " + e.getMessage());
@@ -4334,7 +4224,7 @@ public final class MfgServices {
      */
     public static Map<String, Object> testResultList(DispatchContext dctx, Map<String, ? extends Object> context) {
         Delegator delegator = dctx.getDelegator();
-        String sn = toText(context.get("sn"));
+        String sn = MfgSupport.toText(context.get("sn"));
         try {
             EntityQuery query = EntityQuery.use(delegator).from("MfgTestResult");
             if (sn != null) {
@@ -4384,60 +4274,6 @@ public final class MfgServices {
         return list;
     }
 
-    /**
-     * Splits a whitespace or comma separated list of serial numbers.
-     *
-     * @param text the raw text, may be {@code null}
-     * @return the serial numbers, never {@code null}
-     */
-    static List<String> parseSnList(String text) {
-        List<String> sns = new ArrayList<>();
-        if (text == null) {
-            return sns;
-        }
-        for (String candidate : text.split("[,\\s]+")) {
-            String sn = candidate.trim();
-            if (!sn.isEmpty() && !sns.contains(sn)) {
-                sns.add(sn);
-            }
-        }
-        return sns;
-    }
-
-    /**
-     * Parses test bench CSV text into rows of {@code sn, station, item, value, unit, pass}.
-     * Empty lines and lines starting with {@code #} are ignored.
-     *
-     * @param csv the CSV text
-     * @return the parsed rows, never {@code null}
-     */
-    static List<String[]> parseTestCsv(String csv) {
-        List<String[]> rows = new ArrayList<>();
-        if (csv == null) {
-            return rows;
-        }
-        for (String line : csv.replace("\r\n", "\n").replace('\r', '\n').split("\n")) {
-            String trimmed = line.trim();
-            if (trimmed.isEmpty() || trimmed.startsWith("#")) {
-                continue;
-            }
-            String[] cells = splitCsvLine(trimmed);
-            String sn = unquote(cells[0]);
-            if (sn.isEmpty()) {
-                continue;
-            }
-            String[] row = new String[6];
-            row[0] = sn;
-            row[1] = cells.length > 1 ? unquote(cells[1]) : null;
-            row[2] = cells.length > 2 ? unquote(cells[2]) : null;
-            row[3] = cells.length > 3 ? unquote(cells[3]) : null;
-            row[4] = cells.length > 4 ? unquote(cells[4]) : null;
-            row[5] = cells.length > 5 ? unquote(cells[5]) : null;
-            rows.add(row);
-        }
-        return rows;
-    }
-
     private static String formatDeliveryId(LocalDate date, int sequence) {
         return "DO-" + date.format(DAY) + "-" + String.format(Locale.ROOT, "%02d", sequence);
     }
@@ -4471,26 +4307,26 @@ public final class MfgServices {
             return ServiceUtil.returnError(denied);
         }
         Delegator delegator = dctx.getDelegator();
-        String vendorName = toText(context.get("vendorName"));
+        String vendorName = MfgSupport.toText(context.get("vendorName"));
         if (vendorName == null) {
             return ServiceUtil.returnError("vendorName is required");
         }
         try {
-            String vendorId = toText(context.get("vendorId"));
+            String vendorId = MfgSupport.toText(context.get("vendorId"));
             if (vendorId == null) {
                 vendorId = nextVendorId(delegator, LocalDate.now());
             }
             GenericValue vendor = delegator.makeValue("MfgVendor");
             vendor.set("vendorId", vendorId);
             vendor.set("vendorName", vendorName);
-            vendor.set("vendorType", toText(context.get("vendorType")));
-            vendor.set("contactName", toText(context.get("contactName")));
-            vendor.set("contactMobile", toText(context.get("contactMobile")));
-            vendor.set("addressText", toText(context.get("addressText")));
-            vendor.set("customerCode", toText(context.get("customerCode")));
-            String statusId = toText(context.get("statusId"));
+            vendor.set("vendorType", MfgSupport.toText(context.get("vendorType")));
+            vendor.set("contactName", MfgSupport.toText(context.get("contactName")));
+            vendor.set("contactMobile", MfgSupport.toText(context.get("contactMobile")));
+            vendor.set("addressText", MfgSupport.toText(context.get("addressText")));
+            vendor.set("customerCode", MfgSupport.toText(context.get("customerCode")));
+            String statusId = MfgSupport.toText(context.get("statusId"));
             vendor.set("statusId", statusId == null ? STATUS_ACTIVE : statusId);
-            vendor.set("note", toText(context.get("note")));
+            vendor.set("note", MfgSupport.toText(context.get("note")));
             delegator.createOrStore(vendor);
 
             Map<String, Object> result = ServiceUtil.returnSuccess();
@@ -4512,10 +4348,10 @@ public final class MfgServices {
         Delegator delegator = dctx.getDelegator();
         try {
             Map<String, Object> result = ServiceUtil.returnSuccess();
-            putPage(result, "vendors",
-                    filterByKeyword(vendorMaps(delegator), toText(context.get("search")), "vendorName",
+            MfgPaging.putPage(result, "vendors",
+                    MfgPaging.filterByKeyword(vendorMaps(delegator), MfgSupport.toText(context.get("search")), "vendorName",
                             "vendorType", "contactName", "contactMobile", "customerCode", "vendorId"),
-                    pageOf(context), pageSizeOf(context), toText(context.get("search")));
+                    MfgPaging.pageOf(context), MfgPaging.pageSizeOf(context), MfgSupport.toText(context.get("search")));
             return result;
         } catch (GenericEntityException e) {
             return ServiceUtil.returnError("Could not read the vendors: " + e.getMessage());
@@ -4546,8 +4382,8 @@ public final class MfgServices {
             return ServiceUtil.returnError(denied);
         }
         Delegator delegator = dctx.getDelegator();
-        String workOrderId = toText(context.get("workOrderId"));
-        String vendorId = toText(context.get("vendorId"));
+        String workOrderId = MfgSupport.toText(context.get("workOrderId"));
+        String vendorId = MfgSupport.toText(context.get("vendorId"));
         if (workOrderId == null) {
             return ServiceUtil.returnError("workOrderId is required");
         }
@@ -4656,8 +4492,8 @@ public final class MfgServices {
             return ServiceUtil.returnError(denied);
         }
         Delegator delegator = dctx.getDelegator();
-        String sn = toText(context.get("sn"));
-        String issueDesc = toText(context.get("issueDesc"));
+        String sn = MfgSupport.toText(context.get("sn"));
+        String issueDesc = MfgSupport.toText(context.get("issueDesc"));
         if (sn == null) {
             return ServiceUtil.returnError("sn is required");
         }
@@ -4678,18 +4514,18 @@ public final class MfgServices {
             }
             GenericValue product = EntityQuery.use(delegator).from("MfgProduct")
                     .where("productCode", unit.getString("productCode")).queryOne();
-            long warrantyMonths = product == null ? 12 : toLong(product.get("warrantyMonths"), 12);
+            long warrantyMonths = product == null ? 12 : MfgSupport.toLong(product.get("warrantyMonths"), 12);
             java.sql.Date deliveryDate = delivery == null ? null : delivery.getDate("deliveryDate");
             java.sql.Date endDate = warrantyEndDate(deliveryDate, warrantyMonths);
-            java.sql.Date signedDate = (java.sql.Date) parseDate(context.get("signedDate"));
+            java.sql.Date signedDate = (java.sql.Date) MfgSupport.parseDate(context.get("signedDate"));
             if (signedDate == null) {
                 signedDate = deliveryDate;
             }
-            java.sql.Date receivedDate = (java.sql.Date) parseDate(context.get("receivedDate"));
+            java.sql.Date receivedDate = (java.sql.Date) MfgSupport.parseDate(context.get("receivedDate"));
             if (receivedDate == null) {
                 receivedDate = java.sql.Date.valueOf(LocalDate.now());
             }
-            String claimType = toText(context.get("claimType"));
+            String claimType = MfgSupport.toText(context.get("claimType"));
             if (claimType == null) {
                 claimType = CLAIM_RTN;
             } else if (!CLAIM_RTN.equals(claimType) && !CLAIM_EXCH.equals(claimType)
@@ -4697,7 +4533,7 @@ public final class MfgServices {
                 return ServiceUtil.returnError("claimType must be " + CLAIM_RTN + ", " + CLAIM_EXCH
                         + ", " + CLAIM_REPAIR + " or " + CLAIM_REFUND_ONLY);
             }
-            String freightPayer = toText(context.get("freightPayer"));
+            String freightPayer = MfgSupport.toText(context.get("freightPayer"));
             if (freightPayer != null && !FREIGHT_SELLER.equals(freightPayer)
                     && !FREIGHT_BUYER.equals(freightPayer)) {
                 return ServiceUtil.returnError("freightPayer must be " + FREIGHT_SELLER
@@ -4705,12 +4541,12 @@ public final class MfgServices {
             }
 
             String claimId = nextClaimId(delegator, LocalDate.now());
-            String buyerNick = toText(context.get("buyerNick"));
+            String buyerNick = MfgSupport.toText(context.get("buyerNick"));
             GenericValue claim = delegator.makeValue("MfgWarrantyClaim");
             claim.set("claimId", claimId);
             claim.set("sn", sn);
             claim.set("workOrderId", unit.getString("workOrderId"));
-            claim.set("customerName", delivery == null ? toText(context.get("customerName"))
+            claim.set("customerName", delivery == null ? MfgSupport.toText(context.get("customerName"))
                     : delivery.getString("customerName"));
             claim.set("deliveryId", delivery == null ? null : delivery.getString("deliveryId"));
             claim.set("deliveryDate", deliveryDate);
@@ -4720,19 +4556,19 @@ public final class MfgServices {
             claim.set("issueDesc", issueDesc);
             claim.set("statusId", RMA_OPEN);
             claim.set("claimType", claimType);
-            claim.set("tradeNo", toText(context.get("tradeNo")));
+            claim.set("tradeNo", MfgSupport.toText(context.get("tradeNo")));
             claim.set("buyerNick", buyerNick);
             claim.set("signedDate", signedDate);
             claim.set("sevenDayDeadline", sevenDayDeadline(signedDate));
             claim.set("afterSaleDeadline", afterSaleDeadline(signedDate));
-            claim.set("refundAmount", Double.valueOf(toDouble(context.get("refundAmount"), 0.0)));
-            claim.set("deductAmount", Double.valueOf(toDouble(context.get("deductAmount"), 0.0)));
+            claim.set("refundAmount", Double.valueOf(MfgSupport.toDouble(context.get("refundAmount"), 0.0)));
+            claim.set("deductAmount", Double.valueOf(MfgSupport.toDouble(context.get("deductAmount"), 0.0)));
             claim.set("freightPayer", freightPayer == null ? defaultFreightPayer(claimType) : freightPayer);
-            claim.set("responsibility", toText(context.get("responsibility")));
-            claim.set("repairHours", Double.valueOf(toDouble(context.get("repairHours"), 0.0)));
+            claim.set("responsibility", MfgSupport.toText(context.get("responsibility")));
+            claim.set("repairHours", Double.valueOf(MfgSupport.toDouble(context.get("repairHours"), 0.0)));
             claim.set("vendorClaimStatus", "NONE");
             claim.set("buyerRiskLevel", activeRiskLevel(delegator, buyerNick));
-            claim.set("note", toText(context.get("note")));
+            claim.set("note", MfgSupport.toText(context.get("note")));
             delegator.create(claim);
 
             Map<String, Object> result = ServiceUtil.returnSuccess();
@@ -4769,7 +4605,7 @@ public final class MfgServices {
             return ServiceUtil.returnError(denied);
         }
         Delegator delegator = dctx.getDelegator();
-        String claimId = toText(context.get("claimId"));
+        String claimId = MfgSupport.toText(context.get("claimId"));
         if (claimId == null) {
             return ServiceUtil.returnError("claimId is required");
         }
@@ -4779,7 +4615,7 @@ public final class MfgServices {
             if (claim == null) {
                 return ServiceUtil.returnError("Unknown claim [" + claimId + "]");
             }
-            String statusId = toText(context.get("statusId"));
+            String statusId = MfgSupport.toText(context.get("statusId"));
             if (statusId != null) {
                 if (!RMA_OPEN.equals(statusId) && !RMA_REPAIRED.equals(statusId)
                         && !RMA_REPLACED.equals(statusId) && !RMA_CLOSED.equals(statusId)) {
@@ -4790,14 +4626,14 @@ public final class MfgServices {
                 claim.set("closedDate", RMA_CLOSED.equals(statusId)
                         ? java.sql.Date.valueOf(LocalDate.now()) : null);
             }
-            String responsibility = toText(context.get("responsibility"));
+            String responsibility = MfgSupport.toText(context.get("responsibility"));
             if (responsibility != null) {
                 claim.set("responsibility", responsibility);
             }
             if (context.get("repairHours") != null) {
-                claim.set("repairHours", Double.valueOf(toDouble(context.get("repairHours"), 0.0)));
+                claim.set("repairHours", Double.valueOf(MfgSupport.toDouble(context.get("repairHours"), 0.0)));
             }
-            String claimType = toText(context.get("claimType"));
+            String claimType = MfgSupport.toText(context.get("claimType"));
             if (claimType != null) {
                 if (!CLAIM_RTN.equals(claimType) && !CLAIM_EXCH.equals(claimType)
                         && !CLAIM_REPAIR.equals(claimType) && !CLAIM_REFUND_ONLY.equals(claimType)) {
@@ -4806,7 +4642,7 @@ public final class MfgServices {
                 }
                 claim.set("claimType", claimType);
             }
-            String freightPayer = toText(context.get("freightPayer"));
+            String freightPayer = MfgSupport.toText(context.get("freightPayer"));
             if (freightPayer != null) {
                 if (!FREIGHT_SELLER.equals(freightPayer) && !FREIGHT_BUYER.equals(freightPayer)) {
                     return ServiceUtil.returnError("freightPayer must be " + FREIGHT_SELLER
@@ -4814,7 +4650,7 @@ public final class MfgServices {
                 }
                 claim.set("freightPayer", freightPayer);
             }
-            String inspectResult = toText(context.get("inspectResult"));
+            String inspectResult = MfgSupport.toText(context.get("inspectResult"));
             if (inspectResult != null) {
                 if (!INSPECT_QUALITY.equals(inspectResult) && !INSPECT_NO_FAULT.equals(inspectResult)
                         && !INSPECT_HUMAN.equals(inspectResult) && !INSPECT_UNKNOWN.equals(inspectResult)) {
@@ -4824,30 +4660,30 @@ public final class MfgServices {
                 claim.set("inspectResult", inspectResult);
             }
             if (context.get("refundAmount") != null) {
-                claim.set("refundAmount", Double.valueOf(toDouble(context.get("refundAmount"), 0.0)));
+                claim.set("refundAmount", Double.valueOf(MfgSupport.toDouble(context.get("refundAmount"), 0.0)));
             }
             if (context.get("deductAmount") != null) {
-                claim.set("deductAmount", Double.valueOf(toDouble(context.get("deductAmount"), 0.0)));
+                claim.set("deductAmount", Double.valueOf(MfgSupport.toDouble(context.get("deductAmount"), 0.0)));
             }
-            String returnTrackingNo = toText(context.get("returnTrackingNo"));
+            String returnTrackingNo = MfgSupport.toText(context.get("returnTrackingNo"));
             if (returnTrackingNo != null) {
                 claim.set("returnTrackingNo", returnTrackingNo);
             }
-            java.sql.Date receivedBackDate = (java.sql.Date) parseDate(context.get("receivedBackDate"));
+            java.sql.Date receivedBackDate = (java.sql.Date) MfgSupport.parseDate(context.get("receivedBackDate"));
             if (receivedBackDate != null) {
                 claim.set("receivedBackDate", receivedBackDate);
             }
-            String vendorClaimStatus = toText(context.get("vendorClaimStatus"));
+            String vendorClaimStatus = MfgSupport.toText(context.get("vendorClaimStatus"));
             if (vendorClaimStatus != null) {
                 claim.set("vendorClaimStatus", vendorClaimStatus);
             }
-            java.sql.Date signedDate = (java.sql.Date) parseDate(context.get("signedDate"));
+            java.sql.Date signedDate = (java.sql.Date) MfgSupport.parseDate(context.get("signedDate"));
             if (signedDate != null) {
                 claim.set("signedDate", signedDate);
                 claim.set("sevenDayDeadline", sevenDayDeadline(signedDate));
                 claim.set("afterSaleDeadline", afterSaleDeadline(signedDate));
             }
-            String note = toText(context.get("note"));
+            String note = MfgSupport.toText(context.get("note"));
             if (note != null) {
                 claim.set("note", note);
             }
@@ -4876,9 +4712,9 @@ public final class MfgServices {
      */
     public static Map<String, Object> claimList(DispatchContext dctx, Map<String, ? extends Object> context) {
         Delegator delegator = dctx.getDelegator();
-        String sn = toText(context.get("sn"));
-        String statusId = toText(context.get("statusId"));
-        String claimType = toText(context.get("claimType"));
+        String sn = MfgSupport.toText(context.get("sn"));
+        String statusId = MfgSupport.toText(context.get("statusId"));
+        String claimType = MfgSupport.toText(context.get("claimType"));
         try {
             EntityQuery query = EntityQuery.use(delegator).from("MfgWarrantyClaim");
             if (sn != null) {
@@ -4912,10 +4748,10 @@ public final class MfgServices {
                 }
             }
             Map<String, Object> result = ServiceUtil.returnSuccess();
-            putPage(result, "claims",
-                    filterByKeyword(list, toText(context.get("search")), "claimId", "sn", "tradeNo",
+            MfgPaging.putPage(result, "claims",
+                    MfgPaging.filterByKeyword(list, MfgSupport.toText(context.get("search")), "claimId", "sn", "tradeNo",
                             "buyerNick", "customerName", "issueDesc", "responsibility"),
-                    pageOf(context), pageSizeOf(context), toText(context.get("search")));
+                    MfgPaging.pageOf(context), MfgPaging.pageSizeOf(context), MfgSupport.toText(context.get("search")));
             result.put("claimCount", Integer.valueOf(list.size()));
             result.put("openCount", Long.valueOf(openCount));
             result.put("expiringCount", Long.valueOf(expiringCount));
@@ -4936,7 +4772,7 @@ public final class MfgServices {
      */
     public static Map<String, Object> claimDetail(DispatchContext dctx, Map<String, ? extends Object> context) {
         Delegator delegator = dctx.getDelegator();
-        String claimId = toText(context.get("claimId"));
+        String claimId = MfgSupport.toText(context.get("claimId"));
         Map<String, Object> empty = ServiceUtil.returnSuccess();
         empty.put("replacements", new ArrayList<Map<String, Object>>());
         if (claimId == null) {
@@ -5010,7 +4846,7 @@ public final class MfgServices {
             return ServiceUtil.returnError(denied);
         }
         Delegator delegator = dctx.getDelegator();
-        String claimId = toText(context.get("claimId"));
+        String claimId = MfgSupport.toText(context.get("claimId"));
         if (claimId == null) {
             return ServiceUtil.returnError("claimId is required");
         }
@@ -5031,7 +4867,7 @@ public final class MfgServices {
                 return ServiceUtil.returnError("Unknown serial number [" + originalSn + "]");
             }
             String productCode = returned.getString("productCode");
-            String newSn = toText(context.get("newSn"));
+            String newSn = MfgSupport.toText(context.get("newSn"));
             GenericValue replacement = null;
             if (newSn != null) {
                 replacement = EntityQuery.use(delegator).from("MfgSn").where("sn", newSn).queryOne();
@@ -5074,8 +4910,8 @@ public final class MfgServices {
             delivery.set("customerName", claim.getString("customerName"));
             delivery.set("customerPo", claim.getString("tradeNo"));
             delivery.set("deliveryDate", java.sql.Date.valueOf(today));
-            delivery.set("carrier", toText(context.get("carrier")));
-            delivery.set("trackingNo", toText(context.get("trackingNo")));
+            delivery.set("carrier", MfgSupport.toText(context.get("carrier")));
+            delivery.set("trackingNo", MfgSupport.toText(context.get("trackingNo")));
             delivery.set("workOrderId", replacement.getString("workOrderId"));
             delivery.set("note", "换货 " + claimId + " 替换 " + originalSn);
             delegator.create(delivery);
@@ -5118,7 +4954,7 @@ public final class MfgServices {
             return ServiceUtil.returnError(denied);
         }
         Delegator delegator = dctx.getDelegator();
-        String claimId = toText(context.get("claimId"));
+        String claimId = MfgSupport.toText(context.get("claimId"));
         if (claimId == null) {
             return ServiceUtil.returnError("claimId is required");
         }
@@ -5139,7 +4975,7 @@ public final class MfgServices {
             }
 
             LocalDate today = LocalDate.now();
-            java.sql.Date dueDate = (java.sql.Date) parseDate(context.get("dueDate"));
+            java.sql.Date dueDate = (java.sql.Date) MfgSupport.parseDate(context.get("dueDate"));
             String workOrderId = nextWorkOrderId(delegator, today);
             GenericValue order = delegator.makeValue("MfgWorkOrder");
             order.set("workOrderId", workOrderId);
@@ -5367,34 +5203,34 @@ public final class MfgServices {
             return ServiceUtil.returnError(denied);
         }
         Delegator delegator = dctx.getDelegator();
-        String channelId = toText(context.get("channelId"));
+        String channelId = MfgSupport.toText(context.get("channelId"));
         if (channelId == null) {
             channelId = CHANNEL_TAOBAO;
         }
-        String rawMobile = toText(context.get("receiverMobile"));
+        String rawMobile = MfgSupport.toText(context.get("receiverMobile"));
         String mobile = normalizeMobile(rawMobile);
         if (rawMobile != null && mobile == null) {
             return ServiceUtil.returnError("receiverMobile must be a full eleven digit number; a masked "
                     + "number such as 138****2222 cannot identify a buyer");
         }
-        String buyerNick = toText(context.get("buyerNick"));
+        String buyerNick = MfgSupport.toText(context.get("buyerNick"));
         String buyerKey = buyerKey(channelId, mobile, buyerNick);
         if (buyerKey == null) {
             return ServiceUtil.returnError("receiverMobile or buyerNick is required");
         }
-        String riskLevel = toText(context.get("riskLevel"));
+        String riskLevel = MfgSupport.toText(context.get("riskLevel"));
         if (riskLevel == null) {
             riskLevel = RISK_WATCH;
         } else if (!RISK_WATCH.equals(riskLevel) && !RISK_BLOCK.equals(riskLevel)) {
             return ServiceUtil.returnError("riskLevel must be " + RISK_WATCH + " or " + RISK_BLOCK);
         }
-        String statusId = toText(context.get("statusId"));
+        String statusId = MfgSupport.toText(context.get("statusId"));
         if (statusId == null) {
             statusId = FLAG_ACTIVE;
         } else if (!FLAG_ACTIVE.equals(statusId) && !FLAG_RELEASED.equals(statusId)) {
             return ServiceUtil.returnError("statusId must be " + FLAG_ACTIVE + " or " + FLAG_RELEASED);
         }
-        String reasonCode = toText(context.get("reasonCode"));
+        String reasonCode = MfgSupport.toText(context.get("reasonCode"));
         if (reasonCode != null && !isKnownReason(reasonCode)) {
             return ServiceUtil.returnError("reasonCode must be one of FREQ_RETURN, EMPTY_BOX, SWAP, "
                     + "ABUSE_7DAY, FAKE_CLAIM or THREAT");
@@ -5424,22 +5260,22 @@ public final class MfgServices {
             if (mobile != null) {
                 flag.set("receiverMobile", mobile);
             }
-            String receiverName = toText(context.get("receiverName"));
+            String receiverName = MfgSupport.toText(context.get("receiverName"));
             if (receiverName != null) {
                 flag.set("receiverName", receiverName);
             }
-            String addressText = toText(context.get("addressText"));
+            String addressText = MfgSupport.toText(context.get("addressText"));
             if (addressText != null) {
                 flag.set("addressText", addressText);
             }
             if (reasonCode != null) {
                 flag.set("reasonCode", reasonCode);
             }
-            String evidenceNote = toText(context.get("evidenceNote"));
+            String evidenceNote = MfgSupport.toText(context.get("evidenceNote"));
             if (evidenceNote != null) {
                 flag.set("evidenceNote", evidenceNote);
             }
-            String note = toText(context.get("note"));
+            String note = MfgSupport.toText(context.get("note"));
             if (note != null) {
                 flag.set("note", note);
             }
@@ -5447,7 +5283,7 @@ public final class MfgServices {
             flag.set("statusId", statusId);
             flag.set("releasedDate", FLAG_RELEASED.equals(statusId)
                     ? java.sql.Date.valueOf(LocalDate.now()) : null);
-            java.sql.Date expiresDate = (java.sql.Date) parseDate(context.get("expiresDate"));
+            java.sql.Date expiresDate = (java.sql.Date) MfgSupport.parseDate(context.get("expiresDate"));
             if (expiresDate == null && create) {
                 expiresDate = java.sql.Date.valueOf(LocalDate.now().plusMonths(RISK_VALID_MONTHS));
             }
@@ -5479,9 +5315,9 @@ public final class MfgServices {
      */
     public static Map<String, Object> buyerFlagList(DispatchContext dctx, Map<String, ? extends Object> context) {
         Delegator delegator = dctx.getDelegator();
-        String keyword = toText(context.get("keyword"));
-        String riskLevel = toText(context.get("riskLevel"));
-        String statusId = toText(context.get("statusId"));
+        String keyword = MfgSupport.toText(context.get("keyword"));
+        String riskLevel = MfgSupport.toText(context.get("riskLevel"));
+        String statusId = MfgSupport.toText(context.get("statusId"));
         try {
             List<GenericValue> flags = EntityQuery.use(delegator).from("MfgBuyerFlag")
                     .orderBy("-createdStamp").queryList();
@@ -5511,7 +5347,7 @@ public final class MfgServices {
                 }
             }
             Map<String, Object> result = ServiceUtil.returnSuccess();
-            putPage(result, "flags", list, pageOf(context), pageSizeOf(context), keyword);
+            MfgPaging.putPage(result, "flags", list, MfgPaging.pageOf(context), MfgPaging.pageSizeOf(context), keyword);
             result.put("flagCount", Integer.valueOf(list.size()));
             result.put("blockCount", Long.valueOf(blockCount));
             result.put("keyword", keyword);
@@ -5530,8 +5366,8 @@ public final class MfgServices {
      */
     public static Map<String, Object> buyerFlagCheck(DispatchContext dctx, Map<String, ? extends Object> context) {
         Delegator delegator = dctx.getDelegator();
-        String mobile = normalizeMobile(toText(context.get("receiverMobile")));
-        String buyerNick = toText(context.get("buyerNick"));
+        String mobile = normalizeMobile(MfgSupport.toText(context.get("receiverMobile")));
+        String buyerNick = MfgSupport.toText(context.get("buyerNick"));
         Map<String, Object> result = ServiceUtil.returnSuccess();
         result.put("hit", "N");
         result.put("flags", new ArrayList<Map<String, Object>>());
@@ -5816,7 +5652,7 @@ always
      */
     public static Map<String, Object> dashboardTrends(DispatchContext dctx, Map<String, ? extends Object> context) {
         Delegator delegator = dctx.getDelegator();
-        long days = toLong(context.get("dayCount"), 30);
+        long days = MfgSupport.toLong(context.get("dayCount"), 30);
         if (days <= 0 || days > 180) {
             days = 30;
         }
@@ -5911,8 +5747,8 @@ always
                 row.put("date", entry.getKey());
                 row.put("shipped", Long.valueOf(shipped));
                 row.put("claims", Long.valueOf(claimValue));
-                row.put("shipPct", Long.valueOf(percentOfMax(shipped, maxShipped)));
-                row.put("claimPct", Long.valueOf(percentOfMax(claimValue, maxClaims)));
+                row.put("shipPct", Long.valueOf(MfgSupport.percentOfMax(shipped, maxShipped)));
+                row.put("claimPct", Long.valueOf(MfgSupport.percentOfMax(claimValue, maxClaims)));
                 dayRows.add(row);
             }
 
@@ -5940,7 +5776,7 @@ always
             kpi.put("shippedUnits", Long.valueOf(shippedUnits));
             kpi.put("claimCount", Long.valueOf(claimCount));
             kpi.put("openClaims", Long.valueOf(openClaims));
-            kpi.put("claimRate", percent(claimCount, shippedUnits));
+            kpi.put("claimRate", MfgSupport.percent(claimCount, shippedUnits));
             kpi.put("refundTotal", Double.valueOf(refundTotal));
             kpi.put("hoursTotal", Double.valueOf(hoursTotal));
             kpi.put("costTotal", Double.valueOf(costTotal));
@@ -6021,7 +5857,7 @@ always
             double total = 0.0;
             List<String> codes = new ArrayList<>();
             for (Map<String, Object> row : rows) {
-                total += numberOrZero(row.get("shortage"));
+                total += MfgSupport.numberOrZero(row.get("shortage"));
                 if (codes.size() < 3) {
                     codes.add(String.valueOf(row.get("componentCode")));
                 }
@@ -6038,7 +5874,7 @@ always
             alert.put("subject", first.get("productCode"));
             alert.put("dueDate", dueDate);
             alert.put("hoursLeft", Long.valueOf(dueHours));
-            alert.put("detail", rows.size() + " 行欠料，共 " + formatQty(total)
+            alert.put("detail", rows.size() + " 行欠料，共 " + MfgSupport.formatQty(total)
                     + "；" + String.join("、", codes) + (rows.size() > codes.size() ? " 等" : ""));
             alerts.add(alert);
         }
@@ -6123,8 +5959,8 @@ always
             if (SW_DONE.equals(statusId) || SW_CANCELLED.equals(statusId)) {
                 continue;
             }
-            double planned = numberOrZero(project.get("plannedDays"));
-            double actualDays = numberOrZero(project.get("actualHours")) / HOURS_PER_DAY;
+            double planned = MfgSupport.numberOrZero(project.get("plannedDays"));
+            double actualDays = MfgSupport.numberOrZero(project.get("actualHours")) / HOURS_PER_DAY;
             boolean overEffort = planned > 0.0 && actualDays > planned;
             java.sql.Date end = project.getDate("plannedEndDate");
             Long daysLeft = end == null ? null
@@ -6136,8 +5972,8 @@ always
             }
             StringBuilder detail = new StringBuilder();
             if (planned > 0.0) {
-                detail.append("已用 ").append(formatQty(actualDays)).append('/')
-                        .append(formatQty(planned)).append(" 人天");
+                detail.append("已用 ").append(MfgSupport.formatQty(actualDays)).append('/')
+                        .append(MfgSupport.formatQty(planned)).append(" 人天");
             }
             if (daysLeft != null) {
                 if (detail.length() > 0) {
@@ -6178,7 +6014,7 @@ always
                 continue;
             }
             for (Map<String, Object> line : kittingLines(delegator, order)) {
-                double shortage = numberOrZero(line.get("shortage"));
+                double shortage = MfgSupport.numberOrZero(line.get("shortage"));
                 if (shortage <= 0.0001) {
                     continue;
                 }
@@ -6196,53 +6032,6 @@ always
             }
         }
         return rows;
-    }
-
-    /**
-     * Formats a quantity for the short texts of the alerts: at most three decimals and a dot as the
-     * decimal separator, whatever the server locale is.
-     *
-     * @param value the quantity
-     * @return the formatted quantity
-     */
-    static String formatQty(double value) {
-        DecimalFormat format = new DecimalFormat("0.###",
-                DecimalFormatSymbols.getInstance(Locale.ROOT));
-        return format.format(value);
-    }
-
-    /**
-     * Quotes one CSV cell: a value holding a comma, a quote or a line break is wrapped in double
-     * quotes and its own quotes are doubled.
-     *
-     * @param value the cell value, may be {@code null}
-     * @return the cell as it goes into the file
-     */
-    static String csvCell(String value) {
-        if (value == null) {
-            return "";
-        }
-        boolean quote = value.indexOf(',') >= 0 || value.indexOf('"') >= 0
-                || value.indexOf('\n') >= 0 || value.indexOf('\r') >= 0;
-        String escaped = value.replace("\"", "\"\"");
-        return quote ? "\"" + escaped + "\"" : escaped;
-    }
-
-    /**
-     * Joins cells into one CSV line, without the line break.
-     *
-     * @param cells the cells, {@code null} cells become empty
-     * @return the line
-     */
-    static String csvLine(List<String> cells) {
-        StringBuilder line = new StringBuilder();
-        for (String cell : cells) {
-            if (line.length() > 0) {
-                line.append(',');
-            }
-            line.append(csvCell(cell));
-        }
-        return line.toString();
     }
 
     // ==================== inventory: append only movements, totals summed from them ====================
@@ -6304,7 +6093,7 @@ always
             return 0.0;
         }
         double free = onHand - reserved;
-        return free <= 0.0 ? 0.0 : round2(free);
+        return free <= 0.0 ? 0.0 : MfgSupport.round2(free);
     }
 
     /**
@@ -6500,7 +6289,7 @@ always
      * @return the cost per unit, {@code 0} when nothing good came out
      */
     static double productUnitCost(double actualTotal, double qtyOk) {
-        return qtyOk <= 0.0 ? 0.0 : round2(actualTotal / qtyOk);
+        return qtyOk <= 0.0 ? 0.0 : MfgSupport.round2(actualTotal / qtyOk);
     }
 
     /**
@@ -6578,7 +6367,7 @@ always
         movement.set("lotId", lot.getString("lotId"));
         movement.set("seqId", Long.valueOf(seq));
         movement.set("movementTypeId", movementTypeId);
-        movement.set("quantityDiff", Double.valueOf(round2(diff)));
+        movement.set("quantityDiff", Double.valueOf(MfgSupport.round2(diff)));
         if (unitCost != null) {
             movement.set("unitCost", unitCost);
         }
@@ -6607,11 +6396,11 @@ always
         double onHand = 0.0;
         double reserved = 0.0;
         for (GenericValue movement : movementsOf(delegator, lot.getString("lotId"))) {
-            onHand += numberOrZero(movement.get("quantityDiff"));
-            reserved += numberOrZero(movement.get("reservedDiff"));
+            onHand += MfgSupport.numberOrZero(movement.get("quantityDiff"));
+            reserved += MfgSupport.numberOrZero(movement.get("reservedDiff"));
         }
-        lot.set("onHandQty", Double.valueOf(round2(onHand)));
-        lot.set("reservedQty", Double.valueOf(reserved <= 0.0 ? 0.0 : round2(reserved)));
+        lot.set("onHandQty", Double.valueOf(MfgSupport.round2(onHand)));
+        lot.set("reservedQty", Double.valueOf(reserved <= 0.0 ? 0.0 : MfgSupport.round2(reserved)));
         lot.set("availableQty", Double.valueOf(availableOf(onHand, reserved,
                 lot.getString("inspectStatusId"))));
         delegator.store(lot);
@@ -6631,7 +6420,7 @@ always
             recalcLotStock(delegator, lot);
             return;
         }
-        double receivedQty = numberOrZero(lot.get("receivedQty"));
+        double receivedQty = MfgSupport.numberOrZero(lot.get("receivedQty"));
         if (receivedQty > 0.0) {
             java.sql.Date receivedDate = lot.getDate("receivedDate");
             recordMovement(delegator, lot, MOVE_RECEIPT, receivedQty, lot.get("unitPrice"), null, null,
@@ -6644,7 +6433,7 @@ always
                 .where("lotId", lotId).orderBy("issuedDate").queryList();
         for (GenericValue issue : issues) {
             java.sql.Date issuedDate = issue.getDate("issuedDate");
-            recordMovement(delegator, lot, MOVE_ISSUE, -numberOrZero(issue.get("qty")),
+            recordMovement(delegator, lot, MOVE_ISSUE, -MfgSupport.numberOrZero(issue.get("qty")),
                     lot.get("unitPrice"), issue.getString("workOrderId"), null, null, null,
                     issuedDate == null ? null
                             : Timestamp.valueOf(issuedDate.toLocalDate().atStartOfDay()),
@@ -6678,7 +6467,7 @@ always
             if (!workOrderId.equals(movement.getString("workOrderId"))) {
                 continue;
             }
-            reserved += numberOrZero(movement.get("reservedDiff"));
+            reserved += MfgSupport.numberOrZero(movement.get("reservedDiff"));
         }
         return reserved <= 0.0 ? 0.0 : reserved;
     }
@@ -6704,7 +6493,7 @@ always
         movement.set("seqId", Long.valueOf(nextMovementSeq(delegator, lot.getString("lotId"))));
         movement.set("movementTypeId", movementTypeId);
         movement.set("quantityDiff", Double.valueOf(0.0));
-        movement.set("reservedDiff", Double.valueOf(round2(diff)));
+        movement.set("reservedDiff", Double.valueOf(MfgSupport.round2(diff)));
         movement.set("workOrderId", workOrderId);
         movement.set("operatorName", operatorName);
         movement.set("effectiveDate", new Timestamp(System.currentTimeMillis()));
@@ -6757,7 +6546,7 @@ always
         }
         for (GenericValue movement : EntityQuery.use(delegator).from("MfgInventoryDetail")
                 .where("workOrderId", workOrderId).queryList()) {
-            double reserved = numberOrZero(movement.get("reservedDiff"));
+            double reserved = MfgSupport.numberOrZero(movement.get("reservedDiff"));
             if (reserved == 0.0) {
                 continue;
             }
@@ -6766,7 +6555,7 @@ always
                 continue;
             }
             String componentCode = lot.getString("componentCode");
-            byComponent.put(componentCode, Double.valueOf(numberOrZero(byComponent.get(componentCode))
+            byComponent.put(componentCode, Double.valueOf(MfgSupport.numberOrZero(byComponent.get(componentCode))
                     + reserved));
         }
         return byComponent;
@@ -6787,7 +6576,7 @@ always
             return ServiceUtil.returnError(denied);
         }
         Delegator delegator = dctx.getDelegator();
-        String workOrderId = toText(context.get("workOrderId"));
+        String workOrderId = MfgSupport.toText(context.get("workOrderId"));
         Map<String, Object> result = ServiceUtil.returnSuccess();
         result.put("workOrderId", workOrderId);
         result.put("reservedQty", Double.valueOf(0.0));
@@ -6805,9 +6594,9 @@ always
             double reservedTotal = 0.0;
             double shortTotal = 0.0;
             int reservations = 0;
-            String operator = toText(context.get("operatorName"));
+            String operator = MfgSupport.toText(context.get("operatorName"));
             for (Map<String, Object> line : kittingLines(delegator, order)) {
-                double missing = numberOrZero(line.get("shortage"));
+                double missing = MfgSupport.numberOrZero(line.get("shortage"));
                 if (missing <= 0.0001) {
                     continue;
                 }
@@ -6823,7 +6612,7 @@ always
                         continue;
                     }
                     ensureLotLedger(delegator, lot);
-                    double free = numberOrZero(lot.get("availableQty"));
+                    double free = MfgSupport.numberOrZero(lot.get("availableQty"));
                     if (free <= 0.0001) {
                         continue;
                     }
@@ -6831,14 +6620,14 @@ always
                     recordReservation(delegator, lot, MOVE_RESERVE, take, workOrderId, operator,
                             "工单 " + workOrderId + " 预留");
                     recalcLotStock(delegator, lot);
-                    missing = round2(missing - take);
+                    missing = MfgSupport.round2(missing - take);
                     reservedTotal += take;
                     reservations++;
                 }
                 shortTotal += missing;
             }
-            result.put("reservedQty", Double.valueOf(round2(reservedTotal)));
-            result.put("shortQty", Double.valueOf(round2(shortTotal)));
+            result.put("reservedQty", Double.valueOf(MfgSupport.round2(reservedTotal)));
+            result.put("shortQty", Double.valueOf(MfgSupport.round2(shortTotal)));
             result.put("reservationCount", Integer.valueOf(reservations));
             return result;
         } catch (GenericEntityException e) {
@@ -6860,7 +6649,7 @@ always
             return ServiceUtil.returnError(denied);
         }
         Delegator delegator = dctx.getDelegator();
-        String workOrderId = toText(context.get("workOrderId"));
+        String workOrderId = MfgSupport.toText(context.get("workOrderId"));
         Map<String, Object> result = ServiceUtil.returnSuccess();
         result.put("workOrderId", workOrderId);
         result.put("releasedQty", Double.valueOf(0.0));
@@ -6869,7 +6658,7 @@ always
         }
         try {
             double released = 0.0;
-            String operator = toText(context.get("operatorName"));
+            String operator = MfgSupport.toText(context.get("operatorName"));
             Map<String, GenericValue> lots = new LinkedHashMap<>();
             for (GenericValue lot : EntityQuery.use(delegator).from("MfgMaterialLot").queryList()) {
                 lots.put(lot.getString("lotId"), lot);
@@ -6890,7 +6679,7 @@ always
                 recalcLotStock(delegator, lot);
                 released += reserved;
             }
-            result.put("releasedQty", Double.valueOf(round2(released)));
+            result.put("releasedQty", Double.valueOf(MfgSupport.round2(released)));
             return result;
         } catch (GenericEntityException e) {
             return ServiceUtil.returnError("Could not release the reservation: " + e.getMessage());
@@ -6915,7 +6704,7 @@ always
             return ServiceUtil.returnError(denied);
         }
         Delegator delegator = dctx.getDelegator();
-        String workOrderId = toText(context.get("workOrderId"));
+        String workOrderId = MfgSupport.toText(context.get("workOrderId"));
         if (workOrderId == null) {
             return ServiceUtil.returnError("workOrderId is required");
         }
@@ -6931,9 +6720,9 @@ always
             double qtyOk = 0.0;
             for (GenericValue report : EntityQuery.use(delegator).from("MfgReport")
                     .where("workOrderId", workOrderId).queryList()) {
-                qtyOk += numberOrZero(report.get("qtyOk"));
+                qtyOk += MfgSupport.numberOrZero(report.get("qtyOk"));
             }
-            qtyOk = round2(qtyOk);
+            qtyOk = MfgSupport.round2(qtyOk);
             if (qtyOk <= 0.0001) {
                 return ServiceUtil.returnError("Report the good units before completing work order ["
                         + workOrderId + "]");
@@ -6941,11 +6730,11 @@ always
 
             Map<String, Object> productCodeContext = new LinkedHashMap<>();
             productCodeContext.put("workOrderId", workOrderId);
-            double unitCost = productUnitCost(numberOrZero(workOrderCostOf(dctx, productCodeContext)
+            double unitCost = productUnitCost(MfgSupport.numberOrZero(workOrderCostOf(dctx, productCodeContext)
                     .get("actualTotal")), qtyOk);
 
             String lotId = productLotId(workOrderId);
-            Object dateInput = parseDate(context.get("completeDate"));
+            Object dateInput = MfgSupport.parseDate(context.get("completeDate"));
             java.sql.Date day = dateInput == null ? java.sql.Date.valueOf(LocalDate.now())
                     : (java.sql.Date) dateInput;
             String productCode = order.getString("productCode");
@@ -6970,23 +6759,23 @@ always
             double booked = 0.0;
             for (GenericValue movement : movementsOf(delegator, lotId)) {
                 if (MOVE_RECEIPT.equals(movement.getString("movementTypeId"))) {
-                    booked += numberOrZero(movement.get("quantityDiff"));
+                    booked += MfgSupport.numberOrZero(movement.get("quantityDiff"));
                 }
             }
-            booked = round2(booked);
-            double added = round2(qtyOk - booked);
+            booked = MfgSupport.round2(booked);
+            double added = MfgSupport.round2(qtyOk - booked);
             String message = null;
             if (added > 0.0001) {
-                String operator = toText(context.get("operatorName"));
+                String operator = MfgSupport.toText(context.get("operatorName"));
                 recordMovement(delegator, lot, MOVE_RECEIPT, added, Double.valueOf(unitCost), workOrderId,
                         null, workOrderId, operator,
                         Timestamp.valueOf(day.toLocalDate().atStartOfDay()),
-                        "完工入库：" + formatQty(added) + " 台");
+                        "完工入库：" + MfgSupport.formatQty(added) + " 台");
             } else if (added < -0.0001) {
-                message = "The reports now say " + formatQty(qtyOk) + " good units but " + formatQty(booked)
+                message = "The reports now say " + MfgSupport.formatQty(qtyOk) + " good units but " + MfgSupport.formatQty(booked)
                         + " are already in stock, so nothing was booked; book a stock count to correct it";
             }
-            lot.set("receivedQty", Double.valueOf(round2(Math.max(booked, qtyOk))));
+            lot.set("receivedQty", Double.valueOf(MfgSupport.round2(Math.max(booked, qtyOk))));
             lot.set("unitPrice", Double.valueOf(unitCost));
             if (lot.get("inspectStatusId") == null) {
                 lot.set("inspectStatusId", IQC_PASS);
@@ -6998,12 +6787,12 @@ always
             for (GenericValue item : EntityQuery.use(delegator).from("MfgSalesOrderItem")
                     .where("workOrderId", workOrderId).queryList()) {
                 long lineSeq = item.getLong("lineSeq").longValue();
-                double need = openQtyOf(numberOrZero(item.get("qty")),
+                double need = openQtyOf(MfgSupport.numberOrZero(item.get("qty")),
                         orderLineReserved(delegator, item.getString("salesOrderId"), lineSeq),
-                        numberOrZero(item.get("shippedQty")));
+                        MfgSupport.numberOrZero(item.get("shippedQty")));
                 if (need > 0.0001) {
                     reserveOrderLine(delegator, item.getString("salesOrderId"), item, need,
-                            toText(context.get("operatorName")));
+                            MfgSupport.toText(context.get("operatorName")));
                 }
             }
 
@@ -7078,16 +6867,16 @@ always
                     row.put("lastCompletedDate", null);
                     byModel.put(productCode, row);
                 }
-                double onHand = numberOrZero(lot.get("onHandQty"));
-                row.put("onHandQty", Double.valueOf(numberOrZero(row.get("onHandQty")) + onHand));
-                row.put("reservedQty", Double.valueOf(numberOrZero(row.get("reservedQty"))
-                        + numberOrZero(lot.get("reservedQty"))));
-                row.put("availableQty", Double.valueOf(numberOrZero(row.get("availableQty"))
-                        + numberOrZero(lot.get("availableQty"))));
+                double onHand = MfgSupport.numberOrZero(lot.get("onHandQty"));
+                row.put("onHandQty", Double.valueOf(MfgSupport.numberOrZero(row.get("onHandQty")) + onHand));
+                row.put("reservedQty", Double.valueOf(MfgSupport.numberOrZero(row.get("reservedQty"))
+                        + MfgSupport.numberOrZero(lot.get("reservedQty"))));
+                row.put("availableQty", Double.valueOf(MfgSupport.numberOrZero(row.get("availableQty"))
+                        + MfgSupport.numberOrZero(lot.get("availableQty"))));
                 row.put("lotCount", Integer.valueOf(((Integer) row.get("lotCount")).intValue() + 1));
                 Object price = lot.get("unitPrice");
                 if (price instanceof Number) {
-                    row.put("value", Double.valueOf(numberOrZero(row.get("value"))
+                    row.put("value", Double.valueOf(MfgSupport.numberOrZero(row.get("value"))
                             + onHand * ((Number) price).doubleValue()));
                 }
                 java.sql.Date receivedDate = lot.getDate("receivedDate");
@@ -7098,27 +6887,27 @@ always
                 double shipped = 0.0;
                 for (GenericValue movement : movementsOf(delegator, lot.getString("lotId"))) {
                     if (MOVE_ISSUE.equals(movement.getString("movementTypeId"))) {
-                        shipped += -numberOrZero(movement.get("quantityDiff"));
+                        shipped += -MfgSupport.numberOrZero(movement.get("quantityDiff"));
                     }
                 }
-                row.put("shippedQty", Double.valueOf(numberOrZero(row.get("shippedQty")) + shipped));
+                row.put("shippedQty", Double.valueOf(MfgSupport.numberOrZero(row.get("shippedQty")) + shipped));
             }
             List<Map<String, Object>> rows = new ArrayList<>(byModel.size());
             double onHandTotal = 0.0;
             double shippedTotal = 0.0;
             double valueTotal = 0.0;
             for (Map<String, Object> row : byModel.values()) {
-                row.put("onHandQty", Double.valueOf(round2(numberOrZero(row.get("onHandQty")))));
-                row.put("reservedQty", Double.valueOf(round2(numberOrZero(row.get("reservedQty")))));
-                row.put("availableQty", Double.valueOf(round2(numberOrZero(row.get("availableQty")))));
-                row.put("shippedQty", Double.valueOf(round2(numberOrZero(row.get("shippedQty")))));
-                row.put("value", Double.valueOf(round2(numberOrZero(row.get("value")))));
-                onHandTotal += numberOrZero(row.get("onHandQty"));
-                shippedTotal += numberOrZero(row.get("shippedQty"));
-                valueTotal += numberOrZero(row.get("value"));
+                row.put("onHandQty", Double.valueOf(MfgSupport.round2(MfgSupport.numberOrZero(row.get("onHandQty")))));
+                row.put("reservedQty", Double.valueOf(MfgSupport.round2(MfgSupport.numberOrZero(row.get("reservedQty")))));
+                row.put("availableQty", Double.valueOf(MfgSupport.round2(MfgSupport.numberOrZero(row.get("availableQty")))));
+                row.put("shippedQty", Double.valueOf(MfgSupport.round2(MfgSupport.numberOrZero(row.get("shippedQty")))));
+                row.put("value", Double.valueOf(MfgSupport.round2(MfgSupport.numberOrZero(row.get("value")))));
+                onHandTotal += MfgSupport.numberOrZero(row.get("onHandQty"));
+                shippedTotal += MfgSupport.numberOrZero(row.get("shippedQty"));
+                valueTotal += MfgSupport.numberOrZero(row.get("value"));
                 rows.add(row);
             }
-            String search = toText(context.get("search"));
+            String search = MfgSupport.toText(context.get("search"));
             if (search != null) {
                 String needle = search.toLowerCase(Locale.ROOT);
                 List<Map<String, Object>> matched = new ArrayList<>();
@@ -7132,11 +6921,11 @@ always
                 }
                 rows = matched;
             }
-            putPage(result, "rows", rows, pageOf(context), pageSizeOf(context), search);
+            MfgPaging.putPage(result, "rows", rows, MfgPaging.pageOf(context), MfgPaging.pageSizeOf(context), search);
             result.put("productCount", Integer.valueOf(rows.size()));
-            result.put("onHandTotal", Double.valueOf(round2(onHandTotal)));
-            result.put("shippedTotal", Double.valueOf(round2(shippedTotal)));
-            result.put("valueTotal", Double.valueOf(round2(valueTotal)));
+            result.put("onHandTotal", Double.valueOf(MfgSupport.round2(onHandTotal)));
+            result.put("shippedTotal", Double.valueOf(MfgSupport.round2(shippedTotal)));
+            result.put("valueTotal", Double.valueOf(MfgSupport.round2(valueTotal)));
             result.put("search", search);
             return result;
         } catch (GenericEntityException e) {
@@ -7155,7 +6944,7 @@ always
      */
     static double openQtyOf(double qty, double reserved, double shipped) {
         double open = qty - reserved - shipped;
-        return open <= 0.0001 ? 0.0 : round2(open);
+        return open <= 0.0001 ? 0.0 : MfgSupport.round2(open);
     }
 
     /**
@@ -7170,42 +6959,7 @@ always
      */
     static double productionQtyOf(double qty, double reserved, double shipped, double inProduction) {
         double missing = openQtyOf(qty, reserved, shipped) - Math.max(0.0, inProduction);
-        return missing <= 0.0001 ? 0.0 : round2(missing);
-    }
-
-    /**
-     * Reads the order lines of the order form: one line per model, {@code 型号,数量} or
-     * {@code 型号,数量,交期}, blank lines and {@code #} comments are skipped.
-     *
-     * @param text the text of the form field
-     * @return one map per line with {@code productCode}, {@code qty} and an optional {@code lineDueDate}
-     */
-    static List<Map<String, Object>> parseOrderLines(String text) {
-        List<Map<String, Object>> lines = new ArrayList<>();
-        if (text == null) {
-            return lines;
-        }
-        for (String raw : text.split("\\r?\\n")) {
-            String line = raw.trim();
-            if (line.isEmpty() || line.startsWith("#")) {
-                continue;
-            }
-            String[] cells = line.split("[,，\\t;；]");
-            String productCode = cells.length == 0 ? "" : cells[0].trim();
-            if (productCode.isEmpty()) {
-                continue;
-            }
-            double qty = cells.length > 1 ? toDouble(cells[1].trim(), 0.0) : 0.0;
-            Map<String, Object> map = new LinkedHashMap<>();
-            map.put("productCode", productCode);
-            map.put("qty", Double.valueOf(round2(qty)));
-            Object lineDueDate = cells.length > 2 ? parseDate(cells[2].trim()) : null;
-            if (lineDueDate != null) {
-                map.put("lineDueDate", lineDueDate);
-            }
-            lines.add(map);
-        }
-        return lines;
+        return missing <= 0.0001 ? 0.0 : MfgSupport.round2(missing);
     }
 
     /**
@@ -7240,17 +6994,17 @@ always
             return ServiceUtil.returnError(denied);
         }
         Delegator delegator = dctx.getDelegator();
-        String salesOrderId = toText(context.get("salesOrderId"));
-        String customerName = toText(context.get("customerName"));
+        String salesOrderId = MfgSupport.toText(context.get("salesOrderId"));
+        String customerName = MfgSupport.toText(context.get("customerName"));
         if (customerName == null) {
             return ServiceUtil.returnError("customerName is required");
         }
-        List<Map<String, Object>> lines = parseOrderLines(toText(context.get("lines")));
+        List<Map<String, Object>> lines = MfgCsv.parseOrderLines(MfgSupport.toText(context.get("lines")));
         if (lines.isEmpty()) {
             return ServiceUtil.returnError("Give at least one line as 型号,数量");
         }
         for (Map<String, Object> line : lines) {
-            if (numberOrZero(line.get("qty")) <= 0.0) {
+            if (MfgSupport.numberOrZero(line.get("qty")) <= 0.0) {
                 return ServiceUtil.returnError("Line [" + line.get("productCode")
                         + "] needs a positive quantity");
             }
@@ -7285,15 +7039,15 @@ always
             }
             order.set("customerName", customerName);
             if (context.containsKey("customerPo")) {
-                order.set("customerPo", toText(context.get("customerPo")));
+                order.set("customerPo", MfgSupport.toText(context.get("customerPo")));
             }
-            Object orderDate = parseDate(context.get("orderDate"));
+            Object orderDate = MfgSupport.parseDate(context.get("orderDate"));
             order.set("orderDate", orderDate == null ? java.sql.Date.valueOf(LocalDate.now()) : orderDate);
             if (context.containsKey("dueDate")) {
-                order.set("dueDate", parseDate(context.get("dueDate")));
+                order.set("dueDate", MfgSupport.parseDate(context.get("dueDate")));
             }
             if (context.containsKey("note")) {
-                order.set("note", toText(context.get("note")));
+                order.set("note", MfgSupport.toText(context.get("note")));
             }
             delegator.store(order);
 
@@ -7321,7 +7075,7 @@ always
             // the lines that are gone take their reservations with them
             for (GenericValue removedItem : existing.values()) {
                 releaseOrderLine(delegator, salesOrderId, removedItem.getLong("lineSeq").longValue(),
-                        toText(context.get("operatorName")), "订单行被删除，释放预留");
+                        MfgSupport.toText(context.get("operatorName")), "订单行被删除，释放预留");
                 delegator.removeValue(removedItem);
             }
 
@@ -7354,7 +7108,7 @@ always
             return ServiceUtil.returnError(denied);
         }
         Delegator delegator = dctx.getDelegator();
-        String salesOrderId = toText(context.get("salesOrderId"));
+        String salesOrderId = MfgSupport.toText(context.get("salesOrderId"));
         if (salesOrderId == null) {
             return ServiceUtil.returnError("salesOrderId is required");
         }
@@ -7383,24 +7137,24 @@ always
     private static Map<String, Object> reserveSalesOrder(DispatchContext dctx, Map<String, ? extends Object> context,
             String salesOrderId, GenericValue order) throws GenericEntityException {
         Delegator delegator = dctx.getDelegator();
-        String operator = toText(context.get("operatorName"));
+        String operator = MfgSupport.toText(context.get("operatorName"));
         double reservedTotal = 0.0;
         double shortTotal = 0.0;
         for (GenericValue item : EntityQuery.use(delegator).from("MfgSalesOrderItem")
                 .where("salesOrderId", salesOrderId).orderBy("lineSeq").queryList()) {
-            double need = openQtyOf(numberOrZero(item.get("qty")),
+            double need = openQtyOf(MfgSupport.numberOrZero(item.get("qty")),
                     orderLineReserved(delegator, salesOrderId, item.getLong("lineSeq").longValue()),
-                    numberOrZero(item.get("shippedQty")));
+                    MfgSupport.numberOrZero(item.get("shippedQty")));
             if (need <= 0.0001) {
                 continue;
             }
             double taken = reserveOrderLine(delegator, salesOrderId, item, need, operator);
             reservedTotal += taken;
-            shortTotal += round2(need - taken);
+            shortTotal += MfgSupport.round2(need - taken);
         }
         Map<String, Object> result = ServiceUtil.returnSuccess();
-        result.put("reservedQty", Double.valueOf(round2(reservedTotal)));
-        result.put("shortQty", Double.valueOf(round2(shortTotal)));
+        result.put("reservedQty", Double.valueOf(MfgSupport.round2(reservedTotal)));
+        result.put("shortQty", Double.valueOf(MfgSupport.round2(shortTotal)));
         result.put("salesOrderId", salesOrderId);
         result.put("statusId", order.getString("statusId"));
         return result;
@@ -7423,7 +7177,7 @@ always
                 break;
             }
             ensureLotLedger(delegator, lot);
-            double free = numberOrZero(lot.get("availableQty"));
+            double free = MfgSupport.numberOrZero(lot.get("availableQty"));
             if (free <= 0.0001) {
                 continue;
             }
@@ -7431,7 +7185,7 @@ always
             recordOrderReservation(delegator, lot, MOVE_RESERVE, take, salesOrderId, lineSeq, operator,
                     "订单 " + salesOrderId + " 第 " + lineSeq + " 行预留");
             recalcLotStock(delegator, lot);
-            remaining = round2(remaining - take);
+            remaining = MfgSupport.round2(remaining - take);
             taken += take;
         }
         return taken;
@@ -7451,7 +7205,7 @@ always
             return ServiceUtil.returnError(denied);
         }
         Delegator delegator = dctx.getDelegator();
-        String salesOrderId = toText(context.get("salesOrderId"));
+        String salesOrderId = MfgSupport.toText(context.get("salesOrderId"));
         if (salesOrderId == null) {
             return ServiceUtil.returnError("salesOrderId is required");
         }
@@ -7470,9 +7224,9 @@ always
             int plannedLines = 0;
             for (GenericValue item : EntityQuery.use(delegator).from("MfgSalesOrderItem")
                     .where("salesOrderId", salesOrderId).orderBy("lineSeq").queryList()) {
-                double need = productionQtyOf(numberOrZero(item.get("qty")),
+                double need = productionQtyOf(MfgSupport.numberOrZero(item.get("qty")),
                         orderLineReserved(delegator, salesOrderId, item.getLong("lineSeq").longValue()),
-                        numberOrZero(item.get("shippedQty")),
+                        MfgSupport.numberOrZero(item.get("shippedQty")),
                         inProductionOf(delegator, item.getString("workOrderId")));
                 if (need <= 0.0001) {
                     continue;
@@ -7522,7 +7276,7 @@ always
             }
             Map<String, Object> result = ServiceUtil.returnSuccess();
             result.put("salesOrderId", salesOrderId);
-            result.put("plannedQty", Double.valueOf(round2(plannedTotal)));
+            result.put("plannedQty", Double.valueOf(MfgSupport.round2(plannedTotal)));
             result.put("plannedLines", Integer.valueOf(plannedLines));
             result.put("statusId", order.getString("statusId"));
             return result;
@@ -7544,7 +7298,7 @@ always
             return ServiceUtil.returnError(denied);
         }
         Delegator delegator = dctx.getDelegator();
-        String salesOrderId = toText(context.get("salesOrderId"));
+        String salesOrderId = MfgSupport.toText(context.get("salesOrderId"));
         if (salesOrderId == null) {
             return ServiceUtil.returnError("salesOrderId is required");
         }
@@ -7554,13 +7308,13 @@ always
             if (order == null) {
                 return ServiceUtil.returnError("Unknown sales order [" + salesOrderId + "]");
             }
-            double released = releaseSalesOrder(delegator, salesOrderId, toText(context.get("operatorName")),
+            double released = releaseSalesOrder(delegator, salesOrderId, MfgSupport.toText(context.get("operatorName")),
                     "订单 " + salesOrderId + " 关闭，释放预留");
             order.set("statusId", SO_CLOSED);
             delegator.store(order);
             Map<String, Object> result = ServiceUtil.returnSuccess();
             result.put("salesOrderId", salesOrderId);
-            result.put("releasedQty", Double.valueOf(round2(released)));
+            result.put("releasedQty", Double.valueOf(MfgSupport.round2(released)));
             result.put("statusId", SO_CLOSED);
             return result;
         } catch (GenericEntityException e) {
@@ -7577,7 +7331,7 @@ always
      */
     public static Map<String, Object> salesOrderList(DispatchContext dctx, Map<String, ? extends Object> context) {
         Delegator delegator = dctx.getDelegator();
-        String statusId = toText(context.get("statusId"));
+        String statusId = MfgSupport.toText(context.get("statusId"));
         try {
             List<Map<String, Object>> list = new ArrayList<>();
             for (GenericValue order : EntityQuery.use(delegator).from("MfgSalesOrder")
@@ -7589,12 +7343,12 @@ always
                 list.add(map);
             }
             Map<String, Object> result = ServiceUtil.returnSuccess();
-            putPage(result, "orders",
-                    filterByKeyword(list, toText(context.get("search")), "salesOrderId", "customerName",
+            MfgPaging.putPage(result, "orders",
+                    MfgPaging.filterByKeyword(list, MfgSupport.toText(context.get("search")), "salesOrderId", "customerName",
                             "customerPo"),
-                    pageOf(context), pageSizeOf(context), toText(context.get("search")));
+                    MfgPaging.pageOf(context), MfgPaging.pageSizeOf(context), MfgSupport.toText(context.get("search")));
             // the list unfolds its lines in place, and the quantity of a line can be corrected there
-            for (Map<String, Object> row : rowsOf(result, "orders")) {
+            for (Map<String, Object> row : MfgPaging.rowsOf(result, "orders")) {
                 row.put("items", orderLineMaps(delegator, (String) row.get("salesOrderId")));
             }
             result.put("statusId", statusId);
@@ -7614,7 +7368,7 @@ always
      */
     public static Map<String, Object> salesOrderDetail(DispatchContext dctx, Map<String, ? extends Object> context) {
         Delegator delegator = dctx.getDelegator();
-        String salesOrderId = toText(context.get("salesOrderId"));
+        String salesOrderId = MfgSupport.toText(context.get("salesOrderId"));
         Map<String, Object> empty = ServiceUtil.returnSuccess();
         empty.put("items", new ArrayList<Map<String, Object>>());
         empty.put("reservations", new ArrayList<Map<String, Object>>());
@@ -7635,7 +7389,7 @@ always
             Map<String, GenericValue> lots = new LinkedHashMap<>();
             for (GenericValue movement : EntityQuery.use(delegator).from("MfgInventoryDetail")
                     .where("salesOrderId", salesOrderId).queryList()) {
-                double reserved = numberOrZero(movement.get("reservedDiff"));
+                double reserved = MfgSupport.numberOrZero(movement.get("reservedDiff"));
                 if (reserved == 0.0) {
                     continue;
                 }
@@ -7651,7 +7405,7 @@ always
                 map.put("lotId", lotId);
                 map.put("lineSeq", movement.get("salesOrderItemSeq"));
                 map.put("productCode", lot == null ? null : lot.getString("componentCode"));
-                map.put("reservedDiff", Double.valueOf(round2(reserved)));
+                map.put("reservedDiff", Double.valueOf(MfgSupport.round2(reserved)));
                 map.put("movementTypeId", movement.getString("movementTypeId"));
                 map.put("effectiveDate", movement.get("effectiveDate"));
                 map.put("note", movement.getString("note"));
@@ -7683,10 +7437,10 @@ always
             map.put("lineSeq", Long.valueOf(lineSeq));
             map.put("productCode", item.getString("productCode"));
             map.put("qty", item.get("qty"));
-            map.put("reservedQty", Double.valueOf(round2(reserved)));
+            map.put("reservedQty", Double.valueOf(MfgSupport.round2(reserved)));
             map.put("shippedQty", item.get("shippedQty"));
-            map.put("openQty", Double.valueOf(openQtyOf(numberOrZero(item.get("qty")), reserved,
-                    numberOrZero(item.get("shippedQty")))));
+            map.put("openQty", Double.valueOf(openQtyOf(MfgSupport.numberOrZero(item.get("qty")), reserved,
+                    MfgSupport.numberOrZero(item.get("shippedQty")))));
             map.put("workOrderId", item.getString("workOrderId"));
             map.put("lineDueDate", item.get("lineDueDate"));
             map.put("note", item.getString("note"));
@@ -7713,9 +7467,9 @@ always
             return ServiceUtil.returnError(denied);
         }
         Delegator delegator = dctx.getDelegator();
-        String salesOrderId = toText(context.get("salesOrderId"));
-        long lineSeq = toLong(context.get("lineSeq"), -1);
-        Double qty = optionalAmount(context.get("qty"));
+        String salesOrderId = MfgSupport.toText(context.get("salesOrderId"));
+        long lineSeq = MfgSupport.toLong(context.get("lineSeq"), -1);
+        Double qty = MfgSupport.optionalAmount(context.get("qty"));
         if (salesOrderId == null || lineSeq < 0) {
             return ServiceUtil.returnError("缺少订单号或行号");
         }
@@ -7738,10 +7492,10 @@ always
             if (item == null) {
                 return ServiceUtil.returnError("订单 " + salesOrderId + " 没有第 " + lineSeq + " 行");
             }
-            double newQty = round2(qty.doubleValue());
-            double shipped = numberOrZero(item.get("shippedQty"));
+            double newQty = MfgSupport.round2(qty.doubleValue());
+            double shipped = MfgSupport.numberOrZero(item.get("shippedQty"));
             if (newQty < shipped) {
-                return ServiceUtil.returnError("第 " + lineSeq + " 行已经出货 " + formatQty(shipped)
+                return ServiceUtil.returnError("第 " + lineSeq + " 行已经出货 " + MfgSupport.formatQty(shipped)
                         + "，数量不能小于这个数");
             }
             item.set("qty", Double.valueOf(newQty));
@@ -7784,17 +7538,17 @@ always
                 .where("salesOrderId", salesOrderId).orderBy("lineSeq").queryList()) {
             lines++;
             double lineReserved = orderLineReserved(delegator, salesOrderId, item.getLong("lineSeq").longValue());
-            qty += numberOrZero(item.get("qty"));
+            qty += MfgSupport.numberOrZero(item.get("qty"));
             reserved += lineReserved;
-            shipped += numberOrZero(item.get("shippedQty"));
-            open += openQtyOf(numberOrZero(item.get("qty")), lineReserved,
-                    numberOrZero(item.get("shippedQty")));
+            shipped += MfgSupport.numberOrZero(item.get("shippedQty"));
+            open += openQtyOf(MfgSupport.numberOrZero(item.get("qty")), lineReserved,
+                    MfgSupport.numberOrZero(item.get("shippedQty")));
         }
         map.put("lineCount", Integer.valueOf(lines));
-        map.put("qtyTotal", Double.valueOf(round2(qty)));
-        map.put("reservedTotal", Double.valueOf(round2(reserved)));
-        map.put("shippedTotal", Double.valueOf(round2(shipped)));
-        map.put("openTotal", Double.valueOf(round2(open)));
+        map.put("qtyTotal", Double.valueOf(MfgSupport.round2(qty)));
+        map.put("reservedTotal", Double.valueOf(MfgSupport.round2(reserved)));
+        map.put("shippedTotal", Double.valueOf(MfgSupport.round2(shipped)));
+        map.put("openTotal", Double.valueOf(MfgSupport.round2(open)));
         return map;
     }
 
@@ -7814,9 +7568,9 @@ always
             if (!salesOrderId.equals(movement.getString("salesOrderId"))) {
                 continue;
             }
-            reserved += numberOrZero(movement.get("reservedDiff"));
+            reserved += MfgSupport.numberOrZero(movement.get("reservedDiff"));
         }
-        return reserved <= 0.0 ? 0.0 : round2(reserved);
+        return reserved <= 0.0 ? 0.0 : MfgSupport.round2(reserved);
     }
 
     /**
@@ -7837,9 +7591,9 @@ always
             if (movementLine == null || movementLine.longValue() != lineSeq) {
                 continue;
             }
-            reserved += numberOrZero(movement.get("reservedDiff"));
+            reserved += MfgSupport.numberOrZero(movement.get("reservedDiff"));
         }
-        return reserved <= 0.0 ? 0.0 : round2(reserved);
+        return reserved <= 0.0 ? 0.0 : MfgSupport.round2(reserved);
     }
 
     /**
@@ -7863,7 +7617,7 @@ always
         movement.set("seqId", Long.valueOf(nextMovementSeq(delegator, lot.getString("lotId"))));
         movement.set("movementTypeId", movementTypeId);
         movement.set("quantityDiff", Double.valueOf(0.0));
-        movement.set("reservedDiff", Double.valueOf(round2(diff)));
+        movement.set("reservedDiff", Double.valueOf(MfgSupport.round2(diff)));
         movement.set("salesOrderId", salesOrderId);
         movement.set("salesOrderItemSeq", Long.valueOf(lineSeq));
         movement.set("operatorName", operatorName);
@@ -7894,7 +7648,7 @@ always
                         || movementLine.longValue() != lineSeq) {
                     continue;
                 }
-                reserved += numberOrZero(movement.get("reservedDiff"));
+                reserved += MfgSupport.numberOrZero(movement.get("reservedDiff"));
             }
             if (reserved <= 0.0001) {
                 continue;
@@ -7971,23 +7725,23 @@ always
                 }
                 long lineSeq = item.getLong("lineSeq").longValue();
                 double reserved = orderLineReserved(delegator, salesOrderId, lineSeq);
-                double shippable = reserved + openQtyOf(numberOrZero(item.get("qty")), reserved,
-                        numberOrZero(item.get("shippedQty")));
+                double shippable = reserved + openQtyOf(MfgSupport.numberOrZero(item.get("qty")), reserved,
+                        MfgSupport.numberOrZero(item.get("shippedQty")));
                 if (shippable <= 0.0001) {
                     continue;
                 }
                 double take = Math.min(shippable, remaining);
-                item.set("shippedQty", Double.valueOf(round2(numberOrZero(item.get("shippedQty")) + take)));
+                item.set("shippedQty", Double.valueOf(MfgSupport.round2(MfgSupport.numberOrZero(item.get("shippedQty")) + take)));
                 delegator.store(item);
                 releaseOrderLineUnit(delegator, salesOrderId, lineSeq, model, take, operatorName,
                         "出货 " + deliveryId + " 释放预留");
-                remaining = round2(remaining - take);
+                remaining = MfgSupport.round2(remaining - take);
             }
         }
         boolean done = true;
         for (GenericValue item : EntityQuery.use(delegator).from("MfgSalesOrderItem")
                 .where("salesOrderId", salesOrderId).queryList()) {
-            if (numberOrZero(item.get("shippedQty")) + 0.0001 < numberOrZero(item.get("qty"))) {
+            if (MfgSupport.numberOrZero(item.get("shippedQty")) + 0.0001 < MfgSupport.numberOrZero(item.get("qty"))) {
                 done = false;
                 break;
             }
@@ -8020,7 +7774,7 @@ always
                         || movementLine.longValue() != lineSeq) {
                     continue;
                 }
-                reserved += numberOrZero(movement.get("reservedDiff"));
+                reserved += MfgSupport.numberOrZero(movement.get("reservedDiff"));
             }
             if (reserved <= 0.0001) {
                 continue;
@@ -8029,9 +7783,9 @@ always
             recordOrderReservation(delegator, lot, MOVE_RELEASE, -release, salesOrderId, lineSeq,
                     operatorName, note);
             recalcLotStock(delegator, lot);
-            remaining = round2(remaining - release);
+            remaining = MfgSupport.round2(remaining - release);
         }
-        return round2(qty - remaining);
+        return MfgSupport.round2(qty - remaining);
     }
 
     /**
@@ -8065,15 +7819,15 @@ always
         if (workOrder == null) {
             return 0.0;
         }
-        double planned = numberOrZero(workOrder.get("plannedQty"));
+        double planned = MfgSupport.numberOrZero(workOrder.get("plannedQty"));
         double booked = 0.0;
         for (GenericValue movement : movementsOf(delegator, productLotId(workOrderId))) {
             if (MOVE_RECEIPT.equals(movement.getString("movementTypeId"))) {
-                booked += numberOrZero(movement.get("quantityDiff"));
+                booked += MfgSupport.numberOrZero(movement.get("quantityDiff"));
             }
         }
         double left = planned - booked;
-        return left <= 0.0 ? 0.0 : round2(left);
+        return left <= 0.0 ? 0.0 : MfgSupport.round2(left);
     }
 
     private static String nextSalesOrderId(Delegator delegator, LocalDate today) throws GenericEntityException {
@@ -8152,17 +7906,17 @@ always
                 goods += ((Number) amount).doubleValue();
             }
         }
-        double goodsTotal = round2(goods);
-        double freightTotal = round2(freight);
-        double discountTotal = round2(discount);
+        double goodsTotal = MfgSupport.round2(goods);
+        double freightTotal = MfgSupport.round2(freight);
+        double discountTotal = MfgSupport.round2(discount);
         Map<String, Object> summary = new LinkedHashMap<>();
         summary.put("lineCount", Integer.valueOf(lines.size()));
         summary.put("goodsTotal", Double.valueOf(goodsTotal));
         summary.put("freightTotal", Double.valueOf(freightTotal));
         summary.put("discountTotal", Double.valueOf(discountTotal));
-        summary.put("spendTotal", Double.valueOf(round2(goodsTotal + freightTotal - discountTotal)));
+        summary.put("spendTotal", Double.valueOf(MfgSupport.round2(goodsTotal + freightTotal - discountTotal)));
         summary.put("freightShare", Double.valueOf(goodsTotal <= 0.0
-                ? 0.0 : round2(freightTotal / goodsTotal * 100.0)));
+                ? 0.0 : MfgSupport.round2(freightTotal / goodsTotal * 100.0)));
         return summary;
     }
 
@@ -8183,22 +7937,22 @@ always
             return ServiceUtil.returnError(denied);
         }
         Delegator delegator = dctx.getDelegator();
-        String receiptId = toText(context.get("receiptId"));
-        String allocationId = toText(context.get("allocationId"));
+        String receiptId = MfgSupport.toText(context.get("receiptId"));
+        String allocationId = MfgSupport.toText(context.get("allocationId"));
         if (allocationId == null) {
             allocationId = ALLOC_NONE;
         }
         if (!ALLOC_NONE.equals(allocationId)) {
             return ServiceUtil.returnError("运费暂时只记期间费用（" + ALLOC_NONE + "），按比例分摊还没有打开");
         }
-        String freightText = toText(context.get("freightAmount"));
-        Double freight = optionalAmount(freightText);
+        String freightText = MfgSupport.toText(context.get("freightAmount"));
+        Double freight = MfgSupport.optionalAmount(freightText);
         if (freightText != null && freight == null) {
             return ServiceUtil.returnError("运费要填非负数字，或留空：" + freightText);
         }
         // the red packet / coupon taken off the whole order, so 实付款 = goods + freight - discount
-        String discountText = toText(context.get("discountAmount"));
-        Double discount = optionalAmount(discountText);
+        String discountText = MfgSupport.toText(context.get("discountAmount"));
+        Double discount = MfgSupport.optionalAmount(discountText);
         if (discountText != null && discount == null) {
             return ServiceUtil.returnError("优惠要填非负数字，或留空：" + discountText);
         }
@@ -8220,13 +7974,13 @@ always
                 return ServiceUtil.returnError("到货单 [" + receiptId + "] 已经作废，要改先点「恢复这张单」");
             }
             if (context.containsKey("supplierName")) {
-                receipt.set("supplierName", toText(context.get("supplierName")));
+                receipt.set("supplierName", MfgSupport.toText(context.get("supplierName")));
             }
             if (context.containsKey("supplierOrderNo")) {
-                receipt.set("supplierOrderNo", toText(context.get("supplierOrderNo")));
+                receipt.set("supplierOrderNo", MfgSupport.toText(context.get("supplierOrderNo")));
             }
             if (context.containsKey("receiptDate")) {
-                Object date = parseDate(toText(context.get("receiptDate")));
+                Object date = MfgSupport.parseDate(MfgSupport.toText(context.get("receiptDate")));
                 receipt.set("receiptDate", date == null
                         ? java.sql.Date.valueOf(LocalDate.now()) : date);
             }
@@ -8237,7 +7991,7 @@ always
                 receipt.set("discountAmount", Double.valueOf(discount == null ? 0.0 : discount.doubleValue()));
             }
             if (context.containsKey("note")) {
-                receipt.set("note", toText(context.get("note")));
+                receipt.set("note", MfgSupport.toText(context.get("note")));
             }
             delegator.createOrStore(receipt);
             Map<String, Object> result = ServiceUtil.returnSuccess();
@@ -8266,12 +8020,12 @@ always
             return ServiceUtil.returnError(denied);
         }
         Delegator delegator = dctx.getDelegator();
-        String receiptId = toText(context.get("receiptId"));
+        String receiptId = MfgSupport.toText(context.get("receiptId"));
         if (receiptId == null) {
             return ServiceUtil.returnError("receiptId is required");
         }
-        boolean removing = "Y".equals(toText(context.get("delete")));
-        long lineSeq = toLong(context.get("lineSeq"), 0L);
+        boolean removing = "Y".equals(MfgSupport.toText(context.get("delete")));
+        long lineSeq = MfgSupport.toLong(context.get("lineSeq"), 0L);
         try {
             GenericValue receipt = EntityQuery.use(delegator).from("MfgPurchaseReceipt")
                     .where("receiptId", receiptId).queryOne();
@@ -8295,7 +8049,7 @@ always
             }
             boolean created = line == null;
             if (created) {
-                String lotId = toText(context.get("lotId"));
+                String lotId = MfgSupport.toText(context.get("lotId"));
                 if (lotId == null) {
                     return ServiceUtil.returnError("请选择要挂到这个到货单上的批次");
                 }
@@ -8325,14 +8079,14 @@ always
                 line.set("qty", lot.get("receivedQty"));
                 line.set("unitPrice", lot.get("unitPrice"));
             }
-            double qty = toDouble(context.get("qty"), toDouble(line.get("qty"), 0.0));
+            double qty = MfgSupport.toDouble(context.get("qty"), MfgSupport.toDouble(line.get("qty"), 0.0));
             if (qty <= 0.0) {
                 return ServiceUtil.returnError("数量要大于 0");
             }
-            double unitPrice = toDouble(line.get("unitPrice"), 0.0);
+            double unitPrice = MfgSupport.toDouble(line.get("unitPrice"), 0.0);
             if (context.containsKey("unitPrice")) {
-                String priceText = toText(context.get("unitPrice"));
-                Double price = optionalAmount(priceText);
+                String priceText = MfgSupport.toText(context.get("unitPrice"));
+                Double price = MfgSupport.optionalAmount(priceText);
                 if (priceText != null && price == null) {
                     return ServiceUtil.returnError("单价要填非负数字，或留空：" + priceText);
                 }
@@ -8340,9 +8094,9 @@ always
             }
             line.set("qty", Double.valueOf(qty));
             line.set("unitPrice", Double.valueOf(unitPrice));
-            line.set("goodsAmount", Double.valueOf(round2(qty * unitPrice)));
+            line.set("goodsAmount", Double.valueOf(MfgSupport.round2(qty * unitPrice)));
             if (context.containsKey("note")) {
-                line.set("note", toText(context.get("note")));
+                line.set("note", MfgSupport.toText(context.get("note")));
             }
             if (created) {
                 delegator.create(line);
@@ -8379,7 +8133,7 @@ always
             return ServiceUtil.returnError(denied);
         }
         Delegator delegator = dctx.getDelegator();
-        String receiptId = toText(context.get("receiptId"));
+        String receiptId = MfgSupport.toText(context.get("receiptId"));
         if (receiptId == null) {
             return ServiceUtil.returnError("请选择要作废的到货单");
         }
@@ -8392,7 +8146,7 @@ always
             if (RECEIPT_VOID.equals(statusOfReceipt(receipt))) {
                 return ServiceUtil.returnError("到货单 [" + receiptId + "] 已经作废了");
             }
-            String reason = toText(context.get("voidReason"));
+            String reason = MfgSupport.toText(context.get("voidReason"));
             receipt.set("statusId", RECEIPT_VOID);
             receipt.set("voidedDate", new Timestamp(System.currentTimeMillis()));
             GenericValue userLogin = (GenericValue) context.get("userLogin");
@@ -8423,7 +8177,7 @@ always
             return ServiceUtil.returnError(denied);
         }
         Delegator delegator = dctx.getDelegator();
-        String receiptId = toText(context.get("receiptId"));
+        String receiptId = MfgSupport.toText(context.get("receiptId"));
         if (receiptId == null) {
             return ServiceUtil.returnError("请选择要恢复的到货单");
         }
@@ -8476,7 +8230,7 @@ always
                 lines.add(toReceiptLineMap(line));
             }
             List<Map<String, Object>> rows = new ArrayList<>();
-            boolean withVoid = "Y".equalsIgnoreCase(toText(context.get("includeVoid")));
+            boolean withVoid = "Y".equalsIgnoreCase(MfgSupport.toText(context.get("includeVoid")));
             for (GenericValue receipt : EntityQuery.use(delegator).from("MfgPurchaseReceipt")
                     .orderBy("-receiptDate", "-createdStamp").queryList()) {
                 // a voided receipt keeps its paper but is not a purchase any more: the list hides it
@@ -8487,23 +8241,23 @@ always
                 Map<String, Object> row = toReceiptMap(receipt);
                 List<Map<String, Object>> lines = linesOf.get(receipt.getString("receiptId"));
                 row.putAll(receiptSummary(lines == null ? new ArrayList<Map<String, Object>>() : lines,
-                        numberOrZero(receipt.get("freightAmount")), numberOrZero(receipt.get("discountAmount"))));
+                        MfgSupport.numberOrZero(receipt.get("freightAmount")), MfgSupport.numberOrZero(receipt.get("discountAmount"))));
                 rows.add(row);
             }
-            String keyword = toText(context.get("search"));
-            List<Map<String, Object>> filtered = filterByKeyword(rows, keyword, "receiptId",
+            String keyword = MfgSupport.toText(context.get("search"));
+            List<Map<String, Object>> filtered = MfgPaging.filterByKeyword(rows, keyword, "receiptId",
                     "supplierName", "supplierOrderNo");
             double goods = 0.0;
             double freight = 0.0;
             for (Map<String, Object> row : filtered) {
-                goods += numberOrZero(row.get("goodsTotal"));
-                freight += numberOrZero(row.get("freightTotal"));
+                goods += MfgSupport.numberOrZero(row.get("goodsTotal"));
+                freight += MfgSupport.numberOrZero(row.get("freightTotal"));
             }
-            result.put("goodsTotal", Double.valueOf(round2(goods)));
-            result.put("freightTotal", Double.valueOf(round2(freight)));
-            result.put("spendTotal", Double.valueOf(round2(goods + freight)));
-            result.put("freightShare", Double.valueOf(goods <= 0.0 ? 0.0 : round2(freight / goods * 100.0)));
-            putPage(result, "receipts", filtered, pageOf(context), pageSizeOf(context), keyword);
+            result.put("goodsTotal", Double.valueOf(MfgSupport.round2(goods)));
+            result.put("freightTotal", Double.valueOf(MfgSupport.round2(freight)));
+            result.put("spendTotal", Double.valueOf(MfgSupport.round2(goods + freight)));
+            result.put("freightShare", Double.valueOf(goods <= 0.0 ? 0.0 : MfgSupport.round2(freight / goods * 100.0)));
+            MfgPaging.putPage(result, "receipts", filtered, MfgPaging.pageOf(context), MfgPaging.pageSizeOf(context), keyword);
             // a receipt holds one or two articles, so the list shows its lines when the row is
             // opened; only the rows of this page are carried along
             Map<String, List<Map<String, Object>>> linesByReceipt = new LinkedHashMap<>();
@@ -8511,7 +8265,7 @@ always
             if (paged != null) {
                 for (Object row : paged) {
                     Map<String, Object> map = UtilGenerics.cast(row);
-                    String id = toText(map.get("receiptId"));
+                    String id = MfgSupport.toText(map.get("receiptId"));
                     List<Map<String, Object>> lines = linesOf.get(id);
                     if (lines != null && !lines.isEmpty()) {
                         linesByReceipt.put(id, lines);
@@ -8580,7 +8334,7 @@ always
             }
             result.put("freeLots", freeLots);
 
-            String receiptId = toText(context.get("receiptId"));
+            String receiptId = MfgSupport.toText(context.get("receiptId"));
             if (receiptId == null) {
                 return result;
             }
@@ -8596,8 +8350,8 @@ always
             }
             result.put("receipt", toReceiptMap(receipt));
             result.put("lines", lines);
-            result.putAll(receiptSummary(lines, numberOrZero(receipt.get("freightAmount")),
-                    numberOrZero(receipt.get("discountAmount"))));
+            result.putAll(receiptSummary(lines, MfgSupport.numberOrZero(receipt.get("freightAmount")),
+                    MfgSupport.numberOrZero(receipt.get("discountAmount"))));
             return result;
         } catch (GenericEntityException e) {
             return ServiceUtil.returnError("Could not read the receipt: " + e.getMessage());
@@ -8642,17 +8396,17 @@ always
         if (lines == null) {
             return ServiceUtil.returnError("请把订单明细粘进来（一行一个料：料号,名称,数量,实付金额）");
         }
-        String supplierOrderNo = toText(context.get("supplierOrderNo"));
-        String supplierName = toText(context.get("supplierName"));
-        String freightText = toText(context.get("freightAmount"));
-        Double freight = optionalAmount(freightText);
+        String supplierOrderNo = MfgSupport.toText(context.get("supplierOrderNo"));
+        String supplierName = MfgSupport.toText(context.get("supplierName"));
+        String freightText = MfgSupport.toText(context.get("freightAmount"));
+        Double freight = MfgSupport.optionalAmount(freightText);
         if (freightText != null && freight == null) {
             return ServiceUtil.returnError("运费要填非负数字，或留空：" + freightText);
         }
         // a Taobao red packet, coupon or 满减 comes off the whole order: the part prices stay as they
         // are printed, so 实付款 = goods + freight - discount
-        String discountText = toText(context.get("discountAmount"));
-        Double discount = optionalAmount(discountText);
+        String discountText = MfgSupport.toText(context.get("discountAmount"));
+        Double discount = MfgSupport.optionalAmount(discountText);
         if (discountText != null && discount == null) {
             return ServiceUtil.returnError("优惠要填非负数字，或留空：" + discountText);
         }
@@ -8660,7 +8414,7 @@ always
         if (rows.isEmpty()) {
             return ServiceUtil.returnError("没有解析出明细，一行一个料：料号,名称,数量,实付金额");
         }
-        if ("Y".equalsIgnoreCase(toText(context.get("refunded")))) {
+        if ("Y".equalsIgnoreCase(MfgSupport.toText(context.get("refunded")))) {
             // a refunded or closed order never arrived: booking it would invent stock. Remember it
             // first, so the same order cannot be booked in by hand a week later either - in its own
             // transaction, because returning the error rolls this one back
@@ -8679,12 +8433,12 @@ always
                 row[1] = nameWithFullCode(row[1], fullCode);
                 shortened++;
             }
-            if (toDouble(row[2], 0.0) <= 0.0) {
+            if (MfgSupport.toDouble(row[2], 0.0) <= 0.0) {
                 return ServiceUtil.returnError("数量要大于 0：" + row[0]);
             }
         }
         try {
-            java.sql.Date receiptDate = (java.sql.Date) parseDate(context.get("receiptDate"));
+            java.sql.Date receiptDate = (java.sql.Date) MfgSupport.parseDate(context.get("receiptDate"));
             if (receiptDate == null) {
                 receiptDate = java.sql.Date.valueOf(LocalDate.now());
             }
@@ -8707,7 +8461,7 @@ always
                 receipt.set("freightAmount", Double.valueOf(freight == null ? 0.0 : freight.doubleValue()));
                 receipt.set("discountAmount", Double.valueOf(discount == null ? 0.0 : discount.doubleValue()));
                 receipt.set("allocationId", ALLOC_NONE);
-                receipt.set("note", toText(context.get("note")));
+                receipt.set("note", MfgSupport.toText(context.get("note")));
                 receipt.set("statusId", RECEIPT_ACTIVE);
                 delegator.create(receipt);
             } else if (RECEIPT_VOID.equals(statusOfReceipt(receipt))) {
@@ -8725,23 +8479,23 @@ always
                 }
                 receipt.store();
             } else if (freight != null || discount != null) {
-                boolean replace = "Y".equalsIgnoreCase(toText(context.get("overwrite")));
+                boolean replace = "Y".equalsIgnoreCase(MfgSupport.toText(context.get("overwrite")));
                 // a re-read of the same order replaces the numbers it wrote before (a freight that was
                 // written wrong must be correctable); a plain second delivery adds up
                 if (freight != null) {
                     double amount = replace ? freight.doubleValue()
-                            : round2(numberOrZero(receipt.get("freightAmount")) + freight.doubleValue());
-                    receipt.set("freightAmount", Double.valueOf(round2(amount)));
+                            : MfgSupport.round2(MfgSupport.numberOrZero(receipt.get("freightAmount")) + freight.doubleValue());
+                    receipt.set("freightAmount", Double.valueOf(MfgSupport.round2(amount)));
                 }
                 if (discount != null) {
                     double amount = replace ? discount.doubleValue()
-                            : round2(numberOrZero(receipt.get("discountAmount")) + discount.doubleValue());
-                    receipt.set("discountAmount", Double.valueOf(round2(amount)));
+                            : MfgSupport.round2(MfgSupport.numberOrZero(receipt.get("discountAmount")) + discount.doubleValue());
+                    receipt.set("discountAmount", Double.valueOf(MfgSupport.round2(amount)));
                 }
                 receipt.store();
             }
             String receiptId = receipt.getString("receiptId");
-            boolean overwrite = "Y".equalsIgnoreCase(toText(context.get("overwrite")));
+            boolean overwrite = "Y".equalsIgnoreCase(MfgSupport.toText(context.get("overwrite")));
             // a shop prints the same article several times (one board in six colours), so one part
             // number may sit on more than one line: a line is identified by code + quantity + money,
             // and every line of the receipt may be claimed once by the answer
@@ -8765,10 +8519,10 @@ always
             for (String[] row : rows) {
                 String componentCode = row[0];
                 answeredCodes.add(componentCode);
-                double qty = toDouble(row[2], 0.0);
-                double amount = toDouble(row[3], 0.0);
+                double qty = MfgSupport.toDouble(row[2], 0.0);
+                double amount = MfgSupport.toDouble(row[3], 0.0);
                 List<GenericValue> sameLine = existingByKey.get(lotLineKey(componentCode,
-                        Double.valueOf(qty), Double.valueOf(round2(amount))));
+                        Double.valueOf(qty), Double.valueOf(MfgSupport.round2(amount))));
                 GenericValue exact = claimOne(sameLine, claimed);
                 if (exact != null) {
                     // this very line is already on the receipt: an order read twice, nothing to add
@@ -8800,15 +8554,15 @@ always
                 lot.set("supplierName", supplierName);
                 lot.set("supplierLot", supplierOrderNo);
                 lot.set("receivedQty", Double.valueOf(qty));
-                lot.set("receivedAmount", Double.valueOf(round2(amount)));
-                lot.set("unitPrice", Double.valueOf(round2(amount / qty)));
+                lot.set("receivedAmount", Double.valueOf(MfgSupport.round2(amount)));
+                lot.set("unitPrice", Double.valueOf(MfgSupport.round2(amount / qty)));
                 lot.set("receivedDate", receiptDate);
-                lot.set("note", toText(context.get("note")));
+                lot.set("note", MfgSupport.toText(context.get("note")));
                 delegator.create(lot);
                 recordMovement(delegator, lot, MOVE_RECEIPT, qty, lot.get("unitPrice"), null, null,
                         supplierOrderNo, null,
                         Timestamp.valueOf(receiptDate.toLocalDate().atStartOfDay()),
-                        "订单到货入库", toText(context.get("locationId")));
+                        "订单到货入库", MfgSupport.toText(context.get("locationId")));
                 recalcLotStock(delegator, lot);
 
                 GenericValue line = delegator.makeValue("MfgPurchaseReceiptLine");
@@ -8822,7 +8576,7 @@ always
                 line.set("componentName", row[1] == null ? componentCode : row[1]);
                 line.set("qty", Double.valueOf(qty));
                 line.set("unitPrice", lot.get("unitPrice"));
-                line.set("goodsAmount", Double.valueOf(round2(amount)));
+                line.set("goodsAmount", Double.valueOf(MfgSupport.round2(amount)));
                 delegator.create(line);
                 lineSeq += 10L;
                 imported++;
@@ -8835,8 +8589,8 @@ always
                     .where("receiptId", receiptId).orderBy("lineSeq").queryList()) {
                 lineMaps.add(toReceiptLineMap(line));
             }
-            Map<String, Object> summary = receiptSummary(lineMaps, numberOrZero(receipt.get("freightAmount")),
-                    numberOrZero(receipt.get("discountAmount")));
+            Map<String, Object> summary = receiptSummary(lineMaps, MfgSupport.numberOrZero(receipt.get("freightAmount")),
+                    MfgSupport.numberOrZero(receipt.get("discountAmount")));
             Map<String, Object> result = ServiceUtil.returnSuccess();
             result.put("receiptId", receiptId);
             result.put("importedCount", String.valueOf(imported));
@@ -8997,14 +8751,14 @@ always
         if (denied != null) {
             return ServiceUtil.returnError(denied);
         }
-        String orderNo = toText(context.get("orderNo"));
+        String orderNo = MfgSupport.toText(context.get("orderNo"));
         if (orderNo == null) {
             return ServiceUtil.returnError("请填店铺订单号（淘宝订单号）");
         }
         Delegator delegator = dctx.getDelegator();
         try {
-            rememberRefundedOrder(delegator, orderNo, toText(context.get("shop")),
-                    toText(context.get("note")) == null ? "手工登记" : toText(context.get("note")));
+            rememberRefundedOrder(delegator, orderNo, MfgSupport.toText(context.get("shop")),
+                    MfgSupport.toText(context.get("note")) == null ? "手工登记" : MfgSupport.toText(context.get("note")));
             Map<String, Object> result = ServiceUtil.returnSuccess();
             result.put("orderNo", orderNo);
             return result;
@@ -9025,7 +8779,7 @@ always
         if (denied != null) {
             return ServiceUtil.returnError(denied);
         }
-        String orderNo = toText(context.get("orderNo"));
+        String orderNo = MfgSupport.toText(context.get("orderNo"));
         if (orderNo == null) {
             return ServiceUtil.returnError("请告诉我撤掉哪一张单");
         }
@@ -9080,14 +8834,14 @@ always
      */
     static void mergeOrderLine(Delegator delegator, GenericValue line, java.sql.Date receiptDate,
             double qty, double amount) throws GenericEntityException {
-        double unitPrice = round2(amount / qty);
+        double unitPrice = MfgSupport.round2(amount / qty);
         String lotId = line.getString("lotId");
         if (lotId != null) {
             GenericValue lot = EntityQuery.use(delegator).from("MfgMaterialLot")
                     .where("lotId", lotId).queryFirst();
             if (lot != null) {
                 lot.set("receivedQty", Double.valueOf(qty));
-                lot.set("receivedAmount", Double.valueOf(round2(amount)));
+                lot.set("receivedAmount", Double.valueOf(MfgSupport.round2(amount)));
                 lot.set("unitPrice", Double.valueOf(unitPrice));
                 lot.set("receivedDate", receiptDate);
                 lot.store();
@@ -9102,7 +8856,7 @@ always
         }
         line.set("qty", Double.valueOf(qty));
         line.set("unitPrice", Double.valueOf(unitPrice));
-        line.set("goodsAmount", Double.valueOf(round2(amount)));
+        line.set("goodsAmount", Double.valueOf(MfgSupport.round2(amount)));
         line.store();
     }
 
@@ -9118,7 +8872,7 @@ always
         Delegator delegator = dctx.getDelegator();
         Map<String, Object> result = ServiceUtil.returnSuccess();
         result.put("lines", new ArrayList<Map<String, Object>>());
-        String supplierOrderNo = toText(context.get("supplierOrderNo"));
+        String supplierOrderNo = MfgSupport.toText(context.get("supplierOrderNo"));
         if (supplierOrderNo == null) {
             return result;
         }
@@ -9187,7 +8941,7 @@ always
     }
 
     private static String lotLineKey(String componentCode, Object qty, Object amount) {
-        return componentCode + "|" + toDouble(qty, 0.0) + "|" + round2(toDouble(amount, 0.0));
+        return componentCode + "|" + MfgSupport.toDouble(qty, 0.0) + "|" + MfgSupport.round2(MfgSupport.toDouble(amount, 0.0));
     }
 
     /**
@@ -9324,9 +9078,9 @@ always
         map.put("qty", line.get("qty"));
         map.put("unitPrice", line.get("unitPrice"));
         // the price with the decimals the column cannot keep: 2.91 for 100 pieces is 0.0291
-        double qty = numberOrZero(line.get("qty"));
+        double qty = MfgSupport.numberOrZero(line.get("qty"));
         map.put("unitPriceExact", Double.valueOf(qty > 0.0
-                ? numberOrZero(line.get("goodsAmount")) / qty : numberOrZero(line.get("unitPrice"))));
+                ? MfgSupport.numberOrZero(line.get("goodsAmount")) / qty : MfgSupport.numberOrZero(line.get("unitPrice"))));
         map.put("goodsAmount", line.get("goodsAmount"));
         map.put("note", line.getString("note"));
         return map;
@@ -9353,17 +9107,17 @@ always
                 GenericValue row = EntityQuery.use(delegator).from("SystemProperty")
                         .where("systemResourceId", SETTINGS_RESOURCE, "systemPropertyId", id).queryOne();
                 if (row != null) {
-                    String value = toText(row.getString("systemPropertyValue"));
+                    String value = MfgSupport.toText(row.getString("systemPropertyValue"));
                     if (value != null) {
                         return value;
                     }
                 }
             } catch (GenericEntityException e) {
                 // the table may not be there yet on a very old database: fall back to the JVM
-                return toText(System.getProperty(id));
+                return MfgSupport.toText(System.getProperty(id));
             }
         }
-        return toText(System.getProperty(id));
+        return MfgSupport.toText(System.getProperty(id));
     }
 
     /**
@@ -9439,19 +9193,19 @@ always
             return ServiceUtil.returnError(denied);
         }
         try {
-            if ("Y".equals(toText(context.get("clear")))) {
+            if ("Y".equals(MfgSupport.toText(context.get("clear")))) {
                 storeSetting(delegator, "org.langhua.mfg.vision.endpoint", null);
                 storeSetting(delegator, "org.langhua.mfg.vision.model", null);
                 storeSetting(delegator, "org.langhua.mfg.vision.key", null);
                 return ServiceUtil.returnSuccess();
             }
-            String endpoint = toText(context.get("visionEndpoint"));
+            String endpoint = MfgSupport.toText(context.get("visionEndpoint"));
             if (endpoint != null && !endpoint.startsWith("http://") && !endpoint.startsWith("https://")) {
                 return ServiceUtil.returnError("识图接口要以 http:// 或 https:// 开头：" + endpoint);
             }
             storeSetting(delegator, "org.langhua.mfg.vision.endpoint", OirOrders.normalizeVisionEndpoint(endpoint));
-            storeSetting(delegator, "org.langhua.mfg.vision.model", toText(context.get("visionModel")));
-            String key = toText(context.get("visionKey"));
+            storeSetting(delegator, "org.langhua.mfg.vision.model", MfgSupport.toText(context.get("visionModel")));
+            String key = MfgSupport.toText(context.get("visionKey"));
             if (key != null) {
                 storeSetting(delegator, "org.langhua.mfg.vision.key", key);
             }
@@ -9483,8 +9237,8 @@ always
             return ServiceUtil.returnError(denied);
         }
         Delegator delegator = dctx.getDelegator();
-        String locationId = toText(context.get("locationId"));
-        String locationTypeId = toText(context.get("locationTypeId"));
+        String locationId = MfgSupport.toText(context.get("locationId"));
+        String locationTypeId = MfgSupport.toText(context.get("locationTypeId"));
         if (locationId == null) {
             return ServiceUtil.returnError("locationId is required, it is the code printed on the shelf");
         }
@@ -9503,17 +9257,17 @@ always
                 location.set("locationId", locationId);
             }
             location.set("locationTypeId", locationTypeId);
-            location.set("locationName", toText(context.get("locationName")));
-            location.set("parentLocationId", toText(context.get("parentLocationId")));
+            location.set("locationName", MfgSupport.toText(context.get("locationName")));
+            location.set("parentLocationId", MfgSupport.toText(context.get("parentLocationId")));
             if (context.containsKey("note")) {
-                location.set("note", toText(context.get("note")));
+                location.set("note", MfgSupport.toText(context.get("note")));
             }
             delegator.createOrStore(location);
 
             Map<String, Object> result = ServiceUtil.returnSuccess();
             result.put("locationId", locationId);
             result.put("locationTypeId", locationTypeId);
-            result.put("onHandQty", Double.valueOf(round2(locationOnHand(delegator, null, locationId))));
+            result.put("onHandQty", Double.valueOf(MfgSupport.round2(locationOnHand(delegator, null, locationId))));
             return result;
         } catch (GenericEntityException e) {
             return ServiceUtil.returnError("Could not save the location: " + e.getMessage());
@@ -9541,12 +9295,12 @@ always
             Map<String, Double> onHand = new LinkedHashMap<>();
             for (GenericValue movement : EntityQuery.use(delegator).from("MfgInventoryDetail").queryList()) {
                 String locationId = movement.getString("locationId");
-                double diff = numberOrZero(movement.get("quantityDiff"));
+                double diff = MfgSupport.numberOrZero(movement.get("quantityDiff"));
                 if (locationId == null) {
                     unassigned += diff;
                     continue;
                 }
-                onHand.put(locationId, Double.valueOf(numberOrZero(onHand.get(locationId)) + diff));
+                onHand.put(locationId, Double.valueOf(MfgSupport.numberOrZero(onHand.get(locationId)) + diff));
                 if (diff > 0.0) {
                     Integer count = lotCounts.get(locationId);
                     lotCounts.put(locationId, Integer.valueOf(count == null ? 1 : count.intValue() + 1));
@@ -9561,15 +9315,15 @@ always
                 row.put("locationName", location.getString("locationName"));
                 row.put("locationTypeId", location.getString("locationTypeId"));
                 row.put("parentLocationId", location.getString("parentLocationId"));
-                row.put("onHandQty", Double.valueOf(round2(numberOrZero(onHand.get(locationId)))));
+                row.put("onHandQty", Double.valueOf(MfgSupport.round2(MfgSupport.numberOrZero(onHand.get(locationId)))));
                 row.put("lotCount", lotCounts.containsKey(locationId) ? lotCounts.get(locationId)
                         : Integer.valueOf(0));
                 row.put("note", location.getString("note"));
                 rows.add(row);
             }
             result.put("locations", rows);
-            result.put("unassignedQty", Double.valueOf(round2(unassigned)));
-            result.put("onHandTotal", Double.valueOf(round2(total + unassigned)));
+            result.put("unassignedQty", Double.valueOf(MfgSupport.round2(unassigned)));
+            result.put("onHandTotal", Double.valueOf(MfgSupport.round2(total + unassigned)));
             return result;
         } catch (GenericEntityException e) {
             return ServiceUtil.returnError("Could not read the locations: " + e.getMessage());
@@ -9586,8 +9340,8 @@ always
      */
     public static Map<String, Object> locationStock(DispatchContext dctx, Map<String, ? extends Object> context) {
         Delegator delegator = dctx.getDelegator();
-        String locationId = toText(context.get("locationId"));
-        String componentCode = toText(context.get("componentCode"));
+        String locationId = MfgSupport.toText(context.get("locationId"));
+        String componentCode = MfgSupport.toText(context.get("componentCode"));
         Map<String, Object> result = ServiceUtil.returnSuccess();
         result.put("rows", new ArrayList<Map<String, Object>>());
         try {
@@ -9600,8 +9354,8 @@ always
                     .orderBy("lotId", "seqId").queryList()) {
                 String key = movement.getString("lotId") + "\u0000"
                         + (movement.getString("locationId") == null ? "" : movement.getString("locationId"));
-                balances.put(key, Double.valueOf(numberOrZero(balances.get(key))
-                        + numberOrZero(movement.get("quantityDiff"))));
+                balances.put(key, Double.valueOf(MfgSupport.numberOrZero(balances.get(key))
+                        + MfgSupport.numberOrZero(movement.get("quantityDiff"))));
             }
             List<Map<String, Object>> rows = new ArrayList<>();
             for (Map.Entry<String, Double> entry : balances.entrySet()) {
@@ -9625,7 +9379,7 @@ always
                 row.put("lotKindId", lot == null ? LOT_COMPONENT : lotKindOf(lot));
                 row.put("componentCode", rowComponent);
                 row.put("componentName", lot == null ? null : lot.getString("componentName"));
-                row.put("onHandQty", Double.valueOf(round2(entry.getValue().doubleValue())));
+                row.put("onHandQty", Double.valueOf(MfgSupport.round2(entry.getValue().doubleValue())));
                 row.put("receivedDate", lot == null ? null : lot.get("receivedDate"));
                 rows.add(row);
             }
@@ -9652,10 +9406,10 @@ always
             return ServiceUtil.returnError(denied);
         }
         Delegator delegator = dctx.getDelegator();
-        String lotId = toText(context.get("lotId"));
-        String fromLocationId = toText(context.get("fromLocationId"));
-        String toLocationId = toText(context.get("toLocationId"));
-        double qty = toDouble(context.get("qty"), 0.0);
+        String lotId = MfgSupport.toText(context.get("lotId"));
+        String fromLocationId = MfgSupport.toText(context.get("fromLocationId"));
+        String toLocationId = MfgSupport.toText(context.get("toLocationId"));
+        double qty = MfgSupport.toDouble(context.get("qty"), 0.0);
         if (lotId == null) {
             return ServiceUtil.returnError("lotId is required");
         }
@@ -9685,12 +9439,12 @@ always
             ensureLotLedger(delegator, lot);
             double here = locationOnHand(delegator, lotId, fromLocationId);
             if (here + 0.0001 < qty) {
-                return ServiceUtil.returnError("Only " + formatQty(here) + " left in location ["
-                        + (fromLocationId == null ? "?" : fromLocationId) + "], cannot move " + formatQty(qty));
+                return ServiceUtil.returnError("Only " + MfgSupport.formatQty(here) + " left in location ["
+                        + (fromLocationId == null ? "?" : fromLocationId) + "], cannot move " + MfgSupport.formatQty(qty));
             }
             String transferId = nextTransferId(delegator, LocalDate.now());
-            String operator = toText(context.get("operatorName"));
-            String note = toText(context.get("note"));
+            String operator = MfgSupport.toText(context.get("operatorName"));
+            String note = MfgSupport.toText(context.get("note"));
             recordMovement(delegator, lot, MOVE_TRANSFER, -qty, lot.get("unitPrice"), null, null,
                     transferId, operator, null,
                     "移库 " + transferId + "：" + (fromLocationId == null ? "未分配" : fromLocationId)
@@ -9707,8 +9461,8 @@ always
             result.put("fromLocationId", fromLocationId);
             result.put("toLocationId", toLocationId);
             result.put("locationId", toLocationId);
-            result.put("qty", Double.valueOf(round2(qty)));
-            result.put("toLocationQty", Double.valueOf(round2(locationOnHand(delegator, lotId, toLocationId))));
+            result.put("qty", Double.valueOf(MfgSupport.round2(qty)));
+            result.put("toLocationQty", Double.valueOf(MfgSupport.round2(locationOnHand(delegator, lotId, toLocationId))));
             result.put("onHandQty", lot.get("onHandQty"));
             return result;
         } catch (GenericEntityException e) {
@@ -9738,9 +9492,9 @@ always
             if (locationId == null ? movementLocation != null : !locationId.equals(movementLocation)) {
                 continue;
             }
-            onHand += numberOrZero(movement.get("quantityDiff"));
+            onHand += MfgSupport.numberOrZero(movement.get("quantityDiff"));
         }
-        return round2(onHand);
+        return MfgSupport.round2(onHand);
     }
 
     private static String nextTransferId(Delegator delegator, LocalDate today) throws GenericEntityException {
@@ -9771,11 +9525,11 @@ always
             return ServiceUtil.returnError(denied);
         }
         Delegator delegator = dctx.getDelegator();
-        String lotId = toText(context.get("lotId"));
-        String movementTypeId = toText(context.get("movementTypeId"));
-        String reasonEnumId = toText(context.get("reasonEnumId"));
-        double qty = toDouble(context.get("qty"), 0.0);
-        String workOrderId = toText(context.get("workOrderId"));
+        String lotId = MfgSupport.toText(context.get("lotId"));
+        String movementTypeId = MfgSupport.toText(context.get("movementTypeId"));
+        String reasonEnumId = MfgSupport.toText(context.get("reasonEnumId"));
+        double qty = MfgSupport.toDouble(context.get("qty"), 0.0);
+        String workOrderId = MfgSupport.toText(context.get("workOrderId"));
         if (lotId == null) {
             return ServiceUtil.returnError("lotId is required");
         }
@@ -9809,10 +9563,10 @@ always
             if (diff < 0.0) {
                 double ownReservation = workOrderId == null ? 0.0
                         : reservationOf(delegator, lotId, workOrderId);
-                double available = numberOrZero(lot.get("availableQty")) + ownReservation;
+                double available = MfgSupport.numberOrZero(lot.get("availableQty")) + ownReservation;
                 if (available + 0.0001 < -diff) {
-                    return ServiceUtil.returnError("Only " + formatQty(available) + " left in lot [" + lotId
-                            + "], cannot take " + formatQty(-diff));
+                    return ServiceUtil.returnError("Only " + MfgSupport.formatQty(available) + " left in lot [" + lotId
+                            + "], cannot take " + MfgSupport.formatQty(-diff));
                 }
             }
             if (workOrderId != null
@@ -9823,10 +9577,10 @@ always
                 }
             }
             GenericValue movement = recordMovement(delegator, lot, movementTypeId, diff,
-                    optionalAmount(context.get("unitCost")), workOrderId, null,
-                    toText(context.get("referenceNo")), toText(context.get("operatorName")),
-                    parseTimestamp(context.get("effectiveDate")), toText(context.get("note")),
-                    toText(context.get("locationId")), reasonEnumId);
+                    MfgSupport.optionalAmount(context.get("unitCost")), workOrderId, null,
+                    MfgSupport.toText(context.get("referenceNo")), MfgSupport.toText(context.get("operatorName")),
+                    MfgSupport.parseTimestamp(context.get("effectiveDate")), MfgSupport.toText(context.get("note")),
+                    MfgSupport.toText(context.get("locationId")), reasonEnumId);
             if (workOrderId != null
                     && (MOVE_ISSUE.equals(movementTypeId) || MOVE_RETURN.equals(movementTypeId))) {
                 GenericValue issue = delegator.makeValue("MfgMaterialIssue");
@@ -9837,11 +9591,11 @@ always
                 issue.set("qty", Double.valueOf(diff));
                 issue.set("directionId", movementTypeId);
                 issue.set("issuedDate", java.sql.Date.valueOf(LocalDate.now()));
-                issue.set("note", toText(context.get("note")));
+                issue.set("note", MfgSupport.toText(context.get("note")));
                 delegator.create(issue);
             }
             if (MOVE_ISSUE.equals(movementTypeId) && workOrderId != null) {
-                releaseReservation(delegator, lot, workOrderId, -diff, toText(context.get("operatorName")));
+                releaseReservation(delegator, lot, workOrderId, -diff, MfgSupport.toText(context.get("operatorName")));
             }
             recalcLotStock(delegator, lot);
 
@@ -9850,7 +9604,7 @@ always
             result.put("seqId", movement.get("seqId"));
             result.put("movementTypeId", movementTypeId);
             result.put("reasonEnumId", movement.get("reasonEnumId"));
-            result.put("quantityDiff", Double.valueOf(round2(diff)));
+            result.put("quantityDiff", Double.valueOf(MfgSupport.round2(diff)));
             result.put("onHandQty", lot.get("onHandQty"));
             result.put("availableQty", lot.get("availableQty"));
             return result;
@@ -9905,23 +9659,23 @@ always
                     row.put("lotCount", Integer.valueOf(0));
                     byComponent.put(componentCode, row);
                 }
-                double onHand = numberOrZero(lot.get("onHandQty"));
-                row.put("onHandQty", Double.valueOf(numberOrZero(row.get("onHandQty")) + onHand));
-                row.put("reservedQty", Double.valueOf(numberOrZero(row.get("reservedQty"))
-                        + numberOrZero(lot.get("reservedQty"))));
-                row.put("availableQty", Double.valueOf(numberOrZero(row.get("availableQty"))
-                        + numberOrZero(lot.get("availableQty"))));
+                double onHand = MfgSupport.numberOrZero(lot.get("onHandQty"));
+                row.put("onHandQty", Double.valueOf(MfgSupport.numberOrZero(row.get("onHandQty")) + onHand));
+                row.put("reservedQty", Double.valueOf(MfgSupport.numberOrZero(row.get("reservedQty"))
+                        + MfgSupport.numberOrZero(lot.get("reservedQty"))));
+                row.put("availableQty", Double.valueOf(MfgSupport.numberOrZero(row.get("availableQty"))
+                        + MfgSupport.numberOrZero(lot.get("availableQty"))));
                 row.put("lotCount", Integer.valueOf(((Integer) row.get("lotCount")).intValue() + 1));
                 String inspect = lot.getString("inspectStatusId");
                 if (IQC_PENDING.equals(inspect)) {
-                    row.put("pendingQty", Double.valueOf(numberOrZero(row.get("pendingQty")) + onHand));
+                    row.put("pendingQty", Double.valueOf(MfgSupport.numberOrZero(row.get("pendingQty")) + onHand));
                 }
                 if (IQC_FAIL.equals(inspect)) {
-                    row.put("failedQty", Double.valueOf(numberOrZero(row.get("failedQty")) + onHand));
+                    row.put("failedQty", Double.valueOf(MfgSupport.numberOrZero(row.get("failedQty")) + onHand));
                 }
                 Object price = lot.get("unitPrice");
                 if (price instanceof Number) {
-                    row.put("value", Double.valueOf(numberOrZero(row.get("value"))
+                    row.put("value", Double.valueOf(MfgSupport.numberOrZero(row.get("value"))
                             + onHand * ((Number) price).doubleValue()));
                 }
             }
@@ -9932,33 +9686,33 @@ always
             for (Map<String, Object> row : byComponent.values()) {
                 String componentCode = (String) row.get("componentCode");
                 GenericValue setting = settings.get(componentCode);
-                double minimum = setting == null ? 0.0 : numberOrZero(setting.get("minimumStock"));
-                double reorder = setting == null ? 0.0 : numberOrZero(setting.get("reorderQty"));
+                double minimum = setting == null ? 0.0 : MfgSupport.numberOrZero(setting.get("minimumStock"));
+                double reorder = setting == null ? 0.0 : MfgSupport.numberOrZero(setting.get("reorderQty"));
                 if (setting != null && setting.getString("componentName") != null) {
                     row.put("componentName", setting.getString("componentName"));
                 }
-                row.put("minimumStock", Double.valueOf(round2(minimum)));
-                row.put("reorderQty", Double.valueOf(round2(reorder)));
+                row.put("minimumStock", Double.valueOf(MfgSupport.round2(minimum)));
+                row.put("reorderQty", Double.valueOf(MfgSupport.round2(reorder)));
                 row.put("unitOfMeasure", setting == null ? null : setting.getString("unitOfMeasure"));
                 row.put("supplierName", setting == null ? null : setting.getString("supplierName"));
-                row.put("onHandQty", Double.valueOf(round2(numberOrZero(row.get("onHandQty")))));
-                row.put("reservedQty", Double.valueOf(round2(numberOrZero(row.get("reservedQty")))));
-                row.put("availableQty", Double.valueOf(round2(numberOrZero(row.get("availableQty")))));
-                row.put("value", Double.valueOf(round2(numberOrZero(row.get("value")))));
-                boolean isBelow = minimum > 0.0 && numberOrZero(row.get("onHandQty")) < minimum;
+                row.put("onHandQty", Double.valueOf(MfgSupport.round2(MfgSupport.numberOrZero(row.get("onHandQty")))));
+                row.put("reservedQty", Double.valueOf(MfgSupport.round2(MfgSupport.numberOrZero(row.get("reservedQty")))));
+                row.put("availableQty", Double.valueOf(MfgSupport.round2(MfgSupport.numberOrZero(row.get("availableQty")))));
+                row.put("value", Double.valueOf(MfgSupport.round2(MfgSupport.numberOrZero(row.get("value")))));
+                boolean isBelow = minimum > 0.0 && MfgSupport.numberOrZero(row.get("onHandQty")) < minimum;
                 row.put("belowMinimum", Boolean.valueOf(isBelow));
                 double suggested = 0.0;
                 if (isBelow) {
                     suggested = reorder > 0.0 ? reorder
-                            : round2(minimum - numberOrZero(row.get("onHandQty")));
+                            : MfgSupport.round2(minimum - MfgSupport.numberOrZero(row.get("onHandQty")));
                     below++;
                 }
-                row.put("suggestedQty", Double.valueOf(round2(suggested)));
-                onHandTotal += numberOrZero(row.get("onHandQty"));
-                valueTotal += numberOrZero(row.get("value"));
+                row.put("suggestedQty", Double.valueOf(MfgSupport.round2(suggested)));
+                onHandTotal += MfgSupport.numberOrZero(row.get("onHandQty"));
+                valueTotal += MfgSupport.numberOrZero(row.get("value"));
                 rows.add(row);
             }
-            String search = toText(context.get("search"));
+            String search = MfgSupport.toText(context.get("search"));
             if (search != null) {
                 String needle = search.toLowerCase(Locale.ROOT);
                 List<Map<String, Object>> matched = new ArrayList<>();
@@ -9972,7 +9726,7 @@ always
                 }
                 rows = matched;
             }
-            if ("Y".equalsIgnoreCase(toText(context.get("belowOnly")))) {
+            if ("Y".equalsIgnoreCase(MfgSupport.toText(context.get("belowOnly")))) {
                 List<Map<String, Object>> matched = new ArrayList<>();
                 for (Map<String, Object> row : rows) {
                     if (Boolean.TRUE.equals(row.get("belowMinimum"))) {
@@ -9981,11 +9735,11 @@ always
                 }
                 rows = matched;
             }
-            putPage(result, "rows", rows, pageOf(context), pageSizeOf(context), search);
+            MfgPaging.putPage(result, "rows", rows, MfgPaging.pageOf(context), MfgPaging.pageSizeOf(context), search);
             result.put("componentCount", Integer.valueOf(rows.size()));
             result.put("belowCount", Integer.valueOf(below));
-            result.put("onHandTotal", Double.valueOf(round2(onHandTotal)));
-            result.put("valueTotal", Double.valueOf(round2(valueTotal)));
+            result.put("onHandTotal", Double.valueOf(MfgSupport.round2(onHandTotal)));
+            result.put("valueTotal", Double.valueOf(MfgSupport.round2(valueTotal)));
             result.put("search", search);
             return result;
         } catch (GenericEntityException e) {
@@ -10002,13 +9756,13 @@ always
      */
     public static Map<String, Object> inventoryLedger(DispatchContext dctx, Map<String, ? extends Object> context) {
         Delegator delegator = dctx.getDelegator();
-        String lotId = toText(context.get("lotId"));
-        String componentCode = toText(context.get("componentCode"));
-        String movementTypeId = toText(context.get("movementTypeId"));
-        String reasonEnumId = toText(context.get("reasonEnumId"));
-        String kind = toText(context.get("kind"));
-        java.sql.Date fromDate = (java.sql.Date) parseDate(context.get("fromDate"));
-        java.sql.Date toDate = (java.sql.Date) parseDate(context.get("toDate"));
+        String lotId = MfgSupport.toText(context.get("lotId"));
+        String componentCode = MfgSupport.toText(context.get("componentCode"));
+        String movementTypeId = MfgSupport.toText(context.get("movementTypeId"));
+        String reasonEnumId = MfgSupport.toText(context.get("reasonEnumId"));
+        String kind = MfgSupport.toText(context.get("kind"));
+        java.sql.Date fromDate = (java.sql.Date) MfgSupport.parseDate(context.get("fromDate"));
+        java.sql.Date toDate = (java.sql.Date) MfgSupport.parseDate(context.get("toDate"));
         Map<String, Object> result = ServiceUtil.returnSuccess();
         result.put("rows", new ArrayList<Map<String, Object>>());
         try {
@@ -10022,8 +9776,8 @@ always
             List<Map<String, Object>> rows = new ArrayList<>();
             for (GenericValue movement : movements) {
                 String movementLot = movement.getString("lotId");
-                double diff = numberOrZero(movement.get("quantityDiff"));
-                double balance = numberOrZero(balances.get(movementLot)) + diff;
+                double diff = MfgSupport.numberOrZero(movement.get("quantityDiff"));
+                double balance = MfgSupport.numberOrZero(balances.get(movementLot)) + diff;
                 balances.put(movementLot, Double.valueOf(balance));
                 if (lotId != null && !lotId.equals(movementLot)) {
                     continue;
@@ -10060,13 +9814,13 @@ always
                 row.put("componentCode", lot == null ? null : lot.getString("componentCode"));
                 row.put("componentName", lot == null ? null : lot.getString("componentName"));
                 row.put("movementTypeId", movement.getString("movementTypeId"));
-                row.put("quantityDiff", Double.valueOf(round2(diff)));
-                row.put("reservedDiff", Double.valueOf(round2(numberOrZero(movement.get("reservedDiff")))));
-                row.put("displayQty", Double.valueOf(round2(
+                row.put("quantityDiff", Double.valueOf(MfgSupport.round2(diff)));
+                row.put("reservedDiff", Double.valueOf(MfgSupport.round2(MfgSupport.numberOrZero(movement.get("reservedDiff")))));
+                row.put("displayQty", Double.valueOf(MfgSupport.round2(
                         MOVE_RESERVE.equals(movement.getString("movementTypeId"))
                                 || MOVE_RELEASE.equals(movement.getString("movementTypeId"))
-                                ? numberOrZero(movement.get("reservedDiff")) : diff)));
-                row.put("balanceQty", Double.valueOf(round2(balance)));
+                                ? MfgSupport.numberOrZero(movement.get("reservedDiff")) : diff)));
+                row.put("balanceQty", Double.valueOf(MfgSupport.round2(balance)));
                 row.put("unitCost", movement.get("unitCost"));
                 row.put("workOrderId", movement.getString("workOrderId"));
                 row.put("physicalInventoryId", movement.getString("physicalInventoryId"));
@@ -10078,7 +9832,7 @@ always
                 rows.add(row);
             }
             Collections.reverse(rows);
-            putPage(result, "rows", rows, pageOf(context), pageSizeOf(context), null);
+            MfgPaging.putPage(result, "rows", rows, MfgPaging.pageOf(context), MfgPaging.pageSizeOf(context), null);
             result.put("lotId", lotId);
             result.put("componentCode", componentCode);
             result.put("movementTypeId", movementTypeId);
@@ -10105,7 +9859,7 @@ always
             return ServiceUtil.returnError(denied);
         }
         Delegator delegator = dctx.getDelegator();
-        String componentCode = toText(context.get("componentCode"));
+        String componentCode = MfgSupport.toText(context.get("componentCode"));
         if (componentCode == null) {
             return ServiceUtil.returnError("componentCode is required");
         }
@@ -10117,22 +9871,22 @@ always
                 setting.set("componentCode", componentCode);
             }
             if (context.containsKey("componentName")) {
-                setting.set("componentName", toText(context.get("componentName")));
+                setting.set("componentName", MfgSupport.toText(context.get("componentName")));
             }
             if (context.containsKey("unitOfMeasure")) {
-                setting.set("unitOfMeasure", toText(context.get("unitOfMeasure")));
+                setting.set("unitOfMeasure", MfgSupport.toText(context.get("unitOfMeasure")));
             }
             if (context.containsKey("minimumStock")) {
-                setting.set("minimumStock", Double.valueOf(round2(toDouble(context.get("minimumStock"), 0.0))));
+                setting.set("minimumStock", Double.valueOf(MfgSupport.round2(MfgSupport.toDouble(context.get("minimumStock"), 0.0))));
             }
             if (context.containsKey("reorderQty")) {
-                setting.set("reorderQty", Double.valueOf(round2(toDouble(context.get("reorderQty"), 0.0))));
+                setting.set("reorderQty", Double.valueOf(MfgSupport.round2(MfgSupport.toDouble(context.get("reorderQty"), 0.0))));
             }
             if (context.containsKey("supplierName")) {
-                setting.set("supplierName", toText(context.get("supplierName")));
+                setting.set("supplierName", MfgSupport.toText(context.get("supplierName")));
             }
             if (context.containsKey("note")) {
-                setting.set("note", toText(context.get("note")));
+                setting.set("note", MfgSupport.toText(context.get("note")));
             }
             delegator.createOrStore(setting);
 
@@ -10160,15 +9914,15 @@ always
             return ServiceUtil.returnError(denied);
         }
         Delegator delegator = dctx.getDelegator();
-        String lotId = toText(context.get("lotId"));
+        String lotId = MfgSupport.toText(context.get("lotId"));
         Object countedInput = context.get("countedQty");
         if (lotId == null) {
             return ServiceUtil.returnError("lotId is required");
         }
-        if (toText(countedInput) == null) {
+        if (MfgSupport.toText(countedInput) == null) {
             return ServiceUtil.returnError("countedQty is required");
         }
-        double countedQty = toDouble(countedInput, -1.0);
+        double countedQty = MfgSupport.toDouble(countedInput, -1.0);
         if (countedQty < 0.0) {
             return ServiceUtil.returnError("countedQty must not be negative");
         }
@@ -10179,20 +9933,20 @@ always
                 return ServiceUtil.returnError("Unknown material lot [" + lotId + "]");
             }
             ensureLotLedger(delegator, lot);
-            double bookQty = numberOrZero(lot.get("onHandQty"));
-            double variance = round2(countedQty - bookQty);
+            double bookQty = MfgSupport.numberOrZero(lot.get("onHandQty"));
+            double variance = MfgSupport.round2(countedQty - bookQty);
             // the reason is optional, but when it is given it has to fit the direction of the variance:
             // a count that lost material may not be explained with "找到"
-            String reasonEnumId = toText(context.get("reasonEnumId"));
+            String reasonEnumId = MfgSupport.toText(context.get("reasonEnumId"));
             String reasonProblem = movementReasonProblem(MOVE_COUNT, reasonEnumId, variance);
             if (reasonProblem != null) {
                 return ServiceUtil.returnError(reasonProblem);
             }
             String physicalInventoryId = nextStockCountId(delegator, LocalDate.now());
-            String counterName = toText(context.get("counterName"));
+            String counterName = MfgSupport.toText(context.get("counterName"));
             GenericValue count = delegator.makeValue("MfgStockCount");
             count.set("physicalInventoryId", physicalInventoryId);
-            Object countDate = parseDate(context.get("countDate"));
+            Object countDate = MfgSupport.parseDate(context.get("countDate"));
             count.set("countDate", countDate == null
                     ? java.sql.Date.valueOf(LocalDate.now()) : countDate);
             count.set("counterName", counterName);
@@ -10201,12 +9955,12 @@ always
             count.set("countedQty", Double.valueOf(countedQty));
             count.set("varianceQty", Double.valueOf(variance));
             count.set("varianceReasonId", reasonEnumId);
-            count.set("note", toText(context.get("note")));
+            count.set("note", MfgSupport.toText(context.get("note")));
             delegator.create(count);
             if (Math.abs(variance) > 0.0001) {
                 recordMovement(delegator, lot, MOVE_COUNT, variance, lot.get("unitPrice"), null,
                         physicalInventoryId, null, counterName, null,
-                        "盘点 " + physicalInventoryId + "：" + formatQty(bookQty) + " → " + formatQty(countedQty),
+                        "盘点 " + physicalInventoryId + "：" + MfgSupport.formatQty(bookQty) + " → " + MfgSupport.formatQty(countedQty),
                         null, reasonEnumId);
             }
             recalcLotStock(delegator, lot);
@@ -10234,7 +9988,7 @@ always
      */
     public static Map<String, Object> stockCountList(DispatchContext dctx, Map<String, ? extends Object> context) {
         Delegator delegator = dctx.getDelegator();
-        String lotId = toText(context.get("lotId"));
+        String lotId = MfgSupport.toText(context.get("lotId"));
         List<Map<String, Object>> rows = new ArrayList<>();
         Map<String, Object> result = ServiceUtil.returnSuccess();
         result.put("counts", rows);
@@ -10319,20 +10073,20 @@ always
             if (componentCode == null) {
                 continue;
             }
-            onHand.put(componentCode, Double.valueOf(numberOrZero(onHand.get(componentCode))
-                    + numberOrZero(lot.get("onHandQty"))));
+            onHand.put(componentCode, Double.valueOf(MfgSupport.numberOrZero(onHand.get(componentCode))
+                    + MfgSupport.numberOrZero(lot.get("onHandQty"))));
         }
         for (Map.Entry<String, GenericValue> entry : settings.entrySet()) {
-            double minimum = numberOrZero(entry.getValue().get("minimumStock"));
+            double minimum = MfgSupport.numberOrZero(entry.getValue().get("minimumStock"));
             if (minimum <= 0.0) {
                 continue;
             }
-            double current = numberOrZero(onHand.get(entry.getKey()));
+            double current = MfgSupport.numberOrZero(onHand.get(entry.getKey()));
             if (current >= minimum) {
                 continue;
             }
-            double reorder = numberOrZero(entry.getValue().get("reorderQty"));
-            double suggested = reorder > 0.0 ? reorder : round2(minimum - current);
+            double reorder = MfgSupport.numberOrZero(entry.getValue().get("reorderQty"));
+            double suggested = reorder > 0.0 ? reorder : MfgSupport.round2(minimum - current);
             Map<String, Object> alert = new LinkedHashMap<>();
             alert.put("typeId", ALERT_STOCK);
             alert.put("level", current <= 0.0 ? ALERT_ERROR : ALERT_WARN);
@@ -10340,8 +10094,8 @@ always
             alert.put("subject", entry.getValue().getString("componentName"));
             alert.put("dueDate", null);
             alert.put("hoursLeft", Long.valueOf(0L));
-            alert.put("detail", "现有 " + formatQty(current) + " / 安全库存 " + formatQty(minimum)
-                    + "，建议采购 " + formatQty(suggested)
+            alert.put("detail", "现有 " + MfgSupport.formatQty(current) + " / 安全库存 " + MfgSupport.formatQty(minimum)
+                    + "，建议采购 " + MfgSupport.formatQty(suggested)
                     + (entry.getValue().getString("supplierName") == null ? ""
                             : "（" + entry.getValue().getString("supplierName") + "）"));
             alerts.add(alert);
@@ -10391,17 +10145,17 @@ always
         double dnc = withTax * dncRate;
 
         Map<String, Object> map = new LinkedHashMap<>();
-        map.put("ufp", Double.valueOf(round2(size)));
-        map.put("swf", Double.valueOf(round2(swf)));
-        map.put("effortHours", Double.valueOf(round2(effort)));
-        map.put("effortDays", Double.valueOf(round2(days)));
-        map.put("scheduleMonths", Double.valueOf(round2(months)));
-        map.put("amountBeforeTax", Double.valueOf(round2(beforeTax)));
-        map.put("taxAmount", Double.valueOf(round2(tax)));
-        map.put("amountWithTax", Double.valueOf(round2(withTax)));
-        map.put("dncAmount", Double.valueOf(round2(dnc)));
-        map.put("totalAmount", Double.valueOf(round2(withTax + dnc)));
-        map.put("costPerFp", Double.valueOf(round2(size <= 0.0 ? 0.0 : withTax / size)));
+        map.put("ufp", Double.valueOf(MfgSupport.round2(size)));
+        map.put("swf", Double.valueOf(MfgSupport.round2(swf)));
+        map.put("effortHours", Double.valueOf(MfgSupport.round2(effort)));
+        map.put("effortDays", Double.valueOf(MfgSupport.round2(days)));
+        map.put("scheduleMonths", Double.valueOf(MfgSupport.round2(months)));
+        map.put("amountBeforeTax", Double.valueOf(MfgSupport.round2(beforeTax)));
+        map.put("taxAmount", Double.valueOf(MfgSupport.round2(tax)));
+        map.put("amountWithTax", Double.valueOf(MfgSupport.round2(withTax)));
+        map.put("dncAmount", Double.valueOf(MfgSupport.round2(dnc)));
+        map.put("totalAmount", Double.valueOf(MfgSupport.round2(withTax + dnc)));
+        map.put("costPerFp", Double.valueOf(MfgSupport.round2(size <= 0.0 ? 0.0 : withTax / size)));
         return map;
     }
 
@@ -10416,18 +10170,18 @@ always
     public static Map<String, Object> softwareEstimate(DispatchContext dctx, Map<String, ? extends Object> context) {
         Map<String, Object> result = ServiceUtil.returnSuccess();
         result.putAll(softwareCost(
-                toDouble(context.get("ilfCount"), 0.0),
-                toDouble(context.get("eifCount"), 0.0),
-                optionalAmount(context.get("ufp")),
-                toDouble(context.get("swfBase"), 1.5),
-                toDouble(context.get("swfReuse"), 0.0),
-                toDouble(context.get("swfPreInvest"), 0.0),
-                toDouble(context.get("swfQuality"), 0.0),
-                toDouble(context.get("rdf"), 1.0),
-                toDouble(context.get("pdrHoursPerFp"), DEFAULT_PDR),
-                toDouble(context.get("dayRate"), DEFAULT_DAY_RATE),
-                toDouble(context.get("taxRate"), DEFAULT_TAX_RATE),
-                toDouble(context.get("dncRate"), DEFAULT_DNC_RATE)));
+                MfgSupport.toDouble(context.get("ilfCount"), 0.0),
+                MfgSupport.toDouble(context.get("eifCount"), 0.0),
+                MfgSupport.optionalAmount(context.get("ufp")),
+                MfgSupport.toDouble(context.get("swfBase"), 1.5),
+                MfgSupport.toDouble(context.get("swfReuse"), 0.0),
+                MfgSupport.toDouble(context.get("swfPreInvest"), 0.0),
+                MfgSupport.toDouble(context.get("swfQuality"), 0.0),
+                MfgSupport.toDouble(context.get("rdf"), 1.0),
+                MfgSupport.toDouble(context.get("pdrHoursPerFp"), DEFAULT_PDR),
+                MfgSupport.toDouble(context.get("dayRate"), DEFAULT_DAY_RATE),
+                MfgSupport.toDouble(context.get("taxRate"), DEFAULT_TAX_RATE),
+                MfgSupport.toDouble(context.get("dncRate"), DEFAULT_DNC_RATE)));
         return result;
     }
 
@@ -10445,8 +10199,8 @@ always
             return ServiceUtil.returnError(denied);
         }
         Delegator delegator = dctx.getDelegator();
-        String projectCode = toText(context.get("projectCode"));
-        String projectName = toText(context.get("projectName"));
+        String projectCode = MfgSupport.toText(context.get("projectCode"));
+        String projectName = MfgSupport.toText(context.get("projectName"));
         if (projectName == null) {
             return ServiceUtil.returnError("projectName is required");
         }
@@ -10466,34 +10220,34 @@ always
                 project.set("statusId", SW_PLANNED);
             }
             project.set("projectName", projectName);
-            project.set("categoryId", toText(context.get("categoryId")));
-            project.set("productCode", toText(context.get("productCode")));
-            project.set("devProjectCode", toText(context.get("devProjectCode")));
-            project.set("ownerName", toText(context.get("ownerName")));
-            String statusId = toText(context.get("statusId"));
+            project.set("categoryId", MfgSupport.toText(context.get("categoryId")));
+            project.set("productCode", MfgSupport.toText(context.get("productCode")));
+            project.set("devProjectCode", MfgSupport.toText(context.get("devProjectCode")));
+            project.set("ownerName", MfgSupport.toText(context.get("ownerName")));
+            String statusId = MfgSupport.toText(context.get("statusId"));
             if (statusId != null) {
                 project.set("statusId", statusId);
             }
-            project.set("deliverySeq", optionalAmount(context.get("deliverySeq")));
-            project.set("ilfCount", optionalAmount(context.get("ilfCount")));
-            project.set("eifCount", optionalAmount(context.get("eifCount")));
-            project.set("ufp", optionalAmount(context.get("ufp")));
-            project.set("swfBase", optionalAmount(context.get("swfBase")));
-            project.set("swfReuse", optionalAmount(context.get("swfReuse")));
-            project.set("swfPreInvest", optionalAmount(context.get("swfPreInvest")));
-            project.set("swfQuality", optionalAmount(context.get("swfQuality")));
-            project.set("rdf", optionalAmount(context.get("rdf")));
-            project.set("pdrHoursPerFp", optionalAmount(context.get("pdrHoursPerFp")));
-            project.set("dayRate", optionalAmount(context.get("dayRate")));
-            project.set("taxRate", optionalAmount(context.get("taxRate")));
-            project.set("dncRate", optionalAmount(context.get("dncRate")));
-            project.set("plannedDays", optionalAmount(context.get("plannedDays")));
-            project.set("plannedStartDate", parseDate(context.get("plannedStartDate")));
-            project.set("plannedEndDate", parseDate(context.get("plannedEndDate")));
-            project.set("actualHours", optionalAmount(context.get("actualHours")));
-            project.set("actualCost", optionalAmount(context.get("actualCost")));
-            project.set("quotedAmount", optionalAmount(context.get("quotedAmount")));
-            project.set("note", toText(context.get("note")));
+            project.set("deliverySeq", MfgSupport.optionalAmount(context.get("deliverySeq")));
+            project.set("ilfCount", MfgSupport.optionalAmount(context.get("ilfCount")));
+            project.set("eifCount", MfgSupport.optionalAmount(context.get("eifCount")));
+            project.set("ufp", MfgSupport.optionalAmount(context.get("ufp")));
+            project.set("swfBase", MfgSupport.optionalAmount(context.get("swfBase")));
+            project.set("swfReuse", MfgSupport.optionalAmount(context.get("swfReuse")));
+            project.set("swfPreInvest", MfgSupport.optionalAmount(context.get("swfPreInvest")));
+            project.set("swfQuality", MfgSupport.optionalAmount(context.get("swfQuality")));
+            project.set("rdf", MfgSupport.optionalAmount(context.get("rdf")));
+            project.set("pdrHoursPerFp", MfgSupport.optionalAmount(context.get("pdrHoursPerFp")));
+            project.set("dayRate", MfgSupport.optionalAmount(context.get("dayRate")));
+            project.set("taxRate", MfgSupport.optionalAmount(context.get("taxRate")));
+            project.set("dncRate", MfgSupport.optionalAmount(context.get("dncRate")));
+            project.set("plannedDays", MfgSupport.optionalAmount(context.get("plannedDays")));
+            project.set("plannedStartDate", MfgSupport.parseDate(context.get("plannedStartDate")));
+            project.set("plannedEndDate", MfgSupport.parseDate(context.get("plannedEndDate")));
+            project.set("actualHours", MfgSupport.optionalAmount(context.get("actualHours")));
+            project.set("actualCost", MfgSupport.optionalAmount(context.get("actualCost")));
+            project.set("quotedAmount", MfgSupport.optionalAmount(context.get("quotedAmount")));
+            project.set("note", MfgSupport.toText(context.get("note")));
 
             fillSoftwareDefaults(project);
             Map<String, Object> cost = softwareCostOf(project);
@@ -10540,8 +10294,8 @@ always
                 if (open) {
                     openCount++;
                 }
-                double planned = numberOrZero(row.get("plannedDays"));
-                double actualDays = numberOrZero(row.get("actualDays"));
+                double planned = MfgSupport.numberOrZero(row.get("plannedDays"));
+                double actualDays = MfgSupport.numberOrZero(row.get("actualDays"));
                 if (planned > 0.0 && actualDays > planned) {
                     overCount++;
                 }
@@ -10556,18 +10310,18 @@ always
                 }
             }
             Map<String, Object> result = ServiceUtil.returnSuccess();
-            putPage(result, "projects",
-                    filterByKeyword(rows, toText(context.get("search")), "projectCode", "projectName",
+            MfgPaging.putPage(result, "projects",
+                    MfgPaging.filterByKeyword(rows, MfgSupport.toText(context.get("search")), "projectCode", "projectName",
                             "categoryId", "ownerName", "productCode"),
-                    pageOf(context), pageSizeOf(context), toText(context.get("search")));
+                    MfgPaging.pageOf(context), MfgPaging.pageSizeOf(context), MfgSupport.toText(context.get("search")));
             result.put("projectCount", Integer.valueOf(rows.size()));
             result.put("openCount", Integer.valueOf(openCount));
             result.put("overCount", Integer.valueOf(overCount));
             result.put("finishedCount", Integer.valueOf(finishedCount));
-            result.put("plannedDaysTotal", Double.valueOf(round2(plannedTotal)));
-            result.put("actualDaysTotal", Double.valueOf(round2(actualTotal)));
+            result.put("plannedDaysTotal", Double.valueOf(MfgSupport.round2(plannedTotal)));
+            result.put("actualDaysTotal", Double.valueOf(MfgSupport.round2(actualTotal)));
             result.put("pdrSampleCount", Integer.valueOf(pdrSamples.size()));
-            result.put("pdrMedian", Double.valueOf(round2(median(pdrSamples))));
+            result.put("pdrMedian", Double.valueOf(MfgSupport.round2(MfgSupport.median(pdrSamples))));
             result.put("defaultPdr", Double.valueOf(DEFAULT_PDR));
             result.put("defaultDayRate", Double.valueOf(DEFAULT_DAY_RATE));
             result.put("defaultTaxRate", Double.valueOf(DEFAULT_TAX_RATE));
@@ -10606,19 +10360,19 @@ always
     private static Map<String, Object> softwareCostOf(GenericValue project) {
         fillSoftwareDefaults(project);
         return softwareCost(
-                numberOrZero(project.get("ilfCount")),
-                numberOrZero(project.get("eifCount")),
+                MfgSupport.numberOrZero(project.get("ilfCount")),
+                MfgSupport.numberOrZero(project.get("eifCount")),
                 project.get("ufp") instanceof Number
                         ? Double.valueOf(((Number) project.get("ufp")).doubleValue()) : null,
-                numberOrZero(project.get("swfBase")),
-                numberOrZero(project.get("swfReuse")),
-                numberOrZero(project.get("swfPreInvest")),
-                numberOrZero(project.get("swfQuality")),
-                numberOrZero(project.get("rdf")),
-                numberOrZero(project.get("pdrHoursPerFp")),
-                numberOrZero(project.get("dayRate")),
-                numberOrZero(project.get("taxRate")),
-                numberOrZero(project.get("dncRate")));
+                MfgSupport.numberOrZero(project.get("swfBase")),
+                MfgSupport.numberOrZero(project.get("swfReuse")),
+                MfgSupport.numberOrZero(project.get("swfPreInvest")),
+                MfgSupport.numberOrZero(project.get("swfQuality")),
+                MfgSupport.numberOrZero(project.get("rdf")),
+                MfgSupport.numberOrZero(project.get("pdrHoursPerFp")),
+                MfgSupport.numberOrZero(project.get("dayRate")),
+                MfgSupport.numberOrZero(project.get("taxRate")),
+                MfgSupport.numberOrZero(project.get("dncRate")));
     }
 
     private static Map<String, Object> toSoftwareProjectMap(GenericValue project) {
@@ -10641,41 +10395,22 @@ always
         map.put("plannedStartDate", project.getDate("plannedStartDate"));
         map.put("plannedEndDate", project.getDate("plannedEndDate"));
         map.put("actualHours", project.get("actualHours"));
-        double actualDays = numberOrZero(project.get("actualHours")) / HOURS_PER_DAY;
-        map.put("actualDays", Double.valueOf(round2(actualDays)));
+        double actualDays = MfgSupport.numberOrZero(project.get("actualHours")) / HOURS_PER_DAY;
+        map.put("actualDays", Double.valueOf(MfgSupport.round2(actualDays)));
         map.put("actualCost", project.get("actualCost"));
         map.put("quotedAmount", project.get("quotedAmount"));
-        double planned = numberOrZero(project.get("plannedDays"));
+        double planned = MfgSupport.numberOrZero(project.get("plannedDays"));
         map.put("deviationRate", planned <= 0.0 ? null
-                : Double.valueOf(round2((actualDays - planned) / planned * 100.0)));
-        double size = numberOrZero(cost.get("ufp"));
-        double hours = numberOrZero(project.get("actualHours"));
+                : Double.valueOf(MfgSupport.round2((actualDays - planned) / planned * 100.0)));
+        double size = MfgSupport.numberOrZero(cost.get("ufp"));
+        double hours = MfgSupport.numberOrZero(project.get("actualHours"));
         map.put("pdrActual", size > 0.0 && hours > 0.0
-                ? Double.valueOf(round2(hours / size)) : null);
+                ? Double.valueOf(MfgSupport.round2(hours / size)) : null);
         java.sql.Date end = project.getDate("plannedEndDate");
         map.put("daysToEnd", end == null ? null
                 : Long.valueOf(java.time.temporal.ChronoUnit.DAYS.between(LocalDate.now(), end.toLocalDate())));
         map.put("note", project.getString("note"));
         return map;
-    }
-
-    /**
-     * Median of the samples, used as the productivity baseline of the finished projects.
-     *
-     * @param values the samples
-     * @return the median, {@code 0} when there is no sample
-     */
-    static double median(List<Double> values) {
-        if (values == null || values.isEmpty()) {
-            return 0.0;
-        }
-        List<Double> sorted = new ArrayList<>(values);
-        java.util.Collections.sort(sorted);
-        int size = sorted.size();
-        if (size % 2 == 1) {
-            return sorted.get(size / 2).doubleValue();
-        }
-        return (sorted.get(size / 2 - 1).doubleValue() + sorted.get(size / 2).doubleValue()) / 2.0;
     }
 
     private static String nextSoftwareProjectId(Delegator delegator, LocalDate today)
@@ -10710,24 +10445,6 @@ always
     }
 
     /**
-     * Scales a value against the largest one so a bar can be drawn without any chart library.
-     *
-     * @param value the value
-     * @param max the largest value of the series
-     * @return the percentage of the largest value, 0 for zero and at least 2 for a non zero value
-     */
-    static long percentOfMax(long value, long max) {
-        if (value <= 0) {
-            return 0;
-        }
-        if (max <= 0) {
-            return 100;
-        }
-        long pct = Math.round(value * 100.0 / max);
-        return Math.max(2, pct);
-    }
-
-    /**
      * Builds the after sales quality report: return, exchange and repair rates, the money they
      * cost, and the breakdowns that tell where the money goes.
      *
@@ -10742,11 +10459,11 @@ always
             return ServiceUtil.returnError(denied);
         }
         Delegator delegator = dctx.getDelegator();
-        java.sql.Date toDate = (java.sql.Date) parseDate(context.get("toDate"));
+        java.sql.Date toDate = (java.sql.Date) MfgSupport.parseDate(context.get("toDate"));
         if (toDate == null) {
             toDate = java.sql.Date.valueOf(LocalDate.now());
         }
-        java.sql.Date fromDate = (java.sql.Date) parseDate(context.get("fromDate"));
+        java.sql.Date fromDate = (java.sql.Date) MfgSupport.parseDate(context.get("fromDate"));
         if (fromDate == null) {
             fromDate = java.sql.Date.valueOf(toDate.toLocalDate().minusDays(89));
         }
@@ -10848,7 +10565,7 @@ always
                 hoursTotal += hours;
                 costTotal += cost;
 
-                int days = daysBetween(claim.getDate("deliveryDate"), receivedDate);
+                int days = MfgSupport.daysBetween(claim.getDate("deliveryDate"), receivedDate);
                 if (days >= 0 && days <= 30) {
                     claimsWithin30++;
                 }
@@ -10871,7 +10588,7 @@ always
                 respRow.put("repairHours", Double.valueOf(sumOf(respRow, "repairHours") + hours));
                 respRow.put("cost", Double.valueOf(sumOf(respRow, "cost") + cost));
 
-                bump(byAge, ageBucket(days));
+                bump(byAge, MfgSupport.ageBucket(days));
                 bump(byInspect, claim.getString("inspectResult") == null
                         ? "UNKNOWN" : claim.getString("inspectResult"));
                 bump(claimsPerSn, sn);
@@ -10891,8 +10608,8 @@ always
             for (Map<String, Object> row : byProduct.values()) {
                 long shipped = ((Long) row.get("shippedUnits")).longValue();
                 long claims = ((Long) row.get("claimCount")).longValue();
-                row.put("claimRate", percent(claims, shipped));
-                row.put("costRate", percentOf(sumOf(row, "cost"), sumOf(row, "sales")));
+                row.put("claimRate", MfgSupport.percent(claims, shipped));
+                row.put("costRate", MfgSupport.percentOf(sumOf(row, "cost"), sumOf(row, "sales")));
                 productRows.add(row);
             }
             productRows.sort(new Comparator<Map<String, Object>>() {
@@ -10959,8 +10676,8 @@ always
                 inspectRows.add(row);
             }
 
-            String costRate = percentOf(costTotal, salesTotal);
-            String repairRate30 = percent(claimsWithin30, shippedUnits);
+            String costRate = MfgSupport.percentOf(costTotal, salesTotal);
+            String repairRate30 = MfgSupport.percent(claimsWithin30, shippedUnits);
 
             Map<String, Object> result = ServiceUtil.returnSuccess();
             result.put("fromDate", fromDate);
@@ -10974,10 +10691,10 @@ always
             result.put("refundOnlyCount", Long.valueOf(refundOnlyCount));
             result.put("claimsWithin30", Long.valueOf(claimsWithin30));
             result.put("repeatedSnCount", Long.valueOf(repeatedSnCount));
-            result.put("returnRate", percent(rtnCount, shippedUnits));
-            result.put("exchangeRate", percent(exchCount, shippedUnits));
-            result.put("repairRate", percent(repairCount, shippedUnits));
-            result.put("claimRate", percent(claimCount, shippedUnits));
+            result.put("returnRate", MfgSupport.percent(rtnCount, shippedUnits));
+            result.put("exchangeRate", MfgSupport.percent(exchCount, shippedUnits));
+            result.put("repairRate", MfgSupport.percent(repairCount, shippedUnits));
+            result.put("claimRate", MfgSupport.percent(claimCount, shippedUnits));
             result.put("repairRate30", repairRate30);
             result.put("refundTotal", Double.valueOf(refundTotal));
             result.put("freightTotal", Double.valueOf(freightTotal));
@@ -11004,70 +10721,6 @@ always
         } catch (GenericEntityException e) {
             return ServiceUtil.returnError("Could not build the quality report: " + e.getMessage());
         }
-    }
-
-    /**
-     * Formats a ratio as a percentage with one decimal, for the reports.
-     *
-     * @param part the numerator
-     * @param whole the denominator
-     * @return the percentage, or {@code "-"} when the denominator is zero
-     */
-    static String percent(long part, long whole) {
-        if (whole <= 0) {
-            return "-";
-        }
-        return percentOf(part, whole);
-    }
-
-    /**
-     * Formats a money ratio as a percentage with one decimal.
-     *
-     * @param part the numerator
-     * @param whole the denominator
-     * @return the percentage, or {@code "-"} when the denominator is zero
-     */
-    static String percentOf(double part, double whole) {
-        if (whole <= 0.0) {
-            return "-";
-        }
-        return String.format(Locale.ROOT, "%.1f", part * 100.0 / whole);
-    }
-
-    /**
-     * Days between two dates, used to age a claim.
-     *
-     * @param from the earlier date, usually the delivery date
-     * @param to the later date, usually the date the unit came back
-     * @return the days, or {@code -1} when either date is missing
-     */
-    static int daysBetween(java.sql.Date from, java.sql.Date to) {
-        if (from == null || to == null) {
-            return -1;
-        }
-        return (int) java.time.temporal.ChronoUnit.DAYS.between(from.toLocalDate(), to.toLocalDate());
-    }
-
-    /**
-     * Buckets the age of a claim, so early failures can be told apart from wear.
-     *
-     * @param days days between delivery and return
-     * @return the bucket label
-     */
-    static String ageBucket(int days) {
-        if (days < 0) {
-            return "未知";
-        }
-        if (days <= 30) {
-            return "0-30";
-        }
-        if (days <= 90) {
-            return "31-90";
-        }
-        if (days <= 180) {
-            return "91-180";
-        }
-        return ">180";
     }
 
     /**
@@ -11151,107 +10804,7 @@ always
     // ------------------------------------------------------------------ helpers
 
     /**
-     * Keeps the rows that contain the keyword in any of the given fields, case insensitively.
-     *
-     * @param rows the rows to filter
-     * @param keyword the keyword, may be {@code null} or blank for no filtering
-     * @param keys the fields to look at
-     * @return the matching rows, or all rows when there is no keyword
-     */
-    static List<Map<String, Object>> filterByKeyword(List<Map<String, Object>> rows, String keyword,
-            String... keys) {
-        if (keyword == null || keyword.trim().isEmpty()) {
-            return rows;
-        }
-        String needle = keyword.trim().toLowerCase(Locale.ROOT);
-        List<Map<String, Object>> hits = new ArrayList<>();
-        for (Map<String, Object> row : rows) {
-            for (String key : keys) {
-                Object value = row.get(key);
-                if (value != null && String.valueOf(value).toLowerCase(Locale.ROOT).contains(needle)) {
-                    hits.add(row);
-                    break;
-                }
-            }
-        }
-        return hits;
-    }
-
-    /**
-     * Number of pages needed for the given number of rows, at least one.
-     *
-     * @param total the number of rows
-     * @param pageSize the rows per page
-     * @return the page count
-     */
-    static long pageCount(int total, long pageSize) {
-        if (pageSize <= 0) {
-            return 1;
-        }
-        return Math.max(1, (total + pageSize - 1) / pageSize);
-    }
-
-    /**
-     * Clamps a requested page number into the available range.
-     *
-     * @param page the requested page, 1 based
-     * @param total the number of rows
-     * @param pageSize the rows per page
-     * @return the page that will be shown
-     */
-    static long pageNumber(long page, int total, long pageSize) {
-        long pages = pageCount(total, pageSize);
-        if (page <= 0) {
-            return 1;
-        }
-        return Math.min(page, pages);
-    }
-
-    /**
-     * Returns one page of rows, clamped so an out of range page still shows something sensible.
-     *
-     * @param all all rows
-     * @param page the requested page, 1 based
-     * @param pageSize the rows per page
-     * @param <T> the row type
-     * @return the rows of that page
-     */
-    static <T> List<T> pageSlice(List<T> all, long page, long pageSize) {
-        if (all.isEmpty()) {
-            return new ArrayList<>();
-        }
-        long current = pageNumber(page, all.size(), pageSize);
-        int from = (int) ((current - 1) * pageSize);
-        int to = (int) Math.min((long) all.size(), from + pageSize);
-        if (from >= all.size()) {
-            return new ArrayList<>();
-        }
-        return new ArrayList<>(all.subList(from, to));
-    }
-
-    /**
-     * Puts one page of rows into the service result together with the paging metadata the screens
-     * need, so every list page shows the same footer.
-     *
-     * @param result the service result
-     * @param key the key the rows are stored under
-     * @param rows all rows, already filtered
-     * @param page the requested page, 1 based
-     * @param pageSize the rows per page
-     * @param keyword the keyword that was used, echoed back to the form
-     */
-    static void putPage(Map<String, Object> result, String key, List<Map<String, Object>> rows,
-            long page, long pageSize, String keyword) {
-        result.put(key, pageSlice(rows, page, pageSize));
-        result.put("totalCount", Integer.valueOf(rows.size()));
-        result.put("page", Long.valueOf(pageNumber(page, rows.size(), pageSize)));
-        result.put("pageCount", Long.valueOf(pageCount(rows.size(), pageSize)));
-        result.put("pageSize", Long.valueOf(pageSize));
-        result.put("search", keyword);
-    }
-
-    /**
-     * Reads back the rows {@link #putPage} just put in the result, so the caller can add the lines
+     * Reads back the rows {@link MfgPaging#putPage} just put in the result, so the caller can add the lines
      * of the visible page only.
      *
      * @param result the service result on its way out
@@ -11259,297 +10812,9 @@ always
      * @return the rows of the current page, never {@code null}
      */
     @SuppressWarnings("unchecked")
-    static List<Map<String, Object>> rowsOf(Map<String, Object> result, String key) {
-        Object rows = result.get(key);
-        return rows instanceof List ? (List<Map<String, Object>>) rows
-                : new ArrayList<Map<String, Object>>();
-    }
-
-    /**
-     * Reads the requested page from the service context.
-     *
-     * @param context the service context
-     * @return the page number, 1 when unset
-     */
-    static long pageOf(Map<String, ? extends Object> context) {
-        return toLong(context.get("page"), 1);
-    }
-
-    /**
-     * Reads the requested page size from the service context, capped at 200 rows.
-     *
-     * @param context the service context
-     * @return the page size, {@link #PAGE_SIZE} when unset or out of range
-     */
-    static long pageSizeOf(Map<String, ? extends Object> context) {
-        long size = toLong(context.get("pageSize"), PAGE_SIZE);
-        return size <= 0 || size > 200 ? PAGE_SIZE : size;
-    }
-
-    /**
-     * The BOM text formats the import understands.
-     *
-     * <p>To support another tool, add a constant here, teach {@link #detectBomFormat(String)} to
-     * recognize it and write a parser that returns the same six columns as
-     * {@link #parseBomCsv(String)}: {@code componentCode, componentName, qty, designators,
-     * isKeyPart, unitPrice}.
-     */
-    enum BomFormat {
-        /** The format of this component: {@code componentCode,componentName,qty,designators,isKeyPart,unitPrice}. */
-        MFG("本系统"),
-        /** The export of Fritzing: {@code Label;Part Type;mn;mpn;part number;} plus an {@code Amount;} block. */
-        FRITZING("Fritzing");
-
-        private final String label;
-
-        BomFormat(String label) {
-            this.label = label;
-        }
-
-        /**
-         * Returns the name shown to the user.
-         *
-         * @return the label
-         */
-        String label() {
-            return label;
-        }
-
-        /**
-         * Looks a format up by its code, ignoring case.
-         *
-         * @param code the code typed in or stored, may be {@code null}
-         * @return the format, {@code null} when the code is unknown or empty
-         */
-        static BomFormat of(String code) {
-            if (code == null) {
-                return null;
-            }
-            for (BomFormat format : values()) {
-                if (format.name().equalsIgnoreCase(code.trim())) {
-                    return format;
-                }
-            }
-            return null;
-        }
-    }
 
     /** The {@code componentCode} fields are of type {@code name}, so 100 characters are the limit. */
     private static final int MAX_COMPONENT_CODE = 100;
-
-    /**
-     * Guesses the format of BOM text. Fritzing writes {@code Label;Part Type;mn;mpn;part number;}
-     * as a header and separates the cells with a semicolon, which no other supported format does.
-     *
-     * @param csv the text to inspect
-     * @return the detected format, {@link BomFormat#MFG} when nothing else matches
-     */
-    static BomFormat detectBomFormat(String csv) {
-        if (csv == null) {
-            return BomFormat.MFG;
-        }
-        for (String line : csv.replace("\uFEFF", "").replace("\r\n", "\n").replace('\r', '\n').split("\n")) {
-            String trimmed = line.trim();
-            if (trimmed.isEmpty()) {
-                continue;
-            }
-            String lower = trimmed.toLowerCase(Locale.ROOT);
-            if (lower.contains(";") && (lower.startsWith("label;") || lower.startsWith("amount;"))) {
-                return BomFormat.FRITZING;
-            }
-            // only the first meaningful line decides
-            break;
-        }
-        return BomFormat.MFG;
-    }
-
-    /**
-     * Parses BOM text after detecting its format.
-     *
-     * @param csv the text
-     * @param format the format to use, {@code null} to detect it
-     * @return the rows in the shape of {@link #parseBomCsv(String)}
-     */
-    static List<String[]> parseBom(String csv, BomFormat format) {
-        BomFormat used = format == null ? detectBomFormat(csv) : format;
-        if (used == BomFormat.FRITZING) {
-            return parseFritzingBom(csv);
-        }
-        return parseBomCsv(csv);
-    }
-
-    /**
-     * Parses a Fritzing BOM export.
-     *
-     * <p>Fritzing writes two blocks separated by a semicolon:
-     * <pre>
-     * Label;Part Type;mn;mpn;part number;        one row per reference designator
-     * BT1;Supercapacitor 1.5F 5.5V;;;SE-5R5-D155VYC3G;
-     * Amount;Part Type;mn;mpn;part number;       the same parts with their amount
-     * 1;Supercapacitor 1.5F 5.5V;;;SE-5R5-D155VYC3G;
-     * </pre>
-     * The amount block gives the quantity, the label block gives the reference designators, and
-     * both are merged per part. The part number is the component code; a part without one falls
-     * back to its (upper cased) name.
-     *
-     * @param csv the Fritzing export
-     * @return the rows in the shape of {@link #parseBomCsv(String)}
-     */
-    static List<String[]> parseFritzingBom(String csv) {
-        // key -> row being built: code, name, qty, designators
-        Map<String, String[]> byPart = new LinkedHashMap<>();
-        List<String> order = new ArrayList<>();
-        Map<String, Double> amounts = new LinkedHashMap<>();
-        if (csv == null) {
-            return new ArrayList<>();
-        }
-        for (String line : csv.replace("\uFEFF", "").replace("\r\n", "\n").replace('\r', '\n').split("\n")) {
-            String trimmed = line.trim();
-            if (trimmed.isEmpty()) {
-                continue;
-            }
-            String[] cells = splitCsvLine(trimmed, ';');
-            String first = unquote(cells[0]);
-            if (first.equalsIgnoreCase("Label") || first.equalsIgnoreCase("Amount")) {
-                // a header row, the layout is known from the position
-                continue;
-            }
-            boolean amountBlock = first.matches("[0-9]+([.,][0-9]+)?");
-            String name = cells.length > 1 ? unquote(cells[1]) : "";
-            String partNumber = cells.length > 4 ? unquote(cells[4]) : "";
-            if (partNumber.isEmpty() && cells.length > 3) {
-                partNumber = unquote(cells[3]);
-            }
-            String key = partNumber.isEmpty() ? name : partNumber;
-            if (key.isEmpty()) {
-                continue;
-            }
-            if (!byPart.containsKey(key)) {
-                String code = (partNumber.isEmpty() ? name : partNumber).toUpperCase(Locale.ROOT);
-                byPart.put(key, new String[] {code, name, null, null});
-                order.add(key);
-            }
-            String[] row = byPart.get(key);
-            if (amountBlock) {
-                amounts.put(key, Double.valueOf(toDouble(first.replace(',', '.'), 1.0)));
-            } else {
-                // one row per reference designator: the quantity is the number of rows
-                String designator = first;
-                if (row[3] == null) {
-                    row[3] = designator;
-                } else if (!designator.isEmpty()) {
-                    row[3] = row[3] + "," + designator;
-                }
-                row[2] = String.valueOf(toLong(row[2], 0) + 1);
-            }
-        }
-        List<String[]> rows = new ArrayList<>(order.size());
-        for (String key : order) {
-            String[] row = byPart.get(key);
-            Double amount = amounts.get(key);
-            String qty = amount != null ? String.valueOf(amount.longValue()) : row[2];
-            if (qty == null) {
-                qty = "1";
-            }
-            rows.add(new String[] {row[0], row[1] == null || row[1].isEmpty() ? row[0] : row[1],
-                    qty, row[3], "N", null});
-        }
-        return rows;
-    }
-
-    /**
-     * Parses BOM CSV text into rows of
-     * {@code componentCode, componentName, qty, designators, isKeyPart, unitPrice}.
-     * Empty lines and lines starting with {@code #} are ignored; quotes are stripped.
-     *
-     * @param csv the CSV text
-     * @return the parsed rows, never {@code null}
-     */
-    static List<String[]> parseBomCsv(String csv) {        List<String[]> rows = new ArrayList<>();
-        if (csv == null) {
-            return rows;
-        }
-        for (String line : csv.replace("\uFEFF", "").replace("\r\n", "\n").replace('\r', '\n').split("\n")) {
-            String trimmed = line.trim();
-            if (trimmed.isEmpty() || trimmed.startsWith("#")) {
-                continue;
-            }
-            String[] cells = splitCsvLine(trimmed);
-            String code = unquote(cells[0]).toUpperCase(Locale.ROOT);
-            if (code.isEmpty()) {
-                continue;
-            }
-            String[] row = new String[6];
-            row[0] = code;
-            row[1] = cells.length > 1 ? unquote(cells[1]) : null;
-            row[2] = cells.length > 2 ? unquote(cells[2]) : "1";
-            row[3] = cells.length > 3 ? unquote(cells[3]) : null;
-            row[4] = cells.length > 4 ? unquote(cells[4]) : "N";
-            row[5] = cells.length > 5 ? unquote(cells[5]) : null;
-            rows.add(row);
-        }
-        return rows;
-    }
-
-    /**
-     * Splits one CSV line into cells, honouring double quoted cells which may contain commas.
-     * Both a comma and a tab separate cells, so a range copied out of a spreadsheet can be pasted
-     * straight into the import box.
-     *
-     * @param line the raw line
-     * @return the cells, never {@code null}
-     */
-    public static String[] splitCsvLine(String line) {
-        return splitCsvLine(line, ',');
-    }
-
-    /**
-     * Splits one CSV line on a given separator, honouring double quoted cells.
-     *
-     * @param line the raw line
-     * @param separator the cell separator, a comma also accepts a tab
-     * @return the cells, never {@code null}
-     */
-    public static String[] splitCsvLine(String line, char separator) {
-        List<String> cells = new ArrayList<>();
-        StringBuilder cell = new StringBuilder();
-        boolean quoted = false;
-        for (int i = 0; i < line.length(); i++) {
-            char c = line.charAt(i);
-            if (quoted) {
-                if (c == '"') {
-                    if (i + 1 < line.length() && line.charAt(i + 1) == '"') {
-                        cell.append('"');
-                        i++;
-                    } else {
-                        quoted = false;
-                    }
-                } else {
-                    cell.append(c);
-                }
-            } else if (c == '"') {
-                quoted = true;
-            } else if (c == separator || (separator == ',' && c == '\t')) {
-                cells.add(cell.toString());
-                cell.setLength(0);
-            } else {
-                cell.append(c);
-            }
-        }
-        cells.add(cell.toString());
-        return cells.toArray(new String[cells.size()]);
-    }
-
-    private static String unquote(String value) {
-        if (value == null) {
-            return "";
-        }
-        String text = value.trim();
-        if (text.length() >= 2 && text.startsWith("\"") && text.endsWith("\"")) {
-            text = text.substring(1, text.length() - 1).replace("\"\"", "\"").trim();
-        }
-        return text;
-    }
 
     /**
      * Formats a serial number as {@code prefix-yyMMdd-NNNN}.
@@ -11744,81 +11009,6 @@ always
         return list;
     }
 
-    private static Map<String, Object> newMap() {
-        return new HashMap<>();
-    }
-
-    private static Object parseDate(Object value) {
-        String text = toText(value);
-        if (text == null) {
-            return null;
-        }
-        try {
-            return java.sql.Date.valueOf(LocalDate.parse(text));
-        } catch (RuntimeException e) {
-            return null;
-        }
-    }
-
-    /**
-     * Parses an optional day and time, used by the movements of the inventory ledger.
-     *
-     * @param value the raw input, e.g. {@code 2026-10-21} or {@code 2026-10-21T14:30:00}
-     * @return the timestamp, {@code null} when there is none or it cannot be read
-     */
-    private static Timestamp parseTimestamp(Object value) {
-        String text = toText(value);
-        if (text == null) {
-            return null;
-        }
-        try {
-            if (text.length() <= 10) {
-                return Timestamp.valueOf(LocalDate.parse(text).atStartOfDay());
-            }
-            return Timestamp.valueOf(java.time.LocalDateTime.parse(text.replace(' ', 'T')));
-        } catch (RuntimeException e) {
-            return null;
-        }
-    }
-
-    private static long toLong(Object value, long defaultValue) {
-        if (value instanceof Number) {
-            return ((Number) value).longValue();
-        }
-        if (value instanceof String) {
-            try {
-                String text = ((String) value).trim();
-                return text.isEmpty() ? defaultValue : Math.round(Double.parseDouble(text));
-            } catch (NumberFormatException e) {
-                return defaultValue;
-            }
-        }
-        return defaultValue;
-    }
-
-    private static double toDouble(Object value, double defaultValue) {
-        if (value instanceof Number) {
-            return ((Number) value).doubleValue();
-        }
-        if (value instanceof String) {
-            try {
-                String text = ((String) value).trim();
-                return text.isEmpty() ? defaultValue : Double.parseDouble(text);
-            } catch (NumberFormatException e) {
-                return defaultValue;
-            }
-        }
-        return defaultValue;
-    }
-
-    private static String toText(Object value) {
-        if (value == null) {
-            return null;
-        }
-        String text = value.toString().trim();
-        return text.isEmpty() ? null : text;
-    }
-
     /**
      * Returns the products with their BOM and routing line counts, used by the product page.
      *
@@ -11854,12 +11044,12 @@ always
                 list.add(map);
             }
             Map<String, Object> result = ServiceUtil.returnSuccess();
-            putPage(result, "products",
-                    filterByKeyword(list, toText(context.get("search")), "productCode", "productName",
+            MfgPaging.putPage(result, "products",
+                    MfgPaging.filterByKeyword(list, MfgSupport.toText(context.get("search")), "productCode", "productName",
                             "snPrefix", "statusId"),
-                    pageOf(context), pageSizeOf(context), toText(context.get("search")));
+                    MfgPaging.pageOf(context), MfgPaging.pageSizeOf(context), MfgSupport.toText(context.get("search")));
             // the list unfolds its rows in place, so the BOM lines of the visible page come along
-            for (Map<String, Object> row : rowsOf(result, "products")) {
+            for (Map<String, Object> row : MfgPaging.rowsOf(result, "products")) {
                 String version = (String) row.get("currentBomVersionId");
                 row.put("bomItems", version == null ? new ArrayList<Map<String, Object>>()
                         : bomItemMaps(bomItemsOfVersion(delegator, version)));
@@ -12146,7 +11336,7 @@ always
         if (denied != null) {
             return ServiceUtil.returnError(denied);
         }
-        String base64 = toText(context.get("base64Data"));
+        String base64 = MfgSupport.toText(context.get("base64Data"));
         if (base64 == null) {
             return ServiceUtil.returnError("base64Data is required");
         }
@@ -12156,9 +11346,9 @@ always
         } catch (IllegalArgumentException e) {
             return ServiceUtil.returnError("The attachment data is not valid base64");
         }
-        return storeAttachment(dctx.getDelegator(), toText(context.get("ownerTypeId")),
-                toText(context.get("ownerId")), toText(context.get("fileName")),
-                toText(context.get("contentType")), data, toText(context.get("note")));
+        return storeAttachment(dctx.getDelegator(), MfgSupport.toText(context.get("ownerTypeId")),
+                MfgSupport.toText(context.get("ownerId")), MfgSupport.toText(context.get("fileName")),
+                MfgSupport.toText(context.get("contentType")), data, MfgSupport.toText(context.get("note")));
     }
 
     /**
@@ -12170,8 +11360,8 @@ always
      */
     public static Map<String, Object> attachmentList(DispatchContext dctx, Map<String, ? extends Object> context) {
         Delegator delegator = dctx.getDelegator();
-        String ownerTypeId = toText(context.get("ownerTypeId"));
-        String ownerId = toText(context.get("ownerId"));
+        String ownerTypeId = MfgSupport.toText(context.get("ownerTypeId"));
+        String ownerId = MfgSupport.toText(context.get("ownerId"));
         List<Map<String, Object>> list = new ArrayList<>();
         if (ownerTypeId != null && ownerId != null) {
             try {
@@ -12245,9 +11435,9 @@ always
         if (denied != null) {
             return ServiceUtil.returnError(denied);
         }
-        String ownerTypeId = toText(context.get("ownerTypeId"));
-        String ownerId = toText(context.get("ownerId"));
-        long seq = toLong(context.get("seq"), 0);
+        String ownerTypeId = MfgSupport.toText(context.get("ownerTypeId"));
+        String ownerId = MfgSupport.toText(context.get("ownerId"));
+        long seq = MfgSupport.toLong(context.get("seq"), 0);
         if (ownerTypeId == null || ownerId == null || seq <= 0) {
             return ServiceUtil.returnError("ownerTypeId, ownerId and seq are required");
         }
@@ -12263,7 +11453,7 @@ always
      */
     public static Map<String, Object> productDetail(DispatchContext dctx, Map<String, ? extends Object> context) {
         Delegator delegator = dctx.getDelegator();
-        String productCode = toText(context.get("productCode"));
+        String productCode = MfgSupport.toText(context.get("productCode"));
         try {
             if (productCode == null) {
                 Map<String, Object> result = ServiceUtil.returnSuccess();
@@ -12489,7 +11679,7 @@ always
             if (product == null) {
                 return null;
             }
-            String current = toText(product.getString("currentBomVersionId"));
+            String current = MfgSupport.toText(product.getString("currentBomVersionId"));
             if (current != null && EntityQuery.use(delegator).from("MfgBomVersion")
                     .where("bomVersionId", current).queryOne() != null) {
                 return current;
@@ -12541,7 +11731,7 @@ always
      */
     private static List<GenericValue> bomItemsForOrder(Delegator delegator, GenericValue order)
             throws GenericEntityException {
-        String versionId = toText(order.getString("bomVersionId"));
+        String versionId = MfgSupport.toText(order.getString("bomVersionId"));
         if (versionId == null) {
             versionId = currentBomVersionId(delegator, order.getString("productCode"));
         }
@@ -12641,7 +11831,7 @@ always
             return ServiceUtil.returnError(denied);
         }
         Delegator delegator = dctx.getDelegator();
-        String productCode = toText(context.get("productCode"));
+        String productCode = MfgSupport.toText(context.get("productCode"));
         if (productCode == null) {
             return ServiceUtil.returnError("productCode is required");
         }
@@ -12649,9 +11839,9 @@ always
             if (EntityQuery.use(delegator).from("MfgProduct").where("productCode", productCode).queryOne() == null) {
                 return ServiceUtil.returnError("Unknown product model [" + productCode + "], create it first");
             }
-            String copyCurrent = toText(context.get("copyCurrent"));
-            String versionId = createBomVersion(delegator, productCode, toText(context.get("ecoId")),
-                    copyCurrent == null ? "Y" : copyCurrent, toText(context.get("note")));
+            String copyCurrent = MfgSupport.toText(context.get("copyCurrent"));
+            String versionId = createBomVersion(delegator, productCode, MfgSupport.toText(context.get("ecoId")),
+                    copyCurrent == null ? "Y" : copyCurrent, MfgSupport.toText(context.get("note")));
             GenericValue version = EntityQuery.use(delegator).from("MfgBomVersion")
                     .where("bomVersionId", versionId).queryOne();
             Map<String, Object> result = ServiceUtil.returnSuccess();
@@ -12678,7 +11868,7 @@ always
             return ServiceUtil.returnError(denied);
         }
         Delegator delegator = dctx.getDelegator();
-        String bomVersionId = toText(context.get("bomVersionId"));
+        String bomVersionId = MfgSupport.toText(context.get("bomVersionId"));
         if (bomVersionId == null) {
             return ServiceUtil.returnError("bomVersionId is required");
         }
@@ -12691,7 +11881,7 @@ always
             String productCode = version.getString("productCode");
             GenericValue product = EntityQuery.use(delegator).from("MfgProduct")
                     .where("productCode", productCode).queryOne();
-            String replaced = product == null ? null : toText(product.getString("currentBomVersionId"));
+            String replaced = product == null ? null : MfgSupport.toText(product.getString("currentBomVersionId"));
             for (GenericValue other : bomVersionsOf(delegator, productCode)) {
                 if (!bomVersionId.equals(other.getString("bomVersionId"))
                         && BOM_RELEASED.equals(other.getString("statusId"))) {
@@ -12725,7 +11915,7 @@ always
      */
     public static Map<String, Object> bomVersionList(DispatchContext dctx, Map<String, ? extends Object> context) {
         Delegator delegator = dctx.getDelegator();
-        String productCode = toText(context.get("productCode"));
+        String productCode = MfgSupport.toText(context.get("productCode"));
         try {
             List<GenericValue> versions = productCode == null
                     ? EntityQuery.use(delegator).from("MfgBomVersion").orderBy("-createdStamp").queryList()
@@ -12735,10 +11925,10 @@ always
                 list.add(toBomVersionMap(delegator, version));
             }
             Map<String, Object> result = ServiceUtil.returnSuccess();
-            putPage(result, "bomVersions",
-                    filterByKeyword(list, toText(context.get("search")), "bomVersionId", "productCode",
+            MfgPaging.putPage(result, "bomVersions",
+                    MfgPaging.filterByKeyword(list, MfgSupport.toText(context.get("search")), "bomVersionId", "productCode",
                             "statusId", "note"),
-                    pageOf(context), pageSizeOf(context), toText(context.get("search")));
+                    MfgPaging.pageOf(context), MfgPaging.pageSizeOf(context), MfgSupport.toText(context.get("search")));
             return result;
         } catch (GenericEntityException e) {
             return ServiceUtil.returnError("Could not read the BOM versions: " + e.getMessage());
@@ -12759,7 +11949,7 @@ always
             return ServiceUtil.returnError(denied);
         }
         Delegator delegator = dctx.getDelegator();
-        String productCode = toText(context.get("productCode"));
+        String productCode = MfgSupport.toText(context.get("productCode"));
         List<String> migrated = new ArrayList<>();
         try {
             List<GenericValue> products = productCode == null
@@ -12767,7 +11957,7 @@ always
                     : EntityQuery.use(delegator).from("MfgProduct").where("productCode", productCode).queryList();
             for (GenericValue product : products) {
                 String code = product.getString("productCode");
-                String before = toText(product.getString("currentBomVersionId"));
+                String before = MfgSupport.toText(product.getString("currentBomVersionId"));
                 String after = currentBomVersionId(delegator, code);
                 if (before == null && after != null) {
                     migrated.add(code);
@@ -13188,11 +12378,11 @@ always
             return ServiceUtil.returnError(denied);
         }
         Delegator delegator = dctx.getDelegator();
-        String projectCode = toText(context.get("projectCode"));
-        String projectName = toText(context.get("projectName"));
-        String stageId = toText(context.get("stageId"));
-        String statusId = toText(context.get("statusId"));
-        String trackId = toText(context.get("trackId"));
+        String projectCode = MfgSupport.toText(context.get("projectCode"));
+        String projectName = MfgSupport.toText(context.get("projectName"));
+        String stageId = MfgSupport.toText(context.get("stageId"));
+        String statusId = MfgSupport.toText(context.get("statusId"));
+        String trackId = MfgSupport.toText(context.get("trackId"));
         if (stageId != null && !isKnownDevStage(stageId)) {
             return ServiceUtil.returnError("Unknown development stage [" + stageId + "]");
         }
@@ -13237,31 +12427,31 @@ always
                 project.set("projectName", projectName);
             }
             if (context.containsKey("productCode")) {
-                project.set("productCode", toText(context.get("productCode")));
+                project.set("productCode", MfgSupport.toText(context.get("productCode")));
             }
             if (trackId != null) {
                 project.set("trackId", trackId);
             }
             if (context.containsKey("partCode")) {
-                project.set("partCode", toText(context.get("partCode")));
+                project.set("partCode", MfgSupport.toText(context.get("partCode")));
             }
             if (context.containsKey("ownerName")) {
-                project.set("ownerName", toText(context.get("ownerName")));
+                project.set("ownerName", MfgSupport.toText(context.get("ownerName")));
             }
             if (context.containsKey("targetCost")) {
-                project.set("targetCost", Double.valueOf(toDouble(context.get("targetCost"), 0.0)));
+                project.set("targetCost", Double.valueOf(MfgSupport.toDouble(context.get("targetCost"), 0.0)));
             }
             if (context.containsKey("targetPrice")) {
-                project.set("targetPrice", Double.valueOf(toDouble(context.get("targetPrice"), 0.0)));
+                project.set("targetPrice", Double.valueOf(MfgSupport.toDouble(context.get("targetPrice"), 0.0)));
             }
             if (context.containsKey("plannedLaunchDate")) {
-                project.set("plannedLaunchDate", parseDate(context.get("plannedLaunchDate")));
+                project.set("plannedLaunchDate", MfgSupport.parseDate(context.get("plannedLaunchDate")));
             }
             if (context.containsKey("actualLaunchDate")) {
-                project.set("actualLaunchDate", parseDate(context.get("actualLaunchDate")));
+                project.set("actualLaunchDate", MfgSupport.parseDate(context.get("actualLaunchDate")));
             }
             if (context.containsKey("note")) {
-                project.set("note", toText(context.get("note")));
+                project.set("note", MfgSupport.toText(context.get("note")));
             }
             delegator.createOrStore(project);
 
@@ -13283,8 +12473,8 @@ always
      */
     public static Map<String, Object> devProjectList(DispatchContext dctx, Map<String, ? extends Object> context) {
         Delegator delegator = dctx.getDelegator();
-        String stageId = toText(context.get("stageId"));
-        String statusId = toText(context.get("statusId"));
+        String stageId = MfgSupport.toText(context.get("stageId"));
+        String statusId = MfgSupport.toText(context.get("statusId"));
         try {
             List<GenericValue> projects = EntityQuery.use(delegator).from("MfgDevProject")
                     .orderBy("-createdStamp").queryList();
@@ -13309,10 +12499,10 @@ always
             result.put("stages", stages);
             result.put("stageId", stageId);
             result.put("statusId", statusId);
-            putPage(result, "projects",
-                    filterByKeyword(list, toText(context.get("search")), "projectCode", "projectName",
+            MfgPaging.putPage(result, "projects",
+                    MfgPaging.filterByKeyword(list, MfgSupport.toText(context.get("search")), "projectCode", "projectName",
                             "productCode", "ownerName", "stageId", "statusId"),
-                    pageOf(context), pageSizeOf(context), toText(context.get("search")));
+                    MfgPaging.pageOf(context), MfgPaging.pageSizeOf(context), MfgSupport.toText(context.get("search")));
             return result;
         } catch (GenericEntityException e) {
             return ServiceUtil.returnError("Could not read the development projects: " + e.getMessage());
@@ -13328,7 +12518,7 @@ always
      */
     public static Map<String, Object> devProjectDetail(DispatchContext dctx, Map<String, ? extends Object> context) {
         Delegator delegator = dctx.getDelegator();
-        String projectCode = toText(context.get("projectCode"));
+        String projectCode = MfgSupport.toText(context.get("projectCode"));
         if (projectCode == null) {
             Map<String, Object> empty = ServiceUtil.returnSuccess();
             empty.put("reviews", new ArrayList<Map<String, Object>>());
@@ -13444,9 +12634,9 @@ always
             return ServiceUtil.returnError(denied);
         }
         Delegator delegator = dctx.getDelegator();
-        String projectCode = toText(context.get("projectCode"));
-        String stageId = toText(context.get("stageId"));
-        String resultId = toText(context.get("resultId"));
+        String projectCode = MfgSupport.toText(context.get("projectCode"));
+        String stageId = MfgSupport.toText(context.get("stageId"));
+        String resultId = MfgSupport.toText(context.get("resultId"));
         if (projectCode == null) {
             return ServiceUtil.returnError("projectCode is required");
         }
@@ -13465,11 +12655,11 @@ always
             GenericValue review = delegator.makeValue("MfgDevStageReview");
             review.set("projectCode", projectCode);
             review.set("stageId", stageId);
-            review.set("plannedDate", parseDate(context.get("plannedDate")));
-            review.set("doneDate", parseDate(context.get("doneDate")));
+            review.set("plannedDate", MfgSupport.parseDate(context.get("plannedDate")));
+            review.set("doneDate", MfgSupport.parseDate(context.get("doneDate")));
             review.set("resultId", resultId);
-            review.set("reviewer", toText(context.get("reviewer")));
-            review.set("note", toText(context.get("note")));
+            review.set("reviewer", MfgSupport.toText(context.get("reviewer")));
+            review.set("note", MfgSupport.toText(context.get("note")));
             delegator.createOrStore(review);
 
             String projectStageId = project.getString("stageId");
@@ -13530,10 +12720,10 @@ always
         if (!TRACK_ENCLOSURE.equals(project.getString("trackId"))
                 || !STEP_ENCLOSURE_STOCK_IN.equals(step.getString("stepId"))
                 || !STEP_DONE.equals(step.getString("statusId"))
-                || toText(step.getString("lotId")) != null) {
+                || MfgSupport.toText(step.getString("lotId")) != null) {
             return null;
         }
-        String partCode = toText(project.getString("partCode"));
+        String partCode = MfgSupport.toText(project.getString("partCode"));
         if (partCode == null) {
             return "Set the part code of the project first, the stock in step creates a material lot for it";
         }
@@ -13574,9 +12764,9 @@ always
             return ServiceUtil.returnError(denied);
         }
         Delegator delegator = dctx.getDelegator();
-        String projectCode = toText(context.get("projectCode"));
-        String stepId = toText(context.get("stepId"));
-        String statusId = toText(context.get("statusId"));
+        String projectCode = MfgSupport.toText(context.get("projectCode"));
+        String stepId = MfgSupport.toText(context.get("stepId"));
+        String statusId = MfgSupport.toText(context.get("statusId"));
         if (projectCode == null || stepId == null) {
             return ServiceUtil.returnError("projectCode and stepId are required");
         }
@@ -13597,14 +12787,14 @@ always
                 step.set("stepId", stepId);
                 step.set("statusId", STEP_TODO);
             }
-            step.set("plannedDate", parseDate(context.get("plannedDate")));
-            step.set("doneDate", parseDate(context.get("doneDate")));
-            step.set("ownerName", toText(context.get("ownerName")));
-            step.set("vendorName", toText(context.get("vendorName")));
-            step.set("amount", Double.valueOf(toDouble(context.get("amount"), 0.0)));
-            step.set("qty", Double.valueOf(toDouble(context.get("qty"), 0.0)));
-            step.set("referenceNo", toText(context.get("referenceNo")));
-            step.set("note", toText(context.get("note")));
+            step.set("plannedDate", MfgSupport.parseDate(context.get("plannedDate")));
+            step.set("doneDate", MfgSupport.parseDate(context.get("doneDate")));
+            step.set("ownerName", MfgSupport.toText(context.get("ownerName")));
+            step.set("vendorName", MfgSupport.toText(context.get("vendorName")));
+            step.set("amount", Double.valueOf(MfgSupport.toDouble(context.get("amount"), 0.0)));
+            step.set("qty", Double.valueOf(MfgSupport.toDouble(context.get("qty"), 0.0)));
+            step.set("referenceNo", MfgSupport.toText(context.get("referenceNo")));
+            step.set("note", MfgSupport.toText(context.get("note")));
             if (statusId != null) {
                 step.set("statusId", statusId);
             }
@@ -13639,9 +12829,9 @@ always
             return ServiceUtil.returnError(denied);
         }
         Delegator delegator = dctx.getDelegator();
-        String projectCode = toText(context.get("projectCode"));
-        String stepId = toText(context.get("stepId"));
-        String statusId = toText(context.get("statusId"));
+        String projectCode = MfgSupport.toText(context.get("projectCode"));
+        String stepId = MfgSupport.toText(context.get("stepId"));
+        String statusId = MfgSupport.toText(context.get("statusId"));
         if (projectCode == null || stepId == null || statusId == null) {
             return ServiceUtil.returnError("projectCode, stepId and statusId are required");
         }
@@ -13696,11 +12886,11 @@ always
             return ServiceUtil.returnError(denied);
         }
         Delegator delegator = dctx.getDelegator();
-        String issueId = toText(context.get("issueId"));
-        String projectCode = toText(context.get("projectCode"));
-        String stepId = toText(context.get("stepId"));
-        String severityId = toText(context.get("severityId"));
-        String statusId = toText(context.get("statusId"));
+        String issueId = MfgSupport.toText(context.get("issueId"));
+        String projectCode = MfgSupport.toText(context.get("projectCode"));
+        String stepId = MfgSupport.toText(context.get("stepId"));
+        String severityId = MfgSupport.toText(context.get("severityId"));
+        String statusId = MfgSupport.toText(context.get("statusId"));
         if (severityId != null && !isKnownIssueSeverity(severityId)) {
             return ServiceUtil.returnError("Unknown issue severity [" + severityId + "]");
         }
@@ -13723,7 +12913,7 @@ always
                 issue.set("issueId", issueId);
                 issue.set("projectCode", storedProject);
                 issue.set("statusId", statusId == null ? ISSUE_OPEN : statusId);
-                issue.set("foundDate", parseDate(context.get("foundDate")));
+                issue.set("foundDate", MfgSupport.parseDate(context.get("foundDate")));
                 if (issue.get("foundDate") == null) {
                     issue.set("foundDate", java.sql.Date.valueOf(LocalDate.now()));
                 }
@@ -13738,7 +12928,7 @@ always
                     }
                     issue.set("projectCode", projectCode);
                     issue.set("statusId", statusId == null ? ISSUE_OPEN : statusId);
-                    issue.set("foundDate", parseDate(context.get("foundDate")));
+                    issue.set("foundDate", MfgSupport.parseDate(context.get("foundDate")));
                     if (issue.get("foundDate") == null) {
                         issue.set("foundDate", java.sql.Date.valueOf(LocalDate.now()));
                     }
@@ -13759,22 +12949,22 @@ always
                 issue.set("stepId", stepId.isEmpty() ? null : stepId);
             }
             if (context.containsKey("title")) {
-                issue.set("title", toText(context.get("title")));
+                issue.set("title", MfgSupport.toText(context.get("title")));
             }
             if (context.containsKey("detail")) {
-                issue.set("detail", toText(context.get("detail")));
+                issue.set("detail", MfgSupport.toText(context.get("detail")));
             }
             if (severityId != null) {
                 issue.set("severityId", severityId);
             }
             if (context.containsKey("ownerName")) {
-                issue.set("ownerName", toText(context.get("ownerName")));
+                issue.set("ownerName", MfgSupport.toText(context.get("ownerName")));
             }
             if (context.containsKey("dueDate")) {
-                issue.set("dueDate", parseDate(context.get("dueDate")));
+                issue.set("dueDate", MfgSupport.parseDate(context.get("dueDate")));
             }
             if (context.containsKey("resolution")) {
-                issue.set("resolution", toText(context.get("resolution")));
+                issue.set("resolution", MfgSupport.toText(context.get("resolution")));
             }
             if (ISSUE_CLOSED.equals(issue.getString("statusId")) && issue.get("closedDate") == null) {
                 issue.set("closedDate", java.sql.Date.valueOf(LocalDate.now()));
@@ -13811,8 +13001,8 @@ always
             return ServiceUtil.returnError(denied);
         }
         Delegator delegator = dctx.getDelegator();
-        String issueId = toText(context.get("issueId"));
-        String statusId = toText(context.get("statusId"));
+        String issueId = MfgSupport.toText(context.get("issueId"));
+        String statusId = MfgSupport.toText(context.get("statusId"));
         if (issueId == null || statusId == null) {
             return ServiceUtil.returnError("issueId and statusId are required");
         }
@@ -13830,7 +13020,7 @@ always
                 if (issue.get("closedDate") == null) {
                     issue.set("closedDate", java.sql.Date.valueOf(LocalDate.now()));
                 }
-                String resolution = toText(context.get("resolution"));
+                String resolution = MfgSupport.toText(context.get("resolution"));
                 if (resolution != null) {
                     issue.set("resolution", resolution);
                 }
@@ -13858,9 +13048,9 @@ always
      */
     public static Map<String, Object> devStepIssueList(DispatchContext dctx, Map<String, ? extends Object> context) {
         Delegator delegator = dctx.getDelegator();
-        String projectCode = toText(context.get("projectCode"));
-        String statusId = toText(context.get("statusId"));
-        boolean openOnly = "Y".equalsIgnoreCase(toText(context.get("openOnly")));
+        String projectCode = MfgSupport.toText(context.get("projectCode"));
+        String statusId = MfgSupport.toText(context.get("statusId"));
+        boolean openOnly = "Y".equalsIgnoreCase(MfgSupport.toText(context.get("openOnly")));
         Map<String, Object> result = ServiceUtil.returnSuccess();
         List<Map<String, Object>> rows = new ArrayList<>();
         result.put("issues", rows);
@@ -13937,7 +13127,7 @@ always
             return ServiceUtil.returnError(denied);
         }
         Delegator delegator = dctx.getDelegator();
-        String workOrderId = toText(context.get("workOrderId"));
+        String workOrderId = MfgSupport.toText(context.get("workOrderId"));
         if (workOrderId == null) {
             return ServiceUtil.returnError("workOrderId is required");
         }
@@ -13947,7 +13137,7 @@ always
             if (order == null) {
                 return ServiceUtil.returnError("Unknown work order [" + workOrderId + "]");
             }
-            double amount = round2(toDouble(context.get("outsourceAmount"), 0.0));
+            double amount = MfgSupport.round2(MfgSupport.toDouble(context.get("outsourceAmount"), 0.0));
             if (amount < 0.0) {
                 return ServiceUtil.returnError("The outsourced processing fee cannot be negative");
             }
@@ -14013,13 +13203,13 @@ always
      */
     static double outsourceAmount(String basisId, double rate, double qty, double qtyOk, double plannedQty) {
         if (OUTSRC_LUMP.equals(basisId)) {
-            return round2(rate);
+            return MfgSupport.round2(rate);
         }
         double count = qty;
         if (count <= 0.0) {
             count = OUTSRC_PER_UNIT.equals(basisId) ? (qtyOk > 0.0 ? qtyOk : plannedQty) : 0.0;
         }
-        return round2(rate * count);
+        return MfgSupport.round2(rate * count);
     }
 
     /**
@@ -14032,7 +13222,7 @@ always
      */
     static double outsourcePerUnit(double amount, double qtyOk, double plannedQty) {
         double base = qtyOk > 0.0 ? qtyOk : plannedQty;
-        return base > 0.0 ? round2(amount / base) : 0.0;
+        return base > 0.0 ? MfgSupport.round2(amount / base) : 0.0;
     }
 
     /**
@@ -14049,9 +13239,9 @@ always
             return ServiceUtil.returnError(denied);
         }
         Delegator delegator = dctx.getDelegator();
-        String workOrderId = toText(context.get("workOrderId"));
-        String feeTypeId = toText(context.get("feeTypeId"));
-        String basisId = toText(context.get("basisId"));
+        String workOrderId = MfgSupport.toText(context.get("workOrderId"));
+        String feeTypeId = MfgSupport.toText(context.get("feeTypeId"));
+        String basisId = MfgSupport.toText(context.get("basisId"));
         if (workOrderId == null) {
             return ServiceUtil.returnError("workOrderId is required");
         }
@@ -14069,8 +13259,8 @@ always
             return ServiceUtil.returnError("Unknown pricing basis [" + basisId + "], expected "
                     + String.join(" / ", OUTSRC_BASES));
         }
-        double rate = round2(toDouble(context.get("rate"), 0.0));
-        double qty = round2(toDouble(context.get("qty"), 0.0));
+        double rate = MfgSupport.round2(MfgSupport.toDouble(context.get("rate"), 0.0));
+        double qty = MfgSupport.round2(MfgSupport.toDouble(context.get("qty"), 0.0));
         if (rate < 0.0) {
             return ServiceUtil.returnError("The price cannot be negative");
         }
@@ -14086,9 +13276,9 @@ always
             double qtyOk = 0.0;
             for (GenericValue report : EntityQuery.use(delegator).from("MfgReport")
                     .where("workOrderId", workOrderId).queryList()) {
-                qtyOk += numberOrZero(report.get("qtyOk"));
+                qtyOk += MfgSupport.numberOrZero(report.get("qtyOk"));
             }
-            double plannedQty = numberOrZero(order.get("plannedQty"));
+            double plannedQty = MfgSupport.numberOrZero(order.get("plannedQty"));
             if (OUTSRC_LUMP.equals(basisId)) {
                 qty = 1.0;
             } else if (qty <= 0.0) {
@@ -14096,7 +13286,7 @@ always
             }
             double amount = outsourceAmount(basisId, rate, qty, qtyOk, plannedQty);
 
-            long seq = toLong(context.get("seqId"), 0);
+            long seq = MfgSupport.toLong(context.get("seqId"), 0);
             GenericValue fee;
             if (seq > 0) {
                 fee = EntityQuery.use(delegator).from("MfgOutsourceFee")
@@ -14114,12 +13304,12 @@ always
             fee.set("rate", Double.valueOf(rate));
             fee.set("qty", Double.valueOf(qty));
             fee.set("amount", Double.valueOf(amount));
-            fee.set("vendorName", toText(context.get("vendorName")));
-            fee.set("referenceNo", toText(context.get("referenceNo")));
-            Object feeDate = parseDate(context.get("feeDate"));
+            fee.set("vendorName", MfgSupport.toText(context.get("vendorName")));
+            fee.set("referenceNo", MfgSupport.toText(context.get("referenceNo")));
+            Object feeDate = MfgSupport.parseDate(context.get("feeDate"));
             fee.set("feeDate", feeDate == null ? null : feeDate);
             if (context.containsKey("note")) {
-                fee.set("note", toText(context.get("note")));
+                fee.set("note", MfgSupport.toText(context.get("note")));
             }
             delegator.createOrStore(fee);
 
@@ -14149,8 +13339,8 @@ always
             return ServiceUtil.returnError(denied);
         }
         Delegator delegator = dctx.getDelegator();
-        String workOrderId = toText(context.get("workOrderId"));
-        long seq = toLong(context.get("seqId"), 0);
+        String workOrderId = MfgSupport.toText(context.get("workOrderId"));
+        long seq = MfgSupport.toLong(context.get("seqId"), 0);
         if (workOrderId == null || seq <= 0) {
             return ServiceUtil.returnError("workOrderId and seqId are required");
         }
@@ -14183,7 +13373,7 @@ always
      */
     public static Map<String, Object> outsourceFeeList(DispatchContext dctx, Map<String, ? extends Object> context) {
         Delegator delegator = dctx.getDelegator();
-        String workOrderId = toText(context.get("workOrderId"));
+        String workOrderId = MfgSupport.toText(context.get("workOrderId"));
         Map<String, Object> result = ServiceUtil.returnSuccess();
         result.put("fees", new ArrayList<Map<String, Object>>());
         result.put("outsourceAmount", Double.valueOf(0.0));
@@ -14209,22 +13399,22 @@ always
                 map.put("feeDate", fee.get("feeDate"));
                 map.put("note", fee.getString("note"));
                 rows.add(map);
-                total += numberOrZero(fee.get("amount"));
+                total += MfgSupport.numberOrZero(fee.get("amount"));
             }
             GenericValue order = EntityQuery.use(delegator).from("MfgWorkOrder")
                     .where("workOrderId", workOrderId).queryOne();
             double qtyOk = 0.0;
-            double plannedQty = order == null ? 0.0 : numberOrZero(order.get("plannedQty"));
+            double plannedQty = order == null ? 0.0 : MfgSupport.numberOrZero(order.get("plannedQty"));
             for (GenericValue report : EntityQuery.use(delegator).from("MfgReport")
                     .where("workOrderId", workOrderId).queryList()) {
-                qtyOk += numberOrZero(report.get("qtyOk"));
+                qtyOk += MfgSupport.numberOrZero(report.get("qtyOk"));
             }
             result.put("fees", rows);
             result.put("feeCount", Integer.valueOf(rows.size()));
-            result.put("outsourceAmount", Double.valueOf(round2(total)));
+            result.put("outsourceAmount", Double.valueOf(MfgSupport.round2(total)));
             result.put("outsourcePerUnit", Double.valueOf(outsourcePerUnit(total, qtyOk, plannedQty)));
-            result.put("qtyOk", Double.valueOf(round2(qtyOk)));
-            result.put("plannedQty", Double.valueOf(round2(plannedQty)));
+            result.put("qtyOk", Double.valueOf(MfgSupport.round2(qtyOk)));
+            result.put("plannedQty", Double.valueOf(MfgSupport.round2(plannedQty)));
             return result;
         } catch (GenericEntityException e) {
             return ServiceUtil.returnError("Could not read the outsourced fees: " + e.getMessage());
@@ -14241,9 +13431,9 @@ always
         double total = 0.0;
         for (GenericValue fee : EntityQuery.use(delegator).from("MfgOutsourceFee")
                 .where("workOrderId", order.getString("workOrderId")).queryList()) {
-            total += numberOrZero(fee.get("amount"));
+            total += MfgSupport.numberOrZero(fee.get("amount"));
         }
-        total = round2(total);
+        total = MfgSupport.round2(total);
         order.set("outsourceAmount", Double.valueOf(total));
         delegator.store(order);
         return total;
@@ -14273,9 +13463,9 @@ always
             return ServiceUtil.returnError(denied);
         }
         Delegator delegator = dctx.getDelegator();
-        String ecoId = toText(context.get("ecoId"));
-        String productCode = toText(context.get("productCode"));
-        String ecoTypeId = toText(context.get("ecoTypeId"));
+        String ecoId = MfgSupport.toText(context.get("ecoId"));
+        String productCode = MfgSupport.toText(context.get("productCode"));
+        String ecoTypeId = MfgSupport.toText(context.get("ecoTypeId"));
         if (productCode == null) {
             return ServiceUtil.returnError("productCode is required");
         }
@@ -14286,7 +13476,7 @@ always
             if (EntityQuery.use(delegator).from("MfgProduct").where("productCode", productCode).queryOne() == null) {
                 return ServiceUtil.returnError("Unknown product model [" + productCode + "], create it first");
             }
-            String toVersionId = toText(context.get("toBomVersionId"));
+            String toVersionId = MfgSupport.toText(context.get("toBomVersionId"));
             if (toVersionId != null) {
                 GenericValue toVersion = EntityQuery.use(delegator).from("MfgBomVersion")
                         .where("bomVersionId", toVersionId).queryOne();
@@ -14326,32 +13516,32 @@ always
                 eco.set("ecoTypeId", ecoTypeId);
             }
             if (context.containsKey("projectCode")) {
-                eco.set("projectCode", toText(context.get("projectCode")));
+                eco.set("projectCode", MfgSupport.toText(context.get("projectCode")));
             }
             if (context.containsKey("reason")) {
-                eco.set("reason", toText(context.get("reason")));
+                eco.set("reason", MfgSupport.toText(context.get("reason")));
             }
             if (context.containsKey("changeSummary")) {
-                eco.set("changeSummary", toText(context.get("changeSummary")));
+                eco.set("changeSummary", MfgSupport.toText(context.get("changeSummary")));
             }
             if (context.containsKey("requestedBy")) {
-                eco.set("requestedBy", toText(context.get("requestedBy")));
+                eco.set("requestedBy", MfgSupport.toText(context.get("requestedBy")));
             }
             if (context.containsKey("approvedBy")) {
-                eco.set("approvedBy", toText(context.get("approvedBy")));
+                eco.set("approvedBy", MfgSupport.toText(context.get("approvedBy")));
             }
             if (context.containsKey("effectiveDate")) {
-                eco.set("effectiveDate", parseDate(context.get("effectiveDate")));
+                eco.set("effectiveDate", MfgSupport.parseDate(context.get("effectiveDate")));
             }
             if (context.containsKey("note")) {
-                eco.set("note", toText(context.get("note")));
+                eco.set("note", MfgSupport.toText(context.get("note")));
             }
             if (toVersionId != null) {
                 eco.set("toBomVersionId", toVersionId);
             }
-            String fromVersionId = toText(context.get("fromBomVersionId"));
+            String fromVersionId = MfgSupport.toText(context.get("fromBomVersionId"));
             if (fromVersionId == null) {
-                fromVersionId = toText(eco.getString("fromBomVersionId"));
+                fromVersionId = MfgSupport.toText(eco.getString("fromBomVersionId"));
             }
             if (fromVersionId == null) {
                 fromVersionId = currentBomVersionId(delegator, productCode);
@@ -14377,8 +13567,8 @@ always
      */
     public static Map<String, Object> devEcoList(DispatchContext dctx, Map<String, ? extends Object> context) {
         Delegator delegator = dctx.getDelegator();
-        String statusId = toText(context.get("statusId"));
-        String productCode = toText(context.get("productCode"));
+        String statusId = MfgSupport.toText(context.get("statusId"));
+        String productCode = MfgSupport.toText(context.get("productCode"));
         try {
             List<GenericValue> ecos = EntityQuery.use(delegator).from("MfgDevEco")
                     .orderBy("-createdStamp").queryList();
@@ -14400,10 +13590,10 @@ always
             Map<String, Object> result = ServiceUtil.returnSuccess();
             result.put("statusId", statusId);
             result.put("openCount", Long.valueOf(open));
-            putPage(result, "ecos",
-                    filterByKeyword(list, toText(context.get("search")), "ecoId", "productCode", "projectCode",
+            MfgPaging.putPage(result, "ecos",
+                    MfgPaging.filterByKeyword(list, MfgSupport.toText(context.get("search")), "ecoId", "productCode", "projectCode",
                             "ecoTypeId", "reason", "statusId", "requestedBy"),
-                    pageOf(context), pageSizeOf(context), toText(context.get("search")));
+                    MfgPaging.pageOf(context), MfgPaging.pageSizeOf(context), MfgSupport.toText(context.get("search")));
             return result;
         } catch (GenericEntityException e) {
             return ServiceUtil.returnError("Could not read the change orders: " + e.getMessage());
@@ -14419,7 +13609,7 @@ always
      */
     public static Map<String, Object> devEcoDetail(DispatchContext dctx, Map<String, ? extends Object> context) {
         Delegator delegator = dctx.getDelegator();
-        String ecoId = toText(context.get("ecoId"));
+        String ecoId = MfgSupport.toText(context.get("ecoId"));
         if (ecoId == null) {
             Map<String, Object> empty = ServiceUtil.returnSuccess();
             empty.put("versions", new ArrayList<Map<String, Object>>());
@@ -14433,8 +13623,8 @@ always
             String productCode = eco.getString("productCode");
             Map<String, Object> result = ServiceUtil.returnSuccess();
             result.put("eco", toEcoMap(eco));
-            String fromId = toText(eco.getString("fromBomVersionId"));
-            String toId = toText(eco.getString("toBomVersionId"));
+            String fromId = MfgSupport.toText(eco.getString("fromBomVersionId"));
+            String toId = MfgSupport.toText(eco.getString("toBomVersionId"));
             if (fromId != null) {
                 GenericValue from = EntityQuery.use(delegator).from("MfgBomVersion")
                         .where("bomVersionId", fromId).queryOne();
@@ -14473,7 +13663,7 @@ always
             return ServiceUtil.returnError(denied);
         }
         Delegator delegator = dctx.getDelegator();
-        String ecoId = toText(context.get("ecoId"));
+        String ecoId = MfgSupport.toText(context.get("ecoId"));
         if (ecoId == null) {
             return ServiceUtil.returnError("ecoId is required");
         }
@@ -14487,7 +13677,7 @@ always
                         + "] is " + eco.getString("statusId"));
             }
             eco.set("statusId", ECO_APPROVED);
-            eco.set("approvedBy", toText(context.get("approvedBy")));
+            eco.set("approvedBy", MfgSupport.toText(context.get("approvedBy")));
             eco.store();
             Map<String, Object> result = ServiceUtil.returnSuccess();
             result.put("ecoId", ecoId);
@@ -14512,7 +13702,7 @@ always
             return ServiceUtil.returnError(denied);
         }
         Delegator delegator = dctx.getDelegator();
-        String ecoId = toText(context.get("ecoId"));
+        String ecoId = MfgSupport.toText(context.get("ecoId"));
         if (ecoId == null) {
             return ServiceUtil.returnError("ecoId is required");
         }
@@ -14526,7 +13716,7 @@ always
                 return ServiceUtil.returnError("Only an approved change order can be applied, [" + ecoId
                         + "] is " + statusId);
             }
-            String toVersionId = toText(eco.getString("toBomVersionId"));
+            String toVersionId = MfgSupport.toText(eco.getString("toBomVersionId"));
             if (toVersionId != null) {
                 GenericValue version = EntityQuery.use(delegator).from("MfgBomVersion")
                         .where("bomVersionId", toVersionId).queryOne();
@@ -14577,7 +13767,7 @@ always
             return ServiceUtil.returnError(denied);
         }
         Delegator delegator = dctx.getDelegator();
-        String ecoId = toText(context.get("ecoId"));
+        String ecoId = MfgSupport.toText(context.get("ecoId"));
         if (ecoId == null) {
             return ServiceUtil.returnError("ecoId is required");
         }

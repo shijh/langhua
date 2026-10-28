@@ -2490,6 +2490,244 @@
 			"command": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\deployed161c.ps1",
 			"isBackground": false,
 			"problemMatcher": []
+		},
+		{
+			"label": "splitreport",
+			"type": "shell",
+			"command": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\splitreport.ps1",
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "countrefs",
+			"type": "shell",
+			"command": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\countrefs.ps1",
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "refnames",
+			"type": "shell",
+			"command": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\refnames.ps1",
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "checkstrings",
+			"type": "shell",
+			"command": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\checkstrings.ps1",
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "checkstrings2",
+			"type": "shell",
+			"command": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\checkstrings2.ps1",
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "backup-split",
+			"type": "shell",
+			"command": "C:\\Windows\\System32\\cmd.exe /c \"mkdir F:\\build-ofbiz\\split-backup 2>nul & copy /Y F:\\git\\langhua\\langhua-ofbiz-mfg\\src\\main\\java\\org\\langhua\\ofbiz\\mfg\\MfgServices.java F:\\build-ofbiz\\split-backup\\MfgServices.java & copy /Y F:\\git\\langhua\\langhua-ofbiz-mfg\\src\\test\\java\\org\\langhua\\ofbiz\\mfg\\MfgServicesTest.java F:\\build-ofbiz\\split-backup\\MfgServicesTest.java & copy /Y F:\\git\\langhua\\langhua-ofbiz-mfg\\src\\main\\java\\org\\langhua\\ofbiz\\mfg\\MfgExportEvents.java F:\\build-ofbiz\\split-backup\\MfgExportEvents.java & copy /Y F:\\git\\langhua\\langhua-ofbiz-mfg\\src\\main\\java\\org\\langhua\\ofbiz\\mfg\\oir\\OirOrders.java F:\\build-ofbiz\\split-backup\\OirOrders.java & copy /Y F:\\git\\langhua\\langhua-ofbiz-mfg\\src\\main\\java\\org\\langhua\\ofbiz\\mfg\\oir\\OirScan.java F:\\build-ofbiz\\split-backup\\OirScan.java & dir /b F:\\build-ofbiz\\split-backup\"",
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "backup-split2",
+			"type": "shell",
+			"command": "C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\backup-split.bat",
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "split164",
+			"type": "shell",
+			"command": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\split164b.ps1",
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "split164b",
+			"type": "shell",
+			"command": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\split164b.ps1",
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "split164c",
+			"type": "shell",
+			"command": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\split164b.ps1",
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "split164d",
+			"type": "shell",
+			"command": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\split164b.ps1",
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "fixrefs",
+			"type": "shell",
+			"command": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\fixrefs.ps1",
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "tests-164",
+			"type": "shell",
+			"command": "C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\mfg-tests-all.bat",
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "restore-split",
+			"type": "shell",
+			"command": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\restore-split.ps1",
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "split164e",
+			"type": "shell",
+			"command": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\split164b.ps1",
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "depthdiag",
+			"type": "shell",
+			"command": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\depthdiag.ps1",
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "depthwindow",
+			"type": "shell",
+			"command": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\depthwindow.ps1",
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "split164f",
+			"type": "shell",
+			"command": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\split164b.ps1",
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "fixrefs2",
+			"type": "shell",
+			"command": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\fixrefs.ps1",
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "tests-164b",
+			"type": "shell",
+			"command": "C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\mfg-tests-all.bat",
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "restore-split2",
+			"type": "shell",
+			"command": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\restore-split.ps1",
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "split164g",
+			"type": "shell",
+			"command": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\split164b.ps1",
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "tests-164c",
+			"type": "shell",
+			"command": "C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\mfg-tests-all.bat",
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "restore-callers",
+			"type": "shell",
+			"command": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\restore-callers.ps1",
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "fixrefs3",
+			"type": "shell",
+			"command": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\fixrefs.ps1",
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "tests-164d",
+			"type": "shell",
+			"command": "C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\mfg-tests-all.bat",
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "tests-164e",
+			"type": "shell",
+			"command": "C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\mfg-tests-all.bat",
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "tests-164f",
+			"type": "shell",
+			"command": "C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\mfg-tests-all.bat",
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "deploy-test-164",
+			"type": "shell",
+			"command": "C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\deploy-test.bat",
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "it-164",
+			"type": "shell",
+			"command": "C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\mfg-it.bat",
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "deploy-dev-164",
+			"type": "shell",
+			"command": "C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\deploy-mfg.bat",
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "deploy-prod-164",
+			"type": "shell",
+			"command": "C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\deploy-prod.bat",
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "deployed-164",
+			"type": "shell",
+			"command": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\deployed161c.ps1",
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "verify-m11-164",
+			"type": "shell",
+			"command": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\verify-m11.ps1",
+			"isBackground": false,
+			"problemMatcher": []
 		}
 	]
 }
