@@ -391,6 +391,17 @@
         <response name="error" type="view" value="materials"/>
     </request-map>
 
+    <request-map uri="lotRecount">
+        <security https="true" auth="true"/>
+        <event type="service" invoke="mfgLotRecount"/>
+        <response name="success" type="request-redirect" value="materials">
+            <redirect-parameter name="search"/>
+            <redirect-parameter name="recounted"/>
+            <redirect-parameter name="recountQty"/>
+        </response>
+        <response name="error" type="view" value="materials"/>
+    </request-map>
+
     <request-map uri="replacementSave">
         <security https="true" auth="true"/>
         <event type="service" invoke="mfgReplacementSave"/>

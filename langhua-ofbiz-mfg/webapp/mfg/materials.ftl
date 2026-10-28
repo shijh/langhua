@@ -74,7 +74,7 @@ C0402-100N,100nF 0402 电容,立创商城,DC2409B,500,2026-10-19</textarea>
     <table>
         <tr><th>批次</th><th>元件料号</th><th>名称</th><th>供应商</th><th>供应商批号</th>
             <th class="num">到货</th><th class="num">已发</th><th class="num">剩余</th><th>到货日期</th>
-            <th>来料检验</th><th>追溯</th></tr>
+            <th>来料检验</th><th>点数修正</th><th>追溯</th></tr>
         <#list lots as lot>
             <tr>
                 <td>${lot.lotId!}</td>
@@ -106,10 +106,27 @@ C0402-100N,100nF 0402 电容,立创商城,DC2409B,500,2026-10-19</textarea>
                     </form>
                 </td>
                 <td><a href="/mfg/control/materials?lotId=${lot.lotId}">查影响范围</a></td>
+                <td>
+                    <#-- a shop sells "one order" of prototype boards and ships three to five of them: the
+                         count of the parcel is the real quantity, the money stays what was paid -->
+                    <form method="post" action="/mfg/control/lotRecount" class="inline">
+                        <input type="hidden" name="lotId" value="${lot.lotId}"/>
+                        <input type="text" name="actualQty" size="4" value="${((lot.receivedQty)!0)?string("0.##")}"
+                               title="点到的实际数量"/>
+                        <input type="text" name="note" size="8" placeholder="备注"/>
+                        <input type="submit" value="改"/>
+                    </form>
+                </td>
             </tr>
         </#list>
     </table>
     <p class="hint">来料检验只拦「不合格」批次：待检和让步接收的批次仍可发料；不合格批次要改判或让步接收后才能发。</p>
+    <#if parameters.recounted??>
+        <p class="ok">批次 ${parameters.recounted} 已按点数改成 ${(parameters.recountQty)!''}：钱没变，单价跟着数量重算，库存按新数量算。流水里多了一条「调整」（备注写清了改前改后）。</p>
+    </#if>
+    <p class="hint">「点数修正」用在<b>一个订单里有几块/几片</b>的料上（PCB 打样最常见：订单写 ¥21.00 x1，实际发 3~5 块）：
+        拆包点清楚后在这里填真实数量。金额不变，单价自动变成 实付 ÷ 数量（如 21 元 5 块 = 4.20/块），
+        到货单上那一行也跟着改。数量变多就多出库存，变少就少（流水里会多一条「调整」，谁数的、为什么改都在）。</p>
 <#else>
     <p class="hint">还没有批次记录。</p>
 </#if>

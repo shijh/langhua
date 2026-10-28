@@ -156,6 +156,17 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
 
 ## 设计决策
 
+- **一件里有好几块（PCB 打样）：到货后按点数修正（`mfgLotRecount`）**：店铺页写 `¥21.00 x1`，实际发 3~5 块，
+  几块要拆包才知道。按 1 件入库 → 库存 1 块、单价 21/块，研发 BOM 那一行也锁不上、成本算成 5 倍。
+  所以物料批次页每行有「点数修正」：填点数后的数量即可。
+  **它做三件事**：① 追加一条 `MFG_MOVE_ADJUST` 流水（差额），**不改到货那笔**（那笔是“当初写了什么”）；
+  ② 把 `receivedQty` 改成实际数量、`unitPrice` = `receivedAmount ÷ 数量`（21 元 5 块 = 4.20）；
+  ③ 到货单行一起改（`restateReceiptLine`：qty / unitPrice / goodsAmount，**作废单不改**）。
+  **别用「补入库/盘点」去救数量**：那两条只改在库、不动 `receivedAmount ÷ receivedQty`，单价还是 21/块，
+  材料成本会错（README 里写清了）。成品批次（`FG-…`）不能这么改。
+  坑：`<redirect-parameter>` 只吃 String，所以 OUT 用 `recountQty` / `recounted` 这种字符串，
+  页面用 `${parameters.recounted}` 显示；巡检 `verify-m55-recount.ps1`（17 项，断言流水里的 `4.2000` / `+4` / `21.0000`）。
+
 - **研发 BOM：Fritzing 的 `bom.html` 直接进开发项目（Step 175）**：一块板从面包板开始，所以「研发 BOM」挂在
   **开发项目**（`/mfg/control/dev?projectCode=…` 的 `#devbom` 一段）而不是型号上。一次导入 = 一条
   `MfgDevBom`（`projectCode` + `importSeq`）+ 每版每个元件一条 `MfgDevBomItem`（带 `changeId`

@@ -40,6 +40,25 @@
     </service>
 
 
+    <service name="mfgLotRecount" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgStockServices" invoke="lotRecount"
+            auth="false" use-transaction="false">
+        <description>Set the received quantity of a lot to the number of pieces counted, keeping the money that was paid (so the unit cost follows the count)</description>
+        <attribute name="lotId" type="String" mode="IN" optional="false"/>
+        <attribute name="actualQty" type="Double" mode="IN" optional="false"/>
+        <attribute name="note" type="String" mode="IN" optional="true"/>
+        <attribute name="operatorName" type="String" mode="IN" optional="true"/>
+        <attribute name="lotId" type="String" mode="OUT" optional="true"/>
+        <attribute name="receivedQty" type="String" mode="OUT" optional="true"/>
+        <attribute name="onHandQty" type="String" mode="OUT" optional="true"/>
+        <attribute name="unitPrice" type="Double" mode="OUT" optional="true"/>
+        <attribute name="diffQty" type="String" mode="OUT" optional="true"/>
+        <attribute name="search" type="String" mode="OUT" optional="true"/>
+        <attribute name="recounted" type="String" mode="OUT" optional="true"/>
+        <attribute name="recountQty" type="String" mode="OUT" optional="true"/>
+    </service>
+
+
     <service name="mfgLotList" engine="java"
             location="org.langhua.ofbiz.mfg.MfgStockServices" invoke="lotList"
             auth="false" use-transaction="false">

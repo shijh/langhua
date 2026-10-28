@@ -172,6 +172,126 @@ public final class MfgStockServices {
     }
 
     /**
+     * Sets the received quantity of a lot to the number of pieces that really arrived.
+     *
+     * <p>Why it exists: a PCB house sells "one order" of prototype boards and ships three to five of
+     * them, the shop page prints {@code ¥21.00 x1}, and nobody knows how many boards are in the
+     * parcel until it is opened. Booked as one piece the lot says one board for twenty-one yuan, so
+     * both the stock and the cost of a board are wrong. Counting the parcel and restating the
+     * quantity fixes the stock (a ledger row is appended, nothing is rewritten) and the unit cost
+     * (the money already left the account, so 21 yuan for five boards is 4.20 a board), and brings
+     * the receipt line of the lot along so the purchase document says five too.
+     *
+     * @param dctx the dispatch context
+     * @param context service context, see {@code servicedef/stock-services.xml#mfgLotRecount}
+     * @return the service result with {@code receivedQty}, {@code onHandQty}, {@code unitPrice} and
+     *         {@code diffQty}
+     */
+    public static Map<String, Object> lotRecount(DispatchContext dctx, Map<String, ? extends Object> context) {
+        String denied = MfgSecurity.permissionProblem(dctx, context, MfgConstants.PERM_STOCK);
+        if (denied != null) {
+            return ServiceUtil.returnError(denied);
+        }
+        Delegator delegator = dctx.getDelegator();
+        String lotId = MfgSupport.toText(context.get("lotId"));
+        if (lotId == null) {
+            return ServiceUtil.returnError("lotId is required");
+        }
+        double actualQty = MfgSupport.toDouble(context.get("actualQty"), 0.0);
+        if (actualQty <= 0.0) {
+            return ServiceUtil.returnError("点数得到的数量要大于 0");
+        }
+        String note = MfgSupport.toText(context.get("note"));
+        String operatorName = MfgSupport.toText(context.get("operatorName"));
+        try {
+            GenericValue lot = EntityQuery.use(delegator).from("MfgMaterialLot").where("lotId", lotId).queryOne();
+            if (lot == null) {
+                return ServiceUtil.returnError("Unknown material lot [" + lotId + "]");
+            }
+            if (MfgStockLedger.isProductLot(lot)) {
+                return ServiceUtil.returnError("批次 [" + lotId + "] 是成品，数量由工单完工入库决定，不在这里改");
+            }
+            MfgStockLedger.ensureLotLedger(delegator, lot);
+            double received = MfgSupport.numberOrZero(lot.get("receivedQty"));
+            double amount = MfgSupport.numberOrZero(lot.get("receivedAmount"));
+            double diff = actualQty - received;
+            double unitPrice = restatedUnitPrice(amount, actualQty,
+                    MfgSupport.numberOrZero(lot.get("unitPrice")));
+            Map<String, Object> result = ServiceUtil.returnSuccess();
+            result.put("lotId", lotId);
+            result.put("diffQty", MfgSupport.formatQty(diff));
+            if (Math.abs(diff) > 0.0001) {
+                // the arrival row keeps what was typed; the correction is its own ledger row, so the
+                // history of the lot still says who counted it and when
+                MfgStockLedger.recordMovement(delegator, lot, MfgConstants.MOVE_ADJUST, diff,
+                        Double.valueOf(unitPrice), null, null, null, operatorName, null,
+                        "按点数修正到货数量：" + MfgSupport.formatQty(received) + " → "
+                                + MfgSupport.formatQty(actualQty)
+                                + (note == null ? "" : "（" + note + "）"));
+                lot.set("receivedQty", Double.valueOf(actualQty));
+                lot.set("unitPrice", Double.valueOf(unitPrice));
+                lot.store();
+                restateReceiptLine(delegator, lot, actualQty, amount, unitPrice);
+                MfgStockLedger.recalcLotStock(delegator, lot);
+            }
+            result.put("receivedQty", MfgSupport.formatQty(actualQty));
+            result.put("onHandQty", MfgSupport.formatQty(MfgSupport.numberOrZero(lot.get("onHandQty"))));
+            result.put("unitPrice", mfgDouble(unitPrice));
+            // the page comes back filtered to this part, with a line saying what the count changed
+            result.put("search", lot.getString("componentCode"));
+            result.put("recounted", lotId);
+            result.put("recountQty", MfgSupport.formatQty(actualQty));
+            return result;
+        } catch (GenericEntityException e) {
+            return ServiceUtil.returnError("按点数修正失败：" + e.getMessage());
+        }
+    }
+
+    /**
+     * The unit price a lot shows once its received quantity is the real count. The money was paid
+     * once, so five boards that cost 21 yuan are 4.20 each, not 21 each.
+     *
+     * @param amount what was really paid, {@code 0} when it is not known
+     * @param actualQty the counted quantity
+     * @param currentPrice the price the lot carries now, kept when the amount is unknown
+     * @return the price of one piece
+     */
+    static double restatedUnitPrice(double amount, double actualQty, double currentPrice) {
+        if (amount > 0.0 && actualQty > 0.0) {
+            return MfgSupport.round2(amount / actualQty);
+        }
+        return currentPrice;
+    }
+
+    /**
+     * Writes the counted quantity into the receipt line of the lot, so the purchase document says
+     * the same as the stock. A voided receipt is left alone: it is the record of what was once typed.
+     */
+    private static void restateReceiptLine(Delegator delegator, GenericValue lot, double actualQty,
+            double amount, double unitPrice) throws GenericEntityException {
+        GenericValue line = EntityQuery.use(delegator).from("MfgPurchaseReceiptLine")
+                .where("lotId", lot.getString("lotId")).queryFirst();
+        if (line == null) {
+            return;
+        }
+        GenericValue receipt = EntityQuery.use(delegator).from("MfgPurchaseReceipt")
+                .where("receiptId", line.getString("receiptId")).queryOne();
+        if (receipt != null && MfgConstants.RECEIPT_VOID.equals(MfgPurchaseServices.statusOfReceipt(receipt))) {
+            return;
+        }
+        line.set("qty", Double.valueOf(actualQty));
+        line.set("unitPrice", Double.valueOf(unitPrice));
+        line.set("goodsAmount", Double.valueOf(MfgSupport.round2(
+                amount > 0.0 ? amount : actualQty * unitPrice)));
+        line.store();
+    }
+
+    /** A formatted number as the OUT map of a service sends it to the page. */
+    private static Double mfgDouble(double value) {
+        return Double.valueOf(MfgSupport.round2(value));
+    }
+
+    /**
      * Lists material lots, newest first, with the quantity already issued.
      *
      * @param dctx the dispatch context

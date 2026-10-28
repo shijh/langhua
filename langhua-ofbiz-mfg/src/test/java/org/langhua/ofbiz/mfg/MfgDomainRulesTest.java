@@ -56,6 +56,19 @@ public class MfgDomainRulesTest {
     }
 
     @Test
+    public void restatesTheUnitPriceWhenTheCountDiffersFromTheOrder() {
+        // a PCB order prints "x1" and ships five boards for 21 yuan: five boards are 4.20 each, not 21
+        assertEquals(4.2, MfgStockServices.restatedUnitPrice(21.0, 5.0, 21.0), 1e-9);
+        // three boards for 21 yuan
+        assertEquals(7.0, MfgStockServices.restatedUnitPrice(21.0, 3.0, 21.0), 1e-9);
+        // no amount on the order: keep the price that is there, do not invent one
+        assertEquals(2.5, MfgStockServices.restatedUnitPrice(0.0, 5.0, 2.5), 1e-9);
+        // a nonsense quantity never divides
+        assertEquals(2.5, MfgStockServices.restatedUnitPrice(21.0, 0.0, 2.5), 1e-9);
+        assertEquals(0.0, MfgStockServices.restatedUnitPrice(0.0, 5.0, 0.0), 1e-9);
+    }
+
+    @Test
     public void costsOneUnitWithTheBomAndTheLaborRate() {
         java.util.Map<String, Object> cost = MfgProductServices.costSummary(18.5, 0.45, 1.0, 19.0, 39.0);
 
