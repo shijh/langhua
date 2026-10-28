@@ -122,7 +122,7 @@
     <!-- ==================== product models ==================== -->
 
     <service name="mfgProductSave" engine="java"
-            location="org.langhua.ofbiz.mfg.MfgServices" invoke="productSave"
+            location="org.langhua.ofbiz.mfg.MfgProductServices" invoke="productSave"
             auth="false" use-transaction="false">
         <description>Create or update a product model</description>
         <attribute name="productCode" type="String" mode="IN" optional="false"/>
@@ -139,7 +139,7 @@
     </service>
 
     <service name="mfgProductList" engine="java"
-            location="org.langhua.ofbiz.mfg.MfgServices" invoke="productList"
+            location="org.langhua.ofbiz.mfg.MfgProductServices" invoke="productList"
             auth="false" use-transaction="false">
         <description>List product models with BOM and routing counts</description>
         <attribute name="search" type="String" mode="IN" optional="true"/>
@@ -154,7 +154,7 @@
     </service>
 
     <service name="mfgProductDetail" engine="java"
-            location="org.langhua.ofbiz.mfg.MfgServices" invoke="productDetail"
+            location="org.langhua.ofbiz.mfg.MfgProductServices" invoke="productDetail"
             auth="false" use-transaction="false">
         <description>Return one product model with its BOM and routing</description>
         <attribute name="productCode" type="String" mode="IN" optional="true"/>
@@ -165,7 +165,7 @@
     </service>
 
     <service name="mfgBomImport" engine="java"
-            location="org.langhua.ofbiz.mfg.MfgServices" invoke="bomImport"
+            location="org.langhua.ofbiz.mfg.MfgProductServices" invoke="bomImport"
             auth="false" use-transaction="false">
         <description>Import BOM lines from CSV: componentCode,componentName,qty,designators,isKeyPart,unitPrice</description>
         <attribute name="productCode" type="String" mode="IN" optional="false"/>
@@ -180,7 +180,7 @@
     </service>
 
     <service name="mfgBomItemSave" engine="java"
-            location="org.langhua.ofbiz.mfg.MfgServices" invoke="bomItemSave"
+            location="org.langhua.ofbiz.mfg.MfgProductServices" invoke="bomItemSave"
             auth="false" use-transaction="false">
         <description>Save, append or delete one BOM line: quantity, designators, key part and unit price</description>
         <attribute name="productCode" type="String" mode="IN" optional="false"/>
@@ -238,7 +238,7 @@
         <attribute name="seq" type="Long" mode="OUT" optional="true"/>
     </service>
 
-    <service name="mfgBomVersionCreate" engine="java"            location="org.langhua.ofbiz.mfg.MfgServices" invoke="bomVersionCreate"
+    <service name="mfgBomVersionCreate" engine="java"            location="org.langhua.ofbiz.mfg.MfgProductServices" invoke="bomVersionCreate"
             auth="false" use-transaction="false">
         <description>Create the next BOM version of a model as a draft, copying the current lines by default</description>
         <attribute name="productCode" type="String" mode="IN" optional="false"/>
@@ -251,7 +251,7 @@
     </service>
 
     <service name="mfgBomVersionActivate" engine="java"
-            location="org.langhua.ofbiz.mfg.MfgServices" invoke="bomVersionActivate"
+            location="org.langhua.ofbiz.mfg.MfgProductServices" invoke="bomVersionActivate"
             auth="false" use-transaction="false">
         <description>Make a BOM version the one in use, the previous released version becomes obsolete</description>
         <attribute name="bomVersionId" type="String" mode="IN" optional="false"/>
@@ -263,7 +263,7 @@
     <!-- ==================== cost ==================== -->
 
     <service name="mfgProductCost" engine="java"
-            location="org.langhua.ofbiz.mfg.MfgServices" invoke="productCost"
+            location="org.langhua.ofbiz.mfg.MfgProductServices" invoke="productCost"
             auth="false" use-transaction="false">
         <description>Cost a model: BOM unit prices plus standard hours times the labour rate, against the project targets</description>
         <attribute name="productCode" type="String" mode="IN" optional="true"/>
@@ -334,7 +334,7 @@
     </service>
 
     <service name="mfgBomVersionList" engine="java"
-            location="org.langhua.ofbiz.mfg.MfgServices" invoke="bomVersionList"
+            location="org.langhua.ofbiz.mfg.MfgProductServices" invoke="bomVersionList"
             auth="false" use-transaction="false">
         <description>List the BOM versions of a model or of all models</description>
         <attribute name="productCode" type="String" mode="IN" optional="true"/>
@@ -350,7 +350,7 @@
     </service>
 
     <service name="mfgBomMigrateLegacy" engine="java"
-            location="org.langhua.ofbiz.mfg.MfgServices" invoke="bomMigrateLegacy"
+            location="org.langhua.ofbiz.mfg.MfgProductServices" invoke="bomMigrateLegacy"
             auth="false" use-transaction="false">
         <description>Freeze the old single BOM table into version 1 for the models that still only have it</description>
         <attribute name="productCode" type="String" mode="IN" optional="true"/>
@@ -359,7 +359,7 @@
     </service>
 
     <service name="mfgRoutingSave" engine="java"
-            location="org.langhua.ofbiz.mfg.MfgServices" invoke="routingSave"
+            location="org.langhua.ofbiz.mfg.MfgProductServices" invoke="routingSave"
             auth="false" use-transaction="false">
         <description>Create or update one routing operation</description>
         <attribute name="productCode" type="String" mode="IN" optional="false"/>
@@ -501,7 +501,7 @@
     <!-- ==================== material and outsourcing ==================== -->
 
     <service name="mfgPartCodeRename" engine="java"
-            location="org.langhua.ofbiz.mfg.MfgServices" invoke="partCodeRename"
+            location="org.langhua.ofbiz.mfg.MfgProductServices" invoke="partCodeRename"
             auth="false" use-transaction="true">
         <description>Rename a part number where it is stored: lots, issues, receipt lines, BOM lines of every version, replaced parts and the stock setting</description>
         <attribute name="oldCode" type="String" mode="IN" optional="false"/>
@@ -657,7 +657,7 @@
     </service>
 
     <service name="mfgReplacementSave" engine="java"
-            location="org.langhua.ofbiz.mfg.MfgServices" invoke="replacementSave"
+            location="org.langhua.ofbiz.mfg.MfgProductServices" invoke="replacementSave"
             auth="false" use-transaction="false">
         <description>Record a component replaced on one unit during repair (old lot and new lot)</description>
         <attribute name="sn" type="String" mode="IN" optional="false"/>
@@ -926,7 +926,7 @@
     </service>
 
     <service name="mfgProductStock" engine="java"
-            location="org.langhua.ofbiz.mfg.MfgServices" invoke="productStock"
+            location="org.langhua.ofbiz.mfg.MfgProductServices" invoke="productStock"
             auth="false" use-transaction="false">
         <description>Finished goods on hand per model: what the completions booked in, what the deliveries took out</description>
         <attribute name="search" type="String" mode="IN" optional="true"/>

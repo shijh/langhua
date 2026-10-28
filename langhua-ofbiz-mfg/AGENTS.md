@@ -1149,6 +1149,24 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   **踩坑**：把仓库里那份（`https="true"`）直接 copy 到**测试实例**会冲掉 `relax-test-https.ps1` 的改动，
   页面立刻 302 到 `https://localhost:8443`（看着像“改坏了”）——copy 完要对测试实例重跑那个脚本
   （这次它报了 113 个 request map）。回归：m50 13 项、m49 14 项、m43 15 项全过。
+- **产品/BOM/成本搬进 `MfgProductServices`（Step 167，第 4 步的 a 半）**：34 个方法、`MfgServices` **11635 → 10280 行**，
+  `services.xml` 里 **14 个服务**改指新类（`mfgProductList` / `ProductSave` / `ProductDetail` / `ProductCost` /
+  `ProductStock` / `BomImport` / `BomItemSave` / `BomVersionCreate` / `BomVersionList` / `BomVersionActivate` /
+  `BomMigrateLegacy` / `RoutingSave` / `ReplacementSave` / `PartCodeRename`），服务总数仍是 121。
+  带走的助手：`bomVersionCount/bomVersionsOf/currentBomVersionId/currentOrNewBomVersion/createBomVersion/
+  freeBomVersionId/formatBomVersionId/nextBomVersionNo/nextBomLineSeq/toBomVersionMap/bomItemMaps/
+  bomItemsOfVersion/routingOf/versionIds/renameWhere/newMapWithProduct/count/bomImportFailure`，
+  以及 **`costSummary` / `costDenied`**（产品成本和工单成本用的是同一份算式，所以放在这边，
+  第 4 步的工单那半要写 `MfgProductServices.costSummary(...)`）。
+  **留在 `MfgServices`**：`can` / `permissionProblem`（权限词汇）与 **`fittingComponentCode`**
+  （`public`，`oir` 和 `MfgOrderExcel` 都调它）；`MAX_COMPONENT_CODE`（100）改成包内可见。
+  **踩坑**：① 抽取脚本只认得 `public static final` 常量，`private` 常量被新类引用时会报
+  `MAX_COMPONENT_CODE is private in MfgServices`——要手工放开可见性；② Step 164 搬走 `rowsOf` 时
+  在 `helpers` 横幅下面留了一段**悬空 javadoc + `@SuppressWarnings("unchecked")`**（正好压在 `MAX_COMPONENT_CODE` 上），
+  这次才发现，已删；③ 产品域是**闭包最干净的一块**（37 个方法全部自足），工单/出货/售后三步都不是——
+  它们的闭包里会伸手到 `toClaimMap` / `toDeliveryMap` / `toSnMap` / `orderLineReserved` 这些跨域映射器。
+  验证：编译 0 错、单测 177、`mfg-it.bat` 433/433、`verify-m13` 49、`verify-m32` 39、`verify-m45` 34 全过，
+  三套实例都换了新 jar。
 - **四个域搬进自己的类，`services.xml` 开始按类写 `location=`（Step 166）**：第 3 步拆的是
   账号 / 系统设置 / 软件项目 / 附件四块，共 **15 个服务**：
   - `MfgAccountServices`（844 行）：`mfgPasswordStatus` / `mfgChangePassword` / `mfgUserList` / `mfgUserSave` /

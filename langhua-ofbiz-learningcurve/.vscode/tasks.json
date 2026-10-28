@@ -2910,6 +2910,83 @@
 			"command": "powershell -NoProfile -ExecutionPolicy Bypass -File C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\verify-m49-test.ps1",
 			"isBackground": false,
 			"problemMatcher": []
+		},
+		{
+			"label": "tests-167",
+			"type": "shell",
+			"command": "C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\mfg-tests-all.bat",
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "tests-167b",
+			"type": "shell",
+			"command": "C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\mfg-tests-all.bat",
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "tests-167c",
+			"type": "shell",
+			"command": "C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\mfg-tests-all.bat",
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "deploy-test-167",
+			"type": "shell",
+			"command": "C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\deploy-test.bat",
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "it-167",
+			"type": "shell",
+			"command": "C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\mfg-it.bat",
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "deploy-dev-167",
+			"type": "shell",
+			"command": "C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\deploy-mfg.bat",
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "deploy-prod-167",
+			"type": "shell",
+			"command": "C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\deploy-prod.bat",
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "verify-m13-167",
+			"type": "shell",
+			"command": "C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\verify-m13.ps1",
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "verify-m32-167",
+			"type": "shell",
+			"command": "C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\verify-m32.ps1",
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "verify-m45-167",
+			"type": "shell",
+			"command": "C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\verify-m45.ps1",
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "deployed-167",
+			"type": "shell",
+			"command": "powershell -NoProfile -ExecutionPolicy Bypass -File C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\deployed161c.ps1",
+			"isBackground": false,
+			"problemMatcher": []
 		}
 	]
 }

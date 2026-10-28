@@ -535,8 +535,8 @@ public class MfgServicesTest {
 
     @Test
     public void formatsBomVersionId() {
-        assertEquals("BT5-V1", MfgServices.formatBomVersionId("BT5", 1));
-        assertEquals("BT5-V12", MfgServices.formatBomVersionId("BT5", 12));
+        assertEquals("BT5-V1", MfgProductServices.formatBomVersionId("BT5", 1));
+        assertEquals("BT5-V12", MfgProductServices.formatBomVersionId("BT5", 12));
     }
 
     @Test
@@ -544,21 +544,21 @@ public class MfgServicesTest {
         // a model code may use the whole id column, the version number still has to fit
         String longCode = "orpah-client-demo-bb";
         assertEquals(20, longCode.length());
-        assertEquals("orpah-client-demo-V1", MfgServices.formatBomVersionId(longCode, 1));
-        assertEquals(20, MfgServices.formatBomVersionId(longCode, 1).length());
-        assertEquals(20, MfgServices.formatBomVersionId(longCode, 123).length());
-        assertTrue(MfgServices.formatBomVersionId(longCode, 123).endsWith("-V123"));
+        assertEquals("orpah-client-demo-V1", MfgProductServices.formatBomVersionId(longCode, 1));
+        assertEquals(20, MfgProductServices.formatBomVersionId(longCode, 1).length());
+        assertEquals(20, MfgProductServices.formatBomVersionId(longCode, 123).length());
+        assertTrue(MfgProductServices.formatBomVersionId(longCode, 123).endsWith("-V123"));
         // short codes are untouched
-        assertEquals("BT5-V1", MfgServices.formatBomVersionId("BT5", 1));
+        assertEquals("BT5-V1", MfgProductServices.formatBomVersionId("BT5", 1));
     }
 
     @Test
     public void numbersTheNextBomVersionOfALongModelCode() {
         String longCode = "orpah-client-demo-bb";
         List<String> ids = java.util.Arrays.asList(
-                MfgServices.formatBomVersionId(longCode, 1),
-                MfgServices.formatBomVersionId(longCode, 2));
-        assertEquals(3L, MfgServices.nextBomVersionNo(ids, longCode));
+                MfgProductServices.formatBomVersionId(longCode, 1),
+                MfgProductServices.formatBomVersionId(longCode, 2));
+        assertEquals(3L, MfgProductServices.nextBomVersionNo(ids, longCode));
     }
 
     @Test
@@ -2994,18 +2994,18 @@ public class MfgServicesTest {
     @Test
     public void numbersTheNextBomVersion() {
         List<String> none = new java.util.ArrayList<>();
-        assertEquals(1L, MfgServices.nextBomVersionNo(none, "BT5"));
+        assertEquals(1L, MfgProductServices.nextBomVersionNo(none, "BT5"));
 
         List<String> one = java.util.Arrays.asList("BT5-V1");
-        assertEquals(2L, MfgServices.nextBomVersionNo(one, "BT5"));
+        assertEquals(2L, MfgProductServices.nextBomVersionNo(one, "BT5"));
 
         // gaps do not matter, the highest number wins
         List<String> gap = java.util.Arrays.asList("BT5-V1", "BT5-V3", "BT5-V2");
-        assertEquals(4L, MfgServices.nextBomVersionNo(gap, "BT5"));
+        assertEquals(4L, MfgProductServices.nextBomVersionNo(gap, "BT5"));
 
         // versions of another model are ignored, and a suffix that is not a number is skipped
         List<String> mixed = java.util.Arrays.asList("BT6-V9", "BT5-VX");
-        assertEquals(1L, MfgServices.nextBomVersionNo(mixed, "BT5"));
+        assertEquals(1L, MfgProductServices.nextBomVersionNo(mixed, "BT5"));
     }
 
     @Test
@@ -3203,7 +3203,7 @@ public class MfgServicesTest {
 
     @Test
     public void costsOneUnitWithTheBomAndTheLaborRate() {
-        java.util.Map<String, Object> cost = MfgServices.costSummary(18.5, 0.45, 1.0, 19.0, 39.0);
+        java.util.Map<String, Object> cost = MfgProductServices.costSummary(18.5, 0.45, 1.0, 19.0, 39.0);
 
         assertEquals(18.5, ((Double) cost.get("materialPerUnit")).doubleValue(), 1e-9);
         assertEquals(0.45, ((Double) cost.get("laborPerUnit")).doubleValue(), 1e-9);
@@ -3216,7 +3216,7 @@ public class MfgServicesTest {
 
     @Test
     public void costsABatchAndRoundsToCents() {
-        java.util.Map<String, Object> cost = MfgServices.costSummary(10.0 / 3.0, 0.0, 3.0, null, null);
+        java.util.Map<String, Object> cost = MfgProductServices.costSummary(10.0 / 3.0, 0.0, 3.0, null, null);
 
         assertEquals(10.0, ((Double) cost.get("totalCost")).doubleValue(), 1e-9);
         assertEquals(3.33, ((Double) cost.get("unitCost")).doubleValue(), 1e-9);
