@@ -35,14 +35,13 @@
 </fieldset>
 
 <fieldset>
-    <legend>料号重命名（批次 / 发料 / 到货单行 / BOM / 售后换件 / 安全库存一起改）</legend>
-    <form method="post" action="/mfg/control/partCodeRename">
+    <legend>料号重命名（批次 / 发料 / 到货单行 / BOM / 售后换件 / 安全库存一起改）</legend>    <form method="post" action="/mfg/control/partCodeRename">
         <p>
             旧料号 <input type="text" name="oldCode" size="42" value="${(lr.search)!''}"/>
             新料号 <input type="text" name="newCode" size="42" placeholder="5.5V1.5F C型 21*7.5"/>
             <input type="submit" value="重命名"/>
-            <span class="hint">识别时用商品名当的料号、或者之前被拼在一起的老料号，都可以在这里改；
-                料号是各表之间的键，重命名会一次改全。</span>
+            <span class="hint">这里会把这个料号的<b>所有</b>行一起改（批次 / 发料 / 到货单行 / BOM / 售后换件 / 安全库存）——
+                同一个料号往往对应很多个批次，只想改某一个批次时用下面台账「元件料号」那格的「改」。</span>
         </p>
     </form>
     <#if (parameters.renamed)??>
@@ -76,9 +75,18 @@ C0402-100N,100nF 0402 电容,立创商城,DC2409B,500,2026-10-19</textarea>
             <th class="num">到货</th><th class="num">已发</th><th class="num">剩余</th><th>到货日期</th>
             <th>来料检验</th><th>点数修正</th><th>追溯</th></tr>
         <#list lots as lot>
-            <tr>
+            <tr data-lot-row="${lot.lotId}">
                 <td>${lot.lotId!}</td>
-                <td>${lot.componentCode!}</td>
+                <td>
+                    <#-- one lot, one part number: this corrects the parcel in front of you, not every
+                         row that happens to carry the same code -->
+                    <form method="post" action="/mfg/control/lotCodeChange" class="inline">
+                        <input type="hidden" name="lotId" value="${lot.lotId}"/>
+                        <input type="text" name="componentCode" size="16" value="${(lot.componentCode)!}"
+                               title="${(lot.componentCode)!}"/>
+                        <input type="submit" value="改"/>
+                    </form>
+                </td>
                 <td>
                     <#-- a lot imported from a shop order carries the whole article title; a readable
                          name is what makes the right lot recognizable in the BOM's part number list -->
@@ -137,11 +145,15 @@ C0402-100N,100nF 0402 电容,立创商城,DC2409B,500,2026-10-19</textarea>
     <#if parameters.editedLot??>
         <p class="ok">批次 ${parameters.editedLot} 的名称/备注已保存（料号要改的话用上面的「料号重命名」）。</p>
     </#if>
+    <#if parameters.renamedLot??>
+        <p class="ok">批次 ${parameters.renamedLot} 的料号已改成 <code>${(parameters.search)!''}</code>（<b>只改了这一行</b>，它的发料与到货单行也一起改；其他同料号的批次没动）。</p>
+    </#if>
     <p class="hint">「点数修正」用在<b>一个订单里有几块/几片</b>的料上（PCB 打样最常见：订单写 ¥21.00 x1，实际发 3~5 块）：
         拆包点清楚后在这里填真实数量。金额不变，单价自动变成 实付 ÷ 数量（如 21 元 5 块 = 4.20/块），
         到货单上那一行也跟着改。数量变多就多出库存，变少就少（流水里会多一条「调整」，谁数的、为什么改都在）。
         <br/><b>名称 / 备注</b>在「名称」格里直接改（改了之后 BOM 的料号下拉、发料、追溯里都是这个名字，好认）；
-        <b>料号</b>用上方的「料号重命名」（那是各表之间的键，要一次改全）。</p>
+        <b>料号</b>在「元件料号」格里改（<b>只改这一行</b>，它的发料与到货单行一起改；同一个料号的其他批次不动）；
+        要把一个料号一次性改成另一个（合并两个料号、或者这个号本来就错），用上方的「料号重命名」。</p>
 <#else>
     <p class="hint">还没有批次记录。</p>
 </#if>

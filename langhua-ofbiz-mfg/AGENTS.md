@@ -176,6 +176,9 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   **名称 / 备注 / 供应商 / 批号用 `mfgLotEdit`**（批次台账行内改，`context.containsKey` 只写传了的字段）；
   **料号不能用它改**——那是各表之间的键，走 `mfgPartCodeRename`（一次改全）。也**别拿 `lotSave` 改老批次**：
   它只给新批次写 `receivedQty`，且没传 `unitPrice`/`amount` 时会把单价写成 null。
+  **料号有两条路，别混**：`mfgLotCodeChange`（台账「元件料号」格，**只改这一个批次** + 它的发料 + 它的到货单行）；
+  `mfgPartCodeRename`（上方那个框，**按料号改所有行**，还带 BOM / 售后换件 / 安全库存）。用户就是被后者坑过：
+  想改一行，结果“已把 46 行料号改成 …”，两块不同的板子混成一个料号。所以页面上前者在行里、后者加了提醒文字。
 
 - **研发 BOM：Fritzing 的 `bom.html` 直接进开发项目（Step 175）**：一块板从面包板开始，所以「研发 BOM」挂在
   **开发项目**（`/mfg/control/dev?projectCode=…` 的 `#devbom` 一段）而不是型号上。一次导入 = 一条

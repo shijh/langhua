@@ -166,6 +166,78 @@ public final class MfgStockServices {
     }
 
     /**
+     * Corrects the part number of <b>one lot</b>: the lot, the issues made from it and the receipt
+     * line it hangs on follow. Everything else keeps its own number - two reels of the same article
+     * are still two lots, and a shop that has booked forty lots under one guessed code wants to fix
+     * one of them, not all of them.
+     *
+     * <p>{@code mfgPartCodeRename} stays the tool for "this code is wrong everywhere" (it also moves
+     * the BOM lines and the stock setting); this one is the tool for "this parcel is a different
+     * part".
+     *
+     * @param dctx the dispatch context
+     * @param context service context, see {@code servicedef/stock-services.xml#mfgLotCodeChange}
+     * @return the service result with {@code lotId}, {@code componentCode}, {@code renamedLot} and
+     *         {@code search}
+     */
+    public static Map<String, Object> lotCodeChange(DispatchContext dctx, Map<String, ? extends Object> context) {
+        String denied = MfgSecurity.permissionProblem(dctx, context, MfgConstants.PERM_STOCK);
+        if (denied != null) {
+            return ServiceUtil.returnError(denied);
+        }
+        Delegator delegator = dctx.getDelegator();
+        String lotId = MfgSupport.toText(context.get("lotId"));
+        String newCode = MfgSupport.toText(context.get("componentCode"));
+        if (lotId == null) {
+            return ServiceUtil.returnError("lotId is required");
+        }
+        if (newCode == null) {
+            return ServiceUtil.returnError("新料号要填");
+        }
+        if (newCode.length() > MfgConstants.MAX_COMPONENT_CODE) {
+            return ServiceUtil.returnError("新料号太长（最多 " + MfgConstants.MAX_COMPONENT_CODE + " 个字符）：" + newCode);
+        }
+        try {
+            GenericValue lot = EntityQuery.use(delegator).from("MfgMaterialLot").where("lotId", lotId).queryOne();
+            if (lot == null) {
+                return ServiceUtil.returnError("Unknown material lot [" + lotId + "]");
+            }
+            String oldCode = lot.getString("componentCode");
+            Map<String, Object> result = ServiceUtil.returnSuccess();
+            result.put("lotId", lotId);
+            result.put("renamedLot", lotId);
+            result.put("componentCode", newCode);
+            result.put("search", newCode);
+            if (newCode.equals(oldCode)) {
+                return result;
+            }
+            lot.set("componentCode", newCode);
+            delegator.store(lot);
+            // the rows that hang on this very lot follow it; rows of other lots keep their number
+            int issues = 0;
+            for (GenericValue issue : EntityQuery.use(delegator).from("MfgMaterialIssue")
+                    .where("lotId", lotId).queryList()) {
+                issue.set("componentCode", newCode);
+                issue.store();
+                issues++;
+            }
+            int lines = 0;
+            for (GenericValue line : EntityQuery.use(delegator).from("MfgPurchaseReceiptLine")
+                    .where("lotId", lotId).queryList()) {
+                line.set("componentCode", newCode);
+                line.store();
+                lines++;
+            }
+            result.put("issuesUpdated", String.valueOf(issues));
+            result.put("receiptLinesUpdated", String.valueOf(lines));
+            result.put("oldCode", oldCode);
+            return result;
+        } catch (GenericEntityException e) {
+            return ServiceUtil.returnError("改料号失败：" + e.getMessage());
+        }
+    }
+
+    /**
      * Records the incoming inspection of one lot.
      *
      * <p>A failed lot stays in the ledger (it has to be traced back to the supplier) but it cannot be

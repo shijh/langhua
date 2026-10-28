@@ -55,6 +55,22 @@
     </service>
 
 
+    <service name="mfgLotCodeChange" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgStockServices" invoke="lotCodeChange"
+            auth="false" use-transaction="true">
+        <description>Correct the part number of ONE lot, with its issues and its receipt line; other lots keep their own number (mfgPartCodeRename is the tool that moves a code everywhere)</description>
+        <attribute name="lotId" type="String" mode="IN" optional="false"/>
+        <attribute name="componentCode" type="String" mode="IN" optional="false"/>
+        <attribute name="lotId" type="String" mode="OUT" optional="true"/>
+        <attribute name="renamedLot" type="String" mode="OUT" optional="true"/>
+        <attribute name="componentCode" type="String" mode="OUT" optional="true"/>
+        <attribute name="oldCode" type="String" mode="OUT" optional="true"/>
+        <attribute name="search" type="String" mode="OUT" optional="true"/>
+        <attribute name="issuesUpdated" type="String" mode="OUT" optional="true"/>
+        <attribute name="receiptLinesUpdated" type="String" mode="OUT" optional="true"/>
+    </service>
+
+
     <service name="mfgLotRecount" engine="java"
             location="org.langhua.ofbiz.mfg.MfgStockServices" invoke="lotRecount"
             auth="false" use-transaction="false">
