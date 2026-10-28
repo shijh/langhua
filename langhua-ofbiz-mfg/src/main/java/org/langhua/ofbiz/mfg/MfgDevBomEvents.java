@@ -211,6 +211,68 @@ public final class MfgDevBomEvents {
         }
     }
 
+    /**
+     * The part numbers on the shelf that answer what the person typed in a part number box, as JSON.
+     *
+     * <p>The page holds at most a few hundred codes, and a shop that has run for a year carries more:
+     * typing "转接板" into the box used to find three of sixty-two matches, because the other fifty
+     * nine were cut away by the cap. So the page asks here while the person types and the search runs
+     * over every part number on the shelf, name included.
+     *
+     * @param request the request, holding {@code term} (what was typed) and an optional {@code limit}
+     * @param response the response, receives {@code {"ok":true,"codes":[…]}}
+     * @return {@code success} when the answer was written
+     */
+    public static String stockCodes(HttpServletRequest request, HttpServletResponse response) {
+        Map<String, Object> parameters = UtilHttp.getParameterMap(request);
+        String term = text(parameters.get("term"));
+        int limit = (int) MfgSupport.toLong(parameters.get("limit"), 40L);
+        if (limit <= 0 || limit > 200) {
+            limit = 40;
+        }
+        org.apache.ofbiz.entity.Delegator delegator =
+                (org.apache.ofbiz.entity.Delegator) request.getAttribute("delegator");
+        List<Map<String, Object>> matches = new ArrayList<>();
+        if (delegator != null) {
+            try {
+                List<Map<String, Object>> all =
+                        new ArrayList<>(MfgDevBomServices.allStockOptions(delegator).values());
+                matches = MfgDevBomServices.matchingStockOptions(all, term, limit);
+            } catch (org.apache.ofbiz.entity.GenericEntityException e) {
+                Debug.logError(e, "Could not read the part numbers on the shelf", MODULE);
+            }
+        }
+        StringBuilder json = new StringBuilder("{\"ok\":true,\"term\":");
+        json.append(jsonText(term));
+        json.append(",\"codes\":[");
+        for (int i = 0; i < matches.size(); i++) {
+            Map<String, Object> option = matches.get(i);
+            if (i > 0) {
+                json.append(',');
+            }
+            json.append("{\"code\":").append(jsonText(value(option.get("componentCode"))));
+            json.append(",\"name\":").append(jsonText(value(option.get("componentName"))));
+            json.append(",\"qty\":").append(MfgSupport.formatQty(
+                    MfgSupport.numberOrZero(option.get("onHandQty")))).append('}');
+        }
+        json.append("]}");
+        response.setContentType("application/json; charset=UTF-8");
+        try {
+            OutputStream out = response.getOutputStream();
+            out.write(json.toString().getBytes(StandardCharsets.UTF_8));
+            out.flush();
+        } catch (IOException e) {
+            Debug.logError(e, "Could not write the part numbers", MODULE);
+        }
+        return "success";
+    }
+
+    /** A JSON string literal, or {@code null}. */
+    private static String jsonText(String value) {
+        return value == null ? "null" : "\"" + value.replace("\\", "\\\\").replace("\"", "\\\"")
+                .replace("\n", " ").replace("\r", " ").replace("<", "\\u003c") + "\"";
+    }
+
     private static void writeCsv(HttpServletResponse response, String name, List<String> lines) {
         response.setContentType("text/csv; charset=UTF-8");
         response.setHeader("Content-Disposition", "attachment; filename=\"" + name + "-"

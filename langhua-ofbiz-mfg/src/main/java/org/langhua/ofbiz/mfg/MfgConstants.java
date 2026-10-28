@@ -254,6 +254,14 @@ public final class MfgConstants {
     /** The change states a part row can have, in the order the page explains them. */
     public static final String[] BOM_CHANGES = {BOM_NEW, BOM_CHANGED, BOM_SAME, BOM_DROPPED};
 
+    /**
+     * Where a row of a design BOM came from. {@code null} means the sketch printed it; this value
+     * means somebody typed it in because the board needs it and the sketch does not show it (an
+     * adapter board that lets a part sit in the breadboard). Rows of this kind are carried into the
+     * next import, otherwise every new export would drop them.
+     */
+    public static final String BOM_SOURCE_MANUAL = "MFG_BOM_MANUAL";
+
     /** What kind of place a stock location is. */
     public static final String LOC_WAREHOUSE = "MFG_LOC_WAREHOUSE";
 

@@ -885,6 +885,20 @@
         <response name="error" type="view" value="dev"/>
     </request-map>
 
+    <request-map uri="devBomItemAdd">
+        <security https="true" auth="true"/>
+        <event type="service" invoke="mfgDevBomItemAdd"/>
+        <response name="success" type="request-redirect" value="dev">
+            <redirect-parameter name="projectCode"/>
+            <redirect-parameter name="addedCode"/>
+            <redirect-parameter name="addedName"/>
+            <redirect-parameter name="addedLine"/>
+            <redirect-parameter name="lockedQty"/>
+            <redirect-parameter name="shortQty"/>
+        </response>
+        <response name="error" type="view" value="dev"/>
+    </request-map>
+
     <request-map uri="devBomItemSaveAll">
         <security https="true" auth="true"/>
         <event type="java" path="org.langhua.ofbiz.mfg.MfgDevBomEvents" invoke="saveAll"/>
@@ -914,6 +928,13 @@
         <response name="error" type="request-redirect" value="dev">
             <redirect-parameter name="projectCode"/>
         </response>
+    </request-map>
+
+    <request-map uri="devStockCodes">
+        <security https="true" auth="true"/>
+        <event type="java" path="org.langhua.ofbiz.mfg.MfgDevBomEvents" invoke="stockCodes"/>
+        <response name="success" type="none"/>
+        <response name="error" type="none"/>
     </request-map>
 
     <request-map uri="workOrderOutsource">
