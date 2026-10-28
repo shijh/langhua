@@ -676,7 +676,7 @@
     <!-- ==================== delivery and testing ==================== -->
 
     <service name="mfgDeliverySave" engine="java"
-            location="org.langhua.ofbiz.mfg.MfgServices" invoke="deliverySave"
+            location="org.langhua.ofbiz.mfg.MfgDeliveryServices" invoke="deliverySave"
             auth="false" use-transaction="false">
         <description>Create a delivery order and bind serial numbers to it (delivery date = warranty start)</description>
         <attribute name="customerName" type="String" mode="IN" optional="false"/>
@@ -698,7 +698,7 @@
     </service>
 
     <service name="mfgDeliveryList" engine="java"
-            location="org.langhua.ofbiz.mfg.MfgServices" invoke="deliveryList"
+            location="org.langhua.ofbiz.mfg.MfgDeliveryServices" invoke="deliveryList"
             auth="false" use-transaction="false">
         <description>List delivery orders with the number of shipped units</description>
         <attribute name="customerName" type="String" mode="IN" optional="true"/>
@@ -715,7 +715,7 @@
     </service>
 
     <service name="mfgDeliveryDetail" engine="java"
-            location="org.langhua.ofbiz.mfg.MfgServices" invoke="deliveryDetail"
+            location="org.langhua.ofbiz.mfg.MfgDeliveryServices" invoke="deliveryDetail"
             auth="false" use-transaction="false">
         <description>One delivery order with its shipped serial numbers</description>
         <attribute name="deliveryId" type="String" mode="IN" optional="true"/>
@@ -1345,7 +1345,7 @@
     <!-- ==================== warranty claims ==================== -->
 
     <service name="mfgClaimCreate" engine="java"
-            location="org.langhua.ofbiz.mfg.MfgServices" invoke="claimCreate"
+            location="org.langhua.ofbiz.mfg.MfgClaimServices" invoke="claimCreate"
             auth="false" use-transaction="false">
         <description>Open a warranty claim; customer and warranty dates come from the delivery order</description>
         <attribute name="sn" type="String" mode="IN" optional="false"/>
@@ -1372,7 +1372,7 @@
     </service>
 
     <service name="mfgClaimUpdate" engine="java"
-            location="org.langhua.ofbiz.mfg.MfgServices" invoke="claimUpdate"
+            location="org.langhua.ofbiz.mfg.MfgClaimServices" invoke="claimUpdate"
             auth="false" use-transaction="false">
         <description>Update the handling of a claim: type, status, money, freight, inspection, note</description>
         <attribute name="claimId" type="String" mode="IN" optional="false"/>
@@ -1396,7 +1396,7 @@
     </service>
 
     <service name="mfgClaimList" engine="java"
-            location="org.langhua.ofbiz.mfg.MfgServices" invoke="claimList"
+            location="org.langhua.ofbiz.mfg.MfgClaimServices" invoke="claimList"
             auth="false" use-transaction="false">
         <description>List warranty claims, newest first, with the deadlines of the open ones</description>
         <attribute name="sn" type="String" mode="IN" optional="true"/>
@@ -1418,7 +1418,7 @@
     </service>
 
     <service name="mfgClaimDetail" engine="java"
-            location="org.langhua.ofbiz.mfg.MfgServices" invoke="claimDetail"
+            location="org.langhua.ofbiz.mfg.MfgClaimServices" invoke="claimDetail"
             auth="false" use-transaction="false">
         <description>One claim with the unit, its delivery, the replacement delivery and the repair order</description>
         <attribute name="claimId" type="String" mode="IN" optional="true"/>
@@ -1433,7 +1433,7 @@
     </service>
 
     <service name="mfgClaimExchange" engine="java"
-            location="org.langhua.ofbiz.mfg.MfgServices" invoke="claimExchange"
+            location="org.langhua.ofbiz.mfg.MfgClaimServices" invoke="claimExchange"
             auth="false" use-transaction="false">
         <description>Ship a replacement unit for a claim and mark it as replaced</description>
         <attribute name="claimId" type="String" mode="IN" optional="false"/>
@@ -1447,7 +1447,7 @@
     </service>
 
     <service name="mfgClaimRepair" engine="java"
-            location="org.langhua.ofbiz.mfg.MfgServices" invoke="claimRepair"
+            location="org.langhua.ofbiz.mfg.MfgClaimServices" invoke="claimRepair"
             auth="false" use-transaction="false">
         <description>Open a repair work order for the returned unit</description>
         <attribute name="claimId" type="String" mode="IN" optional="false"/>
@@ -1459,7 +1459,7 @@
     <!-- ==================== buyer risk list ==================== -->
 
     <service name="mfgBuyerFlagSave" engine="java"
-            location="org.langhua.ofbiz.mfg.MfgServices" invoke="buyerFlagSave"
+            location="org.langhua.ofbiz.mfg.MfgClaimServices" invoke="buyerFlagSave"
             auth="false" use-transaction="false">
         <description>Add or update a buyer on the internal risk list; it only warns, it never refuses a request</description>
         <attribute name="buyerNick" type="String" mode="IN" optional="true"/>
@@ -1479,7 +1479,7 @@
     </service>
 
     <service name="mfgBuyerFlagList" engine="java"
-            location="org.langhua.ofbiz.mfg.MfgServices" invoke="buyerFlagList"
+            location="org.langhua.ofbiz.mfg.MfgClaimServices" invoke="buyerFlagList"
             auth="false" use-transaction="false">
         <description>List the buyer risk list with masked mobile numbers</description>
         <attribute name="keyword" type="String" mode="IN" optional="true"/>
@@ -1498,7 +1498,7 @@
     </service>
 
     <service name="mfgBuyerFlagCheck" engine="java"
-            location="org.langhua.ofbiz.mfg.MfgServices" invoke="buyerFlagCheck"
+            location="org.langhua.ofbiz.mfg.MfgClaimServices" invoke="buyerFlagCheck"
             auth="false" use-transaction="false">
         <description>Look a buyer up by mobile number or nickname before shipping</description>
         <attribute name="receiverMobile" type="String" mode="IN" optional="true"/>
@@ -1677,7 +1677,7 @@
     </service>
 
     <service name="mfgQualityReport" engine="java"
-            location="org.langhua.ofbiz.mfg.MfgServices" invoke="qualityReport"
+            location="org.langhua.ofbiz.mfg.MfgClaimServices" invoke="qualityReport"
             auth="false" use-transaction="false">
         <description>Return, exchange and repair rates with the cost they cause and the breakdowns behind them</description>
         <attribute name="fromDate" type="String" mode="IN" optional="true"/>
@@ -1721,7 +1721,7 @@
     </service>
 
     <service name="mfgBuyerRiskList" engine="java"
-            location="org.langhua.ofbiz.mfg.MfgServices" invoke="buyerRiskList"
+            location="org.langhua.ofbiz.mfg.MfgClaimServices" invoke="buyerRiskList"
             auth="false" use-transaction="false">
         <description>Aggregate the after sales history per buyer and suggest a risk level</description>
         <attribute name="buyers" type="java.util.List" mode="OUT" optional="true"/>

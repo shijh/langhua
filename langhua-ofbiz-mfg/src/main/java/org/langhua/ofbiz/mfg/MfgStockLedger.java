@@ -280,7 +280,7 @@ public final class MfgStockLedger {
      * purchased component.
      *
      * @param lot the lot, may be {@code null}
-     * @return {@link #MfgServices.LOT_COMPONENT} or {@link #MfgServices.LOT_PRODUCT}
+     * @return {@link MfgServices#LOT_COMPONENT} or {@link MfgServices#LOT_PRODUCT}
      */
     static String lotKindOf(GenericValue lot) {
         return isProductLot(lot) ? MfgServices.LOT_PRODUCT : MfgServices.LOT_COMPONENT;
@@ -506,7 +506,7 @@ public final class MfgStockLedger {
      *
      * @param delegator the delegator
      * @param lot the lot
-     * @param movementTypeId {@link #MfgServices.MOVE_RESERVE} or {@link #MfgServices.MOVE_RELEASE}
+     * @param movementTypeId {@link MfgServices#MOVE_RESERVE} or {@link MfgServices#MOVE_RELEASE}
      * @param diff the signed change of the reserved quantity
      * @param workOrderId the work order that reserves or gives the material back
      * @param operatorName who did it

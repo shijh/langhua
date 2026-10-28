@@ -65,7 +65,7 @@ public final class MfgAttachmentServices {
      * Tells whether an owner type is known.
      *
      * @param ownerTypeId the owner type
-     * @return {@code true} for a type of {@link MfgServices#MfgServices.ATTACHMENT_OWNER_TYPES}
+     * @return {@code true} for a type of {@link MfgServices#ATTACHMENT_OWNER_TYPES}
      */
     static boolean isKnownAttachmentOwnerType(String ownerTypeId) {
         if (ownerTypeId == null) {

@@ -1149,6 +1149,25 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   **踩坑**：把仓库里那份（`https="true"`）直接 copy 到**测试实例**会冲掉 `relax-test-https.ps1` 的改动，
   页面立刻 302 到 `https://localhost:8443`（看着像“改坏了”）——copy 完要对测试实例重跑那个脚本
   （这次它报了 113 个 request map）。回归：m50 13 项、m49 14 项、m43 15 项全过。
+- **出货与售后搬进 `MfgDeliveryServices` / `MfgClaimServices`（Step 169，第 4 步的 c 半）**：44 个方法、
+  `MfgServices` **8112 → 6264 行**，`services.xml` 里 **14 个服务**改指新类：
+  - `MfgDeliveryServices`（446 行，3 个服务）：`mfgDeliveryList` / `mfgDeliverySave` / `mfgDeliveryDetail` +
+    `formatDeliveryId` / `nextDeliveryId` / `isDelivered` / `orderReservedOnLot` / `releaseOrderLineUnit` /
+    `shipAgainstSalesOrder`——出货要先把销售单在该成品批次上的预解放掉，否则库存会被算成可发两次；
+  - `MfgClaimServices`（1466 行，11 个服务）：`mfgClaim` 家族六件（Create/Detail/Exchange/List/Repair/Update）、
+    `mfgBuyerFlagCheck` / `List` / `Save`、`mfgBuyerRiskList`、`mfgQualityReport` + 保修与淘宝窗口
+    （`warrantyEndDate` / `isInWarranty` / `sevenDayDeadline` / `afterSaleDeadline` / `isWithinSevenDays` /
+    `isExpiringSoon`）、买家名单（`buyerKey` / `normalizeMobile` / `maskMobile` / `activeRiskLevel` / `isFlagLive` /
+    `hasActiveFlag` / `suggestRiskLevel` / `isOverLimit`）、`qualityReport` 的 `productRow` / `sumOf` / `bump` / `lotsOf`、
+    `toBuyerFlagMap`。
+  **继续留在 `MfgServices`**：`toClaimMap` / `toDeliveryMap` / `toSnMap` / `toReplacementMaps`（工单的 `snDetail` 已经在调它们，
+  搬走就得反过来改工单类）、`toWorkOrderMap`（缺料页）、`openQtyOf` / `orderLineReserved` / `recordOrderReservation` /
+  `productLotsOf`（销售单预留算术）、`hoursLeft` / `claimCost`（告警与趋势页）、`can` / `permissionProblem` / `parseTrailingNumber`。
+  验证：编译 0 错、单测 177、`mfg-it.bat` 433/433、`verify-m36` 84、`verify-m33` 30 全过，三套实例都换了新 jar。
+  **踩坑**：抽取脚本顺手把**页运算里的 `{@link #常量}` 写成了 `{@link MfgServices#MfgServices.常量}`**——
+  “把 #名字 换成 MfgServices#名字”之后又跑了一遍“把裸名字加上 MfgServices.”，而 `#` 不在 `[\w.]` 里，
+  于是二次命中。已修 5 个文件（Step 165 的 `MfgStockLedger` 也有两处），以后给常量做限定名的正则要用
+  `(?<![\w.#])`（`#` 也要排除），或者先做 javadoc 再整行跳过。
 - **工单/生产搬进 `MfgWorkOrderServices`（Step 168，第 4 步的 b 半）**：52 个方法、`MfgServices` **10280 → 8112 行**，
   `services.xml` 里 **22 个服务**改指新类（`mfgWorkOrder` 家族的 Create/Detail/List/Complete/Materials/Cost/Vendor/
   OutsourceSave、`mfgOutsourceFee` 家族三件、`mfgIssueSave`、`mfgReserveMaterial`、`mfgReleaseMaterialReservation`、

@@ -965,7 +965,7 @@ public final class MfgProductServices {
     /**
      * Builds the identifier of one BOM version, {@code model-Vnumber}.
      *
-     * <p>The identifier has to fit the {@value #MfgServices.MAX_BOM_VERSION_ID} characters of an {@code id}
+     * <p>The identifier has to fit the {@value MfgServices#MAX_BOM_VERSION_ID} characters of an {@code id}
      * column, so a model code that uses the whole column is shortened — the version number is the
      * part that has to stay readable.
      *

@@ -286,22 +286,22 @@ public class MfgServicesTest {
     public void computesTheWarrantyEndDate() {
         java.sql.Date shipped = java.sql.Date.valueOf("2026-10-01");
 
-        assertEquals("2027-10-01", MfgServices.warrantyEndDate(shipped, 12).toString());
-        assertEquals("2028-04-01", MfgServices.warrantyEndDate(shipped, 18).toString());
+        assertEquals("2027-10-01", MfgClaimServices.warrantyEndDate(shipped, 12).toString());
+        assertEquals("2028-04-01", MfgClaimServices.warrantyEndDate(shipped, 18).toString());
         // an unset or invalid period falls back to 12 months
-        assertEquals("2027-10-01", MfgServices.warrantyEndDate(shipped, 0).toString());
-        assertNull(MfgServices.warrantyEndDate(null, 12));
+        assertEquals("2027-10-01", MfgClaimServices.warrantyEndDate(shipped, 0).toString());
+        assertNull(MfgClaimServices.warrantyEndDate(null, 12));
     }
 
     @Test
     public void tellsWhetherTheClaimIsInWarranty() {
         java.sql.Date end = java.sql.Date.valueOf("2027-10-01");
 
-        assertTrue(MfgServices.isInWarranty(end, java.sql.Date.valueOf("2026-10-01")));
-        assertTrue(MfgServices.isInWarranty(end, java.sql.Date.valueOf("2027-10-01")));
-        assertTrue(!MfgServices.isInWarranty(end, java.sql.Date.valueOf("2027-10-02")));
-        assertTrue(!MfgServices.isInWarranty(null, java.sql.Date.valueOf("2026-10-01")));
-        assertTrue(!MfgServices.isInWarranty(end, null));
+        assertTrue(MfgClaimServices.isInWarranty(end, java.sql.Date.valueOf("2026-10-01")));
+        assertTrue(MfgClaimServices.isInWarranty(end, java.sql.Date.valueOf("2027-10-01")));
+        assertTrue(!MfgClaimServices.isInWarranty(end, java.sql.Date.valueOf("2027-10-02")));
+        assertTrue(!MfgClaimServices.isInWarranty(null, java.sql.Date.valueOf("2026-10-01")));
+        assertTrue(!MfgClaimServices.isInWarranty(end, null));
     }
 
     @Test
@@ -309,27 +309,27 @@ public class MfgServicesTest {
         java.sql.Date signed = java.sql.Date.valueOf("2026-10-01");
 
         // midnight after the signed day, plus 168 hours
-        assertEquals("2026-10-09 00:00:00.0", MfgServices.sevenDayDeadline(signed).toString());
-        assertNull(MfgServices.sevenDayDeadline(null));
+        assertEquals("2026-10-09 00:00:00.0", MfgClaimServices.sevenDayDeadline(signed).toString());
+        assertNull(MfgClaimServices.sevenDayDeadline(null));
     }
 
     @Test
     public void endsTheAfterSalesWindowFifteenDaysAfterSigning() {
         java.sql.Date signed = java.sql.Date.valueOf("2026-10-01");
 
-        assertEquals("2026-10-16 23:59:59.0", MfgServices.afterSaleDeadline(signed).toString());
-        assertNull(MfgServices.afterSaleDeadline(null));
+        assertEquals("2026-10-16 23:59:59.0", MfgClaimServices.afterSaleDeadline(signed).toString());
+        assertNull(MfgClaimServices.afterSaleDeadline(null));
     }
 
     @Test
     public void tellsWhetherTheReturnIsInsideTheNoReasonWindow() {
         java.sql.Date signed = java.sql.Date.valueOf("2026-10-01");
 
-        assertTrue(MfgServices.isWithinSevenDays(signed, java.sql.Date.valueOf("2026-10-01")));
-        assertTrue(MfgServices.isWithinSevenDays(signed, java.sql.Date.valueOf("2026-10-08")));
-        assertTrue(!MfgServices.isWithinSevenDays(signed, java.sql.Date.valueOf("2026-10-09")));
-        assertTrue(!MfgServices.isWithinSevenDays(null, java.sql.Date.valueOf("2026-10-01")));
-        assertTrue(!MfgServices.isWithinSevenDays(signed, null));
+        assertTrue(MfgClaimServices.isWithinSevenDays(signed, java.sql.Date.valueOf("2026-10-01")));
+        assertTrue(MfgClaimServices.isWithinSevenDays(signed, java.sql.Date.valueOf("2026-10-08")));
+        assertTrue(!MfgClaimServices.isWithinSevenDays(signed, java.sql.Date.valueOf("2026-10-09")));
+        assertTrue(!MfgClaimServices.isWithinSevenDays(null, java.sql.Date.valueOf("2026-10-01")));
+        assertTrue(!MfgClaimServices.isWithinSevenDays(signed, null));
     }
 
     @Test
@@ -345,80 +345,80 @@ public class MfgServicesTest {
 
     @Test
     public void flagsDeadlinesThatExpireSoon() {
-        assertTrue(MfgServices.isExpiringSoon(MfgServices.DEADLINE_WARNING_HOURS));
-        assertTrue(MfgServices.isExpiringSoon(0L));
-        assertTrue(!MfgServices.isExpiringSoon(MfgServices.DEADLINE_WARNING_HOURS + 1));
-        assertTrue(!MfgServices.isExpiringSoon(-1L));
+        assertTrue(MfgClaimServices.isExpiringSoon(MfgServices.DEADLINE_WARNING_HOURS));
+        assertTrue(MfgClaimServices.isExpiringSoon(0L));
+        assertTrue(!MfgClaimServices.isExpiringSoon(MfgServices.DEADLINE_WARNING_HOURS + 1));
+        assertTrue(!MfgClaimServices.isExpiringSoon(-1L));
     }
 
     @Test
     public void picksTheDefaultFreightPayerByClaimType() {
-        assertEquals(MfgServices.FREIGHT_BUYER, MfgServices.defaultFreightPayer(MfgServices.CLAIM_RTN));
-        assertEquals(MfgServices.FREIGHT_BUYER, MfgServices.defaultFreightPayer(MfgServices.CLAIM_EXCH));
-        assertEquals(MfgServices.FREIGHT_SELLER, MfgServices.defaultFreightPayer(MfgServices.CLAIM_REPAIR));
-        assertEquals(MfgServices.FREIGHT_SELLER, MfgServices.defaultFreightPayer(MfgServices.CLAIM_REFUND_ONLY));
+        assertEquals(MfgServices.FREIGHT_BUYER, MfgClaimServices.defaultFreightPayer(MfgServices.CLAIM_RTN));
+        assertEquals(MfgServices.FREIGHT_BUYER, MfgClaimServices.defaultFreightPayer(MfgServices.CLAIM_EXCH));
+        assertEquals(MfgServices.FREIGHT_SELLER, MfgClaimServices.defaultFreightPayer(MfgServices.CLAIM_REPAIR));
+        assertEquals(MfgServices.FREIGHT_SELLER, MfgClaimServices.defaultFreightPayer(MfgServices.CLAIM_REFUND_ONLY));
     }
 
     @Test
     public void normalizesMobileNumbers() {
-        assertEquals("13800002222", MfgServices.normalizeMobile("138-0000-2222"));
-        assertEquals("13800002222", MfgServices.normalizeMobile("+86 138 0000 2222".substring(3)));
-        assertEquals("13800002222", MfgServices.normalizeMobile(" 13800002222 "));
-        assertNull(MfgServices.normalizeMobile("123"));
+        assertEquals("13800002222", MfgClaimServices.normalizeMobile("138-0000-2222"));
+        assertEquals("13800002222", MfgClaimServices.normalizeMobile("+86 138 0000 2222".substring(3)));
+        assertEquals("13800002222", MfgClaimServices.normalizeMobile(" 13800002222 "));
+        assertNull(MfgClaimServices.normalizeMobile("123"));
         // a masked number cannot identify a buyer, so it must never become a key
-        assertNull(MfgServices.normalizeMobile("138****2222"));
-        assertNull(MfgServices.normalizeMobile("138xxxx2222"));
-        assertNull(MfgServices.normalizeMobile(null));
+        assertNull(MfgClaimServices.normalizeMobile("138****2222"));
+        assertNull(MfgClaimServices.normalizeMobile("138xxxx2222"));
+        assertNull(MfgClaimServices.normalizeMobile(null));
     }
 
     @Test
     public void buildsTheBuyerKeyFromMobileOrNick() {
         // the nickname wins: it is always available, the mobile is often masked
-        assertEquals("TB:N:nick", MfgServices.buyerKey(MfgServices.CHANNEL_TAOBAO, "138-0000-2222", "nick"));
-        assertEquals("TB:N:buyer_1", MfgServices.buyerKey(MfgServices.CHANNEL_TAOBAO, null, "Buyer_1"));
-        assertEquals("TB:13800002222", MfgServices.buyerKey(MfgServices.CHANNEL_TAOBAO, "13800002222", null));
-        assertEquals("TB:13800002222", MfgServices.buyerKey(null, "13800002222", "  "));
-        assertNull(MfgServices.buyerKey(MfgServices.CHANNEL_TAOBAO, "138****2222", null));
-        assertNull(MfgServices.buyerKey(MfgServices.CHANNEL_TAOBAO, null, "  "));
+        assertEquals("TB:N:nick", MfgClaimServices.buyerKey(MfgServices.CHANNEL_TAOBAO, "138-0000-2222", "nick"));
+        assertEquals("TB:N:buyer_1", MfgClaimServices.buyerKey(MfgServices.CHANNEL_TAOBAO, null, "Buyer_1"));
+        assertEquals("TB:13800002222", MfgClaimServices.buyerKey(MfgServices.CHANNEL_TAOBAO, "13800002222", null));
+        assertEquals("TB:13800002222", MfgClaimServices.buyerKey(null, "13800002222", "  "));
+        assertNull(MfgClaimServices.buyerKey(MfgServices.CHANNEL_TAOBAO, "138****2222", null));
+        assertNull(MfgClaimServices.buyerKey(MfgServices.CHANNEL_TAOBAO, null, "  "));
     }
 
     @Test
     public void masksMobileNumbers() {
-        assertEquals("138****2222", MfgServices.maskMobile("13800002222"));
-        assertEquals("138****2222", MfgServices.maskMobile("138-0000-2222"));
+        assertEquals("138****2222", MfgClaimServices.maskMobile("13800002222"));
+        assertEquals("138****2222", MfgClaimServices.maskMobile("138-0000-2222"));
         // a number that is already masked or incomplete is shown as it came
-        assertEquals("138****2222", MfgServices.maskMobile("138****2222"));
-        assertEquals("1234567", MfgServices.maskMobile("1234567"));
-        assertEquals("", MfgServices.maskMobile(null));
+        assertEquals("138****2222", MfgClaimServices.maskMobile("138****2222"));
+        assertEquals("1234567", MfgClaimServices.maskMobile("1234567"));
+        assertEquals("", MfgClaimServices.maskMobile(null));
     }
 
     @Test
     public void suggestsARiskLevelFromTheHistory() {
-        assertNull(MfgServices.suggestRiskLevel(0, 0.0));
-        assertNull(MfgServices.suggestRiskLevel(2, 499.0));
-        assertEquals(MfgServices.RISK_WATCH, MfgServices.suggestRiskLevel(3, 0.0));
-        assertEquals(MfgServices.RISK_WATCH, MfgServices.suggestRiskLevel(1, 500.0));
-        assertEquals(MfgServices.RISK_BLOCK, MfgServices.suggestRiskLevel(5, 0.0));
-        assertEquals(MfgServices.RISK_BLOCK, MfgServices.suggestRiskLevel(1, 1000.0));
+        assertNull(MfgClaimServices.suggestRiskLevel(0, 0.0));
+        assertNull(MfgClaimServices.suggestRiskLevel(2, 499.0));
+        assertEquals(MfgServices.RISK_WATCH, MfgClaimServices.suggestRiskLevel(3, 0.0));
+        assertEquals(MfgServices.RISK_WATCH, MfgClaimServices.suggestRiskLevel(1, 500.0));
+        assertEquals(MfgServices.RISK_BLOCK, MfgClaimServices.suggestRiskLevel(5, 0.0));
+        assertEquals(MfgServices.RISK_BLOCK, MfgClaimServices.suggestRiskLevel(1, 1000.0));
     }
 
     @Test
     public void onlyActiveFlagsApply() {
-        assertTrue(MfgServices.isFlagActive(MfgServices.FLAG_ACTIVE));
-        assertTrue(!MfgServices.isFlagActive(MfgServices.FLAG_RELEASED));
-        assertTrue(!MfgServices.isFlagActive(null));
+        assertTrue(MfgClaimServices.isFlagActive(MfgServices.FLAG_ACTIVE));
+        assertTrue(!MfgClaimServices.isFlagActive(MfgServices.FLAG_RELEASED));
+        assertTrue(!MfgClaimServices.isFlagActive(null));
     }
 
     @Test
     public void flagsStopApplyingWhenTheyExpire() {
         java.sql.Date today = java.sql.Date.valueOf("2026-10-21");
 
-        assertTrue(MfgServices.isFlagLive(MfgServices.FLAG_ACTIVE, java.sql.Date.valueOf("2027-10-21"), today));
-        assertTrue(MfgServices.isFlagLive(MfgServices.FLAG_ACTIVE, today, today));
-        assertTrue(!MfgServices.isFlagLive(MfgServices.FLAG_ACTIVE, java.sql.Date.valueOf("2026-10-20"), today));
+        assertTrue(MfgClaimServices.isFlagLive(MfgServices.FLAG_ACTIVE, java.sql.Date.valueOf("2027-10-21"), today));
+        assertTrue(MfgClaimServices.isFlagLive(MfgServices.FLAG_ACTIVE, today, today));
+        assertTrue(!MfgClaimServices.isFlagLive(MfgServices.FLAG_ACTIVE, java.sql.Date.valueOf("2026-10-20"), today));
         // no expiry means it keeps applying while active
-        assertTrue(MfgServices.isFlagLive(MfgServices.FLAG_ACTIVE, null, today));
-        assertTrue(!MfgServices.isFlagLive(MfgServices.FLAG_RELEASED, null, today));
+        assertTrue(MfgClaimServices.isFlagLive(MfgServices.FLAG_ACTIVE, null, today));
+        assertTrue(!MfgClaimServices.isFlagLive(MfgServices.FLAG_RELEASED, null, today));
     }
 
     @Test
@@ -457,10 +457,10 @@ public class MfgServicesTest {
 
     @Test
     public void tellsWhetherARedLineIsCrossed() {
-        assertTrue(MfgServices.isOverLimit(3, 100, 2.0));
-        assertTrue(!MfgServices.isOverLimit(2, 100, 2.0));
-        assertTrue(!MfgServices.isOverLimit(3, 0, 2.0));
-        assertTrue(MfgServices.isOverLimit(60.0, 1000.0, 5.0));
+        assertTrue(MfgClaimServices.isOverLimit(3, 100, 2.0));
+        assertTrue(!MfgClaimServices.isOverLimit(2, 100, 2.0));
+        assertTrue(!MfgClaimServices.isOverLimit(3, 0, 2.0));
+        assertTrue(MfgClaimServices.isOverLimit(60.0, 1000.0, 5.0));
     }
 
     @Test
