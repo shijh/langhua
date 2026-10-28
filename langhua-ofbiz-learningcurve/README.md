@@ -213,7 +213,7 @@ $$
 
 ### 5. 软件报价（公式不在本组件）
 
-未调整功能点、工作量、工期、金额四步全在 MES 的 `MfgServices.softwareCost`，本组件只转发参数，
+未调整功能点、工作量、工期、金额四步全在 MES 的 `MfgSoftwareServices.softwareCost`，本组件只转发参数，
 算式与默认值见 `../langhua-ofbiz-mfg/README.md` 的「[计算公式一览](../langhua-ofbiz-mfg/README.md#计算公式一览)」第 8 节。
 
 ### 6. 报表按期间取点（`learningCurveMesPeriods`）

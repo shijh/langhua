@@ -393,7 +393,7 @@ https://localhost:8443/mfg/control/main
   「用户账号」页建，可选的安全组也只有上面这些。
 
 > 只有 `SUPER` / `MFG_ADMIN` / OFBiz 管理员（`PARTYMGR_UPDATE`）能过所有检查。判断写在
-> `MfgServices.can()` 里，所以演示库（`admin` 在 `FULLADMIN`）和全新库（`admin` 在 `SUPER`）行为一致。
+> `MfgSecurity.can()` 里，所以演示库（`admin` 在 `FULLADMIN`）和全新库（`admin` 在 `SUPER`）行为一致。
 
 
 ## 数据模型
@@ -568,9 +568,9 @@ csv         = R0402-10K,10K 0402 resistor,4,R1-R4,N,0.05
 所以滚动位置、表单里没保存的输入都还在，行尾只多一句「已保存 / 失败原因」。浏览器不支持 `fetch`
 或脚本被禁用时，表单照旧提交 `/mfg/control/bomItemSave` 走 302 回本页——两条路的校验与提示完全一样。
 
-**加一种新格式**（嘉立创、KiCad、Altium…）：在 `MfgServices.BomFormat` 里加一个常量、
+**加一种新格式**（嘉立创、KiCad、Altium…）：在 `MfgCsv.BomFormat` 里加一个常量、
 在 `detectBomFormat()` 里识别它的表头/分隔符、写一个返回同样六列的解析方法，然后在
-`parseBom()` 里分发即可——页面的下拉选项也跟着加一行。单测在 `MfgServicesTest` 的
+`parseBom()` 里分发即可——页面的下拉选项也跟着加一行。单测在 `MfgFormatRulesTest` 的
 `detectsTheBomFormat` / `parsesAFritzingBom` 里，照着加就行。
 
 ## 页面
@@ -923,8 +923,8 @@ SMT 为外协，且对方**不提供上料 / 换料记录**，因此追溯精度
 
 | 平台要求 | 系统中的落点 |
 | --- | --- |
-| 7 天无理由 = 签收**次日零时**起满 **168 小时** | `MfgServices.sevenDayDeadline()`：签收日 + 8 天 00:00，存入 `SEVEN_DAY_DEADLINE` |
-| 售后入口：确认收货后 15 天内 | `MfgServices.afterSaleDeadline()`：签收日 + 15 天 23:59:59 |
+| 7 天无理由 = 签收**次日零时**起满 **168 小时** | `MfgClaimServices.sevenDayDeadline()`：签收日 + 8 天 00:00，存入 `SEVEN_DAY_DEADLINE` |
+| 售后入口：确认收货后 15 天内 | `MfgClaimServices.afterSaleDeadline()`：签收日 + 15 天 23:59:59 |
 | 数码/家电类**必须**支持 7 天无理由；智能商品（激活即贬值）卖家可选 | `claimType` 区分 `RTN`（退货退款）与 `REFUND_ONLY`，登记时必选 |
 | 商品完好：配件/说明书/三包卡齐全，无激活、无难以恢复的使用痕迹 | `deductAmount`（缺件/赠品折价扣款）+ `inspectResult` 检测结论 |
 | 运费“谁过错谁承担”：卖家责任来回运费我方；无理由退回买家承担 | `freightPayer`（登记时按类型给默认值，处理时可改） |
@@ -933,7 +933,7 @@ SMT 为外协，且对方**不提供上料 / 换料记录**，因此追溯精度
 | 判定后需主动召回 | 已有的“批次 → 工单 → SN 区间”反向追溯 + `mfgTraceByLot` |
 
 > 规则会变，落地前建议再核对一次商家中心的最新文本；本组件的期限常量集中在
-> `MfgServices.SEVEN_DAY_HOURS` / `AFTER_SALE_DAYS` / `DEADLINE_WARNING_HOURS`，改一处即可。
+> `MfgConstants.SEVEN_DAY_HOURS` / `AFTER_SALE_DAYS` / `DEADLINE_WARNING_HOURS`，改一处即可。
 
 ## 买家名单（内部风控，不是拒卖清单）
 
@@ -949,7 +949,7 @@ SMT 为外协，且对方**不提供上料 / 换料记录**，因此追溯精度
 | 生效与失效 | `statusId` + `releasedDate` 可手动解除；`expiresDate` 默认 12 个月自动失效，**不做永久拉黑** |
 | 效果 | 售后单登记时自动把当时的风险等级快照到 `MfgClaim.buyerRiskLevel`，售后单页显示警示条；名单**不拦截**登记、换货或出货 |
 | 隐私 | 列表只显示打码号码（`139****6666`），原始号码仅用于表单回填；不保存身份证等实名信息 |
-| 建议名单 | 售后历史汇总按昵称聚合：单数 ≥ 3 或退款 ≥ 500 元建议观察，≥ 5 或 ≥ 1000 元建议人工复核（阈值是 `MfgServices.RISK_WATCH_*` / `RISK_BLOCK_*` 常量） |
+| 建议名单 | 售后历史汇总按昵称聚合：单数 ≥ 3 或退款 ≥ 500 元建议观察，≥ 5 或 ≥ 1000 元建议人工复核（阈值是 `MfgConstants.RISK_WATCH_*` / `RISK_BLOCK_*` 常量） |
 
 > **为什么昵称优先**：淘宝订单里收件人姓名/手机号经常是脱敏或平台隐私号（`张**`、`138****2222`、临时号码），
 > 拿不到可靠的真实号码；买家昵称与订单号则是明文。若将来通过打单 ERP 拿到真实号码，
@@ -1016,7 +1016,7 @@ SMT 为外协，且对方**不提供上料 / 换料记录**，因此追溯精度
 | 外壳开发 `MFG_TRACK_ENCLOSURE` | Gerber/PNP 导入 Blender 设计 → 3D 打印与装配确认 → 注塑厂家签合同 → 付款 → 生产外壳 → 外壳入库 → 产品组装 |
 | （空） | 不带步骤，只用五级阶段管理 |
 
-- 步骤目录写在代码里（`MfgServices.PCB_STEPS` / `FIRMWARE_STEPS` / `ENCLOSURE_STEPS`），表 `MfgDevTrackStep` 只存“走到哪了”，
+- 步骤目录写在代码里（`MfgConstants.PCB_STEPS` / `FIRMWARE_STEPS` / `ENCLOSURE_STEPS`），表 `MfgDevTrackStep` 只存“走到哪了”，
   因此改流程只改代码、不用改数据；步骤 id 与线路不匹配会被直接拒绝；
 - 每个步骤可记：状态（未开始/进行中/已完成/跳过）、计划日、完成日、负责人、供应商、金额、数量、单号（合同号/付款凭证/快递单）、备注；
 - 页面每行有「开始 / 完成」快速按钮（只改状态，不动其它字段），细节用下面的「更新步骤详情」表单；
@@ -1372,7 +1372,7 @@ CAP-104-50V,瓷片电容器 104 0.1uF 100NF 50V,100,2.91
 ## 计算公式一览
 
 这一节把所有算式集中列出，正文其它小节只讲“为什么这么算”。**页面不参与计算**，数字都来自服务；
-想调口径，改表里注明的常量（`MfgServices` 顶部的 `public static final`）即可，不用动页面。
+想调口径，改表里注明的常量（都在 `MfgConstants` 里）即可，不用动页面。
 
 ### 1. 齐套与欠料（`kittingLines` / `shortageRows`）
 

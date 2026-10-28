@@ -4,16 +4,17 @@
 交给调用方填进"从订单建单并入库"的核对表。它**不写库**，也不改库存——入库是
 `MfgReceiptEvents` / `MfgReceiptEvents.ordersJson` 的事。
 
-拆出来的目的：让第三方可以**只看这一个包**就理解算法、指出更好的做法，不必先读懂 1.4 万行的
-`MfgServices`。对外入口仍是 `org.langhua.ofbiz.mfg.MfgOrderScan`（控制器的 java event 指向它），
+拆出来的目的：让第三方可以**只看这一个包**就理解算法、指出更好的做法，不必先读懂原来那个 1.4 万行的
+服务类（它已按域拆成十四个 `Mfg*Services` 加三个词汇类，见组件 `README.md` 的「目录结构」）。
+对外入口仍是 `org.langhua.ofbiz.mfg.MfgOrderScan`（控制器的 java event 指向它），
 它只是把两个请求转发到这里。
 
 包里有三个文件：
 
 | 文件 | 做什么 | 依赖 |
 | --- | --- | --- |
-| `OirScan.java` | 联网、分段、提示词、重试、打分 | HTTP + AWT（读图）+ `MfgServices.setting` |
-| `OirOrders.java` | **纯函数**：读答案 → 订单列表 → 合并 → 整理 → 金额核对 | 只有 `java.util` + 零件号规范化（`MfgServices.fittingComponentCode` 等） |
+| `OirScan.java` | 联网、分段、提示词、重试、打分 | HTTP + AWT（读图）+ `MfgSettingsServices.setting` |
+| `OirOrders.java` | **纯函数**：读答案 → 订单列表 → 合并 → 整理 → 金额核对 | 只有 `java.util` + 零件号规范化（`MfgProductServices.fittingComponentCode` 等） |
 | `README.md` | 本文件 | — |
 
 **要审计算法，只看 `OirOrders`（2167 行）就够了**；`OirScan` 那 1388 行是"怎么问、怎么切、怎么重试"。

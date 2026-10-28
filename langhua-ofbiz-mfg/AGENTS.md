@@ -155,12 +155,12 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
 
 - **系统设置放页面，不靠 -D（Step 61）**：`/mfg/control/settings`（导航在「用户账号」后面，`canManageAccounts` 才看得到）
   用 `mfgSettingsView` / `mfgSettingsSave` 读写 `SystemProperty`（`systemResourceId = "mfg"`，propertyId 就是原来的
-  `org.langhua.mfg.vision.*`）；`MfgServices.setting()` **先读库、再退回 `System.getProperty`**，所以老启动脚本照旧有效。
+  `org.langhua.mfg.vision.*`）；`MfgSettingsServices.setting()` **先读库、再退回 `System.getProperty`**，所以老启动脚本照旧有效。
   密钥只存不回显（表单 `value=""`，留空=不修改），`clear=Y` 删掉三行；管理员判定复用 `accountAdminProblem`。
   页面靠 `data-configured` / `data-source`（DATABASE / JVM）两个属性给巡检断言；m48 结束时必须 `clear=Y`，
   否则 m47 的“未配置时的回答”会挂。**m48 会清空识图配置（包括密钥，密钥不回显也读不回来），
   所以跑完 suite 要重新填**；正式入口是页面上的「测试连接」（`/mfg/control/visionTest`，拿 1 像素图调一次）。
-  地址不写全很常见：`MfgServices.normalizeVisionEndpoint` 在**保存时和调用时**各补一次
+  地址不写全很常见：`OirOrders.normalizeVisionEndpoint` 在**保存时和调用时**各补一次
   （只写域名 → `/v1/chat/completions`，已到 `/v4` 这类版本号 → `/chat/completions`），
   `describeVisionError` 把 404/401/400/429/5xx 翻成人话（404 = 地址没写全）
 - **识图返回空明细的四个原因（Step 63/64 都修了）**：① 地址只写域名（靠上面那个 normalize 补）；
@@ -170,7 +170,7 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   而 `jsonStringField` 的 `\\.` 匹配不到「反斜杠+换行」→ 整条 `lines` 变 null（**真凶就是这条**，
   真实 DeepSeek 回答里就是 `2.91\\n1/4W10K`）。现在用一遍扫的 `jsonUnescape`（支持 `\uXXXX`）代替链式 replace；
   并且**在原始回复上抓 `content`**（先 unescape 再抓会截断字符串）。
-  空明细时的提示会**引用模型的原话**（`MfgServices.visionReplyExcerpt`，160 字），
+  空明细时的提示会**引用模型的原话**（`OirOrders.visionReplyExcerpt`，160 字），
   否则「这不是订单」「模型看不见图」在页面上长得一模一样
 - **别拿本系统页面的截图当订单截图**：用户两次都把带报错的自家页面截下来发进来，模型只能回空
   **`deepseek-flash` 是支持看图的**（官方文档 Vision ✓），`deepseek-v4-pro` 不支持——别把"DeepSeek 没有视觉模型"写进文档；
@@ -223,7 +223,7 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   （`5.5V1.5F C型 21*7.5` → `5.5V1.5FC217.5`），实在没有 ASCII 就给 `P-` + 6 位 hash（同名同结果）；
   提示词也加了一句“没印料号就填型号文字，不要留空”。**`checkOrderTotals` 在货款为 0 时直接返回**
   （否则会拿实付去当运费，踩过：空料号 → 行被丢 → 运费变成 9.28）
-- **运费要跟实付对账（Step 69）**：模型现在还要给 `paidTotal`（实付款），`MfgServices.checkOrderTotals`
+- **运费要跟实付对账（Step 69）**：模型现在还要给 `paidTotal`（实付款），`OirOrders.checkOrderTotals`
   用「货款合计 + 运费 = 实付」校一遍：对不上就把运费改成 `实付 − 货款` 并在 message 里说清楚，
   没给运费也这么补；实付缺失或明细比实付还大就不碰（让人看）。提示词里把“含运费: ￥2.00 = 2.00，
   免运费/包邮才写 0”和“行金额 = 实付 − 运费”写明白了——之前模型把 2.00 报成 4.00 就是这句话含混
@@ -250,7 +250,7 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   巡检 m47 改成断言“长料号被接受且**不被缩短**”
 - **截图识别（Step 60）**：`MfgOrderScan.scan`（`/mfg/control/orderImage`，multipart `image`）把图发给兼容 OpenAI 的
   视觉接口，配置项是系统属性 `org.langhua.mfg.vision.endpoint` / `.model` / `.key`；没配时返回 `{"ok":false,"message":…}`
-  提示手工填（**绝不报错页**），识别结果只**填入可编辑表单**、人不提交不写库。回答解析在 `MfgServices.orderFieldsFrom`
+  提示手工填（**绝不报错页**），识别结果只**填入可编辑表单**、人不提交不写库。回答解析在 `OirOrders.fieldsOfOneOrder`
   （纯函数，单测覆盖裸 JSON / ```json 围栏 / chat envelope / `reasoning_content` 四种形状），所以不联网也能测。
   请求体是 OpenAI 的 content 数组（`text` + `image_url` 的 data URL）+ `max_tokens: 4000`；
   端到端可以不用真密钥验证：起一个 `TcpListener` 假接口回一段固定回答（脚本 `mock-vision.ps1`）
@@ -288,7 +288,7 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   `mfgPurchaseReceiptList` 补了 `pageSize` IN，否则换每页条数被静默丢弃
 - **一张截图里好几张单（Step 86）**：识图的 prompt 现在要求**永远**回答
   `{\"orders\":[{orderNo,shop,orderDate,paidTotal,freight,refunded,lines}]}`（列表页 `x2` 是数量、`合计` 是实付）；
-  `MfgServices.orderListFrom(reply)` 拆成 `List<Map>`（`orderAnswerText` 先看 chat envelope 的 `content` /
+  `OirOrders.orderListFrom(reply)` 拆成 `List<Map>`（`orderAnswerText` 先看 chat envelope 的 `content` /
   `reasoning_content`，`objectTexts` + `matchingBrace` 手写扫花括号，字符串里的 `{}` 不计数），
   `orderFieldsFrom` 就是「取第一条」，老形状照旧能用。1 张单走原来的填表流程；>1 张返回
   `count` + `orders[]`（带每条 `note`），页面渲染 `#scanOrders` 核对表（`data-scan-order`），
@@ -356,7 +356,7 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
 - **识图失败就自动重试一次（Step 89）**：真人用下来十次里有一两次识别不出来，重试就好。原因查到两个：① thinking 模型把  `max_tokens` 全用在 `reasoning_content` 上、`content` 是空串（日志里 `carried no lines` 那条 13 KB 的回答就是这么来的）——
   **4000 不够，已改成 8000**；② 模型读漏了列表里的一张单却正常返回。所以 `scan` 现在**最多发 3 次**（`ATTEMPTS`，
   中间 `pause()` 700 ms，第 2、3 次用 `SHORT_PROMPT`），条件是「IOException」或「解析出 0 张单」或「模型说看到 N 张、只读出 M 张」——
-  prompt 里因此多了 `"orderCount":"N"`（`MfgServices.orderCountIn`，缺失时按 0 = 不校验）；
+  prompt 里因此多了 `"orderCount":"N"`（`OirOrders.orderCountIn`，缺失时按 0 = 不校验）；
   都不行就 `scanFailure(reply, transportProblem)` 分三种情形给话术（连不上 / 输出被截断 / 读不出订单），
   答案带 `"code":"NO_ORDERS"`；页面上失败后按钮文字变成「再试一次」。
   **实测**：同一张 3 单截图连跑 11 次，11 次都读出 3 张单（改之前大约十次里会有一两次失败）
@@ -367,7 +367,7 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   （`receivedAmount` 存 1.20、`lotUnitCost` = 金额 ÷ 数量，见 Step 57 的老口径）。
   `PROMPT`/`SHORT_PROMPT` 都写明了这条，并且“包装量不进料号”（`30K（一件100只）;1%精度;0603贴片电阻` 只取 `30K`）——
   不写这条，模型会把整行规格当料号，同一颗料每次买都成新料号。
-  **兜底**：`MfgServices.ignoredThePackSize(reply, linesOfOrders(orders))` —— 回答里出现过包装量、
+  **兜底**：`OirOrders.ignoredThePackSize(reply, linesOfOrders(orders))` —— 回答里出现过包装量、
   而每一行数量都是 1，就当作没读好再发一次（钱仍然对得上，人最难发现，比“张数对不上”隐蔽得多）。
   实测同一张 9 行截图 8 次：数量都是 `[100×8, 200]`、金额合计 15.90；导入后到货单 9 行、
   货款/合计 15.90、单价 0.0120 / 0.0300 / 0.0150
@@ -375,7 +375,7 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   旧格式 `"lines":"code\tname\tquantity\tamount"` 要模型自己转义 `\t`/`\n`，它经常出错——
   实测出现过一行金额变成 `3.24;402530`（第二件商品被第一件吞掉）、整张单丢掉、某行 code 空着。
   现在 `PROMPT`/`SHORT_PROMPT` 要的是 **`"items":[{"code","name","qty","amount"},…]`**（一件商品一个对象），
-  `MfgServices.itemsIn()` 把它读回内部的行字符串；**旧的 `lines` 仍然兼容**（mock 图、老回答照旧能用），
+  `OirOrders.itemsIn()` 把它读回内部的行字符串；**旧的 `lines` 仍然兼容**（mock 图、老回答照旧能用），
   `matchingBrace` 拆成 `matchingCloser(text, open, opening, closing)` 以便同时支持 `[]`。
   `itemsIn` 遇到 `code` 空着就用 `codeFromName(name)` 补上（和导入那条路同一个函数，核对表里看到的就是会存下去的）。
   另外两处兜底：`anyUnreadable()`（数量 ≤ 0 或金额不是数字 → 当作没读好，重发）、
@@ -384,7 +384,7 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   实测同一张两单截图连跑 4 次：4 次都是 2 张单、3 行、金额 77.99 / 3.24+2.94+运费 2.50 = 8.68
 - **长图切段识别 + 多平台口径（Step 99）**：用户反馈“一张 5 张单的图往往要识别 2、3 次”。  现在 `MfgOrderScan.slicesOf(image)` 把高于 `SLICE_HEIGHT`（900 px）的图按 150 px 重叠切成几段，
   每段单独问一次（`readPicture(picture, …, partial=true)`，**段里允许金额对不上**，因为一张单可能被切成两半），
-  再用 `MfgServices.mergeOrders()` 按订单号合并：同号是一张单，行取并集（重叠区同一行只留一次，键是 `code|qty|amount`），
+  再用 `OirOrders.mergeOrders()` 按订单号合并：同号是一张单，行取并集（重叠区同一行只留一次，键是 `code|qty|amount`），
   字段谁读到用谁的。分数保留逻辑（`answerScore`）从 `scan` 挪进 `readPicture`，每段都一样。
   `ImageIO.read` 解不开的图**原样整张发**，不要因为切图失败让扫描挂掉。
   提示词改成平台中立（淘宝 / 天猫 / 京东 / 拼多多 / 抖音），答案多一个 `platform` 字段，
@@ -399,7 +399,7 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
 - **一张单两件商品只读出一件（Step 92）**：真机截图里第二张单有两件商品（3.20×2 与 4.00×2，实付 14.40），
   模型有时只答一件，于是「货款 6.40、运费 0」对不上实付 14.40 —— 而旧的 `checkOrderTotals` 会**把差额
   8.00 改写成运费**，等于把漏掉的商品藏起来。现在：① 只要任一单「货款 + 运费 ≠ 实付」就当作没读全，
-  `scan` 自动再发一次（`MfgServices.totalsDisagree`）；② `checkOrderTotals` **只补空缺的运费，不再改写**
+  `scan` 自动再发一次（`OirOrders.totalsDisagree`）；② `checkOrderTotals` **只补空缺的运费，不再改写**
   对不上的运费，而是返回一句“实付 X，但明细 Y + 运费 Z 只有 W（差了 D），可能漏了一件商品，请核对”；
   ③ 核对表多了「实付」列，对不上的行标红「实付与明细对不上，请核对」。
   **实测**：这张两单截图连跑 4 次，第二单每次都是 2 行且货款 14.40 对得上；一单两件的行金额 = 行单价 × 数量
@@ -410,7 +410,7 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   现在 `askVision` 的请求体里带 `"thinking":{"type":"disabled"}`（读页面不是推理任务）：**同一张图 4 秒、9 张单全中**。
   兼容性是「试一次就好」：端点若不认这个字段回 400，`plainAnswerWorks` 置 false 并**去掉它重发一次**，
   之后本进程不再试。**别把这个开关删掉**，它就是 300 秒 → 4 秒的原因。
-- **切段后要「收拾」重叠与汇总行（Step 100）**：`MfgServices.tidyOrder(order)` 在金额核对之前做两件事：
+- **切段后要「收拾」重叠与汇总行（Step 100）**：`OirOrders.tidyOrder(order)` 在金额核对之前做两件事：
   ① 重叠区同一行只留一次——键是 `rowKey(code)|qty|amount`，`rowKey` 会去掉 `[交易快照]` 这类后缀
   （否则同一条会变两行、货款翻倍）；② 明细末尾多出的“汇总行”（金额等于实付或等于其余行合计）会被丢掉——
   **规则是“能对上的那一份赢”**：删掉某一行后 `其余行 + 运费 − 优惠` 能和实付对上（容差 0.06，页面自己会四舍五入）
@@ -461,7 +461,7 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   页面上就是“识别请求失败 / 识别不到”，日志里才有 `Request orderImage caused an error ...
   java.lang.StackOverflowError`）。现在是手写扫描（`indexOf` 找键 → 跳过空白 → `:` → 引号 →
   `closingQuote` 按转义找收尾引号），O(n)、无递归；单测 `readsALongAnswerWithoutBlowingTheStack` 覆盖 4000 段转义
-- **`mfg-tests-all.bat`**：`mfg-tests.bat` 只编 `MfgServices.java`，所以别的类改坏（少 `import`、private 可见性）
+- **`mfg-tests-all.bat`**：`mfg-tests.bat` 只编一个类（老脚本，`MfgServices.java` 已拆掉），所以别的类改坏（少 `import`、private 可见性）
   要等 `deploy-mfg.bat` 里的 `gradle jar` 才炸，已经两次因此部署失败；新脚本用 `@sources.txt` 编**全部源码**再跑测试。
   **javac 的 @argfile 把 `\` 当转义**，所以文件清单要用正斜杠（PowerShell 里 `-replace '\\','/'`）
 - **PowerShell 变量名不区分大小写**：画 mock 订单图的脚本里 `$SHOP`/`$shop`、`$PAID`/`$paid` 是同一个变量，
@@ -1212,8 +1212,8 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   编译报“找不到符号”）；② 给搬走的方法做限定时**要传“当前类”**，否则声明行自己也会被加上前缀
   （`static Map<String,Object> MfgRecordMaps.toLotMap(...)`）；③ 多行数组常量的 `{` 会让花括号深度错位，
   记完一个常量块后要把 `$i` 跳到块尾。
-  现在 `MfgServicesTest.java`（约 5 000 行、177 个用例）名字已经名不副实——**`mfg-tests-all.bat` 按类名跑它**，
-  改名要同时改那个脚本。**Step 173 已经按域拆成六个类**（见上面测试表），`mfg-tests-all.bat` 改成编译
+  **测试类当时还是那一个** `MfgServicesTest.java`（约 5 000 行、177 个用例，名不副实但脚本按类名跑它），
+  **Step 173 已按域拆成六个类**（见上面测试表）：`mfg-tests-all.bat` 改成编译
   `src/test/java/org/langhua/ofbiz/mfg` 下**全部** `*.java`、然后一次跑这六个类名。
 - **库存 / 开发 / 报表搬完，`MfgServices` 只剩 885 行（Step 171）**：78 个方法、`MfgServices` **4197 → 885 行**，
   `services.xml` 里 **36 个服务**改指三个新类，服务总数仍是 121：
