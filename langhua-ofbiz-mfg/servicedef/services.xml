@@ -944,7 +944,7 @@
     </service>
 
     <service name="mfgSalesOrderSave" engine="java"
-            location="org.langhua.ofbiz.mfg.MfgServices" invoke="salesOrderSave"
+            location="org.langhua.ofbiz.mfg.MfgSalesOrderServices" invoke="salesOrderSave"
             auth="false" use-transaction="false">
         <description>Save a sales order with its lines, then reserve what the shelf can cover</description>
         <attribute name="salesOrderId" type="String" mode="IN" optional="true"/>
@@ -963,7 +963,7 @@
     </service>
 
     <service name="mfgSalesOrderReserve" engine="java"
-            location="org.langhua.ofbiz.mfg.MfgServices" invoke="salesOrderReserve"
+            location="org.langhua.ofbiz.mfg.MfgSalesOrderServices" invoke="salesOrderReserve"
             auth="false" use-transaction="false">
         <description>Lock the finished goods that the shelf can cover for a sales order, oldest lot first</description>
         <attribute name="salesOrderId" type="String" mode="IN" optional="false"/>
@@ -975,7 +975,7 @@
     </service>
 
     <service name="mfgSalesOrderPlan" engine="java"
-            location="org.langhua.ofbiz.mfg.MfgServices" invoke="salesOrderPlan"
+            location="org.langhua.ofbiz.mfg.MfgSalesOrderServices" invoke="salesOrderPlan"
             auth="false" use-transaction="false">
         <description>Put the units the shelf cannot cover into production, one work order per line</description>
         <attribute name="salesOrderId" type="String" mode="IN" optional="false"/>
@@ -986,7 +986,7 @@
     </service>
 
     <service name="mfgSalesOrderClose" engine="java"
-            location="org.langhua.ofbiz.mfg.MfgServices" invoke="salesOrderClose"
+            location="org.langhua.ofbiz.mfg.MfgSalesOrderServices" invoke="salesOrderClose"
             auth="false" use-transaction="false">
         <description>Close a sales order and give every reservation it holds back to the shelf</description>
         <attribute name="salesOrderId" type="String" mode="IN" optional="false"/>
@@ -997,7 +997,7 @@
     </service>
 
     <service name="mfgSalesOrderLineQty" engine="java"
-            location="org.langhua.ofbiz.mfg.MfgServices" invoke="salesOrderLineQty"
+            location="org.langhua.ofbiz.mfg.MfgSalesOrderServices" invoke="salesOrderLineQty"
             auth="false" use-transaction="false">
         <description>Change the quantity of one order line from the list page</description>
         <attribute name="salesOrderId" type="String" mode="IN" optional="false"/>
@@ -1015,7 +1015,7 @@
     </service>
 
     <service name="mfgSalesOrderList" engine="java"
-            location="org.langhua.ofbiz.mfg.MfgServices" invoke="salesOrderList"
+            location="org.langhua.ofbiz.mfg.MfgSalesOrderServices" invoke="salesOrderList"
             auth="false" use-transaction="false">
         <description>Sales orders with what each one still owes</description>
         <attribute name="search" type="String" mode="IN" optional="true"/>
@@ -1033,7 +1033,7 @@
     </service>
 
     <service name="mfgSalesOrderDetail" engine="java"
-            location="org.langhua.ofbiz.mfg.MfgServices" invoke="salesOrderDetail"
+            location="org.langhua.ofbiz.mfg.MfgSalesOrderServices" invoke="salesOrderDetail"
             auth="false" use-transaction="false">
         <description>One sales order with its lines, its reservations and the work orders it started</description>
         <attribute name="salesOrderId" type="String" mode="IN" optional="true"/>
@@ -1069,7 +1069,7 @@
     </service>
 
     <service name="mfgPurchaseReceiptSave" engine="java"
-            location="org.langhua.ofbiz.mfg.MfgServices" invoke="purchaseReceiptSave"
+            location="org.langhua.ofbiz.mfg.MfgPurchaseServices" invoke="purchaseReceiptSave"
             auth="false" use-transaction="false">
         <description>Save the head of a purchase receipt: supplier, shop order number, arrival day and freight. The freight is a period cost, it is not spread over the part prices</description>
         <attribute name="receiptId" type="String" mode="IN" optional="true"/>
@@ -1085,7 +1085,7 @@
     </service>
 
     <service name="mfgPurchaseReceiptLineSave" engine="java"
-            location="org.langhua.ofbiz.mfg.MfgServices" invoke="purchaseReceiptLineSave"
+            location="org.langhua.ofbiz.mfg.MfgPurchaseServices" invoke="purchaseReceiptLineSave"
             auth="false" use-transaction="false">
         <description>Put a received lot on a receipt, correct a line, or delete it (delete=Y)</description>
         <attribute name="receiptId" type="String" mode="IN" optional="false"/>
@@ -1101,7 +1101,7 @@
     </service>
 
     <service name="mfgPurchaseReceiptVoid" engine="java"
-            location="org.langhua.ofbiz.mfg.MfgServices" invoke="purchaseReceiptVoid"
+            location="org.langhua.ofbiz.mfg.MfgPurchaseServices" invoke="purchaseReceiptVoid"
             auth="false" use-transaction="true">
         <description>Void a purchase receipt: it stays as the record (who, when, why) but drops out of every total, and its lots count as free again. The lots, the stock and the ledger stay as they are</description>
         <attribute name="receiptId" type="String" mode="IN" optional="false"/>
@@ -1112,7 +1112,7 @@
     </service>
 
     <service name="mfgPurchaseReceiptRestore" engine="java"
-            location="org.langhua.ofbiz.mfg.MfgServices" invoke="purchaseReceiptRestore"
+            location="org.langhua.ofbiz.mfg.MfgPurchaseServices" invoke="purchaseReceiptRestore"
             auth="false" use-transaction="true">
         <description>Put a voided receipt back into force, for the void that was a mistake itself</description>
         <attribute name="receiptId" type="String" mode="IN" optional="false"/>
@@ -1121,7 +1121,7 @@
     </service>
 
     <service name="mfgPurchaseReceiptList" engine="java"
-            location="org.langhua.ofbiz.mfg.MfgServices" invoke="purchaseReceiptList"
+            location="org.langhua.ofbiz.mfg.MfgPurchaseServices" invoke="purchaseReceiptList"
             auth="false" use-transaction="false">
         <description>The purchase receipts with goods value, freight and the total spent</description>
         <attribute name="search" type="String" mode="IN" optional="true"/>
@@ -1143,7 +1143,7 @@
     </service>
 
     <service name="mfgPurchaseReceiptDetail" engine="java"
-            location="org.langhua.ofbiz.mfg.MfgServices" invoke="purchaseReceiptDetail"
+            location="org.langhua.ofbiz.mfg.MfgPurchaseServices" invoke="purchaseReceiptDetail"
             auth="false" use-transaction="false">
         <description>One receipt with its lines, the totals and the lots that are not on a receipt yet</description>
         <attribute name="receiptId" type="String" mode="IN" optional="true"/>
@@ -1184,7 +1184,7 @@
     </service>
 
     <service name="mfgReceiptFromOrder" engine="java"
-            location="org.langhua.ofbiz.mfg.MfgServices" invoke="receiptFromOrder"
+            location="org.langhua.ofbiz.mfg.MfgPurchaseServices" invoke="receiptFromOrder"
             auth="false" use-transaction="true">
         <description>Create a receipt from the lines of a shop order and book every line into stock in one go: order number first, then code,name,quantity,amount per line. The order number makes it idempotent; the whole import is one transaction, so a failure leaves neither a lot nor a movement behind</description>
         <attribute name="supplierOrderNo" type="String" mode="IN" optional="true"/>
@@ -1213,7 +1213,7 @@
     </service>
 
     <service name="mfgReceiptLinesOfOrder" engine="java"
-            location="org.langhua.ofbiz.mfg.MfgServices" invoke="receiptLinesOfOrder"
+            location="org.langhua.ofbiz.mfg.MfgPurchaseServices" invoke="receiptLinesOfOrder"
             auth="false" use-transaction="false">
         <description>The lines of the receipt of one shop order, so the page can ask before an order that is already in is booked a second time</description>
         <attribute name="supplierOrderNo" type="String" mode="IN" optional="true"/>
@@ -1222,7 +1222,7 @@
     </service>
 
     <service name="mfgRefundedOrderSave" engine="java"
-            location="org.langhua.ofbiz.mfg.MfgServices" invoke="refundedOrderSave"
+            location="org.langhua.ofbiz.mfg.MfgPurchaseServices" invoke="refundedOrderSave"
             auth="false" use-transaction="false">
         <description>Put a shop order on the refunded list by hand, so it cannot be booked into stock</description>
         <attribute name="orderNo" type="String" mode="IN" optional="false"/>
@@ -1232,7 +1232,7 @@
     </service>
 
     <service name="mfgRefundedOrderDelete" engine="java"
-            location="org.langhua.ofbiz.mfg.MfgServices" invoke="refundedOrderDelete"
+            location="org.langhua.ofbiz.mfg.MfgPurchaseServices" invoke="refundedOrderDelete"
             auth="false" use-transaction="false">
         <description>Take a shop order off the refunded list again, for the times it was marked by mistake</description>
         <attribute name="orderNo" type="String" mode="IN" optional="false"/>
@@ -1240,7 +1240,7 @@
     </service>
 
     <service name="mfgRefundedOrderList" engine="java"
-            location="org.langhua.ofbiz.mfg.MfgServices" invoke="refundedOrderList"
+            location="org.langhua.ofbiz.mfg.MfgPurchaseServices" invoke="refundedOrderList"
             auth="false" use-transaction="false">
         <description>The shop orders that are kept out of the stock, newest first</description>
         <attribute name="refundedOrders" type="java.util.List" mode="OUT" optional="true"/>
@@ -1546,7 +1546,7 @@
     </service>
 
     <service name="mfgPurchaseFreightTrend" engine="java"
-            location="org.langhua.ofbiz.mfg.MfgServices" invoke="purchaseFreightTrend"
+            location="org.langhua.ofbiz.mfg.MfgPurchaseServices" invoke="purchaseFreightTrend"
             auth="false" use-transaction="false">
         <description>Purchase spend per period (day, week or month): goods value, freight and the freight as a share of the goods value</description>
         <attribute name="fromDate" type="String" mode="IN" optional="true"/>

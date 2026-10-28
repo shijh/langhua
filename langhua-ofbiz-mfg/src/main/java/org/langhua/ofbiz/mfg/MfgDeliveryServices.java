@@ -144,9 +144,9 @@ public final class MfgDeliveryServices {
                             continue;
                         }
                         long lineSeq = item.getLong("lineSeq").longValue();
-                        double lineReserved = MfgServices.orderLineReserved(delegator, salesOrderId, lineSeq);
+                        double lineReserved = MfgSalesOrderServices.orderLineReserved(delegator, salesOrderId, lineSeq);
                         // what the order already locked counts as shippable, its open quantity too
-                        shippable += lineReserved + MfgServices.openQtyOf(MfgSupport.numberOrZero(item.get("qty")), lineReserved,
+                        shippable += lineReserved + MfgSalesOrderServices.openQtyOf(MfgSupport.numberOrZero(item.get("qty")), lineReserved,
                                 MfgSupport.numberOrZero(item.get("shippedQty")));
                     }
                     if (shippable + 0.0001 < entry.getValue().intValue()) {
@@ -380,8 +380,8 @@ public final class MfgDeliveryServices {
                     continue;
                 }
                 long lineSeq = item.getLong("lineSeq").longValue();
-                double reserved = MfgServices.orderLineReserved(delegator, salesOrderId, lineSeq);
-                double shippable = reserved + MfgServices.openQtyOf(MfgSupport.numberOrZero(item.get("qty")), reserved,
+                double reserved = MfgSalesOrderServices.orderLineReserved(delegator, salesOrderId, lineSeq);
+                double shippable = reserved + MfgSalesOrderServices.openQtyOf(MfgSupport.numberOrZero(item.get("qty")), reserved,
                         MfgSupport.numberOrZero(item.get("shippedQty")));
                 if (shippable <= 0.0001) {
                     continue;
@@ -419,7 +419,7 @@ public final class MfgDeliveryServices {
     static double releaseOrderLineUnit(Delegator delegator, String salesOrderId, long lineSeq,
             String productCode, double qty, String operatorName, String note) throws GenericEntityException {
         double remaining = qty;
-        for (GenericValue lot : MfgServices.productLotsOf(delegator, productCode)) {
+        for (GenericValue lot : MfgSalesOrderServices.productLotsOf(delegator, productCode)) {
             if (remaining <= 0.0001) {
                 break;
             }
@@ -436,7 +436,7 @@ public final class MfgDeliveryServices {
                 continue;
             }
             double release = Math.min(remaining, reserved);
-            MfgServices.recordOrderReservation(delegator, lot, MfgServices.MOVE_RELEASE, -release, salesOrderId, lineSeq,
+            MfgSalesOrderServices.recordOrderReservation(delegator, lot, MfgServices.MOVE_RELEASE, -release, salesOrderId, lineSeq,
                     operatorName, note);
             MfgStockLedger.recalcLotStock(delegator, lot);
             remaining = MfgSupport.round2(remaining - release);

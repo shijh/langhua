@@ -1149,6 +1149,24 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   **踩坑**：把仓库里那份（`https="true"`）直接 copy 到**测试实例**会冲掉 `relax-test-https.ps1` 的改动，
   页面立刻 302 到 `https://localhost:8443`（看着像“改坏了”）——copy 完要对测试实例重跑那个脚本
   （这次它报了 113 个 request map）。回归：m50 13 项、m49 14 项、m43 15 项全过。
+- **销售单与采购到货搬进 `MfgSalesOrderServices` / `MfgPurchaseServices`（Step 170）**：50 个方法、
+  `MfgServices` **6264 → 4197 行**，`services.xml` 里 **19 个服务**改指新类：
+  - `MfgSalesOrderServices`（814 行，7 个服务）：`mfgSalesOrderSave` / `List` / `Detail` / `Plan` / `Reserve` /
+    `Close` / `LineQty` + `reserveSalesOrder` / `releaseSalesOrder` / `releaseOrderLine` / `reserveOrderLine` /
+    `recordOrderReservation` / `orderLineMaps` / `toSalesOrderMap` / `openQtyOf` / `orderLineReserved` /
+    `productLotsOf` / `productLots` / `productionQtyOf` / `inProductionOf` / `nextSalesOrderId`；
+  - `MfgPurchaseServices`（1325 行，12 个服务）：`mfgPurchaseReceiptSave` / `LineSave` / `List` / `Detail` /
+    `Void` / `Restore`、`mfgPurchaseFreightTrend`、`mfgReceiptFromOrder` / `mfgReceiptLinesOfOrder`、
+    `mfgRefundedOrderSave` / `List` / `Delete` + `receiptSummary`（两个重载）/ `statusOfReceipt` /
+    `freeReceiptLineSeq` / `nextReceiptId` / `nextReceiptLineSeq` / `receiptLineId` / `toReceiptMap` /
+    `toReceiptLineMap` / `mergeOrderLine` / `claimOne` / `firstSentence` / `receiptImportFailure` /
+    `rememberRefundedOrder`(+`InNewTransaction`) / `refundedOrderProblem` / `lotLineKey`。
+  **留在 `MfgServices`**：`formatLotId` / `nextLotId`（批次编号，库存那半还要用）、`fittingComponentCode` /
+  `nameWithFullCode`（`oir`、`MfgOrderExcel`、`lotImportCsv` 都在调）、`permissionProblem` / `parseTrailingNumber`。
+  **这一步动了已搬走的类**：出货的 `MfgDeliveryServices` 与工单的 `MfgWorkOrderServices` 原来写
+  `MfgServices.orderLineReserved/openQtyOf/productLotsOf/recordOrderReservation/reserveOrderLine`，
+  现在要写 `MfgSalesOrderServices.…`（8 处）——**搬“被别的域用到的助手”时，先看已经搬走的类里有没有引用**。
+  验证：编译 0 错、单测 177、`mfg-it.bat` 433/433、`verify-m37` 26、`verify-m46` 76 全过，三套实例都换了新 jar。
 - **出货与售后搬进 `MfgDeliveryServices` / `MfgClaimServices`（Step 169，第 4 步的 c 半）**：44 个方法、
   `MfgServices` **8112 → 6264 行**，`services.xml` 里 **14 个服务**改指新类：
   - `MfgDeliveryServices`（446 行，3 个服务）：`mfgDeliveryList` / `mfgDeliverySave` / `mfgDeliveryDetail` +

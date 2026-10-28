@@ -567,7 +567,7 @@ public class MfgServicesTest {
         lines.add(receiptLine(2.0));
         lines.add(receiptLine(60.0));
 
-        Map<String, Object> summary = MfgServices.receiptSummary(lines, 8.0);
+        Map<String, Object> summary = MfgPurchaseServices.receiptSummary(lines, 8.0);
         assertEquals(2, summary.get("lineCount"));
         assertEquals(62.0, ((Double) summary.get("goodsTotal")).doubleValue(), 0.001);
         assertEquals(8.0, ((Double) summary.get("freightTotal")).doubleValue(), 0.001);
@@ -576,7 +576,7 @@ public class MfgServicesTest {
         assertEquals(12.9, ((Double) summary.get("freightShare")).doubleValue(), 0.001);
 
         // a receipt without lines must not divide by zero
-        Map<String, Object> empty = MfgServices.receiptSummary(new java.util.ArrayList<Map<String, Object>>(), 8.0);
+        Map<String, Object> empty = MfgPurchaseServices.receiptSummary(new java.util.ArrayList<Map<String, Object>>(), 8.0);
         assertEquals(0.0, ((Double) empty.get("freightShare")).doubleValue(), 0.001);
         assertEquals(8.0, ((Double) empty.get("spendTotal")).doubleValue(), 0.001);
     }
@@ -729,7 +729,7 @@ public class MfgServicesTest {
         l2.put("goodsAmount", Double.valueOf(3.00));
         lines.add(l1);
         lines.add(l2);
-        Map<String, Object> summary = MfgServices.receiptSummary(lines, 2.00, 0.27);
+        Map<String, Object> summary = MfgPurchaseServices.receiptSummary(lines, 2.00, 0.27);
         assertEquals(9.00, ((Double) summary.get("goodsTotal")).doubleValue(), 0.001);
         assertEquals(2.00, ((Double) summary.get("freightTotal")).doubleValue(), 0.001);
         assertEquals(0.27, ((Double) summary.get("discountTotal")).doubleValue(), 0.001);
@@ -3486,22 +3486,22 @@ public class MfgServicesTest {
 
     @Test
     public void keepsOnlyWhatTheOrderStillOwes() {
-        assertEquals(10.0, MfgServices.openQtyOf(10.0, 0.0, 0.0), 1e-9);
+        assertEquals(10.0, MfgSalesOrderServices.openQtyOf(10.0, 0.0, 0.0), 1e-9);
         // 10 ordered, 4 on the shelf, 2 already out of the door
-        assertEquals(4.0, MfgServices.openQtyOf(10.0, 4.0, 2.0), 1e-9);
+        assertEquals(4.0, MfgSalesOrderServices.openQtyOf(10.0, 4.0, 2.0), 1e-9);
         // over reserved or over shipped never gives a negative
-        assertEquals(0.0, MfgServices.openQtyOf(5.0, 6.0, 0.0), 1e-9);
-        assertEquals(0.0, MfgServices.openQtyOf(5.0, 0.0, 6.0), 1e-9);
+        assertEquals(0.0, MfgSalesOrderServices.openQtyOf(5.0, 6.0, 0.0), 1e-9);
+        assertEquals(0.0, MfgSalesOrderServices.openQtyOf(5.0, 0.0, 6.0), 1e-9);
     }
 
     @Test
     public void plansOnlyTheUnitsProductionWillNotCover() {
         // 10 ordered, 4 locked from the shelf, 3 more coming: 3 have to be planned
-        assertEquals(3.0, MfgServices.productionQtyOf(10.0, 4.0, 0.0, 3.0), 1e-9);
+        assertEquals(3.0, MfgSalesOrderServices.productionQtyOf(10.0, 4.0, 0.0, 3.0), 1e-9);
         // production already covers what is still owed
-        assertEquals(0.0, MfgServices.productionQtyOf(10.0, 4.0, 0.0, 9.0), 1e-9);
+        assertEquals(0.0, MfgSalesOrderServices.productionQtyOf(10.0, 4.0, 0.0, 9.0), 1e-9);
         // what is already shipped is not planned again
-        assertEquals(2.0, MfgServices.productionQtyOf(10.0, 4.0, 4.0, 0.0), 1e-9);
+        assertEquals(2.0, MfgSalesOrderServices.productionQtyOf(10.0, 4.0, 4.0, 0.0), 1e-9);
     }
 
     @Test
@@ -3681,7 +3681,7 @@ public class MfgServicesTest {
     @Test
     public void explainsAnOrderImportThatClashed() throws Exception {
         // a second import of the same order, or a second click while the first is still running
-        String clashed = MfgServices.receiptImportFailure(new org.apache.ofbiz.entity.GenericEntityException(
+        String clashed = MfgPurchaseServices.receiptImportFailure(new org.apache.ofbiz.entity.GenericEntityException(
                 "Error while inserting: [GenericEntity:MfgPurchaseReceiptLine] (SQL Exception while executing the"
                         + " following:INSERT INTO OFBIZ.MFG_PURCHASE_RECEIPT_LINE ... duplicate key value in a"
                         + " unique or primary key constraint)"));
@@ -3692,7 +3692,7 @@ public class MfgServicesTest {
 
     @Test
     public void explainsAnOrderImportThatWasTooLong() throws Exception {
-        String tooLong = MfgServices.receiptImportFailure(new org.apache.ofbiz.entity.GenericEntityException(
+        String tooLong = MfgPurchaseServices.receiptImportFailure(new org.apache.ofbiz.entity.GenericEntityException(
                 "A truncation error was encountered trying to shrink VARCHAR 'x' to length 100"));
         assertTrue(tooLong.contains("100"));
         assertTrue(tooLong.contains("料号"));
@@ -3700,7 +3700,7 @@ public class MfgServicesTest {
 
     @Test
     public void keepsOnlyTheReasonOfAnotherImportFailure() throws Exception {
-        String other = MfgServices.receiptImportFailure(new org.apache.ofbiz.entity.GenericEntityException(
+        String other = MfgPurchaseServices.receiptImportFailure(new org.apache.ofbiz.entity.GenericEntityException(
                 "Something odd happened. (SQL Exception while executing ...)"));
         assertTrue(other.startsWith("导入失败"));
         assertTrue(other.contains("Something odd happened."));

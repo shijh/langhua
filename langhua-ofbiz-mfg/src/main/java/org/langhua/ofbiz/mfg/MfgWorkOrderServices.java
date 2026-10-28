@@ -1671,11 +1671,11 @@ public final class MfgWorkOrderServices {
             for (GenericValue item : EntityQuery.use(delegator).from("MfgSalesOrderItem")
                     .where("workOrderId", workOrderId).queryList()) {
                 long lineSeq = item.getLong("lineSeq").longValue();
-                double need = MfgServices.openQtyOf(MfgSupport.numberOrZero(item.get("qty")),
-                        MfgServices.orderLineReserved(delegator, item.getString("salesOrderId"), lineSeq),
+                double need = MfgSalesOrderServices.openQtyOf(MfgSupport.numberOrZero(item.get("qty")),
+                        MfgSalesOrderServices.orderLineReserved(delegator, item.getString("salesOrderId"), lineSeq),
                         MfgSupport.numberOrZero(item.get("shippedQty")));
                 if (need > 0.0001) {
-                    MfgServices.reserveOrderLine(delegator, item.getString("salesOrderId"), item, need,
+                    MfgSalesOrderServices.reserveOrderLine(delegator, item.getString("salesOrderId"), item, need,
                             MfgSupport.toText(context.get("operatorName")));
                 }
             }
