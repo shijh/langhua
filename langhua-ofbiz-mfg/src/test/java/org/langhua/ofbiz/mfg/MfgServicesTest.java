@@ -3121,61 +3121,61 @@ public class MfgServicesTest {
 
     @Test
     public void knowsTheAllowedPhotoTypes() {
-        assertTrue(MfgServices.isAllowedImageType("image/jpeg"));
-        assertTrue(MfgServices.isAllowedImageType("image/png"));
-        assertTrue(MfgServices.isAllowedImageType("IMAGE/GIF"));
-        assertTrue(MfgServices.isAllowedImageType("  image/png  "));
-        assertTrue(!MfgServices.isAllowedImageType("image/webp"));
-        assertTrue(!MfgServices.isAllowedImageType("application/pdf"));
-        assertTrue(!MfgServices.isAllowedImageType(""));
-        assertTrue(!MfgServices.isAllowedImageType(null));
+        assertTrue(MfgAttachmentServices.isAllowedImageType("image/jpeg"));
+        assertTrue(MfgAttachmentServices.isAllowedImageType("image/png"));
+        assertTrue(MfgAttachmentServices.isAllowedImageType("IMAGE/GIF"));
+        assertTrue(MfgAttachmentServices.isAllowedImageType("  image/png  "));
+        assertTrue(!MfgAttachmentServices.isAllowedImageType("image/webp"));
+        assertTrue(!MfgAttachmentServices.isAllowedImageType("application/pdf"));
+        assertTrue(!MfgAttachmentServices.isAllowedImageType(""));
+        assertTrue(!MfgAttachmentServices.isAllowedImageType(null));
     }
 
     @Test
     public void guessesThePhotoTypeFromTheFileName() {
-        assertEquals("image/jpeg", MfgServices.imageTypeOfFileName("front.JPG"));
-        assertEquals("image/jpeg", MfgServices.imageTypeOfFileName("C:\\photos\\back.jpeg"));
-        assertEquals("image/png", MfgServices.imageTypeOfFileName("board.png"));
-        assertEquals("image/gif", MfgServices.imageTypeOfFileName("anim.Gif"));
-        assertEquals("application/pdf", MfgServices.imageTypeOfFileName("report.pdf"));
-        assertNull(MfgServices.imageTypeOfFileName("notes.txt"));
-        assertNull(MfgServices.imageTypeOfFileName("noextension"));
-        assertNull(MfgServices.imageTypeOfFileName(null));
+        assertEquals("image/jpeg", MfgAttachmentServices.imageTypeOfFileName("front.JPG"));
+        assertEquals("image/jpeg", MfgAttachmentServices.imageTypeOfFileName("C:\\photos\\back.jpeg"));
+        assertEquals("image/png", MfgAttachmentServices.imageTypeOfFileName("board.png"));
+        assertEquals("image/gif", MfgAttachmentServices.imageTypeOfFileName("anim.Gif"));
+        assertEquals("application/pdf", MfgAttachmentServices.imageTypeOfFileName("report.pdf"));
+        assertNull(MfgAttachmentServices.imageTypeOfFileName("notes.txt"));
+        assertNull(MfgAttachmentServices.imageTypeOfFileName("noextension"));
+        assertNull(MfgAttachmentServices.imageTypeOfFileName(null));
     }
 
     @Test
     public void allowsImagesAndPdfOnly() {
-        assertTrue(MfgServices.isAllowedAttachmentType("image/png"));
-        assertTrue(MfgServices.isAllowedAttachmentType("application/pdf"));
-        assertTrue(MfgServices.isAllowedAttachmentType("APPLICATION/PDF"));
-        assertTrue(!MfgServices.isAllowedAttachmentType("text/plain"));
-        assertTrue(!MfgServices.isAllowedAttachmentType("application/zip"));
-        assertTrue(!MfgServices.isAllowedAttachmentType(null));
+        assertTrue(MfgAttachmentServices.isAllowedAttachmentType("image/png"));
+        assertTrue(MfgAttachmentServices.isAllowedAttachmentType("application/pdf"));
+        assertTrue(MfgAttachmentServices.isAllowedAttachmentType("APPLICATION/PDF"));
+        assertTrue(!MfgAttachmentServices.isAllowedAttachmentType("text/plain"));
+        assertTrue(!MfgAttachmentServices.isAllowedAttachmentType("application/zip"));
+        assertTrue(!MfgAttachmentServices.isAllowedAttachmentType(null));
         // the pdf is not an image, so it never gets a thumbnail
-        assertTrue(!MfgServices.isAllowedImageType("application/pdf"));
+        assertTrue(!MfgAttachmentServices.isAllowedImageType("application/pdf"));
     }
 
     @Test
     public void knowsTheAttachmentOwnerTypes() {
-        assertTrue(MfgServices.isKnownAttachmentOwnerType("MFG_ATT_PRODUCT"));
-        assertTrue(MfgServices.isKnownAttachmentOwnerType("MFG_ATT_DEV_PROJECT"));
-        assertTrue(MfgServices.isKnownAttachmentOwnerType("MFG_ATT_WORK_ORDER"));
-        assertTrue(MfgServices.isKnownAttachmentOwnerType("MFG_ATT_DELIVERY"));
-        assertTrue(MfgServices.isKnownAttachmentOwnerType("MFG_ATT_CLAIM"));
-        assertTrue(!MfgServices.isKnownAttachmentOwnerType("MFG_ATT_BOGUS"));
-        assertTrue(!MfgServices.isKnownAttachmentOwnerType(null));
+        assertTrue(MfgAttachmentServices.isKnownAttachmentOwnerType("MFG_ATT_PRODUCT"));
+        assertTrue(MfgAttachmentServices.isKnownAttachmentOwnerType("MFG_ATT_DEV_PROJECT"));
+        assertTrue(MfgAttachmentServices.isKnownAttachmentOwnerType("MFG_ATT_WORK_ORDER"));
+        assertTrue(MfgAttachmentServices.isKnownAttachmentOwnerType("MFG_ATT_DELIVERY"));
+        assertTrue(MfgAttachmentServices.isKnownAttachmentOwnerType("MFG_ATT_CLAIM"));
+        assertTrue(!MfgAttachmentServices.isKnownAttachmentOwnerType("MFG_ATT_BOGUS"));
+        assertTrue(!MfgAttachmentServices.isKnownAttachmentOwnerType(null));
     }
 
     @Test
     public void cleansUploadedFileNames() {
-        assertEquals("photo.png", MfgServices.cleanFileName("C:\\Users\\me\\Pictures\\photo.png"));
-        assertEquals("photo.png", MfgServices.cleanFileName("/tmp/photo.png"));
+        assertEquals("photo.png", MfgAttachmentServices.cleanFileName("C:\\Users\\me\\Pictures\\photo.png"));
+        assertEquals("photo.png", MfgAttachmentServices.cleanFileName("/tmp/photo.png"));
         // characters outside letters, digits and dot dash underscore become underscores
-        String cleaned = MfgServices.cleanFileName("外壳 正面.jpg");
+        String cleaned = MfgAttachmentServices.cleanFileName("外壳 正面.jpg");
         assertTrue("expected only underscores and the extension, got " + cleaned, cleaned.matches("_+\\.jpg"));
-        assertEquals("file", MfgServices.cleanFileName(""));
-        assertEquals("file", MfgServices.cleanFileName(null));
-        assertTrue(MfgServices.cleanFileName("a".repeat(200) + ".png").length() <= 60);
+        assertEquals("file", MfgAttachmentServices.cleanFileName(""));
+        assertEquals("file", MfgAttachmentServices.cleanFileName(null));
+        assertTrue(MfgAttachmentServices.cleanFileName("a".repeat(200) + ".png").length() <= 60);
     }
 
     @Test
@@ -3252,7 +3252,7 @@ public class MfgServicesTest {
     @Test
     public void quotesSoftwareFromFunctionPoints() {
         // the 2019 assessment case: 10 function points, SWF 1, PDR 40, 880 per person day
-        java.util.Map<String, Object> cost = MfgServices.softwareCost(0.0, 0.0, Double.valueOf(10.0),
+        java.util.Map<String, Object> cost = MfgSoftwareServices.softwareCost(0.0, 0.0, Double.valueOf(10.0),
                 1.0, 0.0, 0.0, 0.0, 1.0, 40.0, 880.0, 0.06, 0.05);
 
         assertEquals(10.0, ((Double) cost.get("ufp")).doubleValue(), 1e-9);
@@ -3271,7 +3271,7 @@ public class MfgServicesTest {
     @Test
     public void countsFunctionPointsWhenTheyAreNotGiven() {
         // UFP = 35 x ILF + 15 x EIF, and the four software factors add up
-        java.util.Map<String, Object> cost = MfgServices.softwareCost(4.0, 2.0, null,
+        java.util.Map<String, Object> cost = MfgSoftwareServices.softwareCost(4.0, 2.0, null,
                 1.5, -0.5, 0.1, 0.05, 1.0, 40.0, 880.0, 0.06, 0.05);
 
         assertEquals(170.0, ((Double) cost.get("ufp")).doubleValue(), 1e-9);
@@ -3569,31 +3569,31 @@ public class MfgServicesTest {
     @Test
     public void normalizesAccountNames() {
         // trimmed and lowered, so Admin and admin cannot become two accounts
-        assertEquals("zhang.san", MfgServices.normalizeAccountName("  Zhang.San  "));
-        assertEquals("wh-01", MfgServices.normalizeAccountName("WH-01"));
-        assertNull(MfgServices.normalizeAccountName("   "));
-        assertNull(MfgServices.normalizeAccountName(null));
+        assertEquals("zhang.san", MfgAccountServices.normalizeAccountName("  Zhang.San  "));
+        assertEquals("wh-01", MfgAccountServices.normalizeAccountName("WH-01"));
+        assertNull(MfgAccountServices.normalizeAccountName("   "));
+        assertNull(MfgAccountServices.normalizeAccountName(null));
     }
 
     @Test
     public void checksAccountNames() {
-        assertNull(MfgServices.accountNameProblem("zhang.san"));
-        assertNull(MfgServices.accountNameProblem("wh_01"));
-        assertNull(MfgServices.accountNameProblem("a1234567890123456789"));
+        assertNull(MfgAccountServices.accountNameProblem("zhang.san"));
+        assertNull(MfgAccountServices.accountNameProblem("wh_01"));
+        assertNull(MfgAccountServices.accountNameProblem("a1234567890123456789"));
         // empty, too long (the field is id-ne = 20) or with characters OFBiz does not expect
-        assertEquals("账号不能为空", MfgServices.accountNameProblem(null));
-        assertEquals("账号最多 20 个字符", MfgServices.accountNameProblem("a12345678901234567890"));
-        assertEquals("账号只能用字母、数字、点、下划线、短横线", MfgServices.accountNameProblem("张 三"));
-        assertEquals("账号只能用字母、数字、点、下划线、短横线", MfgServices.accountNameProblem("zhang san"));
+        assertEquals("账号不能为空", MfgAccountServices.accountNameProblem(null));
+        assertEquals("账号最多 20 个字符", MfgAccountServices.accountNameProblem("a12345678901234567890"));
+        assertEquals("账号只能用字母、数字、点、下划线、短横线", MfgAccountServices.accountNameProblem("张 三"));
+        assertEquals("账号只能用字母、数字、点、下划线、短横线", MfgAccountServices.accountNameProblem("zhang san"));
     }
 
     @Test
     public void joinsThePersonName() {
-        assertEquals("张 三", MfgServices.displayNameOf("张", null, "三"));
-        assertEquals("San Zhang", MfgServices.displayNameOf("San", null, "Zhang"));
+        assertEquals("张 三", MfgAccountServices.displayNameOf("张", null, "三"));
+        assertEquals("San Zhang", MfgAccountServices.displayNameOf("San", null, "Zhang"));
         // the middle name is rare here but must not leave a double space
-        assertEquals("San Q Zhang", MfgServices.displayNameOf("San", "Q", "Zhang"));
-        assertEquals("", MfgServices.displayNameOf(null, "  ", null));
+        assertEquals("San Q Zhang", MfgAccountServices.displayNameOf("San", "Q", "Zhang"));
+        assertEquals("", MfgAccountServices.displayNameOf(null, "  ", null));
     }
 
     @Test
@@ -3669,13 +3669,13 @@ public class MfgServicesTest {
     @Test
     public void checksTheNewPassword() {
         // too short, typed twice differently, or the same as the current one
-        assertEquals("新密码至少 5 个字符", MfgServices.passwordProblem("ofbiz", "abcd", "abcd"));
-        assertEquals("新密码至少 5 个字符", MfgServices.passwordProblem("ofbiz", null, "abcd1234"));
-        assertEquals("两次输入的新密码不一致", MfgServices.passwordProblem("ofbiz", "abcde", "abcdef"));
-        assertEquals("两次输入的新密码不一致", MfgServices.passwordProblem("ofbiz", "abcde", null));
-        assertEquals("新密码不能和当前密码相同", MfgServices.passwordProblem("ofbiz", "ofbiz", "ofbiz"));
-        assertNull(MfgServices.passwordProblem("ofbiz", "Mfg2026", "Mfg2026"));
-        assertNull(MfgServices.passwordProblem(null, "Mfg2026", "Mfg2026"));
+        assertEquals("新密码至少 5 个字符", MfgAccountServices.passwordProblem("ofbiz", "abcd", "abcd"));
+        assertEquals("新密码至少 5 个字符", MfgAccountServices.passwordProblem("ofbiz", null, "abcd1234"));
+        assertEquals("两次输入的新密码不一致", MfgAccountServices.passwordProblem("ofbiz", "abcde", "abcdef"));
+        assertEquals("两次输入的新密码不一致", MfgAccountServices.passwordProblem("ofbiz", "abcde", null));
+        assertEquals("新密码不能和当前密码相同", MfgAccountServices.passwordProblem("ofbiz", "ofbiz", "ofbiz"));
+        assertNull(MfgAccountServices.passwordProblem("ofbiz", "Mfg2026", "Mfg2026"));
+        assertNull(MfgAccountServices.passwordProblem(null, "Mfg2026", "Mfg2026"));
     }
 
     @Test

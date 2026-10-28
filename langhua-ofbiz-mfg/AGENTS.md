@@ -1149,6 +1149,35 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   **踩坑**：把仓库里那份（`https="true"`）直接 copy 到**测试实例**会冲掉 `relax-test-https.ps1` 的改动，
   页面立刻 302 到 `https://localhost:8443`（看着像“改坏了”）——copy 完要对测试实例重跑那个脚本
   （这次它报了 113 个 request map）。回归：m50 13 项、m49 14 项、m43 15 项全过。
+- **四个域搬进自己的类，`services.xml` 开始按类写 `location=`（Step 166）**：第 3 步拆的是
+  账号 / 系统设置 / 软件项目 / 附件四块，共 **15 个服务**：
+  - `MfgAccountServices`（844 行）：`mfgPasswordStatus` / `mfgChangePassword` / `mfgUserList` / `mfgUserSave` /
+    `mfgUserResetPassword` / `mfgAuditList` / `mfgAuditPurge` + `passwordProblem` / `matchesPassword` /
+    `isDefaultPassword` / `matchesStoredPassword` / `normalizeAccountName` / `accountNameProblem` / `displayNameOf` /
+    `accountAdminProblem` / `findUserLogin` / `renamePerson` / `replaceSecurityGroup` / `groupIdsOf` /
+    `shopGroupIds` / `belongsToShop` / `personNameOf` / `copyErrors` / `dayText` / `stampText`；
+  - `MfgSettingsServices`（131 行）：`mfgSettingsView` / `mfgSettingsSave` + `settingsInDatabase` / `storeSetting`；
+  - `MfgSoftwareServices`（354 行）：`mfgSoftwareEstimate` / `mfgSoftwareProjectSave` / `mfgSoftwareProjectList`
+    + `softwareCost` / `softwareCostOf` / `toSoftwareProjectMap` / `fillSoftwareDefaults` / `setDefault` / `nextSoftwareProjectId`；
+  - `MfgAttachmentServices`（384 行）：`mfgAttachmentSave` / `mfgAttachmentList` / `mfgAttachmentDelete` +
+    `storeAttachment` / `deleteAttachment` / `toAttachmentMap` / `attachmentError` / `attachmentRows` /
+    `nextAttachmentSeq` / `migrateProductPhotos` / `cleanFileName` / `imageTypeOfFileName` / `isAllowedImageType` /
+    `isAllowedAttachmentType` / `isKnownAttachmentOwnerType`。
+  结果 `MfgServices` **13212 → 11635 行**，服务总数仍是 121（`services.xml` 只改 `location=`，一条服务一行）。
+  验证：`mfg-tests-all.bat` 编译 0 错 + 单测 177 全过、`mfg-it.bat` **433/433**、`verify-m40` 24、`verify-m34` 30、
+  `verify-m28` 59、`verify-m43-test` 15、`verify-m49-test` 14 全过，三套实例都换了新 jar。
+  **留在 `MfgServices` 的是“权限与常量这两套词汇”**：`permissions` / `can` / `yesNo` / `permissionProblem`
+  （66 处调用）和所有常量；`permissionProblem`、`parseTrailingNumber` 与 `DAY` / `FULL_DAY` / `STAMP` /
+  `MAX_ACCOUNT_NAME` 四个私有常量改成**包内可见**，新类里写 `MfgServices.permissionProblem(...)` / `MfgServices.PERM_ENG`。
+  **踩坑**：
+  ① 抽取脚本的“限定名”那步必须分两份——写进**新类**时才给常量加 `MfgServices.` 前缀，改写 **`MfgServices` 自己**时
+  绝不能加（第一版没分，编译报一屏 `public static final String MfgServices.MODULE = …`）；
+  ② `MfgSettingsServices` 要 `import org.langhua.ofbiz.mfg.oir.OirOrders`（`settingsSave` 里要 `normalizeVisionEndpoint`）；
+  ③ 附件那几个助手（`attachmentRows` / `migrateProductPhotos`）原来也被 `productList` 调用，搬走后那处调用已被脚本改成
+  `MfgAttachmentServices.…`，`MfgAttachmentEvents` 里的 `storeAttachment` / `deleteAttachment` / `isAllowedImageType` 同理；
+  ④ 代码搬走后会留下**没有内容的区块横幅**（`// ==== software projects …`），要手工删——这次就删了一条。
+  下一步（第 4、5 步）要搬的是产品/工单/成本/出货/售后，再是销售单/采购/库存/报表/开发，每步都会动
+  `services.xml` 的 `location=`，所以**每步之后必须跑 `mfg-it.bat`**。
 - **库存台账那 28 块搬进 `MfgStockLedger`（Step 165）**：第 2 步拆的是**最内聚的一块**——库存流水。
   新类 `MfgStockLedger`（615 行）拿走：`lotUnitCost/unitCostOf/isKnownMovement/movementDiff`、
   `availableOf`（两个重载）、`reasonLabel/movementTypeOfReason/movementLabel/movementReasonProblem`、

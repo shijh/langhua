@@ -88,7 +88,7 @@ public final class MfgAttachmentEvents {
         if (delegator == null) {
             return redirectBack(request, response, parameters, "other");
         }
-        Map<String, Object> result = MfgServices.storeAttachment(delegator, ownerTypeId, ownerId,
+        Map<String, Object> result = MfgAttachmentServices.storeAttachment(delegator, ownerTypeId, ownerId,
                 fileName, contentType, data, text(parameters.get("note")));
         Object error = result.get("errorMessage");
         if (error != null) {
@@ -120,7 +120,7 @@ public final class MfgAttachmentEvents {
         }
         Delegator delegator = (Delegator) request.getAttribute("delegator");
         if (delegator != null && ownerTypeId != null && ownerId != null && seq > 0) {
-            Map<String, Object> result = MfgServices.deleteAttachment(delegator, ownerTypeId, ownerId, seq);
+            Map<String, Object> result = MfgAttachmentServices.deleteAttachment(delegator, ownerTypeId, ownerId, seq);
             Object error = result.get("errorMessage");
             if (error != null) {
                 Debug.logInfo("Attachment not deleted: " + error, MODULE);
@@ -170,7 +170,7 @@ public final class MfgAttachmentEvents {
             }
             byte[] data = attachment.getBytes("fileData");
             String contentType = attachment.getString("contentType");
-            if (thumb && MfgServices.isAllowedImageType(contentType)) {
+            if (thumb && MfgAttachmentServices.isAllowedImageType(contentType)) {
                 byte[] scaled = thumbnail(data);
                 if (scaled != null) {
                     data = scaled;

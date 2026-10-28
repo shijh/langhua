@@ -10,7 +10,7 @@
         org.langhua.mfg.requirePasswordChange=N (development instances start that way).
     -->
     <service name="mfgPasswordStatus" engine="java"
-            location="org.langhua.ofbiz.mfg.MfgServices" invoke="passwordStatus"
+            location="org.langhua.ofbiz.mfg.MfgAccountServices" invoke="passwordStatus"
             auth="true" use-transaction="false">
         <description>Say whether the logged in account still uses the default password</description>
         <attribute name="mustChange" type="String" mode="OUT" optional="true"/>
@@ -19,7 +19,7 @@
     </service>
 
     <service name="mfgChangePassword" engine="java"
-            location="org.langhua.ofbiz.mfg.MfgServices" invoke="changePassword"
+            location="org.langhua.ofbiz.mfg.MfgAccountServices" invoke="changePassword"
             auth="true" use-transaction="false">
         <description>Change the password of the logged in account, checking the current one first</description>
         <attribute name="currentPassword" type="String" mode="IN" optional="false"/>
@@ -56,7 +56,7 @@
         may write; the list is readable by everybody so the page can explain why it is read only.
     -->
     <service name="mfgUserList" engine="java"
-            location="org.langhua.ofbiz.mfg.MfgServices" invoke="userList"
+            location="org.langhua.ofbiz.mfg.MfgAccountServices" invoke="userList"
             auth="true" use-transaction="false">
         <description>List the accounts with the person, the security group and the password state</description>
         <attribute name="rows" type="List" mode="OUT" optional="true"/>
@@ -68,7 +68,7 @@
     </service>
 
     <service name="mfgUserSave" engine="java"
-            location="org.langhua.ofbiz.mfg.MfgServices" invoke="userSave"
+            location="org.langhua.ofbiz.mfg.MfgAccountServices" invoke="userSave"
             auth="true" use-transaction="false">
         <description>Create an account or update its name, security group and enabled flag</description>
         <attribute name="userLoginId" type="String" mode="IN" optional="false"/>
@@ -82,7 +82,7 @@
     </service>
 
     <service name="mfgUserResetPassword" engine="java"
-            location="org.langhua.ofbiz.mfg.MfgServices" invoke="userResetPassword"
+            location="org.langhua.ofbiz.mfg.MfgAccountServices" invoke="userResetPassword"
             auth="true" use-transaction="false">
         <description>Put an account back on the default password so it has to be changed at login</description>
         <attribute name="userLoginId" type="String" mode="IN" optional="false"/>
@@ -94,7 +94,7 @@
         the login / password hint / password change paths; nobody may write a row through the web.
     -->
     <service name="mfgAuditList" engine="java"
-            location="org.langhua.ofbiz.mfg.MfgServices" invoke="auditList"
+            location="org.langhua.ofbiz.mfg.MfgAccountServices" invoke="auditList"
             auth="true" use-transaction="false">
         <description>One page of the audit log, for the administrators only</description>
         <attribute name="search" type="String" mode="IN" optional="true"/>
@@ -113,7 +113,7 @@
     </service>
 
     <service name="mfgAuditPurge" engine="java"
-            location="org.langhua.ofbiz.mfg.MfgServices" invoke="auditPurge"
+            location="org.langhua.ofbiz.mfg.MfgAccountServices" invoke="auditPurge"
             auth="true" use-transaction="false">
         <description>Drop the audit rows older than a year (the same clean up runs by itself once a day)</description>
         <attribute name="purged" type="String" mode="OUT" optional="true"/>
@@ -202,7 +202,7 @@
     <!-- attachments: photos and pdf kept with any business record, stored in the database -->
 
     <service name="mfgAttachmentSave" engine="java"
-            location="org.langhua.ofbiz.mfg.MfgServices" invoke="attachmentSave"
+            location="org.langhua.ofbiz.mfg.MfgAttachmentServices" invoke="attachmentSave"
             auth="false" use-transaction="false">
         <description>Store one attachment from a base64 string; JPG, PNG, GIF up to 4 MB or PDF up to 8 MB</description>
         <attribute name="ownerTypeId" type="String" mode="IN" optional="false"/>
@@ -217,7 +217,7 @@
     </service>
 
     <service name="mfgAttachmentList" engine="java"
-            location="org.langhua.ofbiz.mfg.MfgServices" invoke="attachmentList"
+            location="org.langhua.ofbiz.mfg.MfgAttachmentServices" invoke="attachmentList"
             auth="false" use-transaction="false">
         <description>List the attachments of one record, newest first, without the file bytes</description>
         <attribute name="ownerTypeId" type="String" mode="IN" optional="true"/>
@@ -227,7 +227,7 @@
     </service>
 
     <service name="mfgAttachmentDelete" engine="java"
-            location="org.langhua.ofbiz.mfg.MfgServices" invoke="attachmentDelete"
+            location="org.langhua.ofbiz.mfg.MfgAttachmentServices" invoke="attachmentDelete"
             auth="false" use-transaction="false">
         <description>Remove one attachment of a record</description>
         <attribute name="ownerTypeId" type="String" mode="IN" optional="false"/>
@@ -1159,7 +1159,7 @@
     </service>
 
     <service name="mfgSettingsView" engine="java"
-            location="org.langhua.ofbiz.mfg.MfgServices" invoke="settingsView"
+            location="org.langhua.ofbiz.mfg.MfgSettingsServices" invoke="settingsView"
             auth="false" use-transaction="false">
         <description>The settings of the component: the vision endpoint, model and whether a key is stored (the key itself is never sent back)</description>
         <attribute name="userLogin" type="GenericValue" mode="IN" optional="true"/>
@@ -1173,7 +1173,7 @@
     </service>
 
     <service name="mfgSettingsSave" engine="java"
-            location="org.langhua.ofbiz.mfg.MfgServices" invoke="settingsSave"
+            location="org.langhua.ofbiz.mfg.MfgSettingsServices" invoke="settingsSave"
             auth="false" use-transaction="false">
         <description>Save the vision settings, or clear them with clear=Y; an empty key keeps the stored one</description>
         <attribute name="userLogin" type="GenericValue" mode="IN" optional="true"/>
@@ -1579,7 +1579,7 @@
     <!-- ==================== software projects: size, effort, schedule, price ==================== -->
 
     <service name="mfgSoftwareEstimate" engine="java"
-            location="org.langhua.ofbiz.mfg.MfgServices" invoke="softwareEstimate"
+            location="org.langhua.ofbiz.mfg.MfgSoftwareServices" invoke="softwareEstimate"
             auth="false" use-transaction="false">
         <description>Quote software from its size: UFP = 35 x ILF + 15 x EIF, AE = PDR x UFP x SWF x RDF, D = 1.277 x (AE/176)^0.404, price = person days x day rate + VAT + direct non labour cost</description>
         <attribute name="ilfCount" type="Double" mode="IN" optional="true"/>
@@ -1608,7 +1608,7 @@
     </service>
 
     <service name="mfgSoftwareProjectSave" engine="java"
-            location="org.langhua.ofbiz.mfg.MfgServices" invoke="softwareProjectSave"
+            location="org.langhua.ofbiz.mfg.MfgSoftwareServices" invoke="softwareProjectSave"
             auth="false" use-transaction="false">
         <description>Create or update a software project of the ledger; the number SW-yyMMdd-NN is generated when empty and the planned person days are frozen from the estimate</description>
         <attribute name="projectCode" type="String" mode="IN" optional="true"/>
@@ -1650,7 +1650,7 @@
     </service>
 
     <service name="mfgSoftwareProjectList" engine="java"
-            location="org.langhua.ofbiz.mfg.MfgServices" invoke="softwareProjectList"
+            location="org.langhua.ofbiz.mfg.MfgSoftwareServices" invoke="softwareProjectList"
             auth="false" use-transaction="false">
         <description>Software projects with planned against real person days, plus the productivity of the finished ones</description>
         <attribute name="search" type="String" mode="IN" optional="true"/>

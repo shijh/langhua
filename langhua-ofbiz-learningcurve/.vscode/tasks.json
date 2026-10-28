@@ -2812,6 +2812,104 @@
 			"command": "powershell -NoProfile -ExecutionPolicy Bypass -File C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\verify-m36.ps1",
 			"isBackground": false,
 			"problemMatcher": []
+		},
+		{
+			"label": "tests-166",
+			"type": "shell",
+			"command": "C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\mfg-tests-all.bat",
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "tests-166b",
+			"type": "shell",
+			"command": "C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\mfg-tests-all.bat",
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "tests-166c",
+			"type": "shell",
+			"command": "C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\mfg-tests-all.bat",
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "tests-166d",
+			"type": "shell",
+			"command": "C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\mfg-tests-all.bat",
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "deploy-test-166",
+			"type": "shell",
+			"command": "C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\deploy-test.bat",
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "it-166",
+			"type": "shell",
+			"command": "C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\mfg-it.bat",
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "deploy-dev-166",
+			"type": "shell",
+			"command": "C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\deploy-mfg.bat",
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "deploy-prod-166",
+			"type": "shell",
+			"command": "C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\deploy-prod.bat",
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "deployed-166",
+			"type": "shell",
+			"command": "powershell -NoProfile -ExecutionPolicy Bypass -File C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\deployed161c.ps1",
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "verify-m40-166",
+			"type": "shell",
+			"command": "powershell -NoProfile -ExecutionPolicy Bypass -File C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\verify-m40.ps1",
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "verify-m34-166",
+			"type": "shell",
+			"command": "powershell -NoProfile -ExecutionPolicy Bypass -File C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\verify-m34.ps1",
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "verify-m28b-166",
+			"type": "shell",
+			"command": "powershell -NoProfile -ExecutionPolicy Bypass -File C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\verify-m28b.ps1",
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "verify-m43-166",
+			"type": "shell",
+			"command": "powershell -NoProfile -ExecutionPolicy Bypass -File C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\verify-m43-test.ps1",
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "verify-m49-166",
+			"type": "shell",
+			"command": "powershell -NoProfile -ExecutionPolicy Bypass -File C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\verify-m49-test.ps1",
+			"isBackground": false,
+			"problemMatcher": []
 		}
 	]
 }
