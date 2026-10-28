@@ -1149,6 +1149,28 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   **踩坑**：把仓库里那份（`https="true"`）直接 copy 到**测试实例**会冲掉 `relax-test-https.ps1` 的改动，
   页面立刻 302 到 `https://localhost:8443`（看着像“改坏了”）——copy 完要对测试实例重跑那个脚本
   （这次它报了 113 个 request map）。回归：m50 13 项、m49 14 项、m43 15 项全过。
+- **工单/生产搬进 `MfgWorkOrderServices`（Step 168，第 4 步的 b 半）**：52 个方法、`MfgServices` **10280 → 8112 行**，
+  `services.xml` 里 **22 个服务**改指新类（`mfgWorkOrder` 家族的 Create/Detail/List/Complete/Materials/Cost/Vendor/
+  OutsourceSave、`mfgOutsourceFee` 家族三件、`mfgIssueSave`、`mfgReserveMaterial`、`mfgReleaseMaterialReservation`、
+  `mfgReportCreate`、`mfgSnRegister` / `mfgSnDetail`、`mfgDefectCreate`、`mfgTestImportCsv` / `mfgTestResultList`、
+  `mfgTraceByLot`、`mfgShipmentSave`），服务总数仍是 121。
+  顺手带走的助手：`kittingLines` / `issuedQtyByLot` / `nextWorkOrderId` / `formatWorkOrderId` / `formatSn` /
+  `nextSnSequence` / `estimateSnRanges` / `formatShippingLabel` / `fifoSlice` / `bomItemsForOrder` / `sumHours`（两个重载）/
+  `sumQty` / `isLotUsable` / `workOrderCostOf` / `operationCosts` / `operationCostRow` / 外协费那一整套，以及
+  **只有工单页用到的映射器** `toVendorMap` / `toShipmentMap` / `toDefectMaps` / `toOperationMaps` /
+  `toReportMaps` / `toTestResultMaps` / `toClaimMaps` / `toSnMaps`。
+  **故意留在 `MfgServices` 的是跨域的东西**：`toClaimMap` / `toDeliveryMap` / `toSnMap` / `toWorkOrderMap` /
+  `toLotMap` / `toIssueMap` / `toReportMap` / `vendorMaps` / `toReplacementMaps`（售后、出货、批次、缺料、销售单的页面都读它们）、
+  `openQtyOf` / `orderLineReserved` / `recordOrderReservation` / `reserveOrderLine` / `productLotsOf`（销售单与出货的预留算术）、
+  `hoursLeft`（告警用），以及 `can` / `permissionProblem` / `parseTrailingNumber` 这三件权限与编号词汇。
+  `salesOrderPlan` 直接调 `workOrderCreate(dctx, ctx)`，所以那处调用现在写 `MfgWorkOrderServices.workOrderCreate(...)`；
+  缺料页的 `kittingLines`、批次页的 `issuedQtyByLot`、售后返修的 `nextWorkOrderId` 同理。
+  验证：编译 0 错、单测 177、`mfg-it.bat` 433/433、`verify-m36` 84、`verify-m32` 39、`verify-m39` 16 全过，三套实例都换了新 jar。
+  **这一步起“闭包”不再等于“能搬”**：先用脚本算传递闭包，再按“闭包外还有没有人调”分成 move / stay 两堆——
+  算出 70 个方法、2084 行，真正能搬的是 47 个（1684 行），另外 23 个是跨域共享的；
+  手工又把 `workOrderCreate` / `kittingLines` / `nextWorkOrderId` / `issuedQtyByLot` / `sumHours` 加回 move
+  （跨域调用改成 `MfgWorkOrderServices.…` 就行，不该为了少改一行把服务入口留在旧类）。
+  **`sumHours` 有两个重载**：闭包分析只认第一个同名方法，第二个要手工确认搬走（脚本按名字搬，两个都会走）。
 - **产品/BOM/成本搬进 `MfgProductServices`（Step 167，第 4 步的 a 半）**：34 个方法、`MfgServices` **11635 → 10280 行**，
   `services.xml` 里 **14 个服务**改指新类（`mfgProductList` / `ProductSave` / `ProductDetail` / `ProductCost` /
   `ProductStock` / `BomImport` / `BomItemSave` / `BomVersionCreate` / `BomVersionList` / `BomVersionActivate` /

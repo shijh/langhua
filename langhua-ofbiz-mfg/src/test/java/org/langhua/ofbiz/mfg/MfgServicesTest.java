@@ -61,16 +61,16 @@ public class MfgServicesTest {
     @Test
     public void formatsSerialNumber() {
         LocalDate day = LocalDate.of(2026, 10, 20);
-        assertEquals("BT5-261020-0001", MfgServices.formatSn("BT5", day, 1));
-        assertEquals("BT5-261020-0042", MfgServices.formatSn("BT5", day, 42));
-        assertEquals("A-261220-1234", MfgServices.formatSn("A", LocalDate.of(2026, 12, 20), 1234));
+        assertEquals("BT5-261020-0001", MfgWorkOrderServices.formatSn("BT5", day, 1));
+        assertEquals("BT5-261020-0042", MfgWorkOrderServices.formatSn("BT5", day, 42));
+        assertEquals("A-261220-1234", MfgWorkOrderServices.formatSn("A", LocalDate.of(2026, 12, 20), 1234));
     }
 
     @Test
     public void formatsWorkOrderId() {
         LocalDate day = LocalDate.of(2026, 10, 20);
-        assertEquals("WO-261020-001", MfgServices.formatWorkOrderId(day, 1));
-        assertEquals("WO-261020-017", MfgServices.formatWorkOrderId(day, 17));
+        assertEquals("WO-261020-001", MfgWorkOrderServices.formatWorkOrderId(day, 1));
+        assertEquals("WO-261020-017", MfgWorkOrderServices.formatWorkOrderId(day, 17));
     }
 
     @Test
@@ -182,8 +182,8 @@ public class MfgServicesTest {
     public void formatsNumbersAtTheEndOfTheDay() {
         LocalDate day = LocalDate.of(2026, 10, 20);
 
-        assertEquals("BT5-261020-9999", MfgServices.formatSn("BT5", day, 9999));
-        assertEquals("WO-261020-999", MfgServices.formatWorkOrderId(day, 999));
+        assertEquals("BT5-261020-9999", MfgWorkOrderServices.formatSn("BT5", day, 9999));
+        assertEquals("WO-261020-999", MfgWorkOrderServices.formatWorkOrderId(day, 999));
     }
 
     @Test
@@ -216,20 +216,20 @@ public class MfgServicesTest {
         List<String> sns = List.of("A-0001", "A-0002", "A-0003", "A-0004");
         List<Double> quantities = List.of(1.0, 3.0);
 
-        int[] firstIssue = MfgServices.fifoSlice(sns, quantities, 0);
+        int[] firstIssue = MfgWorkOrderServices.fifoSlice(sns, quantities, 0);
         assertEquals(0, firstIssue[0]);
         assertEquals(0, firstIssue[1]);
 
-        int[] secondIssue = MfgServices.fifoSlice(sns, quantities, 1);
+        int[] secondIssue = MfgWorkOrderServices.fifoSlice(sns, quantities, 1);
         assertEquals(1, secondIssue[0]);
         assertEquals(3, secondIssue[1]);
     }
 
     @Test
     public void refusesToSplitWithoutUsableInput() {
-        assertNull(MfgServices.fifoSlice(List.of(), List.of(1.0), 0));
-        assertNull(MfgServices.fifoSlice(List.of("A-0001"), List.of(0.0), 0));
-        assertNull(MfgServices.fifoSlice(List.of("A-0001"), List.of(1.0), 5));
+        assertNull(MfgWorkOrderServices.fifoSlice(List.of(), List.of(1.0), 0));
+        assertNull(MfgWorkOrderServices.fifoSlice(List.of("A-0001"), List.of(0.0), 0));
+        assertNull(MfgWorkOrderServices.fifoSlice(List.of("A-0001"), List.of(1.0), 5));
     }
 
     @Test
@@ -265,7 +265,7 @@ public class MfgServicesTest {
 
     @Test
     public void formatsTheShippingLabel() {
-        String label = MfgServices.formatShippingLabel("深圳某电子", "张工", "13800001111",
+        String label = MfgWorkOrderServices.formatShippingLabel("深圳某电子", "张工", "13800001111",
                 "广东省深圳市宝安区某路 1 号", "LH-2026-01");
 
         assertTrue(label.contains("收件人：张工（深圳某电子）"));
@@ -276,7 +276,7 @@ public class MfgServicesTest {
 
     @Test
     public void omitsTheCustomerCodeWhenMissing() {
-        String label = MfgServices.formatShippingLabel("某厂", null, null, null, null);
+        String label = MfgWorkOrderServices.formatShippingLabel("某厂", null, null, null, null);
 
         assertTrue(label.contains("收件人：（某厂）"));
         assertTrue(!label.contains("客户编号"));
@@ -3180,13 +3180,13 @@ public class MfgServicesTest {
 
     @Test
     public void onlyAFailedLotBlocksIssuing() {
-        assertTrue(MfgServices.isLotUsable(null));
-        assertTrue(MfgServices.isLotUsable(MfgServices.IQC_PENDING));
-        assertTrue(MfgServices.isLotUsable(MfgServices.IQC_PASS));
-        assertTrue(MfgServices.isLotUsable(MfgServices.IQC_CONCESSION));
-        assertTrue(!MfgServices.isLotUsable(MfgServices.IQC_FAIL));
+        assertTrue(MfgWorkOrderServices.isLotUsable(null));
+        assertTrue(MfgWorkOrderServices.isLotUsable(MfgServices.IQC_PENDING));
+        assertTrue(MfgWorkOrderServices.isLotUsable(MfgServices.IQC_PASS));
+        assertTrue(MfgWorkOrderServices.isLotUsable(MfgServices.IQC_CONCESSION));
+        assertTrue(!MfgWorkOrderServices.isLotUsable(MfgServices.IQC_FAIL));
         // the rule is "only a failure blocks", so an unknown status must not lock the shop floor out
-        assertTrue(MfgServices.isLotUsable("MFG_IQC_BOGUS"));
+        assertTrue(MfgWorkOrderServices.isLotUsable("MFG_IQC_BOGUS"));
     }
 
     @Test
@@ -3538,32 +3538,32 @@ public class MfgServicesTest {
     @Test
     public void pricesTheOutsourcedFeeByItsBasis() {
         // per board: the price is multiplied by the units given
-        assertEquals(120.0, MfgServices.outsourceAmount(MfgServices.OUTSRC_PER_UNIT, 30.0, 4.0, 0.0, 0.0), 1e-9);
+        assertEquals(120.0, MfgWorkOrderServices.outsourceAmount(MfgServices.OUTSRC_PER_UNIT, 30.0, 4.0, 0.0, 0.0), 1e-9);
         // per board without a quantity falls back to the good units, then to the planned ones
-        assertEquals(90.0, MfgServices.outsourceAmount(MfgServices.OUTSRC_PER_UNIT, 30.0, 0.0, 3.0, 10.0), 1e-9);
-        assertEquals(300.0, MfgServices.outsourceAmount(MfgServices.OUTSRC_PER_UNIT, 30.0, 0.0, 0.0, 10.0), 1e-9);
+        assertEquals(90.0, MfgWorkOrderServices.outsourceAmount(MfgServices.OUTSRC_PER_UNIT, 30.0, 0.0, 3.0, 10.0), 1e-9);
+        assertEquals(300.0, MfgWorkOrderServices.outsourceAmount(MfgServices.OUTSRC_PER_UNIT, 30.0, 0.0, 0.0, 10.0), 1e-9);
         // per placement point: always the points given
-        assertEquals(25.0, MfgServices.outsourceAmount(MfgServices.OUTSRC_PER_POINT, 0.05, 500.0, 3.0, 10.0), 1e-9);
+        assertEquals(25.0, MfgWorkOrderServices.outsourceAmount(MfgServices.OUTSRC_PER_POINT, 0.05, 500.0, 3.0, 10.0), 1e-9);
         // a lump sum is its own amount, whatever else is given
-        assertEquals(88.5, MfgServices.outsourceAmount(MfgServices.OUTSRC_LUMP, 88.5, 7.0, 3.0, 10.0), 1e-9);
+        assertEquals(88.5, MfgWorkOrderServices.outsourceAmount(MfgServices.OUTSRC_LUMP, 88.5, 7.0, 3.0, 10.0), 1e-9);
     }
 
     @Test
     public void spreadsTheOutsourcedFeeOverTheUnits() {
         // 120 yuan over 4 good units is 30 each
-        assertEquals(30.0, MfgServices.outsourcePerUnit(120.0, 4.0, 10.0), 1e-9);
+        assertEquals(30.0, MfgWorkOrderServices.outsourcePerUnit(120.0, 4.0, 10.0), 1e-9);
         // nothing finished yet: the planned units carry it, so the estimate is still meaningful
-        assertEquals(12.0, MfgServices.outsourcePerUnit(120.0, 0.0, 10.0), 1e-9);
+        assertEquals(12.0, MfgWorkOrderServices.outsourcePerUnit(120.0, 0.0, 10.0), 1e-9);
         // no unit at all: no share, never a division by zero
-        assertEquals(0.0, MfgServices.outsourcePerUnit(120.0, 0.0, 0.0), 1e-9);
+        assertEquals(0.0, MfgWorkOrderServices.outsourcePerUnit(120.0, 0.0, 0.0), 1e-9);
     }
 
     @Test
     public void knowsTheOutsourcedFeeCodes() {
-        assertTrue(MfgServices.isKnownOutsourceType(MfgServices.OUTSRC_SMT));
-        assertFalse(MfgServices.isKnownOutsourceType("MFG_OUTSRC_BOGUS"));
-        assertTrue(MfgServices.isKnownOutsourceBasis(MfgServices.OUTSRC_PER_POINT));
-        assertFalse(MfgServices.isKnownOutsourceBasis("MFG_OUTSRC_BOGUS"));
+        assertTrue(MfgWorkOrderServices.isKnownOutsourceType(MfgServices.OUTSRC_SMT));
+        assertFalse(MfgWorkOrderServices.isKnownOutsourceType("MFG_OUTSRC_BOGUS"));
+        assertTrue(MfgWorkOrderServices.isKnownOutsourceBasis(MfgServices.OUTSRC_PER_POINT));
+        assertFalse(MfgWorkOrderServices.isKnownOutsourceBasis("MFG_OUTSRC_BOGUS"));
     }
 
     @Test
