@@ -228,6 +228,13 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   `MfgDevBomServices.rowEditOf` 拆成行（`|` 只取首尾两个，中间可能还有 `|`）。
   单行保存与整表保存共用 `applyItemEdit`（挪锁 → 补锁 → 写行），**整表保存跳过没改动的行**（料号与数量都比过），
   所以整表保存不会在流水上乱写；返回 `savedLines` / `keptLines` / `goneLines`。
+  **图里没有的件手工加（Step 177）**：面包板上的转接板、电池盒不在原理图里，`mfgDevBomItemAdd`
+  （表格下面「加一个元件」）往**最新一版**里插一行：料号 `partCode`（**不能叫 componentCode**，见上面
+  “表单字段不能和 redirect-parameter 同名”）、名称 `partName`、数量、位号；同一版里同一个料号**拒绝重复加**；
+  插完按 `applyItemEdit` 同一套锁料，再 `updateHeadCounts` 把 `MfgDevBom` 上的计数缓存改回去。
+  **关键：行的 `sourceId = MFG_BOM_MANUAL`，`devBomImport` 把它从上一版搬进新版**（`withManualParts`，
+  文件里已经有这个料号就以文件为准）——不搬的话每次导出都会把它挤掉、锁料与缺货清单跟着丢。
+  搬迁是纯函数（`withManualParts(rows, typedIn)`），单测钉住；`DevBomRow.typedIn()` 负责把它标成“不变 + 手工”。
   **保存完要停在这一段**：`dev.ftl` 末尾那段跳转脚本按回来的参数决定跳 `#devbom`（`componentCode` / `savedLines` /
   `releasedQty`）还是 `#project`（导入等），别把 `toBom` 那句删掉——不然每按一次保存都被甩回项目说明段。
   **点项目号、保存任何表单、导入 / 改行 / 释放锁料之后，页面都会滚到项目说明段**（列表里的项目号链接自带

@@ -1076,6 +1076,9 @@ Fritzing 用它自己的名字（`C-100NF-16V-0603`），库存是按**买回来
 1. **点料号框，从下拉里挑库里有的料号**——输入框带 `list="stockCodes"`，候选项就是**在库数量 > 0 的料号**
    （写成 `料号 + 名称 + （在库 N）`；**这一版 BOM 里的料号排在最前面**，其余按料号排序，最多 300 条——
    所以库里的料号再多，也挤不掉你这一版要用的那几个）；
+   - **边打边搜的是整张货架**：页面只装得下三百个料号，所以输入时页面会去问服务器
+     （`/mfg/control/devStockCodes?term=…`，`料号` 与**名称**都搜、不分大小写，回 40 条），
+     打「转接板」就能把名字里带转接板的料都列出来——不会只在那三百个里找（以前就是这样，62 个只出 3 个）；
    - 只改一行：点这一行右边的「保存」；
    - 一起改好几行：全部改完后点表格上方的**「保存全部料号与数量」**，一次存完
      （没有变化的行会跳过，不会重复锁料；结果里会说这次改了几行）。
@@ -1087,6 +1090,19 @@ Fritzing 用它自己的名字（`C-100NF-16V-0603`），库存是按**买回来
 
 **保存之后页面停在 BOM 这一段**（不再跳回项目说明段）：人是在这张表里干活的，跳走一次就得重新找。
 导入新一版 BOM 之后仍回到项目说明段，那里是这次导入的汇总。
+
+### 图里没有的件：转接板、电池盒（手工添加）
+
+面包板上常有些件**不在原理图里**：传感器插不进面包板，得先焊到一块**转接板**上；还有电池盒、杜邦线组。
+Fritzing 导出里永远没有它们，所以表格下面是「**加一个元件**」：填料号（库存认的那个号）、名称、数量，
+可选位号，按「添加元件」。
+
+- 加完跟导入的元件**一模一样**对待：按料号锁料、进缺货清单、算进这一版的元件数和锁料合计；
+- 同一版里**不许重复加同一个料号**（会提示“这一版已经有料号 X（第 N 行），改它的数量就行”）；
+- **下次导入会自动带过来**：行的 `sourceId` 记成 `MFG_BOM_MANUAL`，导入时如果文件里没有它，
+  就从上一版搬过来（数量不变、标「不变」）——否则每次导出都会把它挤掉，锁料和缺货清单跟着丢；
+  哪一天把它画进原理图了，那就**以文件为准**（不会变成两行）；
+- 表里这类行在名称后面标「（手工添加）」。
 
 ### 锁料、缺货清单、版本差异
 
@@ -1108,11 +1124,11 @@ Fritzing 用它自己的名字（`C-100NF-16V-0603`），库存是按**买回来
 | 东西 | 在哪 |
 | --- | --- |
 | 每次导入 | `MfgDevBom`（`projectCode` + `importSeq`；版本号、文件、元件/新增/变化/停用/缺货计数、锁料合计） |
-| 每版的元件 | `MfgDevBomItem`（料号、名称、型号、参数、位号、数量、上一版数量、`changeId`、已锁、缺口、研发消耗） |
+| 每版的元件 | `MfgDevBomItem`（料号、名称、型号、参数、位号、数量、上一版数量、`changeId`、`sourceId`、已锁、缺口、研发消耗；`sourceId = MFG_BOM_MANUAL` 表示手工添加，下次导入会带过来） |
 | 锁料 | `MfgInventoryDetail.devProjectCode`（配 `reservedDiff`），与工单预留同一套口径 |
 | 解析 | `MfgCsv.parseFritzingHtmlBom`（`BomFormat.FRITZING_HTML`；纯函数、离线可测） |
 | 比对 | `MfgDevBomServices.devBomRows`（纯函数：合并同料行 → 新增/变化/不变 → 补上不再使用的） |
-| 服务 | `mfgDevBomImport` / `mfgDevBomDetail` / `mfgDevBomItemSave` / `mfgDevBomSaveAll` / `mfgDevBomRelease`（`servicedef/devbom-services.xml`） |
+| 服务 | `mfgDevBomImport` / `mfgDevBomDetail` / `mfgDevBomItemSave` / `mfgDevBomItemAdd` / `mfgDevBomSaveAll` / `mfgDevBomRelease`（`servicedef/devbom-services.xml`） |
 | 事件 | `MfgDevBomEvents.importHtml`（选文件或粘贴）/ `saveAll`（整表保存）/ `shortageCsv`（缺货清单 CSV，UTF-8 带 BOM） |
 | 页面 | `webapp/mfg/dev.ftl` 的 `#devbom` 一段（`/mfg/control/dev?projectCode=…`） |
 | 巡检 | `verify-m52-devbom.ps1`（52 项，指向测试实例 8095） |

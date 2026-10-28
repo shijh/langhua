@@ -236,7 +236,132 @@ public class MfgDevBomRulesTest {
         assertNull(MfgDevBomServices.rowEditOf("3|R-10K-0603|-1"));
     }
 
+    @Test
+    public void carriesATypedInPartIntoTheNextVersion() {
+        // a sensor does not sit in a breadboard by itself: it needs an adapter board, and the sketch
+        // does not show it. The part was typed in, so the next export does not mention it - without
+        // carrying it over the lock would go and the shopping list would forget it
+        List<String[]> parsed = new ArrayList<>();
+        parsed.add(row("C1", "Capacitor 0603", "2", "C1"));
+        List<MfgDevBomServices.DevBomRow> rows = MfgDevBomServices.devBomRows(null, parsed);
+
+        List<MfgDevBomServices.DevBomRow> typedIn = new ArrayList<>();
+        typedIn.add(new MfgDevBomServices.DevBomRow("NFC-ADAPTER", "NFC 转接板", null, null,
+                "J9", 1.0, null, MfgConstants.BOM_SAME));
+
+        List<MfgDevBomServices.DevBomRow> next = MfgDevBomServices.withManualParts(rows, typedIn);
+        assertEquals(2, next.size());
+        assertEquals("C1", next.get(0).componentCode);
+        MfgDevBomServices.DevBomRow adapter = next.get(1);
+        assertEquals("NFC-ADAPTER", adapter.componentCode);
+        assertEquals("NFC 转接板", adapter.componentName);
+        assertEquals("J9", adapter.designators);
+        assertEquals(1.0, adapter.qty, 0.0001);
+        // it is not a new part: the version before had it too, so the page must not call it new
+        assertEquals(MfgConstants.BOM_SAME, adapter.changeId);
+        assertEquals(1.0, adapter.previousQty.doubleValue(), 0.0001);
+        assertEquals(MfgConstants.BOM_SOURCE_MANUAL, adapter.sourceId);
+        // the parts of the file keep coming from the file
+        assertNull(next.get(0).sourceId);
+    }
+
+    @Test
+    public void letsTheFileWinOverATypedInPartItNowPrints() {
+        // somebody finally drew the adapter board into the sketch: the export carries it now, so the
+        // row comes from the file (with the quantity of the sketch) and is not added a second time
+        List<String[]> parsed = new ArrayList<>();
+        parsed.add(row("nfc-adapter", "NFC 转接板", "3", "J9"));
+        List<MfgDevBomServices.DevBomRow> rows = MfgDevBomServices.devBomRows(null, parsed);
+
+        List<MfgDevBomServices.DevBomRow> typedIn = new ArrayList<>();
+        typedIn.add(new MfgDevBomServices.DevBomRow("NFC-ADAPTER", "NFC 转接板", null, null,
+                "J9", 1.0, null, MfgConstants.BOM_SAME));
+
+        List<MfgDevBomServices.DevBomRow> next = MfgDevBomServices.withManualParts(rows, typedIn);
+        assertEquals(1, next.size());
+        assertEquals(3.0, next.get(0).qty, 0.0001);
+        assertNull(next.get(0).sourceId);
+        // nothing typed in, nothing to carry
+        assertEquals(rows.size(), MfgDevBomServices.withManualParts(rows, null).size());
+        assertEquals(rows.size(), MfgDevBomServices.withManualParts(rows, new ArrayList<>()).size());
+    }
+
     private static String[] row(String code, String name, String qty, String designators) {
         return new String[] {code, name, qty, designators, "N", null, null};
+    }
+
+    @Test
+    public void searchesEveryPartNumberOnTheShelfNotJustTheFirstPage() {
+        // the page holds only the first codes of the shelf; typing "转接板" used to look at those few
+        // and find three of sixty-two, because the other fifty-nine were cut away by the cap
+        List<Map<String, Object>> all = new ArrayList<>();
+        all.add(option("C-100NF-16V-0603", "100nF 16V 0603"));
+        all.add(option("NFC-ADAPTER", "NFC 转接板"));
+        all.add(option("LCD1602-BOARD", "LCD1602液晶屏转接板"));
+        all.add(option("0.5MM-30P-BOARD", "0.5MM间距 30P 转接板;焊接FPC座+直针"));
+        all.add(option("WS2812B-1010", "LED"));
+
+        List<Map<String, Object>> found = MfgDevBomServices.matchingStockOptions(all, "转接板", 40);
+        assertEquals(3, found.size());
+        // name matches come back, not only the codes of the first page
+        assertEquals("NFC-ADAPTER", found.get(0).get("componentCode"));
+        assertEquals("LCD1602-BOARD", found.get(1).get("componentCode"));
+        assertEquals("0.5MM-30P-BOARD", found.get(2).get("componentCode"));
+
+        // the part number is searched too, and case does not matter
+        assertEquals(1, MfgDevBomServices.matchingStockOptions(all, "nfc-ad", 40).size());
+        // what starts with the term comes before what merely contains it
+        List<Map<String, Object>> byCode = MfgDevBomServices.matchingStockOptions(all, "100nf", 40);
+        assertEquals(1, byCode.size());
+        assertEquals("C-100NF-16V-0603", byCode.get(0).get("componentCode"));
+        // a blank term offers the first codes of the shelf
+        assertEquals(2, MfgDevBomServices.matchingStockOptions(all, null, 2).size());
+        assertEquals(0, MfgDevBomServices.matchingStockOptions(all, "没有这个料", 40).size());
+        assertTrue(MfgDevBomServices.matchingStockOptions(null, "x", 10).isEmpty());
+        assertTrue(MfgDevBomServices.matchingStockOptions(all, "x", 0).isEmpty());
+        // the answer is capped, so a one-letter search cannot flood the page
+        assertEquals(2, MfgDevBomServices.matchingStockOptions(all, "0", 2).size());
+    }
+
+    @Test
+    public void keepsATypedInPartTheComparisonWouldHaveWrittenOff() {
+        // the file no longer mentions the adapter, so comparing with the previous version puts a
+        // "no longer used" row there (quantity 0). It was typed in, so it is still wanted: the part
+        // has to replace that tombstone, not sit next to it (the first version of this kept both and
+        // the adapter silently disappeared from the current table)
+        Map<String, Double> previous = new LinkedHashMap<>();
+        previous.put("C-100NF-16V-0603", Double.valueOf(2.0));
+        previous.put("NFC-ADAPTER", Double.valueOf(1.0));
+        List<String[]> parsed = new ArrayList<>();
+        parsed.add(row("C-100NF-16V-0603", "Capacitor 0603", "2", "C1"));
+        List<MfgDevBomServices.DevBomRow> rows = MfgDevBomServices.devBomRows(previous, parsed);
+        assertEquals(2, rows.size());
+        assertEquals(MfgConstants.BOM_DROPPED, rows.get(1).changeId);
+
+        List<MfgDevBomServices.DevBomRow> typedIn = new ArrayList<>();
+        typedIn.add(new MfgDevBomServices.DevBomRow("NFC-ADAPTER", "NFC 转接板", null, null,
+                "J9", 1.0, null, MfgConstants.BOM_SAME));
+
+        List<MfgDevBomServices.DevBomRow> next = MfgDevBomServices.withManualParts(rows, typedIn);
+        assertEquals(2, next.size());
+        int adapters = 0;
+        for (MfgDevBomServices.DevBomRow row : next) {
+            if ("NFC-ADAPTER".equals(row.componentCode)) {
+                adapters++;
+                // still used: quantity kept, not a tombstone
+                assertEquals(MfgConstants.BOM_SAME, row.changeId);
+                assertEquals(1.0, row.qty, 0.0001);
+                assertEquals(MfgConstants.BOM_SOURCE_MANUAL, row.sourceId);
+            }
+        }
+        assertEquals(1, adapters);
+    }
+
+    private static Map<String, Object> option(String code, String name) {
+        Map<String, Object> option = new LinkedHashMap<>();
+        option.put("componentCode", code);
+        option.put("componentName", name);
+        option.put("onHandQty", Double.valueOf(3.0));
+        return option;
     }
 }

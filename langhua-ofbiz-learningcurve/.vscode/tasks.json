@@ -3435,6 +3435,17 @@
 			"command": "C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\verify-m12.ps1",
 			"isBackground": false,
 			"problemMatcher": []
+		},
+		{
+			"label": "commit add part",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-NoProfile",
+				"-Command",
+				"git -C F:\\git\\langhua add -A; git -C F:\\git\\langhua commit -F F:\\build-ofbiz\\m-addpart.txt; git -C F:\\git\\langhua log --oneline -1"
+			],
+			"problemMatcher": []
 		}
 	]
 }

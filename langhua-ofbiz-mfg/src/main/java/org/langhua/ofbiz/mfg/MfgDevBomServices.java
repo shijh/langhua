@@ -118,6 +118,12 @@ public final class MfgDevBomServices {
                 }
             }
             List<DevBomRow> rows = devBomRows(previousQty, parsed);
+            // parts somebody typed in (an adapter board the sketch does not show) are not in the
+            // file, so they come along from the version before instead of being dropped
+            if (previousImport != null) {
+                rows = withManualParts(rows,
+                        manualRowsOf(delegator, projectCode, previousImport.getLong("importSeq").longValue()));
+            }
             long importSeq = previousImport == null ? 1L
                     : previousImport.getLong("importSeq").longValue() + 1L;
             String version = versionOf(MfgSupport.toText(context.get("bomVersion")), fileName, importSeq);
@@ -212,6 +218,7 @@ public final class MfgDevBomServices {
                 item.set("previousQty", row.previousQty == null ? null
                         : Double.valueOf(MfgSupport.round2(row.previousQty.doubleValue())));
                 item.set("changeId", row.changeId);
+                item.set("sourceId", row.sourceId);
                 item.set("lockedQty", Double.valueOf(MfgSupport.round2(lockedQty)));
                 item.set("shortQty", Double.valueOf(MfgSupport.round2(shortQty)));
                 item.set("consumedQty", Double.valueOf(MfgSupport.round2(consumedQty)));
@@ -313,6 +320,7 @@ public final class MfgDevBomServices {
                     row.put("designators", item.getString("designators"));
                     row.put("qty", Double.valueOf(MfgSupport.round2(qty)));
                     row.put("changeId", item.getString("changeId"));
+                    row.put("sourceId", item.getString("sourceId"));
                     row.put("previousQty", item.get("previousQty"));
                     row.put("lockedQty", Double.valueOf(MfgSupport.round2(locked)));
                     row.put("onHandQty", Double.valueOf(MfgSupport.round2(onHand)));
@@ -403,6 +411,159 @@ public final class MfgDevBomServices {
         } catch (GenericEntityException e) {
             return ServiceUtil.returnError("改正研发 BOM 行失败：" + e.getMessage());
         }
+    }
+
+    /**
+     * Adds a part to the version of the design BOM that is in use.
+     *
+     * <p>Why it exists: a breadboard build needs parts the sketch does not show - an adapter board
+     * that lets a sensor sit in the breadboard, a battery holder, a jumper set. They are not in the
+     * Fritzing export, so there is no file to import them from; without this the person has to keep
+     * a list on paper and the shopping list of the version is wrong.
+     *
+     * <p>The row is marked {@link MfgConstants#BOM_SOURCE_MANUAL}, so the next import carries it
+     * along instead of dropping it ({@link #withManualParts}). It is locked and counted like an
+     * imported part: as much as the shelf has, the rest shows up in the shopping list.
+     *
+     * @param dctx the dispatch context
+     * @param context service context, see {@code servicedef/devbom-services.xml#mfgDevBomItemAdd}
+     * @return the service result with {@code addedCode}, {@code addedLine}, {@code lockedQty} and
+     *         {@code shortQty}
+     */
+    public static Map<String, Object> devBomItemAdd(DispatchContext dctx, Map<String, ? extends Object> context) {
+        String denied = MfgSecurity.permissionProblem(dctx, context, MfgConstants.PERM_ENG);
+        if (denied != null) {
+            return ServiceUtil.returnError(denied);
+        }
+        Delegator delegator = dctx.getDelegator();
+        String projectCode = MfgSupport.toText(context.get("projectCode"));
+        if (projectCode == null) {
+            return ServiceUtil.returnError("projectCode is required");
+        }
+        String typedCode = MfgSupport.toText(context.get("partCode"));
+        if (typedCode == null) {
+            return ServiceUtil.returnError("要填料号：库存认的那个号（转接板就填它的型号）");
+        }
+        String code = codeOf(typedCode, typedCode);
+        if (code.length() > MfgConstants.MAX_COMPONENT_CODE) {
+            return ServiceUtil.returnError("料号太长（最多 " + MfgConstants.MAX_COMPONENT_CODE + " 个字符）：" + code);
+        }
+        double qty = MfgSupport.toDouble(context.get("qty"), 0.0);
+        if (qty <= 0.0) {
+            return ServiceUtil.returnError("数量要大于 0");
+        }
+        String typedName = MfgSupport.toText(context.get("partName"));
+        String name = typedName == null ? code : typedName;
+        String designators = MfgSupport.toText(context.get("designators"));
+        boolean lock = !"N".equals(MfgSupport.toText(context.get("lock")));
+        String operatorName = MfgSupport.toText(context.get("operatorName"));
+        try {
+            GenericValue latest = lastImport(delegator, projectCode);
+            if (latest == null) {
+                return ServiceUtil.returnError("这个项目还没导入过研发 BOM：先导入一版，再往这一版里加元件");
+            }
+            long importSeq = latest.getLong("importSeq").longValue();
+            List<GenericValue> items = itemsOf(delegator, projectCode, importSeq);
+            long maxLine = 0L;
+            GenericValue same = null;
+            for (GenericValue item : items) {
+                maxLine = Math.max(maxLine, item.getLong("lineSeq").longValue());
+                if (code.equalsIgnoreCase(item.getString("componentCode"))) {
+                    same = item;
+                }
+            }
+            if (same != null) {
+                return ServiceUtil.returnError("这一版已经有料号 " + code + "（第 "
+                        + same.getLong("lineSeq").longValue() + " 行），改它的数量就行，不用再加一行");
+            }
+            Double before = null;
+            if (importSeq > 1L) {
+                for (GenericValue old : itemsOf(delegator, projectCode, importSeq - 1L)) {
+                    if (code.equalsIgnoreCase(old.getString("componentCode"))) {
+                        before = Double.valueOf(MfgSupport.numberOrZero(old.get("qty")));
+                    }
+                }
+            }
+            String changeId = before == null ? MfgConstants.BOM_NEW
+                    : (Math.abs(before.doubleValue() - qty) > 0.0001 ? MfgConstants.BOM_CHANGED
+                            : MfgConstants.BOM_SAME);
+            // lock first, so the row says what really stands on the shelf and what has to be bought
+            double held = MfgSupport.numberOrZero(
+                    MfgStockLedger.lockedByProjectComponent(delegator, projectCode).get(code));
+            double gap = qty - held;
+            if (lock && gap > 0.0001) {
+                held += MfgStockLedger.reserveForProject(delegator, projectCode, code, gap, operatorName,
+                        "锁料：手工添加的元件 " + name);
+            }
+            double shortQty = Math.max(0.0, qty - held);
+            long lineSeq = maxLine + 10L;
+            GenericValue item = delegator.makeValue("MfgDevBomItem");
+            item.set("projectCode", projectCode);
+            item.set("importSeq", Long.valueOf(importSeq));
+            item.set("lineSeq", Long.valueOf(lineSeq));
+            item.set("componentCode", code);
+            item.set("componentName", name);
+            item.set("designators", designators);
+            item.set("qty", Double.valueOf(MfgSupport.round2(qty)));
+            item.set("previousQty", before);
+            item.set("changeId", changeId);
+            item.set("sourceId", MfgConstants.BOM_SOURCE_MANUAL);
+            item.set("lockedQty", Double.valueOf(MfgSupport.round2(Math.min(held, qty))));
+            item.set("shortQty", Double.valueOf(MfgSupport.round2(shortQty)));
+            item.set("consumedQty", Double.valueOf(0.0));
+            item.set("note", "手工添加（Fritzing 导出里没有），下次导入会自动带过来");
+            delegator.create(item);
+            items.add(item);
+            updateHeadCounts(delegator, latest, items);
+            Map<String, Object> result = ServiceUtil.returnSuccess();
+            result.put("addedCode", code);
+            result.put("addedName", name);
+            result.put("addedLine", String.valueOf(lineSeq));
+            result.put("lockedQty", MfgSupport.formatQty(Math.min(held, qty)));
+            result.put("shortQty", MfgSupport.formatQty(shortQty));
+            return result;
+        } catch (GenericEntityException e) {
+            return ServiceUtil.returnError("往研发 BOM 里加元件失败：" + e.getMessage());
+        }
+    }
+
+    /**
+     * Rewrites the counters the import head caches, after a row was added by hand. The page reads
+     * them for the banner above the table, so they have to match the rows again.
+     *
+     * @param delegator the delegator
+     * @param head the import the row belongs to
+     * @param items every row of that import, the new one included
+     * @throws GenericEntityException when the head cannot be stored
+     */
+    private static void updateHeadCounts(Delegator delegator, GenericValue head, List<GenericValue> items)
+            throws GenericEntityException {
+        int itemCount = 0;
+        int newCount = 0;
+        int changedCount = 0;
+        int shortCount = 0;
+        double lockedTotal = 0.0;
+        for (GenericValue item : items) {
+            if (MfgConstants.BOM_DROPPED.equals(item.getString("changeId"))) {
+                continue;
+            }
+            itemCount++;
+            if (MfgConstants.BOM_NEW.equals(item.getString("changeId"))) {
+                newCount++;
+            } else if (MfgConstants.BOM_CHANGED.equals(item.getString("changeId"))) {
+                changedCount++;
+            }
+            if (MfgSupport.numberOrZero(item.get("shortQty")) > 0.0001) {
+                shortCount++;
+            }
+            lockedTotal += MfgSupport.numberOrZero(item.get("lockedQty"));
+        }
+        head.set("itemCount", Long.valueOf(itemCount));
+        head.set("newCount", Long.valueOf(newCount));
+        head.set("changedCount", Long.valueOf(changedCount));
+        head.set("shortCount", Long.valueOf(shortCount));
+        head.set("lockedQty", Double.valueOf(MfgSupport.round2(lockedTotal)));
+        delegator.store(head);
     }
 
     /**
@@ -627,9 +788,16 @@ public final class MfgDevBomServices {
         final double qty;
         final Double previousQty;
         final String changeId;
+        final String sourceId;
 
         DevBomRow(String componentCode, String componentName, String partType, String properties,
                 String designators, double qty, Double previousQty, String changeId) {
+            this(componentCode, componentName, partType, properties, designators, qty, previousQty,
+                    changeId, null);
+        }
+
+        DevBomRow(String componentCode, String componentName, String partType, String properties,
+                String designators, double qty, Double previousQty, String changeId, String sourceId) {
             this.componentCode = componentCode;
             this.componentName = componentName;
             this.partType = partType;
@@ -638,6 +806,13 @@ public final class MfgDevBomServices {
             this.qty = qty;
             this.previousQty = previousQty;
             this.changeId = changeId;
+            this.sourceId = sourceId;
+        }
+
+        /** The same part, but typed in by hand instead of printed by the sketch. */
+        DevBomRow typedIn() {
+            return new DevBomRow(componentCode, componentName, partType, properties, designators,
+                    qty, Double.valueOf(qty), MfgConstants.BOM_SAME, MfgConstants.BOM_SOURCE_MANUAL);
         }
     }
 
@@ -725,6 +900,78 @@ public final class MfgDevBomServices {
     }
 
     /**
+     * Carries the parts that were typed in by hand into the next version of the design BOM.
+     *
+     * <p>A breadboard build needs parts the sketch does not show - an adapter board that lets a
+     * sensor sit in the breadboard, a battery holder. They can only be typed in, and the export will
+     * never mention them, so without this every new import would drop them: the lock would go, the
+     * shopping list would forget to buy them, and the person would have to type them in again after
+     * every export.
+     *
+     * @param rows the parts the file lists, in file order
+     * @param typedIn the parts the version before had by hand, in its order
+     * @return the parts of the file followed by those only the previous version knew by hand; a part
+     *         the file prints now is taken from the file
+     */
+    static List<DevBomRow> withManualParts(List<DevBomRow> rows, List<DevBomRow> typedIn) {
+        if (typedIn == null || typedIn.isEmpty()) {
+            return new ArrayList<>(rows);
+        }
+        Map<String, DevBomRow> byCode = new LinkedHashMap<>();
+        for (DevBomRow row : typedIn) {
+            byCode.put(row.componentCode.toUpperCase(Locale.ROOT), row);
+        }
+        List<DevBomRow> out = new ArrayList<>(rows.size() + byCode.size());
+        Set<String> printed = new java.util.HashSet<>();
+        for (DevBomRow row : rows) {
+            String code = row.componentCode.toUpperCase(Locale.ROOT);
+            if (MfgConstants.BOM_DROPPED.equals(row.changeId) && byCode.containsKey(code)) {
+                // the comparison put a tombstone here because the file does not mention the part any
+                // more - but it was typed in, so it is still wanted: the part replaces the tombstone
+                continue;
+            }
+            printed.add(code);
+            out.add(row);
+        }
+        for (Map.Entry<String, DevBomRow> entry : byCode.entrySet()) {
+            if (printed.add(entry.getKey())) {
+                out.add(entry.getValue().typedIn());
+            }
+        }
+        return out;
+    }
+
+    /**
+     * The parts of one version that were typed in by hand, so the next import can carry them over.
+     *
+     * @param delegator the delegator
+     * @param projectCode the development project
+     * @param importSeq the version whose rows are read
+     * @return the rows typed in by hand, empty when the version has none
+     * @throws GenericEntityException when the rows cannot be read
+     */
+    private static List<DevBomRow> manualRowsOf(Delegator delegator, String projectCode, long importSeq)
+            throws GenericEntityException {
+        List<DevBomRow> rows = new ArrayList<>();
+        for (GenericValue item : itemsOf(delegator, projectCode, importSeq)) {
+            if (!MfgConstants.BOM_SOURCE_MANUAL.equals(item.getString("sourceId"))) {
+                continue;
+            }
+            if (MfgConstants.BOM_DROPPED.equals(item.getString("changeId"))) {
+                continue;
+            }
+            double qty = MfgSupport.numberOrZero(item.get("qty"));
+            if (qty <= 0.0) {
+                continue;
+            }
+            rows.add(new DevBomRow(item.getString("componentCode"), item.getString("componentName"),
+                    item.getString("partType"), item.getString("properties"),
+                    item.getString("designators"), qty, null, MfgConstants.BOM_SAME));
+        }
+        return rows;
+    }
+
+    /**
      * On hand, reserved and available quantity per part number, summed over the lots. The codes are
      * compared upper case, because the sketch and the shop do not always agree on the case.
      *
@@ -771,6 +1018,32 @@ public final class MfgDevBomServices {
      */
     static List<Map<String, Object>> componentStockOptions(Delegator delegator, List<String> wanted)
             throws GenericEntityException {
+        Map<String, Map<String, Object>> byCode = allStockOptions(delegator);
+        List<String> inStock = new ArrayList<>(byCode.keySet());
+        // sorted by part number, so the rest of the list is stable and can be searched by typing; the
+        // order of the lots would push everything bought recently out of it
+        inStock.sort(null);
+        List<String> order = offerOrder(upperCodes(wanted), inStock, MAX_STOCK_OPTIONS);
+        List<Map<String, Object>> options = new ArrayList<>(order.size());
+        for (String code : order) {
+            options.add(byCode.get(code));
+        }
+        return options;
+    }
+
+    /**
+     * Every part number that has something on the shelf, with a name and the quantity on hand.
+     *
+     * <p>The page cannot hold them all: a shop that has run for a year carries hundreds of part
+     * numbers, and the offer is cut at {@value #MAX_STOCK_OPTIONS}. So the page asks again while the
+     * person types ({@link #matchingStockOptions}), and this is what it searches.
+     *
+     * @param delegator the delegator
+     * @return part number to option, in part number order
+     * @throws GenericEntityException when the lots cannot be read
+     */
+    static Map<String, Map<String, Object>> allStockOptions(Delegator delegator)
+            throws GenericEntityException {
         Map<String, Map<String, Object>> byCode = new LinkedHashMap<>();
         for (GenericValue lot : MfgStockLedger.componentLots(delegator)) {
             if (lot.get("onHandQty") == null) {
@@ -796,21 +1069,69 @@ public final class MfgDevBomServices {
             option.put("onHandQty", Double.valueOf(MfgSupport.numberOrZero(option.get("onHandQty"))
                     + MfgSupport.numberOrZero(lot.get("onHandQty"))));
         }
-        List<String> inStock = new ArrayList<>();
+        // only what is really on the shelf, and in part number order so the list is stable
+        Map<String, Map<String, Object>> inStock = new java.util.TreeMap<>();
         for (Map.Entry<String, Map<String, Object>> entry : byCode.entrySet()) {
             if (MfgSupport.numberOrZero(entry.getValue().get("onHandQty")) > 0.0001) {
-                inStock.add(entry.getKey());
+                inStock.put(entry.getKey(), entry.getValue());
             }
         }
-        // sorted by part number, so the rest of the list is stable and can be searched by typing; the
-        // order of the lots would push everything bought recently out of it
-        inStock.sort(null);
-        List<String> order = offerOrder(upperCodes(wanted), inStock, MAX_STOCK_OPTIONS);
-        List<Map<String, Object>> options = new ArrayList<>(order.size());
-        for (String code : order) {
-            options.add(byCode.get(code));
+        return inStock;
+    }
+
+    /**
+     * The part numbers of the shelf that answer what was typed, so the page can offer them while a
+     * part is added or a sketch code is corrected.
+     *
+     * <p>Searching is done here and not in the browser: the page holds at most
+     * {@value #MAX_STOCK_OPTIONS} codes, and a shop with hundreds of them would otherwise never offer
+     * the one the person is looking for (typing "转接板" found three of sixty-two matches).
+     *
+     * @param all every part number on the shelf, see {@link #allStockOptions}
+     * @param term what was typed, matched against the part number and the name; blank offers the first ones
+     * @param limit how many to answer with
+     * @return the matches, the ones that start with the term first
+     */
+    static List<Map<String, Object>> matchingStockOptions(List<Map<String, Object>> all, String term, int limit) {
+        List<Map<String, Object>> out = new ArrayList<>();
+        if (all == null || all.isEmpty() || limit <= 0) {
+            return out;
         }
-        return options;
+        String wanted = term == null ? "" : term.trim().toUpperCase(Locale.ROOT);
+        if (wanted.isEmpty()) {
+            for (Map<String, Object> option : all) {
+                if (out.size() >= limit) {
+                    break;
+                }
+                out.add(option);
+            }
+            return out;
+        }
+        List<Map<String, Object>> starts = new ArrayList<>();
+        List<Map<String, Object>> contains = new ArrayList<>();
+        for (Map<String, Object> option : all) {
+            String code = upperCode(MfgSupport.toText(option.get("componentCode")));
+            String name = MfgSupport.toText(option.get("componentName"));
+            String upperName = name == null ? "" : name.toUpperCase(Locale.ROOT);
+            if (code.startsWith(wanted) || upperName.startsWith(wanted)) {
+                starts.add(option);
+            } else if (code.contains(wanted) || upperName.contains(wanted)) {
+                contains.add(option);
+            }
+        }
+        for (Map<String, Object> option : starts) {
+            if (out.size() >= limit) {
+                return out;
+            }
+            out.add(option);
+        }
+        for (Map<String, Object> option : contains) {
+            if (out.size() >= limit) {
+                break;
+            }
+            out.add(option);
+        }
+        return out;
     }
 
     /**

@@ -65,6 +65,26 @@
         <attribute name="shortQty" type="String" mode="OUT" optional="true"/>
     </service>
 
+    <service name="mfgDevBomItemAdd" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgDevBomServices" invoke="devBomItemAdd"
+            auth="false" use-transaction="true">
+        <description>Add a part the sketch does not show (an adapter board that lets a part sit in the breadboard) to the version in use: lock it like an imported part, and carry it into the next import</description>
+        <!-- the new part number is called partCode, not componentCode: the page redirects a
+             componentCode, and makeQueryString falls back to the posted parameter of that name -->
+        <attribute name="projectCode" type="String" mode="IN" optional="true"/>
+        <attribute name="partCode" type="String" mode="IN" optional="true"/>
+        <attribute name="partName" type="String" mode="IN" optional="true"/>
+        <attribute name="qty" type="Double" mode="IN" optional="true"/>
+        <attribute name="designators" type="String" mode="IN" optional="true"/>
+        <attribute name="lock" type="String" mode="IN" optional="true"/>
+        <attribute name="operatorName" type="String" mode="IN" optional="true"/>
+        <attribute name="addedCode" type="String" mode="OUT" optional="true"/>
+        <attribute name="addedName" type="String" mode="OUT" optional="true"/>
+        <attribute name="addedLine" type="String" mode="OUT" optional="true"/>
+        <attribute name="lockedQty" type="String" mode="OUT" optional="true"/>
+        <attribute name="shortQty" type="String" mode="OUT" optional="true"/>
+    </service>
+
     <service name="mfgDevBomSaveAll" engine="java"
             location="org.langhua.ofbiz.mfg.MfgDevBomServices" invoke="devBomSaveAll"
             auth="false" use-transaction="true">

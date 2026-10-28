@@ -767,6 +767,7 @@
         <field name="lockedQty" type="floating-point"><description>Units locked for this project on this part when the version was imported</description></field>
         <field name="shortQty" type="floating-point"><description>Units that were missing when the version was imported</description></field>
         <field name="consumedQty" type="floating-point"><description>Units booked as development material because a later version no longer uses the part</description></field>
+        <field name="sourceId" type="id"><description>Empty when the sketch printed this part, MFG_BOM_MANUAL when somebody typed it in (an adapter board the sketch does not show); such rows are carried into the next import</description></field>
         <field name="note" type="description"/>
         <prim-key field="projectCode"/>
         <prim-key field="importSeq"/>

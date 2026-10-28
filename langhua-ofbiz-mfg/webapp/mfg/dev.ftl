@@ -316,6 +316,11 @@
     <#if parameters.savedLines??>
         <p class="ok">已保存 ${parameters.savedLines} 行的改动：料号按新的重新锁料了，缺多少看下表<#if (parameters.keptLines!'0') != '0'>；另外 ${parameters.keptLines} 行没有改动，没动它们</#if><#if (parameters.goneLines!'0') != '0'>；有 ${parameters.goneLines} 行在最新一版里已经不存在，跳过了</#if>。</p>
     </#if>
+    <#if parameters.addedCode??>
+        <p class="ok">已把 <b>${parameters.addedCode}</b>（${(parameters.addedName)!''}）加进这一版（第 ${(parameters.addedLine)!''} 行）：
+            已锁 ${(parameters.lockedQty)!'0'}，缺 ${(parameters.shortQty)!'0'}。
+            它不在 Fritzing 导出里，<b>下次导入会自动带过来</b>，不会被新的导出挤掉。</p>
+    </#if>
 
     <#if bomLatest?has_content>
         <p class="hint">
@@ -392,7 +397,7 @@
                 <tr data-bom-line="${r.lineSeq}" data-bom-change="${r.changeId}">
                     <td class="num">${r_index + 1}</td>
                     <td><input type="text" name="componentCode" form="bomRow${r.lineSeq}" size="20" value="${r.componentCode}" list="stockCodes"/></td>
-                    <td>${r.componentName!}<#if r.properties??><br/><span class="hint">${r.properties}</span></#if></td>
+                    <td>${r.componentName!}<#if (r.sourceId!'') == 'MFG_BOM_MANUAL'> <span class="hint">（手工添加）</span></#if><#if r.properties??><br/><span class="hint">${r.properties}</span></#if></td>
                     <td class="num"><input type="text" name="qty" form="bomRow${r.lineSeq}" size="5" value="${r.qty?string("0.##")}"/></td>
                     <td>${r.designators!}</td>
                     <td><#if r.changeId == 'MFG_BOM_NEW'><span class="ok">${bomChangeLabel(r.changeId)}</span><#elseif r.changeId == 'MFG_BOM_CHANGED'><span class="warn">${bomChangeLabel(r.changeId)}<#if r.previousQty??>（原 ${(r.previousQty)?string("0.##")}）</#if></span><#else>${bomChangeLabel(r.changeId)}</#if></td>
@@ -422,17 +427,64 @@
             <input type="submit" value="释放本项目的锁料"/>
         </form>
         <span class="hint">板子下单或项目暂停时用：只把锁放掉，库存不动。</span>
-        <#if bomStock?has_content>
-            <#-- the part numbers that are on the shelf right now: the browser offers them while a
-                 sketch code is corrected to the code the shop books the part under -->
-            <datalist id="stockCodes">
-                <#list bomStock as o>
-                    <#-- the name is cut short: a lot imported from a shop carries the whole article
-                         title, and 300 of those would make the page heavy and the list unreadable -->
-                    <option value="${o.componentCode}">${(o.componentName!'')?truncate(36)}（在库 ${(o.onHandQty)?string("0.##")}）</option>
-                </#list>
-            </datalist>
-        </#if>
+
+        <h4 id="devbomadd">加一个元件（Fritzing 导出里没有的）</h4>
+        <p class="hint">面包板上常有些件不在原理图里：元件的<b>转接板</b>（传感器插不进面包板，得先焊到一块小板上）、
+            电池盒、杜邦线组。把它们加进这一版：跟导入的元件一样锁料、一样进缺货清单，
+            <b>下次导入会自动带过来</b>（只要 Fritzing 里还没画它）。料号要填库存里的那个号，这样才锁得上料。</p>
+        <form method="post" action="/mfg/control/devBomItemAdd" id="devBomAdd">
+            <input type="hidden" name="projectCode" value="${project.projectCode}"/>
+            <input type="hidden" name="lock" value="Y"/>
+            <input type="text" name="partCode" size="16" value="" list="stockCodes" placeholder="料号"/>
+            <input type="text" name="partName" size="22" value="" placeholder="名称，例如 NFC 转接板"/>
+            <input type="text" name="qty" size="4" value="1" title="数量"/>
+            <input type="text" name="designators" size="10" value="" placeholder="位号可空"/>
+            <input type="submit" value="添加元件"/>
+        </form>
+        <#-- the part numbers that are on the shelf right now: the browser offers them while a part
+             is added or a sketch code is corrected to the code the shop books the part under. The
+             list below is only the first screenful; while the person types, the page asks the server
+             for the matches, because a shop with hundreds of part numbers cannot be held here -->
+        <datalist id="stockCodes">
+            <#list bomStock as o>
+                <#-- the name is cut short: a lot imported from a shop carries the whole article
+                     title, and hundreds of those would make the page heavy and the list unreadable -->
+                <option value="${o.componentCode}">${(o.componentName!'')?truncate(36)}（在库 ${(o.onHandQty)?string("0.##")}）</option>
+            </#list>
+        </datalist>
+        <script>
+            (function () {
+                var list = document.getElementById('stockCodes');
+                if (!list) { return; }
+                var timer = null;
+                var lastTerm = null;
+                function fill(term) {
+                    lastTerm = term;
+                    fetch('/mfg/control/devStockCodes?limit=40&term=' + encodeURIComponent(term), { credentials: 'same-origin' })
+                        .then(function (answer) { return answer.ok ? answer.json() : null; })
+                        .then(function (data) {
+                            if (!data || !data.codes || term !== lastTerm) { return; }
+                            while (list.firstChild) { list.removeChild(list.firstChild); }
+                            for (var i = 0; i < data.codes.length; i++) {
+                                var option = document.createElement('option');
+                                option.value = data.codes[i].code;
+                                option.textContent = data.codes[i].name + '（在库 ' + data.codes[i].qty + '）';
+                                list.appendChild(option);
+                            }
+                        })
+                        .catch(function () { /* the list keeps what it had */ });
+                }
+                document.addEventListener('input', function (event) {
+                    var field = event.target;
+                    if (!field || field.getAttribute('list') !== 'stockCodes') { return; }
+                    var term = field.value;
+                    if (timer) { clearTimeout(timer); }
+                    // a keystroke a moment ago is enough: the server searches every part number,
+                    // name included, so "转接板" is not limited to the few codes the page holds
+                    timer = setTimeout(function () { fill(term); }, 250);
+                });
+            }());
+        </script>
     </#if>
 
     <#if bomDropped?has_content>
@@ -650,7 +702,7 @@
 <#if parameters.projectCode??>
 <script>
 (function () {
-    var toBom = <#if parameters.componentCode?? || parameters.savedLines?? || parameters.releasedQty??>true<#else>false</#if>;
+    var toBom = <#if parameters.componentCode?? || parameters.savedLines?? || parameters.releasedQty?? || parameters.addedCode??>true<#else>false</#if>;
     function jump() {
         var block = document.getElementById(toBom ? 'devbom' : 'project');
         if (block && window.jumpUnderNav) { window.jumpUnderNav(block); }
