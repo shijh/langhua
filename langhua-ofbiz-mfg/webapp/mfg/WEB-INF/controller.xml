@@ -832,9 +832,22 @@
         <event type="service" invoke="mfgDevBomItemSave"/>
         <response name="success" type="request-redirect" value="dev">
             <redirect-parameter name="projectCode"/>
+            <redirect-parameter name="lineSeq"/>
             <redirect-parameter name="componentCode"/>
             <redirect-parameter name="lockedQty"/>
             <redirect-parameter name="shortQty"/>
+        </response>
+        <response name="error" type="view" value="dev"/>
+    </request-map>
+
+    <request-map uri="devBomItemSaveAll">
+        <security https="true" auth="true"/>
+        <event type="java" path="org.langhua.ofbiz.mfg.MfgDevBomEvents" invoke="saveAll"/>
+        <response name="success" type="request-redirect" value="dev">
+            <redirect-parameter name="projectCode"/>
+            <redirect-parameter name="savedLines"/>
+            <redirect-parameter name="keptLines"/>
+            <redirect-parameter name="goneLines"/>
         </response>
         <response name="error" type="view" value="dev"/>
     </request-map>

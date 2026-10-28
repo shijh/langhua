@@ -110,6 +110,61 @@ public final class MfgDevBomEvents {
     }
 
     /**
+     * Saves every row of the 本版元件 table at once, so the person fixes all the part numbers of a
+     * version and then presses one button instead of saving row by row.
+     *
+     * <p>The page posts one {@code row} value per line ({@code lineSeq|part number|quantity}); the
+     * values are read with {@code getParameterValues} on purpose - the framework's parameter map
+     * trims what it gets, and a part number may well end in a space.
+     *
+     * @param request the request, holding {@code projectCode} and one {@code row} per table line
+     * @param response the response
+     * @return {@code success} to go back to the project page, {@code error} to render it with a message
+     */
+    public static String saveAll(HttpServletRequest request, HttpServletResponse response) {
+        Map<String, Object> parameters = UtilHttp.getParameterMap(request);
+        String projectCode = text(parameters.get("projectCode"));
+        String[] posted = request.getParameterValues("row");
+        List<Map<String, Object>> rows = new ArrayList<>();
+        if (posted != null) {
+            for (String raw : posted) {
+                Map<String, Object> row = MfgDevBomServices.rowEditOf(raw);
+                if (row != null) {
+                    rows.add(row);
+                }
+            }
+        }
+        if (rows.isEmpty()) {
+            return error(request, "没有读到要保存的行，请刷新页面后再试");
+        }
+        LocalDispatcher dispatcher = (LocalDispatcher) request.getAttribute("dispatcher");
+        if (dispatcher == null) {
+            return error(request, "服务不可用，请稍后重试或重启实例");
+        }
+        GenericValue userLogin = (GenericValue) request.getSession().getAttribute("userLogin");
+        Map<String, Object> context = new java.util.HashMap<>();
+        context.put("userLogin", userLogin);
+        context.put("projectCode", projectCode);
+        context.put("rows", rows);
+        context.put("lock", parameters.get("lock") == null ? "N" : "Y");
+        context.put("operatorName", userLogin == null ? null : userLogin.getString("userLoginId"));
+        try {
+            Map<String, Object> result = dispatcher.runSync("mfgDevBomSaveAll", context, -1, true);
+            if (ServiceUtil.isError(result)) {
+                return error(request, ServiceUtil.getErrorMessage(result));
+            }
+            request.setAttribute("projectCode", projectCode);
+            request.setAttribute("savedLines", value(result.get("savedLines")));
+            request.setAttribute("keptLines", value(result.get("keptLines")));
+            request.setAttribute("goneLines", value(result.get("goneLines")));
+            return "success";
+        } catch (GenericServiceException e) {
+            Debug.logError(e, "Could not run mfgDevBomSaveAll", MODULE);
+            return error(request, "保存失败：" + e.getMessage());
+        }
+    }
+
+    /**
      * Downloads the shopping list of the current version of a project: one line per part that is
      * short, with what the version needs, what is locked, what is on the shelf and how much to buy.
      *

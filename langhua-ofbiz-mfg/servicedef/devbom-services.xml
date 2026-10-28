@@ -59,9 +59,23 @@
         <attribute name="qty" type="Double" mode="IN" optional="true"/>
         <attribute name="lock" type="String" mode="IN" optional="true"/>
         <attribute name="operatorName" type="String" mode="IN" optional="true"/>
+        <attribute name="lineSeq" type="String" mode="OUT" optional="true"/>
         <attribute name="componentCode" type="String" mode="OUT" optional="true"/>
         <attribute name="lockedQty" type="String" mode="OUT" optional="true"/>
         <attribute name="shortQty" type="String" mode="OUT" optional="true"/>
+    </service>
+
+    <service name="mfgDevBomSaveAll" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgDevBomServices" invoke="devBomSaveAll"
+            auth="false" use-transaction="true">
+        <description>Save every corrected part number and quantity of the latest import in one go, moving the lock of each row that changed</description>
+        <attribute name="projectCode" type="String" mode="IN" optional="true"/>
+        <attribute name="rows" type="java.util.List" mode="IN" optional="true"/>
+        <attribute name="lock" type="String" mode="IN" optional="true"/>
+        <attribute name="operatorName" type="String" mode="IN" optional="true"/>
+        <attribute name="savedLines" type="String" mode="OUT" optional="true"/>
+        <attribute name="keptLines" type="String" mode="OUT" optional="true"/>
+        <attribute name="goneLines" type="String" mode="OUT" optional="true"/>
     </service>
 
     <service name="mfgDevBomRelease" engine="java"

@@ -190,6 +190,31 @@ public class MfgDevBomRulesTest {
         assertNull(MfgCsv.propertyValue(null, "电阻"));
     }
 
+    @Test
+    public void readsARowOfTheWholeTableSave() {
+        // the page posts lineSeq|part number|quantity; a Fritzing name may carry spaces
+        Map<String, Object> row = MfgDevBomServices.rowEditOf("3|5.5V1.5F C型 21*7.5|2");
+        assertEquals(Long.valueOf(3L), row.get("lineSeq"));
+        assertEquals("5.5V1.5F C型 21*7.5", row.get("componentCode"));
+        assertEquals(2.0, (Double) row.get("qty"), 0.0001);
+        // a part number may itself contain the separator, so only the outer two are separators
+        assertEquals("A|B", MfgDevBomServices.rowEditOf("11|A|B|4.5").get("componentCode"));
+        assertEquals(4.5, (Double) MfgDevBomServices.rowEditOf("11|A|B|4.5").get("qty"), 0.0001);
+    }
+
+    @Test
+    public void refusesAnIncompleteRowOfTheWholeTableSave() {
+        assertNull(MfgDevBomServices.rowEditOf(null));
+        assertNull(MfgDevBomServices.rowEditOf(""));
+        assertNull(MfgDevBomServices.rowEditOf("R-10K-0603"));
+        assertNull(MfgDevBomServices.rowEditOf("3|R-10K-0603"));
+        assertNull(MfgDevBomServices.rowEditOf("|R-10K-0603|2"));
+        assertNull(MfgDevBomServices.rowEditOf("0|R-10K-0603|2"));
+        assertNull(MfgDevBomServices.rowEditOf("3|R-10K-0603|"));
+        assertNull(MfgDevBomServices.rowEditOf("3|R-10K-0603|abc"));
+        assertNull(MfgDevBomServices.rowEditOf("3|R-10K-0603|-1"));
+    }
+
     private static String[] row(String code, String name, String qty, String designators) {
         return new String[] {code, name, qty, designators, "N", null, null};
     }

@@ -20,6 +20,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
+import org.apache.ofbiz.base.util.UtilGenerics;
 import org.apache.ofbiz.entity.Delegator;
 import org.apache.ofbiz.entity.GenericEntityException;
 import org.apache.ofbiz.entity.GenericValue;
@@ -383,52 +384,189 @@ public final class MfgDevBomServices {
         }
         String operatorName = MfgSupport.toText(context.get("operatorName"));
         try {
-            GenericValue latest = lastImport(delegator, projectCode);
-            if (latest == null) {
-                return ServiceUtil.returnError("这个项目还没导入过研发 BOM");
-            }
-            long importSeq = latest.getLong("importSeq").longValue();
-            GenericValue item = EntityQuery.use(delegator).from("MfgDevBomItem")
-                    .where("projectCode", projectCode, "importSeq", Long.valueOf(importSeq),
-                            "lineSeq", Long.valueOf(lineSeq))
-                    .queryOne();
+            GenericValue item = itemOf(delegator, projectCode, lineSeq);
             if (item == null) {
                 return ServiceUtil.returnError("第 " + lineSeq + " 行不存在（可能已经被下一次导入替换）");
             }
-            String oldCode = item.getString("componentCode");
-            String typedCode = MfgSupport.toText(context.get("componentCode"));
-            String newCode = MfgProductServices
-                    .fittingComponentCode(typedCode == null ? oldCode : typedCode)
-                    .toUpperCase(Locale.ROOT);
-            double qty = MfgSupport.toDouble(context.get("qty"), MfgSupport.numberOrZero(item.get("qty")));
-            if (qty < 0.0) {
-                return ServiceUtil.returnError("数量不能是负数");
-            }
-            if (!newCode.equals(oldCode)) {
-                MfgStockLedger.releaseProjectReservation(delegator, projectCode, oldCode,
-                        Double.MAX_VALUE, operatorName, "料号改成 " + newCode + "，先释放旧料号的锁");
-            }
-            double held = MfgSupport.numberOrZero(
-                    MfgStockLedger.lockedByProjectComponent(delegator, projectCode).get(newCode));
-            double gap = qty - held;
-            if (!"N".equals(MfgSupport.toText(context.get("lock"))) && gap > 0.0001) {
-                held += MfgStockLedger.reserveForProject(delegator, projectCode, newCode, gap,
-                        operatorName, "锁料：改正第 " + lineSeq + " 行");
-            }
-            double shortQty = Math.max(0.0, qty - held);
-            item.set("componentCode", newCode);
-            item.set("qty", Double.valueOf(MfgSupport.round2(qty)));
-            item.set("lockedQty", Double.valueOf(MfgSupport.round2(Math.min(held, qty))));
-            item.set("shortQty", Double.valueOf(MfgSupport.round2(shortQty)));
-            delegator.store(item);
-            Map<String, Object> result = ServiceUtil.returnSuccess();
-            result.put("componentCode", newCode);
-            result.put("lockedQty", MfgSupport.formatQty(Math.min(held, qty)));
-            result.put("shortQty", MfgSupport.formatQty(shortQty));
+            Map<String, Object> result = applyItemEdit(delegator, projectCode, operatorName, item,
+                    MfgSupport.toText(context.get("componentCode")),
+                    MfgSupport.toDouble(context.get("qty"), MfgSupport.numberOrZero(item.get("qty"))),
+                    !"N".equals(MfgSupport.toText(context.get("lock"))), "改正第 " + lineSeq + " 行");
+            result.put("lineSeq", String.valueOf(lineSeq));
             return result;
         } catch (GenericEntityException e) {
             return ServiceUtil.returnError("改正研发 BOM 行失败：" + e.getMessage());
         }
+    }
+
+    /**
+     * Saves every row of the latest import in one go: the person fixes all the part numbers of a
+     * version (the sketch names a part differently from the shop that sells it) and then presses one
+     * button, instead of saving row by row.
+     *
+     * <p>A row whose part number and quantity did not change is left alone, so saving the whole table
+     * does not churn the ledger; the answer says how many rows really changed.
+     *
+     * @param dctx the dispatch context
+     * @param context service context, see {@code servicedef/devbom-services.xml#mfgDevBomSaveAll}:
+     *        {@code rows} is a list of maps with {@code lineSeq}, {@code componentCode} and {@code qty},
+     *        built by {@link #rowEditOf} from what the page posted
+     * @return the service result with {@code savedLines}, {@code keptLines} and {@code goneLines}
+     */
+    public static Map<String, Object> devBomSaveAll(DispatchContext dctx, Map<String, ? extends Object> context) {
+        String denied = MfgSecurity.permissionProblem(dctx, context, MfgConstants.PERM_ENG);
+        if (denied != null) {
+            return ServiceUtil.returnError(denied);
+        }
+        Delegator delegator = dctx.getDelegator();
+        String projectCode = MfgSupport.toText(context.get("projectCode"));
+        if (projectCode == null) {
+            return ServiceUtil.returnError("projectCode is required");
+        }
+        List<Map<String, Object>> rows = UtilGenerics.cast(context.get("rows"));
+        if (rows == null || rows.isEmpty()) {
+            return ServiceUtil.returnError("没有收到要保存的行");
+        }
+        String operatorName = MfgSupport.toText(context.get("operatorName"));
+        boolean lock = !"N".equals(MfgSupport.toText(context.get("lock")));
+        try {
+            if (lastImport(delegator, projectCode) == null) {
+                return ServiceUtil.returnError("这个项目还没导入过研发 BOM");
+            }
+            int saved = 0;
+            int kept = 0;
+            int gone = 0;
+            for (Map<String, Object> row : rows) {
+                long lineSeq = MfgSupport.toLong(row.get("lineSeq"), 0L);
+                GenericValue item = lineSeq <= 0L ? null : itemOf(delegator, projectCode, lineSeq);
+                if (item == null) {
+                    gone++;
+                    continue;
+                }
+                double qty = MfgSupport.toDouble(row.get("qty"), MfgSupport.numberOrZero(item.get("qty")));
+                if (qty < 0.0) {
+                    return ServiceUtil.returnError("第 " + lineSeq + " 行的数量不能是负数");
+                }
+                String typedCode = MfgSupport.toText(row.get("componentCode"));
+                String newCode = codeOf(typedCode, item.getString("componentCode"));
+                if (newCode.equals(item.getString("componentCode"))
+                        && Math.abs(qty - MfgSupport.numberOrZero(item.get("qty"))) < 0.0001) {
+                    kept++;
+                    continue;
+                }
+                applyItemEdit(delegator, projectCode, operatorName, item, typedCode, qty, lock,
+                        "整表保存第 " + lineSeq + " 行");
+                saved++;
+            }
+            Map<String, Object> result = ServiceUtil.returnSuccess();
+            result.put("savedLines", String.valueOf(saved));
+            result.put("keptLines", String.valueOf(kept));
+            result.put("goneLines", String.valueOf(gone));
+            return result;
+        } catch (GenericEntityException e) {
+            return ServiceUtil.returnError("整表保存研发 BOM 失败：" + e.getMessage());
+        }
+    }
+
+    /**
+     * Turns one row the page posted into the map the batch save reads: the row number, the part
+     * number as typed and the quantity. The page sends {@code lineSeq|part number|quantity}, so the
+     * part number may contain spaces (a Fritzing name like {@code 5.5V1.5F C型 21*7.5} does).
+     *
+     * @param raw the posted value, may be null or malformed
+     * @return the row, or null when the value is not a row
+     */
+    static Map<String, Object> rowEditOf(String raw) {
+        if (raw == null) {
+            return null;
+        }
+        String text = raw.trim();
+        int first = text.indexOf('|');
+        int last = text.lastIndexOf('|');
+        if (first <= 0 || last <= first) {
+            return null;
+        }
+        long lineSeq = MfgSupport.toLong(text.substring(0, first).trim(), 0L);
+        if (lineSeq <= 0L) {
+            return null;
+        }
+        String code = text.substring(first + 1, last).trim();
+        String qtyText = text.substring(last + 1).trim();
+        if (qtyText.isEmpty()) {
+            return null;
+        }
+        double qty;
+        try {
+            qty = Double.parseDouble(qtyText);
+        } catch (NumberFormatException e) {
+            return null;
+        }
+        if (Double.isNaN(qty) || qty < 0.0) {
+            return null;
+        }
+        Map<String, Object> row = new LinkedHashMap<>();
+        row.put("lineSeq", Long.valueOf(lineSeq));
+        row.put("componentCode", code);
+        row.put("qty", Double.valueOf(qty));
+        return row;
+    }
+
+    /** The part row of one import, or null when this version does not have that line any more. */
+    private static GenericValue itemOf(Delegator delegator, String projectCode, long lineSeq)
+            throws GenericEntityException {
+        GenericValue latest = lastImport(delegator, projectCode);
+        if (latest == null) {
+            return null;
+        }
+        return EntityQuery.use(delegator).from("MfgDevBomItem")
+                .where("projectCode", projectCode,
+                        "importSeq", Long.valueOf(latest.getLong("importSeq").longValue()),
+                        "lineSeq", Long.valueOf(lineSeq))
+                .queryOne();
+    }
+
+    /** The part number a typed value stands for: what was typed, or the one the row has now. */
+    private static String codeOf(String typedCode, String currentCode) {
+        return MfgProductServices.fittingComponentCode(typedCode == null ? currentCode : typedCode)
+                .toUpperCase(Locale.ROOT);
+    }
+
+    /**
+     * Applies one correction to a part of the latest import: the code moves the lock from the old
+     * part number to the new one (that is the whole point - the sketch and the shop name the same
+     * part differently), then the lock is topped up to the quantity and the row is written.
+     *
+     * <p>Shared by the single row save and the batch save so both behave the same.
+     *
+     * @return the success result with {@code componentCode}, {@code lockedQty} and {@code shortQty}
+     */
+    private static Map<String, Object> applyItemEdit(Delegator delegator, String projectCode,
+            String operatorName, GenericValue item, String typedCode, double qty, boolean lock, String note)
+            throws GenericEntityException {
+        String oldCode = item.getString("componentCode");
+        String newCode = codeOf(typedCode, oldCode);
+        if (!newCode.equals(oldCode)) {
+            MfgStockLedger.releaseProjectReservation(delegator, projectCode, oldCode,
+                    Double.MAX_VALUE, operatorName, "料号改成 " + newCode + "，先释放旧料号的锁");
+        }
+        double held = MfgSupport.numberOrZero(
+                MfgStockLedger.lockedByProjectComponent(delegator, projectCode).get(newCode));
+        double gap = qty - held;
+        if (lock && gap > 0.0001) {
+            held += MfgStockLedger.reserveForProject(delegator, projectCode, newCode, gap, operatorName,
+                    "锁料：" + note);
+        }
+        double shortQty = Math.max(0.0, qty - held);
+        item.set("componentCode", newCode);
+        item.set("qty", Double.valueOf(MfgSupport.round2(qty)));
+        item.set("lockedQty", Double.valueOf(MfgSupport.round2(Math.min(held, qty))));
+        item.set("shortQty", Double.valueOf(MfgSupport.round2(shortQty)));
+        delegator.store(item);
+        Map<String, Object> result = ServiceUtil.returnSuccess();
+        result.put("componentCode", newCode);
+        result.put("lockedQty", MfgSupport.formatQty(Math.min(held, qty)));
+        result.put("shortQty", MfgSupport.formatQty(shortQty));
+        return result;
     }
 
     /**

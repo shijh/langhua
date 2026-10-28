@@ -904,7 +904,7 @@ java -cp "build/test-classes:ofbiz.jar:junit-4.13.2.jar:hamcrest-core-1.3.jar" \
 | `verify-m37.ps1` | 销售订单：列表（导航、新建表单、状态过滤）、下单后详情（行明细、三个按钮、出货表单）、先锁在库、排产（生工单）、关单（状态转 CLOSED） | 26 |
 | `verify-m38.ps1` | 库位与移库：库位页（导航、卡片、两个表单）、新建两个库位、到货放到库位 A、按库位看结存、移 4 到 B（两边余额对、流水两条同单号、备注）、超量移库被拒 | 24 |
 | `verify-m39.ps1` | 外协费按单分摊：工单页三个表单、加一条按台明细（0.00 金额与对账单号）、删除后消失、非法计价方式被拒 | 16 |
-| `verify-m52-devbom.ps1` | 研发 BOM（Fritzing HTML）：导入真截图工程的 `pixel-flash-v94_bom.html` → 11 个元件与料号（`R-10K-0603`、`C-100NF-16V-0603`、`MPN` / `元件号` 优先）、有库存的不进缺货清单、没库存的进；**料号输入框带 `list="stockCodes"` 且下拉里能点到库里有的料号**；第二版（换格式 CSV）1 个数量变化 / 9 个不变 / 1 个不再使用，停用件记成 `VAR_SAMPLE` 并离开货架；缺货清单 CSV（`text/csv` + BOM）；改料号后按新料号重新锁料；释放锁料后重新变缺 | 39 |
+| `verify-m52-devbom.ps1` | 研发 BOM（Fritzing HTML）：导入真截图工程的 `pixel-flash-v94_bom.html` → 11 个元件与料号（`R-10K-0603`、`C-100NF-16V-0603`、`MPN` / `元件号` 优先）、有库存的不进缺货清单、没库存的进；**料号输入框带 `list="stockCodes"` 且下拉里能点到库里有的料号**；**整表保存（`devBomItemSaveAll`：只写改动的行、没变的不动）**；保存后**停在 BOM 段**、导入后回项目说明段；第二版（换格式 CSV）1 个数量变化 / 9 个不变 / 1 个不再使用，停用件记成 `VAR_SAMPLE` 并离开货架；缺货清单 CSV（`text/csv` + BOM）；改料号后按新料号重新锁料；释放锁料后重新变缺 | 52 |
 
 > 这些脚本在断言页面内容，不只是看 HTTP 200：OFBiz 的模板错误也是 200 + 一页堆栈，
 > 所以每个页面都要扫 `FTL stack trace` / `FreeMarker template error`。
@@ -1073,11 +1073,18 @@ Fritzing 用它自己的名字（`C-100NF-16V-0603`），库存是按**买回来
 这一行就是两边的桥。两个方向都行：
 
 1. **点料号框，从下拉里挑库里有的料号**——输入框带 `list="stockCodes"`，候选项就是**在库数量 > 0 的料号**
-   （写成 `料号 + 名称 + （在库 N）`，最多 300 条），挑对了点「保存」，锁料与缺口立刻按新料号重算；
-2. 反过来在「物料批次」页的**料号重命名**里把批次改成 Fritzing 的名字，再回来点这一行的「保存」。
+   （写成 `料号 + 名称 + （在库 N）`，按料号排序，最多 300 条）；
+   - 只改一行：点这一行右边的「保存」；
+   - 一起改好几行：全部改完后点表格上方的**「保存全部料号与数量」**，一次存完
+     （没有变化的行会跳过，不会重复锁料；结果里会说这次改了几行）。
+   两种都是**按新料号重新锁料**，锁料与缺口立刻重算；
+2. 反过来在「物料批次」页的**料号重命名**里把批次改成 Fritzing 的名字，再回来按「保存」/「保存全部」。
 
 料号比对**不分大小写**（库存记成 `100nf`、BOM 里写 `C-100NF-16V-0603` 这种只差大小写的能对上；
 差在别的字符上仍要按上面两条之一改）。改料号会把旧料号上的锁一起挪过去。
+
+**保存之后页面停在 BOM 这一段**（不再跳回项目说明段）：人是在这张表里干活的，跳走一次就得重新找。
+导入新一版 BOM 之后仍回到项目说明段，那里是这次导入的汇总。
 
 ### 锁料、缺货清单、版本差异
 
@@ -1103,10 +1110,10 @@ Fritzing 用它自己的名字（`C-100NF-16V-0603`），库存是按**买回来
 | 锁料 | `MfgInventoryDetail.devProjectCode`（配 `reservedDiff`），与工单预留同一套口径 |
 | 解析 | `MfgCsv.parseFritzingHtmlBom`（`BomFormat.FRITZING_HTML`；纯函数、离线可测） |
 | 比对 | `MfgDevBomServices.devBomRows`（纯函数：合并同料行 → 新增/变化/不变 → 补上不再使用的） |
-| 服务 | `mfgDevBomImport` / `mfgDevBomDetail` / `mfgDevBomItemSave` / `mfgDevBomRelease`（`servicedef/devbom-services.xml`） |
-| 事件 | `MfgDevBomEvents.importHtml`（选文件或粘贴）/ `shortageCsv`（缺货清单 CSV，UTF-8 带 BOM） |
+| 服务 | `mfgDevBomImport` / `mfgDevBomDetail` / `mfgDevBomItemSave` / `mfgDevBomSaveAll` / `mfgDevBomRelease`（`servicedef/devbom-services.xml`） |
+| 事件 | `MfgDevBomEvents.importHtml`（选文件或粘贴）/ `saveAll`（整表保存）/ `shortageCsv`（缺货清单 CSV，UTF-8 带 BOM） |
 | 页面 | `webapp/mfg/dev.ftl` 的 `#devbom` 一段（`/mfg/control/dev?projectCode=…`） |
-| 巡检 | `verify-m52-devbom.ps1`（33 项，指向测试实例 8095） |
+| 巡检 | `verify-m52-devbom.ps1`（52 项，指向测试实例 8095） |
 
 产品的 BOM 导入（`/mfg/control/products`）也能直接吃这份 `bom.html`（格式选「自动识别」即可），
 用于把面包板阶段验证过的料同步进型号主数据。

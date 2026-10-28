@@ -177,6 +177,15 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   **排序那一句别删**：测试库里有几百个批次，按插入顺序取前 300 条会把刚建的那颗料挤出去，页面上就“没有候选项”。
   **`componentStockOptions` 里要给 `onHandQty == null` 的批次补 `ensureLotLedger`**（跟 `componentStock` 一样）——
   刚建好、还没汇总过的批次否则不会出现在下拉里，人正要选的时候偏偏看不到它。
+  **整表保存（`mfgDevBomSaveAll`，页面上的「保存全部料号与数量」）**：一行一行的「保存」照旧能用（每行自己的
+  `<form id="bomRowN">`），整表那条是页面上另外一张表单 `#devBomAll`，提交时脚本现场往表单里塞一行一个
+  `input[name=row]`（`行号|料号|数量`），事件 `MfgDevBomEvents.saveAll` 用 **`request.getParameterValues("row")`**
+  读（**不能用 `UtilHttp.getParameterMap`**：它会 trim，料号里的空格和重复的键都不保险），
+  `MfgDevBomServices.rowEditOf` 拆成行（`|` 只取首尾两个，中间可能还有 `|`）。
+  单行保存与整表保存共用 `applyItemEdit`（挪锁 → 补锁 → 写行），**整表保存跳过没改动的行**（料号与数量都比过），
+  所以整表保存不会在流水上乱写；返回 `savedLines` / `keptLines` / `goneLines`。
+  **保存完要停在这一段**：`dev.ftl` 末尾那段跳转脚本按回来的参数决定跳 `#devbom`（`componentCode` / `savedLines` /
+  `releasedQty`）还是 `#project`（导入等），别把 `toBom` 那句删掉——不然每按一次保存都被甩回项目说明段。
   **点项目号、保存任何表单、导入 / 改行 / 释放锁料之后，页面都会滚到项目说明段**（列表里的项目号链接自带
   `#project`；`dev.ftl` 末尾一小段脚本再调 `jump.js` 的 `jumpUnderNav(#project)` 把标题摆到导航条下面，
   只在地址里带 `projectCode` 时跑）——开发页上面是立项表单和项目列表，不滚的话人以为“没反应”。

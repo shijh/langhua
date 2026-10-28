@@ -313,6 +313,9 @@
     <#if parameters.componentCode??>
         <p class="ok">第 ${(parameters.lineSeq)!''} 行已按料号 ${parameters.componentCode} 重新锁料：已锁 ${(parameters.lockedQty)!'0'}，缺 ${(parameters.shortQty)!'0'}</p>
     </#if>
+    <#if parameters.savedLines??>
+        <p class="ok">已保存 ${parameters.savedLines} 行的改动：料号按新的重新锁料了，缺多少看下表<#if (parameters.keptLines!'0') != '0'>；另外 ${parameters.keptLines} 行没有改动，没动它们</#if><#if (parameters.goneLines!'0') != '0'>；有 ${parameters.goneLines} 行在最新一版里已经不存在，跳过了</#if>。</p>
+    </#if>
 
     <#if bomLatest?has_content>
         <p class="hint">
@@ -349,6 +352,37 @@
 
     <#if bomItems?has_content>
         <h4>本版元件（${bomItems?size} 个）</h4>
+        <p class="hint">整表改完之后可以一次保存，不必逐行按。</p>
+        <form method="post" action="/mfg/control/devBomItemSaveAll" id="devBomAll">
+            <input type="hidden" name="projectCode" value="${project.projectCode}"/>
+            <input type="hidden" name="lock" value="Y"/>
+            <input type="submit" value="保存全部料号与数量"/>
+        </form>
+        <script>
+            (function () {
+                var form = document.getElementById('devBomAll');
+                if (!form) { return; }
+                // one hidden field per line, built at submit time: the rows keep their own little
+                // forms (so a single row can still be saved on its own), and the batch posts what is
+                // in the table right now, part numbers with spaces and all
+                form.addEventListener('submit', function () {
+                    var old = form.querySelectorAll('input[data-bom-row]');
+                    for (var k = 0; k < old.length; k++) { form.removeChild(old[k]); }
+                    var rows = document.querySelectorAll('#devBomTable tr[data-bom-line]');
+                    for (var i = 0; i < rows.length; i++) {
+                        var code = rows[i].querySelector('input[name="componentCode"]');
+                        var qty = rows[i].querySelector('input[name="qty"]');
+                        if (!code || !qty) { continue; }
+                        var field = document.createElement('input');
+                        field.type = 'hidden';
+                        field.name = 'row';
+                        field.setAttribute('data-bom-row', 'Y');
+                        field.value = rows[i].getAttribute('data-bom-line') + '|' + code.value + '|' + qty.value;
+                        form.appendChild(field);
+                    }
+                });
+            }());
+        </script>
         <table id="devBomTable">
             <tr>
                 <th class="num">#</th><th>料号</th><th>名称</th><th class="num">数量</th>
@@ -380,7 +414,8 @@
         <p class="hint">料号可以和库存对不上：Fritzing 用的是它自己的名字（例如 <code>C-100NF-16V-0603</code>），
             库存是按买回来的型号记的（例如 <code>100NF</code>）。
             <b>在这一行的料号框里点一下、输入几个字</b>（比如 <code>100</code>），浏览器会列出库里现有的料号和在库数量，
-            选中再「保存」，就按那个料号重新锁料，缺多少立刻算出来。<#if bomStock?has_content>（库里现在有 ${bomStock?size} 个料号可选。）</#if>
+            选中再「保存」（一行一行改）或全部改完后按上面的「保存全部料号与数量」（一次存完），
+            就按那个料号重新锁料，缺多少立刻算出来。<#if bomStock?has_content>（库里现在有 ${bomStock?size} 个料号可选。）</#if>
             另一种做法是反过来：到「物料批次」页把这个批次的料号重命名成 BOM 里的名字（会一次改全）。</p>
         <form method="post" action="/mfg/control/devBomRelease" class="inline">
             <input type="hidden" name="projectCode" value="${project.projectCode}"/>
@@ -609,18 +644,21 @@
      project from the list, saving a form, importing a BOM, releasing the lock) comes back to the
      top of the page: put the project back under the navigation bar. The arithmetic lives in
      /mfg/js/jump.js, shared with the paste jumps and the receipt detail (Step 115). The list links
-     carry #project as well, so the browser already jumps before this runs. -->
+     carry #project as well, so the browser already jumps before this runs.
+     Saving a BOM row, saving the whole table or releasing the lock comes back to the BOM block
+     instead: the reader was working in that table, the project description is far above it. -->
 <#if parameters.projectCode??>
 <script>
 (function () {
-    function jumpToProject() {
-        var block = document.getElementById('project');
+    var toBom = <#if parameters.componentCode?? || parameters.savedLines?? || parameters.releasedQty??>true<#else>false</#if>;
+    function jump() {
+        var block = document.getElementById(toBom ? 'devbom' : 'project');
         if (block && window.jumpUnderNav) { window.jumpUnderNav(block); }
     }
     if (document.readyState === 'complete') {
-        jumpToProject();
+        jump();
     } else {
-        window.addEventListener('load', jumpToProject);
+        window.addEventListener('load', jump);
     }
 }());
 </script>
