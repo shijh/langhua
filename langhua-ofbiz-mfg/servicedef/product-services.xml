@@ -76,7 +76,7 @@
         <attribute name="bomVersionId" type="String" mode="IN" optional="true"/>
         <attribute name="lineSeq" type="String" mode="IN" optional="true"/>
         <attribute name="componentCode" type="String" mode="IN" optional="true"/>
-        <attribute name="componentName" type="String" mode="IN" optional="true"/>
+        <attribute name="partName" type="String" mode="IN" optional="true"/>
         <attribute name="qty" type="String" mode="IN" optional="true"/>
         <attribute name="designators" type="String" mode="IN" optional="true"/>
         <attribute name="isKeyPart" type="String" mode="IN" optional="true"/>

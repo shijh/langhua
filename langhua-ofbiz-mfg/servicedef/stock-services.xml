@@ -9,7 +9,7 @@
         <description>Create or update a material lot; lotId LOT-yyMMdd-NN is generated when omitted</description>
         <attribute name="lotId" type="String" mode="IN" optional="true"/>
         <attribute name="componentCode" type="String" mode="IN" optional="false"/>
-        <attribute name="componentName" type="String" mode="IN" optional="true"/>
+        <attribute name="partName" type="String" mode="IN" optional="true"/>
         <attribute name="supplierName" type="String" mode="IN" optional="true"/>
         <attribute name="supplierLot" type="String" mode="IN" optional="true"/>
         <attribute name="receivedQty" type="Double" mode="IN" optional="false"/>
@@ -34,9 +34,17 @@
         <attribute name="rejectedQty" type="Double" mode="IN" optional="true"/>
         <attribute name="inspector" type="String" mode="IN" optional="true"/>
         <attribute name="inspectNote" type="String" mode="IN" optional="true"/>
+        <attribute name="backSearch" type="String" mode="IN" optional="true"/>
+        <attribute name="backPage" type="String" mode="IN" optional="true"/>
+        <attribute name="backPageSize" type="String" mode="IN" optional="true"/>
+        <attribute name="backComponentCode" type="String" mode="IN" optional="true"/>
         <attribute name="lotId" type="String" mode="OUT" optional="true"/>
         <attribute name="inspectStatusId" type="String" mode="OUT" optional="true"/>
         <attribute name="rejectedQty" type="Double" mode="OUT" optional="true"/>
+        <attribute name="search" type="String" mode="OUT" optional="true"/>
+        <attribute name="page" type="String" mode="OUT" optional="true"/>
+        <attribute name="pageSize" type="String" mode="OUT" optional="true"/>
+        <attribute name="componentCode" type="String" mode="OUT" optional="true"/>
     </service>
 
 
@@ -45,13 +53,20 @@
             auth="false" use-transaction="false">
         <description>Rewrite the readable details of a lot (name, supplier, supplier batch, note); the part number moves with mfgPartCodeRename instead</description>
         <attribute name="lotId" type="String" mode="IN" optional="false"/>
-        <attribute name="componentName" type="String" mode="IN" optional="true"/>
+        <attribute name="partName" type="String" mode="IN" optional="true"/>
         <attribute name="supplierName" type="String" mode="IN" optional="true"/>
         <attribute name="supplierLot" type="String" mode="IN" optional="true"/>
         <attribute name="note" type="String" mode="IN" optional="true"/>
+        <attribute name="backSearch" type="String" mode="IN" optional="true"/>
+        <attribute name="backPage" type="String" mode="IN" optional="true"/>
+        <attribute name="backPageSize" type="String" mode="IN" optional="true"/>
+        <attribute name="backComponentCode" type="String" mode="IN" optional="true"/>
         <attribute name="lotId" type="String" mode="OUT" optional="true"/>
         <attribute name="editedLot" type="String" mode="OUT" optional="true"/>
         <attribute name="search" type="String" mode="OUT" optional="true"/>
+        <attribute name="page" type="String" mode="OUT" optional="true"/>
+        <attribute name="pageSize" type="String" mode="OUT" optional="true"/>
+        <attribute name="componentCode" type="String" mode="OUT" optional="true"/>
     </service>
 
 
@@ -61,11 +76,18 @@
         <description>Correct the part number of ONE lot, with its issues and its receipt line; other lots keep their own number (mfgPartCodeRename is the tool that moves a code everywhere)</description>
         <attribute name="lotId" type="String" mode="IN" optional="false"/>
         <attribute name="componentCode" type="String" mode="IN" optional="false"/>
+        <attribute name="backSearch" type="String" mode="IN" optional="true"/>
+        <attribute name="backPage" type="String" mode="IN" optional="true"/>
+        <attribute name="backPageSize" type="String" mode="IN" optional="true"/>
+        <attribute name="backComponentCode" type="String" mode="IN" optional="true"/>
         <attribute name="lotId" type="String" mode="OUT" optional="true"/>
         <attribute name="renamedLot" type="String" mode="OUT" optional="true"/>
         <attribute name="componentCode" type="String" mode="OUT" optional="true"/>
+        <attribute name="newCode" type="String" mode="OUT" optional="true"/>
         <attribute name="oldCode" type="String" mode="OUT" optional="true"/>
         <attribute name="search" type="String" mode="OUT" optional="true"/>
+        <attribute name="page" type="String" mode="OUT" optional="true"/>
+        <attribute name="pageSize" type="String" mode="OUT" optional="true"/>
         <attribute name="issuesUpdated" type="String" mode="OUT" optional="true"/>
         <attribute name="receiptLinesUpdated" type="String" mode="OUT" optional="true"/>
     </service>
@@ -79,6 +101,10 @@
         <attribute name="actualQty" type="Double" mode="IN" optional="false"/>
         <attribute name="note" type="String" mode="IN" optional="true"/>
         <attribute name="operatorName" type="String" mode="IN" optional="true"/>
+        <attribute name="backSearch" type="String" mode="IN" optional="true"/>
+        <attribute name="backPage" type="String" mode="IN" optional="true"/>
+        <attribute name="backPageSize" type="String" mode="IN" optional="true"/>
+        <attribute name="backComponentCode" type="String" mode="IN" optional="true"/>
         <attribute name="lotId" type="String" mode="OUT" optional="true"/>
         <attribute name="receivedQty" type="String" mode="OUT" optional="true"/>
         <attribute name="onHandQty" type="String" mode="OUT" optional="true"/>
@@ -87,6 +113,9 @@
         <attribute name="search" type="String" mode="OUT" optional="true"/>
         <attribute name="recounted" type="String" mode="OUT" optional="true"/>
         <attribute name="recountQty" type="String" mode="OUT" optional="true"/>
+        <attribute name="page" type="String" mode="OUT" optional="true"/>
+        <attribute name="pageSize" type="String" mode="OUT" optional="true"/>
+        <attribute name="componentCode" type="String" mode="OUT" optional="true"/>
     </service>
 
 
@@ -258,7 +287,7 @@
             auth="false" use-transaction="false">
         <description>Write the component master record with its safety stock and reorder quantity</description>
         <attribute name="componentCode" type="String" mode="IN" optional="false"/>
-        <attribute name="componentName" type="String" mode="IN" optional="true"/>
+        <attribute name="partName" type="String" mode="IN" optional="true"/>
         <attribute name="unitOfMeasure" type="String" mode="IN" optional="true"/>
         <attribute name="minimumStock" type="Double" mode="IN" optional="true"/>
         <attribute name="reorderQty" type="Double" mode="IN" optional="true"/>

@@ -286,13 +286,13 @@ public final class MfgProductServices {
                 item.set("bomVersionId", versionId);
                 item.set("lineSeq", Long.valueOf(lineSeq));
                 item.set("componentCode", componentCode);
-                String name = MfgSupport.toText(context.get("componentName"));
+                String name = MfgSupport.toText(context.get("partName"));
                 item.set("componentName", name == null ? componentCode : name);
                 item.set("isKeyPart", "N");
             } else if (componentCode != null && componentCode.length() <= MfgConstants.MAX_COMPONENT_CODE) {
                 item.set("componentCode", componentCode);
-                item.set("componentName", MfgSupport.toText(context.get("componentName")) == null
-                        ? componentCode : MfgSupport.toText(context.get("componentName")));
+                item.set("componentName", MfgSupport.toText(context.get("partName")) == null
+                        ? componentCode : MfgSupport.toText(context.get("partName")));
             }
             double qty = MfgSupport.toDouble(context.get("qty"), created ? 1.0 : MfgSupport.toDouble(item.get("qty"), 1.0));
             if (qty <= 0.0) {

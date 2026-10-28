@@ -44,6 +44,11 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
 
 ## 约定与坑（都踩过）
 
+- **`componentName` 是容器占用的参数名，不能当服务 IN 用**：从页面 POST 一个叫 `componentName` 的字段，到服务里会变成**组件名**（`mfg`），
+  于是“批次的名称/备注/供应商”只有名称丢了（Step 18x 才发现：`MfgMaterialLot.componentName` 一堆写成 `mfg`）。
+  所以批次名称、BOM 行名称、安全库存名称的 IN 参数都叫 **`partName`**（`mfgLotSave` / `mfgLotEdit` / `mfgBomItemSave` / `mfgStockSettingSave`），
+  页面表单、集成测试都跟着改。新写服务时别用 `componentName` / `webAppName` 这类框架自己的名字当 IN。
+
 - `.ftl` 首行必须 `<#ftl encoding="UTF-8">`；FreeMarker 的默认值比较要加括号 `(x!'v') == 'y'`
 - `<screen>` 下**只能有一个** `<section>`；条件分支用嵌套 `<section>` + `<condition><if-empty/></condition>`
   （`if-not-empty` 不是合法元素，取反写 `<not><if-empty/></not>`）
@@ -179,6 +184,10 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   **料号有两条路，别混**：`mfgLotCodeChange`（台账「元件料号」格，**只改这一个批次** + 它的发料 + 它的到货单行）；
   `mfgPartCodeRename`（上方那个框，**按料号改所有行**，还带 BOM / 售后换件 / 安全库存）。用户就是被后者坑过：
   想改一行，结果“已把 46 行料号改成 …”，两块不同的板子混成一个料号。所以页面上前者在行里、后者加了提醒文字。
+  **行内四个动作（料号 / 名称 / 点数修正 / 来料检验）要回到当前那一页**：`materials.ftl` 的 `<@keepView/>` 宏
+  在每张行表单里放 `backSearch` / `backPage` / `backPageSize` / `backComponentCode`，服务用 `keepView(...)` 原样回写，
+  controller 的 `<redirect-parameter>` 带上 `search` / `page` / `pageSize` / `componentCode`。少一个就会被甩到台账第一页。
+  注意 `mfgLotCodeChange` 的 `search` 现在是“回到哪一页的筛选”，新料号在 OUT **`newCode`** 里。
 
 - **研发 BOM：Fritzing 的 `bom.html` 直接进开发项目（Step 175）**：一块板从面包板开始，所以「研发 BOM」挂在
   **开发项目**（`/mfg/control/dev?projectCode=…` 的 `#devbom` 一段）而不是型号上。一次导入 = 一条

@@ -73,7 +73,7 @@
     <form method="post" action="/mfg/control/stockSettingSave">
         <p>
             料号 <input type="text" name="componentCode" size="14" placeholder="必填"/>
-            名称 <input type="text" name="componentName" size="20"/>
+            名称 <input type="text" name="partName" size="20"/>
             单位 <input type="text" name="unitOfMeasure" size="6" placeholder="个/盘/米"/>
             安全库存 <input type="text" name="minimumStock" size="8"/>
             补货量 <input type="text" name="reorderQty" size="8"/>

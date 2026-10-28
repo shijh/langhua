@@ -387,6 +387,10 @@
         <event type="service" invoke="mfgLotInspect"/>
         <response name="success" type="request-redirect" value="materials">
             <redirect-parameter name="lotId"/>
+            <redirect-parameter name="search"/>
+            <redirect-parameter name="page"/>
+            <redirect-parameter name="pageSize"/>
+            <redirect-parameter name="componentCode"/>
         </response>
         <response name="error" type="view" value="materials"/>
     </request-map>
@@ -398,6 +402,9 @@
             <redirect-parameter name="search"/>
             <redirect-parameter name="recounted"/>
             <redirect-parameter name="recountQty"/>
+            <redirect-parameter name="page"/>
+            <redirect-parameter name="pageSize"/>
+            <redirect-parameter name="componentCode"/>
         </response>
         <response name="error" type="view" value="materials"/>
     </request-map>
@@ -408,6 +415,9 @@
         <response name="success" type="request-redirect" value="materials">
             <redirect-parameter name="search"/>
             <redirect-parameter name="editedLot"/>
+            <redirect-parameter name="page"/>
+            <redirect-parameter name="pageSize"/>
+            <redirect-parameter name="componentCode"/>
         </response>
         <response name="error" type="view" value="materials"/>
     </request-map>
@@ -418,6 +428,10 @@
         <response name="success" type="request-redirect" value="materials">
             <redirect-parameter name="search"/>
             <redirect-parameter name="renamedLot"/>
+            <redirect-parameter name="newCode"/>
+            <redirect-parameter name="page"/>
+            <redirect-parameter name="pageSize"/>
+            <redirect-parameter name="componentCode"/>
         </response>
         <response name="error" type="view" value="materials"/>
     </request-map>

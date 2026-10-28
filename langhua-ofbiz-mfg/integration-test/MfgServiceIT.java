@@ -370,7 +370,7 @@ public final class MfgServiceIT {
 
         Map<String, String> lotForm = new LinkedHashMap<>();
         lotForm.put("componentCode", part);
-        lotForm.put("componentName", "Location test part");
+        lotForm.put("partName", "Location test part");
         lotForm.put("supplierLot", "DC-LOC");
         lotForm.put("receivedQty", "10");
         lotForm.put("unitPrice", "2");
@@ -658,7 +658,7 @@ public final class MfgServiceIT {
         Map<String, String> addForm = new LinkedHashMap<>();
         addForm.put("productCode", model);
         addForm.put("componentCode", "MANUAL-1");
-        addForm.put("componentName", "Manual line");
+        addForm.put("partName", "Manual line");
         addForm.put("qty", "2");
         addForm.put("designators", "R9,R10");
         addForm.put("isKeyPart", "Y");
@@ -725,7 +725,7 @@ public final class MfgServiceIT {
         String component = "ITRC" + stamp;
         Map<String, String> lotForm = new LinkedHashMap<>();
         lotForm.put("componentCode", component);
-        lotForm.put("componentName", "IT receipt part");
+        lotForm.put("partName", "IT receipt part");
         lotForm.put("receivedQty", "10");
         lotForm.put("unitPrice", "1.5");
         Response lot = invoke("mfgLotSave", lotForm);
@@ -1047,7 +1047,7 @@ public final class MfgServiceIT {
     private void createsMaterialLot() throws IOException {
         Map<String, String> form = new LinkedHashMap<>();
         form.put("componentCode", KEY_COMPONENT);
-        form.put("componentName", "Main SoC");
+        form.put("partName", "Main SoC");
         form.put("supplierName", "IT-supplier");
         form.put("supplierLot", SUPPLIER_LOT);
         form.put("receivedQty", "120");
@@ -1097,7 +1097,7 @@ public final class MfgServiceIT {
     private void inspectsMaterialLot() throws IOException {
         Map<String, String> lot = new LinkedHashMap<>();
         lot.put("componentCode", "IQC-IT-PART");
-        lot.put("componentName", "Incoming inspection part");
+        lot.put("partName", "Incoming inspection part");
         lot.put("supplierName", "IT supplier");
         lot.put("supplierLot", "DC-IQC");
         lot.put("receivedQty", "10");
@@ -2258,7 +2258,7 @@ public final class MfgServiceIT {
 
         Map<String, String> lotForm = new LinkedHashMap<>();
         lotForm.put("componentCode", component);
-        lotForm.put("componentName", "Reserve test part");
+        lotForm.put("partName", "Reserve test part");
         lotForm.put("supplierName", "IT parts");
         lotForm.put("supplierLot", "DC-RSV");
         lotForm.put("receivedQty", "10");
@@ -2340,7 +2340,7 @@ public final class MfgServiceIT {
 
         Map<String, String> lotForm = new LinkedHashMap<>();
         lotForm.put("componentCode", component);
-        lotForm.put("componentName", "Inventory test part");
+        lotForm.put("partName", "Inventory test part");
         lotForm.put("supplierName", "IT parts");
         lotForm.put("supplierLot", "DC-INV");
         lotForm.put("receivedQty", "10");
@@ -2400,7 +2400,7 @@ public final class MfgServiceIT {
 
         Map<String, String> settingForm = new LinkedHashMap<>();
         settingForm.put("componentCode", component);
-        settingForm.put("componentName", "Inventory test part");
+        settingForm.put("partName", "Inventory test part");
         settingForm.put("minimumStock", "20");
         settingForm.put("reorderQty", "50");
         settingForm.put("supplierName", "IT parts");
@@ -2744,7 +2744,7 @@ public final class MfgServiceIT {
 
         Map<String, String> lotForm = new LinkedHashMap<>();
         lotForm.put("componentCode", COST_COMPONENT);
-        lotForm.put("componentName", "10K 0402 resistor");
+        lotForm.put("partName", "10K 0402 resistor");
         lotForm.put("supplierName", "Cost supplier");
         lotForm.put("receivedQty", "100");
         lotForm.put("receivedDate", "2026-10-21");

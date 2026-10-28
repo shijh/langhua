@@ -262,7 +262,7 @@ BAT-18650,18650 电池,1,BT1,Y,12</textarea></p>
                 <input type="hidden" name="bomVersionId" value="${currentVersionId}"/>
                 <p>
                     料号 <input type="text" name="componentCode" size="18" required="required"/>
-                    名称 <input type="text" name="componentName" size="22"/>
+                    名称 <input type="text" name="partName" size="22"/>
                     用量 <input class="narrow" type="text" name="qty" value="1"/>
                     位号 <input type="text" name="designators" size="12"/>
                     关键料
@@ -280,7 +280,7 @@ BAT-18650,18650 电池,1,BT1,Y,12</textarea></p>
                 <input type="hidden" name="productCode" value="${product.productCode}"/>
                 <p>
                     料号 <input type="text" name="componentCode" size="18" required="required"/>
-                    名称 <input type="text" name="componentName" size="22"/>
+                    名称 <input type="text" name="partName" size="22"/>
                     用量 <input class="narrow" type="text" name="qty" value="1"/>
                     位号 <input type="text" name="designators" size="12"/>
                     关键料

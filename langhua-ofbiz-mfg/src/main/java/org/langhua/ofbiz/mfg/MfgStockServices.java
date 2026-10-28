@@ -65,7 +65,9 @@ public final class MfgStockServices {
             GenericValue lot = delegator.makeValue("MfgMaterialLot");
             lot.set("lotId", lotId);
             lot.set("componentCode", componentCode);
-            lot.set("componentName", MfgSupport.toText(context.get("componentName")));
+            // the name comes in as partName: componentName is what the container fills with the
+            // component itself ("mfg"), so a parameter of that name never survives
+            lot.set("componentName", MfgSupport.toText(context.get("partName")));
             lot.set("supplierName", MfgSupport.toText(context.get("supplierName")));
             lot.set("supplierLot", MfgSupport.toText(context.get("supplierLot")));
             if (isNew) {
@@ -141,8 +143,8 @@ public final class MfgStockServices {
             if (lot == null) {
                 return ServiceUtil.returnError("Unknown material lot [" + lotId + "]");
             }
-            if (context.containsKey("componentName")) {
-                lot.set("componentName", MfgSupport.toText(context.get("componentName")));
+            if (context.containsKey("partName")) {
+                lot.set("componentName", MfgSupport.toText(context.get("partName")));
             }
             if (context.containsKey("supplierName")) {
                 lot.set("supplierName", MfgSupport.toText(context.get("supplierName")));
@@ -159,6 +161,7 @@ public final class MfgStockServices {
             result.put("editedLot", lotId);
             // come back to the page filtered by the part number, where the row is visible
             result.put("search", lot.getString("componentCode"));
+            keepView(result, context);
             return result;
         } catch (GenericEntityException e) {
             return ServiceUtil.returnError("保存批次资料失败：" + e.getMessage());
@@ -207,7 +210,9 @@ public final class MfgStockServices {
             result.put("lotId", lotId);
             result.put("renamedLot", lotId);
             result.put("componentCode", newCode);
+            result.put("newCode", newCode);
             result.put("search", newCode);
+            keepView(result, context);
             if (newCode.equals(oldCode)) {
                 return result;
             }
@@ -293,6 +298,7 @@ public final class MfgStockServices {
             result.put("lotId", lotId);
             result.put("inspectStatusId", status);
             result.put("rejectedQty", Double.valueOf(rejectedQty));
+            keepView(result, context);
             return result;
         } catch (GenericEntityException e) {
             return ServiceUtil.returnError("Could not store the inspection: " + e.getMessage());
@@ -369,6 +375,7 @@ public final class MfgStockServices {
             result.put("search", lot.getString("componentCode"));
             result.put("recounted", lotId);
             result.put("recountQty", MfgSupport.formatQty(actualQty));
+            keepView(result, context);
             return result;
         } catch (GenericEntityException e) {
             return ServiceUtil.returnError("按点数修正失败：" + e.getMessage());
@@ -463,6 +470,36 @@ public final class MfgStockServices {
             return result;
         } catch (GenericEntityException e) {
             return ServiceUtil.returnError("Could not read the material lots: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Carries the filter and the page of the material list back into the redirect of a row action, so
+     * saving one row does not throw the reader onto page one of the whole ledger.
+     *
+     * <p>The page posts its own state as {@code back…} fields, so this works for a filtered list and
+     * a page size of 50 alike. A value that was not posted is left out, so the redirect does not carry
+     * empty parameters.
+     *
+     * @param result the service result that becomes the redirect parameters
+     * @param context the service context, holding the {@code back…} fields
+     */
+    private static void keepView(Map<String, Object> result, Map<String, ? extends Object> context) {
+        String search = MfgSupport.toText(context.get("backSearch"));
+        if (search != null) {
+            result.put("search", search);
+        }
+        String page = MfgSupport.toText(context.get("backPage"));
+        if (page != null) {
+            result.put("page", page);
+        }
+        String pageSize = MfgSupport.toText(context.get("backPageSize"));
+        if (pageSize != null) {
+            result.put("pageSize", pageSize);
+        }
+        String componentCode = MfgSupport.toText(context.get("backComponentCode"));
+        if (componentCode != null) {
+            result.put("componentCode", componentCode);
         }
     }
 
@@ -1184,7 +1221,7 @@ public final class MfgStockServices {
                 setting.set("componentCode", componentCode);
             }
             if (context.containsKey("componentName")) {
-                setting.set("componentName", MfgSupport.toText(context.get("componentName")));
+                setting.set("componentName", MfgSupport.toText(context.get("partName")));
             }
             if (context.containsKey("unitOfMeasure")) {
                 setting.set("unitOfMeasure", MfgSupport.toText(context.get("unitOfMeasure")));

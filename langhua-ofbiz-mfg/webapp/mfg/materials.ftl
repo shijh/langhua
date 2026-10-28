@@ -12,6 +12,16 @@
 <#assign tracedOrders = (tr.workOrders)![]>
 <#assign errList = (errorMessageList)![]>
 
+<#-- Every action inside a row of the ledger comes back through a redirect. Carry the filter and the
+     page along, so saving one row leaves the reader on the page he was working on instead of page
+     one of the whole ledger. -->
+<#macro keepView>
+    <input type="hidden" name="backSearch" value="${(lr.search)!}"/>
+    <input type="hidden" name="backPage" value="${(lr.page)!1}"/>
+    <input type="hidden" name="backPageSize" value="${(lr.pageSize)!20}"/>
+    <input type="hidden" name="backComponentCode" value="${(parameters.componentCode)!}"/>
+</#macro>
+
 <h1>物料批次</h1>
 
 <#if errList?has_content>
@@ -23,7 +33,7 @@
     <form method="post" action="/mfg/control/lotSave">
         <p>
             元件料号 <input type="text" name="componentCode" size="16" placeholder="如 U1-BT5-SOC"/>
-            名称 <input type="text" name="componentName" size="18" placeholder="可选"/>
+            名称 <input type="text" name="partName" size="18" placeholder="可选"/>
             供应商 <input type="text" name="supplierName" size="12" placeholder="可选"/>
             供应商批号 <input type="text" name="supplierLot" size="14" placeholder="DateCode / 料盘号"/>
             数量 <input type="text" name="receivedQty" size="8" value="1"/>
@@ -82,6 +92,7 @@ C0402-100N,100nF 0402 电容,立创商城,DC2409B,500,2026-10-19</textarea>
                          row that happens to carry the same code -->
                     <form method="post" action="/mfg/control/lotCodeChange" class="inline">
                         <input type="hidden" name="lotId" value="${lot.lotId}"/>
+                        <@keepView/>
                         <input type="text" name="componentCode" size="16" value="${(lot.componentCode)!}"
                                title="${(lot.componentCode)!}"/>
                         <input type="submit" value="改"/>
@@ -92,7 +103,8 @@ C0402-100N,100nF 0402 电容,立创商城,DC2409B,500,2026-10-19</textarea>
                          name is what makes the right lot recognizable in the BOM's part number list -->
                     <form method="post" action="/mfg/control/lotEdit" class="inline">
                         <input type="hidden" name="lotId" value="${lot.lotId}"/>
-                        <input type="text" name="componentName" size="22" value="${(lot.componentName)!}"
+                        <@keepView/>
+                        <input type="text" name="partName" size="22" value="${(lot.componentName)!}"
                                title="名称（在 BOM 料号下拉、发料、追溯里都用这个名字）"/>
                         <input type="text" name="note" size="10" value="${(lot.note)!}" placeholder="备注"/>
                         <input type="submit" value="改"/>
@@ -113,6 +125,7 @@ C0402-100N,100nF 0402 电容,立创商城,DC2409B,500,2026-10-19</textarea>
                     <#if ((lot.rejectedQty)!0) gt 0><span class="error"> / 不良 ${((lot.rejectedQty)!0)?string("0.##")}</span></#if>
                     <form method="post" action="/mfg/control/lotInspect" class="inline">
                         <input type="hidden" name="lotId" value="${lot.lotId}"/>
+                        <@keepView/>
                         <select name="inspectStatusId">
                             <option value="MFG_IQC_PENDING"<#if (lot.inspectStatusId!'MFG_IQC_PENDING') == 'MFG_IQC_PENDING'> selected="selected"</#if>>待检</option>
                             <option value="MFG_IQC_PASS"<#if (lot.inspectStatusId!'') == 'MFG_IQC_PASS'> selected="selected"</#if>>合格</option>
@@ -129,6 +142,7 @@ C0402-100N,100nF 0402 电容,立创商城,DC2409B,500,2026-10-19</textarea>
                          count of the parcel is the real quantity, the money stays what was paid -->
                     <form method="post" action="/mfg/control/lotRecount" class="inline">
                         <input type="hidden" name="lotId" value="${lot.lotId}"/>
+                        <@keepView/>
                         <input type="text" name="actualQty" size="4" value="${((lot.receivedQty)!0)?string("0.##")}"
                                title="点到的实际数量"/>
                         <input type="text" name="note" size="8" placeholder="备注"/>
@@ -146,7 +160,7 @@ C0402-100N,100nF 0402 电容,立创商城,DC2409B,500,2026-10-19</textarea>
         <p class="ok">批次 ${parameters.editedLot} 的名称/备注已保存（料号要改的话用上面的「料号重命名」）。</p>
     </#if>
     <#if parameters.renamedLot??>
-        <p class="ok">批次 ${parameters.renamedLot} 的料号已改成 <code>${(parameters.search)!''}</code>（<b>只改了这一行</b>，它的发料与到货单行也一起改；其他同料号的批次没动）。</p>
+        <p class="ok">批次 ${parameters.renamedLot} 的料号已改成 <code>${(parameters.newCode)!''}</code>（<b>只改了这一行</b>，它的发料与到货单行也一起改；其他同料号的批次没动）。</p>
     </#if>
     <p class="hint">「点数修正」用在<b>一个订单里有几块/几片</b>的料上（PCB 打样最常见：订单写 ¥21.00 x1，实际发 3~5 块）：
         拆包点清楚后在这里填真实数量。金额不变，单价自动变成 实付 ÷ 数量（如 21 元 5 块 = 4.20/块），
