@@ -604,8 +604,11 @@ public final class MfgStockLedger {
         if (componentCode == null) {
             return lots;
         }
+        String wanted = componentCode.trim();
         for (GenericValue lot : componentLots(delegator)) {
-            if (!componentCode.equals(lot.getString("componentCode"))) {
+            String lotCode = lot.getString("componentCode");
+            // case does not matter: the sketch writes C-100NF-16V-0603, the shop may book 100nf
+            if (lotCode == null || !wanted.equalsIgnoreCase(lotCode.trim())) {
                 continue;
             }
             if (lot.get("onHandQty") == null) {
@@ -734,7 +737,12 @@ public final class MfgStockLedger {
             if (lot == null) {
                 continue;
             }
+            // upper case, because the pages (and the Fritzing sketch) compare part numbers that way
             String componentCode = lot.getString("componentCode");
+            if (componentCode == null) {
+                continue;
+            }
+            componentCode = componentCode.trim().toUpperCase(Locale.ROOT);
             byComponent.put(componentCode, Double.valueOf(
                     MfgSupport.numberOrZero(byComponent.get(componentCode)) + locked));
         }

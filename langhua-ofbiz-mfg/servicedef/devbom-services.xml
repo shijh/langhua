@@ -43,6 +43,7 @@
         <attribute name="dropped" type="java.util.List" mode="OUT" optional="true"/>
         <attribute name="shortages" type="java.util.List" mode="OUT" optional="true"/>
         <attribute name="imports" type="java.util.List" mode="OUT" optional="true"/>
+        <attribute name="stockOptions" type="java.util.List" mode="OUT" optional="true"/>
         <attribute name="latest" type="java.util.Map" mode="OUT" optional="true"/>
         <attribute name="shortCount" type="Integer" mode="OUT" optional="true"/>
         <attribute name="shortQty" type="Double" mode="OUT" optional="true"/>

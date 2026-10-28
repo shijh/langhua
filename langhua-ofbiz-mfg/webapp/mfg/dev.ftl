@@ -31,6 +31,7 @@
 <#assign bomImports = (bom.imports)![]>
 <#assign bomShortCount = (bom.shortCount)!0>
 <#assign bomShortQty = (bom.shortQty)!0>
+<#assign bomStock = (bom.stockOptions)![]>
 <#assign errList = (errorMessageList)![]>
 
 <#function stageLabel stageId>
@@ -356,7 +357,7 @@
             <#list bomItems as r>
                 <tr data-bom-line="${r.lineSeq}" data-bom-change="${r.changeId}">
                     <td class="num">${r_index + 1}</td>
-                    <td><input type="text" name="componentCode" form="bomRow${r.lineSeq}" size="20" value="${r.componentCode}"/></td>
+                    <td><input type="text" name="componentCode" form="bomRow${r.lineSeq}" size="20" value="${r.componentCode}" list="stockCodes"/></td>
                     <td>${r.componentName!}<#if r.properties??><br/><span class="hint">${r.properties}</span></#if></td>
                     <td class="num"><input type="text" name="qty" form="bomRow${r.lineSeq}" size="5" value="${r.qty?string("0.##")}"/></td>
                     <td>${r.designators!}</td>
@@ -376,13 +377,27 @@
                 <input type="hidden" name="lineSeq" value="${r.lineSeq}"/>
             </form>
         </#list>
-        <p class="hint">料号可以和库存对不上：Fritzing 用的是它自己的名字，库存是按买回来的型号记的。
-            改这一行的料号（数量也可以改），保存后会按新料号重新锁料，缺多少立刻算出来。</p>
+        <p class="hint">料号可以和库存对不上：Fritzing 用的是它自己的名字（例如 <code>C-100NF-16V-0603</code>），
+            库存是按买回来的型号记的（例如 <code>100NF</code>）。
+            <b>在这一行的料号框里点一下、输入几个字</b>（比如 <code>100</code>），浏览器会列出库里现有的料号和在库数量，
+            选中再「保存」，就按那个料号重新锁料，缺多少立刻算出来。<#if bomStock?has_content>（库里现在有 ${bomStock?size} 个料号可选。）</#if>
+            另一种做法是反过来：到「物料批次」页把这个批次的料号重命名成 BOM 里的名字（会一次改全）。</p>
         <form method="post" action="/mfg/control/devBomRelease" class="inline">
             <input type="hidden" name="projectCode" value="${project.projectCode}"/>
             <input type="submit" value="释放本项目的锁料"/>
         </form>
         <span class="hint">板子下单或项目暂停时用：只把锁放掉，库存不动。</span>
+        <#if bomStock?has_content>
+            <#-- the part numbers that are on the shelf right now: the browser offers them while a
+                 sketch code is corrected to the code the shop books the part under -->
+            <datalist id="stockCodes">
+                <#list bomStock as o>
+                    <#-- the name is cut short: a lot imported from a shop carries the whole article
+                         title, and 300 of those would make the page heavy and the list unreadable -->
+                    <option value="${o.componentCode}">${(o.componentName!'')?truncate(36)}（在库 ${(o.onHandQty)?string("0.##")}）</option>
+                </#list>
+            </datalist>
+        </#if>
     </#if>
 
     <#if bomDropped?has_content>

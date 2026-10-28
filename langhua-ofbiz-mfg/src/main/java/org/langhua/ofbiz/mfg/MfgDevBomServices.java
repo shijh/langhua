@@ -48,6 +48,9 @@ import org.apache.ofbiz.service.ServiceUtil;
  */
 public final class MfgDevBomServices {
 
+    /** How many in-stock part numbers the page offers while a BOM row's code is corrected. */
+    static final int MAX_STOCK_OPTIONS = 300;
+
     private MfgDevBomServices() {
     }
 
@@ -273,12 +276,14 @@ public final class MfgDevBomServices {
         result.put("dropped", dropped);
         result.put("shortages", shortages);
         result.put("imports", imports);
+        result.put("stockOptions", new ArrayList<Map<String, Object>>());
         if (projectCode == null) {
             return result;
         }
         try {
             Map<String, double[]> stock = componentStock(delegator);
             Map<String, Double> lockedByComponent = MfgStockLedger.lockedByProjectComponent(delegator, projectCode);
+            result.put("stockOptions", componentStockOptions(delegator));
             GenericValue latest = lastImport(delegator, projectCode);
             double shortTotal = 0.0;
             int shortCount = 0;
@@ -576,7 +581,8 @@ public final class MfgDevBomServices {
     }
 
     /**
-     * On hand, reserved and available quantity per part number, summed over the lots.
+     * On hand, reserved and available quantity per part number, summed over the lots. The codes are
+     * compared upper case, because the sketch and the shop do not always agree on the case.
      *
      * @param delegator the delegator
      * @return the three numbers per part number
@@ -588,7 +594,10 @@ public final class MfgDevBomServices {
             if (lot.get("onHandQty") == null) {
                 MfgStockLedger.ensureLotLedger(delegator, lot);
             }
-            String code = lot.getString("componentCode");
+            String code = upperCode(lot.getString("componentCode"));
+            if (code.isEmpty()) {
+                continue;
+            }
             double[] sums = byCode.get(code);
             if (sums == null) {
                 sums = new double[3];
@@ -599,6 +608,65 @@ public final class MfgDevBomServices {
             sums[2] += MfgSupport.numberOrZero(lot.get("availableQty"));
         }
         return byCode;
+    }
+
+    /**
+     * The parts that are on the shelf right now, so the page can offer them while a part number of
+     * the sketch is corrected to the one the shop books the part under. This is the answer to "the BOM
+     * says 100 nF but the stock has a 100 nF ceramic capacitor": pick its number here.
+     *
+     * @param delegator the delegator
+     * @return part number, name and quantity on hand, at most {@value #MAX_STOCK_OPTIONS}
+     * @throws GenericEntityException when the lots cannot be read
+     */
+    static List<Map<String, Object>> componentStockOptions(Delegator delegator)
+            throws GenericEntityException {
+        Map<String, Map<String, Object>> byCode = new LinkedHashMap<>();
+        for (GenericValue lot : MfgStockLedger.componentLots(delegator)) {
+            if (lot.get("onHandQty") == null) {
+                // a lot created a moment ago has no totals yet: without this the part is missing from
+                // the offer right when the person wants to pick it
+                MfgStockLedger.ensureLotLedger(delegator, lot);
+            }
+            String code = upperCode(lot.getString("componentCode"));
+            if (code.isEmpty()) {
+                continue;
+            }
+            Map<String, Object> option = byCode.get(code);
+            if (option == null) {
+                option = new LinkedHashMap<>();
+                option.put("componentCode", code);
+                option.put("componentName", null);
+                option.put("onHandQty", Double.valueOf(0.0));
+                byCode.put(code, option);
+            }
+            if (option.get("componentName") == null && lot.getString("componentName") != null) {
+                option.put("componentName", lot.getString("componentName"));
+            }
+            option.put("onHandQty", Double.valueOf(MfgSupport.numberOrZero(option.get("onHandQty"))
+                    + MfgSupport.numberOrZero(lot.get("onHandQty"))));
+        }
+        List<Map<String, Object>> options = new ArrayList<>();
+        for (Map<String, Object> option : byCode.values()) {
+            if (MfgSupport.numberOrZero(option.get("onHandQty")) <= 0.0001) {
+                continue;
+            }
+            options.add(option);
+        }
+        // sorted by part number, so the cap of MAX_STOCK_OPTIONS always hides the same tail and a code
+        // can be found by typing a few characters (the browser filters the list); the insert order of
+        // the lots would push everything bought recently out of the list
+        options.sort((left, right) -> String.valueOf(left.get("componentCode"))
+                .compareTo(String.valueOf(right.get("componentCode"))));
+        if (options.size() > MAX_STOCK_OPTIONS) {
+            return new ArrayList<>(options.subList(0, MAX_STOCK_OPTIONS));
+        }
+        return options;
+    }
+
+    /** The part number in the case the BOM rows use, empty when there is none. */
+    static String upperCode(String code) {
+        return code == null ? "" : code.trim().toUpperCase(Locale.ROOT);
     }
 
     /**

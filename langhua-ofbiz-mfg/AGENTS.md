@@ -168,6 +168,15 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   料号取法是 `MfgCsv` 里的分层次（MPN → MN → `元件号` → 单词型号 → 型号+参数拼 → `P-<哈希>`），
   **同一颗料每次导入必须得到同一个料号**，否则每晚一个新料号、库存永远对不上；页面每行可改料号/数量
   （改料号会把锁一起挪过去）。参数 `allow-html="any"`、先父后子、勾选框三件事见上面的「约定与坑」。
+  **BOM 料号 ↔ 库存料号要能对上**：Fritzing 写 `C-100NF-16V-0603`，淘宝那单记的是 `100NF`，两边不一样的料号
+  就是「在库 0 / 缺 2」。所以每行料号输入框带 `list="stockCodes"`，`mfgDevBomDetail` 多返回一个 `stockOptions`
+  （`componentStockOptions`：**只给在库 > 0 的料号**，`料号 + 名称 + （在库 N）`，**按料号排序**后取前
+  `MAX_STOCK_OPTIONS` = 300），模板里 `<datalist id="stockCodes">` 一次渲染；**料号比对不分大小写**
+  （`lotsOfComponent` 用 `equalsIgnoreCase`、汇总与锁料按 `upperCode` 归组），但只差大小写的才自动对上，
+  差在别的字符上仍要改料号或改批次的料号。
+  **排序那一句别删**：测试库里有几百个批次，按插入顺序取前 300 条会把刚建的那颗料挤出去，页面上就“没有候选项”。
+  **`componentStockOptions` 里要给 `onHandQty == null` 的批次补 `ensureLotLedger`**（跟 `componentStock` 一样）——
+  刚建好、还没汇总过的批次否则不会出现在下拉里，人正要选的时候偏偏看不到它。
   **点项目号、保存任何表单、导入 / 改行 / 释放锁料之后，页面都会滚到项目说明段**（列表里的项目号链接自带
   `#project`；`dev.ftl` 末尾一小段脚本再调 `jump.js` 的 `jumpUnderNav(#project)` 把标题摆到导航条下面，
   只在地址里带 `projectCode` 时跑）——开发页上面是立项表单和项目列表，不滚的话人以为“没反应”。
