@@ -65,7 +65,7 @@ public final class MfgExportEvents {
             List<String> lines = new ArrayList<>();
             lines.add(MfgCsv.csvLine(Arrays.asList("级别", "类型", "编号", "对象", "截止",
                     "剩余小时", "说明")));
-            for (Map<String, Object> alert : MfgServices.buildAlerts(delegator)) {
+            for (Map<String, Object> alert : MfgReportServices.buildAlerts(delegator)) {
                 lines.add(MfgCsv.csvLine(Arrays.asList(
                         text(alert.get("level")),
                         typeLabel(text(alert.get("typeId"))),
@@ -99,7 +99,7 @@ public final class MfgExportEvents {
             List<String> lines = new ArrayList<>();
             lines.add(MfgCsv.csvLine(Arrays.asList("工单", "型号", "交期", "客户", "料号", "名称",
                     "需求", "已发", "欠料")));
-            for (Map<String, Object> row : MfgServices.shortageRows(delegator)) {
+            for (Map<String, Object> row : MfgReportServices.shortageRows(delegator)) {
                 lines.add(MfgCsv.csvLine(Arrays.asList(
                         text(row.get("workOrderId")),
                         text(row.get("productCode")),
@@ -176,7 +176,7 @@ public final class MfgExportEvents {
                 }
             }
 
-            for (Map<String, Object> alert : MfgServices.buildAlerts(delegator)) {
+            for (Map<String, Object> alert : MfgReportServices.buildAlerts(delegator)) {
                 addKpi(lines, "告警", text(alert.get("refId")), alert.get("detail"));
             }
 

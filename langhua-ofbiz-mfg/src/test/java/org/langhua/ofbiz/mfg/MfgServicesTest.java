@@ -451,8 +451,8 @@ public class MfgServicesTest {
     @Test
     public void addsUpTheCostOfOneClaim() {
         // refund + freight + one hour of labour
-        assertEquals(200.0, MfgServices.claimCost(150.0, 20.0, 0.5, 60.0), 0.001);
-        assertEquals(0.0, MfgServices.claimCost(0.0, 0.0, 0.0, 60.0), 0.001);
+        assertEquals(200.0, MfgReportServices.claimCost(150.0, 20.0, 0.5, 60.0), 0.001);
+        assertEquals(0.0, MfgReportServices.claimCost(0.0, 0.0, 0.0, 60.0), 0.001);
     }
 
     @Test
@@ -467,14 +467,14 @@ public class MfgServicesTest {
     public void listsTheLastDaysOldestFirst() {
         java.time.LocalDate end = LocalDate.of(2026, 10, 21);
 
-        java.util.List<String> labels = MfgServices.lastDayLabels(end, 3);
+        java.util.List<String> labels = MfgReportServices.lastDayLabels(end, 3);
         assertEquals(3, labels.size());
         assertEquals("10-19", labels.get(0));
         assertEquals("10-20", labels.get(1));
         assertEquals("10-21", labels.get(2));
 
-        assertTrue(MfgServices.lastDayLabels(end, 0).isEmpty());
-        assertTrue(MfgServices.lastDayLabels(null, 5).isEmpty());
+        assertTrue(MfgReportServices.lastDayLabels(end, 0).isEmpty());
+        assertTrue(MfgReportServices.lastDayLabels(null, 5).isEmpty());
     }
 
     @Test
@@ -3010,113 +3010,113 @@ public class MfgServicesTest {
 
     @Test
     public void walksTheDevelopmentStageLadder() {
-        assertEquals("MFG_STAGE_DESIGN", MfgServices.nextDevStage("MFG_STAGE_CONCEPT"));
-        assertEquals("MFG_STAGE_PROTOTYPE", MfgServices.nextDevStage("MFG_STAGE_DESIGN"));
-        assertEquals("MFG_STAGE_TRIAL", MfgServices.nextDevStage("MFG_STAGE_PROTOTYPE"));
-        assertEquals("MFG_STAGE_MASS", MfgServices.nextDevStage("MFG_STAGE_TRIAL"));
+        assertEquals("MFG_STAGE_DESIGN", MfgDevServices.nextDevStage("MFG_STAGE_CONCEPT"));
+        assertEquals("MFG_STAGE_PROTOTYPE", MfgDevServices.nextDevStage("MFG_STAGE_DESIGN"));
+        assertEquals("MFG_STAGE_TRIAL", MfgDevServices.nextDevStage("MFG_STAGE_PROTOTYPE"));
+        assertEquals("MFG_STAGE_MASS", MfgDevServices.nextDevStage("MFG_STAGE_TRIAL"));
         // mass production is the last stage
-        assertNull(MfgServices.nextDevStage("MFG_STAGE_MASS"));
-        assertNull(MfgServices.nextDevStage("NOT_A_STAGE"));
-        assertNull(MfgServices.nextDevStage(null));
+        assertNull(MfgDevServices.nextDevStage("MFG_STAGE_MASS"));
+        assertNull(MfgDevServices.nextDevStage("NOT_A_STAGE"));
+        assertNull(MfgDevServices.nextDevStage(null));
 
-        assertEquals(0, MfgServices.devStageIndex("MFG_STAGE_CONCEPT"));
-        assertEquals(4, MfgServices.devStageIndex("MFG_STAGE_MASS"));
-        assertEquals(-1, MfgServices.devStageIndex("NOT_A_STAGE"));
+        assertEquals(0, MfgDevServices.devStageIndex("MFG_STAGE_CONCEPT"));
+        assertEquals(4, MfgDevServices.devStageIndex("MFG_STAGE_MASS"));
+        assertEquals(-1, MfgDevServices.devStageIndex("NOT_A_STAGE"));
     }
 
     @Test
     public void onlyAPassMovesTheProjectOn() {
-        assertTrue(MfgServices.stageAdvancesOn("MFG_REVIEW_PASS"));
-        assertTrue(MfgServices.stageAdvancesOn("MFG_REVIEW_CONDITIONAL"));
-        assertTrue(!MfgServices.stageAdvancesOn("MFG_REVIEW_FAIL"));
-        assertTrue(!MfgServices.stageAdvancesOn(null));
+        assertTrue(MfgDevServices.stageAdvancesOn("MFG_REVIEW_PASS"));
+        assertTrue(MfgDevServices.stageAdvancesOn("MFG_REVIEW_CONDITIONAL"));
+        assertTrue(!MfgDevServices.stageAdvancesOn("MFG_REVIEW_FAIL"));
+        assertTrue(!MfgDevServices.stageAdvancesOn(null));
     }
 
     @Test
     public void knowsTheDevelopmentAndChangeOrderCodes() {
-        assertTrue(MfgServices.isKnownDevStage("MFG_STAGE_TRIAL"));
-        assertTrue(!MfgServices.isKnownDevStage("MFG_STAGE_SOMETHING"));
+        assertTrue(MfgDevServices.isKnownDevStage("MFG_STAGE_TRIAL"));
+        assertTrue(!MfgDevServices.isKnownDevStage("MFG_STAGE_SOMETHING"));
 
-        assertTrue(MfgServices.isKnownReviewResult("MFG_REVIEW_CONDITIONAL"));
-        assertTrue(!MfgServices.isKnownReviewResult("PASS"));
+        assertTrue(MfgDevServices.isKnownReviewResult("MFG_REVIEW_CONDITIONAL"));
+        assertTrue(!MfgDevServices.isKnownReviewResult("PASS"));
 
-        assertTrue(MfgServices.isKnownDevStatus("MFG_DEV_ONHOLD"));
-        assertTrue(!MfgServices.isKnownDevStatus("MFG_DEV_BOGUS"));
+        assertTrue(MfgDevServices.isKnownDevStatus("MFG_DEV_ONHOLD"));
+        assertTrue(!MfgDevServices.isKnownDevStatus("MFG_DEV_BOGUS"));
 
         assertTrue(MfgServices.isKnownEcoStatus("MFG_ECO_APPLIED"));
         assertTrue(!MfgServices.isKnownEcoStatus("DRAFT"));
 
-        assertTrue(MfgServices.isKnownEcoType("MFG_ECO_MATERIAL"));
-        assertTrue(!MfgServices.isKnownEcoType("MFG_ECO_PRICE"));
+        assertTrue(MfgDevServices.isKnownEcoType("MFG_ECO_MATERIAL"));
+        assertTrue(!MfgDevServices.isKnownEcoType("MFG_ECO_PRICE"));
     }
 
     @Test
     public void appliesOnlyAnApprovedChangeOrder() {
-        assertTrue(MfgServices.ecoAppliable("MFG_ECO_APPROVED"));
-        assertTrue(!MfgServices.ecoAppliable("MFG_ECO_DRAFT"));
-        assertTrue(!MfgServices.ecoAppliable("MFG_ECO_APPLIED"));
-        assertTrue(!MfgServices.ecoAppliable("MFG_ECO_CANCELLED"));
-        assertTrue(!MfgServices.ecoAppliable(null));
+        assertTrue(MfgDevServices.ecoAppliable("MFG_ECO_APPROVED"));
+        assertTrue(!MfgDevServices.ecoAppliable("MFG_ECO_DRAFT"));
+        assertTrue(!MfgDevServices.ecoAppliable("MFG_ECO_APPLIED"));
+        assertTrue(!MfgDevServices.ecoAppliable("MFG_ECO_CANCELLED"));
+        assertTrue(!MfgDevServices.ecoAppliable(null));
     }
 
     @Test
     public void formatsDevelopmentProjectAndChangeOrderIds() {
         LocalDate day = LocalDate.of(2026, 10, 21);
-        assertEquals("DEV-261021-01", MfgServices.formatDevProjectId(day, 1));
-        assertEquals("DEV-261021-12", MfgServices.formatDevProjectId(day, 12));
-        assertEquals("ECO-261021-01", MfgServices.formatEcoId(day, 1));
-        assertEquals("ECO-261021-07", MfgServices.formatEcoId(day, 7));
+        assertEquals("DEV-261021-01", MfgDevServices.formatDevProjectId(day, 1));
+        assertEquals("DEV-261021-12", MfgDevServices.formatDevProjectId(day, 12));
+        assertEquals("ECO-261021-01", MfgDevServices.formatEcoId(day, 1));
+        assertEquals("ECO-261021-07", MfgDevServices.formatEcoId(day, 7));
     }
 
     @Test
     public void knowsTheStepsOfEachDevelopmentTrack() {
-        assertEquals(5, MfgServices.stepsOfTrack(MfgServices.TRACK_PCB).length);
-        assertEquals(3, MfgServices.stepsOfTrack(MfgServices.TRACK_FIRMWARE).length);
-        assertEquals(7, MfgServices.stepsOfTrack(MfgServices.TRACK_ENCLOSURE).length);
-        assertEquals(0, MfgServices.stepsOfTrack("").length);
-        assertEquals(0, MfgServices.stepsOfTrack(null).length);
-        assertEquals(0, MfgServices.stepsOfTrack("MFG_TRACK_BOGUS").length);
+        assertEquals(5, MfgDevServices.stepsOfTrack(MfgServices.TRACK_PCB).length);
+        assertEquals(3, MfgDevServices.stepsOfTrack(MfgServices.TRACK_FIRMWARE).length);
+        assertEquals(7, MfgDevServices.stepsOfTrack(MfgServices.TRACK_ENCLOSURE).length);
+        assertEquals(0, MfgDevServices.stepsOfTrack("").length);
+        assertEquals(0, MfgDevServices.stepsOfTrack(null).length);
+        assertEquals(0, MfgDevServices.stepsOfTrack("MFG_TRACK_BOGUS").length);
 
         // the PCB track starts on the breadboard and ends on the hand soldered test
-        assertEquals("MFG_PCB_BREADBOARD", MfgServices.stepsOfTrack(MfgServices.TRACK_PCB)[0]);
-        assertEquals("MFG_PCB_HAND_SOLDER", MfgServices.stepsOfTrack(MfgServices.TRACK_PCB)[4]);
+        assertEquals("MFG_PCB_BREADBOARD", MfgDevServices.stepsOfTrack(MfgServices.TRACK_PCB)[0]);
+        assertEquals("MFG_PCB_HAND_SOLDER", MfgDevServices.stepsOfTrack(MfgServices.TRACK_PCB)[4]);
         // the enclosure track ends with the product assembly
-        assertEquals("MFG_ENC_ASSEMBLY", MfgServices.stepsOfTrack(MfgServices.TRACK_ENCLOSURE)[6]);
+        assertEquals("MFG_ENC_ASSEMBLY", MfgDevServices.stepsOfTrack(MfgServices.TRACK_ENCLOSURE)[6]);
 
-        assertTrue(MfgServices.isKnownTrack(MfgServices.TRACK_ENCLOSURE));
-        assertTrue(!MfgServices.isKnownTrack("MFG_TRACK_BOGUS"));
+        assertTrue(MfgDevServices.isKnownTrack(MfgServices.TRACK_ENCLOSURE));
+        assertTrue(!MfgDevServices.isKnownTrack("MFG_TRACK_BOGUS"));
 
-        assertTrue(MfgServices.isKnownStep(MfgServices.TRACK_FIRMWARE, "MFG_FW_FLASH"));
-        assertTrue(!MfgServices.isKnownStep(MfgServices.TRACK_PCB, "MFG_FW_FLASH"));
-        assertTrue(!MfgServices.isKnownStep("", "MFG_PCB_SCHEMATIC"));
+        assertTrue(MfgDevServices.isKnownStep(MfgServices.TRACK_FIRMWARE, "MFG_FW_FLASH"));
+        assertTrue(!MfgDevServices.isKnownStep(MfgServices.TRACK_PCB, "MFG_FW_FLASH"));
+        assertTrue(!MfgDevServices.isKnownStep("", "MFG_PCB_SCHEMATIC"));
     }
 
     @Test
     public void findsTheFirstOpenStep() {
         // nothing done yet, so the first step of the track is still open
         assertEquals("MFG_PCB_BREADBOARD",
-                MfgServices.firstOpenStep(MfgServices.TRACK_PCB, new java.util.ArrayList<String>()));
+                MfgDevServices.firstOpenStep(MfgServices.TRACK_PCB, new java.util.ArrayList<String>()));
 
         java.util.List<String> done = java.util.Arrays.asList("MFG_PCB_BREADBOARD", "MFG_PCB_SCHEMATIC");
-        assertEquals("MFG_PCB_LAYOUT", MfgServices.firstOpenStep(MfgServices.TRACK_PCB, done));
+        assertEquals("MFG_PCB_LAYOUT", MfgDevServices.firstOpenStep(MfgServices.TRACK_PCB, done));
 
         java.util.List<String> all = java.util.Arrays.asList(MfgServices.PCB_STEPS);
-        assertNull(MfgServices.firstOpenStep(MfgServices.TRACK_PCB, all));
+        assertNull(MfgDevServices.firstOpenStep(MfgServices.TRACK_PCB, all));
 
         // a track without steps has nothing to open
-        assertNull(MfgServices.firstOpenStep("", done));
+        assertNull(MfgDevServices.firstOpenStep("", done));
     }
 
     @Test
     public void countsSkippedStepsAsFinished() {
-        assertTrue(MfgServices.stepFinished("MFG_STEP_DONE"));
-        assertTrue(MfgServices.stepFinished("MFG_STEP_SKIPPED"));
-        assertTrue(!MfgServices.stepFinished("MFG_STEP_DOING"));
-        assertTrue(!MfgServices.stepFinished("MFG_STEP_TODO"));
-        assertTrue(!MfgServices.stepFinished(null));
+        assertTrue(MfgDevServices.stepFinished("MFG_STEP_DONE"));
+        assertTrue(MfgDevServices.stepFinished("MFG_STEP_SKIPPED"));
+        assertTrue(!MfgDevServices.stepFinished("MFG_STEP_DOING"));
+        assertTrue(!MfgDevServices.stepFinished("MFG_STEP_TODO"));
+        assertTrue(!MfgDevServices.stepFinished(null));
 
-        assertTrue(MfgServices.isKnownStepStatus("MFG_STEP_DOING"));
-        assertTrue(!MfgServices.isKnownStepStatus("DONE"));
+        assertTrue(MfgDevServices.isKnownStepStatus("MFG_STEP_DOING"));
+        assertTrue(!MfgDevServices.isKnownStepStatus("DONE"));
     }
 
     @Test
@@ -3191,13 +3191,13 @@ public class MfgServicesTest {
 
     @Test
     public void normalizesTheInspectionStatus() {        // an empty value means "not inspected yet", not an error
-        assertEquals(MfgServices.IQC_PENDING, MfgServices.normalizeInspectStatus(null));
-        assertEquals(MfgServices.IQC_PENDING, MfgServices.normalizeInspectStatus("   "));
-        assertEquals(MfgServices.IQC_PASS, MfgServices.normalizeInspectStatus("MFG_IQC_PASS"));
-        assertEquals(MfgServices.IQC_PASS, MfgServices.normalizeInspectStatus("mfg_iqc_pass"));
-        assertEquals(MfgServices.IQC_CONCESSION, MfgServices.normalizeInspectStatus("MFG_IQC_CONCESSION"));
-        assertEquals(MfgServices.IQC_FAIL, MfgServices.normalizeInspectStatus("MFG_IQC_FAIL"));
-        assertNull(MfgServices.normalizeInspectStatus("MFG_IQC_BOGUS"));
+        assertEquals(MfgServices.IQC_PENDING, MfgStockServices.normalizeInspectStatus(null));
+        assertEquals(MfgServices.IQC_PENDING, MfgStockServices.normalizeInspectStatus("   "));
+        assertEquals(MfgServices.IQC_PASS, MfgStockServices.normalizeInspectStatus("MFG_IQC_PASS"));
+        assertEquals(MfgServices.IQC_PASS, MfgStockServices.normalizeInspectStatus("mfg_iqc_pass"));
+        assertEquals(MfgServices.IQC_CONCESSION, MfgStockServices.normalizeInspectStatus("MFG_IQC_CONCESSION"));
+        assertEquals(MfgServices.IQC_FAIL, MfgStockServices.normalizeInspectStatus("MFG_IQC_FAIL"));
+        assertNull(MfgStockServices.normalizeInspectStatus("MFG_IQC_BOGUS"));
         assertEquals(4, MfgServices.INSPECT_STATUSES.length);
     }
 
@@ -3321,24 +3321,24 @@ public class MfgServicesTest {
 
     @Test
     public void ranksIssuesSoTheOpenHighOnesComeFirst() {
-        assertTrue(MfgServices.isOpenIssue(MfgServices.ISSUE_OPEN));
-        assertTrue(MfgServices.isOpenIssue(MfgServices.ISSUE_DOING));
-        assertFalse(MfgServices.isOpenIssue(MfgServices.ISSUE_CLOSED));
-        assertFalse(MfgServices.isOpenIssue(null));
+        assertTrue(MfgDevServices.isOpenIssue(MfgServices.ISSUE_OPEN));
+        assertTrue(MfgDevServices.isOpenIssue(MfgServices.ISSUE_DOING));
+        assertFalse(MfgDevServices.isOpenIssue(MfgServices.ISSUE_CLOSED));
+        assertFalse(MfgDevServices.isOpenIssue(null));
 
-        assertTrue(MfgServices.statusRank(MfgServices.ISSUE_OPEN)
-                < MfgServices.statusRank(MfgServices.ISSUE_DOING));
-        assertTrue(MfgServices.statusRank(MfgServices.ISSUE_DOING)
-                < MfgServices.statusRank(MfgServices.ISSUE_CLOSED));
-        assertTrue(MfgServices.severityRank(MfgServices.ISSUE_HIGH)
-                > MfgServices.severityRank(MfgServices.ISSUE_MEDIUM));
-        assertTrue(MfgServices.severityRank(MfgServices.ISSUE_MEDIUM)
-                > MfgServices.severityRank(MfgServices.ISSUE_LOW));
+        assertTrue(MfgDevServices.statusRank(MfgServices.ISSUE_OPEN)
+                < MfgDevServices.statusRank(MfgServices.ISSUE_DOING));
+        assertTrue(MfgDevServices.statusRank(MfgServices.ISSUE_DOING)
+                < MfgDevServices.statusRank(MfgServices.ISSUE_CLOSED));
+        assertTrue(MfgDevServices.severityRank(MfgServices.ISSUE_HIGH)
+                > MfgDevServices.severityRank(MfgServices.ISSUE_MEDIUM));
+        assertTrue(MfgDevServices.severityRank(MfgServices.ISSUE_MEDIUM)
+                > MfgDevServices.severityRank(MfgServices.ISSUE_LOW));
 
-        assertTrue(MfgServices.isKnownIssueStatus(MfgServices.ISSUE_DOING));
-        assertFalse(MfgServices.isKnownIssueStatus("MFG_ISSUE_WHATEVER"));
-        assertTrue(MfgServices.isKnownIssueSeverity(MfgServices.ISSUE_HIGH));
-        assertFalse(MfgServices.isKnownIssueSeverity("MFG_ISSUE_URGENT"));
+        assertTrue(MfgDevServices.isKnownIssueStatus(MfgServices.ISSUE_DOING));
+        assertFalse(MfgDevServices.isKnownIssueStatus("MFG_ISSUE_WHATEVER"));
+        assertTrue(MfgDevServices.isKnownIssueSeverity(MfgServices.ISSUE_HIGH));
+        assertFalse(MfgDevServices.isKnownIssueSeverity("MFG_ISSUE_URGENT"));
     }
 
     @Test
@@ -3528,11 +3528,11 @@ public class MfgServicesTest {
 
     @Test
     public void knowsTheLocationTypes() {
-        assertTrue(MfgServices.isKnownLocationType(MfgServices.LOC_WAREHOUSE));
-        assertTrue(MfgServices.isKnownLocationType(MfgServices.LOC_ZONE));
-        assertTrue(MfgServices.isKnownLocationType(MfgServices.LOC_BIN));
-        assertFalse(MfgServices.isKnownLocationType("MFG_LOC_BOGUS"));
-        assertFalse(MfgServices.isKnownLocationType(null));
+        assertTrue(MfgStockServices.isKnownLocationType(MfgServices.LOC_WAREHOUSE));
+        assertTrue(MfgStockServices.isKnownLocationType(MfgServices.LOC_ZONE));
+        assertTrue(MfgStockServices.isKnownLocationType(MfgServices.LOC_BIN));
+        assertFalse(MfgStockServices.isKnownLocationType("MFG_LOC_BOGUS"));
+        assertFalse(MfgStockServices.isKnownLocationType(null));
     }
 
     @Test

@@ -1235,7 +1235,7 @@ always
                         ? 0.0 : claim.getDouble("repairHours").doubleValue();
                 double freight = MfgServices.FREIGHT_SELLER.equals(claim.getString("freightPayer"))
                         ? MfgServices.QUALITY_FREIGHT_COST : 0.0;
-                double cost = MfgServices.claimCost(refund, freight, hours, MfgServices.QUALITY_HOURLY_RATE);
+                double cost = MfgReportServices.claimCost(refund, freight, hours, MfgServices.QUALITY_HOURLY_RATE);
                 refundTotal += refund;
                 freightTotal += freight;
                 hoursTotal += hours;

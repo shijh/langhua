@@ -1149,6 +1149,29 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   **踩坑**：把仓库里那份（`https="true"`）直接 copy 到**测试实例**会冲掉 `relax-test-https.ps1` 的改动，
   页面立刻 302 到 `https://localhost:8443`（看着像“改坏了”）——copy 完要对测试实例重跑那个脚本
   （这次它报了 113 个 request map）。回归：m50 13 项、m49 14 项、m43 15 项全过。
+- **库存 / 开发 / 报表搬完，`MfgServices` 只剩 885 行（Step 171）**：78 个方法、`MfgServices` **4197 → 885 行**，
+  `services.xml` 里 **36 个服务**改指三个新类，服务总数仍是 121：
+  - `MfgStockServices`（1161 行，14 个服务）：`mfgLotList` / `LotSave` / `LotImportCsv` / `LotInspect`、
+    `mfgLocationList` / `LocationSave` / `LocationStock`、`mfgInventoryLedger` / `InventoryMove`、
+    `mfgStockCount` / `StockCountList` / `StockSettingSave` / `StockSummary` / `StockTransfer` +
+    `isKnownLocationType` / `normalizeInspectStatus` / `nextStockCountId` / `nextTransferId` / `createStockInLot`；
+  - `MfgDevServices`（1443 行，15 个服务）：开发项目三件、阶段、步骤、问题清单三件、ECO 六件 +
+    `toDevProjectMap` / `toEcoMap` / `toTrackStepMap` / `stepsOfTrack` / `projectOfStep` / `firstOpenStep` /
+    `stepFinished` / `stageAdvancesOn` / `ecoAppliable` / `isOpenIssue` / `severityRank` / `statusRank` +
+    七个 `isKnown*` 与 `nextDevProjectId` / `nextEcoId` / `nextIssueId` / `formatDevProjectId` / `formatEcoId`；
+  - `MfgReportServices`（808 行，7 个服务）：`mfgDashboard` / `DashboardTrends` / `mfgAlerts` / `TrendReport` /
+    `ShortageList` / `VendorList` / `VendorSave` + `buildAlerts` / `addClaimAlert` / `addSoftwareAlerts` /
+    `addStockAlerts` / `claimCost` / `shortageRows` / `lastDayLabels` / `formatVendorId` / `nextVendorId`。
+  **`MfgServices` 现在只剩“共享词汇”**：全部常量、`permissions`（唯一还挂在这里的服务）、`can` /
+  `permissionProblem` / `parseTrailingNumber`、`setting`、`formatLotId` / `nextLotId`（采购与库存都要用）、
+  `fittingComponentCode` / `nameWithFullCode`（`oir` 与 `MfgOrderExcel` 在用）、`hoursLeft`、
+  以及**跨页共用的行映射器** `toClaimMap` / `toDeliveryMap` / `toSnMap` / `toReplacementMaps` /
+  `toWorkOrderMap` / `toLotMap` / `toReportMap` / `toIssueMap`（两个重载）/ `vendorMaps`。
+  **踩坑**：这一步又要改已搬走的类——`MfgClaimServices` 里的 `claimCost`、`MfgExportEvents` 里的
+  `buildAlerts` / `shortageRows` 都跟着改了类名（`MfgReportServices.…`）。搬“被别人引用的助手”之前，
+  先 grep 一遍**所有** `MfgServices.<名字>(` 的调用点，别只看 `MfgServices` 自己。
+  验证：编译 0 错、单测 177、`mfg-it.bat` 433/433、`verify-m31` 21、`verify-m36` 84、`verify-m35` 69、
+  `verify-m13` 49 全过，三套实例都换了新 jar。
 - **销售单与采购到货搬进 `MfgSalesOrderServices` / `MfgPurchaseServices`（Step 170）**：50 个方法、
   `MfgServices` **6264 → 4197 行**，`services.xml` 里 **19 个服务**改指新类：
   - `MfgSalesOrderServices`（814 行，7 个服务）：`mfgSalesOrderSave` / `List` / `Detail` / `Plan` / `Reserve` /

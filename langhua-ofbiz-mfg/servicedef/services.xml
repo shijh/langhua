@@ -485,7 +485,7 @@
     </service>
 
     <service name="mfgDashboard" engine="java"
-            location="org.langhua.ofbiz.mfg.MfgServices" invoke="dashboard"
+            location="org.langhua.ofbiz.mfg.MfgReportServices" invoke="dashboard"
             auth="false" use-transaction="false">
         <description>Shop floor dashboard figures</description>
         <attribute name="openOrderCount" type="Long" mode="OUT" optional="true"/>
@@ -516,7 +516,7 @@
     </service>
 
     <service name="mfgLotSave" engine="java"
-            location="org.langhua.ofbiz.mfg.MfgServices" invoke="lotSave"            auth="false" use-transaction="false">
+            location="org.langhua.ofbiz.mfg.MfgStockServices" invoke="lotSave"            auth="false" use-transaction="false">
         <description>Create or update a material lot; lotId LOT-yyMMdd-NN is generated when omitted</description>
         <attribute name="lotId" type="String" mode="IN" optional="true"/>
         <attribute name="componentCode" type="String" mode="IN" optional="false"/>
@@ -536,7 +536,7 @@
     </service>
 
     <service name="mfgLotInspect" engine="java"
-            location="org.langhua.ofbiz.mfg.MfgServices" invoke="lotInspect"
+            location="org.langhua.ofbiz.mfg.MfgStockServices" invoke="lotInspect"
             auth="false" use-transaction="false">
         <description>Record the incoming inspection of a material lot; a failed lot cannot be issued</description>
         <attribute name="lotId" type="String" mode="IN" optional="false"/>
@@ -550,7 +550,7 @@
     </service>
 
     <service name="mfgLotList" engine="java"
-            location="org.langhua.ofbiz.mfg.MfgServices" invoke="lotList"
+            location="org.langhua.ofbiz.mfg.MfgStockServices" invoke="lotList"
             auth="false" use-transaction="false">
         <description>List material lots with received, issued and remaining quantities</description>
         <attribute name="componentCode" type="String" mode="IN" optional="true"/>
@@ -630,7 +630,7 @@
     </service>
 
     <service name="mfgLotImportCsv" engine="java"
-            location="org.langhua.ofbiz.mfg.MfgServices" invoke="lotImportCsv"
+            location="org.langhua.ofbiz.mfg.MfgStockServices" invoke="lotImportCsv"
             auth="false" use-transaction="false">
         <description>Import lots from CSV: componentCode,componentName,supplierName,supplierLot,qty,receivedDate</description>
         <attribute name="csv" type="String" mode="IN" optional="false"/>
@@ -640,7 +640,7 @@
     </service>
 
     <service name="mfgShortageList" engine="java"
-            location="org.langhua.ofbiz.mfg.MfgServices" invoke="shortageList"
+            location="org.langhua.ofbiz.mfg.MfgReportServices" invoke="shortageList"
             auth="false" use-transaction="false">
         <description>Open work orders ordered by due date with their material shortages</description>
         <attribute name="search" type="String" mode="IN" optional="true"/>
@@ -746,7 +746,7 @@
     <!-- ==================== outsourcing vendors ==================== -->
 
     <service name="mfgVendorSave" engine="java"
-            location="org.langhua.ofbiz.mfg.MfgServices" invoke="vendorSave"
+            location="org.langhua.ofbiz.mfg.MfgReportServices" invoke="vendorSave"
             auth="false" use-transaction="false">
         <description>Create or update an SMT vendor with recipient, mobile, address and our customer code</description>
         <attribute name="vendorId" type="String" mode="IN" optional="true"/>
@@ -762,7 +762,7 @@
     </service>
 
     <service name="mfgVendorList" engine="java"
-            location="org.langhua.ofbiz.mfg.MfgServices" invoke="vendorList"
+            location="org.langhua.ofbiz.mfg.MfgReportServices" invoke="vendorList"
             auth="false" use-transaction="false">
         <description>List the outsourcing vendors with their shipping label</description>
         <attribute name="search" type="String" mode="IN" optional="true"/>
@@ -882,7 +882,7 @@
     <!-- ==================== inventory: movements, stock, counts ==================== -->
 
     <service name="mfgInventoryMove" engine="java"
-            location="org.langhua.ofbiz.mfg.MfgServices" invoke="inventoryMove"
+            location="org.langhua.ofbiz.mfg.MfgStockServices" invoke="inventoryMove"
             auth="false" use-transaction="false">
         <description>Record one movement of one lot (receipt, issue, return, scrap or adjustment); the lot totals are summed from the movements</description>
         <attribute name="lotId" type="String" mode="IN" optional="false"/>
@@ -906,7 +906,7 @@
     </service>
 
     <service name="mfgStockSummary" engine="java"
-            location="org.langhua.ofbiz.mfg.MfgServices" invoke="stockSummary"
+            location="org.langhua.ofbiz.mfg.MfgStockServices" invoke="stockSummary"
             auth="false" use-transaction="false">
         <description>Stock on hand per component with its safety stock and what to buy</description>
         <attribute name="search" type="String" mode="IN" optional="true"/>
@@ -1043,7 +1043,7 @@
     </service>
 
     <service name="mfgInventoryLedger" engine="java"
-            location="org.langhua.ofbiz.mfg.MfgServices" invoke="inventoryLedger"
+            location="org.langhua.ofbiz.mfg.MfgStockServices" invoke="inventoryLedger"
             auth="false" use-transaction="false">
         <description>The inventory movements, newest first, with the balance of their lot</description>
         <attribute name="lotId" type="String" mode="IN" optional="true"/>
@@ -1247,7 +1247,7 @@
     </service>
 
     <service name="mfgLocationSave" engine="java"
-            location="org.langhua.ofbiz.mfg.MfgServices" invoke="locationSave"
+            location="org.langhua.ofbiz.mfg.MfgStockServices" invoke="locationSave"
             auth="false" use-transaction="false">
         <description>Write a stock location: a warehouse, a zone or a shelf</description>
         <attribute name="locationId" type="String" mode="IN" optional="false"/>
@@ -1261,7 +1261,7 @@
     </service>
 
     <service name="mfgLocationList" engine="java"
-            location="org.langhua.ofbiz.mfg.MfgServices" invoke="locationList"
+            location="org.langhua.ofbiz.mfg.MfgStockServices" invoke="locationList"
             auth="false" use-transaction="false">
         <description>The stock locations with what each one holds</description>
         <attribute name="locations" type="java.util.List" mode="OUT" optional="true"/>
@@ -1270,7 +1270,7 @@
     </service>
 
     <service name="mfgLocationStock" engine="java"
-            location="org.langhua.ofbiz.mfg.MfgServices" invoke="locationStock"
+            location="org.langhua.ofbiz.mfg.MfgStockServices" invoke="locationStock"
             auth="false" use-transaction="false">
         <description>The balance of every lot in every location</description>
         <attribute name="locationId" type="String" mode="IN" optional="true"/>
@@ -1281,7 +1281,7 @@
     </service>
 
     <service name="mfgStockTransfer" engine="java"
-            location="org.langhua.ofbiz.mfg.MfgServices" invoke="stockTransfer"
+            location="org.langhua.ofbiz.mfg.MfgStockServices" invoke="stockTransfer"
             auth="false" use-transaction="false">
         <description>Move a quantity of one lot to another location; written as a pair of movements, the lot total does not change</description>
         <attribute name="lotId" type="String" mode="IN" optional="false"/>
@@ -1300,7 +1300,7 @@
     </service>
 
     <service name="mfgStockSettingSave" engine="java"
-            location="org.langhua.ofbiz.mfg.MfgServices" invoke="stockSettingSave"
+            location="org.langhua.ofbiz.mfg.MfgStockServices" invoke="stockSettingSave"
             auth="false" use-transaction="false">
         <description>Write the component master record with its safety stock and reorder quantity</description>
         <attribute name="componentCode" type="String" mode="IN" optional="false"/>
@@ -1316,7 +1316,7 @@
     </service>
 
     <service name="mfgStockCount" engine="java"
-            location="org.langhua.ofbiz.mfg.MfgServices" invoke="stockCount"
+            location="org.langhua.ofbiz.mfg.MfgStockServices" invoke="stockCount"
             auth="false" use-transaction="false">
         <description>Book a physical count of one lot: the difference becomes a movement</description>
         <attribute name="lotId" type="String" mode="IN" optional="false"/>
@@ -1335,7 +1335,7 @@
     </service>
 
     <service name="mfgStockCountList" engine="java"
-            location="org.langhua.ofbiz.mfg.MfgServices" invoke="stockCountList"
+            location="org.langhua.ofbiz.mfg.MfgStockServices" invoke="stockCountList"
             auth="false" use-transaction="false">
         <description>The counts that were booked, newest first</description>
         <attribute name="lotId" type="String" mode="IN" optional="true"/>
@@ -1513,7 +1513,7 @@
     <!-- ==================== after sales quality ==================== -->
 
     <service name="mfgDashboardTrends" engine="java"
-            location="org.langhua.ofbiz.mfg.MfgServices" invoke="dashboardTrends"
+            location="org.langhua.ofbiz.mfg.MfgReportServices" invoke="dashboardTrends"
             auth="false" use-transaction="false">
         <description>Daily shipped / claim series and after sales KPI for the dashboard bars</description>
         <attribute name="dayCount" type="Long" mode="IN" optional="true"/>
@@ -1526,7 +1526,7 @@
     </service>
 
     <service name="mfgTrendReport" engine="java"
-            location="org.langhua.ofbiz.mfg.MfgServices" invoke="trendReport"
+            location="org.langhua.ofbiz.mfg.MfgReportServices" invoke="trendReport"
             auth="false" use-transaction="false">
         <description>Yield and labour hour trend per period (day, week or month) built from the work reports</description>
         <attribute name="fromDate" type="String" mode="IN" optional="true"/>
@@ -1566,7 +1566,7 @@
     </service>
 
     <service name="mfgAlerts" engine="java"
-            location="org.langhua.ofbiz.mfg.MfgServices" invoke="alerts"
+            location="org.langhua.ofbiz.mfg.MfgReportServices" invoke="alerts"
             auth="false" use-transaction="false">
         <description>Dashboard warnings: work orders with a material shortage and claims whose 7 day or 15 day window is closing or closed</description>
         <attribute name="alerts" type="java.util.List" mode="OUT" optional="true"/>
@@ -1731,7 +1731,7 @@
     <!-- ==================== product development ==================== -->
 
     <service name="mfgDevProjectSave" engine="java"
-            location="org.langhua.ofbiz.mfg.MfgServices" invoke="devProjectSave"
+            location="org.langhua.ofbiz.mfg.MfgDevServices" invoke="devProjectSave"
             auth="false" use-transaction="false">
         <description>Create or update a development project; the project number is generated when it is empty</description>
         <attribute name="projectCode" type="String" mode="IN" optional="true"/>
@@ -1752,7 +1752,7 @@
     </service>
 
     <service name="mfgDevProjectList" engine="java"
-            location="org.langhua.ofbiz.mfg.MfgServices" invoke="devProjectList"
+            location="org.langhua.ofbiz.mfg.MfgDevServices" invoke="devProjectList"
             auth="false" use-transaction="false">
         <description>List development projects with their stage, gate progress and open change orders</description>
         <attribute name="search" type="String" mode="IN" optional="true"/>
@@ -1772,7 +1772,7 @@
     </service>
 
     <service name="mfgDevProjectDetail" engine="java"
-            location="org.langhua.ofbiz.mfg.MfgServices" invoke="devProjectDetail"
+            location="org.langhua.ofbiz.mfg.MfgDevServices" invoke="devProjectDetail"
             auth="false" use-transaction="false">
         <description>One development project with its gate reviews and change orders</description>
         <attribute name="projectCode" type="String" mode="IN" optional="true"/>
@@ -1785,7 +1785,7 @@
     </service>
 
     <service name="mfgDevStageSave" engine="java"
-            location="org.langhua.ofbiz.mfg.MfgServices" invoke="devStageSave"
+            location="org.langhua.ofbiz.mfg.MfgDevServices" invoke="devStageSave"
             auth="false" use-transaction="false">
         <description>Record a gate review; passing it moves the project to the next stage</description>
         <attribute name="projectCode" type="String" mode="IN" optional="false"/>
@@ -1801,7 +1801,7 @@
     </service>
 
     <service name="mfgDevStepSave" engine="java"
-            location="org.langhua.ofbiz.mfg.MfgServices" invoke="devStepSave"
+            location="org.langhua.ofbiz.mfg.MfgDevServices" invoke="devStepSave"
             auth="false" use-transaction="false">
         <description>Write the details of one development track step; an empty value clears the field</description>
         <attribute name="projectCode" type="String" mode="IN" optional="false"/>
@@ -1822,7 +1822,7 @@
     </service>
 
     <service name="mfgDevStepStatus" engine="java"
-            location="org.langhua.ofbiz.mfg.MfgServices" invoke="devStepStatus"
+            location="org.langhua.ofbiz.mfg.MfgDevServices" invoke="devStepStatus"
             auth="false" use-transaction="false">
         <description>Change only the status of one step, used by the quick buttons of the project page</description>
         <attribute name="projectCode" type="String" mode="IN" optional="false"/>
@@ -1835,7 +1835,7 @@
     </service>
 
     <service name="mfgDevStepIssueSave" engine="java"
-            location="org.langhua.ofbiz.mfg.MfgServices" invoke="devStepIssueSave"
+            location="org.langhua.ofbiz.mfg.MfgDevServices" invoke="devStepIssueSave"
             auth="false" use-transaction="false">
         <description>Raise or update a problem found at one development step; the number is generated when it is empty</description>
         <attribute name="issueId" type="String" mode="IN" optional="true"/>
@@ -1855,7 +1855,7 @@
     </service>
 
     <service name="mfgDevStepIssueStatus" engine="java"
-            location="org.langhua.ofbiz.mfg.MfgServices" invoke="devStepIssueStatus"
+            location="org.langhua.ofbiz.mfg.MfgDevServices" invoke="devStepIssueStatus"
             auth="false" use-transaction="false">
         <description>Change only the status of one issue, used by the quick buttons of the project page</description>
         <attribute name="issueId" type="String" mode="IN" optional="false"/>
@@ -1867,7 +1867,7 @@
     </service>
 
     <service name="mfgDevStepIssueList" engine="java"
-            location="org.langhua.ofbiz.mfg.MfgServices" invoke="devStepIssueList"
+            location="org.langhua.ofbiz.mfg.MfgDevServices" invoke="devStepIssueList"
             auth="false" use-transaction="false">
         <description>Issues of one development project with the open counts, newest first</description>
         <attribute name="projectCode" type="String" mode="IN" optional="true"/>
@@ -1880,7 +1880,7 @@
     </service>
 
     <service name="mfgDevEcoSave" engine="java"
-            location="org.langhua.ofbiz.mfg.MfgServices" invoke="devEcoSave"
+            location="org.langhua.ofbiz.mfg.MfgDevServices" invoke="devEcoSave"
             auth="false" use-transaction="false">
         <description>Raise or update an engineering change order; the number is generated when it is empty</description>
         <attribute name="ecoId" type="String" mode="IN" optional="true"/>
@@ -1900,7 +1900,7 @@
     </service>
 
     <service name="mfgDevEcoList" engine="java"
-            location="org.langhua.ofbiz.mfg.MfgServices" invoke="devEcoList"
+            location="org.langhua.ofbiz.mfg.MfgDevServices" invoke="devEcoList"
             auth="false" use-transaction="false">
         <description>List change orders, newest first</description>
         <attribute name="search" type="String" mode="IN" optional="true"/>
@@ -1919,7 +1919,7 @@
     </service>
 
     <service name="mfgDevEcoDetail" engine="java"
-            location="org.langhua.ofbiz.mfg.MfgServices" invoke="devEcoDetail"
+            location="org.langhua.ofbiz.mfg.MfgDevServices" invoke="devEcoDetail"
             auth="false" use-transaction="false">
         <description>One change order with the BOM versions it switches between</description>
         <attribute name="ecoId" type="String" mode="IN" optional="true"/>
@@ -1930,7 +1930,7 @@
     </service>
 
     <service name="mfgDevEcoApprove" engine="java"
-            location="org.langhua.ofbiz.mfg.MfgServices" invoke="devEcoApprove"
+            location="org.langhua.ofbiz.mfg.MfgDevServices" invoke="devEcoApprove"
             auth="false" use-transaction="false">
         <description>Approve a draft change order so that it can be applied</description>
         <attribute name="ecoId" type="String" mode="IN" optional="false"/>
@@ -1940,7 +1940,7 @@
     </service>
 
     <service name="mfgDevEcoApply" engine="java"
-            location="org.langhua.ofbiz.mfg.MfgServices" invoke="devEcoApply"
+            location="org.langhua.ofbiz.mfg.MfgDevServices" invoke="devEcoApply"
             auth="false" use-transaction="false">
         <description>Apply an approved change order and switch the model to its target BOM version</description>
         <attribute name="ecoId" type="String" mode="IN" optional="false"/>
@@ -1950,7 +1950,7 @@
     </service>
 
     <service name="mfgDevEcoCancel" engine="java"
-            location="org.langhua.ofbiz.mfg.MfgServices" invoke="devEcoCancel"
+            location="org.langhua.ofbiz.mfg.MfgDevServices" invoke="devEcoCancel"
             auth="false" use-transaction="false">
         <description>Cancel a change order that is not applied yet</description>
         <attribute name="ecoId" type="String" mode="IN" optional="false"/>
