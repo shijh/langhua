@@ -1149,6 +1149,21 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   **踩坑**：把仓库里那份（`https="true"`）直接 copy 到**测试实例**会冲掉 `relax-test-https.ps1` 的改动，
   页面立刻 302 到 `https://localhost:8443`（看着像“改坏了”）——copy 完要对测试实例重跑那个脚本
   （这次它报了 113 个 request map）。回归：m50 13 项、m49 14 项、m43 15 项全过。
+- **库存台账那 28 块搬进 `MfgStockLedger`（Step 165）**：第 2 步拆的是**最内聚的一块**——库存流水。
+  新类 `MfgStockLedger`（615 行）拿走：`lotUnitCost/unitCostOf/isKnownMovement/movementDiff`、
+  `availableOf`（两个重载）、`reasonLabel/movementTypeOfReason/movementLabel/movementReasonProblem`、
+  `isProductLot/lotKindOf/matchesLotKind/productLotId/productUnitCost/componentLots`、
+  `movementsOf/recordMovement`（三个重载）/`recalcLotStock/ensureLotLedger/nextMovementSeq`、
+  `reservationOf/recordReservation/releaseReservation/reservedByComponent/locationOnHand`。
+  结果 `MfgServices` **13792 → 13212 行**，服务入口一个没动、`services.xml` 一行没改。
+  **常量故意留在 `MfgServices`**（`MOVE_*` / `MOVE_TYPES` / `MOVE_IN_TYPES` / `MOVE_OUT_TYPES` / `MOVE_REASONS` /
+  `IQC_FAIL` / `LOT_COMPONENT` / `LOT_PRODUCT`）：它们被模板、`oir` 和 ~89 处调用点引用，搬走要改一大片，
+  而 `MfgStockLedger` 只是**读**它们——所以那里写成 `MfgServices.MOVE_RECEIPT` 这种全限定形式。
+  验证：`mfg-tests-all.bat` 编译 0 错 + 单测 177 全过、`mfg-it.bat` **433/433**、`verify-m36.ps1` **84/84**，
+  三个实例都换了新 jar（`deployed161c.ps1` 逐个确认 `new code yes`、登录页 200）。
+  **踩坑**：搬完要做的“常量加类名”那步正则必须同时匹配数组声明——`public static final (?:String|String\[\]) NAME`，
+  否则 `MOVE_TYPES` 这类 `String[]` 会漏掉，编译报 `cannot find symbol`（这次报了 4 个）。
+  下一步（第 3 步）起要动 `services.xml` 的 `location=`，所以每步之后都得跑 `mfg-it.bat`。
 - **三大块纯助手先搬出 `MfgServices`（Step 164）**：`MfgServices.java` 原来 14602 行、410 个方法（121 个是服务入口），
   改一次要翻半天。第一步把**不碰数据库、不碰 DispatchContext** 的三块搬走：
   - `MfgSupport`（290 行）：`toText/toDouble/toLong/parseDate/parseTimestamp/newMap/round2/numberOrZero/optionalAmount`

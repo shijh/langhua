@@ -612,11 +612,11 @@ public class MfgServicesTest {
     @Test
     public void costsACheapPartFromTheAmountPaid() {
         // 100 pieces for 2.91: the unit price column would keep 0.03, the amount keeps the cent
-        assertEquals(0.0291, MfgServices.unitCostOf(100.0, 2.91, 0.03), 0.000001);
+        assertEquals(0.0291, MfgStockLedger.unitCostOf(100.0, 2.91, 0.03), 0.000001);
         // without an amount the typed in price is used
-        assertEquals(0.03, MfgServices.unitCostOf(100.0, 0.0, 0.03), 0.000001);
+        assertEquals(0.03, MfgStockLedger.unitCostOf(100.0, 0.0, 0.03), 0.000001);
         // a lot without quantity cannot divide
-        assertEquals(1.25, MfgServices.unitCostOf(0.0, 2.91, 1.25), 0.000001);
+        assertEquals(1.25, MfgStockLedger.unitCostOf(0.0, 2.91, 1.25), 0.000001);
     }
 
     @Test
@@ -3344,21 +3344,21 @@ public class MfgServicesTest {
     @Test
     public void signsTheInventoryMovements() {
         // receipts and returns add, issues and scraps take away
-        assertEquals(5.0, MfgServices.movementDiff(MfgServices.MOVE_RECEIPT, 5.0), 1e-9);
-        assertEquals(5.0, MfgServices.movementDiff(MfgServices.MOVE_RETURN, 5.0), 1e-9);
-        assertEquals(-5.0, MfgServices.movementDiff(MfgServices.MOVE_ISSUE, 5.0), 1e-9);
-        assertEquals(-5.0, MfgServices.movementDiff(MfgServices.MOVE_SCRAP, 5.0), 1e-9);
+        assertEquals(5.0, MfgStockLedger.movementDiff(MfgServices.MOVE_RECEIPT, 5.0), 1e-9);
+        assertEquals(5.0, MfgStockLedger.movementDiff(MfgServices.MOVE_RETURN, 5.0), 1e-9);
+        assertEquals(-5.0, MfgStockLedger.movementDiff(MfgServices.MOVE_ISSUE, 5.0), 1e-9);
+        assertEquals(-5.0, MfgStockLedger.movementDiff(MfgServices.MOVE_SCRAP, 5.0), 1e-9);
         // a count and an adjustment carry their own sign
-        assertEquals(-2.0, MfgServices.movementDiff(MfgServices.MOVE_COUNT, -2.0), 1e-9);
-        assertEquals(-2.0, MfgServices.movementDiff(MfgServices.MOVE_ADJUST, -2.0), 1e-9);
+        assertEquals(-2.0, MfgStockLedger.movementDiff(MfgServices.MOVE_COUNT, -2.0), 1e-9);
+        assertEquals(-2.0, MfgStockLedger.movementDiff(MfgServices.MOVE_ADJUST, -2.0), 1e-9);
         // a reservation changes no quantity on hand
-        assertEquals(0.0, MfgServices.movementDiff(MfgServices.MOVE_RESERVE, 5.0), 1e-9);
-        assertEquals(0.0, MfgServices.movementDiff(MfgServices.MOVE_RELEASE, 5.0), 1e-9);
-        assertEquals(0.0, MfgServices.movementDiff(null, 5.0), 1e-9);
+        assertEquals(0.0, MfgStockLedger.movementDiff(MfgServices.MOVE_RESERVE, 5.0), 1e-9);
+        assertEquals(0.0, MfgStockLedger.movementDiff(MfgServices.MOVE_RELEASE, 5.0), 1e-9);
+        assertEquals(0.0, MfgStockLedger.movementDiff(null, 5.0), 1e-9);
 
-        assertTrue(MfgServices.isKnownMovement(MfgServices.MOVE_COUNT));
-        assertFalse(MfgServices.isKnownMovement("MFG_MOVE_BOGUS"));
-        assertFalse(MfgServices.isKnownMovement(null));
+        assertTrue(MfgStockLedger.isKnownMovement(MfgServices.MOVE_COUNT));
+        assertFalse(MfgStockLedger.isKnownMovement("MFG_MOVE_BOGUS"));
+        assertFalse(MfgStockLedger.isKnownMovement(null));
     }
 
     @Test
@@ -3367,78 +3367,78 @@ public class MfgServicesTest {
         assertEquals(8, MfgServices.MOVE_REASONS.length);
         assertEquals("VAR_LOST", MfgServices.MOVE_REASONS[0]);
         assertEquals("VAR_MISSHIP_SHIPPED", MfgServices.MOVE_REASONS[7]);
-        assertEquals("\u4e22\u5931", MfgServices.reasonLabel(MfgServices.REASON_LOST));
-        assertEquals("\u88ab\u76d7", MfgServices.reasonLabel(MfgServices.REASON_STOLEN));
-        assertEquals("\u635f\u574f", MfgServices.reasonLabel(MfgServices.REASON_DAMAGED));
-        assertTrue(MfgServices.reasonLabel(MfgServices.REASON_FOUND).contains("\u627e\u5230"));
-        assertEquals("", MfgServices.reasonLabel(null));
-        assertEquals("VAR_WHATEVER", MfgServices.reasonLabel("VAR_WHATEVER"));
+        assertEquals("\u4e22\u5931", MfgStockLedger.reasonLabel(MfgServices.REASON_LOST));
+        assertEquals("\u88ab\u76d7", MfgStockLedger.reasonLabel(MfgServices.REASON_STOLEN));
+        assertEquals("\u635f\u574f", MfgStockLedger.reasonLabel(MfgServices.REASON_DAMAGED));
+        assertTrue(MfgStockLedger.reasonLabel(MfgServices.REASON_FOUND).contains("\u627e\u5230"));
+        assertEquals("", MfgStockLedger.reasonLabel(null));
+        assertEquals("VAR_WHATEVER", MfgStockLedger.reasonLabel("VAR_WHATEVER"));
     }
 
     @Test
     public void picksTheMovementTypeFromTheReason() {
         // what left the stock is booked out, what came back in is booked in
-        assertEquals(MfgServices.MOVE_SCRAP, MfgServices.movementTypeOfReason(MfgServices.REASON_LOST));
-        assertEquals(MfgServices.MOVE_SCRAP, MfgServices.movementTypeOfReason(MfgServices.REASON_STOLEN));
-        assertEquals(MfgServices.MOVE_SCRAP, MfgServices.movementTypeOfReason(MfgServices.REASON_DAMAGED));
-        assertEquals(MfgServices.MOVE_SCRAP, MfgServices.movementTypeOfReason(MfgServices.REASON_SAMPLE));
+        assertEquals(MfgServices.MOVE_SCRAP, MfgStockLedger.movementTypeOfReason(MfgServices.REASON_LOST));
+        assertEquals(MfgServices.MOVE_SCRAP, MfgStockLedger.movementTypeOfReason(MfgServices.REASON_STOLEN));
+        assertEquals(MfgServices.MOVE_SCRAP, MfgStockLedger.movementTypeOfReason(MfgServices.REASON_DAMAGED));
+        assertEquals(MfgServices.MOVE_SCRAP, MfgStockLedger.movementTypeOfReason(MfgServices.REASON_SAMPLE));
         assertEquals(MfgServices.MOVE_SCRAP,
-                MfgServices.movementTypeOfReason(MfgServices.REASON_MISSHIP_SHIPPED));
-        assertEquals(MfgServices.MOVE_ISSUE, MfgServices.movementTypeOfReason(MfgServices.REASON_INTEGR));
-        assertEquals(MfgServices.MOVE_RECEIPT, MfgServices.movementTypeOfReason(MfgServices.REASON_FOUND));
+                MfgStockLedger.movementTypeOfReason(MfgServices.REASON_MISSHIP_SHIPPED));
+        assertEquals(MfgServices.MOVE_ISSUE, MfgStockLedger.movementTypeOfReason(MfgServices.REASON_INTEGR));
+        assertEquals(MfgServices.MOVE_RECEIPT, MfgStockLedger.movementTypeOfReason(MfgServices.REASON_FOUND));
         assertEquals(MfgServices.MOVE_RECEIPT,
-                MfgServices.movementTypeOfReason(MfgServices.REASON_MISSHIP_ORDERED));
-        assertNull(MfgServices.movementTypeOfReason(null));
-        assertNull(MfgServices.movementTypeOfReason("VAR_WHATEVER"));
+                MfgStockLedger.movementTypeOfReason(MfgServices.REASON_MISSHIP_ORDERED));
+        assertNull(MfgStockLedger.movementTypeOfReason(null));
+        assertNull(MfgStockLedger.movementTypeOfReason("VAR_WHATEVER"));
     }
 
     @Test
     public void refusesAReasonThatFightsWithTheType() {
         // nothing to complain about: no reason, or a reason that agrees with the type
-        assertNull(MfgServices.movementReasonProblem(MfgServices.MOVE_SCRAP, null, 3.0));
-        assertNull(MfgServices.movementReasonProblem(MfgServices.MOVE_SCRAP,
+        assertNull(MfgStockLedger.movementReasonProblem(MfgServices.MOVE_SCRAP, null, 3.0));
+        assertNull(MfgStockLedger.movementReasonProblem(MfgServices.MOVE_SCRAP,
                 MfgServices.REASON_LOST, 3.0));
-        assertNull(MfgServices.movementReasonProblem(MfgServices.MOVE_ADJUST,
+        assertNull(MfgStockLedger.movementReasonProblem(MfgServices.MOVE_ADJUST,
                 MfgServices.REASON_DAMAGED, -2.0));
-        assertNull(MfgServices.movementReasonProblem(MfgServices.MOVE_RECEIPT,
+        assertNull(MfgStockLedger.movementReasonProblem(MfgServices.MOVE_RECEIPT,
                 MfgServices.REASON_FOUND, 4.0));
         // a lost part may not be booked in, and a found one may not be booked out
-        assertTrue(present(MfgServices.movementReasonProblem(MfgServices.MOVE_RECEIPT,
+        assertTrue(present(MfgStockLedger.movementReasonProblem(MfgServices.MOVE_RECEIPT,
                 MfgServices.REASON_LOST, 3.0)));
-        assertTrue(present(MfgServices.movementReasonProblem(MfgServices.MOVE_SCRAP,
+        assertTrue(present(MfgStockLedger.movementReasonProblem(MfgServices.MOVE_SCRAP,
                 MfgServices.REASON_FOUND, 3.0)));
         // an adjustment follows the sign of the quantity it carries
-        assertTrue(present(MfgServices.movementReasonProblem(MfgServices.MOVE_ADJUST,
+        assertTrue(present(MfgStockLedger.movementReasonProblem(MfgServices.MOVE_ADJUST,
                 MfgServices.REASON_LOST, 2.0)));
-        assertNull(MfgServices.movementReasonProblem(MfgServices.MOVE_ADJUST,
+        assertNull(MfgStockLedger.movementReasonProblem(MfgServices.MOVE_ADJUST,
                 MfgServices.REASON_LOST, -2.0));
         // the message names the reason, so the person knows which one to keep
-        String message = MfgServices.movementReasonProblem(MfgServices.MOVE_RECEIPT,
+        String message = MfgStockLedger.movementReasonProblem(MfgServices.MOVE_RECEIPT,
                 MfgServices.REASON_LOST, 3.0);
         assertTrue(message.contains("\u4e22\u5931"));
         assertTrue(message.contains("\u8865\u5165\u5e93") || message.contains("\u5230\u8d27\u5165\u5e93"));
         // an unknown reason is refused even when the type is fine
-        assertTrue(present(MfgServices.movementReasonProblem(MfgServices.MOVE_SCRAP, "VAR_WHATEVER", 3.0)));
+        assertTrue(present(MfgStockLedger.movementReasonProblem(MfgServices.MOVE_SCRAP, "VAR_WHATEVER", 3.0)));
     }
 
     @Test
     public void explainsAStockCountVarianceWithTheReasonItFits() {
         // a count carries its own sign, so the variance of -2 fits "lost" and clashes with "found"
-        assertNull(MfgServices.movementReasonProblem(MfgServices.MOVE_COUNT,
+        assertNull(MfgStockLedger.movementReasonProblem(MfgServices.MOVE_COUNT,
                 MfgServices.REASON_LOST, -2.0));
-        assertNull(MfgServices.movementReasonProblem(MfgServices.MOVE_COUNT,
+        assertNull(MfgStockLedger.movementReasonProblem(MfgServices.MOVE_COUNT,
                 MfgServices.REASON_FOUND, 2.0));
-        assertTrue(present(MfgServices.movementReasonProblem(MfgServices.MOVE_COUNT,
+        assertTrue(present(MfgStockLedger.movementReasonProblem(MfgServices.MOVE_COUNT,
                 MfgServices.REASON_FOUND, -2.0)));
-        assertTrue(present(MfgServices.movementReasonProblem(MfgServices.MOVE_COUNT,
+        assertTrue(present(MfgStockLedger.movementReasonProblem(MfgServices.MOVE_COUNT,
                 MfgServices.REASON_LOST, 2.0)));
         // a count that matches the book quantity explains nothing, so any reason goes
-        assertNull(MfgServices.movementReasonProblem(MfgServices.MOVE_COUNT,
+        assertNull(MfgStockLedger.movementReasonProblem(MfgServices.MOVE_COUNT,
                 MfgServices.REASON_LOST, 0.0));
         // and no reason at all is still fine
-        assertNull(MfgServices.movementReasonProblem(MfgServices.MOVE_COUNT, null, -2.0));
+        assertNull(MfgStockLedger.movementReasonProblem(MfgServices.MOVE_COUNT, null, -2.0));
         // the refusal talks about 盘盈 / 盘亏, not about the bucket it lands in
-        String message = MfgServices.movementReasonProblem(MfgServices.MOVE_COUNT,
+        String message = MfgStockLedger.movementReasonProblem(MfgServices.MOVE_COUNT,
                 MfgServices.REASON_LOST, 6.0);
         assertTrue(message.contains("\u76d8\u76c8"));
         assertTrue(message.contains("\u4e22\u5931"));
@@ -3450,38 +3450,38 @@ public class MfgServicesTest {
 
     @Test
     public void blocksTheStockOfAFailedLot() {
-        assertEquals(10.0, MfgServices.availableOf(10.0, MfgServices.IQC_PASS), 1e-9);
+        assertEquals(10.0, MfgStockLedger.availableOf(10.0, MfgServices.IQC_PASS), 1e-9);
         // a pending lot may still be issued, a small workshop does not inspect everything
-        assertEquals(10.0, MfgServices.availableOf(10.0, MfgServices.IQC_PENDING), 1e-9);
-        assertEquals(10.0, MfgServices.availableOf(10.0, MfgServices.IQC_CONCESSION), 1e-9);
-        assertEquals(0.0, MfgServices.availableOf(10.0, MfgServices.IQC_FAIL), 1e-9);
+        assertEquals(10.0, MfgStockLedger.availableOf(10.0, MfgServices.IQC_PENDING), 1e-9);
+        assertEquals(10.0, MfgStockLedger.availableOf(10.0, MfgServices.IQC_CONCESSION), 1e-9);
+        assertEquals(0.0, MfgStockLedger.availableOf(10.0, MfgServices.IQC_FAIL), 1e-9);
         // an overdrawn lot never offers a negative quantity
-        assertEquals(0.0, MfgServices.availableOf(-3.0, MfgServices.IQC_PASS), 1e-9);
+        assertEquals(0.0, MfgStockLedger.availableOf(-3.0, MfgServices.IQC_PASS), 1e-9);
     }
 
     @Test
     public void takesTheReservationOutOfTheAvailableQuantity() {
-        assertEquals(6.0, MfgServices.availableOf(10.0, 4.0, MfgServices.IQC_PASS), 1e-9);
+        assertEquals(6.0, MfgStockLedger.availableOf(10.0, 4.0, MfgServices.IQC_PASS), 1e-9);
         // over reserved stock offers nothing, not a negative number
-        assertEquals(0.0, MfgServices.availableOf(10.0, 12.0, MfgServices.IQC_PASS), 1e-9);
+        assertEquals(0.0, MfgStockLedger.availableOf(10.0, 12.0, MfgServices.IQC_PASS), 1e-9);
         // a failed lot is not available at all
-        assertEquals(0.0, MfgServices.availableOf(10.0, 4.0, MfgServices.IQC_FAIL), 1e-9);
+        assertEquals(0.0, MfgStockLedger.availableOf(10.0, 4.0, MfgServices.IQC_FAIL), 1e-9);
     }
 
     @Test
     public void namesTheFinishedGoodsLotAfterItsWorkOrder() {
-        assertEquals("FG-WO-261022-01", MfgServices.productLotId("WO-261022-01"));
-        assertNull(MfgServices.productLotId(null));
+        assertEquals("FG-WO-261022-01", MfgStockLedger.productLotId("WO-261022-01"));
+        assertNull(MfgStockLedger.productLotId(null));
     }
 
     @Test
     public void spreadsTheActualCostOverTheGoodUnits() {
         // 300 yuan for 4 good units is 75 each
-        assertEquals(75.0, MfgServices.productUnitCost(300.0, 4.0), 1e-9);
+        assertEquals(75.0, MfgStockLedger.productUnitCost(300.0, 4.0), 1e-9);
         // nothing good came out of the order, so there is no unit cost
-        assertEquals(0.0, MfgServices.productUnitCost(300.0, 0.0), 1e-9);
+        assertEquals(0.0, MfgStockLedger.productUnitCost(300.0, 0.0), 1e-9);
         // two decimals, because it is money
-        assertEquals(10.01, MfgServices.productUnitCost(30.02, 3.0), 1e-9);
+        assertEquals(10.01, MfgStockLedger.productUnitCost(30.02, 3.0), 1e-9);
     }
 
     @Test
