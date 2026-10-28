@@ -13,6 +13,7 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
 | 脚本 | 作用 |
 | --- | --- |
 | `deploy-mfg.bat` | **开发实例（8443）**：停 OFBiz → robocopy 到 `plugins/mfg` → `gradle jar` → 启动（日志 `F:\build-ofbiz\mfg-deploy.txt`） |
+| `deploy-all.bat` | **一次发三套**：`deploy-mfg` → `deploy-test` → `deploy-prod`（用户定的发版顺序，日志三份分别看） |
 | `deploy-lc.bat` | 同上，学习曲线插件（日志 `lc-deploy.txt`） |
 | `stop-ofbiz.bat` | 只停**开发**实例（按命令行里的 `apache-ofbiz-24.09.07` 匹配）；生产有 `stop-prod.bat` |
 | `deploy-prod.bat` | **生产实例（8453）**：停生产 → robocopy 两个插件到 `ofbiz-prod\plugins` → `gradle jar` → 启动（日志 `prod-deploy.txt`） |
@@ -25,6 +26,12 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
 | `start-test.bat` / `stop-test.bat` | 只启/停**测试**实例（按命令行里的 `ofbiz-test` 匹配，admin 端口 10723） |
 | `make-test-instance.ps1` / `relax-test-https.ps1` | 一次性从开发实例复制出 `F:\build-ofbiz\ofbiz-test` 并改端口；后者把测试实例里 37 个 controller 的 `https="true"` 改 `false`（每次 deploy-test 都会重跑） |
 | `verify-m*.ps1` | 页面巡检（真实登录会话），日志 `F:\build-ofbiz\mfg-m*.txt` |
+
+**发版顺序固定是「开发 8443 → 测试 8095 → 生产 8453」，三个都要发**（用户定的）：直接跑 `deploy-all.bat`
+（就是依次 `deploy-mfg.bat` → `deploy-test.bat` → `deploy-prod.bat`）。只发一两个的后果是“在开发实例上看不到新按钮”，而且很容易被当成代码没写对。
+巡检脚本都能打开发实例：加 `-base https://localhost:8443`（自签证书，脚本里已有
+`[Net.ServicePointManager]::ServerCertificateValidationCallback = { $true }`；漏了这一行会报
+`Could not establish trust relationship`）。
 
 只改 `webapp/` 下的静态文件（css / 图片 / js）时，直接 `Copy-Item` 到 `plugins/mfg/...` 就能生效；
 **`.ftl` 不行**（模板缓存命中后不看 mtime），要重新 `deploy-mfg.bat`。
@@ -181,11 +188,13 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   （改料号会把锁一起挪过去）。参数 `allow-html="any"`、先父后子、勾选框三件事见上面的「约定与坑」。
   **BOM 料号 ↔ 库存料号要能对上**：Fritzing 写 `C-100NF-16V-0603`，淘宝那单记的是 `100NF`，两边不一样的料号
   就是「在库 0 / 缺 2」。所以每行料号输入框带 `list="stockCodes"`，`mfgDevBomDetail` 多返回一个 `stockOptions`
-  （`componentStockOptions`：**只给在库 > 0 的料号**，`料号 + 名称 + （在库 N）`，**按料号排序**后取前
-  `MAX_STOCK_OPTIONS` = 300），模板里 `<datalist id="stockCodes">` 一次渲染；**料号比对不分大小写**
-  （`lotsOfComponent` 用 `equalsIgnoreCase`、汇总与锁料按 `upperCode` 归组），但只差大小写的才自动对上，
-  差在别的字符上仍要改料号或改批次的料号。
-  **排序那一句别删**：测试库里有几百个批次，按插入顺序取前 300 条会把刚建的那颗料挤出去，页面上就“没有候选项”。
+  （`componentStockOptions`：**只给在库 > 0 的料号**，`料号 + 名称 + （在库 N）`，**本版 BOM 的料号排在最前**、
+  其余按料号排序，最多 `MAX_STOCK_OPTIONS` = 300 条），模板里 `<datalist id="stockCodes">` 一次渲染；
+  **料号比对不分大小写**（`lotsOfComponent` 用 `equalsIgnoreCase`、汇总与锁料按 `upperCode` 归组），
+  但只差大小写的才自动对上，差在别的字符上仍要改料号或改批次的料号。
+  **排序 + “本版优先”那两句别删**：开发库里在库料号早超过 300 个（测试/巡检的历史数据），
+  按插入顺序或单纯按料号排，`C-100NF-16V-0603` 会被挤出名单——“stock codes are offered”就是这么红了一次
+  （`offerOrder`：先放这一版的料号，再放其它，然后才截断；单测钉住了）。
   **`componentStockOptions` 里要给 `onHandQty == null` 的批次补 `ensureLotLedger`**（跟 `componentStock` 一样）——
   刚建好、还没汇总过的批次否则不会出现在下拉里，人正要选的时候偏偏看不到它。
   **整表保存（`mfgDevBomSaveAll`，页面上的「保存全部料号与数量」）**：一行一行的「保存」照旧能用（每行自己的

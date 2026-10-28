@@ -284,13 +284,19 @@ public final class MfgDevBomServices {
         try {
             Map<String, double[]> stock = componentStock(delegator);
             Map<String, Double> lockedByComponent = MfgStockLedger.lockedByProjectComponent(delegator, projectCode);
-            result.put("stockOptions", componentStockOptions(delegator));
             GenericValue latest = lastImport(delegator, projectCode);
+            List<GenericValue> versionItems = latest == null ? new ArrayList<GenericValue>()
+                    : itemsOf(delegator, projectCode, latest.getLong("importSeq").longValue());
+            List<String> wantedCodes = new ArrayList<>();
+            for (GenericValue item : versionItems) {
+                wantedCodes.add(item.getString("componentCode"));
+            }
+            result.put("stockOptions", componentStockOptions(delegator, wantedCodes));
             double shortTotal = 0.0;
             int shortCount = 0;
             if (latest != null) {
                 long importSeq = latest.getLong("importSeq").longValue();
-                for (GenericValue item : itemsOf(delegator, projectCode, importSeq)) {
+                for (GenericValue item : versionItems) {
                     String code = item.getString("componentCode");
                     double qty = MfgSupport.numberOrZero(item.get("qty"));
                     double locked = MfgSupport.numberOrZero(lockedByComponent.get(code));
@@ -753,11 +759,17 @@ public final class MfgDevBomServices {
      * the sketch is corrected to the one the shop books the part under. This is the answer to "the BOM
      * says 100 nF but the stock has a 100 nF ceramic capacitor": pick its number here.
      *
+     * <p>The part numbers of this very version come first: a shop that has run for a while carries
+     * more than {@value #MAX_STOCK_OPTIONS} part numbers, and a list that is cut short must never cut
+     * away a number the page is about (that is what made "stock codes are offered" fail on a full
+     * database - the code was there, only behind the cap).
+     *
      * @param delegator the delegator
+     * @param wanted part numbers the page shows rows for, offered first
      * @return part number, name and quantity on hand, at most {@value #MAX_STOCK_OPTIONS}
      * @throws GenericEntityException when the lots cannot be read
      */
-    static List<Map<String, Object>> componentStockOptions(Delegator delegator)
+    static List<Map<String, Object>> componentStockOptions(Delegator delegator, List<String> wanted)
             throws GenericEntityException {
         Map<String, Map<String, Object>> byCode = new LinkedHashMap<>();
         for (GenericValue lot : MfgStockLedger.componentLots(delegator)) {
@@ -784,22 +796,65 @@ public final class MfgDevBomServices {
             option.put("onHandQty", Double.valueOf(MfgSupport.numberOrZero(option.get("onHandQty"))
                     + MfgSupport.numberOrZero(lot.get("onHandQty"))));
         }
-        List<Map<String, Object>> options = new ArrayList<>();
-        for (Map<String, Object> option : byCode.values()) {
-            if (MfgSupport.numberOrZero(option.get("onHandQty")) <= 0.0001) {
-                continue;
+        List<String> inStock = new ArrayList<>();
+        for (Map.Entry<String, Map<String, Object>> entry : byCode.entrySet()) {
+            if (MfgSupport.numberOrZero(entry.getValue().get("onHandQty")) > 0.0001) {
+                inStock.add(entry.getKey());
             }
-            options.add(option);
         }
-        // sorted by part number, so the cap of MAX_STOCK_OPTIONS always hides the same tail and a code
-        // can be found by typing a few characters (the browser filters the list); the insert order of
-        // the lots would push everything bought recently out of the list
-        options.sort((left, right) -> String.valueOf(left.get("componentCode"))
-                .compareTo(String.valueOf(right.get("componentCode"))));
-        if (options.size() > MAX_STOCK_OPTIONS) {
-            return new ArrayList<>(options.subList(0, MAX_STOCK_OPTIONS));
+        // sorted by part number, so the rest of the list is stable and can be searched by typing; the
+        // order of the lots would push everything bought recently out of it
+        inStock.sort(null);
+        List<String> order = offerOrder(upperCodes(wanted), inStock, MAX_STOCK_OPTIONS);
+        List<Map<String, Object>> options = new ArrayList<>(order.size());
+        for (String code : order) {
+            options.add(byCode.get(code));
         }
         return options;
+    }
+
+    /**
+     * The order the page offers the part numbers in: the ones this version uses first, then the rest.
+     *
+     * @param wanted part numbers of the version, already upper case
+     * @param inStock part numbers with stock on hand, sorted
+     * @param limit how many the page takes at most
+     * @return the part numbers to offer, without duplicates
+     */
+    static List<String> offerOrder(List<String> wanted, List<String> inStock, int limit) {
+        Set<String> order = new LinkedHashSet<>();
+        if (wanted != null && limit > 0) {
+            for (String code : wanted) {
+                if (order.size() >= limit) {
+                    break;
+                }
+                if (code != null && inStock.contains(code)) {
+                    order.add(code);
+                }
+            }
+        }
+        for (String code : inStock) {
+            if (order.size() >= limit) {
+                break;
+            }
+            order.add(code);
+        }
+        return new ArrayList<>(order);
+    }
+
+    /** The part numbers of an empty or null list, upper case, without blanks. */
+    private static List<String> upperCodes(List<String> codes) {
+        List<String> upper = new ArrayList<>();
+        if (codes == null) {
+            return upper;
+        }
+        for (String code : codes) {
+            String text = upperCode(code);
+            if (!text.isEmpty()) {
+                upper.add(text);
+            }
+        }
+        return upper;
     }
 
     /** The part number in the case the BOM rows use, empty when there is none. */

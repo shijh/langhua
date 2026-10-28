@@ -191,6 +191,27 @@ public class MfgDevBomRulesTest {
     }
 
     @Test
+    public void offersThePartNumbersOfTheVersionFirst() {
+        // a shop with a few hundred part numbers on the shelf: the list the page offers is cut short,
+        // and the codes of this very version must never be the ones cut away
+        List<String> wanted = new ArrayList<>(java.util.Arrays.asList(
+                "C-100NF-16V-0603", "R-10K-0603", "R-10K-0603", "NOT-IN-STOCK"));
+        List<String> inStock = new ArrayList<>(java.util.Arrays.asList(
+                "A1", "B2", "C-100NF-16V-0603", "R-10K-0603"));
+        List<String> order = MfgDevBomServices.offerOrder(wanted, inStock, 3);
+        assertEquals(3, order.size());
+        assertEquals("C-100NF-16V-0603", order.get(0));
+        assertEquals("R-10K-0603", order.get(1));
+        assertEquals("A1", order.get(2));
+        // a code of the version that is not on the shelf is not offered, and nothing repeats
+        assertEquals(java.util.Arrays.asList("C-100NF-16V-0603", "R-10K-0603", "A1", "B2"),
+                MfgDevBomServices.offerOrder(wanted, inStock, 10));
+        assertTrue(MfgDevBomServices.offerOrder(wanted, inStock, 0).isEmpty());
+        assertEquals(java.util.Arrays.asList("A1", "B2", "C-100NF-16V-0603", "R-10K-0603"),
+                MfgDevBomServices.offerOrder(null, inStock, 10));
+    }
+
+    @Test
     public void readsARowOfTheWholeTableSave() {
         // the page posts lineSeq|part number|quantity; a Fritzing name may carry spaces
         Map<String, Object> row = MfgDevBomServices.rowEditOf("3|5.5V1.5F C型 21*7.5|2");
