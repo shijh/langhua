@@ -211,7 +211,7 @@
     page=(lr.page)!1 pageCount=(lr.pageCount)!1 total=(lr.totalCount)!0 unit="条" pageSize=(lr.pageSize)!20/>
 
 <#if project.projectCode??>
-    <h2>${project.projectCode} ${project.projectName!}</h2>
+    <h2 id="project">${project.projectCode} ${project.projectName!}</h2>
     <ul>
         <li>线路：<b>${trackLabel(project.trackId!'')}</b><#if (project.partCode!'') != ''>，料号 ${project.partCode}</#if><#if (project.stepTotal!0) gt 0>，步骤 ${project.stepDone} / ${project.stepTotal}</#if></li>
         <li>型号：<#if (project.productCode!'') != ''>${project.productCode}<#else><span class="hint">未关联</span></#if></li>
@@ -588,4 +588,23 @@
     <#else>
         <p class="hint">还没有变更单，可以到「设计变更」页新建。</p>
     </#if>
+</#if>
+
+<#-- an import, a BOM row save or a release comes back to the top of the page (the project list is
+     above the project itself), so put the project back under the navigation bar. The arithmetic
+     lives in /mfg/js/jump.js, shared with the paste jumps and the receipt detail (Step 115). -->
+<#if parameters.bomVersion?? || parameters.releasedQty?? || parameters.componentCode??>
+<script>
+(function () {
+    function jumpToProject() {
+        var block = document.getElementById('project');
+        if (block && window.jumpUnderNav) { window.jumpUnderNav(block); }
+    }
+    if (document.readyState === 'complete') {
+        jumpToProject();
+    } else {
+        window.addEventListener('load', jumpToProject);
+    }
+}());
+</script>
 </#if>

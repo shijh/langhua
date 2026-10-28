@@ -168,6 +168,9 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   料号取法是 `MfgCsv` 里的分层次（MPN → MN → `元件号` → 单词型号 → 型号+参数拼 → `P-<哈希>`），
   **同一颗料每次导入必须得到同一个料号**，否则每晚一个新料号、库存永远对不上；页面每行可改料号/数量
   （改料号会把锁一起挪过去）。参数 `allow-html="any"`、先父后子、勾选框三件事见上面的「约定与坑」。
+  **导入 / 改行 / 释放之后页面会自己滚到项目说明段**（`dev.ftl` 末尾一小段脚本调 `jump.js` 的
+  `jumpUnderNav(#project)`，只在 URL 带 `bomVersion` / `componentCode` / `releasedQty` 时才跑）——
+  开发页上面是立项表单和项目列表，不滚的话人以为“没反应”。
 - **三个实例：开发 8443 / 生产 8453 / 测试 8095（只有 http）**：`verify-m*.ps1` 用 `Invoke-WebRequest` +
   `ServerCertificateValidationCallback` 能过自签证书，但**浏览器自动化不行**，所以另起一个不用 TLS 的测试实例。
   端口：开发 http 8080 + https 8443（admin 10523）、生产 http 8090 + https 8453（admin 10623）、
