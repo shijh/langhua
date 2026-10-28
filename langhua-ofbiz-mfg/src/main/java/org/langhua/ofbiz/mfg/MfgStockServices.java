@@ -159,9 +159,12 @@ public final class MfgStockServices {
             Map<String, Object> result = ServiceUtil.returnSuccess();
             result.put("lotId", lotId);
             result.put("editedLot", lotId);
-            // come back to the page filtered by the part number, where the row is visible
-            result.put("search", lot.getString("componentCode"));
             keepView(result, context);
+            if (!postedAView(context)) {
+                // nothing was posted to come back to (an old link, a script): come back filtered to
+                // the part number, where the row is visible
+                result.put("search", lot.getString("componentCode"));
+            }
             return result;
         } catch (GenericEntityException e) {
             return ServiceUtil.returnError("保存批次资料失败：" + e.getMessage());
@@ -180,8 +183,8 @@ public final class MfgStockServices {
      *
      * @param dctx the dispatch context
      * @param context service context, see {@code servicedef/stock-services.xml#mfgLotCodeChange}
-     * @return the service result with {@code lotId}, {@code componentCode}, {@code renamedLot} and
-     *         {@code search}
+     * @return the service result with {@code lotId}, {@code newCode}, {@code renamedLot} and the view
+     *         fields the page posted ({@code search} / {@code page} / {@code pageSize} / {@code componentCode})
      */
     public static Map<String, Object> lotCodeChange(DispatchContext dctx, Map<String, ? extends Object> context) {
         String denied = MfgSecurity.permissionProblem(dctx, context, MfgConstants.PERM_STOCK);
@@ -190,7 +193,7 @@ public final class MfgStockServices {
         }
         Delegator delegator = dctx.getDelegator();
         String lotId = MfgSupport.toText(context.get("lotId"));
-        String newCode = MfgSupport.toText(context.get("componentCode"));
+        String newCode = MfgSupport.toText(context.get("partCode"));
         if (lotId == null) {
             return ServiceUtil.returnError("lotId is required");
         }
@@ -209,10 +212,18 @@ public final class MfgStockServices {
             Map<String, Object> result = ServiceUtil.returnSuccess();
             result.put("lotId", lotId);
             result.put("renamedLot", lotId);
-            result.put("componentCode", newCode);
             result.put("newCode", newCode);
-            result.put("search", newCode);
             keepView(result, context);
+            // the reader may have been looking at this very part - in the search box or in the part
+            // filter. Both spellings now point at nothing, so they follow the rename; anything else
+            // is left alone, because a filter the reader never typed must not appear on the page
+            // (the search word and the part filter are combined, so an invented one empties the list).
+            if (oldCode.equals(MfgSupport.toText(context.get("backSearch"))) || !postedAView(context)) {
+                result.put("search", newCode);
+            }
+            if (oldCode.equals(MfgSupport.toText(context.get("backComponentCode")))) {
+                result.put("componentCode", newCode);
+            }
             if (newCode.equals(oldCode)) {
                 return result;
             }
@@ -371,11 +382,13 @@ public final class MfgStockServices {
             result.put("receivedQty", MfgSupport.formatQty(actualQty));
             result.put("onHandQty", MfgSupport.formatQty(MfgSupport.numberOrZero(lot.get("onHandQty"))));
             result.put("unitPrice", mfgDouble(unitPrice));
-            // the page comes back filtered to this part, with a line saying what the count changed
-            result.put("search", lot.getString("componentCode"));
             result.put("recounted", lotId);
             result.put("recountQty", MfgSupport.formatQty(actualQty));
             keepView(result, context);
+            if (!postedAView(context)) {
+                // the page did not say what it was showing: come back filtered to this part
+                result.put("search", lot.getString("componentCode"));
+            }
             return result;
         } catch (GenericEntityException e) {
             return ServiceUtil.returnError("按点数修正失败：" + e.getMessage());
@@ -501,6 +514,25 @@ public final class MfgStockServices {
         if (componentCode != null) {
             result.put("componentCode", componentCode);
         }
+    }
+
+    /**
+     * Whether the page posted the view it was showing.
+     *
+     * <p>A row action restores <b>only</b> what the page posted. Filling in a filter the reader never
+     * typed changes what he sees: the search word and the part filter are combined, so a part filter
+     * invented by the action can turn the list empty ("searched NFC, edited a row, and the ledger
+     * suddenly says 0 rows"). Only when the page posted nothing - an old link, a script posting the
+     * bare service inputs - does the action narrow the list to the part it changed.
+     *
+     * @param context the service context
+     * @return {@code true} when any of the {@code back…} fields was posted
+     */
+    private static boolean postedAView(Map<String, ? extends Object> context) {
+        return MfgSupport.toText(context.get("backSearch")) != null
+                || MfgSupport.toText(context.get("backPage")) != null
+                || MfgSupport.toText(context.get("backPageSize")) != null
+                || MfgSupport.toText(context.get("backComponentCode")) != null;
     }
 
     /**

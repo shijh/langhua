@@ -187,7 +187,16 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   **行内四个动作（料号 / 名称 / 点数修正 / 来料检验）要回到当前那一页**：`materials.ftl` 的 `<@keepView/>` 宏
   在每张行表单里放 `backSearch` / `backPage` / `backPageSize` / `backComponentCode`，服务用 `keepView(...)` 原样回写，
   controller 的 `<redirect-parameter>` 带上 `search` / `page` / `pageSize` / `componentCode`。少一个就会被甩到台账第一页。
-  注意 `mfgLotCodeChange` 的 `search` 现在是“回到哪一页的筛选”，新料号在 OUT **`newCode`** 里。
+  **只还原页面提交过的状态，不许自己发明筛选**：`postedAView(context)` 为真（有任何一个 `back*`）时就不再往
+  OUT 里塞 `search` / `componentCode`，否则“搜索里写 NFC、改了某行”会连带把**元件料号**筛选填成刚改出来的代码，
+  两个条件一与就是 0 条（这是用户报过的 bug）。只有页面什么都没提交（老链接、脚本直调服务）才退回
+  “收窄到这个料号”，好让刚改的那一行还在页面上。`mfgLotCodeChange` 另有一条：读者本来就是按**这个料号**筛选/
+  搜索时，那两个值都要跟着改成新料号（还原旧的就一定是空页）；新料号在 OUT **`newCode`** 里。
+  **表单字段不能和 redirect-parameter 同名**：`RequestHandler.makeQueryString` 是
+  `value = request.getAttribute(name)`，**取不到就退到 `request.getParameter(name)`**（框架里就这么写的）。
+  所以行里的输入框原来叫 `componentCode` 时，就算服务没往 OUT 写这个键，重定向也照样把**你刚输入的料号**
+  当成「元件料号」筛选带回去 → 与搜索词相与成 0 条。现在那个 IN 叫 **`partCode`**（`mfgLotCodeChange`），
+  OUT 仍是 `newCode`；以后给行内表单起名时，先看这张 `success` 的 `<redirect-parameter>` 清单里有没有同名。
 
 - **研发 BOM：Fritzing 的 `bom.html` 直接进开发项目（Step 175）**：一块板从面包板开始，所以「研发 BOM」挂在
   **开发项目**（`/mfg/control/dev?projectCode=…` 的 `#devbom` 一段）而不是型号上。一次导入 = 一条

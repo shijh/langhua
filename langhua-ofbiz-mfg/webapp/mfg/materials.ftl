@@ -89,11 +89,13 @@ C0402-100N,100nF 0402 电容,立创商城,DC2409B,500,2026-10-19</textarea>
                 <td>${lot.lotId!}</td>
                 <td>
                     <#-- one lot, one part number: this corrects the parcel in front of you, not every
-                         row that happens to carry the same code -->
+                         row that happens to carry the same code. The field is called partCode, not
+                         componentCode: the page also filters by a componentCode, and a posted field of
+                         that name would be picked up by the redirect and fill in the filter -->
                     <form method="post" action="/mfg/control/lotCodeChange" class="inline">
                         <input type="hidden" name="lotId" value="${lot.lotId}"/>
                         <@keepView/>
-                        <input type="text" name="componentCode" size="16" value="${(lot.componentCode)!}"
+                        <input type="text" name="partCode" size="16" value="${(lot.componentCode)!}"
                                title="${(lot.componentCode)!}"/>
                         <input type="submit" value="改"/>
                     </form>

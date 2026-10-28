@@ -75,7 +75,10 @@
             auth="false" use-transaction="true">
         <description>Correct the part number of ONE lot, with its issues and its receipt line; other lots keep their own number (mfgPartCodeRename is the tool that moves a code everywhere)</description>
         <attribute name="lotId" type="String" mode="IN" optional="false"/>
-        <attribute name="componentCode" type="String" mode="IN" optional="false"/>
+        <!-- the new code. Not called componentCode on purpose: the redirect of the page also carries a
+             componentCode (the part filter), and makeQueryString falls back to the *posted* parameter,
+             so a field of that name would fill in the filter the reader never typed -->
+        <attribute name="partCode" type="String" mode="IN" optional="false"/>
         <attribute name="backSearch" type="String" mode="IN" optional="true"/>
         <attribute name="backPage" type="String" mode="IN" optional="true"/>
         <attribute name="backPageSize" type="String" mode="IN" optional="true"/>
