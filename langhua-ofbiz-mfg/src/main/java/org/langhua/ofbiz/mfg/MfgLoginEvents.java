@@ -144,10 +144,18 @@ public final class MfgLoginEvents {
     }
 
     /**
-     * Keeps the page the person should land on once the login form has been filled in. The page itself
-     * says where it was ({@link #rememberReturn}); when the login came from an ordinary refused page
-     * this takes the request the framework saved in the session instead, so the same works without
-     * any script.
+     * Decides what happens after the login form has been filled in.
+     *
+     * <p>Two flows end up here:
+     * <ul>
+     *   <li>a page asked for the login through {@link #rememberReturn} - an Ajax call was refused, so
+     *       the address of the page is nowhere in the framework's books. It is handed to {@code main},
+     *       which redirects to it once;</li>
+     *   <li>an ordinary page was refused (the session ran out, the person clicked a navigation entry).
+     *       The framework keeps that request and redirects there itself once the login has passed, so
+     *       all this has to do is leave the attribute alone - and make sure the browser never gets
+     *       sent to an endpoint that answers with JSON.</li>
+     * </ul>
      *
      * @param request the request; its session holds the refused request when there was one
      * @param response the response, not written to (the page rendered after the login does the jump)
@@ -159,27 +167,36 @@ public final class MfgLoginEvents {
         // the page that asked for the login knows better than the framework does: it was an Ajax call
         // that got refused, and the address of the page is not the address of that call
         String back = safeReturnTo(saved == null ? null : String.valueOf(saved));
-        if (back == null) {
-            back = pageOf(session.getAttribute(PREVIOUS_REQUEST));
-        }
-        // note: the framework's _LAST_VIEW_NAME_ is deliberately not used here. It holds a **view**
-        // name, and a view is not a request: requirePasswordChange (the screen shown when the account
-        // must change its password) has no request map, so coming back to "it" was a dead URL and the
-        // person got "Unknown request [requirePasswordChange]" right after changing the password
-        // (Step 122). The two sources above are real addresses.
-        session.removeAttribute(PREVIOUS_REQUEST);
         if (back != null) {
+            // this one cannot be left to the framework: it would send the browser to the Ajax
+            // endpoint and the person would see raw JSON
+            session.removeAttribute(PREVIOUS_REQUEST);
             session.setAttribute(RETURN_TO, back);
-        } else {
-            session.removeAttribute(RETURN_TO);
+            return "success";
         }
+        // an ordinary refused page (点击导航 / 书签，会话过期): the framework keeps it in the session
+        // and, once the login has passed, redirects there itself - as long as the attribute is
+        // still there. Visiting the login form used to wipe it (the framework only spares the URIs
+        // listed in security.properties' login.uris), which is why the person landed on the start
+        // page; the instances now list "control" there (Step 176), so it survives and the redirect
+        // happens without us lifting a finger.
+        // Whatever is left is either a page - leave it for the framework - or an endpoint, which no
+        // one wants to see: drop it.
+        if (pageOf(session.getAttribute(PREVIOUS_REQUEST)) == null) {
+            session.removeAttribute(PREVIOUS_REQUEST);
+        }
+        session.removeAttribute(RETURN_TO);
         return "success";
     }
 
     /**
      * The page a request of this webapp belongs to, as far as it is a page at all: the framework
-     * saves the request it refused (for example {@code /control/receipts}) and the person should
-     * land there again, not on an endpoint that answers with JSON.
+     * saves the request it refused - as {@code /<request name>}, because the webapp answers under
+     * {@code /mfg/control} - and the person should land there again, not on an endpoint that answers
+     * with JSON.
+     *
+     * <p>The three shapes it can arrive in are all understood: {@code /dev} (what OFBiz saves),
+     * {@code /control/dev} (an address of this webapp) and {@code dev} (a bare request name).
      *
      * @param previous what the framework saved, may be {@code null}
      * @return the address of that page, {@code null} when it is not one worth returning to
@@ -189,9 +206,16 @@ public final class MfgLoginEvents {
             return null;
         }
         String path = String.valueOf(previous).trim();
-        String name = path.startsWith("/control/") ? path.substring("/control/".length()) : path;
-        if (name.startsWith("/")) {
-            return safeReturnTo("/mfg" + path);
+        String name;
+        if (path.startsWith("/control/")) {
+            name = path.substring("/control/".length());
+        } else if (path.startsWith("/")) {
+            name = path.substring(1);
+        } else {
+            name = path;
+        }
+        if (name.isEmpty() || name.indexOf('/') >= 0 || name.indexOf('?') >= 0) {
+            return null;
         }
         for (String notPage : NOT_A_PAGE) {
             if (name.contains(notPage)) {
@@ -211,6 +235,9 @@ public final class MfgLoginEvents {
     public static String rememberReturn(HttpServletRequest request, HttpServletResponse response) {
         String back = safeReturnTo(request.getParameter("to"));
         HttpSession session = request.getSession();
+        // the refused call is an endpoint (an Ajax one), so the framework's idea of "where the person
+        // was" must not win over the address the page gave us
+        session.removeAttribute(PREVIOUS_REQUEST);
         if (back != null) {
             session.setAttribute(RETURN_TO, back);
         } else {

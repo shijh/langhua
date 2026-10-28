@@ -41,14 +41,23 @@ public class MfgAuditRulesTest {
         // OFBiz saves the request it refused, and the person should land on that page again
         assertEquals("/mfg/control/receipts", MfgLoginEvents.pageOf("/control/receipts"));
         assertEquals("/mfg/control/products", MfgLoginEvents.pageOf("products"));
+        // what the framework really saves is the path info, and this webapp answers under
+        // /mfg/control: a refused /mfg/control/dev is stored as "/dev" (Step 176 - before this was
+        // understood, coming back after the session ran out always ended on the start page)
+        assertEquals("/mfg/control/dev", MfgLoginEvents.pageOf("/dev"));
+        assertEquals("/mfg/control/receipts", MfgLoginEvents.pageOf("/receipts"));
         // an endpoint that answers with data is no place to land: the page that called it says where
         // to go instead (see session.js), and without that the start page is fine
+        assertNull(MfgLoginEvents.pageOf("/orderImage"));
         assertNull(MfgLoginEvents.pageOf("/control/orderImage"));
         assertNull(MfgLoginEvents.pageOf("/control/receiptSaveJson"));
         assertNull(MfgLoginEvents.pageOf("/control/freightCsv"));
         // the password gate is a view, not a request: coming back to it was a dead URL (Step 122)
         assertNull(MfgLoginEvents.pageOf("requirePasswordChange"));
         assertNull(MfgLoginEvents.pageOf("/control/requirePasswordChange"));
+        assertNull(MfgLoginEvents.pageOf("/control/login"));
+        assertNull(MfgLoginEvents.pageOf("/"));
+        assertNull(MfgLoginEvents.pageOf("/dev?x=1"));
         assertNull(MfgLoginEvents.pageOf(null));
     }
 

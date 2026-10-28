@@ -171,6 +171,19 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   **点项目号、保存任何表单、导入 / 改行 / 释放锁料之后，页面都会滚到项目说明段**（列表里的项目号链接自带
   `#project`；`dev.ftl` 末尾一小段脚本再调 `jump.js` 的 `jumpUnderNav(#project)` 把标题摆到导航条下面，
   只在地址里带 `projectCode` 时跑）——开发页上面是立项表单和项目列表，不滚的话人以为“没反应”。
+- **会话过期后登录，要回到原来那一页（Step 176 修的老 bug）**：用户报“重启实例后点『产品开发』跳登录，
+  登录完却落在工单页”。根因在 `MfgLoginEvents.pageOf`：框架 `LoginWorker.checkLogin` 存的是
+  `request.getPathInfo()`，而本 webapp 挂在 `/mfg/control`，所以存进去的是 **`/dev`**（不是 `/control/dev`）；
+  旧代码把“以 `/` 开头”当成完整地址，拼成 `/mfg/dev` → `safeReturnTo` 判定不是本组件的页面 → 返回 null →
+  `afterLogin` **把 `_PREVIOUS_REQUEST_` 删掉了**，框架的“登录后重放上次请求”就永远没机会跑。
+  现在 `pageOf` 三种形状都认（`/dev`、`/control/dev`、`dev`），`afterLogin` 也只删**不是页面**的那种
+  （`Json`/`Csv` 之类的端点），是页面就**原样留给框架**——框架自己会 `makeLink` 成 `/mfg/control/dev` 并 302 过去。
+  两处配套：① `rememberReturn`（Ajax 那条路）里显式 `removeAttribute(_PREVIOUS_REQUEST_)`，否则框架会把浏览器
+  送到 JSON 端点上去；② `login` 的 success 从 `view main` 改成 **`request-redirect main`**，这样
+  `main` 的 `backAfterLogin` 才能在登录后立刻把 `RETURN_TO` 用掉（原来是“下次点工单时才跳”）。
+  **不用改 `security.properties` 的 `login.uris`**：被比较的是请求名（`login`），stock 值已经匹配；
+  试过加 `control`，无效（`getRequestUri` 取的是第一段 `/dev` 里的 `dev`）。巡检：`verify-m53c.ps1`（6 项，
+  测试实例；flow 1 用 curl 的 cookie jar，因为 PS 的 `Invoke-WebRequest` 会吞掉 401 上的 `Set-Cookie`）。
 - **三个实例：开发 8443 / 生产 8453 / 测试 8095（只有 http）**：`verify-m*.ps1` 用 `Invoke-WebRequest` +
   `ServerCertificateValidationCallback` 能过自签证书，但**浏览器自动化不行**，所以另起一个不用 TLS 的测试实例。
   端口：开发 http 8080 + https 8443（admin 10523）、生产 http 8090 + https 8453（admin 10623）、

@@ -29,7 +29,7 @@
     <request-map uri="login">
         <security https="true" auth="false"/>
         <event type="java" path="org.langhua.ofbiz.mfg.MfgLoginEvents" invoke="login"/>
-        <response name="success" type="view" value="main"/>
+        <response name="success" type="request-redirect" value="main"/>
         <response name="requirePasswordChange" type="view" value="requirePasswordChange"/>
         <response name="error" type="view" value="login"/>
     </request-map>
