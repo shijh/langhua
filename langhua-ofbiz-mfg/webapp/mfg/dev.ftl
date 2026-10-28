@@ -189,7 +189,7 @@
         </tr>
         <#list projects as p>
             <tr>
-                <td><a href="/mfg/control/dev?projectCode=${p.projectCode}">${p.projectCode}</a></td>
+                <td><a href="/mfg/control/dev?projectCode=${p.projectCode}#project">${p.projectCode}</a></td>
                 <td>${trackLabel(p.trackId!'')}</td>
                 <td>${p.projectName!}</td>
                 <td>${p.partCode!}</td>
@@ -590,10 +590,12 @@
     </#if>
 </#if>
 
-<#-- an import, a BOM row save or a release comes back to the top of the page (the project list is
-     above the project itself), so put the project back under the navigation bar. The arithmetic
-     lives in /mfg/js/jump.js, shared with the paste jumps and the receipt detail (Step 115). -->
-<#if parameters.bomVersion?? || parameters.releasedQty?? || parameters.componentCode??>
+<#-- the project list sits above the project itself, and every action of the page (opening a
+     project from the list, saving a form, importing a BOM, releasing the lock) comes back to the
+     top of the page: put the project back under the navigation bar. The arithmetic lives in
+     /mfg/js/jump.js, shared with the paste jumps and the receipt detail (Step 115). The list links
+     carry #project as well, so the browser already jumps before this runs. -->
+<#if parameters.projectCode??>
 <script>
 (function () {
     function jumpToProject() {
