@@ -42,7 +42,7 @@ public final class MfgWorkOrderServices {
      * Creates a work order. The identifier is {@code WO-yyMMdd-NNN}.
      *
      * @param dctx the dispatch context
-     * @param context service context, see {@code servicedef/services.xml#mfgWorkOrderCreate}
+     * @param context service context, see {@code servicedef/workorder-services.xml#mfgWorkOrderCreate}
      * @return the service result containing {@code workOrderId}
      */
     public static Map<String, Object> workOrderCreate(DispatchContext dctx, Map<String, ? extends Object> context) {
@@ -101,7 +101,7 @@ public final class MfgWorkOrderServices {
      * Lists work orders, newest first.
      *
      * @param dctx the dispatch context
-     * @param context service context, see {@code servicedef/services.xml#mfgWorkOrderList}
+     * @param context service context, see {@code servicedef/workorder-services.xml#mfgWorkOrderList}
      * @return the service result containing {@code workOrders}
      */
     public static Map<String, Object> workOrderList(DispatchContext dctx, Map<String, ? extends Object> context) {
@@ -160,7 +160,7 @@ public final class MfgWorkOrderServices {
      * Returns one work order with its operation progress, units and defects.
      *
      * @param dctx the dispatch context
-     * @param context service context, see {@code servicedef/services.xml#mfgWorkOrderDetail}
+     * @param context service context, see {@code servicedef/workorder-services.xml#mfgWorkOrderDetail}
      * @return the service result containing {@code workOrder}, {@code operations}, {@code sns}, {@code defects}
      */
     public static Map<String, Object> workOrderDetail(DispatchContext dctx, Map<String, ? extends Object> context) {
@@ -254,7 +254,7 @@ public final class MfgWorkOrderServices {
      * Records reported labour for one operation.
      *
      * @param dctx the dispatch context
-     * @param context service context, see {@code servicedef/services.xml#mfgReportCreate}
+     * @param context service context, see {@code servicedef/workorder-services.xml#mfgReportCreate}
      * @return the service result containing {@code reportId}
      */
     public static Map<String, Object> reportCreate(DispatchContext dctx, Map<String, ? extends Object> context) {
@@ -318,7 +318,7 @@ public final class MfgWorkOrderServices {
      * {@code prefix-yyMMdd-NNNN}.
      *
      * @param dctx the dispatch context
-     * @param context service context, see {@code servicedef/services.xml#mfgSnRegister}
+     * @param context service context, see {@code servicedef/workorder-services.xml#mfgSnRegister}
      * @return the service result containing {@code sns}, {@code firstSn} and {@code lastSn}
      */
     public static Map<String, Object> snRegister(DispatchContext dctx, Map<String, ? extends Object> context) {
@@ -378,7 +378,7 @@ public final class MfgWorkOrderServices {
      * Returns the full history of one serial number.
      *
      * @param dctx the dispatch context
-     * @param context service context, see {@code servicedef/services.xml#mfgSnDetail}
+     * @param context service context, see {@code servicedef/workorder-services.xml#mfgSnDetail}
      * @return the service result containing {@code snRecord}, {@code workOrder}, {@code reports},
      *         {@code defects}, {@code lots} and {@code replacements}
      */
@@ -471,7 +471,7 @@ public final class MfgWorkOrderServices {
      * Records one defect, optionally bound to a single unit.
      *
      * @param dctx the dispatch context
-     * @param context service context, see {@code servicedef/services.xml#mfgDefectCreate}
+     * @param context service context, see {@code servicedef/workorder-services.xml#mfgDefectCreate}
      * @return the service result containing {@code defectId}
      */
     public static Map<String, Object> defectCreate(DispatchContext dctx, Map<String, ? extends Object> context) {
@@ -519,7 +519,7 @@ public final class MfgWorkOrderServices {
      * lots issued times their purchase price plus the reported hours times the labour rate.
      *
      * @param dctx the dispatch context
-     * @param context service context, see {@code servicedef/services.xml#mfgWorkOrderCost}
+     * @param context service context, see {@code servicedef/workorder-services.xml#mfgWorkOrderCost}
      * @return the service result with the standard and actual costs and their difference
      */
     public static Map<String, Object> workOrderCost(DispatchContext dctx, Map<String, ? extends Object> context) {
@@ -721,7 +721,7 @@ public final class MfgWorkOrderServices {
      * "serial number - work order - component lot" possible.
      *
      * @param dctx the dispatch context
-     * @param context service context, see {@code servicedef/services.xml#mfgIssueSave}
+     * @param context service context, see {@code servicedef/workorder-services.xml#mfgIssueSave}
      * @return the service result containing {@code issueId}
      */
     public static Map<String, Object> issueSave(DispatchContext dctx, Map<String, ? extends Object> context) {
@@ -813,7 +813,7 @@ public final class MfgWorkOrderServices {
      * (kitting), the issued lots and the shipments to / from the SMT house.
      *
      * @param dctx the dispatch context
-     * @param context service context, see {@code servicedef/services.xml#mfgWorkOrderMaterials}
+     * @param context service context, see {@code servicedef/workorder-services.xml#mfgWorkOrderMaterials}
      * @return the service result containing {@code lines}, {@code issues}, {@code shipments} and {@code kitComplete}
      */
     public static Map<String, Object> workOrderMaterials(DispatchContext dctx, Map<String, ? extends Object> context) {
@@ -892,7 +892,7 @@ public final class MfgWorkOrderServices {
      * Records material sent to the SMT house or boards received back.
      *
      * @param dctx the dispatch context
-     * @param context service context, see {@code servicedef/services.xml#mfgShipmentSave}
+     * @param context service context, see {@code servicedef/workorder-services.xml#mfgShipmentSave}
      * @return the service result containing {@code shipmentId}
      */
     public static Map<String, Object> shipmentSave(DispatchContext dctx, Map<String, ? extends Object> context) {
@@ -955,7 +955,7 @@ public final class MfgWorkOrderServices {
      * query that tells the recall scope when a supplier reports a problem.
      *
      * @param dctx the dispatch context
-     * @param context service context, see {@code servicedef/services.xml#mfgTraceByLot}
+     * @param context service context, see {@code servicedef/workorder-services.xml#mfgTraceByLot}
      * @return the service result containing {@code lots}, {@code workOrders} and {@code totalSnCount}
      */
     public static Map<String, Object> traceByLot(DispatchContext dctx, Map<String, ? extends Object> context) {
@@ -1249,7 +1249,7 @@ public final class MfgWorkOrderServices {
      * {@code sn,station,item,value,unit,pass}; lines of unknown serial numbers are skipped.
      *
      * @param dctx the dispatch context
-     * @param context service context, see {@code servicedef/services.xml#mfgTestImportCsv}
+     * @param context service context, see {@code servicedef/workorder-services.xml#mfgTestImportCsv}
      * @return the service result containing {@code importedCount} and {@code skippedCount}
      */
     public static Map<String, Object> testImportCsv(DispatchContext dctx, Map<String, ? extends Object> context) {
@@ -1308,7 +1308,7 @@ public final class MfgWorkOrderServices {
      * Lists test results of one unit, or the most recent results when no serial number is given.
      *
      * @param dctx the dispatch context
-     * @param context service context, see {@code servicedef/services.xml#mfgTestResultList}
+     * @param context service context, see {@code servicedef/workorder-services.xml#mfgTestResultList}
      * @return the service result containing {@code results}
      */
     public static Map<String, Object> testResultList(DispatchContext dctx, Map<String, ? extends Object> context) {
@@ -1351,7 +1351,7 @@ public final class MfgWorkOrderServices {
      * material is sent out.
      *
      * @param dctx the dispatch context
-     * @param context service context, see {@code servicedef/services.xml#mfgWorkOrderVendor}
+     * @param context service context, see {@code servicedef/workorder-services.xml#mfgWorkOrderVendor}
      * @return the service result containing {@code workOrderId} and {@code vendorId}
      */
     public static Map<String, Object> workOrderVendor(DispatchContext dctx, Map<String, ? extends Object> context) {
@@ -1451,7 +1451,7 @@ public final class MfgWorkOrderServices {
      * shortage, so the kitting page tells the truth either way.
      *
      * @param dctx the dispatch context
-     * @param context service context, see {@code servicedef/services.xml#mfgWorkOrderReserve}
+     * @param context service context, see {@code servicedef/workorder-services.xml#mfgWorkOrderReserve}
      * @return the service result with what was reserved and what is still missing
      */
     public static Map<String, Object> reserveMaterial(DispatchContext dctx, Map<String, ? extends Object> context) {
@@ -1523,7 +1523,7 @@ public final class MfgWorkOrderServices {
      * Gives back every reservation of one work order, e.g. when it is cancelled.
      *
      * @param dctx the dispatch context
-     * @param context service context, see {@code servicedef/services.xml#mfgWorkOrderRelease}
+     * @param context service context, see {@code servicedef/workorder-services.xml#mfgWorkOrderRelease}
      * @return the service result with the released quantity
      */
     public static Map<String, Object> releaseMaterialReservation(DispatchContext dctx,
@@ -1579,7 +1579,7 @@ public final class MfgWorkOrderServices {
      * already in stock is booked, so extra reports top the lot up instead of doubling it.
      *
      * @param dctx the dispatch context
-     * @param context service context, see {@code servicedef/services.xml#mfgWorkOrderComplete}
+     * @param context service context, see {@code servicedef/workorder-services.xml#mfgWorkOrderComplete}
      * @return the service result with the lot and its quantity
      */
     public static Map<String, Object> workOrderComplete(DispatchContext dctx, Map<String, ? extends Object> context) {
@@ -1876,7 +1876,7 @@ public final class MfgWorkOrderServices {
      * Records the outsourced processing fee of one work order.
      *
      * @param dctx the dispatch context
-     * @param context service context, see {@code servicedef/services.xml#mfgWorkOrderOutsourceSave}
+     * @param context service context, see {@code servicedef/workorder-services.xml#mfgWorkOrderOutsourceSave}
      * @return the service result containing {@code workOrderId} and the stored amount
      */
     public static Map<String, Object> workOrderOutsourceSave(DispatchContext dctx, Map<String, ? extends Object> context) {
@@ -1988,7 +1988,7 @@ public final class MfgWorkOrderServices {
      * single number the cost report uses never drifts away from its lines.
      *
      * @param dctx the dispatch context
-     * @param context service context, see {@code servicedef/services.xml#mfgOutsourceFeeSave}
+     * @param context service context, see {@code servicedef/workorder-services.xml#mfgOutsourceFeeSave}
      * @return the service result with the line amount and the new totals
      */
     public static Map<String, Object> outsourceFeeSave(DispatchContext dctx, Map<String, ? extends Object> context) {
@@ -2088,7 +2088,7 @@ public final class MfgWorkOrderServices {
      * Deletes one line of outsourced processing cost and refreshes the total of the work order.
      *
      * @param dctx the dispatch context
-     * @param context service context, see {@code servicedef/services.xml#mfgOutsourceFeeDelete}
+     * @param context service context, see {@code servicedef/workorder-services.xml#mfgOutsourceFeeDelete}
      * @return the service result with the new total
      */
     public static Map<String, Object> outsourceFeeDelete(DispatchContext dctx, Map<String, ? extends Object> context) {
@@ -2126,7 +2126,7 @@ public final class MfgWorkOrderServices {
      * The outsourced fee lines of a work order with their total and what one unit carries.
      *
      * @param dctx the dispatch context
-     * @param context service context, see {@code servicedef/services.xml#mfgOutsourceFeeList}
+     * @param context service context, see {@code servicedef/workorder-services.xml#mfgOutsourceFeeList}
      * @return the service result containing {@code fees}
      */
     public static Map<String, Object> outsourceFeeList(DispatchContext dctx, Map<String, ? extends Object> context) {

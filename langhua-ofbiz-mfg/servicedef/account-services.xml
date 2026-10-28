@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="https://ofbiz.apache.org/dtds/services.xsd">
+    <!-- The password gate, the account page and the audit log behind it. -->
+
+
+    <!-- ==================== password gate ==================== -->
+
+    <!--
+        Tells the decorator whether the account still uses the password of a fresh OFBiz database.
+        The gate is switched off with the system property
+        org.langhua.mfg.requirePasswordChange=N (development instances start that way).
+    -->
+    <service name="mfgPasswordStatus" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgAccountServices" invoke="passwordStatus"
+            auth="true" use-transaction="false">
+        <description>Say whether the logged in account still uses the default password</description>
+        <attribute name="mustChange" type="String" mode="OUT" optional="true"/>
+        <attribute name="userLoginId" type="String" mode="OUT" optional="true"/>
+        <attribute name="message" type="String" mode="OUT" optional="true"/>
+    </service>
+
+
+    <service name="mfgChangePassword" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgAccountServices" invoke="changePassword"
+            auth="true" use-transaction="false">
+        <description>Change the password of the logged in account, checking the current one first</description>
+        <attribute name="currentPassword" type="String" mode="IN" optional="false"/>
+        <attribute name="newPassword" type="String" mode="IN" optional="false"/>
+        <attribute name="newPasswordVerify" type="String" mode="IN" optional="false"/>
+        <attribute name="passwordHint" type="String" mode="IN" optional="true"/>
+        <attribute name="changed" type="String" mode="OUT" optional="true"/>
+        <attribute name="userLoginId" type="String" mode="OUT" optional="true"/>
+    </service>
+
+
+    <!--
+        Account management for the user management page. Only members of the SUPER security group
+        may write; the list is readable by everybody so the page can explain why it is read only.
+    -->
+    <service name="mfgUserList" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgAccountServices" invoke="userList"
+            auth="true" use-transaction="false">
+        <description>List the accounts with the person, the security group and the password state</description>
+        <attribute name="rows" type="List" mode="OUT" optional="true"/>
+        <attribute name="groupOptions" type="List" mode="OUT" optional="true"/>
+        <attribute name="canManage" type="String" mode="OUT" optional="true"/>
+        <attribute name="message" type="String" mode="OUT" optional="true"/>
+        <attribute name="totalCount" type="Long" mode="OUT" optional="true"/>
+        <attribute name="currentUserLoginId" type="String" mode="OUT" optional="true"/>
+    </service>
+
+
+    <service name="mfgUserSave" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgAccountServices" invoke="userSave"
+            auth="true" use-transaction="false">
+        <description>Create an account or update its name, security group and enabled flag</description>
+        <attribute name="userLoginId" type="String" mode="IN" optional="false"/>
+        <attribute name="personName" type="String" mode="IN" optional="true"/>
+        <attribute name="groupId" type="String" mode="IN" optional="true"/>
+        <attribute name="enabled" type="String" mode="IN" optional="true"/>
+        <attribute name="password" type="String" mode="IN" optional="true"/>
+        <attribute name="passwordHint" type="String" mode="IN" optional="true"/>
+        <attribute name="account" type="String" mode="OUT" optional="true"/>
+        <attribute name="created" type="String" mode="OUT" optional="true"/>
+    </service>
+
+
+    <service name="mfgUserResetPassword" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgAccountServices" invoke="userResetPassword"
+            auth="true" use-transaction="false">
+        <description>Put an account back on the default password so it has to be changed at login</description>
+        <attribute name="userLoginId" type="String" mode="IN" optional="false"/>
+        <attribute name="reset" type="String" mode="OUT" optional="true"/>
+    </service>
+
+
+    <!--
+        The audit log (Step 125): what a person did, when and from where. Written by MfgAudit from
+        the login / password hint / password change paths; nobody may write a row through the web.
+    -->
+    <service name="mfgAuditList" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgAccountServices" invoke="auditList"
+            auth="true" use-transaction="false">
+        <description>One page of the audit log, for the administrators only</description>
+        <attribute name="search" type="String" mode="IN" optional="true"/>
+        <attribute name="actionId" type="String" mode="IN" optional="true"/>
+        <attribute name="page" type="Long" mode="IN" optional="true"/>
+        <attribute name="pageSize" type="Long" mode="IN" optional="true"/>
+        <attribute name="rows" type="List" mode="OUT" optional="true"/>
+        <attribute name="options" type="List" mode="OUT" optional="true"/>
+        <attribute name="canManage" type="String" mode="OUT" optional="true"/>
+        <attribute name="message" type="String" mode="OUT" optional="true"/>
+        <attribute name="totalCount" type="Long" mode="OUT" optional="true"/>
+        <attribute name="pageCount" type="Long" mode="OUT" optional="true"/>
+        <attribute name="pageSize" type="Long" mode="OUT" optional="true"/>
+        <attribute name="keepingDays" type="Long" mode="OUT" optional="true"/>
+        <attribute name="lastPurge" type="String" mode="OUT" optional="true"/>
+    </service>
+
+
+    <service name="mfgAuditPurge" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgAccountServices" invoke="auditPurge"
+            auth="true" use-transaction="false">
+        <description>Drop the audit rows older than a year (the same clean up runs by itself once a day)</description>
+        <attribute name="purged" type="String" mode="OUT" optional="true"/>
+    </service>
+</services>

@@ -403,7 +403,7 @@ public final class MfgDevServices {
      * Creates or updates a development project.
      *
      * @param dctx the dispatch context
-     * @param context service context, see {@code servicedef/services.xml#mfgDevProjectSave}
+     * @param context service context, see {@code servicedef/dev-services.xml#mfgDevProjectSave}
      * @return the service result containing {@code projectCode}
      */
     public static Map<String, Object> devProjectSave(DispatchContext dctx, Map<String, ? extends Object> context) {
@@ -502,7 +502,7 @@ public final class MfgDevServices {
      * Lists development projects, newest first.
      *
      * @param dctx the dispatch context
-     * @param context service context, see {@code servicedef/services.xml#mfgDevProjectList}
+     * @param context service context, see {@code servicedef/dev-services.xml#mfgDevProjectList}
      * @return the service result containing {@code projects}
      */
     public static Map<String, Object> devProjectList(DispatchContext dctx, Map<String, ? extends Object> context) {
@@ -547,7 +547,7 @@ public final class MfgDevServices {
      * Returns one development project with its gate reviews and change orders.
      *
      * @param dctx the dispatch context
-     * @param context service context, see {@code servicedef/services.xml#mfgDevProjectDetail}
+     * @param context service context, see {@code servicedef/dev-services.xml#mfgDevProjectDetail}
      * @return the service result containing {@code project}, {@code reviews} and {@code ecos}
      */
     public static Map<String, Object> devProjectDetail(DispatchContext dctx, Map<String, ? extends Object> context) {
@@ -659,7 +659,7 @@ public final class MfgDevServices {
      * next stage of the ladder.
      *
      * @param dctx the dispatch context
-     * @param context service context, see {@code servicedef/services.xml#mfgDevStageSave}
+     * @param context service context, see {@code servicedef/dev-services.xml#mfgDevStageSave}
      * @return the service result containing {@code stageId} and the new {@code projectStageId}
      */
     public static Map<String, Object> devStageSave(DispatchContext dctx, Map<String, ? extends Object> context) {
@@ -744,7 +744,7 @@ public final class MfgDevServices {
      * status is only touched when it is given.
      *
      * @param dctx the dispatch context
-     * @param context service context, see {@code servicedef/services.xml#mfgDevStepSave}
+     * @param context service context, see {@code servicedef/dev-services.xml#mfgDevStepSave}
      * @return the service result containing {@code stepId} and the {@code lotId} when one was created
      */
     public static Map<String, Object> devStepSave(DispatchContext dctx, Map<String, ? extends Object> context) {
@@ -809,7 +809,7 @@ public final class MfgDevServices {
      * date the first time it is finished.
      *
      * @param dctx the dispatch context
-     * @param context service context, see {@code servicedef/services.xml#mfgDevStepStatus}
+     * @param context service context, see {@code servicedef/dev-services.xml#mfgDevStepStatus}
      * @return the service result containing {@code stepId} and the {@code lotId} when one was created
      */
     public static Map<String, Object> devStepStatus(DispatchContext dctx, Map<String, ? extends Object> context) {
@@ -866,7 +866,7 @@ public final class MfgDevServices {
      * project level problem, but a project must always be given.
      *
      * @param dctx the dispatch context
-     * @param context service context, see {@code servicedef/services.xml#mfgDevStepIssueSave}
+     * @param context service context, see {@code servicedef/dev-services.xml#mfgDevStepIssueSave}
      * @return the service result containing {@code issueId} and {@code statusId}
      */
     public static Map<String, Object> devStepIssueSave(DispatchContext dctx, Map<String, ? extends Object> context) {
@@ -981,7 +981,7 @@ public final class MfgDevServices {
      * reopening clears it.
      *
      * @param dctx the dispatch context
-     * @param context service context, see {@code servicedef/services.xml#mfgDevStepIssueStatus}
+     * @param context service context, see {@code servicedef/dev-services.xml#mfgDevStepIssueStatus}
      * @return the service result containing {@code issueId} and the new {@code statusId}
      */
     public static Map<String, Object> devStepIssueStatus(DispatchContext dctx, Map<String, ? extends Object> context) {
@@ -1032,7 +1032,7 @@ public final class MfgDevServices {
      * Lists the issues of one development project, open ones first and then the newest.
      *
      * @param dctx the dispatch context
-     * @param context service context, see {@code servicedef/services.xml#mfgDevStepIssueList}
+     * @param context service context, see {@code servicedef/dev-services.xml#mfgDevStepIssueList}
      * @return the service result with the issues and the open counts
      */
     public static Map<String, Object> devStepIssueList(DispatchContext dctx, Map<String, ? extends Object> context) {
@@ -1107,7 +1107,7 @@ public final class MfgDevServices {
      * Raises or updates an engineering change order.
      *
      * @param dctx the dispatch context
-     * @param context service context, see {@code servicedef/services.xml#mfgDevEcoSave}
+     * @param context service context, see {@code servicedef/dev-services.xml#mfgDevEcoSave}
      * @return the service result containing {@code ecoId}
      */
     public static Map<String, Object> devEcoSave(DispatchContext dctx, Map<String, ? extends Object> context) {
@@ -1215,7 +1215,7 @@ public final class MfgDevServices {
      * Lists change orders, newest first.
      *
      * @param dctx the dispatch context
-     * @param context service context, see {@code servicedef/services.xml#mfgDevEcoList}
+     * @param context service context, see {@code servicedef/dev-services.xml#mfgDevEcoList}
      * @return the service result containing {@code ecos}
      */
     public static Map<String, Object> devEcoList(DispatchContext dctx, Map<String, ? extends Object> context) {
@@ -1257,7 +1257,7 @@ public final class MfgDevServices {
      * Returns one change order with the BOM versions it switches between.
      *
      * @param dctx the dispatch context
-     * @param context service context, see {@code servicedef/services.xml#mfgDevEcoDetail}
+     * @param context service context, see {@code servicedef/dev-services.xml#mfgDevEcoDetail}
      * @return the service result containing {@code eco}, {@code fromVersion}, {@code toVersion}
      */
     public static Map<String, Object> devEcoDetail(DispatchContext dctx, Map<String, ? extends Object> context) {
@@ -1307,7 +1307,7 @@ public final class MfgDevServices {
      * Approves a draft change order.
      *
      * @param dctx the dispatch context
-     * @param context service context, see {@code servicedef/services.xml#mfgDevEcoApprove}
+     * @param context service context, see {@code servicedef/dev-services.xml#mfgDevEcoApprove}
      * @return the service result containing the new {@code statusId}
      */
     public static Map<String, Object> devEcoApprove(DispatchContext dctx, Map<String, ? extends Object> context) {
@@ -1346,7 +1346,7 @@ public final class MfgDevServices {
      * given.
      *
      * @param dctx the dispatch context
-     * @param context service context, see {@code servicedef/services.xml#mfgDevEcoApply}
+     * @param context service context, see {@code servicedef/dev-services.xml#mfgDevEcoApply}
      * @return the service result containing the new {@code statusId}
      */
     public static Map<String, Object> devEcoApply(DispatchContext dctx, Map<String, ? extends Object> context) {
@@ -1411,7 +1411,7 @@ public final class MfgDevServices {
      * Cancels a change order that has not been applied.
      *
      * @param dctx the dispatch context
-     * @param context service context, see {@code servicedef/services.xml#mfgDevEcoCancel}
+     * @param context service context, see {@code servicedef/dev-services.xml#mfgDevEcoCancel}
      * @return the service result containing the new {@code statusId}
      */
     public static Map<String, Object> devEcoCancel(DispatchContext dctx, Map<String, ? extends Object> context) {

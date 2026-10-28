@@ -1,0 +1,190 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="https://ofbiz.apache.org/dtds/services.xsd">
+    <!-- Purchase receipts with their freight and discount, the order import and the refunded order list. -->
+
+
+    <service name="mfgPurchaseReceiptSave" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgPurchaseServices" invoke="purchaseReceiptSave"
+            auth="false" use-transaction="false">
+        <description>Save the head of a purchase receipt: supplier, shop order number, arrival day and freight. The freight is a period cost, it is not spread over the part prices</description>
+        <attribute name="receiptId" type="String" mode="IN" optional="true"/>
+        <attribute name="supplierName" type="String" mode="IN" optional="true"/>
+        <attribute name="supplierOrderNo" type="String" mode="IN" optional="true"/>
+        <attribute name="receiptDate" type="String" mode="IN" optional="true"/>
+        <attribute name="freightAmount" type="String" mode="IN" optional="true"/>
+        <attribute name="discountAmount" type="String" mode="IN" optional="true"/>
+        <attribute name="allocationId" type="String" mode="IN" optional="true"/>
+        <attribute name="note" type="String" mode="IN" optional="true"/>
+        <attribute name="receiptId" type="String" mode="OUT" optional="true"/>
+        <attribute name="freightAmount" type="Double" mode="OUT" optional="true"/>
+    </service>
+
+
+    <service name="mfgPurchaseReceiptLineSave" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgPurchaseServices" invoke="purchaseReceiptLineSave"
+            auth="false" use-transaction="false">
+        <description>Put a received lot on a receipt, correct a line, or delete it (delete=Y)</description>
+        <attribute name="receiptId" type="String" mode="IN" optional="false"/>
+        <attribute name="lineSeq" type="String" mode="IN" optional="true"/>
+        <attribute name="lotId" type="String" mode="IN" optional="true"/>
+        <attribute name="qty" type="String" mode="IN" optional="true"/>
+        <attribute name="unitPrice" type="String" mode="IN" optional="true"/>
+        <attribute name="note" type="String" mode="IN" optional="true"/>
+        <attribute name="delete" type="String" mode="IN" optional="true"/>
+        <attribute name="receiptId" type="String" mode="OUT" optional="true"/>
+        <attribute name="lineSeq" type="String" mode="OUT" optional="true"/>
+        <attribute name="goodsAmount" type="Double" mode="OUT" optional="true"/>
+    </service>
+
+
+    <service name="mfgPurchaseReceiptVoid" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgPurchaseServices" invoke="purchaseReceiptVoid"
+            auth="false" use-transaction="true">
+        <description>Void a purchase receipt: it stays as the record (who, when, why) but drops out of every total, and its lots count as free again. The lots, the stock and the ledger stay as they are</description>
+        <attribute name="receiptId" type="String" mode="IN" optional="false"/>
+        <attribute name="voidReason" type="String" mode="IN" optional="true"/>
+        <attribute name="receiptId" type="String" mode="OUT" optional="true"/>
+        <attribute name="voidedReceipt" type="String" mode="OUT" optional="true"/>
+        <attribute name="statusId" type="String" mode="OUT" optional="true"/>
+    </service>
+
+
+    <service name="mfgPurchaseReceiptRestore" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgPurchaseServices" invoke="purchaseReceiptRestore"
+            auth="false" use-transaction="true">
+        <description>Put a voided receipt back into force, for the void that was a mistake itself</description>
+        <attribute name="receiptId" type="String" mode="IN" optional="false"/>
+        <attribute name="receiptId" type="String" mode="OUT" optional="true"/>
+        <attribute name="statusId" type="String" mode="OUT" optional="true"/>
+    </service>
+
+
+    <service name="mfgPurchaseReceiptList" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgPurchaseServices" invoke="purchaseReceiptList"
+            auth="false" use-transaction="false">
+        <description>The purchase receipts with goods value, freight and the total spent</description>
+        <attribute name="search" type="String" mode="IN" optional="true"/>
+        <attribute name="includeVoid" type="String" mode="IN" optional="true"/>
+        <attribute name="page" type="String" mode="IN" optional="true"/>
+        <attribute name="pageSize" type="Long" mode="IN" optional="true"/>
+        <attribute name="linesByReceipt" type="java.util.Map" mode="OUT" optional="true"/>
+        <attribute name="receipts" type="java.util.List" mode="OUT" optional="true"/>
+        <attribute name="goodsTotal" type="Double" mode="OUT" optional="true"/>
+        <attribute name="freightTotal" type="Double" mode="OUT" optional="true"/>
+        <attribute name="discountTotal" type="Double" mode="OUT" optional="true"/>
+        <attribute name="spendTotal" type="Double" mode="OUT" optional="true"/>
+        <attribute name="freightShare" type="Double" mode="OUT" optional="true"/>
+        <attribute name="totalCount" type="Integer" mode="OUT" optional="true"/>
+        <attribute name="page" type="Long" mode="OUT" optional="true"/>
+        <attribute name="pageCount" type="Long" mode="OUT" optional="true"/>
+        <attribute name="pageSize" type="Long" mode="OUT" optional="true"/>
+        <attribute name="search" type="String" mode="OUT" optional="true"/>
+    </service>
+
+
+    <service name="mfgPurchaseReceiptDetail" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgPurchaseServices" invoke="purchaseReceiptDetail"
+            auth="false" use-transaction="false">
+        <description>One receipt with its lines, the totals and the lots that are not on a receipt yet</description>
+        <attribute name="receiptId" type="String" mode="IN" optional="true"/>
+        <attribute name="receipt" type="java.util.Map" mode="OUT" optional="true"/>
+        <attribute name="lines" type="java.util.List" mode="OUT" optional="true"/>
+        <attribute name="freeLots" type="java.util.List" mode="OUT" optional="true"/>
+        <attribute name="lineCount" type="Integer" mode="OUT" optional="true"/>
+        <attribute name="goodsTotal" type="Double" mode="OUT" optional="true"/>
+        <attribute name="freightTotal" type="Double" mode="OUT" optional="true"/>
+        <attribute name="discountTotal" type="Double" mode="OUT" optional="true"/>
+        <attribute name="spendTotal" type="Double" mode="OUT" optional="true"/>
+        <attribute name="freightShare" type="Double" mode="OUT" optional="true"/>
+    </service>
+
+
+    <service name="mfgReceiptFromOrder" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgPurchaseServices" invoke="receiptFromOrder"
+            auth="false" use-transaction="true">
+        <description>Create a receipt from the lines of a shop order and book every line into stock in one go: order number first, then code,name,quantity,amount per line. The order number makes it idempotent; the whole import is one transaction, so a failure leaves neither a lot nor a movement behind</description>
+        <attribute name="supplierOrderNo" type="String" mode="IN" optional="true"/>
+        <attribute name="supplierName" type="String" mode="IN" optional="true"/>
+        <attribute name="receiptDate" type="String" mode="IN" optional="true"/>
+        <attribute name="freightAmount" type="String" mode="IN" optional="true"/>
+        <attribute name="discountAmount" type="String" mode="IN" optional="true"/>
+        <attribute name="lines" type="String" mode="IN" optional="false"/>
+        <attribute name="overwrite" type="String" mode="IN" optional="true"/>
+        <attribute name="refunded" type="String" mode="IN" optional="true"/>
+        <attribute name="locationId" type="String" mode="IN" optional="true"/>
+        <attribute name="note" type="String" mode="IN" optional="true"/>
+        <attribute name="receiptId" type="String" mode="OUT" optional="true"/>
+        <attribute name="importedCount" type="String" mode="OUT" optional="true"/>
+        <attribute name="updatedCount" type="String" mode="OUT" optional="true"/>
+        <attribute name="skippedCount" type="String" mode="OUT" optional="true"/>
+        <attribute name="shortenedCount" type="String" mode="OUT" optional="true"/>
+        <attribute name="leftOverCount" type="String" mode="OUT" optional="true"/>
+        <attribute name="leftOverLines" type="String" mode="OUT" optional="true"/>
+        <attribute name="lineCount" type="Integer" mode="OUT" optional="true"/>
+        <attribute name="goodsTotal" type="Double" mode="OUT" optional="true"/>
+        <attribute name="freightTotal" type="Double" mode="OUT" optional="true"/>
+        <attribute name="discountTotal" type="Double" mode="OUT" optional="true"/>
+        <attribute name="spendTotal" type="Double" mode="OUT" optional="true"/>
+        <attribute name="freightShare" type="Double" mode="OUT" optional="true"/>
+    </service>
+
+
+    <service name="mfgReceiptLinesOfOrder" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgPurchaseServices" invoke="receiptLinesOfOrder"
+            auth="false" use-transaction="false">
+        <description>The lines of the receipt of one shop order, so the page can ask before an order that is already in is booked a second time</description>
+        <attribute name="supplierOrderNo" type="String" mode="IN" optional="true"/>
+        <attribute name="receiptId" type="String" mode="OUT" optional="true"/>
+        <attribute name="lines" type="java.util.List" mode="OUT" optional="true"/>
+    </service>
+
+
+    <service name="mfgRefundedOrderSave" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgPurchaseServices" invoke="refundedOrderSave"
+            auth="false" use-transaction="false">
+        <description>Put a shop order on the refunded list by hand, so it cannot be booked into stock</description>
+        <attribute name="orderNo" type="String" mode="IN" optional="false"/>
+        <attribute name="shop" type="String" mode="IN" optional="true"/>
+        <attribute name="note" type="String" mode="IN" optional="true"/>
+        <attribute name="orderNo" type="String" mode="OUT" optional="true"/>
+    </service>
+
+
+    <service name="mfgRefundedOrderDelete" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgPurchaseServices" invoke="refundedOrderDelete"
+            auth="false" use-transaction="false">
+        <description>Take a shop order off the refunded list again, for the times it was marked by mistake</description>
+        <attribute name="orderNo" type="String" mode="IN" optional="false"/>
+        <attribute name="orderNo" type="String" mode="OUT" optional="true"/>
+    </service>
+
+
+    <service name="mfgRefundedOrderList" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgPurchaseServices" invoke="refundedOrderList"
+            auth="false" use-transaction="false">
+        <description>The shop orders that are kept out of the stock, newest first</description>
+        <attribute name="refundedOrders" type="java.util.List" mode="OUT" optional="true"/>
+    </service>
+
+
+    <service name="mfgPurchaseFreightTrend" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgPurchaseServices" invoke="purchaseFreightTrend"
+            auth="false" use-transaction="false">
+        <description>Purchase spend per period (day, week or month): goods value, freight and the freight as a share of the goods value</description>
+        <attribute name="fromDate" type="String" mode="IN" optional="true"/>
+        <attribute name="toDate" type="String" mode="IN" optional="true"/>
+        <attribute name="groupBy" type="String" mode="IN" optional="true"/>
+        <attribute name="rows" type="java.util.List" mode="OUT" optional="true"/>
+        <attribute name="fromDate" type="java.sql.Date" mode="OUT" optional="true"/>
+        <attribute name="toDate" type="java.sql.Date" mode="OUT" optional="true"/>
+        <attribute name="groupBy" type="String" mode="OUT" optional="true"/>
+        <attribute name="receiptCount" type="Integer" mode="OUT" optional="true"/>
+        <attribute name="goodsTotal" type="Double" mode="OUT" optional="true"/>
+        <attribute name="freightTotal" type="Double" mode="OUT" optional="true"/>
+        <attribute name="discountTotal" type="Double" mode="OUT" optional="true"/>
+        <attribute name="spendTotal" type="Double" mode="OUT" optional="true"/>
+        <attribute name="freightShare" type="Double" mode="OUT" optional="true"/>
+        <attribute name="rowCount" type="Integer" mode="OUT" optional="true"/>
+    </service>
+</services>

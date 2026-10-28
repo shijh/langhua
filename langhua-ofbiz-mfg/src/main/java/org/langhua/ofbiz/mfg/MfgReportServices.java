@@ -36,7 +36,7 @@ public final class MfgReportServices {
      * Shop floor dashboard: today's output, yield and open work orders.
      *
      * @param dctx the dispatch context
-     * @param context service context, see {@code servicedef/services.xml#mfgDashboard}
+     * @param context service context, see {@code servicedef/report-services.xml#mfgDashboard}
      * @return the service result containing the aggregated figures
      */
     public static Map<String, Object> dashboard(DispatchContext dctx, Map<String, ? extends Object> context) {
@@ -98,7 +98,7 @@ public final class MfgReportServices {
      * numbers feed the page and the two CSV files.
      *
      * @param dctx the dispatch context
-     * @param context service context, see {@code servicedef/services.xml#mfgTrendReport}
+     * @param context service context, see {@code servicedef/report-services.xml#mfgTrendReport}
      * @return the service result with the periods, their totals and the worst period
      */
     public static Map<String, Object> trendReport(DispatchContext dctx, Map<String, ? extends Object> context) {
@@ -201,7 +201,7 @@ public final class MfgReportServices {
      * Open work orders with their material shortages, ordered by due date.
      *
      * @param dctx the dispatch context
-     * @param context service context, see {@code servicedef/services.xml#mfgShortageList}
+     * @param context service context, see {@code servicedef/report-services.xml#mfgShortageList}
      * @return the service result containing {@code orders}, {@code orderCount} and {@code shortageOrderCount}
      */
     public static Map<String, Object> shortageList(DispatchContext dctx, Map<String, ? extends Object> context) {
@@ -254,7 +254,7 @@ public final class MfgReportServices {
      * to be printed on parcels of material.
      *
      * @param dctx the dispatch context
-     * @param context service context, see {@code servicedef/services.xml#mfgVendorSave}
+     * @param context service context, see {@code servicedef/report-services.xml#mfgVendorSave}
      * @return the service result containing {@code vendorId}
      */
     public static Map<String, Object> vendorSave(DispatchContext dctx, Map<String, ? extends Object> context) {
@@ -297,7 +297,7 @@ public final class MfgReportServices {
      * Lists the outsourcing vendors.
      *
      * @param dctx the dispatch context
-     * @param context service context, see {@code servicedef/services.xml#mfgVendorList}
+     * @param context service context, see {@code servicedef/report-services.xml#mfgVendorList}
      * @return the service result containing {@code vendors}
      */
     public static Map<String, Object> vendorList(DispatchContext dctx, Map<String, ? extends Object> context) {
@@ -337,7 +337,7 @@ public final class MfgReportServices {
      * needs no chart library and works offline.
      *
      * @param dctx the dispatch context
-     * @param context service context, see {@code servicedef/services.xml#mfgDashboardTrends}
+     * @param context service context, see {@code servicedef/report-services.xml#mfgDashboardTrends}
      * @return the service result containing {@code kpi}, {@code days} and {@code responsibilities}
      */
     public static Map<String, Object> dashboardTrends(DispatchContext dctx, Map<String, ? extends Object> context) {
@@ -491,7 +491,7 @@ public final class MfgReportServices {
      * open claims whose 7 day or 15 day window is running out or has already passed.
      *
      * @param dctx the dispatch context
-     * @param context service context, see {@code servicedef/services.xml#mfgAlerts}
+     * @param context service context, see {@code servicedef/report-services.xml#mfgAlerts}
      * @return the service result containing {@code alerts} (worst first) and their counts
      */
     public static Map<String, Object> alerts(DispatchContext dctx, Map<String, ? extends Object> context) {

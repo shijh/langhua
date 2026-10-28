@@ -1,0 +1,236 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="https://ofbiz.apache.org/dtds/services.xsd">
+    <!-- After sales claims, the buyer risk list and the quality report. -->
+
+
+    <!-- ==================== warranty claims ==================== -->
+
+    <service name="mfgClaimCreate" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgClaimServices" invoke="claimCreate"
+            auth="false" use-transaction="false">
+        <description>Open a warranty claim; customer and warranty dates come from the delivery order</description>
+        <attribute name="sn" type="String" mode="IN" optional="false"/>
+        <attribute name="issueDesc" type="String" mode="IN" optional="false"/>
+        <attribute name="receivedDate" type="String" mode="IN" optional="true"/>
+        <attribute name="signedDate" type="String" mode="IN" optional="true"/>
+        <attribute name="claimType" type="String" mode="IN" optional="true"/>
+        <attribute name="tradeNo" type="String" mode="IN" optional="true"/>
+        <attribute name="buyerNick" type="String" mode="IN" optional="true"/>
+        <attribute name="refundAmount" type="Double" mode="IN" optional="true"/>
+        <attribute name="deductAmount" type="Double" mode="IN" optional="true"/>
+        <attribute name="freightPayer" type="String" mode="IN" optional="true"/>
+        <attribute name="responsibility" type="String" mode="IN" optional="true"/>
+        <attribute name="repairHours" type="Double" mode="IN" optional="true"/>
+        <attribute name="customerName" type="String" mode="IN" optional="true"/>
+        <attribute name="note" type="String" mode="IN" optional="true"/>
+        <attribute name="claimId" type="String" mode="OUT" optional="true"/>
+        <attribute name="inWarranty" type="String" mode="OUT" optional="true"/>
+        <attribute name="claimType" type="String" mode="OUT" optional="true"/>
+        <attribute name="buyerRiskLevel" type="String" mode="OUT" optional="true"/>
+        <attribute name="sevenDayNoReason" type="String" mode="OUT" optional="true"/>
+        <attribute name="sevenDayDeadline" type="String" mode="OUT" optional="true"/>
+        <attribute name="afterSaleDeadline" type="String" mode="OUT" optional="true"/>
+    </service>
+
+
+    <service name="mfgClaimUpdate" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgClaimServices" invoke="claimUpdate"
+            auth="false" use-transaction="false">
+        <description>Update the handling of a claim: type, status, money, freight, inspection, note</description>
+        <attribute name="claimId" type="String" mode="IN" optional="false"/>
+        <attribute name="statusId" type="String" mode="IN" optional="true"/>
+        <attribute name="claimType" type="String" mode="IN" optional="true"/>
+        <attribute name="responsibility" type="String" mode="IN" optional="true"/>
+        <attribute name="repairHours" type="Double" mode="IN" optional="true"/>
+        <attribute name="refundAmount" type="Double" mode="IN" optional="true"/>
+        <attribute name="deductAmount" type="Double" mode="IN" optional="true"/>
+        <attribute name="freightPayer" type="String" mode="IN" optional="true"/>
+        <attribute name="returnTrackingNo" type="String" mode="IN" optional="true"/>
+        <attribute name="receivedBackDate" type="String" mode="IN" optional="true"/>
+        <attribute name="inspectResult" type="String" mode="IN" optional="true"/>
+        <attribute name="vendorClaimStatus" type="String" mode="IN" optional="true"/>
+        <attribute name="signedDate" type="String" mode="IN" optional="true"/>
+        <attribute name="note" type="String" mode="IN" optional="true"/>
+        <attribute name="claimId" type="String" mode="OUT" optional="true"/>
+        <attribute name="statusId" type="String" mode="OUT" optional="true"/>
+        <attribute name="claimType" type="String" mode="OUT" optional="true"/>
+        <attribute name="sevenDayDeadline" type="String" mode="OUT" optional="true"/>
+    </service>
+
+
+    <service name="mfgClaimList" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgClaimServices" invoke="claimList"
+            auth="false" use-transaction="false">
+        <description>List warranty claims, newest first, with the deadlines of the open ones</description>
+        <attribute name="sn" type="String" mode="IN" optional="true"/>
+        <attribute name="statusId" type="String" mode="IN" optional="true"/>
+        <attribute name="claimType" type="String" mode="IN" optional="true"/>
+        <attribute name="search" type="String" mode="IN" optional="true"/>
+        <attribute name="page" type="Long" mode="IN" optional="true"/>
+        <attribute name="pageSize" type="Long" mode="IN" optional="true"/>
+        <attribute name="claims" type="java.util.List" mode="OUT" optional="true"/>
+        <attribute name="totalCount" type="Integer" mode="OUT" optional="true"/>
+        <attribute name="page" type="Long" mode="OUT" optional="true"/>
+        <attribute name="pageCount" type="Long" mode="OUT" optional="true"/>
+        <attribute name="pageSize" type="Long" mode="OUT" optional="true"/>
+        <attribute name="search" type="String" mode="OUT" optional="true"/>
+        <attribute name="claimCount" type="Integer" mode="OUT" optional="true"/>
+        <attribute name="openCount" type="Long" mode="OUT" optional="true"/>
+        <attribute name="expiringCount" type="Long" mode="OUT" optional="true"/>
+        <attribute name="sevenDayCount" type="Long" mode="OUT" optional="true"/>
+    </service>
+
+
+    <service name="mfgClaimDetail" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgClaimServices" invoke="claimDetail"
+            auth="false" use-transaction="false">
+        <description>One claim with the unit, its delivery, the replacement delivery and the repair order</description>
+        <attribute name="claimId" type="String" mode="IN" optional="true"/>
+        <attribute name="claim" type="java.util.Map" mode="OUT" optional="true"/>
+        <attribute name="snRecord" type="java.util.Map" mode="OUT" optional="true"/>
+        <attribute name="delivery" type="java.util.Map" mode="OUT" optional="true"/>
+        <attribute name="exchangeDelivery" type="java.util.Map" mode="OUT" optional="true"/>
+        <attribute name="exchangeUnits" type="java.util.List" mode="OUT" optional="true"/>
+        <attribute name="repairOrder" type="java.util.Map" mode="OUT" optional="true"/>
+        <attribute name="replacements" type="java.util.List" mode="OUT" optional="true"/>
+        <attribute name="defectCount" type="Integer" mode="OUT" optional="true"/>
+    </service>
+
+
+    <service name="mfgClaimExchange" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgClaimServices" invoke="claimExchange"
+            auth="false" use-transaction="false">
+        <description>Ship a replacement unit for a claim and mark it as replaced</description>
+        <attribute name="claimId" type="String" mode="IN" optional="false"/>
+        <attribute name="newSn" type="String" mode="IN" optional="true"/>
+        <attribute name="carrier" type="String" mode="IN" optional="true"/>
+        <attribute name="trackingNo" type="String" mode="IN" optional="true"/>
+        <attribute name="claimId" type="String" mode="OUT" optional="true"/>
+        <attribute name="deliveryId" type="String" mode="OUT" optional="true"/>
+        <attribute name="newSn" type="String" mode="OUT" optional="true"/>
+        <attribute name="statusId" type="String" mode="OUT" optional="true"/>
+    </service>
+
+
+    <service name="mfgClaimRepair" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgClaimServices" invoke="claimRepair"
+            auth="false" use-transaction="false">
+        <description>Open a repair work order for the returned unit</description>
+        <attribute name="claimId" type="String" mode="IN" optional="false"/>
+        <attribute name="dueDate" type="String" mode="IN" optional="true"/>
+        <attribute name="claimId" type="String" mode="OUT" optional="true"/>
+        <attribute name="workOrderId" type="String" mode="OUT" optional="true"/>
+    </service>
+
+
+    <!-- ==================== buyer risk list ==================== -->
+
+    <service name="mfgBuyerFlagSave" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgClaimServices" invoke="buyerFlagSave"
+            auth="false" use-transaction="false">
+        <description>Add or update a buyer on the internal risk list; it only warns, it never refuses a request</description>
+        <attribute name="buyerNick" type="String" mode="IN" optional="true"/>
+        <attribute name="receiverMobile" type="String" mode="IN" optional="true"/>
+        <attribute name="receiverName" type="String" mode="IN" optional="true"/>
+        <attribute name="addressText" type="String" mode="IN" optional="true"/>
+        <attribute name="channelId" type="String" mode="IN" optional="true"/>
+        <attribute name="riskLevel" type="String" mode="IN" optional="true"/>
+        <attribute name="reasonCode" type="String" mode="IN" optional="true"/>
+        <attribute name="evidenceNote" type="String" mode="IN" optional="true"/>
+        <attribute name="statusId" type="String" mode="IN" optional="true"/>
+        <attribute name="expiresDate" type="String" mode="IN" optional="true"/>
+        <attribute name="note" type="String" mode="IN" optional="true"/>
+        <attribute name="buyerKey" type="String" mode="OUT" optional="true"/>
+        <attribute name="riskLevel" type="String" mode="OUT" optional="true"/>
+        <attribute name="statusId" type="String" mode="OUT" optional="true"/>
+    </service>
+
+
+    <service name="mfgBuyerFlagList" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgClaimServices" invoke="buyerFlagList"
+            auth="false" use-transaction="false">
+        <description>List the buyer risk list with masked mobile numbers</description>
+        <attribute name="keyword" type="String" mode="IN" optional="true"/>
+        <attribute name="riskLevel" type="String" mode="IN" optional="true"/>
+        <attribute name="statusId" type="String" mode="IN" optional="true"/>
+        <attribute name="page" type="Long" mode="IN" optional="true"/>
+        <attribute name="pageSize" type="Long" mode="IN" optional="true"/>
+        <attribute name="flags" type="java.util.List" mode="OUT" optional="true"/>
+        <attribute name="totalCount" type="Integer" mode="OUT" optional="true"/>
+        <attribute name="page" type="Long" mode="OUT" optional="true"/>
+        <attribute name="pageCount" type="Long" mode="OUT" optional="true"/>
+        <attribute name="pageSize" type="Long" mode="OUT" optional="true"/>
+        <attribute name="flagCount" type="Integer" mode="OUT" optional="true"/>
+        <attribute name="blockCount" type="Long" mode="OUT" optional="true"/>
+        <attribute name="keyword" type="String" mode="OUT" optional="true"/>
+    </service>
+
+
+    <service name="mfgBuyerFlagCheck" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgClaimServices" invoke="buyerFlagCheck"
+            auth="false" use-transaction="false">
+        <description>Look a buyer up by mobile number or nickname before shipping</description>
+        <attribute name="receiverMobile" type="String" mode="IN" optional="true"/>
+        <attribute name="buyerNick" type="String" mode="IN" optional="true"/>
+        <attribute name="hit" type="String" mode="OUT" optional="true"/>
+        <attribute name="flags" type="java.util.List" mode="OUT" optional="true"/>
+        <attribute name="riskLevel" type="String" mode="OUT" optional="true"/>
+        <attribute name="buyerNick" type="String" mode="OUT" optional="true"/>
+        <attribute name="receiverMobile" type="String" mode="OUT" optional="true"/>
+    </service>
+
+
+    <service name="mfgQualityReport" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgClaimServices" invoke="qualityReport"
+            auth="false" use-transaction="false">
+        <description>Return, exchange and repair rates with the cost they cause and the breakdowns behind them</description>
+        <attribute name="fromDate" type="String" mode="IN" optional="true"/>
+        <attribute name="toDate" type="String" mode="IN" optional="true"/>
+        <attribute name="fromDate" type="java.sql.Date" mode="OUT" optional="true"/>
+        <attribute name="toDate" type="java.sql.Date" mode="OUT" optional="true"/>
+        <attribute name="deliveries" type="Long" mode="OUT" optional="true"/>
+        <attribute name="shippedUnits" type="Long" mode="OUT" optional="true"/>
+        <attribute name="claimCount" type="Long" mode="OUT" optional="true"/>
+        <attribute name="rtnCount" type="Long" mode="OUT" optional="true"/>
+        <attribute name="exchCount" type="Long" mode="OUT" optional="true"/>
+        <attribute name="repairCount" type="Long" mode="OUT" optional="true"/>
+        <attribute name="refundOnlyCount" type="Long" mode="OUT" optional="true"/>
+        <attribute name="claimsWithin30" type="Long" mode="OUT" optional="true"/>
+        <attribute name="repeatedSnCount" type="Long" mode="OUT" optional="true"/>
+        <attribute name="returnRate" type="String" mode="OUT" optional="true"/>
+        <attribute name="exchangeRate" type="String" mode="OUT" optional="true"/>
+        <attribute name="repairRate" type="String" mode="OUT" optional="true"/>
+        <attribute name="claimRate" type="String" mode="OUT" optional="true"/>
+        <attribute name="repairRate30" type="String" mode="OUT" optional="true"/>
+        <attribute name="refundTotal" type="Double" mode="OUT" optional="true"/>
+        <attribute name="freightTotal" type="Double" mode="OUT" optional="true"/>
+        <attribute name="discountTotal" type="Double" mode="OUT" optional="true"/>
+        <attribute name="hoursTotal" type="Double" mode="OUT" optional="true"/>
+        <attribute name="costTotal" type="Double" mode="OUT" optional="true"/>
+        <attribute name="costPerUnit" type="Double" mode="OUT" optional="true"/>
+        <attribute name="salesTotal" type="Double" mode="OUT" optional="true"/>
+        <attribute name="costRate" type="String" mode="OUT" optional="true"/>
+        <attribute name="hourlyRate" type="Double" mode="OUT" optional="true"/>
+        <attribute name="freightPerClaim" type="Double" mode="OUT" optional="true"/>
+        <attribute name="repairRateLimit" type="Double" mode="OUT" optional="true"/>
+        <attribute name="costRateLimit" type="Double" mode="OUT" optional="true"/>
+        <attribute name="lotFactor" type="Double" mode="OUT" optional="true"/>
+        <attribute name="overRepairLimit" type="String" mode="OUT" optional="true"/>
+        <attribute name="overCostLimit" type="String" mode="OUT" optional="true"/>
+        <attribute name="products" type="java.util.List" mode="OUT" optional="true"/>
+        <attribute name="responsibilities" type="java.util.List" mode="OUT" optional="true"/>
+        <attribute name="lots" type="java.util.List" mode="OUT" optional="true"/>
+        <attribute name="ages" type="java.util.List" mode="OUT" optional="true"/>
+        <attribute name="inspections" type="java.util.List" mode="OUT" optional="true"/>
+    </service>
+
+
+    <service name="mfgBuyerRiskList" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgClaimServices" invoke="buyerRiskList"
+            auth="false" use-transaction="false">
+        <description>Aggregate the after sales history per buyer and suggest a risk level</description>
+        <attribute name="buyers" type="java.util.List" mode="OUT" optional="true"/>
+        <attribute name="buyerCount" type="Integer" mode="OUT" optional="true"/>
+    </service>
+</services>

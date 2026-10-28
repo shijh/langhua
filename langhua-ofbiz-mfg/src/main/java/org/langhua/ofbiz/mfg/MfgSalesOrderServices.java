@@ -66,7 +66,7 @@ public final class MfgSalesOrderServices {
      * that already belong to a line survive an edit.
      *
      * @param dctx the dispatch context
-     * @param context service context, see {@code servicedef/services.xml#mfgSalesOrderSave}
+     * @param context service context, see {@code servicedef/salesorder-services.xml#mfgSalesOrderSave}
      * @return the service result with the order number
      */
     public static Map<String, Object> salesOrderSave(DispatchContext dctx, Map<String, ? extends Object> context) {
@@ -180,7 +180,7 @@ public final class MfgSalesOrderServices {
      * goods, oldest lot first. What is still missing stays open for the planning step.
      *
      * @param dctx the dispatch context
-     * @param context service context, see {@code servicedef/services.xml#mfgSalesOrderReserve}
+     * @param context service context, see {@code servicedef/salesorder-services.xml#mfgSalesOrderReserve}
      * @return the service result with what was reserved and what is still owed
      */
     public static Map<String, Object> salesOrderReserve(DispatchContext dctx, Map<String, ? extends Object> context) {
@@ -277,7 +277,7 @@ public final class MfgSalesOrderServices {
      * gets a work order, or has the planned quantity of its work order raised.
      *
      * @param dctx the dispatch context
-     * @param context service context, see {@code servicedef/services.xml#mfgSalesOrderPlan}
+     * @param context service context, see {@code servicedef/salesorder-services.xml#mfgSalesOrderPlan}
      * @return the service result with the planned quantity
      */
     public static Map<String, Object> salesOrderPlan(DispatchContext dctx, Map<String, ? extends Object> context) {
@@ -370,7 +370,7 @@ public final class MfgSalesOrderServices {
      * Closes a sales order: every reservation it holds goes back to the shelf.
      *
      * @param dctx the dispatch context
-     * @param context service context, see {@code servicedef/services.xml#mfgSalesOrderClose}
+     * @param context service context, see {@code servicedef/salesorder-services.xml#mfgSalesOrderClose}
      * @return the service result with the released quantity
      */
     public static Map<String, Object> salesOrderClose(DispatchContext dctx, Map<String, ? extends Object> context) {
@@ -407,7 +407,7 @@ public final class MfgSalesOrderServices {
      * Lists the sales orders, newest first, with what each one still owes.
      *
      * @param dctx the dispatch context
-     * @param context service context, see {@code servicedef/services.xml#mfgSalesOrderList}
+     * @param context service context, see {@code servicedef/salesorder-services.xml#mfgSalesOrderList}
      * @return the service result containing {@code orders}
      */
     public static Map<String, Object> salesOrderList(DispatchContext dctx, Map<String, ? extends Object> context) {
@@ -444,7 +444,7 @@ public final class MfgSalesOrderServices {
      * One sales order with its lines, what it reserved and the work orders it started.
      *
      * @param dctx the dispatch context
-     * @param context service context, see {@code servicedef/services.xml#mfgSalesOrderDetail}
+     * @param context service context, see {@code servicedef/salesorder-services.xml#mfgSalesOrderDetail}
      * @return the service result containing {@code order}, {@code items} and {@code reservations}
      */
     public static Map<String, Object> salesOrderDetail(DispatchContext dctx, Map<String, ? extends Object> context) {
@@ -539,7 +539,7 @@ public final class MfgSalesOrderServices {
      * is reserved only lowers the gap. The quantity can never drop under what has shipped.
      *
      * @param dctx the dispatch context
-     * @param context service context, see {@code servicedef/services.xml#mfgSalesOrderLineQty}
+     * @param context service context, see {@code servicedef/salesorder-services.xml#mfgSalesOrderLineQty}
      * @return the service result with the numbers of the line and of the whole order
      */
     public static Map<String, Object> salesOrderLineQty(DispatchContext dctx, Map<String, ? extends Object> context) {

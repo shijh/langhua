@@ -266,7 +266,7 @@ public final class MfgAttachmentServices {
      * Stores an attachment given as a base64 string, handy for scripts and for the integration test.
      *
      * @param dctx the dispatch context
-     * @param context service context, see {@code servicedef/services.xml#mfgAttachmentSave}
+     * @param context service context, see {@code servicedef/attachment-services.xml#mfgAttachmentSave}
      * @return the service result containing {@code seq}
      */
     public static Map<String, Object> attachmentSave(DispatchContext dctx, Map<String, ? extends Object> context) {
@@ -294,7 +294,7 @@ public final class MfgAttachmentServices {
      * Lists the attachments of one record, newest first, without the file bytes.
      *
      * @param dctx the dispatch context
-     * @param context service context, see {@code servicedef/services.xml#mfgAttachmentList}
+     * @param context service context, see {@code servicedef/attachment-services.xml#mfgAttachmentList}
      * @return the service result containing {@code attachments}
      */
     public static Map<String, Object> attachmentList(DispatchContext dctx, Map<String, ? extends Object> context) {
@@ -366,7 +366,7 @@ public final class MfgAttachmentServices {
      * Removes one attachment of a record.
      *
      * @param dctx the dispatch context
-     * @param context service context, see {@code servicedef/services.xml#mfgAttachmentDelete}
+     * @param context service context, see {@code servicedef/attachment-services.xml#mfgAttachmentDelete}
      * @return the service result containing the owner keys and {@code seq}
      */
     public static Map<String, Object> attachmentDelete(DispatchContext dctx, Map<String, ? extends Object> context) {

@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="https://ofbiz.apache.org/dtds/services.xsd">
+    <!-- The settings kept in SystemProperty, edited on the settings page. -->
+
+
+    <service name="mfgSettingsView" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgSettingsServices" invoke="settingsView"
+            auth="false" use-transaction="false">
+        <description>The settings of the component: the vision endpoint, model and whether a key is stored (the key itself is never sent back)</description>
+        <attribute name="userLogin" type="GenericValue" mode="IN" optional="true"/>
+        <attribute name="visionEndpoint" type="String" mode="OUT" optional="true"/>
+        <attribute name="visionModel" type="String" mode="OUT" optional="true"/>
+        <attribute name="visionKeySet" type="String" mode="OUT" optional="true"/>
+        <attribute name="visionConfigured" type="String" mode="OUT" optional="true"/>
+        <attribute name="visionSource" type="String" mode="OUT" optional="true"/>
+        <attribute name="visionMessage" type="String" mode="OUT" optional="true"/>
+        <attribute name="canManage" type="String" mode="OUT" optional="true"/>
+    </service>
+
+
+    <service name="mfgSettingsSave" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgSettingsServices" invoke="settingsSave"
+            auth="false" use-transaction="false">
+        <description>Save the vision settings, or clear them with clear=Y; an empty key keeps the stored one</description>
+        <attribute name="userLogin" type="GenericValue" mode="IN" optional="true"/>
+        <attribute name="visionEndpoint" type="String" mode="IN" optional="true"/>
+        <attribute name="visionModel" type="String" mode="IN" optional="true"/>
+        <attribute name="visionKey" type="String" mode="IN" optional="true"/>
+        <attribute name="clear" type="String" mode="IN" optional="true"/>
+    </service>
+</services>

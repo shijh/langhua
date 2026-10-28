@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="https://ofbiz.apache.org/dtds/services.xsd">
+    <!-- The permission probe the decorator asks for the navigation. -->
+
+
+    <!-- ==================== accounts ==================== -->
+
+    <!--
+        The areas the logged in account may work in. Loaded by the decorator, so the navigation and
+        the cost blocks are hidden instead of showing a permission error.
+    -->
+    <service name="mfgPermissions" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgSecurity" invoke="permissions"
+            auth="true" use-transaction="false">
+        <description>Areas the logged in account may work in</description>
+        <attribute name="canView" type="String" mode="OUT" optional="true"/>
+        <attribute name="canProduce" type="String" mode="OUT" optional="true"/>
+        <attribute name="canStock" type="String" mode="OUT" optional="true"/>
+        <attribute name="canEng" type="String" mode="OUT" optional="true"/>
+        <attribute name="canSales" type="String" mode="OUT" optional="true"/>
+        <attribute name="canCost" type="String" mode="OUT" optional="true"/>
+        <attribute name="isAdmin" type="String" mode="OUT" optional="true"/>
+        <attribute name="manager" type="String" mode="OUT" optional="true"/>
+        <attribute name="userLoginId" type="String" mode="OUT" optional="true"/>
+    </service>
+</services>

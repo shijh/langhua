@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="https://ofbiz.apache.org/dtds/services.xsd">
+    <!-- Photos and PDF files of any business record. -->
+
+
+    <!-- BOM versions: one product can keep several BOMs, the model points to the one in use -->
+
+    <!-- attachments: photos and pdf kept with any business record, stored in the database -->
+
+    <service name="mfgAttachmentSave" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgAttachmentServices" invoke="attachmentSave"
+            auth="false" use-transaction="false">
+        <description>Store one attachment from a base64 string; JPG, PNG, GIF up to 4 MB or PDF up to 8 MB</description>
+        <attribute name="ownerTypeId" type="String" mode="IN" optional="false"/>
+        <attribute name="ownerId" type="String" mode="IN" optional="false"/>
+        <attribute name="fileName" type="String" mode="IN" optional="true"/>
+        <attribute name="contentType" type="String" mode="IN" optional="true"/>
+        <attribute name="base64Data" type="String" mode="IN" optional="false"/>
+        <attribute name="note" type="String" mode="IN" optional="true"/>
+        <attribute name="seq" type="Long" mode="OUT" optional="true"/>
+        <attribute name="fileSize" type="Long" mode="OUT" optional="true"/>
+        <attribute name="contentType" type="String" mode="OUT" optional="true"/>
+    </service>
+
+
+    <service name="mfgAttachmentList" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgAttachmentServices" invoke="attachmentList"
+            auth="false" use-transaction="false">
+        <description>List the attachments of one record, newest first, without the file bytes</description>
+        <attribute name="ownerTypeId" type="String" mode="IN" optional="true"/>
+        <attribute name="ownerId" type="String" mode="IN" optional="true"/>
+        <attribute name="attachments" type="java.util.List" mode="OUT" optional="true"/>
+        <attribute name="attachmentCount" type="Integer" mode="OUT" optional="true"/>
+    </service>
+
+
+    <service name="mfgAttachmentDelete" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgAttachmentServices" invoke="attachmentDelete"
+            auth="false" use-transaction="false">
+        <description>Remove one attachment of a record</description>
+        <attribute name="ownerTypeId" type="String" mode="IN" optional="false"/>
+        <attribute name="ownerId" type="String" mode="IN" optional="false"/>
+        <attribute name="seq" type="Long" mode="IN" optional="false"/>
+        <attribute name="ownerTypeId" type="String" mode="OUT" optional="true"/>
+        <attribute name="ownerId" type="String" mode="OUT" optional="true"/>
+        <attribute name="seq" type="Long" mode="OUT" optional="true"/>
+    </service>
+</services>

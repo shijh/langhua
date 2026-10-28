@@ -58,7 +58,7 @@ public final class MfgSettingsServices {
      * one is set.
      *
      * @param dctx the dispatch context
-     * @param context service context, see {@code servicedef/services.xml#mfgSettingsView}
+     * @param context service context, see {@code servicedef/settings-services.xml#mfgSettingsView}
      * @return the service result containing the endpoints and the state
      */
     public static Map<String, Object> settingsView(DispatchContext dctx, Map<String, ? extends Object> context) {
@@ -88,7 +88,7 @@ public final class MfgSettingsServices {
      * the one that is already stored, so the page never has to show it again.
      *
      * @param dctx the dispatch context
-     * @param context service context, see {@code servicedef/services.xml#mfgSettingsSave}
+     * @param context service context, see {@code servicedef/settings-services.xml#mfgSettingsSave}
      * @return the service result
      */
     public static Map<String, Object> settingsSave(DispatchContext dctx, Map<String, ? extends Object> context) {

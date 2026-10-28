@@ -1154,6 +1154,23 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   **踩坑**：把仓库里那份（`https="true"`）直接 copy 到**测试实例**会冲掉 `relax-test-https.ps1` 的改动，
   页面立刻 302 到 `https://localhost:8443`（看着像“改坏了”）——copy 完要对测试实例重跑那个脚本
   （这次它报了 113 个 request map）。回归：m50 13 项、m49 14 项、m43 15 项全过。
+- **服务定义按域拆成 14 个文件（Step 174）**：`servicedef/services.xml`（1960 行、121 个服务）已按**服务所属的类**
+  拆成一类一个文件——`account-` / `security-` / `settings-` / `software-` / `attachment-` / `product-` /
+  `workorder-` / `delivery-` / `claim-` / `salesorder-` / `purchase-` / `stock-` / `dev-` / `report-services.xml`
+  （7/1/2/3/3/14/22/3/11/7/12/14/15/7 个服务），**`services.xml` 已删除**。
+  **`<services>` 不支持 `<include>`**（`framework/service/dtd/services.xsd` 里只有
+  `description|vendor|version|created|service*`），所以拆分靠 `ofbiz-component.xml`：
+  一条 `<service-resource type="model" loader="main" location="servicedef/xxx-services.xml"/>` 一个文件，现在有 14 条。
+  元素数逐项对过：`service` 121、`attribute` 1181、`description` 121，与拆之前一致；`mfg-it.bat` 433/433、
+  `verify-m12` 102、`verify-m11` 55 全过。
+  **改服务时**：加/改一个服务只动对应域的文件；**新增一个域要两处**——建 `servicedef/<域>-services.xml`
+  并在 `ofbiz-component.xml` 里加一条 `service-resource`，否则那个文件根本不会被加载（服务调用会报 "No such service"）。
+  **踩坑**：① Java 里 `{@code servicedef/services.xml#mfgXxx}` 这种面包屑已经批量改成对应文件（15 个文件）；
+  ② `deploy-*.bat` 的 robocopy **不删**目标端多余文件，所以三套实例里旧的 `servicedef/services.xml` 要手工删掉
+  （留着也不加载——`ofbiz-component.xml` 已经不指它，但会让人以为还在用）；
+  ③ `[xml](Get-Content $p)` 校验描述符不可靠（报错时把整个文件当消息打出来），要用 `(New-Object System.Xml.XmlDocument).Load($p)`。
+  ④ 切块脚本判“元素结束”**不能用 `/>` 结尾**——`<attribute .../>` 也以 `/>` 结尾，会把一个服务的属性全切到下一个服务里
+  （第一版就这么错的，元素计数照样对得上，只有打开文件才看得出来）。
 - **单元测试按域拆成六个类（Step 173）**：原来那一个 `MfgServicesTest.java`（3709 行、177 个用例）已按域拆开，
   **同一个 `mfg-tests-all.bat` 一次跑六个类**（`JUnitCore` 后面跟六个类名，总数仍是 177）：
   `MfgFormatRulesTest`（31 项：CSV/BOM/编号/翻页/到货单汇总/订单行，含 `row` / `receiptLine` 两个助手）、

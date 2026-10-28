@@ -51,7 +51,7 @@ public final class MfgAccountServices {
      * the page check scripts log in with the default account.
      *
      * @param dctx the dispatch context
-     * @param context service context, see {@code servicedef/services.xml#mfgPasswordStatus}
+     * @param context service context, see {@code servicedef/account-services.xml#mfgPasswordStatus}
      * @return the service result with {@code mustChange} ({@code Y} / {@code N})
      */
     public static Map<String, Object> passwordStatus(DispatchContext dctx, Map<String, ? extends Object> context) {
@@ -80,7 +80,7 @@ public final class MfgAccountServices {
      * for an administrator (OFBiz itself lets an administrator skip that check).
      *
      * @param dctx the dispatch context
-     * @param context service context, see {@code servicedef/services.xml#mfgChangePassword}
+     * @param context service context, see {@code servicedef/account-services.xml#mfgChangePassword}
      * @return the service result with {@code changed} = {@code Y}
      */
     public static Map<String, Object> changePassword(DispatchContext dctx, Map<String, ? extends Object> context) {
@@ -209,7 +209,7 @@ public final class MfgAccountServices {
      * the administrator group just gets {@code canManage=N} and a message instead of a form.
      *
      * @param dctx the dispatch context
-     * @param context service context, see {@code servicedef/services.xml#mfgUserList}
+     * @param context service context, see {@code servicedef/account-services.xml#mfgUserList}
      * @return the service result with {@code rows}, {@code groupOptions}, {@code canManage}
      */
     public static Map<String, Object> userList(DispatchContext dctx, Map<String, ? extends Object> context) {
@@ -297,7 +297,7 @@ public final class MfgAccountServices {
      * that is {@link #userResetPassword(DispatchContext, Map)}.
      *
      * @param dctx the dispatch context
-     * @param context service context, see {@code servicedef/services.xml#mfgUserSave}
+     * @param context service context, see {@code servicedef/account-services.xml#mfgUserSave}
      * @return the service result with {@code userLoginId} and {@code created} ({@code Y} on insert)
      */
     public static Map<String, Object> userSave(DispatchContext dctx, Map<String, ? extends Object> context) {
@@ -404,7 +404,7 @@ public final class MfgAccountServices {
      * force a new one at the next login.
      *
      * @param dctx the dispatch context
-     * @param context service context, see {@code servicedef/services.xml#mfgUserResetPassword}
+     * @param context service context, see {@code servicedef/account-services.xml#mfgUserResetPassword}
      * @return the service result with {@code userLoginId}
      */
     public static Map<String, Object> userResetPassword(DispatchContext dctx, Map<String, ? extends Object> context) {
@@ -457,7 +457,7 @@ public final class MfgAccountServices {
      * account page, which everybody with a login can open.
      *
      * @param dctx the dispatch context
-     * @param context service context, see {@code servicedef/services.xml#mfgAuditList}
+     * @param context service context, see {@code servicedef/account-services.xml#mfgAuditList}
      * @return the service result with {@code rows}, {@code options} and the paging metadata
      */
     public static Map<String, Object> auditList(DispatchContext dctx, Map<String, ? extends Object> context) {
@@ -531,7 +531,7 @@ public final class MfgAccountServices {
      * this button is only there for the person who wants to see it happen.
      *
      * @param dctx the dispatch context
-     * @param context service context, see {@code servicedef/services.xml#mfgAuditPurge}
+     * @param context service context, see {@code servicedef/account-services.xml#mfgAuditPurge}
      * @return the service result with {@code purged}
      */
     public static Map<String, Object> auditPurge(DispatchContext dctx, Map<String, ? extends Object> context) {

@@ -35,7 +35,7 @@ public final class MfgClaimServices {
      * date are derived from the delivery order and the product warranty months.
      *
      * @param dctx the dispatch context
-     * @param context service context, see {@code servicedef/services.xml#mfgClaimCreate}
+     * @param context service context, see {@code servicedef/claim-services.xml#mfgClaimCreate}
      * @return the service result containing {@code claimId} and {@code inWarranty}
      */
     public static Map<String, Object> claimCreate(DispatchContext dctx, Map<String, ? extends Object> context) {
@@ -148,7 +148,7 @@ public final class MfgClaimServices {
      * Updates the handling of a claim: status, responsibility, repair hours and note.
      *
      * @param dctx the dispatch context
-     * @param context service context, see {@code servicedef/services.xml#mfgClaimUpdate}
+     * @param context service context, see {@code servicedef/claim-services.xml#mfgClaimUpdate}
      * @return the service result containing {@code claimId} and {@code statusId}
      */
     public static Map<String, Object> claimUpdate(DispatchContext dctx, Map<String, ? extends Object> context) {
@@ -259,7 +259,7 @@ public final class MfgClaimServices {
      * Lists warranty claims, newest first.
      *
      * @param dctx the dispatch context
-     * @param context service context, see {@code servicedef/services.xml#mfgClaimList}
+     * @param context service context, see {@code servicedef/claim-services.xml#mfgClaimList}
      * @return the service result containing {@code claims}
      */
     public static Map<String, Object> claimList(DispatchContext dctx, Map<String, ? extends Object> context) {
@@ -319,7 +319,7 @@ public final class MfgClaimServices {
      * that were replaced on it.
      *
      * @param dctx the dispatch context
-     * @param context service context, see {@code servicedef/services.xml#mfgClaimDetail}
+     * @param context service context, see {@code servicedef/claim-services.xml#mfgClaimDetail}
      * @return the service result containing {@code claim}, {@code snRecord}, {@code delivery} and {@code replacements}
      */
     public static Map<String, Object> claimDetail(DispatchContext dctx, Map<String, ? extends Object> context) {
@@ -389,7 +389,7 @@ public final class MfgClaimServices {
      * model and the claim moves to {@code MFG_RMA_REPLACED}.
      *
      * @param dctx the dispatch context
-     * @param context service context, see {@code servicedef/services.xml#mfgClaimExchange}
+     * @param context service context, see {@code servicedef/claim-services.xml#mfgClaimExchange}
      * @return the service result containing {@code claimId}, {@code deliveryId} and {@code newSn}
      */
     public static Map<String, Object> claimExchange(DispatchContext dctx, Map<String, ? extends Object> context) {
@@ -497,7 +497,7 @@ public final class MfgClaimServices {
      * Opens a repair work order for a claim so the rework is measured like any other build step.
      *
      * @param dctx the dispatch context
-     * @param context service context, see {@code servicedef/services.xml#mfgClaimRepair}
+     * @param context service context, see {@code servicedef/claim-services.xml#mfgClaimRepair}
      * @return the service result containing {@code claimId} and {@code workOrderId}
      */
     public static Map<String, Object> claimRepair(DispatchContext dctx, Map<String, ? extends Object> context) {
@@ -673,7 +673,7 @@ public final class MfgClaimServices {
      * shipping; a legal after sales request is never refused because of it.
      *
      * @param dctx the dispatch context
-     * @param context service context, see {@code servicedef/services.xml#mfgBuyerFlagSave}
+     * @param context service context, see {@code servicedef/claim-services.xml#mfgBuyerFlagSave}
      * @return the service result containing {@code buyerKey}, {@code riskLevel} and {@code statusId}
      */
     public static Map<String, Object> buyerFlagSave(DispatchContext dctx, Map<String, ? extends Object> context) {
@@ -789,7 +789,7 @@ public final class MfgClaimServices {
      * Lists the risk list, newest first, with the mobile number masked.
      *
      * @param dctx the dispatch context
-     * @param context service context, see {@code servicedef/services.xml#mfgBuyerFlagList}
+     * @param context service context, see {@code servicedef/claim-services.xml#mfgBuyerFlagList}
      * @return the service result containing {@code flags}, {@code flagCount} and {@code blockCount}
      */
     public static Map<String, Object> buyerFlagList(DispatchContext dctx, Map<String, ? extends Object> context) {
@@ -840,7 +840,7 @@ public final class MfgClaimServices {
      * Looks a buyer up on the risk list by mobile number or nickname.
      *
      * @param dctx the dispatch context
-     * @param context service context, see {@code servicedef/services.xml#mfgBuyerFlagCheck}
+     * @param context service context, see {@code servicedef/claim-services.xml#mfgBuyerFlagCheck}
      * @return the service result containing {@code hit}, {@code riskLevel} and {@code flag}
      */
     public static Map<String, Object> buyerFlagCheck(DispatchContext dctx, Map<String, ? extends Object> context) {
@@ -893,7 +893,7 @@ public final class MfgClaimServices {
      * becomes a problem. Nothing is flagged automatically.
      *
      * @param dctx the dispatch context
-     * @param context service context, see {@code servicedef/services.xml#mfgBuyerRiskList}
+     * @param context service context, see {@code servicedef/claim-services.xml#mfgBuyerRiskList}
      * @return the service result containing {@code buyers} and {@code buyerCount}
      */
     public static Map<String, Object> buyerRiskList(DispatchContext dctx, Map<String, ? extends Object> context) {
@@ -1125,7 +1125,7 @@ always
      * cost, and the breakdowns that tell where the money goes.
      *
      * @param dctx the dispatch context
-     * @param context service context, see {@code servicedef/services.xml#mfgQualityReport}
+     * @param context service context, see {@code servicedef/claim-services.xml#mfgQualityReport}
      * @return the service result with the rates, the totals and the breakdown lists
      */
     public static Map<String, Object> qualityReport(DispatchContext dctx, Map<String, ? extends Object> context) {

@@ -1,0 +1,358 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="https://ofbiz.apache.org/dtds/services.xsd">
+    <!-- Work orders, the material that goes into them, the shop floor reports, serial numbers, defects, outside fees and traceability. -->
+
+
+    <service name="mfgWorkOrderCost" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgWorkOrderServices" invoke="workOrderCost"
+            auth="false" use-transaction="false">
+        <description>Cost a work order: standard cost of the model against issued material and reported hours</description>
+        <attribute name="workOrderId" type="String" mode="IN" optional="true"/>
+        <attribute name="workOrderId" type="String" mode="OUT" optional="true"/>
+        <attribute name="productCode" type="String" mode="OUT" optional="true"/>
+        <attribute name="plannedQty" type="Double" mode="OUT" optional="true"/>
+        <attribute name="qtyOk" type="Double" mode="OUT" optional="true"/>
+        <attribute name="laborRate" type="Double" mode="OUT" optional="true"/>
+        <attribute name="standardHours" type="Double" mode="OUT" optional="true"/>
+        <attribute name="materialPerUnit" type="Double" mode="OUT" optional="true"/>
+        <attribute name="laborPerUnit" type="Double" mode="OUT" optional="true"/>
+        <attribute name="standardUnitCost" type="Double" mode="OUT" optional="true"/>
+        <attribute name="standardTotal" type="Double" mode="OUT" optional="true"/>
+        <attribute name="issuedMaterialCost" type="Double" mode="OUT" optional="true"/>
+        <attribute name="reportedHours" type="Double" mode="OUT" optional="true"/>
+        <attribute name="actualLaborCost" type="Double" mode="OUT" optional="true"/>
+        <attribute name="actualTotal" type="Double" mode="OUT" optional="true"/>
+        <attribute name="actualUnitCost" type="Double" mode="OUT" optional="true"/>
+        <attribute name="differenceVsStandard" type="Double" mode="OUT" optional="true"/>
+        <attribute name="missingPriceCount" type="Integer" mode="OUT" optional="true"/>
+        <attribute name="issuesWithoutPrice" type="Integer" mode="OUT" optional="true"/>
+        <attribute name="hoursSource" type="String" mode="OUT" optional="true"/>
+        <attribute name="routingHoursPerUnit" type="Double" mode="OUT" optional="true"/>
+        <attribute name="productStandardHours" type="Double" mode="OUT" optional="true"/>
+        <attribute name="outsourceAmount" type="Double" mode="OUT" optional="true"/>
+        <attribute name="outsourcePerUnit" type="Double" mode="OUT" optional="true"/>
+        <attribute name="outsourcePerPlannedUnit" type="Double" mode="OUT" optional="true"/>
+        <attribute name="differenceExOutsource" type="Double" mode="OUT" optional="true"/>
+        <attribute name="operations" type="java.util.List" mode="OUT" optional="true"/>
+        <attribute name="denied" type="String" mode="OUT" optional="true"/>
+        <attribute name="message" type="String" mode="OUT" optional="true"/>
+    </service>
+
+
+    <!-- ==================== work orders ==================== -->
+
+    <service name="mfgWorkOrderCreate" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgWorkOrderServices" invoke="workOrderCreate"
+            auth="false" use-transaction="false">
+        <description>Create a work order, identifier WO-yyMMdd-NNN</description>
+        <attribute name="productCode" type="String" mode="IN" optional="false"/>
+        <attribute name="plannedQty" type="Long" mode="IN" optional="false"/>
+        <attribute name="dueDate" type="String" mode="IN" optional="true"/>
+        <attribute name="customerName" type="String" mode="IN" optional="true"/>
+        <attribute name="smtVendor" type="String" mode="IN" optional="true"/>
+        <attribute name="note" type="String" mode="IN" optional="true"/>
+        <attribute name="workOrderId" type="String" mode="OUT" optional="true"/>
+        <attribute name="reservedQty" type="Double" mode="OUT" optional="true"/>
+        <attribute name="shortQty" type="Double" mode="OUT" optional="true"/>
+    </service>
+
+
+    <service name="mfgWorkOrderList" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgWorkOrderServices" invoke="workOrderList"
+            auth="false" use-transaction="false">
+        <description>List work orders, newest first</description>
+        <attribute name="statusId" type="String" mode="IN" optional="true"/>
+        <attribute name="search" type="String" mode="IN" optional="true"/>
+        <attribute name="page" type="Long" mode="IN" optional="true"/>
+        <attribute name="pageSize" type="Long" mode="IN" optional="true"/>
+        <attribute name="workOrders" type="java.util.List" mode="OUT" optional="true"/>
+        <attribute name="totalCount" type="Integer" mode="OUT" optional="true"/>
+        <attribute name="page" type="Long" mode="OUT" optional="true"/>
+        <attribute name="pageCount" type="Long" mode="OUT" optional="true"/>
+        <attribute name="pageSize" type="Long" mode="OUT" optional="true"/>
+        <attribute name="search" type="String" mode="OUT" optional="true"/>
+    </service>
+
+
+    <service name="mfgWorkOrderDetail" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgWorkOrderServices" invoke="workOrderDetail"
+            auth="false" use-transaction="false">
+        <description>One work order with operation progress, units and defects</description>
+        <attribute name="workOrderId" type="String" mode="IN" optional="false"/>
+        <attribute name="workOrder" type="java.util.Map" mode="OUT" optional="true"/>
+        <attribute name="operations" type="java.util.List" mode="OUT" optional="true"/>
+        <attribute name="sns" type="java.util.List" mode="OUT" optional="true"/>
+        <attribute name="defects" type="java.util.List" mode="OUT" optional="true"/>
+        <attribute name="reportedHours" type="Double" mode="OUT" optional="true"/>
+        <attribute name="totalQtyOk" type="Long" mode="OUT" optional="true"/>
+        <attribute name="totalQtyNg" type="Long" mode="OUT" optional="true"/>
+        <attribute name="testedSnCount" type="Integer" mode="OUT" optional="true"/>
+        <attribute name="failedSnCount" type="Integer" mode="OUT" optional="true"/>
+        <attribute name="testYield" type="Double" mode="OUT" optional="true"/>
+        <attribute name="vendor" type="java.util.Map" mode="OUT" optional="true"/>
+        <attribute name="vendors" type="java.util.List" mode="OUT" optional="true"/>
+        <attribute name="productLot" type="java.util.Map" mode="OUT" optional="true"/>
+    </service>
+
+
+    <!-- ==================== shop floor ==================== -->
+
+    <service name="mfgReportCreate" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgWorkOrderServices" invoke="reportCreate"
+            auth="false" use-transaction="false">
+        <description>Report labour hours and quantities for one operation</description>
+        <attribute name="workOrderId" type="String" mode="IN" optional="false"/>
+        <attribute name="opSeq" type="Long" mode="IN" optional="false"/>
+        <attribute name="sn" type="String" mode="IN" optional="true"/>
+        <attribute name="operatorName" type="String" mode="IN" optional="true"/>
+        <attribute name="workHours" type="Double" mode="IN" optional="false"/>
+        <attribute name="qtyOk" type="Long" mode="IN" optional="true"/>
+        <attribute name="qtyNg" type="Long" mode="IN" optional="true"/>
+        <attribute name="note" type="String" mode="IN" optional="true"/>
+        <attribute name="reportId" type="String" mode="OUT" optional="true"/>
+    </service>
+
+
+    <service name="mfgSnRegister" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgWorkOrderServices" invoke="snRegister"
+            auth="false" use-transaction="false">
+        <description>Generate serial numbers prefix-yyMMdd-NNNN for a work order</description>
+        <attribute name="workOrderId" type="String" mode="IN" optional="false"/>
+        <attribute name="qty" type="Long" mode="IN" optional="false"/>
+        <attribute name="sns" type="java.util.List" mode="OUT" optional="true"/>
+        <attribute name="firstSn" type="String" mode="OUT" optional="true"/>
+        <attribute name="lastSn" type="String" mode="OUT" optional="true"/>
+    </service>
+
+
+    <service name="mfgSnDetail" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgWorkOrderServices" invoke="snDetail"
+            auth="false" use-transaction="false">
+        <description>Full history of one serial number</description>
+        <attribute name="sn" type="String" mode="IN" optional="true"/>
+        <attribute name="snRecord" type="java.util.Map" mode="OUT" optional="true"/>
+        <attribute name="workOrder" type="java.util.Map" mode="OUT" optional="true"/>
+        <attribute name="reports" type="java.util.List" mode="OUT" optional="true"/>
+        <attribute name="defects" type="java.util.List" mode="OUT" optional="true"/>
+        <attribute name="lots" type="java.util.List" mode="OUT" optional="true"/>
+        <attribute name="replacements" type="java.util.List" mode="OUT" optional="true"/>
+        <attribute name="delivery" type="java.util.Map" mode="OUT" optional="true"/>
+        <attribute name="tests" type="java.util.List" mode="OUT" optional="true"/>
+        <attribute name="claims" type="java.util.List" mode="OUT" optional="true"/>
+    </service>
+
+
+    <service name="mfgDefectCreate" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgWorkOrderServices" invoke="defectCreate"
+            auth="false" use-transaction="false">
+        <description>Record a defect with repair hours</description>
+        <attribute name="workOrderId" type="String" mode="IN" optional="false"/>
+        <attribute name="sn" type="String" mode="IN" optional="true"/>
+        <attribute name="opSeq" type="Long" mode="IN" optional="true"/>
+        <attribute name="defectCode" type="String" mode="IN" optional="false"/>
+        <attribute name="qty" type="Long" mode="IN" optional="true"/>
+        <attribute name="responsibility" type="String" mode="IN" optional="true"/>
+        <attribute name="repairHours" type="Double" mode="IN" optional="true"/>
+        <attribute name="note" type="String" mode="IN" optional="true"/>
+        <attribute name="defectId" type="String" mode="OUT" optional="true"/>
+    </service>
+
+
+    <service name="mfgIssueSave" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgWorkOrderServices" invoke="issueSave"
+            auth="false" use-transaction="false">
+        <description>Issue one material lot to a work order</description>
+        <attribute name="workOrderId" type="String" mode="IN" optional="false"/>
+        <attribute name="componentCode" type="String" mode="IN" optional="false"/>
+        <attribute name="lotId" type="String" mode="IN" optional="false"/>
+        <attribute name="qty" type="Double" mode="IN" optional="false"/>
+        <attribute name="issuedDate" type="String" mode="IN" optional="true"/>
+        <attribute name="designators" type="String" mode="IN" optional="true"/>
+        <attribute name="snFrom" type="String" mode="IN" optional="true"/>
+        <attribute name="snTo" type="String" mode="IN" optional="true"/>
+        <attribute name="note" type="String" mode="IN" optional="true"/>
+        <attribute name="issueId" type="String" mode="OUT" optional="true"/>
+        <attribute name="onHandQty" type="Double" mode="OUT" optional="true"/>
+        <attribute name="availableQty" type="Double" mode="OUT" optional="true"/>
+    </service>
+
+
+    <service name="mfgWorkOrderMaterials" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgWorkOrderServices" invoke="workOrderMaterials"
+            auth="false" use-transaction="false">
+        <description>Kitting (BOM requirement vs issued), issued lots and shipments of one work order</description>
+        <attribute name="workOrderId" type="String" mode="IN" optional="true"/>
+        <attribute name="workOrder" type="java.util.Map" mode="OUT" optional="true"/>
+        <attribute name="lines" type="java.util.List" mode="OUT" optional="true"/>
+        <attribute name="issues" type="java.util.List" mode="OUT" optional="true"/>
+        <attribute name="shipments" type="java.util.List" mode="OUT" optional="true"/>
+        <attribute name="kitComplete" type="Boolean" mode="OUT" optional="true"/>
+        <attribute name="outQty" type="Double" mode="OUT" optional="true"/>
+        <attribute name="inQty" type="Double" mode="OUT" optional="true"/>
+        <attribute name="inDefectQty" type="Double" mode="OUT" optional="true"/>
+    </service>
+
+
+    <service name="mfgShipmentSave" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgWorkOrderServices" invoke="shipmentSave"
+            auth="false" use-transaction="false">
+        <description>Record material sent to the SMT house (MFG_SHIP_OUT) or boards received back (MFG_SHIP_IN)</description>
+        <attribute name="workOrderId" type="String" mode="IN" optional="false"/>
+        <attribute name="directionId" type="String" mode="IN" optional="true"/>
+        <attribute name="qty" type="Double" mode="IN" optional="false"/>
+        <attribute name="defectQty" type="Double" mode="IN" optional="true"/>
+        <attribute name="shipmentDate" type="String" mode="IN" optional="true"/>
+        <attribute name="carrier" type="String" mode="IN" optional="true"/>
+        <attribute name="trackingNo" type="String" mode="IN" optional="true"/>
+        <attribute name="note" type="String" mode="IN" optional="true"/>
+        <attribute name="shipmentId" type="String" mode="OUT" optional="true"/>
+    </service>
+
+
+    <service name="mfgTraceByLot" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgWorkOrderServices" invoke="traceByLot"
+            auth="false" use-transaction="false">
+        <description>Backward trace: work orders and serial numbers that used a lot</description>
+        <attribute name="lotId" type="String" mode="IN" optional="true"/>
+        <attribute name="supplierLot" type="String" mode="IN" optional="true"/>
+        <attribute name="lotId" type="String" mode="OUT" optional="true"/>
+        <attribute name="supplierLot" type="String" mode="OUT" optional="true"/>
+        <attribute name="lots" type="java.util.List" mode="OUT" optional="true"/>
+        <attribute name="workOrders" type="java.util.List" mode="OUT" optional="true"/>
+        <attribute name="totalSnCount" type="Long" mode="OUT" optional="true"/>
+    </service>
+
+
+    <service name="mfgTestImportCsv" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgWorkOrderServices" invoke="testImportCsv"
+            auth="false" use-transaction="false">
+        <description>Import test bench results from CSV: sn,station,item,value,unit,pass</description>
+        <attribute name="csv" type="String" mode="IN" optional="false"/>
+        <attribute name="workOrderId" type="String" mode="IN" optional="true"/>
+        <attribute name="importedCount" type="String" mode="OUT" optional="true"/>
+        <attribute name="skippedCount" type="String" mode="OUT" optional="true"/>
+        <attribute name="workOrderId" type="String" mode="OUT" optional="true"/>
+    </service>
+
+
+    <service name="mfgTestResultList" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgWorkOrderServices" invoke="testResultList"
+            auth="false" use-transaction="false">
+        <description>Test results of one unit, or the most recent results</description>
+        <attribute name="sn" type="String" mode="IN" optional="true"/>
+        <attribute name="sn" type="String" mode="OUT" optional="true"/>
+        <attribute name="results" type="java.util.List" mode="OUT" optional="true"/>
+    </service>
+
+
+    <service name="mfgWorkOrderVendor" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgWorkOrderServices" invoke="workOrderVendor"
+            auth="false" use-transaction="false">
+        <description>Set the outsourcing vendor of a work order</description>
+        <attribute name="workOrderId" type="String" mode="IN" optional="false"/>
+        <attribute name="vendorId" type="String" mode="IN" optional="true"/>
+        <attribute name="workOrderId" type="String" mode="OUT" optional="true"/>
+        <attribute name="vendorId" type="String" mode="OUT" optional="true"/>
+    </service>
+
+
+    <service name="mfgWorkOrderReserve" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgWorkOrderServices" invoke="reserveMaterial"
+            auth="false" use-transaction="false">
+        <description>Reserve the material a work order still needs, oldest lot first; what cannot be covered stays a shortage</description>
+        <attribute name="workOrderId" type="String" mode="IN" optional="false"/>
+        <attribute name="operatorName" type="String" mode="IN" optional="true"/>
+        <attribute name="workOrderId" type="String" mode="OUT" optional="true"/>
+        <attribute name="reservedQty" type="Double" mode="OUT" optional="true"/>
+        <attribute name="shortQty" type="Double" mode="OUT" optional="true"/>
+        <attribute name="reservationCount" type="Integer" mode="OUT" optional="true"/>
+    </service>
+
+
+    <service name="mfgWorkOrderRelease" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgWorkOrderServices" invoke="releaseMaterialReservation"
+            auth="false" use-transaction="false">
+        <description>Give back every reservation of one work order, e.g. when it is cancelled</description>
+        <attribute name="workOrderId" type="String" mode="IN" optional="false"/>
+        <attribute name="operatorName" type="String" mode="IN" optional="true"/>
+        <attribute name="workOrderId" type="String" mode="OUT" optional="true"/>
+        <attribute name="releasedQty" type="Double" mode="OUT" optional="true"/>
+    </service>
+
+
+    <service name="mfgOutsourceFeeSave" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgWorkOrderServices" invoke="outsourceFeeSave"
+            auth="false" use-transaction="false">
+        <description>Save one line of outsourced processing cost (per unit, per point or a lump sum) and refresh the total of the work order</description>
+        <attribute name="workOrderId" type="String" mode="IN" optional="false"/>
+        <attribute name="seqId" type="String" mode="IN" optional="true"/>
+        <attribute name="feeTypeId" type="String" mode="IN" optional="true"/>
+        <attribute name="basisId" type="String" mode="IN" optional="true"/>
+        <attribute name="rate" type="Double" mode="IN" optional="true"/>
+        <attribute name="qty" type="Double" mode="IN" optional="true"/>
+        <attribute name="vendorName" type="String" mode="IN" optional="true"/>
+        <attribute name="referenceNo" type="String" mode="IN" optional="true"/>
+        <attribute name="feeDate" type="String" mode="IN" optional="true"/>
+        <attribute name="note" type="String" mode="IN" optional="true"/>
+        <attribute name="workOrderId" type="String" mode="OUT" optional="true"/>
+        <attribute name="seqId" type="Long" mode="OUT" optional="true"/>
+        <attribute name="amount" type="Double" mode="OUT" optional="true"/>
+        <attribute name="outsourceAmount" type="Double" mode="OUT" optional="true"/>
+        <attribute name="outsourcePerUnit" type="Double" mode="OUT" optional="true"/>
+    </service>
+
+
+    <service name="mfgOutsourceFeeDelete" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgWorkOrderServices" invoke="outsourceFeeDelete"
+            auth="false" use-transaction="false">
+        <description>Delete one outsourced fee line and refresh the total of the work order</description>
+        <attribute name="workOrderId" type="String" mode="IN" optional="false"/>
+        <attribute name="seqId" type="String" mode="IN" optional="false"/>
+        <attribute name="workOrderId" type="String" mode="OUT" optional="true"/>
+        <attribute name="seqId" type="Long" mode="OUT" optional="true"/>
+        <attribute name="outsourceAmount" type="Double" mode="OUT" optional="true"/>
+    </service>
+
+
+    <service name="mfgOutsourceFeeList" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgWorkOrderServices" invoke="outsourceFeeList"
+            auth="false" use-transaction="false">
+        <description>Outsourced fee lines of a work order with their total and the share of one unit</description>
+        <attribute name="workOrderId" type="String" mode="IN" optional="true"/>
+        <attribute name="fees" type="java.util.List" mode="OUT" optional="true"/>
+        <attribute name="feeCount" type="Integer" mode="OUT" optional="true"/>
+        <attribute name="outsourceAmount" type="Double" mode="OUT" optional="true"/>
+        <attribute name="outsourcePerUnit" type="Double" mode="OUT" optional="true"/>
+        <attribute name="qtyOk" type="Double" mode="OUT" optional="true"/>
+        <attribute name="plannedQty" type="Double" mode="OUT" optional="true"/>
+    </service>
+
+
+    <service name="mfgWorkOrderOutsourceSave" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgWorkOrderServices" invoke="workOrderOutsourceSave"
+            auth="false" use-transaction="false">
+        <description>Record the outsourced processing fee of a work order, kept apart from material and labour</description>
+        <attribute name="workOrderId" type="String" mode="IN" optional="false"/>
+        <attribute name="outsourceAmount" type="Double" mode="IN" optional="true"/>
+        <attribute name="workOrderId" type="String" mode="OUT" optional="true"/>
+        <attribute name="outsourceAmount" type="Double" mode="OUT" optional="true"/>
+    </service>
+
+
+    <service name="mfgWorkOrderComplete" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgWorkOrderServices" invoke="workOrderComplete"
+            auth="false" use-transaction="false">
+        <description>Book the good units of a work order into stock as its own finished goods lot, priced at the actual cost per unit</description>
+        <attribute name="workOrderId" type="String" mode="IN" optional="false"/>
+        <attribute name="completeDate" type="String" mode="IN" optional="true"/>
+        <attribute name="operatorName" type="String" mode="IN" optional="true"/>
+        <attribute name="workOrderId" type="String" mode="OUT" optional="true"/>
+        <attribute name="lotId" type="String" mode="OUT" optional="true"/>
+        <attribute name="qtyOk" type="Double" mode="OUT" optional="true"/>
+        <attribute name="completedQty" type="Double" mode="OUT" optional="true"/>
+        <attribute name="onHandQty" type="Double" mode="OUT" optional="true"/>
+        <attribute name="unitCost" type="Double" mode="OUT" optional="true"/>
+        <attribute name="message" type="String" mode="OUT" optional="true"/>
+    </service>
+</services>

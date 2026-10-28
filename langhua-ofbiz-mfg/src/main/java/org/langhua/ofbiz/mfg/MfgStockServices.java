@@ -35,7 +35,7 @@ public final class MfgStockServices {
      * {@code LOT-yyMMdd-NN} is generated.
      *
      * @param dctx the dispatch context
-     * @param context service context, see {@code servicedef/services.xml#mfgLotSave}
+     * @param context service context, see {@code servicedef/stock-services.xml#mfgLotSave}
      * @return the service result containing {@code lotId}
      */
     public static Map<String, Object> lotSave(DispatchContext dctx, Map<String, ? extends Object> context) {
@@ -118,7 +118,7 @@ public final class MfgStockServices {
      * inspected at all.
      *
      * @param dctx the dispatch context
-     * @param context service context, see {@code servicedef/services.xml#mfgLotInspect}
+     * @param context service context, see {@code servicedef/stock-services.xml#mfgLotInspect}
      * @return the service result containing {@code lotId} and the stored status
      */
     public static Map<String, Object> lotInspect(DispatchContext dctx, Map<String, ? extends Object> context) {
@@ -175,7 +175,7 @@ public final class MfgStockServices {
      * Lists material lots, newest first, with the quantity already issued.
      *
      * @param dctx the dispatch context
-     * @param context service context, see {@code servicedef/services.xml#mfgLotList}
+     * @param context service context, see {@code servicedef/stock-services.xml#mfgLotList}
      * @return the service result containing {@code lots}
      */
     public static Map<String, Object> lotList(DispatchContext dctx, Map<String, ? extends Object> context) {
@@ -243,7 +243,7 @@ public final class MfgStockServices {
      * {@code componentCode,componentName,supplierName,supplierLot,qty,receivedDate}.
      *
      * @param dctx the dispatch context
-     * @param context service context, see {@code servicedef/services.xml#mfgLotImportCsv}
+     * @param context service context, see {@code servicedef/stock-services.xml#mfgLotImportCsv}
      * @return the service result containing {@code importedCount}
      */
     public static Map<String, Object> lotImportCsv(DispatchContext dctx, Map<String, ? extends Object> context) {
@@ -369,7 +369,7 @@ public final class MfgStockServices {
      * The stock locations with what each one holds right now.
      *
      * @param dctx the dispatch context
-     * @param context service context, see {@code servicedef/services.xml#mfgLocationList}
+     * @param context service context, see {@code servicedef/stock-services.xml#mfgLocationList}
      * @return the service result containing {@code locations} and the unassigned quantity
      */
     public static Map<String, Object> locationList(DispatchContext dctx, Map<String, ? extends Object> context) {
@@ -426,7 +426,7 @@ public final class MfgStockServices {
      * against the screen.
      *
      * @param dctx the dispatch context
-     * @param context service context, see {@code servicedef/services.xml#mfgLocationStock}
+     * @param context service context, see {@code servicedef/stock-services.xml#mfgLocationStock}
      * @return the service result containing {@code rows}
      */
     public static Map<String, Object> locationStock(DispatchContext dctx, Map<String, ? extends Object> context) {
@@ -488,7 +488,7 @@ public final class MfgStockServices {
      * one leaving and one arriving, so the lot total does not change.
      *
      * @param dctx the dispatch context
-     * @param context service context, see {@code servicedef/services.xml#mfgStockTransfer}
+     * @param context service context, see {@code servicedef/stock-services.xml#mfgStockTransfer}
      * @return the service result with the transfer number
      */
     public static Map<String, Object> stockTransfer(DispatchContext dctx, Map<String, ? extends Object> context) {
@@ -581,7 +581,7 @@ public final class MfgStockServices {
      * actual material cost keep working.
      *
      * @param dctx the dispatch context
-     * @param context service context, see {@code servicedef/services.xml#mfgInventoryMove}
+     * @param context service context, see {@code servicedef/stock-services.xml#mfgInventoryMove}
      * @return the service result containing the new totals of the lot
      */
     public static Map<String, Object> inventoryMove(DispatchContext dctx, Map<String, ? extends Object> context) {
@@ -683,7 +683,7 @@ public final class MfgStockServices {
      * short before the next work order needs it.
      *
      * @param dctx the dispatch context
-     * @param context service context, see {@code servicedef/services.xml#mfgStockSummary}
+     * @param context service context, see {@code servicedef/stock-services.xml#mfgStockSummary}
      * @return the service result containing {@code rows} and the totals
      */
     public static Map<String, Object> stockSummary(DispatchContext dctx, Map<String, ? extends Object> context) {
@@ -816,7 +816,7 @@ public final class MfgStockServices {
      * The ledger: one row per movement, newest first, with the balance of its lot after the movement.
      *
      * @param dctx the dispatch context
-     * @param context service context, see {@code servicedef/services.xml#mfgInventoryLedger}
+     * @param context service context, see {@code servicedef/stock-services.xml#mfgInventoryLedger}
      * @return the service result containing {@code rows} and the paging information
      */
     public static Map<String, Object> inventoryLedger(DispatchContext dctx, Map<String, ? extends Object> context) {
@@ -915,7 +915,7 @@ public final class MfgStockServices {
      * Writes the component master record with its safety stock.
      *
      * @param dctx the dispatch context
-     * @param context service context, see {@code servicedef/services.xml#mfgStockSettingSave}
+     * @param context service context, see {@code servicedef/stock-services.xml#mfgStockSettingSave}
      * @return the service result containing {@code componentCode}
      */
     public static Map<String, Object> stockSettingSave(DispatchContext dctx, Map<String, ? extends Object> context) {
@@ -970,7 +970,7 @@ public final class MfgStockServices {
      * ledger says becomes a movement, never a silent edit of the quantity.
      *
      * @param dctx the dispatch context
-     * @param context service context, see {@code servicedef/services.xml#mfgStockCount}
+     * @param context service context, see {@code servicedef/stock-services.xml#mfgStockCount}
      * @return the service result containing the count number and the variance
      */
     public static Map<String, Object> stockCount(DispatchContext dctx, Map<String, ? extends Object> context) {
@@ -1048,7 +1048,7 @@ public final class MfgStockServices {
      * The counts that were booked, newest first.
      *
      * @param dctx the dispatch context
-     * @param context service context, see {@code servicedef/services.xml#mfgStockCountList}
+     * @param context service context, see {@code servicedef/stock-services.xml#mfgStockCountList}
      * @return the service result containing {@code counts}
      */
     public static Map<String, Object> stockCountList(DispatchContext dctx, Map<String, ? extends Object> context) {

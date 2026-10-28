@@ -91,7 +91,7 @@ public final class MfgSoftwareServices {
      * parameters of the 2019 assessment case as defaults.
      *
      * @param dctx the dispatch context
-     * @param context service context, see {@code servicedef/services.xml#mfgSoftwareEstimate}
+     * @param context service context, see {@code servicedef/software-services.xml#mfgSoftwareEstimate}
      * @return the service result with the size, effort, schedule and prices
      */
     public static Map<String, Object> softwareEstimate(DispatchContext dctx, Map<String, ? extends Object> context) {
@@ -117,7 +117,7 @@ public final class MfgSoftwareServices {
      * estimate gives, so a later change of the parameters does not rewrite history.
      *
      * @param dctx the dispatch context
-     * @param context service context, see {@code servicedef/services.xml#mfgSoftwareProjectSave}
+     * @param context service context, see {@code servicedef/software-services.xml#mfgSoftwareProjectSave}
      * @return the service result containing {@code projectCode} and the estimate values
      */
     public static Map<String, Object> softwareProjectSave(DispatchContext dctx, Map<String, ? extends Object> context) {
@@ -198,7 +198,7 @@ public final class MfgSoftwareServices {
      * what it really took, and the productivity the finished projects show.
      *
      * @param dctx the dispatch context
-     * @param context service context, see {@code servicedef/services.xml#mfgSoftwareProjectList}
+     * @param context service context, see {@code servicedef/software-services.xml#mfgSoftwareProjectList}
      * @return the service result containing {@code projects} and the summary figures
      */
     public static Map<String, Object> softwareProjectList(DispatchContext dctx, Map<String, ? extends Object> context) {

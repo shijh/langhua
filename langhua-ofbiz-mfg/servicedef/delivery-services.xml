@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="https://ofbiz.apache.org/dtds/services.xsd">
+    <!-- Delivery notes and the units they ship. -->
+
+
+    <!-- ==================== delivery and testing ==================== -->
+
+    <service name="mfgDeliverySave" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgDeliveryServices" invoke="deliverySave"
+            auth="false" use-transaction="false">
+        <description>Create a delivery order and bind serial numbers to it (delivery date = warranty start)</description>
+        <attribute name="customerName" type="String" mode="IN" optional="false"/>
+        <attribute name="customerPo" type="String" mode="IN" optional="true"/>
+        <attribute name="deliveryDate" type="String" mode="IN" optional="true"/>
+        <attribute name="carrier" type="String" mode="IN" optional="true"/>
+        <attribute name="trackingNo" type="String" mode="IN" optional="true"/>
+        <attribute name="workOrderId" type="String" mode="IN" optional="true"/>
+        <attribute name="qty" type="Long" mode="IN" optional="true"/>
+        <attribute name="sns" type="String" mode="IN" optional="true"/>
+        <attribute name="salesOrderId" type="String" mode="IN" optional="true"/>
+        <attribute name="note" type="String" mode="IN" optional="true"/>
+        <attribute name="operatorName" type="String" mode="IN" optional="true"/>
+        <attribute name="deliveryId" type="String" mode="OUT" optional="true"/>
+        <attribute name="snCount" type="String" mode="OUT" optional="true"/>
+        <attribute name="issuedQty" type="Double" mode="OUT" optional="true"/>
+        <attribute name="productLotCount" type="Integer" mode="OUT" optional="true"/>
+        <attribute name="salesOrderId" type="String" mode="OUT" optional="true"/>
+    </service>
+
+
+    <service name="mfgDeliveryList" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgDeliveryServices" invoke="deliveryList"
+            auth="false" use-transaction="false">
+        <description>List delivery orders with the number of shipped units</description>
+        <attribute name="customerName" type="String" mode="IN" optional="true"/>
+        <attribute name="search" type="String" mode="IN" optional="true"/>
+        <attribute name="page" type="Long" mode="IN" optional="true"/>
+        <attribute name="pageSize" type="Long" mode="IN" optional="true"/>
+        <attribute name="customerName" type="String" mode="OUT" optional="true"/>
+        <attribute name="deliveries" type="java.util.List" mode="OUT" optional="true"/>
+        <attribute name="totalCount" type="Integer" mode="OUT" optional="true"/>
+        <attribute name="page" type="Long" mode="OUT" optional="true"/>
+        <attribute name="pageCount" type="Long" mode="OUT" optional="true"/>
+        <attribute name="pageSize" type="Long" mode="OUT" optional="true"/>
+        <attribute name="search" type="String" mode="OUT" optional="true"/>
+    </service>
+
+
+    <service name="mfgDeliveryDetail" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgDeliveryServices" invoke="deliveryDetail"
+            auth="false" use-transaction="false">
+        <description>One delivery order with its shipped serial numbers</description>
+        <attribute name="deliveryId" type="String" mode="IN" optional="true"/>
+        <attribute name="delivery" type="java.util.Map" mode="OUT" optional="true"/>
+        <attribute name="units" type="java.util.List" mode="OUT" optional="true"/>
+    </service>
+</services>

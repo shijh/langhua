@@ -35,7 +35,7 @@ public final class MfgDeliveryServices {
      * the next undelivered units of that work order.
      *
      * @param dctx the dispatch context
-     * @param context service context, see {@code servicedef/services.xml#mfgDeliverySave}
+     * @param context service context, see {@code servicedef/delivery-services.xml#mfgDeliverySave}
      * @return the service result containing {@code deliveryId} and {@code snCount}
      */
     public static Map<String, Object> deliverySave(DispatchContext dctx, Map<String, ? extends Object> context) {
@@ -226,7 +226,7 @@ public final class MfgDeliveryServices {
      * Lists delivery orders, newest first, with the number of shipped units.
      *
      * @param dctx the dispatch context
-     * @param context service context, see {@code servicedef/services.xml#mfgDeliveryList}
+     * @param context service context, see {@code servicedef/delivery-services.xml#mfgDeliveryList}
      * @return the service result containing {@code deliveries}
      */
     public static Map<String, Object> deliveryList(DispatchContext dctx, Map<String, ? extends Object> context) {
@@ -273,7 +273,7 @@ public final class MfgDeliveryServices {
      * Returns one delivery order with its shipped units.
      *
      * @param dctx the dispatch context
-     * @param context service context, see {@code servicedef/services.xml#mfgDeliveryDetail}
+     * @param context service context, see {@code servicedef/delivery-services.xml#mfgDeliveryDetail}
      * @return the service result containing {@code delivery} and {@code units}
      */
     public static Map<String, Object> deliveryDetail(DispatchContext dctx, Map<String, ? extends Object> context) {

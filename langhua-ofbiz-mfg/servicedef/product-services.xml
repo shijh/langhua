@@ -1,0 +1,248 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="https://ofbiz.apache.org/dtds/services.xsd">
+    <!-- Product models, the versioned BOM, the routing and the cost of one unit. -->
+
+
+    <!-- ==================== product models ==================== -->
+
+    <service name="mfgProductSave" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgProductServices" invoke="productSave"
+            auth="false" use-transaction="false">
+        <description>Create or update a product model</description>
+        <attribute name="productCode" type="String" mode="IN" optional="false"/>
+        <attribute name="productName" type="String" mode="IN" optional="true"/>
+        <attribute name="snPrefix" type="String" mode="IN" optional="true"/>
+        <attribute name="standardHours" type="Double" mode="IN" optional="true"/>
+        <attribute name="laborRate" type="Double" mode="IN" optional="true"/>
+        <attribute name="warrantyMonths" type="Long" mode="IN" optional="true"/>
+        <attribute name="salePrice" type="Double" mode="IN" optional="true"/>
+        <attribute name="statusId" type="String" mode="IN" optional="true"/>
+        <attribute name="devStageId" type="String" mode="IN" optional="true"/>
+        <attribute name="note" type="String" mode="IN" optional="true"/>
+        <attribute name="productCode" type="String" mode="OUT" optional="true"/>
+    </service>
+
+
+    <service name="mfgProductList" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgProductServices" invoke="productList"
+            auth="false" use-transaction="false">
+        <description>List product models with BOM and routing counts</description>
+        <attribute name="search" type="String" mode="IN" optional="true"/>
+        <attribute name="page" type="Long" mode="IN" optional="true"/>
+        <attribute name="pageSize" type="Long" mode="IN" optional="true"/>
+        <attribute name="products" type="java.util.List" mode="OUT" optional="true"/>
+        <attribute name="totalCount" type="Integer" mode="OUT" optional="true"/>
+        <attribute name="page" type="Long" mode="OUT" optional="true"/>
+        <attribute name="pageCount" type="Long" mode="OUT" optional="true"/>
+        <attribute name="pageSize" type="Long" mode="OUT" optional="true"/>
+        <attribute name="search" type="String" mode="OUT" optional="true"/>
+    </service>
+
+
+    <service name="mfgProductDetail" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgProductServices" invoke="productDetail"
+            auth="false" use-transaction="false">
+        <description>Return one product model with its BOM and routing</description>
+        <attribute name="productCode" type="String" mode="IN" optional="true"/>
+        <attribute name="product" type="java.util.Map" mode="OUT" optional="true"/>
+        <attribute name="bomVersionId" type="String" mode="OUT" optional="true"/>
+        <attribute name="bomItems" type="java.util.List" mode="OUT" optional="true"/>
+        <attribute name="routings" type="java.util.List" mode="OUT" optional="true"/>
+    </service>
+
+
+    <service name="mfgBomImport" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgProductServices" invoke="bomImport"
+            auth="false" use-transaction="false">
+        <description>Import BOM lines from CSV: componentCode,componentName,qty,designators,isKeyPart,unitPrice</description>
+        <attribute name="productCode" type="String" mode="IN" optional="false"/>
+        <attribute name="csv" type="String" mode="IN" optional="false"/>
+        <attribute name="replace" type="String" mode="IN" optional="true"/>
+        <attribute name="bomVersionId" type="String" mode="IN" optional="true"/>
+        <attribute name="format" type="String" mode="IN" optional="true"/>
+        <attribute name="productCode" type="String" mode="OUT" optional="true"/>
+        <attribute name="bomVersionId" type="String" mode="OUT" optional="true"/>
+        <attribute name="importedCount" type="String" mode="OUT" optional="true"/>
+        <attribute name="bomFormat" type="String" mode="OUT" optional="true"/>
+    </service>
+
+
+    <service name="mfgBomItemSave" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgProductServices" invoke="bomItemSave"
+            auth="false" use-transaction="false">
+        <description>Save, append or delete one BOM line: quantity, designators, key part and unit price</description>
+        <attribute name="productCode" type="String" mode="IN" optional="false"/>
+        <attribute name="bomVersionId" type="String" mode="IN" optional="true"/>
+        <attribute name="lineSeq" type="String" mode="IN" optional="true"/>
+        <attribute name="componentCode" type="String" mode="IN" optional="true"/>
+        <attribute name="componentName" type="String" mode="IN" optional="true"/>
+        <attribute name="qty" type="String" mode="IN" optional="true"/>
+        <attribute name="designators" type="String" mode="IN" optional="true"/>
+        <attribute name="isKeyPart" type="String" mode="IN" optional="true"/>
+        <attribute name="unitPrice" type="String" mode="IN" optional="true"/>
+        <attribute name="delete" type="String" mode="IN" optional="true"/>
+        <attribute name="bomVersionId" type="String" mode="OUT" optional="true"/>
+        <attribute name="lineSeq" type="String" mode="OUT" optional="true"/>
+    </service>
+
+
+    <service name="mfgBomVersionCreate" engine="java"            location="org.langhua.ofbiz.mfg.MfgProductServices" invoke="bomVersionCreate"
+            auth="false" use-transaction="false">
+        <description>Create the next BOM version of a model as a draft, copying the current lines by default</description>
+        <attribute name="productCode" type="String" mode="IN" optional="false"/>
+        <attribute name="copyCurrent" type="String" mode="IN" optional="true"/>
+        <attribute name="ecoId" type="String" mode="IN" optional="true"/>
+        <attribute name="note" type="String" mode="IN" optional="true"/>
+        <attribute name="bomVersionId" type="String" mode="OUT" optional="true"/>
+        <attribute name="versionNo" type="Long" mode="OUT" optional="true"/>
+        <attribute name="copiedCount" type="Long" mode="OUT" optional="true"/>
+    </service>
+
+
+    <service name="mfgBomVersionActivate" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgProductServices" invoke="bomVersionActivate"
+            auth="false" use-transaction="false">
+        <description>Make a BOM version the one in use, the previous released version becomes obsolete</description>
+        <attribute name="bomVersionId" type="String" mode="IN" optional="false"/>
+        <attribute name="bomVersionId" type="String" mode="OUT" optional="true"/>
+        <attribute name="productCode" type="String" mode="OUT" optional="true"/>
+        <attribute name="replacedVersionId" type="String" mode="OUT" optional="true"/>
+    </service>
+
+
+    <!-- ==================== cost ==================== -->
+
+    <service name="mfgProductCost" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgProductServices" invoke="productCost"
+            auth="false" use-transaction="false">
+        <description>Cost a model: BOM unit prices plus standard hours times the labour rate, against the project targets</description>
+        <attribute name="productCode" type="String" mode="IN" optional="true"/>
+        <attribute name="qty" type="Double" mode="IN" optional="true"/>
+        <attribute name="bomVersionId" type="String" mode="IN" optional="true"/>
+        <attribute name="laborRate" type="Double" mode="IN" optional="true"/>
+        <attribute name="productCode" type="String" mode="OUT" optional="true"/>
+        <attribute name="bomVersionId" type="String" mode="OUT" optional="true"/>
+        <attribute name="standardHours" type="Double" mode="OUT" optional="true"/>
+        <attribute name="laborRate" type="Double" mode="OUT" optional="true"/>
+        <attribute name="qty" type="Double" mode="OUT" optional="true"/>
+        <attribute name="materialPerUnit" type="Double" mode="OUT" optional="true"/>
+        <attribute name="laborPerUnit" type="Double" mode="OUT" optional="true"/>
+        <attribute name="unitCost" type="Double" mode="OUT" optional="true"/>
+        <attribute name="materialCost" type="Double" mode="OUT" optional="true"/>
+        <attribute name="laborCost" type="Double" mode="OUT" optional="true"/>
+        <attribute name="totalCost" type="Double" mode="OUT" optional="true"/>
+        <attribute name="targetCost" type="Double" mode="OUT" optional="true"/>
+        <attribute name="targetPrice" type="Double" mode="OUT" optional="true"/>
+        <attribute name="targetDifference" type="Double" mode="OUT" optional="true"/>
+        <attribute name="unitMargin" type="Double" mode="OUT" optional="true"/>
+        <attribute name="marginRate" type="Double" mode="OUT" optional="true"/>
+        <attribute name="salePrice" type="Double" mode="OUT" optional="true"/>
+        <attribute name="lineCount" type="Integer" mode="OUT" optional="true"/>
+        <attribute name="missingPriceCount" type="Integer" mode="OUT" optional="true"/>
+        <attribute name="lines" type="java.util.List" mode="OUT" optional="true"/>
+        <attribute name="hoursSource" type="String" mode="OUT" optional="true"/>
+        <attribute name="routingHours" type="Double" mode="OUT" optional="true"/>
+        <attribute name="routingLines" type="java.util.List" mode="OUT" optional="true"/>
+        <attribute name="productStandardHours" type="Double" mode="OUT" optional="true"/>
+        <attribute name="denied" type="String" mode="OUT" optional="true"/>
+        <attribute name="message" type="String" mode="OUT" optional="true"/>
+    </service>
+
+
+    <service name="mfgBomVersionList" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgProductServices" invoke="bomVersionList"
+            auth="false" use-transaction="false">
+        <description>List the BOM versions of a model or of all models</description>
+        <attribute name="productCode" type="String" mode="IN" optional="true"/>
+        <attribute name="search" type="String" mode="IN" optional="true"/>
+        <attribute name="page" type="Long" mode="IN" optional="true"/>
+        <attribute name="pageSize" type="Long" mode="IN" optional="true"/>
+        <attribute name="bomVersions" type="java.util.List" mode="OUT" optional="true"/>
+        <attribute name="totalCount" type="Integer" mode="OUT" optional="true"/>
+        <attribute name="page" type="Long" mode="OUT" optional="true"/>
+        <attribute name="pageCount" type="Long" mode="OUT" optional="true"/>
+        <attribute name="pageSize" type="Long" mode="OUT" optional="true"/>
+        <attribute name="search" type="String" mode="OUT" optional="true"/>
+    </service>
+
+
+    <service name="mfgBomMigrateLegacy" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgProductServices" invoke="bomMigrateLegacy"
+            auth="false" use-transaction="false">
+        <description>Freeze the old single BOM table into version 1 for the models that still only have it</description>
+        <attribute name="productCode" type="String" mode="IN" optional="true"/>
+        <attribute name="migratedProducts" type="java.util.List" mode="OUT" optional="true"/>
+        <attribute name="migratedCount" type="Long" mode="OUT" optional="true"/>
+    </service>
+
+
+    <service name="mfgRoutingSave" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgProductServices" invoke="routingSave"
+            auth="false" use-transaction="false">
+        <description>Create or update one routing operation</description>
+        <attribute name="productCode" type="String" mode="IN" optional="false"/>
+        <attribute name="opSeq" type="Long" mode="IN" optional="false"/>
+        <attribute name="opName" type="String" mode="IN" optional="false"/>
+        <attribute name="workCenter" type="String" mode="IN" optional="true"/>
+        <attribute name="stdHours" type="Double" mode="IN" optional="true"/>
+        <attribute name="note" type="String" mode="IN" optional="true"/>
+        <attribute name="productCode" type="String" mode="OUT" optional="true"/>
+        <attribute name="opSeq" type="Long" mode="OUT" optional="true"/>
+    </service>
+
+
+    <!-- ==================== material and outsourcing ==================== -->
+
+    <service name="mfgPartCodeRename" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgProductServices" invoke="partCodeRename"
+            auth="false" use-transaction="true">
+        <description>Rename a part number where it is stored: lots, issues, receipt lines, BOM lines of every version, replaced parts and the stock setting</description>
+        <attribute name="oldCode" type="String" mode="IN" optional="false"/>
+        <attribute name="newCode" type="String" mode="IN" optional="false"/>
+        <attribute name="lotsUpdated" type="Long" mode="OUT" optional="true"/>
+        <attribute name="issuesUpdated" type="Long" mode="OUT" optional="true"/>
+        <attribute name="receiptLinesUpdated" type="Long" mode="OUT" optional="true"/>
+        <attribute name="bomLinesUpdated" type="Long" mode="OUT" optional="true"/>
+        <attribute name="replacementsUpdated" type="Long" mode="OUT" optional="true"/>
+        <attribute name="renamed" type="String" mode="OUT" optional="true"/>
+        <attribute name="search" type="String" mode="OUT" optional="true"/>
+    </service>
+
+
+    <service name="mfgReplacementSave" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgProductServices" invoke="replacementSave"
+            auth="false" use-transaction="false">
+        <description>Record a component replaced on one unit during repair (old lot and new lot)</description>
+        <attribute name="sn" type="String" mode="IN" optional="false"/>
+        <attribute name="componentCode" type="String" mode="IN" optional="false"/>
+        <attribute name="oldLotId" type="String" mode="IN" optional="true"/>
+        <attribute name="newLotId" type="String" mode="IN" optional="true"/>
+        <attribute name="qty" type="Double" mode="IN" optional="true"/>
+        <attribute name="opSeq" type="Long" mode="IN" optional="true"/>
+        <attribute name="replacedDate" type="String" mode="IN" optional="true"/>
+        <attribute name="reason" type="String" mode="IN" optional="true"/>
+        <attribute name="hours" type="Double" mode="IN" optional="true"/>
+        <attribute name="note" type="String" mode="IN" optional="true"/>
+        <attribute name="replacementId" type="String" mode="OUT" optional="true"/>
+    </service>
+
+
+    <service name="mfgProductStock" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgProductServices" invoke="productStock"
+            auth="false" use-transaction="false">
+        <description>Finished goods on hand per model: what the completions booked in, what the deliveries took out</description>
+        <attribute name="search" type="String" mode="IN" optional="true"/>
+        <attribute name="page" type="String" mode="IN" optional="true"/>
+        <attribute name="rows" type="java.util.List" mode="OUT" optional="true"/>
+        <attribute name="productCount" type="Integer" mode="OUT" optional="true"/>
+        <attribute name="onHandTotal" type="Double" mode="OUT" optional="true"/>
+        <attribute name="shippedTotal" type="Double" mode="OUT" optional="true"/>
+        <attribute name="valueTotal" type="Double" mode="OUT" optional="true"/>
+        <attribute name="search" type="String" mode="OUT" optional="true"/>
+        <attribute name="totalCount" type="Integer" mode="OUT" optional="true"/>
+        <attribute name="page" type="Long" mode="OUT" optional="true"/>
+        <attribute name="pageCount" type="Long" mode="OUT" optional="true"/>
+        <attribute name="pageSize" type="Long" mode="OUT" optional="true"/>
+    </service>
+</services>

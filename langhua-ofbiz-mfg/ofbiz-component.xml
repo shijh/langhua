@@ -12,7 +12,20 @@
     <entity-resource type="group" reader-name="main" loader="main" location="entitydef/entitygroup.xml"/>
     <entity-resource type="data" reader-name="seed" loader="main" location="data/MfgSecurityPermissionSeedData.xml"/>
 
-    <service-resource type="model" loader="main" location="servicedef/services.xml"/>
+    <service-resource type="model" loader="main" location="servicedef/account-services.xml"/>
+    <service-resource type="model" loader="main" location="servicedef/attachment-services.xml"/>
+    <service-resource type="model" loader="main" location="servicedef/claim-services.xml"/>
+    <service-resource type="model" loader="main" location="servicedef/delivery-services.xml"/>
+    <service-resource type="model" loader="main" location="servicedef/dev-services.xml"/>
+    <service-resource type="model" loader="main" location="servicedef/product-services.xml"/>
+    <service-resource type="model" loader="main" location="servicedef/purchase-services.xml"/>
+    <service-resource type="model" loader="main" location="servicedef/report-services.xml"/>
+    <service-resource type="model" loader="main" location="servicedef/salesorder-services.xml"/>
+    <service-resource type="model" loader="main" location="servicedef/security-services.xml"/>
+    <service-resource type="model" loader="main" location="servicedef/settings-services.xml"/>
+    <service-resource type="model" loader="main" location="servicedef/software-services.xml"/>
+    <service-resource type="model" loader="main" location="servicedef/stock-services.xml"/>
+    <service-resource type="model" loader="main" location="servicedef/workorder-services.xml"/>
 
     <webapp name="mfg"
             title="Hardware Assembly"

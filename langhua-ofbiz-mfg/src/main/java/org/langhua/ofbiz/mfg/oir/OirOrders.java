@@ -2618,7 +2618,7 @@ public final class OirOrders {
      * Writes one stock location: a warehouse, a zone or a shelf.
      *
      * @param dctx the dispatch context
-     * @param context service context, see {@code servicedef/services.xml#mfgLocationSave}
+     * @param context service context, see {@code servicedef/stock-services.xml#mfgLocationSave}
      * @return the service result containing {@code locationId}
      */
 

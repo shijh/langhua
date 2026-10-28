@@ -25,7 +25,7 @@ public final class MfgSecurity {
      * cost blocks are hidden instead of failing with a permission error. Never fails.
      *
      * @param dctx the dispatch context
-     * @param context service context, see {@code servicedef/services.xml#mfgPermissions}
+     * @param context service context, see {@code servicedef/security-services.xml#mfgPermissions}
      * @return the service result with {@code canView} / {@code canProduce} / {@code canStock} /
      *         {@code canEng} / {@code canSales} / {@code canCost} / {@code isAdmin} ({@code Y} / {@code N})
      */

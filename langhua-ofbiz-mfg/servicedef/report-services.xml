@@ -1,0 +1,122 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="https://ofbiz.apache.org/dtds/services.xsd">
+    <!-- The dashboard, the alerts, the trend report, the shortage page and the vendors. -->
+
+
+    <service name="mfgDashboard" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgReportServices" invoke="dashboard"
+            auth="false" use-transaction="false">
+        <description>Shop floor dashboard figures</description>
+        <attribute name="openOrderCount" type="Long" mode="OUT" optional="true"/>
+        <attribute name="openPlannedQty" type="Long" mode="OUT" optional="true"/>
+        <attribute name="todayHours" type="Double" mode="OUT" optional="true"/>
+        <attribute name="todayQtyOk" type="Long" mode="OUT" optional="true"/>
+        <attribute name="todayQtyNg" type="Long" mode="OUT" optional="true"/>
+        <attribute name="todayYield" type="Double" mode="OUT" optional="true"/>
+        <attribute name="recentReports" type="java.util.List" mode="OUT" optional="true"/>
+        <attribute name="costDenied" type="String" mode="OUT" optional="true"/>
+    </service>
+
+
+    <service name="mfgShortageList" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgReportServices" invoke="shortageList"
+            auth="false" use-transaction="false">
+        <description>Open work orders ordered by due date with their material shortages</description>
+        <attribute name="search" type="String" mode="IN" optional="true"/>
+        <attribute name="page" type="Long" mode="IN" optional="true"/>
+        <attribute name="pageSize" type="Long" mode="IN" optional="true"/>
+        <attribute name="orders" type="java.util.List" mode="OUT" optional="true"/>
+        <attribute name="totalCount" type="Integer" mode="OUT" optional="true"/>
+        <attribute name="page" type="Long" mode="OUT" optional="true"/>
+        <attribute name="pageCount" type="Long" mode="OUT" optional="true"/>
+        <attribute name="pageSize" type="Long" mode="OUT" optional="true"/>
+        <attribute name="search" type="String" mode="OUT" optional="true"/>
+        <attribute name="orderCount" type="Integer" mode="OUT" optional="true"/>
+        <attribute name="shortageOrderCount" type="Long" mode="OUT" optional="true"/>
+    </service>
+
+
+    <!-- ==================== outsourcing vendors ==================== -->
+
+    <service name="mfgVendorSave" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgReportServices" invoke="vendorSave"
+            auth="false" use-transaction="false">
+        <description>Create or update an SMT vendor with recipient, mobile, address and our customer code</description>
+        <attribute name="vendorId" type="String" mode="IN" optional="true"/>
+        <attribute name="vendorName" type="String" mode="IN" optional="false"/>
+        <attribute name="vendorType" type="String" mode="IN" optional="true"/>
+        <attribute name="contactName" type="String" mode="IN" optional="true"/>
+        <attribute name="contactMobile" type="String" mode="IN" optional="true"/>
+        <attribute name="addressText" type="String" mode="IN" optional="true"/>
+        <attribute name="customerCode" type="String" mode="IN" optional="true"/>
+        <attribute name="statusId" type="String" mode="IN" optional="true"/>
+        <attribute name="note" type="String" mode="IN" optional="true"/>
+        <attribute name="vendorId" type="String" mode="OUT" optional="true"/>
+    </service>
+
+
+    <service name="mfgVendorList" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgReportServices" invoke="vendorList"
+            auth="false" use-transaction="false">
+        <description>List the outsourcing vendors with their shipping label</description>
+        <attribute name="search" type="String" mode="IN" optional="true"/>
+        <attribute name="page" type="Long" mode="IN" optional="true"/>
+        <attribute name="pageSize" type="Long" mode="IN" optional="true"/>
+        <attribute name="vendors" type="java.util.List" mode="OUT" optional="true"/>
+        <attribute name="totalCount" type="Integer" mode="OUT" optional="true"/>
+        <attribute name="page" type="Long" mode="OUT" optional="true"/>
+        <attribute name="pageCount" type="Long" mode="OUT" optional="true"/>
+        <attribute name="pageSize" type="Long" mode="OUT" optional="true"/>
+        <attribute name="search" type="String" mode="OUT" optional="true"/>
+    </service>
+
+
+    <!-- ==================== after sales quality ==================== -->
+
+    <service name="mfgDashboardTrends" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgReportServices" invoke="dashboardTrends"
+            auth="false" use-transaction="false">
+        <description>Daily shipped / claim series and after sales KPI for the dashboard bars</description>
+        <attribute name="dayCount" type="Long" mode="IN" optional="true"/>
+        <attribute name="kpi" type="java.util.Map" mode="OUT" optional="true"/>
+        <attribute name="days" type="java.util.List" mode="OUT" optional="true"/>
+        <attribute name="responsibilities" type="java.util.List" mode="OUT" optional="true"/>
+        <attribute name="fromDate" type="java.sql.Date" mode="OUT" optional="true"/>
+        <attribute name="toDate" type="java.sql.Date" mode="OUT" optional="true"/>
+        <attribute name="refreshedAt" type="String" mode="OUT" optional="true"/>
+    </service>
+
+
+    <service name="mfgTrendReport" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgReportServices" invoke="trendReport"
+            auth="false" use-transaction="false">
+        <description>Yield and labour hour trend per period (day, week or month) built from the work reports</description>
+        <attribute name="fromDate" type="String" mode="IN" optional="true"/>
+        <attribute name="toDate" type="String" mode="IN" optional="true"/>
+        <attribute name="groupBy" type="String" mode="IN" optional="true"/>
+        <attribute name="rows" type="java.util.List" mode="OUT" optional="true"/>
+        <attribute name="fromDate" type="java.sql.Date" mode="OUT" optional="true"/>
+        <attribute name="toDate" type="java.sql.Date" mode="OUT" optional="true"/>
+        <attribute name="groupBy" type="String" mode="OUT" optional="true"/>
+        <attribute name="qtyOkTotal" type="Long" mode="OUT" optional="true"/>
+        <attribute name="qtyNgTotal" type="Long" mode="OUT" optional="true"/>
+        <attribute name="hoursTotal" type="Double" mode="OUT" optional="true"/>
+        <attribute name="yieldRate" type="Double" mode="OUT" optional="true"/>
+        <attribute name="hoursPerUnit" type="Double" mode="OUT" optional="true"/>
+        <attribute name="worstRow" type="java.util.Map" mode="OUT" optional="true"/>
+        <attribute name="rowCount" type="Integer" mode="OUT" optional="true"/>
+    </service>
+
+
+    <service name="mfgAlerts" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgReportServices" invoke="alerts"
+            auth="false" use-transaction="false">
+        <description>Dashboard warnings: work orders with a material shortage and claims whose 7 day or 15 day window is closing or closed</description>
+        <attribute name="alerts" type="java.util.List" mode="OUT" optional="true"/>
+        <attribute name="alertCount" type="Integer" mode="OUT" optional="true"/>
+        <attribute name="errorCount" type="Integer" mode="OUT" optional="true"/>
+        <attribute name="shortageCount" type="Integer" mode="OUT" optional="true"/>
+        <attribute name="claimCount" type="Integer" mode="OUT" optional="true"/>
+    </service>
+</services>

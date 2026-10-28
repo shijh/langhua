@@ -45,7 +45,7 @@ public final class MfgPurchaseServices {
      * next to the goods value and never inside it.
      *
      * @param dctx the dispatch context
-     * @param context service context, see {@code servicedef/services.xml#mfgPurchaseFreightTrend}
+     * @param context service context, see {@code servicedef/purchase-services.xml#mfgPurchaseFreightTrend}
      * @return the service result containing {@code rows} and the totals of the period
      */
     public static Map<String, Object> purchaseFreightTrend(DispatchContext dctx, Map<String, ? extends Object> context) {
@@ -210,7 +210,7 @@ public final class MfgPurchaseServices {
      * untouched, so the unit price stays the price really paid for the part.
      *
      * @param dctx the dispatch context
-     * @param context service context, see {@code servicedef/services.xml#mfgPurchaseReceiptSave}
+     * @param context service context, see {@code servicedef/purchase-services.xml#mfgPurchaseReceiptSave}
      * @return the service result containing {@code receiptId}
      */
     public static Map<String, Object> purchaseReceiptSave(DispatchContext dctx, Map<String, ? extends Object> context) {
@@ -293,7 +293,7 @@ public final class MfgPurchaseServices {
      * afterwards without touching the lot, so the receipt stays a document of what was bought.
      *
      * @param dctx the dispatch context
-     * @param context service context, see {@code servicedef/services.xml#mfgPurchaseReceiptLineSave}
+     * @param context service context, see {@code servicedef/purchase-services.xml#mfgPurchaseReceiptLineSave}
      * @return the service result containing {@code receiptId}, {@code lineSeq} and {@code goodsAmount}
      */
     public static Map<String, Object> purchaseReceiptLineSave(DispatchContext dctx, Map<String, ? extends Object> context) {
@@ -406,7 +406,7 @@ public final class MfgPurchaseServices {
      * and the stock is corrected with a movement.
      *
      * @param dctx the dispatch context
-     * @param context service context, see {@code servicedef/services.xml#mfgPurchaseReceiptVoid}
+     * @param context service context, see {@code servicedef/purchase-services.xml#mfgPurchaseReceiptVoid}
      * @return the service result containing {@code receiptId}, {@code statusId} and {@code voidedReceipt}
      */
     public static Map<String, Object> purchaseReceiptVoid(DispatchContext dctx, Map<String, ? extends Object> context) {
@@ -450,7 +450,7 @@ public final class MfgPurchaseServices {
      * Puts a voided receipt back into force, for the void that was itself a mistake.
      *
      * @param dctx the dispatch context
-     * @param context service context, see {@code servicedef/services.xml#mfgPurchaseReceiptRestore}
+     * @param context service context, see {@code servicedef/purchase-services.xml#mfgPurchaseReceiptRestore}
      * @return the service result containing {@code receiptId} and {@code statusId}
      */
     public static Map<String, Object> purchaseReceiptRestore(DispatchContext dctx, Map<String, ? extends Object> context) {
@@ -488,7 +488,7 @@ public final class MfgPurchaseServices {
      * The purchase receipts with what each order cost: goods value, freight and the sum of both.
      *
      * @param dctx the dispatch context
-     * @param context service context, see {@code servicedef/services.xml#mfgPurchaseReceiptList}
+     * @param context service context, see {@code servicedef/purchase-services.xml#mfgPurchaseReceiptList}
      * @return the service result containing {@code receipts} and the totals of the listed rows
      */
     public static Map<String, Object> purchaseReceiptList(DispatchContext dctx, Map<String, ? extends Object> context) {
@@ -566,7 +566,7 @@ public final class MfgPurchaseServices {
      * One receipt with its lines, plus the lots that are not on a receipt yet.
      *
      * @param dctx the dispatch context
-     * @param context service context, see {@code servicedef/services.xml#mfgPurchaseReceiptDetail}
+     * @param context service context, see {@code servicedef/purchase-services.xml#mfgPurchaseReceiptDetail}
      * @return the service result containing {@code receipt}, {@code lines}, {@code freeLots} and the totals
      */
     public static Map<String, Object> purchaseReceiptDetail(DispatchContext dctx, Map<String, ? extends Object> context) {
@@ -654,7 +654,7 @@ public final class MfgPurchaseServices {
      * lines that are already on it are skipped, so a double click does not buy the parts twice.
      *
      * @param dctx the dispatch context
-     * @param context service context, see {@code servicedef/services.xml#mfgReceiptFromOrder}
+     * @param context service context, see {@code servicedef/purchase-services.xml#mfgReceiptFromOrder}
      * @return the service result containing {@code receiptId}, {@code importedCount},
      *         {@code skippedCount} and the totals
      */
@@ -1021,7 +1021,7 @@ public final class MfgPurchaseServices {
      * it and the person knows it anyway.
      *
      * @param dctx the dispatch context
-     * @param context service context, see {@code servicedef/services.xml#mfgRefundedOrderSave}
+     * @param context service context, see {@code servicedef/purchase-services.xml#mfgRefundedOrderSave}
      * @return the service result containing {@code orderNo}
      */
     public static Map<String, Object> refundedOrderSave(DispatchContext dctx, Map<String, ? extends Object> context) {
@@ -1049,7 +1049,7 @@ public final class MfgPurchaseServices {
      * Takes an order number off the refunded list again, for the times it was marked by mistake.
      *
      * @param dctx the dispatch context
-     * @param context service context, see {@code servicedef/services.xml#mfgRefundedOrderDelete}
+     * @param context service context, see {@code servicedef/purchase-services.xml#mfgRefundedOrderDelete}
      * @return the service result containing {@code orderNo}
      */
     public static Map<String, Object> refundedOrderDelete(DispatchContext dctx, Map<String, ? extends Object> context) {
@@ -1075,7 +1075,7 @@ public final class MfgPurchaseServices {
      * Lists the orders that are kept out of the stock, newest first.
      *
      * @param dctx the dispatch context
-     * @param context service context, see {@code servicedef/services.xml#mfgRefundedOrderList}
+     * @param context service context, see {@code servicedef/purchase-services.xml#mfgRefundedOrderList}
      * @return the service result containing {@code refundedOrders}
      */
     public static Map<String, Object> refundedOrderList(DispatchContext dctx, Map<String, ? extends Object> context) {
@@ -1143,7 +1143,7 @@ public final class MfgPurchaseServices {
      * is already in is booked a second time.
      *
      * @param dctx the dispatch context
-     * @param context service context, see {@code servicedef/services.xml#mfgReceiptLinesOfOrder}
+     * @param context service context, see {@code servicedef/purchase-services.xml#mfgReceiptLinesOfOrder}
      * @return the service result containing {@code receiptId} and {@code lines}
      */
     public static Map<String, Object> receiptLinesOfOrder(DispatchContext dctx, Map<String, ? extends Object> context) {

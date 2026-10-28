@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="https://ofbiz.apache.org/dtds/services.xsd">
+    <!-- The software ledger: the function point estimate and the projects. -->
+
+
+    <!-- ==================== software projects: size, effort, schedule, price ==================== -->
+
+    <service name="mfgSoftwareEstimate" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgSoftwareServices" invoke="softwareEstimate"
+            auth="false" use-transaction="false">
+        <description>Quote software from its size: UFP = 35 x ILF + 15 x EIF, AE = PDR x UFP x SWF x RDF, D = 1.277 x (AE/176)^0.404, price = person days x day rate + VAT + direct non labour cost</description>
+        <attribute name="ilfCount" type="Double" mode="IN" optional="true"/>
+        <attribute name="eifCount" type="Double" mode="IN" optional="true"/>
+        <attribute name="ufp" type="Double" mode="IN" optional="true"/>
+        <attribute name="swfBase" type="Double" mode="IN" optional="true"/>
+        <attribute name="swfReuse" type="Double" mode="IN" optional="true"/>
+        <attribute name="swfPreInvest" type="Double" mode="IN" optional="true"/>
+        <attribute name="swfQuality" type="Double" mode="IN" optional="true"/>
+        <attribute name="rdf" type="Double" mode="IN" optional="true"/>
+        <attribute name="pdrHoursPerFp" type="Double" mode="IN" optional="true"/>
+        <attribute name="dayRate" type="Double" mode="IN" optional="true"/>
+        <attribute name="taxRate" type="Double" mode="IN" optional="true"/>
+        <attribute name="dncRate" type="Double" mode="IN" optional="true"/>
+        <attribute name="ufp" type="Double" mode="OUT" optional="true"/>
+        <attribute name="swf" type="Double" mode="OUT" optional="true"/>
+        <attribute name="effortHours" type="Double" mode="OUT" optional="true"/>
+        <attribute name="effortDays" type="Double" mode="OUT" optional="true"/>
+        <attribute name="scheduleMonths" type="Double" mode="OUT" optional="true"/>
+        <attribute name="amountBeforeTax" type="Double" mode="OUT" optional="true"/>
+        <attribute name="taxAmount" type="Double" mode="OUT" optional="true"/>
+        <attribute name="amountWithTax" type="Double" mode="OUT" optional="true"/>
+        <attribute name="dncAmount" type="Double" mode="OUT" optional="true"/>
+        <attribute name="totalAmount" type="Double" mode="OUT" optional="true"/>
+        <attribute name="costPerFp" type="Double" mode="OUT" optional="true"/>
+    </service>
+
+
+    <service name="mfgSoftwareProjectSave" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgSoftwareServices" invoke="softwareProjectSave"
+            auth="false" use-transaction="false">
+        <description>Create or update a software project of the ledger; the number SW-yyMMdd-NN is generated when empty and the planned person days are frozen from the estimate</description>
+        <attribute name="projectCode" type="String" mode="IN" optional="true"/>
+        <attribute name="projectName" type="String" mode="IN" optional="false"/>
+        <attribute name="categoryId" type="String" mode="IN" optional="true"/>
+        <attribute name="productCode" type="String" mode="IN" optional="true"/>
+        <attribute name="devProjectCode" type="String" mode="IN" optional="true"/>
+        <attribute name="ownerName" type="String" mode="IN" optional="true"/>
+        <attribute name="statusId" type="String" mode="IN" optional="true"/>
+        <attribute name="deliverySeq" type="Double" mode="IN" optional="true"/>
+        <attribute name="ilfCount" type="Double" mode="IN" optional="true"/>
+        <attribute name="eifCount" type="Double" mode="IN" optional="true"/>
+        <attribute name="ufp" type="Double" mode="IN" optional="true"/>
+        <attribute name="swfBase" type="Double" mode="IN" optional="true"/>
+        <attribute name="swfReuse" type="Double" mode="IN" optional="true"/>
+        <attribute name="swfPreInvest" type="Double" mode="IN" optional="true"/>
+        <attribute name="swfQuality" type="Double" mode="IN" optional="true"/>
+        <attribute name="rdf" type="Double" mode="IN" optional="true"/>
+        <attribute name="pdrHoursPerFp" type="Double" mode="IN" optional="true"/>
+        <attribute name="dayRate" type="Double" mode="IN" optional="true"/>
+        <attribute name="taxRate" type="Double" mode="IN" optional="true"/>
+        <attribute name="dncRate" type="Double" mode="IN" optional="true"/>
+        <attribute name="plannedDays" type="Double" mode="IN" optional="true"/>
+        <attribute name="plannedStartDate" type="String" mode="IN" optional="true"/>
+        <attribute name="plannedEndDate" type="String" mode="IN" optional="true"/>
+        <attribute name="actualHours" type="Double" mode="IN" optional="true"/>
+        <attribute name="actualCost" type="Double" mode="IN" optional="true"/>
+        <attribute name="quotedAmount" type="Double" mode="IN" optional="true"/>
+        <attribute name="note" type="String" mode="IN" optional="true"/>
+        <attribute name="projectCode" type="String" mode="OUT" optional="true"/>
+        <attribute name="plannedDays" type="Double" mode="OUT" optional="true"/>
+        <attribute name="ufp" type="Double" mode="OUT" optional="true"/>
+        <attribute name="effortHours" type="Double" mode="OUT" optional="true"/>
+        <attribute name="effortDays" type="Double" mode="OUT" optional="true"/>
+        <attribute name="scheduleMonths" type="Double" mode="OUT" optional="true"/>
+        <attribute name="amountBeforeTax" type="Double" mode="OUT" optional="true"/>
+        <attribute name="amountWithTax" type="Double" mode="OUT" optional="true"/>
+        <attribute name="totalAmount" type="Double" mode="OUT" optional="true"/>
+    </service>
+
+
+    <service name="mfgSoftwareProjectList" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgSoftwareServices" invoke="softwareProjectList"
+            auth="false" use-transaction="false">
+        <description>Software projects with planned against real person days, plus the productivity of the finished ones</description>
+        <attribute name="search" type="String" mode="IN" optional="true"/>
+        <attribute name="page" type="Long" mode="IN" optional="true"/>
+        <attribute name="pageSize" type="Long" mode="IN" optional="true"/>
+        <attribute name="projects" type="java.util.List" mode="OUT" optional="true"/>
+        <attribute name="totalCount" type="Integer" mode="OUT" optional="true"/>
+        <attribute name="page" type="Long" mode="OUT" optional="true"/>
+        <attribute name="pageCount" type="Long" mode="OUT" optional="true"/>
+        <attribute name="pageSize" type="Long" mode="OUT" optional="true"/>
+        <attribute name="search" type="String" mode="OUT" optional="true"/>
+        <attribute name="projectCount" type="Integer" mode="OUT" optional="true"/>
+        <attribute name="openCount" type="Integer" mode="OUT" optional="true"/>
+        <attribute name="overCount" type="Integer" mode="OUT" optional="true"/>
+        <attribute name="finishedCount" type="Integer" mode="OUT" optional="true"/>
+        <attribute name="plannedDaysTotal" type="Double" mode="OUT" optional="true"/>
+        <attribute name="actualDaysTotal" type="Double" mode="OUT" optional="true"/>
+        <attribute name="pdrSampleCount" type="Integer" mode="OUT" optional="true"/>
+        <attribute name="pdrMedian" type="Double" mode="OUT" optional="true"/>
+        <attribute name="defaultPdr" type="Double" mode="OUT" optional="true"/>
+        <attribute name="defaultDayRate" type="Double" mode="OUT" optional="true"/>
+        <attribute name="defaultTaxRate" type="Double" mode="OUT" optional="true"/>
+        <attribute name="defaultDncRate" type="Double" mode="OUT" optional="true"/>
+    </service>
+</services>

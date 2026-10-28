@@ -54,7 +54,7 @@ public final class MfgProductServices {
      * Creates or updates a product model.
      *
      * @param dctx the dispatch context
-     * @param context service context, see {@code servicedef/services.xml#mfgProductSave}
+     * @param context service context, see {@code servicedef/product-services.xml#mfgProductSave}
      * @return the service result containing {@code productCode}
      */
     public static Map<String, Object> productSave(DispatchContext dctx, Map<String, ? extends Object> context) {
@@ -123,7 +123,7 @@ public final class MfgProductServices {
      * currently uses, otherwise a fresh version 1 that is created on the fly.
      *
      * @param dctx the dispatch context
-     * @param context service context, see {@code servicedef/services.xml#mfgBomImport}
+     * @param context service context, see {@code servicedef/product-services.xml#mfgBomImport}
      * @return the service result containing {@code bomVersionId} and {@code importedCount}
      */
     public static Map<String, Object> bomImport(DispatchContext dctx, Map<String, ? extends Object> context) {
@@ -225,7 +225,7 @@ public final class MfgProductServices {
      * importing the whole file again.
      *
      * @param dctx the dispatch context
-     * @param context service context, see {@code servicedef/services.xml#mfgBomItemSave}
+     * @param context service context, see {@code servicedef/product-services.xml#mfgBomItemSave}
      * @return the service result containing {@code bomVersionId} and {@code lineSeq}
      */
     public static Map<String, Object> bomItemSave(DispatchContext dctx, Map<String, ? extends Object> context) {
@@ -335,7 +335,7 @@ public final class MfgProductServices {
      * Creates or updates one routing operation of a product model.
      *
      * @param dctx the dispatch context
-     * @param context service context, see {@code servicedef/services.xml#mfgRoutingSave}
+     * @param context service context, see {@code servicedef/product-services.xml#mfgRoutingSave}
      * @return the service result containing {@code productCode} and {@code opSeq}
      */
     public static Map<String, Object> routingSave(DispatchContext dctx, Map<String, ? extends Object> context) {
@@ -381,7 +381,7 @@ public final class MfgProductServices {
      * project of that model.
      *
      * @param dctx the dispatch context
-     * @param context service context, see {@code servicedef/services.xml#mfgProductCost}
+     * @param context service context, see {@code servicedef/product-services.xml#mfgProductCost}
      * @return the service result containing the costs, the lines and the margin
      */
     public static Map<String, Object> productCost(DispatchContext dctx, Map<String, ? extends Object> context) {
@@ -557,7 +557,7 @@ public final class MfgProductServices {
      * breaking the traceability.
      *
      * @param dctx the dispatch context
-     * @param context service context, see {@code servicedef/services.xml#mfgPartCodeRename}
+     * @param context service context, see {@code servicedef/product-services.xml#mfgPartCodeRename}
      * @return the service result containing the counts, {@code search} and {@code renamed}
      */
     public static Map<String, Object> partCodeRename(DispatchContext dctx, Map<String, ? extends Object> context) {
@@ -645,7 +645,7 @@ public final class MfgProductServices {
      * is measured in house, so it is exact.
      *
      * @param dctx the dispatch context
-     * @param context service context, see {@code servicedef/services.xml#mfgReplacementSave}
+     * @param context service context, see {@code servicedef/product-services.xml#mfgReplacementSave}
      * @return the service result containing {@code replacementId}
      */
     public static Map<String, Object> replacementSave(DispatchContext dctx, Map<String, ? extends Object> context) {
@@ -708,7 +708,7 @@ public final class MfgProductServices {
      * deliveries took out, with what is reserved for a sales order and what it is worth.
      *
      * @param dctx the dispatch context
-     * @param context service context, see {@code servicedef/services.xml#mfgProductStock}
+     * @param context service context, see {@code servicedef/product-services.xml#mfgProductStock}
      * @return the service result containing {@code rows} and the totals
      */
     public static Map<String, Object> productStock(DispatchContext dctx, Map<String, ? extends Object> context) {
@@ -815,7 +815,7 @@ public final class MfgProductServices {
      * Returns the products with their BOM and routing line counts, used by the product page.
      *
      * @param dctx the dispatch context
-     * @param context service context, see {@code servicedef/services.xml#mfgProductList}
+     * @param context service context, see {@code servicedef/product-services.xml#mfgProductList}
      * @return the service result containing {@code products}
      */
     public static Map<String, Object> productList(DispatchContext dctx, Map<String, ? extends Object> context) {
@@ -876,7 +876,7 @@ public final class MfgProductServices {
      * Returns the BOM and routing of one product model, used by the product page.
      *
      * @param dctx the dispatch context
-     * @param context service context, see {@code servicedef/services.xml#mfgProductDetail}
+     * @param context service context, see {@code servicedef/product-services.xml#mfgProductDetail}
      * @return the service result containing {@code product}, {@code bomItems} and {@code routings}
      */
     public static Map<String, Object> productDetail(DispatchContext dctx, Map<String, ? extends Object> context) {
@@ -1228,7 +1228,7 @@ public final class MfgProductServices {
      * Creates the next BOM version of a model as a draft, copying the current lines by default.
      *
      * @param dctx the dispatch context
-     * @param context service context, see {@code servicedef/services.xml#mfgBomVersionCreate}
+     * @param context service context, see {@code servicedef/product-services.xml#mfgBomVersionCreate}
      * @return the service result containing {@code bomVersionId}
      */
     public static Map<String, Object> bomVersionCreate(DispatchContext dctx, Map<String, ? extends Object> context) {
@@ -1265,7 +1265,7 @@ public final class MfgProductServices {
      * versions of the same model become obsolete.
      *
      * @param dctx the dispatch context
-     * @param context service context, see {@code servicedef/services.xml#mfgBomVersionActivate}
+     * @param context service context, see {@code servicedef/product-services.xml#mfgBomVersionActivate}
      * @return the service result containing {@code bomVersionId} and {@code replacedVersionId}
      */
     public static Map<String, Object> bomVersionActivate(DispatchContext dctx, Map<String, ? extends Object> context) {
@@ -1316,7 +1316,7 @@ public final class MfgProductServices {
      * Lists the BOM versions of one model, newest first.
      *
      * @param dctx the dispatch context
-     * @param context service context, see {@code servicedef/services.xml#mfgBomVersionList}
+     * @param context service context, see {@code servicedef/product-services.xml#mfgBomVersionList}
      * @return the service result containing {@code bomVersions}
      */
     public static Map<String, Object> bomVersionList(DispatchContext dctx, Map<String, ? extends Object> context) {
@@ -1346,7 +1346,7 @@ public final class MfgProductServices {
      * still only have those rows. Idempotent, so it can be called on every deployment.
      *
      * @param dctx the dispatch context
-     * @param context service context, see {@code servicedef/services.xml#mfgBomMigrateLegacy}
+     * @param context service context, see {@code servicedef/product-services.xml#mfgBomMigrateLegacy}
      * @return the service result containing the migrated model codes
      */
     public static Map<String, Object> bomMigrateLegacy(DispatchContext dctx, Map<String, ? extends Object> context) {
