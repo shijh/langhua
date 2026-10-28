@@ -18,8 +18,8 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
 | `deploy-prod.bat` | **生产实例（8453）**：停生产 → robocopy 两个插件到 `ofbiz-prod\plugins` → `gradle jar` → 启动（日志 `prod-deploy.txt`） |
 | `start-prod.bat` / `stop-prod.bat` | 只启/停生产实例（按命令行里的 `ofbiz-prod` 匹配进程） |
 | `reset-admin.bat` | **生产 `admin` 忘了密码**：停生产 → `gradle loadAdminUserLogin -PuserLoginId=admin` → 起生产（日志 `reset-admin.txt` / `reset-admin-gradle.log`） |
-| `mfg-tests.bat` | 单元测试（JUnit 4，离线，依赖 `F:\build-ofbiz\lib` 的 jar）；**只编 `MfgServices.java`** |
-| `mfg-tests-all.bat` | 同上，但先编**全部源码**（别的类改坏会当场报） |
+| `mfg-tests.bat` | 单元测试（JUnit 4，离线，依赖 `F:\build-ofbiz\lib` 的 jar）；**只编一个类**（老脚本，`MfgServices.java` 已拆掉，现在用下面那个） |
+| `mfg-tests-all.bat` | 同上，但先编**全部源码 + 全部测试源码**（别的类改坏会当场报），然后一次跑六个 `*RulesTest` 类 |
 | `mfg-it.bat` | 集成测试 `integration-test/MfgServiceIT.java`，走 `/webtools/control/scheduleServiceSync` + `_RUN_SYNC_=Y`（日志 `mfg-it.txt`） |
 | `deploy-test.bat` | **测试实例（http 8095）**：停 → robocopy 两个插件 → 把部署副本的 `https="true"` 改成 `false` → `gradle jar` → 启动（日志 `test-deploy.txt`） |
 | `start-test.bat` / `stop-test.bat` | 只启/停**测试**实例（按命令行里的 `ofbiz-test` 匹配，admin 端口 10723） |
@@ -96,7 +96,12 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
 
 | 脚本 | 覆盖 | 断言数 |
 | --- | --- | --- |
-| `MfgServicesTest` | 解析/规则/格式化（CSV、SN、FIFO、窗口、编号、附件类型、来料检验规则、成本取整与毛利、CSV 单元格转义、软件报价公式与耗时率中位数、趋势期间标签与良率/单台工时、库存流水符号与不合格批次可用量、预留对可发量的影响、成品批次命名与单位成本分摊、订单行欠货与待排产量、订单行文本解析、库位类型、外协费计价与单台分摊、问题清单排序与校验、账号名规范与姓名拼接、BOM 格式识别与 Fritzing 解析、识图回答拆多张单与长回答不爆栈…） | 108 |
+| `MfgFormatRulesTest` | CSV / BOM 解析、编号格式、翻页算术、到货单汇总、订单行文本（27 个用例） | 27 |
+| `MfgOrderReadRulesTest` | 识图规则：答案解析、切段、重叠合并、取整与金额、按钮与块数（69） | 69 |
+| `MfgClaimRulesTest` | 保修与淘宝窗口、买家键与风险、百分比、账龄、售后成本、坐标轴标签（20） | 20 |
+| `MfgProductRulesTest` | BOM 版本编号、开发三线与阶段阶梯、ECO、附件类型、BOM 格式（18） | 18 |
+| `MfgAuditRulesTest` | 登录跳回、审计动作中文名、单据请求名、行号与保留期（6） | 6 |
+| `MfgDomainRulesTest` | 来料检验、单台成本、软件报价、趋势、库存流水与原因、销售单算术、库位、外协费、账号名与导入失败话术（37） | 37 |
 | `MfgServiceIT` | 全链路服务调用（含 BOM 版本、Fritzing BOM 导入、三条开发线、ECO、附件、来料检验、成本、告警、软件报价与台账、成本细化与外协费明细、步骤问题清单、良率/工时趋势、库存流水与盘点、工单预留/发料释放、完工入库与出货扣减、销售订单两级预留与核销、库位与移库、用户账号） | 398 |
 | `verify-m11.ps1` | 列表页搜索/过滤/翻页/编码 | 55 |
 | `verify-m12.ps1` | 装饰器布局（1 个 html、1 条导航、1 个高亮、样式表、无内联 style、无 FTL 报错） | 102 |
@@ -1149,6 +1154,21 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   **踩坑**：把仓库里那份（`https="true"`）直接 copy 到**测试实例**会冲掉 `relax-test-https.ps1` 的改动，
   页面立刻 302 到 `https://localhost:8443`（看着像“改坏了”）——copy 完要对测试实例重跑那个脚本
   （这次它报了 113 个 request map）。回归：m50 13 项、m49 14 项、m43 15 项全过。
+- **单元测试按域拆成六个类（Step 173）**：原来那一个 `MfgServicesTest.java`（3709 行、177 个用例）已按域拆开，
+  **同一个 `mfg-tests-all.bat` 一次跑六个类**（`JUnitCore` 后面跟六个类名，总数仍是 177）：
+  `MfgFormatRulesTest`（31 项：CSV/BOM/编号/翻页/到货单汇总/订单行，含 `row` / `receiptLine` 两个助手）、
+  `MfgOrderReadRulesTest`（76 项：识图的一切，含 `oneOrder` / `png` / `orderPage` / `boardOrder` / `excelRow` 七个助手）、
+  `MfgClaimRulesTest`（20 项：保修/淘宝窗口、买家风险、账龄、售后成本、坐标轴标签）、
+  `MfgAuditRulesTest`（6 项：登录跳回与操作记录）、
+  `MfgProductRulesTest`（18 项：BOM 版本号、开发三线与阶段、ECO、附件类型、两种 BOM 格式）、
+  `MfgDomainRulesTest`（36 项：来料检验、成本、软件报价、趋势、库存流水与原因、销售单算术、库位、外协费、账号名、导入失败话术）。
+  **`mfg-tests-all.bat` 改了两处**：编译清单从“单文件”改成 `src/test/java/org/langhua/ofbiz/mfg` 下全部 `*.java`；
+  运行行从单个类名改成六个类名。以后再加测试类，**记得把类名加进 `CLASSES=` 那一行**（JUnitCore 不会自己扫包）。
+  **踩坑**：① 删未用 import 的脚本里如果再顺手“去掉多余空行”，正则 `^import [^\r\n]+;\r\n\r\n(import )`
+  换成 `import $1` 会把**前一条 import 整行吃掉**（`$1` 就是 `import `），表现为 `import import java.util.Map;` +
+  编译找不到 `Map`——要么只删不合并，要么合并时把首行也写回替换串；② 拆完先跑一次 `mfg-tests-all.bat` 看
+  `OK (177 tests)`，数目不对说明有 `@Test` 方法落到了两个文件或一个都没进（切块时 `@Test` 与 javadoc 的归属）。
+  只改测试文件时**不用重启实例**（jar 里不含测试），但 `mfg-tests-all.bat` 会重新编全部主源码，能顶一次编译检查。
 - **`MfgServices` 退场，拆完（Step 172）**：剩下的 885 行再分成三个类后**删掉了这个文件**：
   - `MfgConstants`（507 行）：**190 个常量**，全组件唯一的“词汇表”——状态、movement 类型、权限名、告警种类、
     成本模型默认值；`MODULE` 也在这里（初值改成 `MfgConstants.class.getName()`）；
@@ -1168,7 +1188,8 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   （`static Map<String,Object> MfgRecordMaps.toLotMap(...)`）；③ 多行数组常量的 `{` 会让花括号深度错位，
   记完一个常量块后要把 `$i` 跳到块尾。
   现在 `MfgServicesTest.java`（约 5 000 行、177 个用例）名字已经名不副实——**`mfg-tests-all.bat` 按类名跑它**，
-  改名要同时改那个脚本。
+  改名要同时改那个脚本。**Step 173 已经按域拆成六个类**（见上面测试表），`mfg-tests-all.bat` 改成编译
+  `src/test/java/org/langhua/ofbiz/mfg` 下**全部** `*.java`、然后一次跑这六个类名。
 - **库存 / 开发 / 报表搬完，`MfgServices` 只剩 885 行（Step 171）**：78 个方法、`MfgServices` **4197 → 885 行**，
   `services.xml` 里 **36 个服务**改指三个新类，服务总数仍是 121：
   - `MfgStockServices`（1161 行，14 个服务）：`mfgLotList` / `LotSave` / `LotImportCsv` / `LotInspect`、

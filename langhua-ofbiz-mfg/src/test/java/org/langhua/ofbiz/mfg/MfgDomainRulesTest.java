@@ -1,0 +1,466 @@
+/*
+ * This library is part of OFBiz-MFG component of Langhua
+ *
+ * Copyright (C) 2010  Langhua Opensource Foundation (http://langhua.org)
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation; either
+ * version 3.0 of the License, or (at your option) any later version.
+ */
+
+package org.langhua.ofbiz.mfg;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
+
+import java.util.List;
+import java.util.Map;
+
+import org.junit.Test;
+
+/**
+ * The helpers of the shop floor itself: incoming inspection, the cost of a unit, the software
+ * quote, the trends, the inventory movements and their reasons, the sales order arithmetic, the
+ * locations, the outside processing fees, the account names and the messages of a refused import.
+ */
+public class MfgDomainRulesTest {
+
+    private static boolean present(String message) {
+        return message != null;
+    }
+
+    @Test
+    public void onlyAFailedLotBlocksIssuing() {
+        assertTrue(MfgWorkOrderServices.isLotUsable(null));
+        assertTrue(MfgWorkOrderServices.isLotUsable(MfgConstants.IQC_PENDING));
+        assertTrue(MfgWorkOrderServices.isLotUsable(MfgConstants.IQC_PASS));
+        assertTrue(MfgWorkOrderServices.isLotUsable(MfgConstants.IQC_CONCESSION));
+        assertTrue(!MfgWorkOrderServices.isLotUsable(MfgConstants.IQC_FAIL));
+        // the rule is "only a failure blocks", so an unknown status must not lock the shop floor out
+        assertTrue(MfgWorkOrderServices.isLotUsable("MFG_IQC_BOGUS"));
+    }
+
+    @Test
+    public void normalizesTheInspectionStatus() {        // an empty value means "not inspected yet", not an error
+        assertEquals(MfgConstants.IQC_PENDING, MfgStockServices.normalizeInspectStatus(null));
+        assertEquals(MfgConstants.IQC_PENDING, MfgStockServices.normalizeInspectStatus("   "));
+        assertEquals(MfgConstants.IQC_PASS, MfgStockServices.normalizeInspectStatus("MFG_IQC_PASS"));
+        assertEquals(MfgConstants.IQC_PASS, MfgStockServices.normalizeInspectStatus("mfg_iqc_pass"));
+        assertEquals(MfgConstants.IQC_CONCESSION, MfgStockServices.normalizeInspectStatus("MFG_IQC_CONCESSION"));
+        assertEquals(MfgConstants.IQC_FAIL, MfgStockServices.normalizeInspectStatus("MFG_IQC_FAIL"));
+        assertNull(MfgStockServices.normalizeInspectStatus("MFG_IQC_BOGUS"));
+        assertEquals(4, MfgConstants.INSPECT_STATUSES.length);
+    }
+
+    @Test
+    public void costsOneUnitWithTheBomAndTheLaborRate() {
+        java.util.Map<String, Object> cost = MfgProductServices.costSummary(18.5, 0.45, 1.0, 19.0, 39.0);
+
+        assertEquals(18.5, ((Double) cost.get("materialPerUnit")).doubleValue(), 1e-9);
+        assertEquals(0.45, ((Double) cost.get("laborPerUnit")).doubleValue(), 1e-9);
+        assertEquals(18.95, ((Double) cost.get("unitCost")).doubleValue(), 1e-9);
+        // negative means "cheaper than the target", positive means "over the target"
+        assertEquals(-0.05, ((Double) cost.get("targetDifference")).doubleValue(), 1e-9);
+        assertEquals(20.05, ((Double) cost.get("unitMargin")).doubleValue(), 1e-9);
+        assertEquals(51.41, ((Double) cost.get("marginRate")).doubleValue(), 1e-9);
+    }
+
+    @Test
+    public void costsABatchAndRoundsToCents() {
+        java.util.Map<String, Object> cost = MfgProductServices.costSummary(10.0 / 3.0, 0.0, 3.0, null, null);
+
+        assertEquals(10.0, ((Double) cost.get("totalCost")).doubleValue(), 1e-9);
+        assertEquals(3.33, ((Double) cost.get("unitCost")).doubleValue(), 1e-9);
+        // no target price means no margin, not a division by zero
+        assertNull(cost.get("unitMargin"));
+        assertNull(cost.get("marginRate"));
+        assertNull(cost.get("targetDifference"));
+    }
+
+    @Test
+    public void quotesSoftwareFromFunctionPoints() {
+        // the 2019 assessment case: 10 function points, SWF 1, PDR 40, 880 per person day
+        java.util.Map<String, Object> cost = MfgSoftwareServices.softwareCost(0.0, 0.0, Double.valueOf(10.0),
+                1.0, 0.0, 0.0, 0.0, 1.0, 40.0, 880.0, 0.06, 0.05);
+
+        assertEquals(10.0, ((Double) cost.get("ufp")).doubleValue(), 1e-9);
+        assertEquals(400.0, ((Double) cost.get("effortHours")).doubleValue(), 1e-9);
+        assertEquals(50.0, ((Double) cost.get("effortDays")).doubleValue(), 1e-9);
+        // 1.277 x (400/176)^0.404, the schedule the workbook of that case shows
+        assertEquals(1.78, ((Double) cost.get("scheduleMonths")).doubleValue(), 0.01);
+        assertEquals(44000.0, ((Double) cost.get("amountBeforeTax")).doubleValue(), 1e-9);
+        assertEquals(2640.0, ((Double) cost.get("taxAmount")).doubleValue(), 1e-9);
+        assertEquals(46640.0, ((Double) cost.get("amountWithTax")).doubleValue(), 1e-9);
+        assertEquals(2332.0, ((Double) cost.get("dncAmount")).doubleValue(), 1e-9);
+        assertEquals(48972.0, ((Double) cost.get("totalAmount")).doubleValue(), 1e-9);
+        assertEquals(4664.0, ((Double) cost.get("costPerFp")).doubleValue(), 1e-9);
+    }
+
+    @Test
+    public void countsFunctionPointsWhenTheyAreNotGiven() {
+        // UFP = 35 x ILF + 15 x EIF, and the four software factors add up
+        java.util.Map<String, Object> cost = MfgSoftwareServices.softwareCost(4.0, 2.0, null,
+                1.5, -0.5, 0.1, 0.05, 1.0, 40.0, 880.0, 0.06, 0.05);
+
+        assertEquals(170.0, ((Double) cost.get("ufp")).doubleValue(), 1e-9);
+        assertEquals(1.15, ((Double) cost.get("swf")).doubleValue(), 1e-9);
+        // 40 x 170 x 1.15 = 7820 hours
+        assertEquals(7820.0, ((Double) cost.get("effortHours")).doubleValue(), 1e-9);
+    }
+
+    @Test
+    public void knowsTheMedianOfTheProductivitySamples() {
+        assertEquals(0.0, MfgSupport.median(null), 1e-9);
+        assertEquals(0.0, MfgSupport.median(java.util.Collections.<Double>emptyList()), 1e-9);
+        assertEquals(45.0, MfgSupport.median(java.util.Arrays.asList(
+                Double.valueOf(45.0), Double.valueOf(40.0), Double.valueOf(50.0))), 1e-9);
+        assertEquals(45.0, MfgSupport.median(java.util.Arrays.asList(
+                Double.valueOf(40.0), Double.valueOf(50.0))), 1e-9);
+    }
+
+    @Test
+    public void labelsThePeriodOfATrendBucket() {
+        java.sql.Date date = java.sql.Date.valueOf(java.time.LocalDate.of(2026, 10, 21));
+
+        assertEquals("2026-10-21", MfgSupport.periodKey(date, "DAY"));
+        // 21 October 2026 is in ISO week 43
+        assertEquals("2026-W43", MfgSupport.periodKey(date, "WEEK"));
+        assertEquals("2026-10", MfgSupport.periodKey(date, "MONTH"));
+        // an unknown grouping falls back to the month, a missing date has no period
+        assertEquals("2026-10", MfgSupport.periodKey(date, "YEAR"));
+        assertEquals("-", MfgSupport.periodKey(null, "MONTH"));
+    }
+
+    @Test
+    public void countsYieldFromGoodAndRejectedUnits() {
+        assertEquals(95.0, MfgSupport.yieldRate(95.0, 5.0), 1e-9);
+        assertEquals(100.0, MfgSupport.yieldRate(10.0, 0.0), 1e-9);
+        assertEquals(0.0, MfgSupport.yieldRate(0.0, 4.0), 1e-9);
+        // nothing reported is not a division by zero
+        assertEquals(0.0, MfgSupport.yieldRate(0.0, 0.0), 1e-9);
+    }
+
+    @Test
+    public void countsHoursPerGoodUnit() {
+        assertEquals(0.5, MfgSupport.hoursPerUnit(5.0, 10.0), 1e-9);
+        assertEquals(0.0, MfgSupport.hoursPerUnit(5.0, 0.0), 1e-9);
+        assertEquals(0.0, MfgSupport.hoursPerUnit(0.0, 10.0), 1e-9);
+    }
+
+    @Test
+    public void ranksIssuesSoTheOpenHighOnesComeFirst() {
+        assertTrue(MfgDevServices.isOpenIssue(MfgConstants.ISSUE_OPEN));
+        assertTrue(MfgDevServices.isOpenIssue(MfgConstants.ISSUE_DOING));
+        assertFalse(MfgDevServices.isOpenIssue(MfgConstants.ISSUE_CLOSED));
+        assertFalse(MfgDevServices.isOpenIssue(null));
+
+        assertTrue(MfgDevServices.statusRank(MfgConstants.ISSUE_OPEN)
+                < MfgDevServices.statusRank(MfgConstants.ISSUE_DOING));
+        assertTrue(MfgDevServices.statusRank(MfgConstants.ISSUE_DOING)
+                < MfgDevServices.statusRank(MfgConstants.ISSUE_CLOSED));
+        assertTrue(MfgDevServices.severityRank(MfgConstants.ISSUE_HIGH)
+                > MfgDevServices.severityRank(MfgConstants.ISSUE_MEDIUM));
+        assertTrue(MfgDevServices.severityRank(MfgConstants.ISSUE_MEDIUM)
+                > MfgDevServices.severityRank(MfgConstants.ISSUE_LOW));
+
+        assertTrue(MfgDevServices.isKnownIssueStatus(MfgConstants.ISSUE_DOING));
+        assertFalse(MfgDevServices.isKnownIssueStatus("MFG_ISSUE_WHATEVER"));
+        assertTrue(MfgDevServices.isKnownIssueSeverity(MfgConstants.ISSUE_HIGH));
+        assertFalse(MfgDevServices.isKnownIssueSeverity("MFG_ISSUE_URGENT"));
+    }
+
+    @Test
+    public void signsTheInventoryMovements() {
+        // receipts and returns add, issues and scraps take away
+        assertEquals(5.0, MfgStockLedger.movementDiff(MfgConstants.MOVE_RECEIPT, 5.0), 1e-9);
+        assertEquals(5.0, MfgStockLedger.movementDiff(MfgConstants.MOVE_RETURN, 5.0), 1e-9);
+        assertEquals(-5.0, MfgStockLedger.movementDiff(MfgConstants.MOVE_ISSUE, 5.0), 1e-9);
+        assertEquals(-5.0, MfgStockLedger.movementDiff(MfgConstants.MOVE_SCRAP, 5.0), 1e-9);
+        // a count and an adjustment carry their own sign
+        assertEquals(-2.0, MfgStockLedger.movementDiff(MfgConstants.MOVE_COUNT, -2.0), 1e-9);
+        assertEquals(-2.0, MfgStockLedger.movementDiff(MfgConstants.MOVE_ADJUST, -2.0), 1e-9);
+        // a reservation changes no quantity on hand
+        assertEquals(0.0, MfgStockLedger.movementDiff(MfgConstants.MOVE_RESERVE, 5.0), 1e-9);
+        assertEquals(0.0, MfgStockLedger.movementDiff(MfgConstants.MOVE_RELEASE, 5.0), 1e-9);
+        assertEquals(0.0, MfgStockLedger.movementDiff(null, 5.0), 1e-9);
+
+        assertTrue(MfgStockLedger.isKnownMovement(MfgConstants.MOVE_COUNT));
+        assertFalse(MfgStockLedger.isKnownMovement("MFG_MOVE_BOGUS"));
+        assertFalse(MfgStockLedger.isKnownMovement(null));
+    }
+
+    @Test
+    public void namesTheInventoryReasonsOfOfbiz() {
+        // the ids are OFBiz's own IID_REASON list, so an export lines up with a standard install
+        assertEquals(8, MfgConstants.MOVE_REASONS.length);
+        assertEquals("VAR_LOST", MfgConstants.MOVE_REASONS[0]);
+        assertEquals("VAR_MISSHIP_SHIPPED", MfgConstants.MOVE_REASONS[7]);
+        assertEquals("\u4e22\u5931", MfgStockLedger.reasonLabel(MfgConstants.REASON_LOST));
+        assertEquals("\u88ab\u76d7", MfgStockLedger.reasonLabel(MfgConstants.REASON_STOLEN));
+        assertEquals("\u635f\u574f", MfgStockLedger.reasonLabel(MfgConstants.REASON_DAMAGED));
+        assertTrue(MfgStockLedger.reasonLabel(MfgConstants.REASON_FOUND).contains("\u627e\u5230"));
+        assertEquals("", MfgStockLedger.reasonLabel(null));
+        assertEquals("VAR_WHATEVER", MfgStockLedger.reasonLabel("VAR_WHATEVER"));
+    }
+
+    @Test
+    public void picksTheMovementTypeFromTheReason() {
+        // what left the stock is booked out, what came back in is booked in
+        assertEquals(MfgConstants.MOVE_SCRAP, MfgStockLedger.movementTypeOfReason(MfgConstants.REASON_LOST));
+        assertEquals(MfgConstants.MOVE_SCRAP, MfgStockLedger.movementTypeOfReason(MfgConstants.REASON_STOLEN));
+        assertEquals(MfgConstants.MOVE_SCRAP, MfgStockLedger.movementTypeOfReason(MfgConstants.REASON_DAMAGED));
+        assertEquals(MfgConstants.MOVE_SCRAP, MfgStockLedger.movementTypeOfReason(MfgConstants.REASON_SAMPLE));
+        assertEquals(MfgConstants.MOVE_SCRAP,
+                MfgStockLedger.movementTypeOfReason(MfgConstants.REASON_MISSHIP_SHIPPED));
+        assertEquals(MfgConstants.MOVE_ISSUE, MfgStockLedger.movementTypeOfReason(MfgConstants.REASON_INTEGR));
+        assertEquals(MfgConstants.MOVE_RECEIPT, MfgStockLedger.movementTypeOfReason(MfgConstants.REASON_FOUND));
+        assertEquals(MfgConstants.MOVE_RECEIPT,
+                MfgStockLedger.movementTypeOfReason(MfgConstants.REASON_MISSHIP_ORDERED));
+        assertNull(MfgStockLedger.movementTypeOfReason(null));
+        assertNull(MfgStockLedger.movementTypeOfReason("VAR_WHATEVER"));
+    }
+
+    @Test
+    public void refusesAReasonThatFightsWithTheType() {
+        // nothing to complain about: no reason, or a reason that agrees with the type
+        assertNull(MfgStockLedger.movementReasonProblem(MfgConstants.MOVE_SCRAP, null, 3.0));
+        assertNull(MfgStockLedger.movementReasonProblem(MfgConstants.MOVE_SCRAP,
+                MfgConstants.REASON_LOST, 3.0));
+        assertNull(MfgStockLedger.movementReasonProblem(MfgConstants.MOVE_ADJUST,
+                MfgConstants.REASON_DAMAGED, -2.0));
+        assertNull(MfgStockLedger.movementReasonProblem(MfgConstants.MOVE_RECEIPT,
+                MfgConstants.REASON_FOUND, 4.0));
+        // a lost part may not be booked in, and a found one may not be booked out
+        assertTrue(present(MfgStockLedger.movementReasonProblem(MfgConstants.MOVE_RECEIPT,
+                MfgConstants.REASON_LOST, 3.0)));
+        assertTrue(present(MfgStockLedger.movementReasonProblem(MfgConstants.MOVE_SCRAP,
+                MfgConstants.REASON_FOUND, 3.0)));
+        // an adjustment follows the sign of the quantity it carries
+        assertTrue(present(MfgStockLedger.movementReasonProblem(MfgConstants.MOVE_ADJUST,
+                MfgConstants.REASON_LOST, 2.0)));
+        assertNull(MfgStockLedger.movementReasonProblem(MfgConstants.MOVE_ADJUST,
+                MfgConstants.REASON_LOST, -2.0));
+        // the message names the reason, so the person knows which one to keep
+        String message = MfgStockLedger.movementReasonProblem(MfgConstants.MOVE_RECEIPT,
+                MfgConstants.REASON_LOST, 3.0);
+        assertTrue(message.contains("\u4e22\u5931"));
+        assertTrue(message.contains("\u8865\u5165\u5e93") || message.contains("\u5230\u8d27\u5165\u5e93"));
+        // an unknown reason is refused even when the type is fine
+        assertTrue(present(MfgStockLedger.movementReasonProblem(MfgConstants.MOVE_SCRAP, "VAR_WHATEVER", 3.0)));
+    }
+
+    @Test
+    public void explainsAStockCountVarianceWithTheReasonItFits() {
+        // a count carries its own sign, so the variance of -2 fits "lost" and clashes with "found"
+        assertNull(MfgStockLedger.movementReasonProblem(MfgConstants.MOVE_COUNT,
+                MfgConstants.REASON_LOST, -2.0));
+        assertNull(MfgStockLedger.movementReasonProblem(MfgConstants.MOVE_COUNT,
+                MfgConstants.REASON_FOUND, 2.0));
+        assertTrue(present(MfgStockLedger.movementReasonProblem(MfgConstants.MOVE_COUNT,
+                MfgConstants.REASON_FOUND, -2.0)));
+        assertTrue(present(MfgStockLedger.movementReasonProblem(MfgConstants.MOVE_COUNT,
+                MfgConstants.REASON_LOST, 2.0)));
+        // a count that matches the book quantity explains nothing, so any reason goes
+        assertNull(MfgStockLedger.movementReasonProblem(MfgConstants.MOVE_COUNT,
+                MfgConstants.REASON_LOST, 0.0));
+        // and no reason at all is still fine
+        assertNull(MfgStockLedger.movementReasonProblem(MfgConstants.MOVE_COUNT, null, -2.0));
+        // the refusal talks about 盘盈 / 盘亏, not about the bucket it lands in
+        String message = MfgStockLedger.movementReasonProblem(MfgConstants.MOVE_COUNT,
+                MfgConstants.REASON_LOST, 6.0);
+        assertTrue(message.contains("\u76d8\u76c8"));
+        assertTrue(message.contains("\u4e22\u5931"));
+    }
+
+    @Test
+    public void blocksTheStockOfAFailedLot() {
+        assertEquals(10.0, MfgStockLedger.availableOf(10.0, MfgConstants.IQC_PASS), 1e-9);
+        // a pending lot may still be issued, a small workshop does not inspect everything
+        assertEquals(10.0, MfgStockLedger.availableOf(10.0, MfgConstants.IQC_PENDING), 1e-9);
+        assertEquals(10.0, MfgStockLedger.availableOf(10.0, MfgConstants.IQC_CONCESSION), 1e-9);
+        assertEquals(0.0, MfgStockLedger.availableOf(10.0, MfgConstants.IQC_FAIL), 1e-9);
+        // an overdrawn lot never offers a negative quantity
+        assertEquals(0.0, MfgStockLedger.availableOf(-3.0, MfgConstants.IQC_PASS), 1e-9);
+    }
+
+    @Test
+    public void takesTheReservationOutOfTheAvailableQuantity() {
+        assertEquals(6.0, MfgStockLedger.availableOf(10.0, 4.0, MfgConstants.IQC_PASS), 1e-9);
+        // over reserved stock offers nothing, not a negative number
+        assertEquals(0.0, MfgStockLedger.availableOf(10.0, 12.0, MfgConstants.IQC_PASS), 1e-9);
+        // a failed lot is not available at all
+        assertEquals(0.0, MfgStockLedger.availableOf(10.0, 4.0, MfgConstants.IQC_FAIL), 1e-9);
+    }
+
+    @Test
+    public void namesTheFinishedGoodsLotAfterItsWorkOrder() {
+        assertEquals("FG-WO-261022-01", MfgStockLedger.productLotId("WO-261022-01"));
+        assertNull(MfgStockLedger.productLotId(null));
+    }
+
+    @Test
+    public void spreadsTheActualCostOverTheGoodUnits() {
+        // 300 yuan for 4 good units is 75 each
+        assertEquals(75.0, MfgStockLedger.productUnitCost(300.0, 4.0), 1e-9);
+        // nothing good came out of the order, so there is no unit cost
+        assertEquals(0.0, MfgStockLedger.productUnitCost(300.0, 0.0), 1e-9);
+        // two decimals, because it is money
+        assertEquals(10.01, MfgStockLedger.productUnitCost(30.02, 3.0), 1e-9);
+    }
+
+    @Test
+    public void keepsOnlyWhatTheOrderStillOwes() {
+        assertEquals(10.0, MfgSalesOrderServices.openQtyOf(10.0, 0.0, 0.0), 1e-9);
+        // 10 ordered, 4 on the shelf, 2 already out of the door
+        assertEquals(4.0, MfgSalesOrderServices.openQtyOf(10.0, 4.0, 2.0), 1e-9);
+        // over reserved or over shipped never gives a negative
+        assertEquals(0.0, MfgSalesOrderServices.openQtyOf(5.0, 6.0, 0.0), 1e-9);
+        assertEquals(0.0, MfgSalesOrderServices.openQtyOf(5.0, 0.0, 6.0), 1e-9);
+    }
+
+    @Test
+    public void plansOnlyTheUnitsProductionWillNotCover() {
+        // 10 ordered, 4 locked from the shelf, 3 more coming: 3 have to be planned
+        assertEquals(3.0, MfgSalesOrderServices.productionQtyOf(10.0, 4.0, 0.0, 3.0), 1e-9);
+        // production already covers what is still owed
+        assertEquals(0.0, MfgSalesOrderServices.productionQtyOf(10.0, 4.0, 0.0, 9.0), 1e-9);
+        // what is already shipped is not planned again
+        assertEquals(2.0, MfgSalesOrderServices.productionQtyOf(10.0, 4.0, 4.0, 0.0), 1e-9);
+    }
+
+    @Test
+    public void readsTheOrderLinesOfTheForm() {
+        List<Map<String, Object>> lines = MfgCsv.parseOrderLines(
+                "# 型号,数量\r\nBT5-PRO,20,2026-11-30\n\n  BT5-LITE , 5 \nbadline,0\n");
+        assertEquals(3, lines.size());
+        assertEquals("BT5-PRO", lines.get(0).get("productCode"));
+        assertEquals(20.0, ((Double) lines.get(0).get("qty")).doubleValue(), 1e-9);
+        assertEquals(java.sql.Date.valueOf("2026-11-30"), lines.get(0).get("lineDueDate"));
+        // spaces around the cells are trimmed and a missing due date stays empty
+        assertEquals("BT5-LITE", lines.get(1).get("productCode"));
+        assertFalse(lines.get(1).containsKey("lineDueDate"));
+        // a zero quantity is kept here, the service refuses it with a clear message
+        assertEquals(0.0, ((Double) lines.get(2).get("qty")).doubleValue(), 1e-9);
+    }
+
+    @Test
+    public void knowsTheSalesOrderStatuses() {
+        assertTrue(MfgSalesOrderServices.isKnownSoStatus(MfgConstants.SO_PLANNED));
+        assertFalse(MfgSalesOrderServices.isKnownSoStatus("MFG_SO_BOGUS"));
+        assertFalse(MfgSalesOrderServices.isKnownSoStatus(null));
+    }
+
+    @Test
+    public void knowsTheLocationTypes() {
+        assertTrue(MfgStockServices.isKnownLocationType(MfgConstants.LOC_WAREHOUSE));
+        assertTrue(MfgStockServices.isKnownLocationType(MfgConstants.LOC_ZONE));
+        assertTrue(MfgStockServices.isKnownLocationType(MfgConstants.LOC_BIN));
+        assertFalse(MfgStockServices.isKnownLocationType("MFG_LOC_BOGUS"));
+        assertFalse(MfgStockServices.isKnownLocationType(null));
+    }
+
+    @Test
+    public void pricesTheOutsourcedFeeByItsBasis() {
+        // per board: the price is multiplied by the units given
+        assertEquals(120.0, MfgWorkOrderServices.outsourceAmount(MfgConstants.OUTSRC_PER_UNIT, 30.0, 4.0, 0.0, 0.0), 1e-9);
+        // per board without a quantity falls back to the good units, then to the planned ones
+        assertEquals(90.0, MfgWorkOrderServices.outsourceAmount(MfgConstants.OUTSRC_PER_UNIT, 30.0, 0.0, 3.0, 10.0), 1e-9);
+        assertEquals(300.0, MfgWorkOrderServices.outsourceAmount(MfgConstants.OUTSRC_PER_UNIT, 30.0, 0.0, 0.0, 10.0), 1e-9);
+        // per placement point: always the points given
+        assertEquals(25.0, MfgWorkOrderServices.outsourceAmount(MfgConstants.OUTSRC_PER_POINT, 0.05, 500.0, 3.0, 10.0), 1e-9);
+        // a lump sum is its own amount, whatever else is given
+        assertEquals(88.5, MfgWorkOrderServices.outsourceAmount(MfgConstants.OUTSRC_LUMP, 88.5, 7.0, 3.0, 10.0), 1e-9);
+    }
+
+    @Test
+    public void spreadsTheOutsourcedFeeOverTheUnits() {
+        // 120 yuan over 4 good units is 30 each
+        assertEquals(30.0, MfgWorkOrderServices.outsourcePerUnit(120.0, 4.0, 10.0), 1e-9);
+        // nothing finished yet: the planned units carry it, so the estimate is still meaningful
+        assertEquals(12.0, MfgWorkOrderServices.outsourcePerUnit(120.0, 0.0, 10.0), 1e-9);
+        // no unit at all: no share, never a division by zero
+        assertEquals(0.0, MfgWorkOrderServices.outsourcePerUnit(120.0, 0.0, 0.0), 1e-9);
+    }
+
+    @Test
+    public void knowsTheOutsourcedFeeCodes() {
+        assertTrue(MfgWorkOrderServices.isKnownOutsourceType(MfgConstants.OUTSRC_SMT));
+        assertFalse(MfgWorkOrderServices.isKnownOutsourceType("MFG_OUTSRC_BOGUS"));
+        assertTrue(MfgWorkOrderServices.isKnownOutsourceBasis(MfgConstants.OUTSRC_PER_POINT));
+        assertFalse(MfgWorkOrderServices.isKnownOutsourceBasis("MFG_OUTSRC_BOGUS"));
+    }
+
+    @Test
+    public void normalizesAccountNames() {
+        // trimmed and lowered, so Admin and admin cannot become two accounts
+        assertEquals("zhang.san", MfgAccountServices.normalizeAccountName("  Zhang.San  "));
+        assertEquals("wh-01", MfgAccountServices.normalizeAccountName("WH-01"));
+        assertNull(MfgAccountServices.normalizeAccountName("   "));
+        assertNull(MfgAccountServices.normalizeAccountName(null));
+    }
+
+    @Test
+    public void checksAccountNames() {
+        assertNull(MfgAccountServices.accountNameProblem("zhang.san"));
+        assertNull(MfgAccountServices.accountNameProblem("wh_01"));
+        assertNull(MfgAccountServices.accountNameProblem("a1234567890123456789"));
+        // empty, too long (the field is id-ne = 20) or with characters OFBiz does not expect
+        assertEquals("账号不能为空", MfgAccountServices.accountNameProblem(null));
+        assertEquals("账号最多 20 个字符", MfgAccountServices.accountNameProblem("a12345678901234567890"));
+        assertEquals("账号只能用字母、数字、点、下划线、短横线", MfgAccountServices.accountNameProblem("张 三"));
+        assertEquals("账号只能用字母、数字、点、下划线、短横线", MfgAccountServices.accountNameProblem("zhang san"));
+    }
+
+    @Test
+    public void joinsThePersonName() {
+        assertEquals("张 三", MfgAccountServices.displayNameOf("张", null, "三"));
+        assertEquals("San Zhang", MfgAccountServices.displayNameOf("San", null, "Zhang"));
+        // the middle name is rare here but must not leave a double space
+        assertEquals("San Q Zhang", MfgAccountServices.displayNameOf("San", "Q", "Zhang"));
+        assertEquals("", MfgAccountServices.displayNameOf(null, "  ", null));
+    }
+
+    @Test
+    public void checksTheNewPassword() {
+        // too short, typed twice differently, or the same as the current one
+        assertEquals("新密码至少 5 个字符", MfgAccountServices.passwordProblem("ofbiz", "abcd", "abcd"));
+        assertEquals("新密码至少 5 个字符", MfgAccountServices.passwordProblem("ofbiz", null, "abcd1234"));
+        assertEquals("两次输入的新密码不一致", MfgAccountServices.passwordProblem("ofbiz", "abcde", "abcdef"));
+        assertEquals("两次输入的新密码不一致", MfgAccountServices.passwordProblem("ofbiz", "abcde", null));
+        assertEquals("新密码不能和当前密码相同", MfgAccountServices.passwordProblem("ofbiz", "ofbiz", "ofbiz"));
+        assertNull(MfgAccountServices.passwordProblem("ofbiz", "Mfg2026", "Mfg2026"));
+        assertNull(MfgAccountServices.passwordProblem(null, "Mfg2026", "Mfg2026"));
+    }
+
+    @Test
+    public void explainsAnOrderImportThatClashed() throws Exception {
+        // a second import of the same order, or a second click while the first is still running
+        String clashed = MfgPurchaseServices.receiptImportFailure(new org.apache.ofbiz.entity.GenericEntityException(
+                "Error while inserting: [GenericEntity:MfgPurchaseReceiptLine] (SQL Exception while executing the"
+                        + " following:INSERT INTO OFBIZ.MFG_PURCHASE_RECEIPT_LINE ... duplicate key value in a"
+                        + " unique or primary key constraint)"));
+        assertTrue(clashed.contains("正在入库"));
+        assertFalse(clashed.contains("SQL Exception"));
+        assertFalse(clashed.contains("MFG_PURCHASE_RECEIPT_LINE"));
+    }
+
+    @Test
+    public void explainsAnOrderImportThatWasTooLong() throws Exception {
+        String tooLong = MfgPurchaseServices.receiptImportFailure(new org.apache.ofbiz.entity.GenericEntityException(
+                "A truncation error was encountered trying to shrink VARCHAR 'x' to length 100"));
+        assertTrue(tooLong.contains("100"));
+        assertTrue(tooLong.contains("料号"));
+    }
+
+    @Test
+    public void keepsOnlyTheReasonOfAnotherImportFailure() throws Exception {
+        String other = MfgPurchaseServices.receiptImportFailure(new org.apache.ofbiz.entity.GenericEntityException(
+                "Something odd happened. (SQL Exception while executing ...)"));
+        assertTrue(other.startsWith("导入失败"));
+        assertTrue(other.contains("Something odd happened."));
+        assertFalse(other.contains("SQL Exception"));
+    }
+}
