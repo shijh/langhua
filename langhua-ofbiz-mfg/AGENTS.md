@@ -179,6 +179,33 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   坑：`<redirect-parameter>` 只吃 String，所以 OUT 用 `recountQty` / `recounted` 这种字符串，
   页面用 `${parameters.recounted}` 显示；巡检 `verify-m55-recount.ps1`（20 项，断言流水里的 `4.2000` / `+4` / `21.0000`）。
   **名称 / 备注 / 供应商 / 批号用 `mfgLotEdit`**（批次台账行内改，`context.containsKey` 只写传了的字段）；
+  **一包里是很多种料（电阻包 130 种 × 20 只）用 `mfgLotSplit`**：台账每行批次号后面有个「拆」，点了把
+  批次号带进上面的「拆包」框；框里一行一个 `料号,名称,数量`（名称可空、可只写 `料号,数量`，Tab 也行），
+  一次事务里**每个料号建一个批次**（单价/供应商/供应商批号/到货日/检验状态都沿用原批次，子批次金额 =
+  数量 × 单价）、原批次记一条 `MFG_MOVE_ADJUST −合计`（流水号 `SPLIT-<原批次>`）、子批次各记到货流水，
+  原批次的 `receivedQty` / `receivedAmount` 一起减掉拆走的部分（否则之后点数修正会把单价重算错）。
+  **合计不能超过可用量**，但**账面只有 1 件的整包例外**：`restatesTheParcel`（`total > 在库 && 在库 ≤ 1 && 没预留`）
+  为真时，先 `restateLot` 把它按清单件数修正（调整流水 + 数量/单价/到货单行，跟点数修正同一套），再拆——
+  淘宝整包写 `x1`，不这么做这个包永远拆不开（用户报过）；其它情况仍拒绝并提示“先用点数修正”。
+  **只拆一部分时**页面上的 `packQty`（这一包实际多少件）优先：填了就按它修正（`packQty > 在库` 就重述），
+  拆完剩余留在原批次；不填 = 清单就是全部（原批次归 0）。`packQty < 清单合计` 直接报错。
+  **原始文件也存一份（Step 178）**：选文件导入时，事件把字节 base64 后放进 `sourceBase64`，服务解码后写
+  `MfgDevBom.sourceData`（blob）+ `sourceSize` + `sourceContentType`；`/mfg/control/devBomSource`
+  （`MfgDevBomEvents.source`）把它取回来（blob 可能以 `ByteBuffer` 返回，要 `blobBytesOf` 兼容两种）。
+  **默认是“浏览”不是“下载”**：`Content-Disposition: inline`，CSV 用 `text/plain` 发（用 `text/csv` 浏览器只会下载），
+  HTML 带 `Content-Security-Policy: sandbox`（别人写的文件内联渲染，不能让它在本站源里跑脚本）；`&download=Y` 才 `attachment`。
+  页面上是「浏览」（`target="_blank"`）+「存」两个链接。
+  **两个坑**：① 读导入记录的地方（`lastImport` / 历史列表）必须 `.select(HEAD_FIELDS)` **把 blob 排除**，
+  否则每打开一页都会把几百 KB 的文件拉进内存；② 这种“部分字段”的 `GenericValue` **不能直接 `store()`**——
+  没读出来的字段会写成 NULL，把文件冲掉；改计数用 `storeByCondition`（只写计数器），见 `updateHeadCounts`。
+  **父子关系不是备注**：子批次 `MfgMaterialLot.splitFromLotId` 指向原批次（台账里显示「拆自 …」并可点回去），
+  流水里另有 `referenceNo = SPLIT-<原批次>`；两道都有，不要只靠 note。
+  被预留的不能拆；子批次料号不能等于原批次；同一次里料号重复的**自动去重**（见下）；成品批次不能拆。
+  解析是纯函数 `splitRowsOf`（`料号,名称,数量` / `料号,数量` / 名称里带逗号 / `#` 注释 / 空行），单测钉住；
+  **全角逗号 `，`、顿号先归一成半角**再切（中文键盘打的就是全角，用户报过“读不出数量”）；
+  表头行（`料号` / `part number` 之类）跳过；**重复料号自动去重**（`withoutRepeatedRows`，留第一行，
+  把“第 N 行和第 M 行重复”回给页面 `splitDropped` / `splitDroppedNote`），别退化成“整张清单被拒”。
+  页面表单的字段叫 `lines`、批次的 IN 叫 `lotId`——**别再叫 `componentCode`**（见下面 redirect-parameter 那条）。
   **料号不能用它改**——那是各表之间的键，走 `mfgPartCodeRename`（一次改全）。也**别拿 `lotSave` 改老批次**：
   它只给新批次写 `receivedQty`，且没传 `unitPrice`/`amount` 时会把单价写成 null。
   **料号有两条路，别混**：`mfgLotCodeChange`（台账「元件料号」格，**只改这一个批次** + 它的发料 + 它的到货单行）；

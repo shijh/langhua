@@ -14,6 +14,9 @@
         <attribute name="projectCode" type="String" mode="IN" optional="true"/>
         <attribute name="bomText" type="String" mode="IN" optional="true" allow-html="any"/>
         <attribute name="fileName" type="String" mode="IN" optional="true"/>
+        <!-- the file itself, base64, so the version keeps the evidence of what the sketch said -->
+        <attribute name="sourceBase64" type="String" mode="IN" optional="true" allow-html="any"/>
+        <attribute name="sourceContentType" type="String" mode="IN" optional="true"/>
         <attribute name="bomVersion" type="String" mode="IN" optional="true"/>
         <attribute name="format" type="String" mode="IN" optional="true"/>
         <attribute name="lock" type="String" mode="IN" optional="true"/>

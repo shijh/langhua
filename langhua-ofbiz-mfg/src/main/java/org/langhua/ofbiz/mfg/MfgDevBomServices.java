@@ -52,6 +52,15 @@ public final class MfgDevBomServices {
     /** How many in-stock part numbers the page offers while a BOM row's code is corrected. */
     static final int MAX_STOCK_OPTIONS = 300;
 
+    /**
+     * The columns of an import that the pages and the row saves read. The file bytes are not among
+     * them: {@code sourceData} is only read when somebody downloads the file, and pulling it on every
+     * page view would make the whole import table heavy.
+     */
+    static final String[] HEAD_FIELDS = {"projectCode", "importSeq", "bomVersion", "sourceFile",
+        "importedStamp", "itemCount", "newCount", "changedCount", "droppedCount", "shortCount",
+        "lockedQty", "sourceSize", "sourceContentType", "note"};
+
     private MfgDevBomServices() {
     }
 
@@ -147,6 +156,17 @@ public final class MfgDevBomServices {
             head.set("bomVersion", version);
             head.set("sourceFile", fileName);
             head.set("importedStamp", new Timestamp(System.currentTimeMillis()));
+            // the uploaded file itself is kept with the version: the rows are what the pages work
+            // with, but the evidence of "what the sketch said" is the file, and re-importing it later
+            // must not depend on somebody still having the export on a laptop
+            byte[] source = sourceBytesOf(MfgSupport.toText(context.get("sourceBase64")));
+            if (source != null) {
+                head.set("sourceData", source);
+                head.set("sourceSize", Long.valueOf(source.length));
+                head.set("sourceContentType", MfgSupport.toText(context.get("sourceContentType")));
+            } else {
+                head.set("sourceSize", Long.valueOf(0));
+            }
             head.set("itemCount", Long.valueOf(0));
             head.set("newCount", Long.valueOf(0));
             head.set("changedCount", Long.valueOf(0));
@@ -354,6 +374,7 @@ public final class MfgDevBomServices {
                 result.put("latest", head);
             }
             for (GenericValue head : EntityQuery.use(delegator).from("MfgDevBom")
+                    .select(HEAD_FIELDS)
                     .where("projectCode", projectCode).orderBy("-importSeq").queryList()) {
                 Map<String, Object> row = new LinkedHashMap<>();
                 row.put("importSeq", head.get("importSeq"));
@@ -366,6 +387,8 @@ public final class MfgDevBomServices {
                 row.put("droppedCount", head.get("droppedCount"));
                 row.put("shortCount", head.get("shortCount"));
                 row.put("lockedQty", head.get("lockedQty"));
+                row.put("sourceSize", head.get("sourceSize"));
+                row.put("sourceContentType", head.getString("sourceContentType"));
                 imports.add(row);
             }
             result.put("shortCount", Integer.valueOf(shortCount));
@@ -558,12 +581,23 @@ public final class MfgDevBomServices {
             }
             lockedTotal += MfgSupport.numberOrZero(item.get("lockedQty"));
         }
-        head.set("itemCount", Long.valueOf(itemCount));
-        head.set("newCount", Long.valueOf(newCount));
-        head.set("changedCount", Long.valueOf(changedCount));
-        head.set("shortCount", Long.valueOf(shortCount));
-        head.set("lockedQty", Double.valueOf(MfgSupport.round2(lockedTotal)));
-        delegator.store(head);
+        // the counters only: storing the whole row would wipe the file bytes, which are deliberately
+        // left out of the read that produced this head
+        Map<String, Object> counters = new LinkedHashMap<>();
+        counters.put("itemCount", Long.valueOf(itemCount));
+        counters.put("newCount", Long.valueOf(newCount));
+        counters.put("changedCount", Long.valueOf(changedCount));
+        counters.put("shortCount", Long.valueOf(shortCount));
+        counters.put("lockedQty", Double.valueOf(MfgSupport.round2(lockedTotal)));
+        delegator.storeByCondition("MfgDevBom", counters, importKeyOf(head));
+    }
+
+    /** The condition that picks one import of one project. */
+    private static org.apache.ofbiz.entity.condition.EntityCondition importKeyOf(GenericValue head) {
+        Map<String, Object> keys = new LinkedHashMap<>();
+        keys.put("projectCode", head.getString("projectCode"));
+        keys.put("importSeq", head.get("importSeq"));
+        return org.apache.ofbiz.entity.condition.EntityCondition.makeCondition(keys);
     }
 
     /**
@@ -676,6 +710,27 @@ public final class MfgDevBomServices {
         row.put("componentCode", code);
         row.put("qty", Double.valueOf(qty));
         return row;
+    }
+
+    /**
+     * The bytes of the uploaded file, decoded from the base64 the page posts.
+     *
+     * <p>Base64 through the service context, the same as the attachments do it: a service cannot take
+     * a byte array straight from a form, and the imported file has to travel with the rows it became.
+     *
+     * @param base64 the posted text, may be null or broken
+     * @return the bytes, or null when nothing usable was posted
+     */
+    static byte[] sourceBytesOf(String base64) {
+        if (base64 == null || base64.trim().isEmpty()) {
+            return null;
+        }
+        try {
+            return java.util.Base64.getMimeDecoder().decode(base64);
+        } catch (IllegalArgumentException e) {
+            // a form that lost a character should not lose the whole import: the rows still come in
+            return null;
+        }
     }
 
     /** The part row of one import, or null when this version does not have that line any more. */
@@ -1186,6 +1241,9 @@ public final class MfgDevBomServices {
     /**
      * The newest import of a project.
      *
+     * <p>The file bytes are left out: this row is read on every page and on every row save, and the
+     * blob belongs to the download only ({@code devBomSource}).
+     *
      * @param delegator the delegator
      * @param projectCode the development project
      * @return the import, {@code null} when the project imported nothing yet
@@ -1196,6 +1254,7 @@ public final class MfgDevBomServices {
             return null;
         }
         List<GenericValue> imports = EntityQuery.use(delegator).from("MfgDevBom")
+                .select(HEAD_FIELDS)
                 .where("projectCode", projectCode).orderBy("-importSeq").queryList();
         return imports.isEmpty() ? null : imports.get(0);
     }

@@ -358,27 +358,11 @@ public final class MfgStockServices {
             }
             MfgStockLedger.ensureLotLedger(delegator, lot);
             double received = MfgSupport.numberOrZero(lot.get("receivedQty"));
-            double amount = MfgSupport.numberOrZero(lot.get("receivedAmount"));
             double diff = actualQty - received;
-            double unitPrice = restatedUnitPrice(amount, actualQty,
-                    MfgSupport.numberOrZero(lot.get("unitPrice")));
+            double unitPrice = restateLot(delegator, lot, actualQty, operatorName, "按点数修正到货数量", note);
             Map<String, Object> result = ServiceUtil.returnSuccess();
             result.put("lotId", lotId);
             result.put("diffQty", MfgSupport.formatQty(diff));
-            if (Math.abs(diff) > 0.0001) {
-                // the arrival row keeps what was typed; the correction is its own ledger row, so the
-                // history of the lot still says who counted it and when
-                MfgStockLedger.recordMovement(delegator, lot, MfgConstants.MOVE_ADJUST, diff,
-                        Double.valueOf(unitPrice), null, null, null, operatorName, null,
-                        "按点数修正到货数量：" + MfgSupport.formatQty(received) + " → "
-                                + MfgSupport.formatQty(actualQty)
-                                + (note == null ? "" : "（" + note + "）"));
-                lot.set("receivedQty", Double.valueOf(actualQty));
-                lot.set("unitPrice", Double.valueOf(unitPrice));
-                lot.store();
-                restateReceiptLine(delegator, lot, actualQty, amount, unitPrice);
-                MfgStockLedger.recalcLotStock(delegator, lot);
-            }
             result.put("receivedQty", MfgSupport.formatQty(actualQty));
             result.put("onHandQty", MfgSupport.formatQty(MfgSupport.numberOrZero(lot.get("onHandQty"))));
             result.put("unitPrice", mfgDouble(unitPrice));
@@ -393,6 +377,406 @@ public final class MfgStockServices {
         } catch (GenericEntityException e) {
             return ServiceUtil.returnError("按点数修正失败：" + e.getMessage());
         }
+    }
+
+    /**
+     * Splits one lot into the lots its contents really are.
+     *
+     * <p>Why: a shop sells "1/4W metal film resistors, 130 values, 20 of each" as one article of 2600
+     * pieces, and a breadboard build then needs them one value at a time (a BOM row says 100Ω). One
+     * lot can only carry one part number, so the parcel has to become one lot per value. Doing that
+     * by hand means typing 130 rows and 130 unit prices, and the money would stay on the empty parcel.
+     *
+     * <p>So this takes the quantity out of the parent (a ledger row, nothing is rewritten), creates a
+     * lot per typed line with the unit price, the supplier, the batch number, the date and the
+     * inspection state of the parent, and puts the quantity in there. The parent keeps the rest; its
+     * received quantity and amount shrink by what moved, so a later count still prices it right.
+     *
+     * @param dctx the dispatch context
+     * @param context service context, see {@code servicedef/stock-services.xml#mfgLotSplit}: {@code lines}
+     *        is one {@code part number, name, quantity} per line, the name may be left out
+     * @return the service result with {@code splitLot}, {@code splitCount}, {@code splitQty} and
+     *         {@code splitRef}, plus the view the page posted
+     */
+    public static Map<String, Object> lotSplit(DispatchContext dctx, Map<String, ? extends Object> context) {
+        String denied = MfgSecurity.permissionProblem(dctx, context, MfgConstants.PERM_STOCK);
+        if (denied != null) {
+            return ServiceUtil.returnError(denied);
+        }
+        Delegator delegator = dctx.getDelegator();
+        String lotId = MfgSupport.toText(context.get("lotId"));
+        if (lotId == null) {
+            return ServiceUtil.returnError("要填原批次的批次号（例如 LOT-261025-844）");
+        }
+        List<Map<String, Object>> rows = splitRowsOf(MfgSupport.toText(context.get("lines")));
+        if (rows.isEmpty()) {
+            return ServiceUtil.returnError("没有读到要拆的料号：一行一个「料号,名称,数量」，名称可以空着");
+        }
+        List<String> problems = new ArrayList<>();
+        List<Map<String, Object>> readable = new ArrayList<>();
+        for (Map<String, Object> row : rows) {
+            String code = MfgSupport.toText(row.get("componentCode"));
+            Double qty = (Double) row.get("qty");
+            int lineNo = ((Integer) row.get("lineNo")).intValue();
+            if (code == null) {
+                problems.add("第 " + lineNo + " 行没有料号：" + row.get("raw"));
+                continue;
+            }
+            if (qty == null || qty.doubleValue() <= 0.0) {
+                // the quantity has to be its own cell: a full-width comma is fine (it is turned into
+                // a normal one), a name that swallows the number is not
+                problems.add("第 " + lineNo + " 行读不出数量（数量要单独放最后一格，用英文或中文逗号都行）："
+                        + row.get("raw"));
+                continue;
+            }
+            if (code.length() > MfgConstants.MAX_COMPONENT_CODE) {
+                problems.add("第 " + lineNo + " 行的料号太长（最多 " + MfgConstants.MAX_COMPONENT_CODE
+                        + " 个字符）：" + code);
+                continue;
+            }
+            readable.add(row);
+        }
+        if (!problems.isEmpty()) {
+            StringBuilder message = new StringBuilder("拆包内容有问题");
+            message.append(problems.size() > 3 ? "（先列前三处，共 " + problems.size() + " 处）："
+                    : "：");
+            for (int i = 0; i < problems.size() && i < 3; i++) {
+                if (i > 0) {
+                    message.append("；");
+                }
+                message.append(problems.get(i));
+            }
+            return ServiceUtil.returnError(message.toString());
+        }
+        // a part number typed twice is a slip of the paste, not a reason to refuse the whole list:
+        // the first line wins, the later ones are dropped and the answer says which
+        List<String> dropped = new ArrayList<>();
+        List<Map<String, Object>> kept = withoutRepeatedRows(readable, dropped);
+        double total = 0.0;
+        for (Map<String, Object> row : kept) {
+            total = MfgSupport.round2(total + ((Double) row.get("qty")).doubleValue());
+        }
+        // how many pieces the parcel really holds: a shop writes x1 for a whole pack, and when only a
+        // part of it is split out the rest has to stay on the parcel instead of disappearing
+        double packQty = MfgSupport.toDouble(context.get("packQty"), 0.0);
+        if (packQty > 0.0 && packQty < total - 0.0001) {
+            return ServiceUtil.returnError("清单要拆 " + MfgSupport.formatQty(total) + " 件，比「这一包实际多少件」"
+                    + MfgSupport.formatQty(packQty) + " 还多，改一下其中一个再试");
+        }
+        String operatorName = MfgSupport.toText(context.get("operatorName"));
+        String note = MfgSupport.toText(context.get("note"));
+        try {
+            GenericValue parent = EntityQuery.use(delegator).from("MfgMaterialLot").where("lotId", lotId).queryOne();
+            if (parent == null) {
+                return ServiceUtil.returnError("Unknown material lot [" + lotId + "]");
+            }
+            if (MfgStockLedger.isProductLot(parent)) {
+                return ServiceUtil.returnError("批次 [" + lotId + "] 是成品，成品走出货，不拆包");
+            }
+            String parentCode = parent.getString("componentCode");
+            for (Map<String, Object> row : kept) {
+                if (parentCode != null
+                        && parentCode.equalsIgnoreCase(MfgSupport.toText(row.get("componentCode")))) {
+                    return ServiceUtil.returnError("子批次的料号不能和原批次一样（" + parentCode + "），换个号再拆");
+                }
+            }
+            MfgStockLedger.ensureLotLedger(delegator, parent);
+            double onHand = MfgSupport.numberOrZero(parent.get("onHandQty"));
+            double reserved = MfgSupport.numberOrZero(parent.get("reservedQty"));
+            double available = MfgStockLedger.availableOf(onHand, reserved, parent.getString("inspectStatusId"));
+            String restatedNote = null;
+            boolean restate = restatesTheParcel(total, onHand, reserved)
+                    || (packQty > 0.0 && packQty > onHand + 0.0001 && reserved <= 0.0001);
+            if (restate) {
+                // a shop writes "x1" for a whole pack, so the ledger says one piece while the pack
+                // holds 2600. The list being split - or the count typed next to it - is the person
+                // saying what is really inside: the count is corrected first and the pieces come out
+                // afterwards, in the same transaction
+                double restateTo = packQty > total + 0.0001 ? packQty : total;
+                double before = MfgSupport.numberOrZero(parent.get("receivedQty"));
+                restateLot(delegator, parent, restateTo, operatorName, "按拆包清单修正到货数量",
+                        "拆包前按清单件数修正");
+                MfgStockLedger.ensureLotLedger(delegator, parent);
+                onHand = MfgSupport.numberOrZero(parent.get("onHandQty"));
+                reserved = MfgSupport.numberOrZero(parent.get("reservedQty"));
+                available = MfgStockLedger.availableOf(onHand, reserved,
+                        parent.getString("inspectStatusId"));
+                restatedNote = MfgSupport.formatQty(before) + " → " + MfgSupport.formatQty(restateTo);
+            }
+            if (total > available + 0.0001) {
+                // the ledger is what counts, and only a parcel booked as one piece is corrected by
+                // itself; a reserved one cannot be taken apart at all
+                return ServiceUtil.returnError("要拆 " + MfgSupport.formatQty(total) + " 件，但批次 [" + lotId
+                        + "] 只有 " + MfgSupport.formatQty(available) + " 件可用"
+                        + (reserved > 0.0001
+                                ? "（其中 " + MfgSupport.formatQty(reserved) + " 件已被预留，先释放再拆）"
+                                : "；先用「点数修正」把数量改对，再拆"));
+            }
+            double unitPrice = MfgSupport.round2(MfgStockLedger.lotUnitCost(parent));
+            LocalDate today = LocalDate.now();
+            String prefix = "LOT-" + today.format(MfgConstants.DAY) + "-";
+            int sequence = MfgSupport.parseTrailingNumber(nextLotId(delegator, today).substring(prefix.length()));
+            String parentName = MfgSupport.toText(parent.getString("componentName"));
+            java.sql.Date receivedDate = parent.getDate("receivedDate");
+            String ref = "SPLIT-" + lotId;
+            List<String> childIds = new ArrayList<>();
+            int index = 0;
+            for (Map<String, Object> row : kept) {
+                String code = MfgSupport.toText(row.get("componentCode"));
+                String name = MfgSupport.toText(row.get("componentName"));
+                double qty = ((Double) row.get("qty")).doubleValue();
+                String childId = formatLotId(today, sequence + index);
+                index++;
+                GenericValue child = delegator.makeValue("MfgMaterialLot");
+                child.set("lotId", childId);
+                child.set("componentCode", code);
+                child.set("componentName", name == null ? parentName : name);
+                child.set("supplierName", parent.getString("supplierName"));
+                child.set("supplierLot", parent.getString("supplierLot"));
+                child.set("receivedQty", Double.valueOf(MfgSupport.round2(qty)));
+                child.set("receivedDate", receivedDate);
+                child.set("receivedAmount", Double.valueOf(MfgSupport.round2(qty * unitPrice)));
+                child.set("unitPrice", Double.valueOf(unitPrice));
+                child.set("inspectStatusId", parent.getString("inspectStatusId"));
+                child.set("splitFromLotId", lotId);
+                child.set("note", "从 " + lotId + " 拆包" + (note == null ? "" : "：" + note));
+                delegator.create(child);
+                MfgStockLedger.recordMovement(delegator, child, MfgConstants.MOVE_RECEIPT, qty,
+                        Double.valueOf(unitPrice), null, null, ref, operatorName, null,
+                        "从 " + lotId + " 拆包");
+                MfgStockLedger.recalcLotStock(delegator, child);
+                childIds.add(childId);
+            }
+            MfgStockLedger.recordMovement(delegator, parent, MfgConstants.MOVE_ADJUST, -total,
+                    Double.valueOf(unitPrice), null, null, ref, operatorName, null,
+                    "拆包到 " + kept.size() + " 个子批次" + (note == null ? "" : "：" + note));
+            double received = MfgSupport.numberOrZero(parent.get("receivedQty"));
+            if (parent.get("receivedQty") != null) {
+                parent.set("receivedQty", Double.valueOf(MfgSupport.round2(Math.max(0.0, received - total))));
+            }
+            Double amount = MfgSupport.optionalAmount(parent.get("receivedAmount"));
+            if (amount != null) {
+                parent.set("receivedAmount", Double.valueOf(
+                        MfgSupport.round2(Math.max(0.0, amount.doubleValue() - total * unitPrice))));
+            }
+            MfgStockLedger.recalcLotStock(delegator, parent);
+            parent.store();
+
+            Map<String, Object> result = ServiceUtil.returnSuccess();
+            result.put("splitLot", lotId);
+            result.put("splitCount", String.valueOf(kept.size()));
+            result.put("splitQty", MfgSupport.formatQty(total));
+            result.put("splitRef", ref);
+            result.put("unitPrice", MfgSupport.formatQty(unitPrice));
+            result.put("splitIds", childIds);
+            // the repeated lines are not a failure: say which ones were left out, so nobody wonders
+            result.put("splitDropped", String.valueOf(dropped.size()));
+            result.put("splitDroppedNote", dropped.isEmpty() ? null : joinDropped(dropped));
+            result.put("splitRestated", restatedNote);
+            keepView(result, context);
+            return result;
+        } catch (GenericEntityException e) {
+            return ServiceUtil.returnError("拆包失败：" + e.getMessage());
+        }
+    }
+
+    /**
+     * Reads the box of the split form: one part per line, {@code part number, name, quantity}.
+     *
+     * <p>The name may be left out ({@code part number, quantity}), blank lines and lines starting
+     * with {@code #} are skipped, and a pasted spreadsheet range separates its cells with tabs. A row
+     * whose last cell is not a number is kept with a {@code null} quantity, so the service can say
+     * which line is wrong instead of quietly splitting less than the person asked for.
+     *
+     * @param text what was pasted, may be null
+     * @return the rows, each with {@code lineNo}, {@code raw}, {@code componentCode},
+     *         {@code componentName} and {@code qty}
+     */
+    static List<Map<String, Object>> splitRowsOf(String text) {
+        List<Map<String, Object>> rows = new ArrayList<>();
+        if (text == null) {
+            return rows;
+        }
+        String[] lines = text.split("\r\n|\n|\r");
+        for (int i = 0; i < lines.length; i++) {
+            String line = lines[i];
+            if (line == null) {
+                continue;
+            }
+            String trimmed = line.trim();
+            if (trimmed.isEmpty() || trimmed.startsWith("#")) {
+                continue;
+            }
+            // a full-width comma is what a Chinese keyboard types, and it is what turns up when the
+            // list is written by hand: "R-1/4W-2R3, 1/4W电阻，2R3，20" would otherwise be two cells
+            String normalized = trimmed.replace('，', ',').replace('、', ',');
+            String[] cells = MfgCsv.splitCsvLine(normalized);
+            String firstCell = cells.length > 0 ? MfgSupport.toText(cells[0]) : null;
+            if (firstCell != null && isHeaderCell(firstCell)) {
+                // a header copied along with the rows is not a part
+                continue;
+            }
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("lineNo", Integer.valueOf(i + 1));
+            row.put("raw", trimmed);
+            row.put("componentCode", firstCell);
+            row.put("componentName", null);
+            row.put("qty", null);
+            if (cells.length >= 2) {
+                String last = MfgSupport.toText(cells[cells.length - 1]);
+                Double qty = quantityOf(last);
+                row.put("qty", qty);
+                if (qty != null && cells.length > 2) {
+                    // the name may itself contain a comma, so everything between the two ends is it
+                    StringBuilder name = new StringBuilder();
+                    for (int c = 1; c < cells.length - 1; c++) {
+                        String part = MfgSupport.toText(cells[c]);
+                        if (part == null) {
+                            continue;
+                        }
+                        if (name.length() > 0) {
+                            name.append(',');
+                        }
+                        name.append(part);
+                    }
+                    row.put("componentName", name.length() == 0 ? null : name.toString());
+                }
+            }
+            rows.add(row);
+        }
+        return rows;
+    }
+
+    /**
+     * Sets the received quantity of a lot to the number of pieces that are really in it, keeping the
+     * money that was paid.
+     *
+     * <p>The arrival row keeps what was typed; the correction is its own ledger row, so the history
+     * of the lot still says who counted it and when. The unit price follows the count (26 yuan for
+     * 260 pieces is 0.10 a piece), and the arrival line of the purchase document is restated with it.
+     *
+     * <p>Shared by the count correction and by the split, which corrects a parcel booked as one piece
+     * before taking the pieces out.
+     *
+     * @param delegator the delegator
+     * @param lot the lot to restate, with its ledger already made sure of
+     * @param actualQty how many pieces are really in it
+     * @param operatorName who counted
+     * @param reason what the ledger row says it was for, e.g. {@code 按点数修正到货数量}
+     * @param note a remark to append, may be null
+     * @return the unit price the lot carries afterwards
+     * @throws GenericEntityException when the row cannot be written
+     */
+    static double restateLot(Delegator delegator, GenericValue lot, double actualQty, String operatorName,
+            String reason, String note) throws GenericEntityException {
+        double received = MfgSupport.numberOrZero(lot.get("receivedQty"));
+        double amount = MfgSupport.numberOrZero(lot.get("receivedAmount"));
+        double diff = actualQty - received;
+        double unitPrice = restatedUnitPrice(amount, actualQty,
+                MfgSupport.numberOrZero(lot.get("unitPrice")));
+        if (Math.abs(diff) > 0.0001) {
+            MfgStockLedger.recordMovement(delegator, lot, MfgConstants.MOVE_ADJUST, diff,
+                    Double.valueOf(unitPrice), null, null, null, operatorName, null,
+                    reason + "：" + MfgSupport.formatQty(received) + " → "
+                            + MfgSupport.formatQty(actualQty)
+                            + (note == null ? "" : "（" + note + "）"));
+            lot.set("receivedQty", Double.valueOf(actualQty));
+            lot.set("unitPrice", Double.valueOf(unitPrice));
+            lot.store();
+            restateReceiptLine(delegator, lot, actualQty, amount, unitPrice);
+            MfgStockLedger.recalcLotStock(delegator, lot);
+        }
+        return unitPrice;
+    }
+
+    /**
+     * Whether a split should first correct the count of the parcel it takes the pieces out of.
+     *
+     * <p>A shop writes {@code ¥21.00 x1} for a whole pack, so the ledger says one piece while the pack
+     * holds 2600: taking 2600 out of it is the person saying what is really inside, so the count is
+     * corrected first and the pieces come out afterwards. Any other parcel is left alone - splitting
+     * more than the ledger has is a mistake there, and correcting it silently would hide it.
+     *
+     * @param total how many pieces the pasted list takes out
+     * @param onHand how many the parcel holds according to the ledger
+     * @param reserved how many of them are earmarked for a project or an order
+     * @return {@code true} when the parcel is booked as one piece and the list is larger than that
+     */
+    static boolean restatesTheParcel(double total, double onHand, double reserved) {
+        return total > onHand + 0.0001 && onHand <= 1.0001 && reserved <= 0.0001;
+    }
+
+    /** The quantity of a split line, {@code null} when the cell is not a positive number. */
+    private static Double quantityOf(String text) {
+        if (text == null) {
+            return null;
+        }
+        try {
+            double qty = Double.parseDouble(text);
+            if (Double.isNaN(qty) || qty <= 0.0) {
+                return null;
+            }
+            return Double.valueOf(qty);
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
+    /**
+     * Drops the lines whose part number was already typed, and writes down which ones they were.
+     *
+     * <p>A list of 130 values copied out of a spreadsheet often has a line twice; refusing the whole
+     * list over that makes the person hunt for it. The first line wins (it is the one they meant),
+     * the later ones are left out, and the page says which line repeated which so nothing is lost
+     * silently.
+     *
+     * @param rows the readable lines, in the order they were pasted
+     * @param dropped receives one message per line that was left out
+     * @return the lines to split, in paste order
+     */
+    static List<Map<String, Object>> withoutRepeatedRows(List<Map<String, Object>> rows, List<String> dropped) {
+        List<Map<String, Object>> kept = new ArrayList<>();
+        Map<String, Integer> firstLineOf = new LinkedHashMap<>();
+        for (Map<String, Object> row : rows) {
+            String code = MfgSupport.toText(row.get("componentCode"));
+            if (code == null) {
+                continue;
+            }
+            int lineNo = ((Integer) row.get("lineNo")).intValue();
+            Integer seenAt = firstLineOf.put(code.toUpperCase(Locale.ROOT), Integer.valueOf(lineNo));
+            if (seenAt == null) {
+                kept.add(row);
+            } else if (dropped != null) {
+                dropped.add("第 " + lineNo + " 行（" + code + "）和第 " + seenAt + " 行重复，已忽略这行");
+            }
+        }
+        return kept;
+    }
+
+    /** The repeated lines of a split as one sentence, cut short so the page stays readable. */
+    private static String joinDropped(List<String> dropped) {
+        StringBuilder text = new StringBuilder();
+        for (int i = 0; i < dropped.size() && i < 3; i++) {
+            if (i > 0) {
+                text.append("；");
+            }
+            text.append(dropped.get(i));
+        }
+        if (dropped.size() > 3) {
+            text.append("；另有 ").append(dropped.size() - 3).append(" 行重复也忽略了");
+        }
+        return text.toString();
+    }
+
+    /** Whether a first cell is a column title copied along with the rows. */
+    private static boolean isHeaderCell(String cell) {
+        String text = cell.trim();
+        if (text.equals("料号") || text.equals("零件号") || text.equals("数量")) {
+            return true;
+        }
+        String lower = text.toLowerCase(Locale.ROOT);
+        return lower.equals("part") || lower.equals("part number") || lower.equals("code")
+                || lower.equals("componentcode");
     }
 
     /**

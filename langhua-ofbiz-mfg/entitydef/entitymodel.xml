@@ -299,6 +299,7 @@
         <field name="inspectDate" type="date"><description>When the incoming inspection was finished</description></field>
         <field name="inspector" type="name"><description>Who inspected the lot</description></field>
         <field name="inspectNote" type="description"><description>Inspection result details</description></field>
+        <field name="splitFromLotId" type="id"><description>Lot this one was split out of (a resistor pack of 2600 pieces becomes one lot per value); the pieces are taken out of that lot, so it keeps the rest</description></field>
         <field name="note" type="description"/>
         <field name="createdStamp" type="date-time"/>
         <field name="createdTxStamp" type="date-time"/>
@@ -737,6 +738,9 @@
         <field name="droppedCount" type="numeric"><description>Parts the previous version had and this one does not</description></field>
         <field name="shortCount" type="numeric"><description>Parts that were short when the version was imported</description></field>
         <field name="lockedQty" type="floating-point"><description>Units this version locked for the project</description></field>
+        <field name="sourceSize" type="numeric"><description>Size of the file the rows came from, zero when the import was pasted without a file</description></field>
+        <field name="sourceContentType" type="short-varchar"><description>Content type of that file, e.g. text/html; decides how the download is served</description></field>
+        <field name="sourceData" type="byte-array"><description>The uploaded file itself, so a version can be looked at or re-imported without hunting for the export on someone's laptop. Read it on its own (a select that leaves it out keeps the import list light); byte-array, like the attachment file, so GenericValue.getBytes reads it back</description></field>
         <field name="note" type="description"/>
         <field name="createdStamp" type="date-time"/>
         <field name="createdTxStamp" type="date-time"/>

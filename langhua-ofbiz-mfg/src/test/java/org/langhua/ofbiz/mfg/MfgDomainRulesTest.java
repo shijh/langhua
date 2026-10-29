@@ -476,4 +476,95 @@ public class MfgDomainRulesTest {
         assertTrue(other.contains("Something odd happened."));
         assertFalse(other.contains("SQL Exception"));
     }
+
+    @Test
+    public void readsTheLinesOfTheSplitBox() {
+        // a pack of 2600 resistors has to become one lot per value: the box takes a pasted list,
+        // "part number, name, quantity" with the name optional (most people type two cells)
+        java.util.List<java.util.Map<String, Object>> rows = MfgStockServices.splitRowsOf(
+                "R-1/4W-100R,1/4W 金属膜电阻 100Ω,20\n"
+                        + "R-1/4W-1K,,20\n"
+                        + "R-1/4W-10K,20\n"
+                        + "\n"
+                        + "# 这一行是注释\n"
+                        + "R-1/4W-4K7,4.7k 电阻,带,逗号的名字,20");
+        assertEquals(4, rows.size());
+        assertEquals("R-1/4W-100R", rows.get(0).get("componentCode"));
+        assertEquals("1/4W 金属膜电阻 100Ω", rows.get(0).get("componentName"));
+        assertEquals(20.0, ((Double) rows.get(0).get("qty")).doubleValue(), 0.0001);
+        // an empty name cell stays empty: the service then keeps the name of the parent lot
+        assertEquals("R-1/4W-1K", rows.get(1).get("componentCode"));
+        assertNull(rows.get(1).get("componentName"));
+        assertEquals(20.0, ((Double) rows.get(1).get("qty")).doubleValue(), 0.0001);
+        // two cells: part number and quantity
+        assertEquals("R-1/4W-10K", rows.get(2).get("componentCode"));
+        assertEquals(20.0, ((Double) rows.get(2).get("qty")).doubleValue(), 0.0001);
+        // a name may itself contain a comma; only the outer cells are the part number and the quantity
+        assertEquals("4.7k 电阻,带,逗号的名字", rows.get(3).get("componentName"));
+        assertEquals(20.0, ((Double) rows.get(3).get("qty")).doubleValue(), 0.0001);
+        // a line with no quantity is kept, so the service can name the line that is wrong
+        java.util.List<java.util.Map<String, Object>> bad = MfgStockServices.splitRowsOf("R-1/4W-100R\nR-x,abc");
+        assertEquals(2, bad.size());
+        assertNull(bad.get(0).get("qty"));
+        assertNull(bad.get(1).get("qty"));
+        assertEquals(Integer.valueOf(1), bad.get(0).get("lineNo"));
+        assertTrue(MfgStockServices.splitRowsOf(null).isEmpty());
+        assertTrue(MfgStockServices.splitRowsOf("   \n\n").isEmpty());
+    }
+
+    @Test
+    public void correctsAParcelBookedAsOnePieceBeforeSplittingIt() {
+        // a shop writes x1 for a whole pack, so the ledger says one piece while the pack holds 2600.
+        // Splitting 2600 out of it is the person saying what is inside, so the count is corrected
+        // first; anything else (210 on the shelf, 2600 asked) is a mistake and stays refused
+        assertTrue(MfgStockServices.restatesTheParcel(2600.0, 1.0, 0.0));
+        assertTrue(MfgStockServices.restatesTheParcel(50.0, 1.0, 0.0));
+        assertFalse(MfgStockServices.restatesTheParcel(2600.0, 210.0, 0.0));
+        assertFalse(MfgStockServices.restatesTheParcel(2600.0, 1.0, 5.0));
+        assertFalse(MfgStockServices.restatesTheParcel(1.0, 1.0, 0.0));
+        assertFalse(MfgStockServices.restatesTheParcel(20.0, 300.0, 0.0));
+    }
+
+    @Test
+    public void dropsTheRepeatedLinesAndSaysWhich() {
+        // the same value pasted twice is a slip, not a reason to refuse 130 lines: keep the first
+        // line, leave the later one out and tell the person which line repeated which
+        java.util.List<java.util.Map<String, Object>> rows = MfgStockServices.splitRowsOf(
+                "R-1/4W-2R3,2R3,20\nR-1/4W-2R4,2R4,20\nR-1/4W-2R3,2R3,20\nR-1/4W-33R,33R,20\n"
+                        + "R-1/4W-33R,33R,20");
+        java.util.List<String> dropped = new java.util.ArrayList<>();
+        java.util.List<java.util.Map<String, Object>> kept = MfgStockServices.withoutRepeatedRows(rows, dropped);
+        assertEquals(3, kept.size());
+        assertEquals("R-1/4W-2R3", kept.get(0).get("componentCode"));
+        assertEquals("R-1/4W-2R4", kept.get(1).get("componentCode"));
+        assertEquals("R-1/4W-33R", kept.get(2).get("componentCode"));
+        assertEquals(2, dropped.size());
+        assertTrue(dropped.get(0).contains("第 3 行"));
+        assertTrue(dropped.get(0).contains("第 1 行"));
+        assertTrue(dropped.get(1).contains("第 5 行"));
+        assertTrue(dropped.get(1).contains("第 4 行"));
+        // the case of the part number is not what makes two lines the same
+        java.util.List<String> again = new java.util.ArrayList<>();
+        assertEquals(1, MfgStockServices.withoutRepeatedRows(
+                MfgStockServices.splitRowsOf("R-1K,1K,20\nr-1k,1k,20"), again).size());
+        assertEquals(1, again.size());
+    }
+
+    @Test
+    public void readsASplitListTypedWithAChineseCommaAndATitle() {
+        // what a person actually writes: "料号, 名称 型号，20" - the comma before the quantity is the
+        // full-width one a Chinese keyboard types, and the title of the list is often copied along
+        java.util.List<java.util.Map<String, Object>> rows = MfgStockServices.splitRowsOf(
+                "料号,名称,数量\n"
+                        + "R-1/4W-2R3, 1/4W金属膜电阻包 1%五色环电阻 2R3，20\n"
+                        + "R-1/4W-1K, 1/4W金属膜电阻包 1%五色环电阻 1K，20\n"
+                        + "R-1/4W-10K，20");
+        assertEquals(3, rows.size());
+        assertEquals("R-1/4W-2R3", rows.get(0).get("componentCode"));
+        assertEquals("1/4W金属膜电阻包 1%五色环电阻 2R3", rows.get(0).get("componentName"));
+        assertEquals(20.0, ((Double) rows.get(0).get("qty")).doubleValue(), 0.0001);
+        // a line written with nothing but full-width commas still splits into three cells
+        assertEquals("R-1/4W-10K", rows.get(2).get("componentCode"));
+        assertEquals(20.0, ((Double) rows.get(2).get("qty")).doubleValue(), 0.0001);
+    }
 }

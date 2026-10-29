@@ -82,6 +82,12 @@ public final class MfgDevBomEvents {
         context.put("projectCode", projectCode);
         context.put("bomText", bomText);
         context.put("fileName", fileName);
+        // the uploaded file travels with the rows, so the version keeps the evidence of what the
+        // sketch said and can be re-imported without hunting for the export on someone's laptop
+        if (data != null && data.length > 0) {
+            context.put("sourceBase64", java.util.Base64.getEncoder().encodeToString(data));
+            context.put("sourceContentType", text(parameters.get("_file_contentType")));
+        }
         context.put("bomVersion", text(parameters.get("bomVersion")));
         context.put("format", text(parameters.get("format")));
         // a checkbox that is not ticked sends nothing, so its absence means "no" out of the page
@@ -107,6 +113,117 @@ public final class MfgDevBomEvents {
             Debug.logError(e, "Could not run mfgDevBomImport", MODULE);
             return error(request, "导入失败：" + e.getMessage());
         }
+    }
+
+    /**
+     * Shows or downloads the file one import came from.
+     *
+     * <p>The rows are what the pages work with, but when somebody asks "why did this version look
+     * like that", the answer is the file the sketch exported. It is stored with the import, so it can
+     * be looked at (or imported again) long after the laptop that made it is gone.
+     *
+     * <p>By default the file is shown **in the browser** - a {@code bom.html} renders, a CSV shows as
+     * text - because that is what people want when they click the link: to see what the sketch said.
+     * {@code download=Y} sends it as a file instead. An HTML file is served with a sandbox policy, so
+     * whatever is inside it cannot run scripts against this application.
+     *
+     * @param request the request, holding {@code projectCode}, {@code importSeq} and an optional
+     *        {@code download}
+     * @param response the response, receives the file
+     * @return {@code success} when the file was written, {@code error} when there is nothing to send
+     */
+    public static String source(HttpServletRequest request, HttpServletResponse response) {
+        Map<String, Object> parameters = UtilHttp.getParameterMap(request);
+        String projectCode = text(parameters.get("projectCode"));
+        long importSeq = MfgSupport.toLong(parameters.get("importSeq"), 0L);
+        boolean download = "Y".equalsIgnoreCase(text(parameters.get("download")));
+        org.apache.ofbiz.entity.Delegator delegator =
+                (org.apache.ofbiz.entity.Delegator) request.getAttribute("delegator");
+        if (delegator == null || projectCode == null) {
+            return "error";
+        }
+        try {
+            GenericValue head = org.apache.ofbiz.entity.util.EntityQuery.use(delegator).from("MfgDevBom")
+                    .where("projectCode", projectCode, "importSeq", Long.valueOf(importSeq)).queryOne();
+            byte[] data = head == null ? null : head.getBytes("sourceData");
+            if (data == null || data.length == 0) {
+                data = blobBytesOf(head == null ? null : head.get("sourceData"));
+            }
+            if (data == null || data.length == 0) {
+                Debug.logWarning("The import " + importSeq + " of " + projectCode
+                        + " has no file stored (sourceSize=" + (head == null ? "no row"
+                                : String.valueOf(head.get("sourceSize"))) + ")", MODULE);
+                return "error";
+            }
+            String type = head.getString("sourceContentType");
+            String name = head.getString("sourceFile");
+            String fileName = (name == null ? "bom-" + importSeq + ".html" : name.replace("\"", ""));
+            response.setContentType(download ? typeOf(type, fileName) : viewTypeOf(type, fileName));
+            response.setHeader("Content-Disposition",
+                    (download ? "attachment" : "inline") + "; filename=\"" + fileName + "\"");
+            if (!download) {
+                // the file is somebody else's HTML: let it be seen, but not let it run against this
+                // application (a sandboxed document gets an opaque origin, so no cookies, no scripts
+                // that could call back into the ERP)
+                response.setHeader("Content-Security-Policy", "sandbox; default-src 'none'; "
+                        + "style-src 'unsafe-inline'; img-src 'self' data:");
+                response.setHeader("X-Content-Type-Options", "nosniff");
+            }
+            response.setContentLength(data.length);
+            OutputStream out = response.getOutputStream();
+            out.write(data);
+            out.flush();
+            return "success";
+        } catch (org.apache.ofbiz.entity.GenericEntityException e) {
+            Debug.logError(e, "Could not read the imported file of " + projectCode, MODULE);
+            return "error";
+        } catch (IOException e) {
+            Debug.logError(e, "Could not write the imported file of " + projectCode, MODULE);
+            return "error";
+        }
+    }
+
+    /** The content type the file is served with when it is shown in the browser. */
+    private static String viewTypeOf(String stored, String fileName) {
+        String type = typeOf(stored, fileName);
+        if (type.startsWith("text/html")) {
+            return "text/html; charset=UTF-8";
+        }
+        if (type.startsWith("text/") || type.startsWith("application/xml")) {
+            // a CSV as text/plain is shown as text by every browser; as text/csv most of them only
+            // offer to download it, which is exactly what the person did not ask for
+            return "text/plain; charset=UTF-8";
+        }
+        return type;
+    }
+
+    /** The content type to send the file as, guessing from the file name when none was stored. */
+    private static String typeOf(String stored, String fileName) {
+        if (stored != null && !stored.trim().isEmpty()) {
+            return stored.trim();
+        }
+        String lower = fileName == null ? "" : fileName.toLowerCase(java.util.Locale.ROOT);
+        if (lower.endsWith(".csv")) {
+            return "text/csv; charset=UTF-8";
+        }
+        if (lower.endsWith(".xml")) {
+            return "application/xml; charset=UTF-8";
+        }
+        return "text/html; charset=UTF-8";
+    }
+
+    /** The bytes of a blob column, whatever the entity engine hands back. */
+    private static byte[] blobBytesOf(Object value) {
+        if (value instanceof byte[]) {
+            return (byte[]) value;
+        }
+        if (value instanceof java.nio.ByteBuffer) {
+            java.nio.ByteBuffer buffer = ((java.nio.ByteBuffer) value).duplicate();
+            byte[] data = new byte[buffer.remaining()];
+            buffer.get(data);
+            return data;
+        }
+        return null;
     }
 
     /**

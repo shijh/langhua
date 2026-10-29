@@ -122,6 +122,38 @@
     </service>
 
 
+    <service name="mfgLotSplit" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgStockServices" invoke="lotSplit"
+            auth="false" use-transaction="true">
+        <description>Split one lot into the lots its contents really are (a resistor pack of 2600 pieces into 130 values of 20): a lot per typed line, with the unit price, supplier, batch number, date and inspection state of the parent, and the quantity taken out of the parent</description>
+        <!-- the lines are 'part number, name, quantity' with the name optional; the field is called
+             lines and not componentCode because the redirect falls back to a posted parameter of the
+             same name (see the note on mfgLotCodeChange) -->
+        <attribute name="lotId" type="String" mode="IN" optional="false"/>
+        <attribute name="lines" type="String" mode="IN" optional="true" allow-html="any"/>
+        <!-- how many pieces the parcel really holds; empty means "the list is everything in it" -->
+        <attribute name="packQty" type="Double" mode="IN" optional="true"/>
+        <attribute name="note" type="String" mode="IN" optional="true"/>
+        <attribute name="operatorName" type="String" mode="IN" optional="true"/>
+        <attribute name="backSearch" type="String" mode="IN" optional="true"/>
+        <attribute name="backPage" type="String" mode="IN" optional="true"/>
+        <attribute name="backPageSize" type="String" mode="IN" optional="true"/>
+        <attribute name="backComponentCode" type="String" mode="IN" optional="true"/>
+        <attribute name="splitLot" type="String" mode="OUT" optional="true"/>
+        <attribute name="splitCount" type="String" mode="OUT" optional="true"/>
+        <attribute name="splitQty" type="String" mode="OUT" optional="true"/>
+        <attribute name="splitRef" type="String" mode="OUT" optional="true"/>
+        <attribute name="unitPrice" type="String" mode="OUT" optional="true"/>
+        <attribute name="splitDropped" type="String" mode="OUT" optional="true"/>
+        <attribute name="splitDroppedNote" type="String" mode="OUT" optional="true"/>
+        <attribute name="splitRestated" type="String" mode="OUT" optional="true"/>
+        <attribute name="splitIds" type="java.util.List" mode="OUT" optional="true"/>
+        <attribute name="search" type="String" mode="OUT" optional="true"/>
+        <attribute name="page" type="String" mode="OUT" optional="true"/>
+        <attribute name="pageSize" type="String" mode="OUT" optional="true"/>
+        <attribute name="componentCode" type="String" mode="OUT" optional="true"/>
+    </service>
+
     <service name="mfgLotList" engine="java"
             location="org.langhua.ofbiz.mfg.MfgStockServices" invoke="lotList"
             auth="false" use-transaction="false">

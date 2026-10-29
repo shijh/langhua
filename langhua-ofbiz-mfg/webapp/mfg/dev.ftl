@@ -509,7 +509,7 @@
             <tr>
                 <th class="num">#</th><th>版本</th><th>文件</th><th>时间</th><th class="num">元件</th>
                 <th class="num">新增</th><th class="num">数量变化</th><th class="num">不再使用</th>
-                <th class="num">缺货</th><th class="num">锁料</th>
+                <th class="num">缺货</th><th class="num">锁料</th><th>原文件</th>
             </tr>
             <#list bomImports as h>
                 <tr data-bom-import="${h.importSeq}">
@@ -523,6 +523,21 @@
                     <td class="num">${(h.droppedCount)!0}</td>
                     <td class="num">${(h.shortCount)!0}</td>
                     <td class="num">${(h.lockedQty)!0}</td>
+                    <td>
+                        <#-- the file the rows came from is kept with the version: this is what "why did
+                             this version look like that" is answered with. It opens in a new tab and is
+                             shown there (a bom.html renders, a CSV as text); 存 downloads it instead -->
+                        <#if ((h.sourceSize)!0) gt 0>
+                            <a href="/mfg/control/devBomSource?projectCode=${project.projectCode}&amp;importSeq=${h.importSeq}"
+                               target="_blank" rel="noopener"
+                               data-bom-source="${h.importSeq}">浏览</a>
+                            <a href="/mfg/control/devBomSource?projectCode=${project.projectCode}&amp;importSeq=${h.importSeq}&amp;download=Y"
+                               data-bom-download="${h.importSeq}">存</a>
+                            <span class="hint">${((h.sourceSize)/1024)?string("0.#")} KB</span>
+                        <#else>
+                            <span class="hint">粘贴导入</span>
+                        </#if>
+                    </td>
                 </tr>
             </#list>
         </table>

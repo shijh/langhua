@@ -357,6 +357,22 @@ public class MfgDevBomRulesTest {
         assertEquals(1, adapters);
     }
 
+    @Test
+    public void keepsTheImportedFileWithTheVersion() {
+        // the rows are what the pages work with, but "why did this version look like that" is answered
+        // by the file the sketch exported; it travels as base64 through the service context
+        byte[] html = "<html><body>Bill of Materials</body></html>".getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        String encoded = java.util.Base64.getEncoder().encodeToString(html);
+        byte[] back = MfgDevBomServices.sourceBytesOf(encoded);
+        assertTrue(back != null && back.length == html.length);
+        assertEquals("<html><body>Bill of Materials</body></html>",
+                new String(back, java.nio.charset.StandardCharsets.UTF_8));
+        // a pasted import has no file, and a form that lost a character must not lose the import
+        assertNull(MfgDevBomServices.sourceBytesOf(null));
+        assertNull(MfgDevBomServices.sourceBytesOf("   "));
+        assertNull(MfgDevBomServices.sourceBytesOf("*** not base64 ***"));
+    }
+
     private static Map<String, Object> option(String code, String name) {
         Map<String, Object> option = new LinkedHashMap<>();
         option.put("componentCode", code);

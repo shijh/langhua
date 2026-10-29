@@ -1119,17 +1119,30 @@ Fritzing 导出里永远没有它们，所以表格下面是「**加一个元件
 - **释放本项目的锁料**：板子下单或项目暂停时点一下，只放锁、不动库存。
 - **缺货清单是实时算的**：买回来入库后缺口自己消失；「导入时缺几项」留在导入记录里做对照。
 
+### 导入的那份文件存在系统里吗
+
+**存的**。选文件导入时，上传的原始文件（`bom.html` / CSV）跟这一版一起存进 `MfgDevBom`（`sourceData` +
+`sourceSize` + `sourceContentType`），导入记录表里每行两个链接：**「浏览」在新标签页里直接看**（`bom.html` 就渲染成
+Fritzing 那张表，CSV 以 `text/plain` 显示成文本），**「存」**才当文件下载。粘文本导入没有文件，那一行会标「粘贴导入」。
+两件事因此能做了：① 复盘时出示当时的原始清单；② 以后想重放同一版，直接存下来再导入，不用去找当初的导出文件。
+
+安全上：这些文件是“别人写的东西”，内联浏览时响应带 `Content-Security-Policy: sandbox`（文档变成不透明源，
+里面的脚本既动不了本站 cookie 也调不回本系统），并且带 `X-Content-Type-Options: nosniff`。
+
+文件大小上限与导入一致（4 MB）。列表页与行内保存读导入记录时**不取 blob**（`HEAD_FIELDS`），只有下载那一下才读；
+改计数用的是 `storeByCondition`（只写计数器），所以不会把 blob 冲掉。
+
 ### 数据与代码
 
 | 东西 | 在哪 |
 | --- | --- |
-| 每次导入 | `MfgDevBom`（`projectCode` + `importSeq`；版本号、文件、元件/新增/变化/停用/缺货计数、锁料合计） |
+| 每次导入 | `MfgDevBom`（`projectCode` + `importSeq`；版本号、文件、元件/新增/变化/停用/缺货计数、锁料合计；`sourceData` 存原始文件） |
 | 每版的元件 | `MfgDevBomItem`（料号、名称、型号、参数、位号、数量、上一版数量、`changeId`、`sourceId`、已锁、缺口、研发消耗；`sourceId = MFG_BOM_MANUAL` 表示手工添加，下次导入会带过来） |
 | 锁料 | `MfgInventoryDetail.devProjectCode`（配 `reservedDiff`），与工单预留同一套口径 |
 | 解析 | `MfgCsv.parseFritzingHtmlBom`（`BomFormat.FRITZING_HTML`；纯函数、离线可测） |
 | 比对 | `MfgDevBomServices.devBomRows`（纯函数：合并同料行 → 新增/变化/不变 → 补上不再使用的） |
-| 服务 | `mfgDevBomImport` / `mfgDevBomDetail` / `mfgDevBomItemSave` / `mfgDevBomItemAdd` / `mfgDevBomSaveAll` / `mfgDevBomRelease`（`servicedef/devbom-services.xml`） |
-| 事件 | `MfgDevBomEvents.importHtml`（选文件或粘贴）/ `saveAll`（整表保存）/ `shortageCsv`（缺货清单 CSV，UTF-8 带 BOM） |
+| 服务 | `mfgDevBomImport` / `mfgDevBomDetail` / `mfgDevBomItemSave` / `mfgDevBomItemAdd` / `mfgDevBomSaveAll` / `mfgDevBomRelease`（`servicedef/devbom-services.xml`）；拆包在 `mfgLotSplit`（`stock-services.xml`） |
+| 事件 | `MfgDevBomEvents.importHtml`（选文件或粘贴，文件随版本存下）/ `saveAll`（整表保存）/ `shortageCsv`（缺货清单 CSV，UTF-8 带 BOM）/ `stockCodes`（料号搜索 JSON）/ `source`（下载当年的原文件） |
 | 页面 | `webapp/mfg/dev.ftl` 的 `#devbom` 一段（`/mfg/control/dev?projectCode=…`） |
 | 巡检 | `verify-m52-devbom.ps1`（52 项，指向测试实例 8095） |
 
@@ -1234,6 +1247,35 @@ PCB 打样这类订单特别常见：店铺页上写的是 **`¥21.00 ×1`**，�
 - 成品批次（`FG-…`）不能这样改，它的数量由工单完工入库决定。
 
 $$ \text{批次单价} = \frac{\text{实付金额}}{\text{点数后的数量}} $$
+
+### 拆包：一包里是「很多种料」
+
+淘宝买的「1/4W 金属膜电阻包 130 种 × 20 只」是**一个商品、2600 只**，但 BOM 里说的是 `100Ω`。
+系统口径是**一个批次一个料号**，所以这种包必须拆成 130 个批次。物料批次页的 **「拆包」**（`mfgLotSplit`）就是干这个的：
+
+1. 先在台账里点那一行批次号旁边的「拆」，原批次号就填进上面「拆包」框；
+2. 框里一行一个料号，格式 `料号,名称,数量`（**名称可以省**，空着就沿用原批次的名称；只写 `料号,数量` 也行），
+   一次可以粘上百行——从 Excel 里选一块粘过来也行（Tab 分隔同样认）；
+3. 按「拆包」：一次事务里
+   - 每个料号建一个批次（`LOT-…`），**单价、供应商、供应商批号、到货日、检验状态都沿用原批次**，
+     子批次金额 = 数量 × 单价，并记下 **`splitFromLotId` = 原批次**（台账里子批次那行会写「拆自 LOT-…」，可点回去）；
+   - 原批次记一条 `MFG_MOVE_ADJUST −合计` 流水（流水号 `SPLIT-<原批次>`），子批次各记一条到货流水；
+   - 原批次的到货数量与金额**一起减掉**拆走的部分（所以之后再点数修正，单价还是对的）。
+
+**拆完之后原批次是 0 吗？** 整包拆完就是 0（2600 拆成 130 个 20，正好归零），这是对的。但是**只拆一部分**时，要把「这一包实际多少件」填上（例如 2600）：原批次会先按 2600 修正，再拆走你列的那些，
+**剩下的还留在原批次上**，下次接着拆。不填这一栏，系统就认为「清单里就是这一包的全部」。
+
+规则：合计不能超过原批次的**可用量**（被预留的不能拆，先释放）；子批次料号不能和原批次同一个；
+数量必须 > 0；**成品批次不能拆**。
+
+> **一包按「1 件」入库的可以直接拆**（淘宝写 `¥1.20 ×1` 的整包）：账面只有 1 件时，系统先按清单件数把原批次的
+> 数量**修正过来**（记一条调整流水，单价 = 实付 ÷ 新数量），再拆出去——横幅上会写“原批次账面只有 1 件，
+> 已按清单件数修正为 2600 件”。其它情况（账上 210 件却要拆 2600）仍然拒绝，那就先点数修正。
+
+贴进来的清单可以很宽松：**全角逗号 `，` 也认**（中文输入法打的就是它），表头行（`料号,名称,数量`）会被跳过，
+**同一个料号出现两次会自动去重**（留第一行），并在页面上写明「第 N 行（料号）和第 M 行重复，已忽略这行」——
+不会因为一行手误就把 130 行全退回来。
+
 
 ### 改批次的资料：名称 / 备注 / 料号
 

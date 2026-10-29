@@ -409,6 +409,26 @@
         <response name="error" type="view" value="materials"/>
     </request-map>
 
+    <request-map uri="lotSplit">
+        <security https="true" auth="true"/>
+        <event type="service" invoke="mfgLotSplit"/>
+        <response name="success" type="request-redirect" value="materials">
+            <redirect-parameter name="splitLot"/>
+            <redirect-parameter name="splitCount"/>
+            <redirect-parameter name="splitQty"/>
+            <redirect-parameter name="splitRef"/>
+            <redirect-parameter name="unitPrice"/>
+            <redirect-parameter name="splitDropped"/>
+            <redirect-parameter name="splitDroppedNote"/>
+            <redirect-parameter name="splitRestated"/>
+            <redirect-parameter name="search"/>
+            <redirect-parameter name="page"/>
+            <redirect-parameter name="pageSize"/>
+            <redirect-parameter name="componentCode"/>
+        </response>
+        <response name="error" type="view" value="materials"/>
+    </request-map>
+
     <request-map uri="lotEdit">
         <security https="true" auth="true"/>
         <event type="service" invoke="mfgLotEdit"/>
@@ -935,6 +955,15 @@
         <event type="java" path="org.langhua.ofbiz.mfg.MfgDevBomEvents" invoke="stockCodes"/>
         <response name="success" type="none"/>
         <response name="error" type="none"/>
+    </request-map>
+
+    <request-map uri="devBomSource">
+        <security https="true" auth="true"/>
+        <event type="java" path="org.langhua.ofbiz.mfg.MfgDevBomEvents" invoke="source"/>
+        <response name="success" type="none"/>
+        <response name="error" type="request-redirect" value="dev">
+            <redirect-parameter name="projectCode"/>
+        </response>
     </request-map>
 
     <request-map uri="workOrderOutsource">

@@ -71,6 +71,38 @@ C0402-100N,100nF 0402 电容,立创商城,DC2409B,500,2026-10-19</textarea>
     </#if>
 </fieldset>
 
+<fieldset id="splitBox">
+    <legend>拆包（一个批次拆成多个料号）</legend>
+    <form method="post" action="/mfg/control/lotSplit">
+        <@keepView/>
+        <p>原批次：<input type="text" name="lotId" size="18" value="${(parameters.lotId)!''}"
+                        placeholder="LOT-261025-844"/>
+            这一包实际多少件：<input type="text" name="packQty" size="8" value=""
+                        title="可空。空着 = 清单里就是这一包的全部；填了 = 原批次按这个数修正，拆完剩下的留在这里"/>
+            <span class="hint">拆出去的料号各建一个批次，<b>单价、供应商、批号、到货日、检验状态都沿用原批次</b>；
+                原批次按拆走的数量减少（记一条调整流水）。子批次会记下“拆自哪个批次”，台账里能点回去。</span></p>
+        <textarea name="lines" rows="8" cols="90" placeholder="R-1/4W-100R,1/4W 金属膜电阻 100Ω,20&#10;R-1/4W-1K,1/4W 金属膜电阻 1kΩ,20&#10;R-1/4W-10K,20"></textarea>
+        <p class="hint">每行：料号,名称,数量（<b>名称可空</b>，空着就沿用原批次的名称；只写「料号,数量」也行）。
+            一次可以粘上上百行，<b>全角逗号也认</b>，表头行会跳过，料号重复的行自动去重（留第一行并告诉你去掉了哪几行）。
+            <b>一包按「1 件」入库的也可以直接拆</b>：账面只有 1 件时，系统先按清单件数把原批次的数量修正过来，再拆；
+            其他情况（比如账上 210 件却要拆 2600）仍然会拒绝，那就先用那一行的「点数修正」。成品批次不能拆。</p>
+        <p><input type="submit" value="拆包"/></p>
+    </form>
+    <#if parameters.splitLot??>
+        <p class="ok">已把 ${parameters.splitLot} 拆成 <b>${parameters.splitCount}</b> 个批次，共
+            ${(parameters.splitQty)!'0'} 件（流水号 ${(parameters.splitRef)!''}，单价沿用
+            ${(parameters.unitPrice)!'0'}）。新批次可以在下面的台账里搜料号看到。</p>
+    </#if>
+    <#if (parameters.splitDropped!'0') != '0'>
+        <p class="warn">粘的清单里有 ${parameters.splitDropped} 行料号重复，<b>已经自动去重</b>（同料号只留第一行）：
+            ${(parameters.splitDroppedNote)!''}</p>
+    </#if>
+    <#if parameters.splitRestated??>
+        <p class="ok">原批次的数量已按这一包的实际件数修正为 ${parameters.splitRestated} 件
+            （记一条调整流水，单价跟着重算），再拆出去；剩下的还在原批次上，以后点数修正也照常能用。</p>
+    </#if>
+</fieldset>
+
 <h2>批次台账</h2>
 <form method="get" action="/mfg/control/materials">
     搜索：<input type="text" name="search" size="20" value="${(lr.search)!''}" placeholder="批次 / 料号 / 供应商 / 批号"/>
@@ -86,7 +118,15 @@ C0402-100N,100nF 0402 电容,立创商城,DC2409B,500,2026-10-19</textarea>
             <th>来料检验</th><th>点数修正</th><th>追溯</th></tr>
         <#list lots as lot>
             <tr data-lot-row="${lot.lotId}">
-                <td>${lot.lotId!}</td>
+                <td>${lot.lotId!}
+                    <#-- one click brings the batch into the split box above: a pack of 2600 resistors
+                         has to become one lot per value -->
+                    <a class="hint" href="/mfg/control/materials?lotId=${lot.lotId}#splitBox" title="拆包">拆</a>
+                    <#if (lot.splitFromLotId!'')?has_content>
+                        <br/><span class="hint">拆自
+                            <a href="/mfg/control/materials?search=${lot.splitFromLotId?url}">${lot.splitFromLotId}</a></span>
+                    </#if>
+                </td>
                 <td>
                     <#-- one lot, one part number: this corrects the parcel in front of you, not every
                          row that happens to carry the same code. The field is called partCode, not

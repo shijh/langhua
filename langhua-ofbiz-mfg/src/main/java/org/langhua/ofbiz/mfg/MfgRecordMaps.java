@@ -58,6 +58,7 @@ public final class MfgRecordMaps {
         map.put("rejectedQty", lot.getDouble("rejectedQty") == null
                 ? Double.valueOf(0.0) : lot.getDouble("rejectedQty"));
         map.put("usable", Boolean.valueOf(MfgWorkOrderServices.isLotUsable(inspectStatus)));
+        map.put("splitFromLotId", lot.getString("splitFromLotId"));
         map.put("note", lot.getString("note"));
         return map;
     }
