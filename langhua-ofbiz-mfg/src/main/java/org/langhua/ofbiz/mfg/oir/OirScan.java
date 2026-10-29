@@ -104,6 +104,9 @@ public final class OirScan {
     /** Answer code when the upload is larger than {@link #MAX_IMAGE_BYTES}. */
     public static final String TOO_LARGE = "TOO_LARGE";
 
+    /** Answer code when the vision service did not answer within {@link #SCAN_TIMEOUT_SECONDS}. */
+    public static final String TIMEOUT = "TIMEOUT";
+
     /** How often the screenshot is sent before the person is asked to try again. */
     public static final int ATTEMPTS = 3;
 
@@ -222,6 +225,17 @@ public final class OirScan {
 
     /** Seconds one call to the vision service may take, with room on top of the socket timeouts. */
     public static final int SLICE_WAIT_SECONDS = 240;
+
+    /**
+     * How long the whole recognition of one screenshot may take, in seconds.
+     *
+     * <p>A page of 26 orders is read in about 20 seconds (26 slices, six at a time), so two minutes is
+     * ten times the room a page needs - but a service that is having a bad day, or one that answers
+     * nothing at all, must not keep the page waiting: the person is left staring at "正在识别…" with no
+     * way to know whether anything is happening (that is how this limit came to be). When it runs out,
+     * the slices that are still out are dropped and the answer says so.
+     */
+    public static final int SCAN_TIMEOUT_SECONDS = 120;
 
     /**
      * How long the first retry waits before asking again, in milliseconds. The wait doubles with every
@@ -410,6 +424,7 @@ public final class OirScan {
         // the product pictures of the page are cut out before the model is asked anything: the page
         // itself is far too big to keep while ten calls run, a handful of thumbnails is not
         long started = System.currentTimeMillis();
+        long deadline = started + SCAN_TIMEOUT_SECONDS * 1000L;
         String scanId = "SCAN-" + started;
         List<int[]> shotBoxes = new ArrayList<>();
         List<byte[]> shotThumbs = new ArrayList<>();
@@ -426,17 +441,43 @@ public final class OirScan {
         Slices sliced = slicesOfRanges(image);
         List<byte[]> slices = sliced.pictures;
         String sliceNote = "";
+        boolean timedOut = false;
         if (slices.size() == 1) {
-            Read read = readPicture(slices.get(0), endpoint, model, key, contentType, false, 0);
-            // the numbers read from the whole page, and a second reading from the narrow strip: they are
-            // compared after the join, where the length this page prints at is known (Step 156/157)
-            OirOrders.noteTheSecondRead(read.orders,
-                    readHeaders(sliced.strips.isEmpty() ? null : sliced.strips.get(0), endpoint, model,
-                            key, "image/png"));
-            orders = read.orders;
-            reply = read.reply;
-            seen = read.seen;
-            transportProblem = read.transportProblem;
+            // one call, but still under the deadline: a service that accepts the request and then says
+            // nothing would otherwise hold the page until the socket gives up
+            ExecutorService one = Executors.newFixedThreadPool(1);
+            final byte[] onlyPicture = slices.get(0);
+            final byte[] onlyStrip = sliced.strips.isEmpty() ? null : sliced.strips.get(0);
+            final String pageEndpoint = endpoint;
+            final String pageModel = model;
+            final String pageKey = key;
+            final String pageType = contentType;
+            Future<Read> task = one.submit(new Callable<Read>() {
+                @Override
+                public Read call() {
+                    Read read = readPicture(onlyPicture, pageEndpoint, pageModel, pageKey, pageType,
+                            false, 0);
+                    // the numbers read from the whole page, and a second reading from the narrow strip:
+                    // they are compared after the join, where the length this page prints at is known
+                    OirOrders.noteTheSecondRead(read.orders,
+                            readHeaders(onlyStrip, pageEndpoint, pageModel, pageKey, "image/png"));
+                    return read;
+                }
+            });
+            try {
+                Read read = task.get(Math.min(SLICE_WAIT_SECONDS, secondsLeft(deadline)),
+                        TimeUnit.SECONDS);
+                orders = read.orders;
+                reply = read.reply;
+                seen = read.seen;
+                transportProblem = read.transportProblem;
+            } catch (InterruptedException | ExecutionException | TimeoutException e) {
+                Debug.logError(e, "The screenshot was not read in time", MODULE);
+                transportProblem = e.getMessage();
+                timedOut = true;
+            } finally {
+                one.shutdownNow();
+            }
             handPicturesOver(shotBoxes, shotThumbs,
                     new int[] {0, shotsHeight(shotBoxes)}, orders, request, scanId, nextShot);
         } else {
@@ -473,13 +514,26 @@ public final class OirScan {
             }
             try {
                 for (int at = 0; at < running.size(); at++) {
+                    long left = deadline - System.currentTimeMillis();
+                    if (left <= 0L) {
+                        // the page has waited long enough: the slices still out are dropped, and the
+                        // answer says how far it got
+                        Debug.logInfo("The scan ran out of time after " + at + " of " + running.size()
+                                + " slices, the rest is dropped", MODULE);
+                        timedOut = true;
+                        break;
+                    }
                     Future<Read> future = running.get(at);
                     Read read;
                     try {
-                        read = future.get(SLICE_WAIT_SECONDS, TimeUnit.SECONDS);
+                        read = future.get(Math.min(SLICE_WAIT_SECONDS, secondsLeft(deadline)),
+                                TimeUnit.SECONDS);
                     } catch (InterruptedException | ExecutionException | TimeoutException e) {
                         Debug.logError(e, "A slice of the screenshot was not read", MODULE);
                         transportProblem = e.getMessage();
+                        if (e instanceof TimeoutException) {
+                            timedOut = true;
+                        }
                         answers.add(Collections.emptyList());
                         blocksSaid.add(Integer.valueOf(0));
                         continue;
@@ -512,6 +566,15 @@ public final class OirScan {
             orders = OirOrders.mergeOrders(giveTheRowsAnOrder(answers), blocksSaid);
             seen = orders.size();
             sliceNote = "（长图分 " + slices.size() + " 段逐段识别）";
+        }
+        if (timedOut) {
+            String timeoutNote = "（识别超时：一次最多等 " + SCAN_TIMEOUT_SECONDS + " 秒"
+                    + (orders.isEmpty() ? "" : "，只读了 " + orders.size() + " 张单")
+                    + "；可以再点一次，或者把截图裁成两张分开识别）";
+            sliceNote = timeoutNote;
+            if (orders.isEmpty()) {
+                return answer(response, false, timeoutNote, null, TIMEOUT);
+            }
         }
         if (orders.isEmpty()) {
             return answer(response, false, scanFailure(reply, transportProblem), null, NO_ORDERS);
@@ -781,6 +844,17 @@ public final class OirScan {
             return new ArrayList<>();
         }
         return new ArrayList<>(pictures.subList(0, orders));
+    }
+
+    /**
+     * The seconds left until the deadline of this scan, at least one.
+     *
+     * @param deadline when the scan has to be answered, in milliseconds
+     * @return how long a call may still take
+     */
+    public static long secondsLeft(long deadline) {
+        long left = (deadline - System.currentTimeMillis()) / 1000L;
+        return left < 1L ? 1L : left;
     }
 
     /**

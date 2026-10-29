@@ -292,6 +292,15 @@ public class MfgOrderReadRulesTest {
     }
 
     @Test
+    public void givesUpAfterTwoMinutes() {
+        // a page of 26 orders needs about 20 seconds, so two minutes is ten times the room - and no call
+        // is ever handed less than a second (a short deadline must not mean a zero second wait)
+        assertEquals(120, OirScan.SCAN_TIMEOUT_SECONDS);
+        assertTrue(OirScan.secondsLeft(System.currentTimeMillis() + 60000L) > 30L);
+        assertEquals(1L, OirScan.secondsLeft(System.currentTimeMillis() - 5000L));
+    }
+
+    @Test
     public void readsTheFieldsOfAVisionAnswer() {
         // the model may answer plain, fenced, or inside a chat envelope
         Map<String, String> plain = oneOrder(

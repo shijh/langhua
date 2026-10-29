@@ -1629,6 +1629,16 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
      第一张单的图就被广告条挤掉了）。`OirScan.picturesForOrders` 取**最靠上的 n 张**（广告在商品之后）；
      图数**少于**单数时一张都不给（分不清是哪张，贴错比没有更糟）。单测
      `takesThePicturesNearestTheTopWhenThePagePrintsItsStripOfAdvertisements` / `findsAPictureWhosePhotographStartsInsideItsCard`。
+- **识别有超时：服务端 120 秒，页面 135 秒（Step 179f）**：`OirScan.SCAN_TIMEOUT_SECONDS = 120`，从拿图起算，
+  每波 `future.get(min(SLICE_WAIT_SECONDS, secondsLeft(deadline)))`，到点就把还没回来的分段**丢掉**并取消线程池；
+  已经有单就照常返回 + 消息里写“识别超时：一次最多等 120 秒，只读了 N 张单”，一张都没有就回 `code=TIMEOUT`。
+  单张图的页面（只有一段）也走同一个截止时间（单独一个线程池 + `get(...)`），否则同步调用会把线程吊到 socket 超时。
+  页面（`receipts.ftl`）每秒把“已等 N 秒”写进提示，并在 **135 秒**时 `AbortController.abort()`
+  （`name === 'AbortError'` 显示“等了 N 秒还没有结果，已经放弃这一次”），比服务端多 15 秒，让服务端的话术优先。
+  **实测**：把接口地址指到 `mock-hang.ps1`（127.0.0.1:9099，接受连接但永不回）→ **126.1 秒**后拿到
+  `ok=False code=TIMEOUT`，比 120 多出的 6 秒是收尾（再来一次 `blockCountOf` 解码 + 存 11 MB 原图）。
+  耗时看日志里的 `One order scan took … ms: … ms to cut N product pictures, N slices at most 6 at a time`：
+  26 单长图约 20 秒（其中裁图 ~1 秒），5 单短图约 7 秒；想更快就调 `MAX_PARALLEL`，代价是被视觉服务限流时反而更慢。
 - **PowerShell 写文件别用 `Set-Content -Encoding UTF8`**：PS 5.1 会带 BOM，javac 直接报
   `非法字符: '\ufeff'`（三个文件同时中招）。要改源码用 `create_file`/编辑工具，或写完后用
   `[System.IO.File]::WriteAllBytes` 去掉前 3 个字节。

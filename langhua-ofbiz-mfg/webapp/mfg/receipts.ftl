@@ -416,9 +416,32 @@
                the answer is in: once.js only covers the double click itself */
             var release = function () { button.className = button.className.replace(/\s*\bbusy\b/g, ''); };
             button.className = (button.className + ' busy').replace(/^\s+/, '');
-            fetch('/mfg/control/orderImage', { method: 'POST', body: body, credentials: 'same-origin' })
+            /* the seconds are shown while waiting, and the request is given up after a while: the
+               server stops at 120 seconds of its own, so a service that never answers must not leave
+               this page staring at "正在识别…" (it happened, and there was no way to tell whether
+               anything was going on) */
+            var started = new Date().getTime();
+            var seconds = 0;
+            var ticker = window.setInterval(function () {
+                seconds = Math.round((new Date().getTime() - started) / 1000);
+                hint.textContent = '正在识别… 已等 ' + seconds + ' 秒（长图一般 10～25 秒，超过 2 分钟会自动放弃）';
+            }, 1000);
+            var stopTimer = function () { window.clearInterval(ticker); };
+            var givingUp = null;
+            var abort = ('AbortController' in window) ? new AbortController() : null;
+            if (abort) {
+                givingUp = window.setTimeout(function () { abort.abort(); }, 135000);
+            }
+            fetch('/mfg/control/orderImage', {
+                method: 'POST',
+                body: body,
+                credentials: 'same-origin',
+                signal: abort ? abort.signal : undefined
+            })
                 .then(jsonOrLogin)
                 .then(function (data) {
+                    stopTimer();
+                    if (givingUp) { window.clearTimeout(givingUp); }
                     if (!data.ok) {
                         hint.className = 'error';
                         hint.textContent = data.message || '识别失败';
@@ -442,12 +465,19 @@
                     hint.textContent = data.message || '没有读出订单，再点一次，或者手工填';
                 })
                 .catch(function (problem) {
+                    stopTimer();
+                    if (givingUp) { window.clearTimeout(givingUp); }
                     if (problem && problem.message === 'login') {
                         /* the page is already on its way to the login page */
                         return;
                     }
                     hint.className = 'error';
-                    hint.textContent = '识别请求失败，再点一次，或者手工填';
+                    if (problem && problem.name === 'AbortError') {
+                        hint.textContent = '等了 ' + seconds + ' 秒还没有结果，已经放弃这一次：'
+                            + '再点一次「再试一次」；一直这样就把截图裁成两张分开识别';
+                    } else {
+                        hint.textContent = '识别请求失败，再点一次，或者手工填';
+                    }
                     button.textContent = '再试一次';
                 })
                 .then(release, release);
