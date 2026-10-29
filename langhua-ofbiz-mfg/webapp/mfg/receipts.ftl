@@ -344,6 +344,9 @@
                 return false;
             }
             chosen = fileLike;
+            /* what is below was read from the previous picture: it goes away, or a person takes it for
+               this one and imports the wrong screenshot (Step 179p) */
+            forget();
             try {
                 var carrier = new DataTransfer();
                 carrier.items.add(fileLike);
@@ -410,6 +413,9 @@
             }
             var body = new FormData();
             body.append('image', image);
+            /* the list on screen belongs to the previous read: it goes away while this one runs, so
+               nothing old can be imported by mistake (Step 179p) */
+            forget();
             hint.className = 'hint';
             hint.textContent = '正在识别…';
             /* recognition takes a few seconds, so the button stays dimmed (and unclickable) until
@@ -494,6 +500,32 @@
         var orderRows = document.getElementById('scanOrderRows');
         var batchHint = document.getElementById('batchHint');
         var importButton = document.getElementById('importOrders');
+
+        /* Empties what the previous read produced: the checklist, its summary line, the button state
+           and the id of the screenshot those numbers point back at. Used when another picture is taken
+           and when a new read starts, so the table on screen always belongs to the picture above it
+           (Step 179p). The hint of the scan itself is left alone: the caller writes it. */
+        function forget() {
+            orders = [];
+            if (orderRows) {
+                while (orderRows.firstChild) {
+                    orderRows.removeChild(orderRows.firstChild);
+                }
+            }
+            if (ordersBox) {
+                ordersBox.hidden = true;
+            }
+            if (importButton) {
+                importButton.hidden = false;
+                importButton.textContent = '导入这张单';
+            }
+            if (batchHint) {
+                batchHint.className = 'hint';
+                batchHint.textContent = '';
+            }
+            /* the next import must not point its receipts back at the previous screenshot */
+            window.orderScanId = null;
+        }
 
         function linesOf(order) {
             return (order.lines || '').split(/\r?\n/).filter(function (row) {

@@ -1698,6 +1698,13 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
     靠它才能复现“一列到底”；`shoot-layout.bat` 是宽窗口的旧版本）。巡检里那条断言查的是
     “页面用了 `stack.className = 'shots'`”
     且 css 里有 `.shots img.shot`。
+  ⑯ **再粘一张图要先把旧结果清掉（Step 179p）**：核对表、汇总行、“已入库”状态都是上一张图读出来的，
+    留着就会让人拿新图去导旧结果。`receipts.ftl` 里 `forget()` 清 `orders` / `#scanOrderRows` /
+    隐藏 `#scanOrders` / 按钮文字 / `window.orderScanId`（不然下一批到货单的原图指针会指向上一次的截图），
+    在 `take()`（选文件 / 粘贴 / 拖入都走它）和点「识别并核对」时各调一次。
+    **别把 `scanHint` 一起清**：`take()` 紧接着要写“已粘贴截图：…”。
+    页面脚本的语法不用浏览器就能查：`%TEMP%\jup\js-check\check-pages.ps1` 取几个渲染后的页面、
+    把内联 `<script>` 拆出来跑 `node --check`（结果写 `F:\build-ofbiz\js-check.txt`），改完 `.ftl` 里的脚本跑一下。
 - **识别有超时：服务端 120 秒，页面 135 秒（Step 179f）**：`OirScan.SCAN_TIMEOUT_SECONDS = 120`，从拿图起算，
   每波 `future.get(min(SLICE_WAIT_SECONDS, secondsLeft(deadline)))`，到点就把还没回来的分段**丢掉**并取消线程池；
   已经有单就照常返回 + 消息里写“识别超时：一次最多等 120 秒，只读了 N 张单”，一张都没有就回 `code=TIMEOUT`。
