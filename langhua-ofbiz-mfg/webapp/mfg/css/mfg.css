@@ -461,3 +461,8 @@ img.shot[data-part-shot] {
     height: 34px;
     margin: .15em .3em 0 0;
 }
+/* a picture the shop never stored answers 404: shots.js marks it, and the broken icon goes away */
+img.shot.gone,
+a.gone {
+    display: none;
+}

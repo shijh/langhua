@@ -897,7 +897,37 @@ public final class MfgStockServices {
                 shots.put(line.getString("componentCode"), shot);
             }
         }
+        dropMissingPictures(delegator, shots);
         return shots;
+    }
+
+    /**
+     * Drops the picture ids whose attachment is no longer there.
+     *
+     * <p>A receipt line only stores a pointer, so a pointer can outlive its picture (the file was
+     * deleted, or a test import made one up). Left in place it greys out one table cell with a broken
+     * image icon on every page that lists the part, which looks like the whole feature is broken.
+     *
+     * @param delegator the delegator
+     * @param shots the picture ids to check, cleaned in place
+     * @throws GenericEntityException when the attachments cannot be read
+     */
+    private static void dropMissingPictures(Delegator delegator, Map<String, String> shots)
+            throws GenericEntityException {
+        if (shots.isEmpty()) {
+            return;
+        }
+        List<Object> ids = new ArrayList<>(new java.util.HashSet<>(shots.values()));
+        java.util.Set<String> stored = new java.util.HashSet<>();
+        for (GenericValue attachment : EntityQuery.use(delegator).from("MfgAttachment").select("ownerId")
+                .where(org.apache.ofbiz.entity.condition.EntityCondition.makeCondition("ownerTypeId",
+                                MfgConstants.ATT_ORDER_SCAN),
+                        org.apache.ofbiz.entity.condition.EntityCondition.makeCondition("ownerId",
+                                org.apache.ofbiz.entity.condition.EntityOperator.IN, ids))
+                .queryList()) {
+            stored.add(attachment.getString("ownerId"));
+        }
+        shots.values().removeIf(id -> !stored.contains(id));
     }
 
     /**
@@ -919,6 +949,7 @@ public final class MfgStockServices {
                 shots.put(line.getString("lotId"), shot);
             }
         }
+        dropMissingPictures(delegator, shots);
         return shots;
     }
 

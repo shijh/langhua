@@ -165,7 +165,7 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
 | `verify-m47.ps1` | 照淘宝订单一步入库（Step 60/65/110）：订单表单、两行明细 → 建单+入库、订单号已存、货款 4.41、便宜料单价 0.0291、重复提交不重复入库、补运费累加、不满四列/数量 0 被拒、**长料号被缩短且全称留在名称里**、识图按钮与 `/mfg/control/orderImage` 降级回答、**淘宝导出的 xlsx 导入块（`#excelForm` / multipart / `#excelNoteTable` / 空提交回 JSON）**（日志 `mfg-m47.txt`；识图那几项要求实例上没配识图，跑完 m48 会清掉） | 42 |
 | `verify-m48.ps1` | 系统设置页（Step 61）：识图配置块与状态、密钥不回显、接口必须 http(s)、空密钥保留旧的、保存后状态变 DATABASE、`clear=Y` 恢复未配置、没配/配了两种 scan 回答（日志 `mfg-m48.txt`） | 26 |
 | `verify-m52-devbom.ps1` | 研发 BOM（Step 175，测试实例）：导入真工程的 `pixel-flash-v94_bom.html` → 11 个元件与料号、有库存的不进缺货清单、没库存的进；第二版（CSV）1 个数量变化 / 9 不变 / 1 停用 + `VAR_SAMPLE` 离开货架；缺货清单 CSV；改料号重锁；释放锁料后又变缺（日志 `mfg-m52-test.txt`） | 33 |
-| `verify-m56-shots.ps1` | 订单商品图（Step 179）：核对表有「图」列并带上 `o<i>.shot`、明细行 `data-line-shot` 与 `img.shot`、图走 `MFG_ATT_ORDER_SCAN` 的附件地址、同一单重导换上一张图、没带图导入时一行都不显示、**同一个 `scanShotId` 还要出现在库存结存 / 出入库流水 / 产品 BOM / 研发 BOM / 齐套预警 / 工单齐套表 / 盘点页（`data-part-shot`）**（用一个假 id 就能测，不需要真图） | 43 |
+| `verify-m56-shots.ps1` | 订单商品图（Step 179）：核对表有「图」列并带上 `o<i>.shot`、明细行 `data-line-shot` 与 `img.shot`、图走 `MFG_ATT_ORDER_SCAN` 的附件地址（**自己上传一张 8×8 PNG 并断言 `image/*` 能取回**）、同一单重导换上一张图、没带图导入时一行都不显示、**指针在但图不在了的行不显示**、`shots.js` 已加载、**同一个 `scanShotId` 还要出现在库存结存 / 出入库流水 / 产品 BOM / 研发 BOM / 齐套预警 / 工单齐套表 / 盘点页（`data-part-shot`）** | 51 |
 
 ## 设计决策
 
@@ -1612,8 +1612,10 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
      与「同料号不同数字」（`samePart` 分支）。只在一条上写，重导一次就留着上一张图（`verify-m56` 抓到的）。
   ⑥ 页面：核对表多一列「图」（`data-scan-shot`）、明细的名称列后面跟 `img.shot`（`data-line-shot`）；
      导入时带 `o<i>.shot`，`MfgReceiptEvents.ordersJson` 转给服务。`mfg.css` 末尾是 `img.shot` 那段。
-  ⑦ 巡检 `verify-m56-shots.ps1`（43 项，日志 `mfg-m56.txt`）**不需要真图**：用一个假 id 就能断言属性与 `src`，
-     真裁图那段要识图服务在线（单元测试 `MfgOrderReadRulesTest` 用画出来的页面钉住裁图与缩略图）。
+  ⑦ 巡检 `verify-m56-shots.ps1`（51 项，日志 `mfg-m56.txt`）**自己上传一张 8×8 的 PNG**（`StorePicture`，multipart
+     到 `attachmentUpload`），所以断言的是“图真的能显示”：`ServedPicture` 要回 `image/*`。**不要再用假 id**——
+     指针指不到图时页面原本会顶个裂图图标（用户报过），现在这种行会被 `dropMissingPictures` 剔掉，
+     巡检里 `GHO…` 那条就是钉它的；真裁图那段要识图服务在线（单测 `MfgOrderReadRulesTest` 用画出来的页面钉住裁图与缩略图）。
   ⑧ 实体列 `SCAN_SHOT_ID` 由 OFBiz 启动时的 `[addColumn]` 自动补，**不用**跑手工 SQL。
   ⑨ **图片 id 只能 20 个字符**：`MfgAttachment.ownerId` 是 `id` 类型，而 `SCAN-<13 位毫秒>` 已经 18 位，
      再拼 `-12` 就是 21 位 —— Derby 直接截断，于是**第 10 张以后的图全落在第 1、2 张的 id 上**，
@@ -1638,6 +1640,11 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
      `MfgStockServices.shotByComponent`（`componentCode → scanShotId`，`createdStamp` 排序取最新的那条），
      **也是每页一次**——不要在行循环里查，20 行就是 20 次查询。
      塞进去的键一律叫 `scanShotId`（行上 `row.put("scanShotId", …)`），模板里判 `?has_content`。
+     **指针在、图不在的行不能显示**：明细只存 id，图可能没存下来（导入时没裁出来、附件被删），
+     那样每个列这个料号的页面都会顶着一个裂图图标（2026-10-29 用户就是这么报的）。所以
+     `shotByComponent` / `shotOfLot` 末尾调 `dropMissingPictures`：**一次** `MfgAttachment` 查询（`ownerId IN (…)`）
+     验证之后把没有图的指针剔掉；库里已经记下的老指针由 `js/shots.js` 兜底（捕获阶段的 `error` 监听，
+     给 `img.shot` 加 `.gone`，CSS 里 `display:none`）——**别只用其中一道**。
      另外两张图一个字节都不复制：商品图和整张截图都是 `MfgAttachment` 的一个 row，业务表里只有 id。
      **`workOrderDetail.ftl` 没有 `<#setting url_escaping_charset="UTF-8">`**，那里写 `${x?url}` 会让整页
      `FreeMarker template error`（HTTP 200，巡检才看得出来）——`SCAN-<数字>` 是安全字符，直接拼。
