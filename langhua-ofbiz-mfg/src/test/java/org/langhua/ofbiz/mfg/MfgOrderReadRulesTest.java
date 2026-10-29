@@ -259,6 +259,44 @@ public class MfgOrderReadRulesTest {
     }
 
     @Test
+    public void keepsTheBoxInsideTheRoomBetweenTwoPictures() {
+        // a page that prints its cards close together: a box of the usual height would reach into the
+        // card of the row above or below, and one crop would show two products
+        int cards = 3;
+        int cardHeight = 120;
+        int step = 180;
+        BufferedImage page = new BufferedImage(800, cards * step + 120, BufferedImage.TYPE_INT_RGB);
+        java.awt.Graphics2D pen = page.createGraphics();
+        pen.setColor(java.awt.Color.WHITE);
+        pen.fillRect(0, 0, page.getWidth(), page.getHeight());
+        for (int i = 0; i < cards; i++) {
+            pen.setColor(java.awt.Color.BLUE);
+            pen.fillRect(40, 100 + i * step, cardHeight, cardHeight);
+            pen.setColor(java.awt.Color.BLACK);
+            pen.fillRect(420, 120 + i * step, 300, 18);
+        }
+        pen.dispose();
+        List<int[]> boxes = OirShots.boxesOf(page);
+        assertEquals(cards, boxes.size());
+        for (int i = 0; i < cards; i++) {
+            int[] box = boxes.get(i);
+            int photoTop = 100 + i * step;
+            // the whole card is inside its box
+            assertTrue("the card is cut at the top: " + box[1], box[1] <= photoTop);
+            assertTrue("the card is cut at the bottom: " + box[3], box[3] >= photoTop + cardHeight);
+            // and the box holds no row of the card above or below it
+            if (i > 0) {
+                assertTrue("the box shows the picture above it: " + box[1],
+                        box[1] >= photoTop - step + cardHeight);
+            }
+            if (i + 1 < cards) {
+                assertTrue("the box shows the picture below it: " + box[3],
+                        box[3] <= photoTop + step);
+            }
+        }
+    }
+
+    @Test
     public void keepsThePaleBandOfAnOrderHeaderOutOfThePictures() {
         // a page that prints no picture at all: its bands are pale, its words are thin
         BufferedImage page = shopPage(2, java.awt.Color.WHITE);

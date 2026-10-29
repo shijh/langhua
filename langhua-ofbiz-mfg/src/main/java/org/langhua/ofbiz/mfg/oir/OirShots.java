@@ -110,6 +110,9 @@ public final class OirShots {
     /** How many blank columns may sit inside one photograph: the white stripes of a card. */
     static final int PHOTO_GAP = 4;
 
+    /** How many rows of white a box leaves before the picture above or below it. */
+    static final int ROW_GAP = 4;
+
     /**
      * How many blank rows may sit inside one picture. A photo of a part on a white card has bands of
      * white through it, and those bands must not cut it into two. A block that prints two articles
@@ -163,8 +166,14 @@ public final class OirShots {
         // how far a box may reach: up to where this page prints the words of a row. Measured, because
         // the same shop prints smaller cards when the browser is zoomed out
         int reach = wordsStartOf(page, pictures, column);
-        for (int[] run : pictures) {
-            boxes.add(boxAround(run, column, page, reach));
+        for (int i = 0; i < pictures.size(); i++) {
+            int[] run = pictures.get(i);
+            // and how tall it may be: the box is a square, so its height has to fit between the picture
+            // before it and the picture after it - a box that grows into the next card shows two
+            // products, and one that grows up into the band of its block shows the order number
+            int above = run[1] - (i == 0 ? 0 : pictures.get(i - 1)[3]);
+            int below = (i + 1 == pictures.size() ? page.getHeight() : pictures.get(i + 1)[1]) - run[3];
+            boxes.add(boxAround(run, column, page, reach, Math.min(above, below)));
         }
         return boxes;
     }
@@ -329,7 +338,7 @@ public final class OirShots {
 
     /**
      * The box of one picture: a square that starts where the cards start, is as tall as what was found,
-     * and never runs into the words of the row.
+     * and stays inside the room this picture has.
      *
      * <p>Anchored on the column and not on the content: the run of a picture can reach into the words of
      * the row (the first letters of the title are inside the strip), and a box centred on it drifts right
@@ -340,13 +349,19 @@ public final class OirShots {
      * @param page the screenshot, only read for its size
      * @param reach how far right the box may go before it would take in the words of the row, or
      *        {@link Integer#MAX_VALUE} when the page did not tell
+     * @param room how many blank rows the picture has before the next thing above or below it
      */
-    private static int[] boxAround(int[] run, int column, BufferedImage page, int reach) {
-        int wanted = Math.max(run[3] - run[1] + PICTURE_MARGIN * 2, MIN_PICTURE_SIDE);
+    private static int[] boxAround(int[] run, int column, BufferedImage page, int reach, int room) {
+        int height = run[3] - run[1];
+        int wanted = Math.max(height + PICTURE_MARGIN * 2, MIN_PICTURE_SIDE);
         // never wider than the card: a zoomed out page prints a 205 wide card, and a 300 wide box would
         // take the first two characters of the title with it. But a picture taller than the space before
         // the words keeps its own height, or the crop would cut the picture itself
-        int side = Math.min(wanted, Math.max(reach, run[3] - run[1] + PICTURE_MARGIN));
+        int side = Math.min(wanted, Math.max(reach, height + PICTURE_MARGIN));
+        // never taller than the room between the neighbouring pictures, less a hair of white so two
+        // boxes never touch - but never shorter than the picture either
+        int fits = height + Math.max(0, room) * 2 - ROW_GAP;
+        side = Math.max(Math.min(side, fits), height);
         // left edge stays on the card: a narrower box takes the white right of the photograph and not a
         // slice of the photograph itself
         int x0 = Math.max(0, column - PICTURE_MARGIN / 2);
