@@ -409,10 +409,12 @@ public final class OirScan {
         }
         // the product pictures of the page are cut out before the model is asked anything: the page
         // itself is far too big to keep while ten calls run, a handful of thumbnails is not
-        String scanId = "SCAN-" + System.currentTimeMillis();
+        long started = System.currentTimeMillis();
+        String scanId = "SCAN-" + started;
         List<int[]> shotBoxes = new ArrayList<>();
         List<byte[]> shotThumbs = new ArrayList<>();
         fillShots(image, shotBoxes, shotThumbs);
+        long picturesDone = System.currentTimeMillis();
         int[] nextShot = new int[] {1};
         String reply = null;
         String transportProblem = null;
@@ -640,6 +642,10 @@ public final class OirScan {
         // the screenshot itself is kept under this id: the receipts made from it point at the picture
         // their numbers came from, and the product pictures sit beside it under the same id
         storeScreenshotOf(request, scanId, image, contentType);
+        Debug.logInfo("One order scan took " + (System.currentTimeMillis() - started) + " ms: "
+                + (picturesDone - started) + " ms to cut " + shotBoxes.size() + " product pictures, "
+                + slices.size() + " slices at most " + MAX_PARALLEL + " at a time, " + orders.size()
+                + " orders read", MODULE);
         return answer(response, true, message + sliceNote + shortfall + countOff, orders, null, scanId);
     }
 
