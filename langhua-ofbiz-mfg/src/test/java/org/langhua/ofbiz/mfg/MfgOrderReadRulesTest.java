@@ -433,6 +433,30 @@ public class MfgOrderReadRulesTest {
     }
 
     @Test
+    public void warnsWhenThePagePrintsFewerPicturesThanArticles() {
+        // the counts agree: nothing to say
+        assertNull(OirScan.picturesShortfallNote(2, 2));
+        // more pictures than articles is the advertisement strip, which is expected
+        assertNull(OirScan.picturesShortfallNote(3, 2));
+        // nothing read at all
+        assertNull(OirScan.picturesShortfallNote(0, 0));
+        // two articles and one picture: a white part that could not be cut out, or one row read where
+        // the page prints two - either way a picture may sit beside the wrong part
+        String note = OirScan.picturesShortfallNote(1, 2);
+        assertNotNull(note);
+        assertTrue(note.contains("1"));
+        assertTrue(note.contains("2"));
+        // and it is added to what the reading rules already said, not instead of it
+        Map<String, String> order = new LinkedHashMap<>();
+        order.put("note", "实付与明细对不上");
+        OirScan.addNote(order, note);
+        assertTrue(order.get("note").startsWith("实付与明细对不上"));
+        assertTrue(order.get("note").endsWith(note));
+        OirScan.addNote(order, null);
+        assertTrue(order.get("note").endsWith(note));
+    }
+
+    @Test
     public void givesUpAfterTwoMinutes() {
         // a page of 26 orders needs about 20 seconds, so two minutes is ten times the room - and no call
         // is ever handed less than a second (a short deadline must not mean a zero second wait)

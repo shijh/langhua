@@ -284,6 +284,9 @@ public final class OirScan {
             + " block, top to bottom, and items has one element per article of that order - two"
             + " products are two elements, never one. rowCount is how many article rows that block"
             + " prints, so six colours of the same board is rowCount 6 and six elements."
+            + " Answer the items in the order the page prints them, top to bottom: the first item is"
+            + " the row whose product picture is at the top of the block, because the pictures are"
+            + " handed to the rows in that order."
             + " One block carries one order number, so the same number never comes back on two elements:"
             + " the articles of a block all go into that block's items."
             + " orderNo is the order number of that block (after 订单号, or the number the page prints"
@@ -350,7 +353,8 @@ public final class OirScan {
             + " One block carries one order number, so the same number never comes back twice: the"
             + " articles of a block all go into that block's items."
             + " rowCount = how many article rows that block prints (six colours = 6), and items has"
-            + " one element per printed row."
+            + " one element per printed row, in the order the page prints them (the first item is the"
+            + " top row of the block)."
             + " platform = 淘宝 / 天猫. shop without the platform word."
             + " paidTotal = 实付款 (or 合计). freight = the shipping money (含运费 / 运费)."
             + " discount = the red packet / coupon / 满减 taken off the order, 0 when none."
@@ -835,6 +839,46 @@ public final class OirScan {
             order.put("shots", all);
             order.put("shot", all.indexOf(',') < 0 ? all : all.substring(0, all.indexOf(',')));
         }
+        // the page prints one picture beside each article, so a different count means one of the two
+        // sides was read wrong: the person is told, instead of trusting a picture that may sit beside
+        // the wrong part
+        String shortfall = picturesShortfallNote(mine.size(), articles);
+        if (shortfall != null) {
+            addNote(orders.get(0), shortfall);
+        }
+    }
+
+    /**
+     * The warning to show when the page printed a different number of pictures than the orders have
+     * articles.
+     *
+     * <p>Two cases produce it: an article whose picture could not be cut out (a white part on a white
+     * card), and an answer that merged two articles into one row or split one into two. Either way the
+     * pictures may not sit beside the part they belong to, which is something only a person can settle.
+     *
+     * @param pictures how many pictures were cut out of the slice
+     * @param articles how many article rows were read from it
+     * @return the warning, or {@code null} when the two agree (or there is nothing to compare)
+     */
+    public static String picturesShortfallNote(int pictures, int articles) {
+        if (articles <= 0 || pictures >= articles) {
+            return null;
+        }
+        return "页面上印了 " + pictures + " 张商品图，却读出 " + articles + " 条明细，图和明细可能对不上，请核对";
+    }
+
+    /**
+     * Adds one doubt to an order, keeping what the reading rules already said.
+     *
+     * @param order the order map
+     * @param note the warning to add
+     */
+    public static void addNote(Map<String, String> order, String note) {
+        if (order == null || note == null || note.isEmpty()) {
+            return;
+        }
+        String seen = order.get("note");
+        order.put("note", seen == null || seen.isEmpty() ? note : seen + "；" + note);
     }
 
     /**

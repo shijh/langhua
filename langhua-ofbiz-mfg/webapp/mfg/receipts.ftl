@@ -508,6 +508,22 @@
                 return id.trim().length > 0;
             });
         }
+        /* the picture one article line will keep - the same rule the import follows: line k takes
+           picture k, and a block with one picture gives it to every line of that block */
+        function shotOfLine(order, index) {
+            var list = shotsOf(order);
+            if (index < list.length) { return list[index]; }
+            return list.length === 1 ? list[0] : '';
+        }
+        function pictureOf(id, title) {
+            var img = document.createElement('img');
+            img.className = 'shot';
+            img.title = title;
+            img.setAttribute('data-scan-line-shot', id);
+            img.src = '/mfg/control/attachment?ownerTypeId=MFG_ATT_ORDER_SCAN&ownerId='
+                + encodeURIComponent(id) + '&thumb=1';
+            return img;
+        }
         /* the articles of one order, opened under its row: what exactly will be written, and the
            box to correct it - a block that came back with the articles of the block above it is fixed
            here instead of being typed again (Step 138) */
@@ -520,17 +536,25 @@
             var table = document.createElement('table');
             table.className = 'inner';
             var head = document.createElement('tr');
-            ['料号', '名称', '数量', '金额'].forEach(function (title, index) {
+            ['图', '料号', '名称', '数量', '金额'].forEach(function (title, index) {
                 var th = document.createElement('th');
                 th.textContent = title;
-                if (index > 1) { th.className = 'num'; }
+                if (index > 2) { th.className = 'num'; }
                 head.appendChild(th);
             });
             table.appendChild(head);
-            rows.forEach(function (line) {
+            rows.forEach(function (line, lineIndex) {
                 var cells = line.split(/\t|,/);
                 var tr = document.createElement('tr');
                 tr.setAttribute('data-scan-line', 'Y');
+                /* the picture this very line will keep: the person compares it with the row beside it
+                   and sees at once that a picture sits against the wrong article (Step 179m) */
+                var picture = document.createElement('td');
+                var lineShot = shotOfLine(order, lineIndex);
+                if (lineShot) {
+                    picture.appendChild(pictureOf(lineShot, '这一行的商品图'));
+                }
+                tr.appendChild(picture);
                 var code = document.createElement('td');
                 code.textContent = cells[0] || '';
                 tr.appendChild(code);
