@@ -450,17 +450,23 @@ img.shot[data-line-shot] {
     height: 64px;
 }
 /* a block can buy ten things and prints ten pictures: they stack in a narrow cell, three to a row,
-   instead of pushing the numbers of the check table off the screen (Step 179n) */
+   instead of pushing the numbers of the check table off the screen (Step 179n).
+   The width is fixed and not a max-width: the table is wider than the window, so the browser squeezes
+   every column it can, and a max-width let the cell shrink to one picture per row (seen on a real
+   screen). A fixed width makes three pictures the cell's minimum. */
 .shots {
     display: flex;
     flex-wrap: wrap;
     gap: .15em;
-    max-width: 200px;
+    width: 190px;
 }
 .shots img.shot {
     width: 60px;
     height: 60px;
     margin: 0;
+    /* the border of a picture is inside its 60 pixels: three of them plus two gutters have to fit the
+       190 of the cell, and a content-box picture is 62 wide (that made it two per row) */
+    box-sizing: border-box;
 }
 /* inside the opened article rows the picture sits beside the numbers of that one line, so it stays
    small: the person is comparing it with the row, not admiring it */

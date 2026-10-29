@@ -1689,10 +1689,14 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
     单测 `warnsWhenThePagePrintsFewerPicturesThanArticles` 钉住“相等/更多不提示、更少才提示、note 叠加”。
   ⑮ **核对表的图要换行，不能并成一长条（Step 179n）**：一个块买十件东西就印十张图，并排在「图」列里
     会把整行的数字挤出屏幕。现在 `showOrders` 把图放进 `<div class="shots">`（`mfg.css`：flex + wrap、
-    `max-width: 200px`、每张 60px → 一行 3 张，多了往下排）；展开的明细表里每行那张图是 48px
-    （`img.shot[data-scan-line-shot]`），只为和这一行对一眼。`mfg.css?v=4`。
-    看效果不必登录：`%TEMP%\jup\shotprobe\shoot-layout.bat`（Chrome headless 截 `shots-layout.html`，
-    同一个 css，10 张图 → 3/3/3/1）。巡检里那条断言查的是“页面用了 `stack.className = 'shots'`”
+    `width: 190px`（不是 max-width）、每张 60px + `box-sizing: border-box` → 一行 3 张，多了往下排）；
+    展开的明细表里每行那张图是 48px（`img.shot[data-scan-line-shot]`），只为和这一行对一眼。`mfg.css?v=5`。
+    **两个坑都踩过**：① 用 `max-width` 时表格比窗口宽，浏览器把这一列压到最小内容宽（一张图的宽），
+    于是真机上是“一列到底”（用户截图报的）；改成固定 `width` 才成为这一列的最小宽度。
+    ② `img` 的 `border: 1px` 是 content-box 的，60px 的图实际占 62px，三张塞不进 190 → 只有 2 列；
+    `.shots img.shot` 必须带 `box-sizing: border-box`。看效果用 `shoot-real.bat`（1440 宽 + 长状态文字，
+    靠它才能复现“一列到底”；`shoot-layout.bat` 是宽窗口的旧版本）。巡检里那条断言查的是
+    “页面用了 `stack.className = 'shots'`”
     且 css 里有 `.shots img.shot`。
 - **识别有超时：服务端 120 秒，页面 135 秒（Step 179f）**：`OirScan.SCAN_TIMEOUT_SECONDS = 120`，从拿图起算，
   每波 `future.get(min(SLICE_WAIT_SECONDS, secondsLeft(deadline)))`，到点就把还没回来的分段**丢掉**并取消线程池；
