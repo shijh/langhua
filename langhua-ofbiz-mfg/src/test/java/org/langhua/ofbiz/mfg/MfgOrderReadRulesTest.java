@@ -216,6 +216,48 @@ public class MfgOrderReadRulesTest {
         assertTrue(boxes.get(2)[3] >= 2 * 600 + 270);
     }
 
+    /**
+     * The same shop zoomed out: 205 wide cards and the title 252 pixels right of the column. A reader
+     * sent such a screenshot and the picture came out with the first two characters of the title in it,
+     * because the box was always 300 pixels wide.
+     *
+     * @param blocks how many blocks the page prints
+     * @return the picture
+     */
+    private static BufferedImage zoomedOutShopPage(int blocks) {
+        int blockHeight = 600;
+        BufferedImage image = new BufferedImage(1200, blocks * blockHeight + 200, BufferedImage.TYPE_INT_RGB);
+        java.awt.Graphics2D pen = image.createGraphics();
+        pen.setColor(java.awt.Color.WHITE);
+        pen.fillRect(0, 0, image.getWidth(), image.getHeight());
+        for (int i = 0; i < blocks; i++) {
+            int top = i * blockHeight;
+            pen.setColor(new java.awt.Color(235, 231, 215));
+            pen.fillRect(40, top + 10, 1100, 110);
+            // the photograph fills a card that is 205 wide, and the card sits on the column
+            pen.setColor(java.awt.Color.BLUE);
+            pen.fillRect(40, top + 150, 205, 205);
+            // the title starts 252 pixels right of the column
+            pen.setColor(java.awt.Color.BLACK);
+            for (int line = 0; line < 3; line++) {
+                pen.fillRect(292, top + 160 + line * 30, 500, 18);
+            }
+        }
+        pen.dispose();
+        return image;
+    }
+
+    @Test
+    public void stopsThePictureWhereTheWordsOfAZoomedOutPageStart() {
+        List<int[]> boxes = OirShots.boxesOf(zoomedOutShopPage(3));
+        assertEquals(3, boxes.size());
+        for (int[] box : boxes) {
+            // the card is complete and nothing of the title came with it
+            assertTrue("the card is cut: " + (box[2] - box[0]), box[2] >= 245);
+            assertTrue("the box reaches into the words: " + (box[2] - box[0]), box[2] < 292);
+        }
+    }
+
     @Test
     public void keepsThePaleBandOfAnOrderHeaderOutOfThePictures() {
         // a page that prints no picture at all: its bands are pale, its words are thin

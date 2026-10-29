@@ -95,6 +95,22 @@ public final class OirShots {
     static final int PICTURE_MARGIN = 20;
 
     /**
+     * How far right of the cards the words of a row are looked for.
+     *
+     * <p>The card is not always the same size: the same shop prints 250 wide cards at one zoom and 205 at
+     * another, while the page stays 3434 wide. A fixed box then reaches into the title, which is what a
+     * reader saw on a zoomed out screenshot (the first two characters of the title were inside the
+     * picture). So the box is stopped where the words begin, and where they begin is measured.
+     */
+    static final int TEXT_SEARCH = 640;
+
+    /** How many blank columns separate the card from the words of the row, at any zoom. */
+    static final int TEXT_GAP = 12;
+
+    /** How many blank columns may sit inside one photograph: the white stripes of a card. */
+    static final int PHOTO_GAP = 4;
+
+    /**
      * How many blank rows may sit inside one picture. A photo of a part on a white card has bands of
      * white through it, and those bands must not cut it into two. A block that prints two articles
      * stacks their cards further apart than this, so two lines keep two pictures.
@@ -134,14 +150,21 @@ public final class OirShots {
         List<int[]> boxes = new ArrayList<>();
         int xFrom = Math.max(0, column - PICTURE_MARGIN / 2);
         int xTo = Math.min(width, column + COLUMN_BAND);
+        List<int[]> pictures = new ArrayList<>();
         for (int[] run : runsOf(page, from, to, xFrom, xTo, Mode.PICTURE)) {
             // the picture has to sit at the column the page prints its cards in - but only its left
             // edge is fixed: a photo of a part in the middle of a white card starts later than one of a
             // card whose picture fills it, so the reach is generous. Words of the row start further
             // right than the reach, so they stay out
             if (run[0] >= column - COLUMN_TOLERANCE && run[0] <= column + COLUMN_REACH) {
-                boxes.add(boxAround(run, column, page));
+                pictures.add(run);
             }
+        }
+        // how far a box may reach: up to where this page prints the words of a row. Measured, because
+        // the same shop prints smaller cards when the browser is zoomed out
+        int reach = wordsStartOf(page, pictures, column);
+        for (int[] run : pictures) {
+            boxes.add(boxAround(run, column, page, reach));
         }
         return boxes;
     }
@@ -305,19 +328,91 @@ public final class OirShots {
     }
 
     /**
-     * The box of one picture: a square that starts where the cards start and is as tall as what was
-     * found, never narrower than one card.
+     * The box of one picture: a square that starts where the cards start, is as tall as what was found,
+     * and never runs into the words of the row.
      *
      * <p>Anchored on the column and not on the content: the run of a picture can reach into the words of
      * the row (the first letters of the title are inside the strip), and a box centred on it drifts right
      * and cuts the card in half.
+     *
+     * @param run the rows of the picture, as the second pass measured them
+     * @param column the left edge the page prints its cards at
+     * @param page the screenshot, only read for its size
+     * @param reach how far right the box may go before it would take in the words of the row, or
+     *        {@link Integer#MAX_VALUE} when the page did not tell
      */
-    private static int[] boxAround(int[] run, int column, BufferedImage page) {
-        int side = Math.max(run[3] - run[1] + PICTURE_MARGIN * 2, MIN_PICTURE_SIDE);
+    private static int[] boxAround(int[] run, int column, BufferedImage page, int reach) {
+        int wanted = Math.max(run[3] - run[1] + PICTURE_MARGIN * 2, MIN_PICTURE_SIDE);
+        // never wider than the card: a zoomed out page prints a 205 wide card, and a 300 wide box would
+        // take the first two characters of the title with it. But a picture taller than the space before
+        // the words keeps its own height, or the crop would cut the picture itself
+        int side = Math.min(wanted, Math.max(reach, run[3] - run[1] + PICTURE_MARGIN));
+        // left edge stays on the card: a narrower box takes the white right of the photograph and not a
+        // slice of the photograph itself
         int x0 = Math.max(0, column - PICTURE_MARGIN / 2);
         int y0 = Math.max(0, (run[1] + run[3]) / 2 - side / 2);
         return new int[] {x0, y0,
                 Math.min(page.getWidth(), x0 + side), Math.min(page.getHeight(), y0 + side)};
+    }
+
+    /**
+     * How far right of the cards a picture box may reach on this page: the distance to the first column
+     * that holds the words of a row.
+     *
+     * <p>The card is white and so is the space right of it, so the words are found as "a block of content
+     * after a gutter": walk right from the card, let small white stripes pass (a photograph printed on a
+     * card has them), and the first block that starts after {@link #TEXT_GAP} blank columns is the title.
+     * The middle over the pictures of the page keeps one odd row from moving the whole page.
+     *
+     * @param page the screenshot
+     * @param runs the pictures of the page
+     * @param column the left edge the page prints its cards at
+     * @return the distance, or {@link Integer#MAX_VALUE} when fewer than two pictures show where the
+     *         words begin (one picture says nothing about a layout)
+     */
+    private static int wordsStartOf(BufferedImage page, List<int[]> runs, int column) {
+        List<Integer> distances = new ArrayList<>();
+        for (int[] run : runs) {
+            int start = wordsStartIn(page, run, column);
+            if (start > 0) {
+                distances.add(Integer.valueOf(start - column));
+            }
+        }
+        if (distances.size() < 2) {
+            return Integer.MAX_VALUE;
+        }
+        Collections.sort(distances);
+        return distances.get(distances.size() / 2).intValue();
+    }
+
+    /**
+     * Where the words of one row start, or -1 when no block follows the picture.
+     *
+     * @param page the screenshot
+     * @param run the rows of one picture
+     * @param column the left edge the page prints its cards at
+     */
+    private static int wordsStartIn(BufferedImage page, int[] run, int column) {
+        int xTo = Math.min(page.getWidth(), column + TEXT_SEARCH);
+        boolean seenPicture = false;
+        int blanks = 0;
+        for (int x = Math.max(0, column); x < xTo; x++) {
+            boolean content = false;
+            // every second row is enough: a letter is many rows tall, a gutter many columns wide
+            for (int y = run[1]; y < run[3] && !content; y += 2) {
+                content = part(page.getRGB(x, y));
+            }
+            if (content) {
+                if (seenPicture && blanks >= TEXT_GAP) {
+                    return x;
+                }
+                seenPicture = true;
+                blanks = 0;
+            } else if (blanks < TEXT_GAP + PHOTO_GAP) {
+                blanks++;
+            }
+        }
+        return -1;
     }
 
     /** Whether one pixel is colourful enough to belong to a photo. */
