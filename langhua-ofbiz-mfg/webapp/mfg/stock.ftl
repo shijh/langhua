@@ -43,7 +43,13 @@
         </tr>
         <#list rows as row>
             <tr<#if row.belowMinimum> class="warnRow"</#if>>
-                <td>${row.componentCode}</td>
+                <td>${row.componentCode}
+                    <#-- the shop's own photo of the part, cut out of the order screenshot it came in with -->
+                    <#if (row.scanShotId!'')?has_content><br/><a
+                        href="/mfg/control/attachment?ownerTypeId=MFG_ATT_ORDER_SCAN&amp;ownerId=${row.scanShotId?url}"
+                        target="_blank"><img class="shot" data-part-shot="${row.scanShotId}"
+                        alt="" src="/mfg/control/attachment?ownerTypeId=MFG_ATT_ORDER_SCAN&amp;ownerId=${row.scanShotId?url}&amp;thumb=1"/></a></#if>
+                </td>
                 <td>${row.componentName!}</td>
                 <td class="num"><#if (row.onHandQty!0) lt 0><span class="error">${row.onHandQty?string("0.##")}</span><#else>${row.onHandQty?string("0.##")}</#if></td>
                 <td class="num"><#if (row.reservedQty!0) gt 0><span class="warn">${row.reservedQty?string("0.##")}</span><#else><span class="hint">—</span></#if></td>

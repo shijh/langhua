@@ -310,6 +310,7 @@ public final class MfgDevBomServices {
         }
         try {
             Map<String, double[]> stock = componentStock(delegator);
+            Map<String, String> shots = MfgStockServices.shotByComponent(delegator);
             Map<String, Double> lockedByComponent = MfgStockLedger.lockedByProjectComponent(delegator, projectCode);
             GenericValue latest = lastImport(delegator, projectCode);
             List<GenericValue> versionItems = latest == null ? new ArrayList<GenericValue>()
@@ -335,6 +336,8 @@ public final class MfgDevBomServices {
                     row.put("lineSeq", item.get("lineSeq"));
                     row.put("componentCode", code);
                     row.put("componentName", item.getString("componentName"));
+                    // the photo the shop printed for this part, when it came in from a screenshot
+                    row.put("scanShotId", shots.get(code));
                     row.put("partType", item.getString("partType"));
                     row.put("properties", item.getString("properties"));
                     row.put("designators", item.getString("designators"));

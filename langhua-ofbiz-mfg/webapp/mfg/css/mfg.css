@@ -455,3 +455,9 @@ img.shot[data-lot-shot] {
     height: 40px;
     margin: .2em 0 0;
 }
+/* where a page lists parts (stock, movements, shortage, BOM): small enough to keep the table readable */
+img.shot[data-part-shot] {
+    width: 34px;
+    height: 34px;
+    margin: .15em .3em 0 0;
+}

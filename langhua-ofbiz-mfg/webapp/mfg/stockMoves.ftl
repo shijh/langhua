@@ -90,7 +90,9 @@
         <#list rows as row>
             <tr>
                 <td><#if row.effectiveDate??>${row.effectiveDate?string("MM-dd HH:mm")}</#if></td>
-                <td>${row.componentCode!}</td>
+                <td>${row.componentCode!}<#if (row.scanShotId!'')?has_content>
+                    <img class="shot" data-part-shot="${row.scanShotId}" alt=""
+                         src="/mfg/control/attachment?ownerTypeId=MFG_ATT_ORDER_SCAN&amp;ownerId=${row.scanShotId?url}&amp;thumb=1"/></#if></td>
                 <td><a href="/mfg/control/stockMoves?lotId=${row.lotId?url}">${row.lotId}</a></td>
                 <td><#if (row.lotKindId!'') == 'MFG_LOT_PRODUCT'>成品<#else>元件</#if></td>
                 <td><#if row.locationId??>${row.locationId}<#else><span class="hint">—</span></#if></td>

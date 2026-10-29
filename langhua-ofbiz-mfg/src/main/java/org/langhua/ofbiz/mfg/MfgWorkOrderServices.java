@@ -841,6 +841,9 @@ public final class MfgWorkOrderServices {
                     .where("workOrderId", workOrderId).orderBy("-createdStamp").queryList();
             List<GenericValue> shipments = EntityQuery.use(delegator).from("MfgShipment")
                     .where("workOrderId", workOrderId).orderBy("-shipmentDate").queryList();
+            // the shop's photo of each part, one query for the whole page: the warehouse picks by picture
+            // while the part numbers are still being lined up
+            Map<String, String> shots = MfgStockServices.shotByComponent(delegator);
 
             boolean kitComplete = true;
             for (Map<String, Object> line : lines) {
@@ -848,13 +851,16 @@ public final class MfgWorkOrderServices {
                 if (shortage != null && shortage.doubleValue() > 0.0001) {
                     kitComplete = false;
                 }
+                line.put("scanShotId", shots.get(MfgSupport.toText(line.get("componentCode"))));
             }
 
             List<Map<String, Object>> issueMaps = new ArrayList<>(issues.size());
             for (GenericValue issue : issues) {
                 GenericValue lot = EntityQuery.use(delegator).from("MfgMaterialLot")
                         .where("lotId", issue.getString("lotId")).queryOne();
-                issueMaps.add(MfgRecordMaps.toIssueMap(issue, lot));
+                Map<String, Object> issueMap = MfgRecordMaps.toIssueMap(issue, lot);
+                issueMap.put("scanShotId", shots.get(issue.getString("componentCode")));
+                issueMaps.add(issueMap);
             }
             List<Map<String, Object>> shipmentMaps = new ArrayList<>(shipments.size());
             double outQty = 0.0;

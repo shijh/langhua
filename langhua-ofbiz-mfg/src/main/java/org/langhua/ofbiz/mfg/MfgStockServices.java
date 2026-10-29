@@ -876,6 +876,31 @@ public final class MfgStockServices {
     }
 
     /**
+     * The product picture of every part that ever came in with a screenshot of a shop order.
+     *
+     * <p>Used wherever a page lists parts and the shop's own photo tells them apart (the material ledger,
+     * the stock summary, the shortage list, a BOM): a part has no picture of its own, the newest receipt
+     * line that carries one speaks for it. One query for the whole page, never one per row.
+     *
+     * @param delegator the delegator
+     * @return componentCode to picture id, empty when no line has one
+     * @throws GenericEntityException when the lines cannot be read
+     */
+    public static Map<String, String> shotByComponent(Delegator delegator) throws GenericEntityException {
+        Map<String, String> shots = new java.util.HashMap<>();
+        for (GenericValue line : EntityQuery.use(delegator).from("MfgPurchaseReceiptLine")
+                .select("componentCode", "scanShotId", "createdStamp")
+                .orderBy("createdStamp", "lineSeq").queryList()) {
+            String shot = line.getString("scanShotId");
+            if (shot != null && !shot.isEmpty()) {
+                // the newest line wins: it overwrites what an older purchase of the same part filed
+                shots.put(line.getString("componentCode"), shot);
+            }
+        }
+        return shots;
+    }
+
+    /**
      * The product picture of every lot that came in with a screenshot of a shop order.
      *
      * <p>The pointer lives on the receipt line ({@code scanShotId}), so a lot has no picture of its own:
@@ -885,7 +910,7 @@ public final class MfgStockServices {
      * @return lotId to picture id, empty when no lot has one
      * @throws GenericEntityException when the lines cannot be read
      */
-    private static Map<String, String> shotOfLot(Delegator delegator) throws GenericEntityException {
+    public static Map<String, String> shotOfLot(Delegator delegator) throws GenericEntityException {
         Map<String, String> shots = new java.util.HashMap<>();
         for (GenericValue line : EntityQuery.use(delegator).from("MfgPurchaseReceiptLine")
                 .select("lotId", "scanShotId").orderBy("lineSeq").queryList()) {
@@ -1428,6 +1453,7 @@ public final class MfgStockServices {
                 settings.put(setting.getString("componentCode"), setting);
             }
             Map<String, Map<String, Object>> byComponent = new LinkedHashMap<>();
+            Map<String, String> shots = shotByComponent(delegator);
             for (GenericValue lot : EntityQuery.use(delegator).from("MfgMaterialLot")
                     .orderBy("componentCode", "lotId").queryList()) {
                 if (MfgStockLedger.isProductLot(lot)) {
@@ -1450,6 +1476,8 @@ public final class MfgStockServices {
                     row.put("failedQty", Double.valueOf(0.0));
                     row.put("value", Double.valueOf(0.0));
                     row.put("lotCount", Integer.valueOf(0));
+                    // the picture the shop printed for this part, if it ever came in from a screenshot
+                    row.put("scanShotId", shots.get(componentCode));
                     byComponent.put(componentCode, row);
                 }
                 double onHand = MfgSupport.numberOrZero(lot.get("onHandQty"));
@@ -1565,6 +1593,7 @@ public final class MfgStockServices {
             }
             List<GenericValue> movements = EntityQuery.use(delegator).from("MfgInventoryDetail")
                     .orderBy("lotId", "seqId").queryList();
+            Map<String, String> shots = shotByComponent(delegator);
             Map<String, Double> balances = new LinkedHashMap<>();
             List<Map<String, Object>> rows = new ArrayList<>();
             for (GenericValue movement : movements) {
@@ -1606,6 +1635,7 @@ public final class MfgStockServices {
                 row.put("locationId", movement.getString("locationId"));
                 row.put("componentCode", lot == null ? null : lot.getString("componentCode"));
                 row.put("componentName", lot == null ? null : lot.getString("componentName"));
+                row.put("scanShotId", lot == null ? null : shots.get(lot.getString("componentCode")));
                 row.put("movementTypeId", movement.getString("movementTypeId"));
                 row.put("quantityDiff", Double.valueOf(MfgSupport.round2(diff)));
                 row.put("reservedDiff", Double.valueOf(MfgSupport.round2(MfgSupport.numberOrZero(movement.get("reservedDiff")))));

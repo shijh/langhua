@@ -396,7 +396,13 @@
             <#list bomItems as r>
                 <tr data-bom-line="${r.lineSeq}" data-bom-change="${r.changeId}">
                     <td class="num">${r_index + 1}</td>
-                    <td><input type="text" name="componentCode" form="bomRow${r.lineSeq}" size="20" value="${r.componentCode}" list="stockCodes"/></td>
+                    <td><input type="text" name="componentCode" form="bomRow${r.lineSeq}" size="20" value="${r.componentCode}" list="stockCodes"/>
+                        <#-- the photo the shop printed for this part: it is what tells one 0603 from another
+                             while the part numbers are still being lined up -->
+                        <#if (r.scanShotId!'')?has_content><br/><a
+                            href="/mfg/control/attachment?ownerTypeId=MFG_ATT_ORDER_SCAN&amp;ownerId=${r.scanShotId?url}"
+                            target="_blank"><img class="shot" data-part-shot="${r.scanShotId}" alt=""
+                            src="/mfg/control/attachment?ownerTypeId=MFG_ATT_ORDER_SCAN&amp;ownerId=${r.scanShotId?url}&amp;thumb=1"/></a></#if></td>
                     <td>${r.componentName!}<#if (r.sourceId!'') == 'MFG_BOM_MANUAL'> <span class="hint">（手工添加）</span></#if><#if r.properties??><br/><span class="hint">${r.properties}</span></#if></td>
                     <td class="num"><input type="text" name="qty" form="bomRow${r.lineSeq}" size="5" value="${r.qty?string("0.##")}"/></td>
                     <td>${r.designators!}</td>

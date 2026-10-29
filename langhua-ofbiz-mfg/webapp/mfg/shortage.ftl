@@ -53,6 +53,9 @@
                 <td>
                     <#list (order.shortages)![] as line>
                         <#if line_index lt 5>
+                            <#-- the shop's photo of the missing part: what to look for on the shelf -->
+                            <#if (line.scanShotId!'')?has_content><img class="shot" data-part-shot="${line.scanShotId}"
+                                alt="" src="/mfg/control/attachment?ownerTypeId=MFG_ATT_ORDER_SCAN&amp;ownerId=${line.scanShotId?url}&amp;thumb=1"/></#if>
                             ${line.componentCode!}<#if (line.isKeyPart!'N') == 'Y'> <b>★</b></#if>
                             欠 ${((line.requiredQty)!0 - (line.issuedQty)!0)?string("0.##")}
                             <span class="hint">(需 ${((line.requiredQty)!0)?string("0.##")} / 发 ${((line.issuedQty)!0)?string("0.##")})</span><br/>

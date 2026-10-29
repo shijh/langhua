@@ -911,7 +911,7 @@ public final class MfgProductServices {
                 result.put("product", newMapWithProduct(product));
             }
             result.put("bomVersionId", currentVersion);
-            result.put("bomItems", bomItemMaps(bomItems));
+            result.put("bomItems", bomItemMaps(bomItems, MfgStockServices.shotByComponent(delegator)));
             result.put("routings", routingMaps);
             return result;
         } catch (GenericEntityException e) {
@@ -926,12 +926,24 @@ public final class MfgProductServices {
      * @return one map per line, in line order
      */
     static List<Map<String, Object>> bomItemMaps(List<GenericValue> bomItems) {
+        return bomItemMaps(bomItems, null);
+    }
+
+    /**
+     * The BOM lines as the page reads them, each with the shop's photo of its part when there is one.
+     *
+     * @param bomItems the lines
+     * @param shots componentCode to picture id, {@code null} when the caller has none
+     * @return one map per line
+     */
+    static List<Map<String, Object>> bomItemMaps(List<GenericValue> bomItems, Map<String, String> shots) {
         List<Map<String, Object>> bomMaps = new ArrayList<>(bomItems.size());
         for (GenericValue item : bomItems) {
             Map<String, Object> map = new LinkedHashMap<>();
             map.put("lineSeq", item.getLong("lineSeq"));
             map.put("componentCode", item.getString("componentCode"));
             map.put("componentName", item.getString("componentName"));
+            map.put("scanShotId", shots == null ? null : shots.get(item.getString("componentCode")));
             map.put("qty", item.getDouble("qty"));
             map.put("designators", item.getString("designators"));
             map.put("isKeyPart", item.getString("isKeyPart"));

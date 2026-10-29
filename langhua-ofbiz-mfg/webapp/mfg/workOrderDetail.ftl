@@ -377,7 +377,10 @@
                 <th class="num">需求</th><th class="num">已发</th><th class="num">已预留</th><th class="num">欠料</th></tr>
             <#list lines as line>
                 <tr>
-                    <td>${line.componentCode!}</td>
+                    <td>${line.componentCode!}
+                        <#-- the shop's photo of the part, so the line can be picked off the shelf by sight -->
+                        <#if (line.scanShotId!'')?has_content><br/><img class="shot" data-part-shot="${line.scanShotId}"
+                            alt="" src="/mfg/control/attachment?ownerTypeId=MFG_ATT_ORDER_SCAN&amp;ownerId=${line.scanShotId}&amp;thumb=1"/></#if></td>
                     <td>${line.componentName!}</td>
                     <td><#if (line.isKeyPart!'N') == 'Y'>是<#else>-</#if></td>
                     <td class="num">${((line.requiredQty)!0)?string("0.##")}</td>
@@ -430,7 +433,9 @@
                     <td><a href="/mfg/control/materials?lotId=${it.lotId}">${it.lotId!}</a></td>
                     <td>${it.supplierName!}</td>
                     <td>${it.supplierLot!}</td>
-                    <td>${it.componentCode!}</td>
+                    <td>${it.componentCode!}
+                        <#if (it.scanShotId!'')?has_content><br/><img class="shot" data-part-shot="${it.scanShotId}"
+                            alt="" src="/mfg/control/attachment?ownerTypeId=MFG_ATT_ORDER_SCAN&amp;ownerId=${it.scanShotId}&amp;thumb=1"/></#if></td>
                     <td class="num">${((it.qty)!0)?string("0.##")}</td>
                     <td>${it.designators!}</td>
                     <td><#if it.snFrom??>${it.snFrom}</#if><#if it.snTo??> ~ ${it.snTo}</#if></td>

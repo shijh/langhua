@@ -36,7 +36,10 @@
             <tr>
                 <td>${lot.lotId}</td>
                 <td><#if (lot.lotKindId!'') == 'MFG_LOT_PRODUCT'>成品<#else>元件</#if></td>
-                <td>${lot.componentCode!}</td>
+                <td>${lot.componentCode!}
+                    <#-- the shop's photo of the part: while counting, the picture is what tells two reels apart -->
+                    <#if (lot.scanShotId!'')?has_content><br/><img class="shot" data-part-shot="${lot.scanShotId}"
+                        alt="" src="/mfg/control/attachment?ownerTypeId=MFG_ATT_ORDER_SCAN&amp;ownerId=${lot.scanShotId?url}&amp;thumb=1"/></#if></td>
                 <td>${lot.supplierLot!}</td>
                 <td><#if lot.receivedDate??>${lot.receivedDate?string("MM-dd")}</#if></td>
                 <td class="num">${(lot.onHandQty!0)?string("0.##")}</td>

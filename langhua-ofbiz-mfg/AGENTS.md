@@ -165,7 +165,7 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
 | `verify-m47.ps1` | 照淘宝订单一步入库（Step 60/65/110）：订单表单、两行明细 → 建单+入库、订单号已存、货款 4.41、便宜料单价 0.0291、重复提交不重复入库、补运费累加、不满四列/数量 0 被拒、**长料号被缩短且全称留在名称里**、识图按钮与 `/mfg/control/orderImage` 降级回答、**淘宝导出的 xlsx 导入块（`#excelForm` / multipart / `#excelNoteTable` / 空提交回 JSON）**（日志 `mfg-m47.txt`；识图那几项要求实例上没配识图，跑完 m48 会清掉） | 42 |
 | `verify-m48.ps1` | 系统设置页（Step 61）：识图配置块与状态、密钥不回显、接口必须 http(s)、空密钥保留旧的、保存后状态变 DATABASE、`clear=Y` 恢复未配置、没配/配了两种 scan 回答（日志 `mfg-m48.txt`） | 26 |
 | `verify-m52-devbom.ps1` | 研发 BOM（Step 175，测试实例）：导入真工程的 `pixel-flash-v94_bom.html` → 11 个元件与料号、有库存的不进缺货清单、没库存的进；第二版（CSV）1 个数量变化 / 9 不变 / 1 停用 + `VAR_SAMPLE` 离开货架；缺货清单 CSV；改料号重锁；释放锁料后又变缺（日志 `mfg-m52-test.txt`） | 33 |
-| `verify-m56-shots.ps1` | 订单商品图（Step 179）：核对表有「图」列并带上 `o<i>.shot`、明细行 `data-line-shot` 与 `img.shot`、图走 `MFG_ATT_ORDER_SCAN` 的附件地址、同一单重导换上一张图、没带图导入时一行都不显示（用一个假 id 就能测，不需要真图） | 20 |
+| `verify-m56-shots.ps1` | 订单商品图（Step 179）：核对表有「图」列并带上 `o<i>.shot`、明细行 `data-line-shot` 与 `img.shot`、图走 `MFG_ATT_ORDER_SCAN` 的附件地址、同一单重导换上一张图、没带图导入时一行都不显示、**同一个 `scanShotId` 还要出现在库存结存 / 出入库流水 / 产品 BOM / 研发 BOM / 齐套预警 / 工单齐套表 / 盘点页（`data-part-shot`）**（用一个假 id 就能测，不需要真图） | 43 |
 
 ## 设计决策
 
@@ -1612,7 +1612,7 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
      与「同料号不同数字」（`samePart` 分支）。只在一条上写，重导一次就留着上一张图（`verify-m56` 抓到的）。
   ⑥ 页面：核对表多一列「图」（`data-scan-shot`）、明细的名称列后面跟 `img.shot`（`data-line-shot`）；
      导入时带 `o<i>.shot`，`MfgReceiptEvents.ordersJson` 转给服务。`mfg.css` 末尾是 `img.shot` 那段。
-  ⑦ 巡检 `verify-m56-shots.ps1`（20 项，日志 `mfg-m56.txt`）**不需要真图**：用一个假 id 就能断言属性与 `src`，
+  ⑦ 巡检 `verify-m56-shots.ps1`（43 项，日志 `mfg-m56.txt`）**不需要真图**：用一个假 id 就能断言属性与 `src`，
      真裁图那段要识图服务在线（单元测试 `MfgOrderReadRulesTest` 用画出来的页面钉住裁图与缩略图）。
   ⑧ 实体列 `SCAN_SHOT_ID` 由 OFBiz 启动时的 `[addColumn]` 自动补，**不用**跑手工 SQL。
   ⑨ **图片 id 只能 20 个字符**：`MfgAttachment.ownerId` 是 `id` 类型，而 `SCAN-<13 位毫秒>` 已经 18 位，
@@ -1630,10 +1630,17 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
      图数**少于**单数时一张都不给（分不清是哪张，贴错比没有更糟）。单测
      `takesThePicturesNearestTheTopWhenThePagePrintsItsStripOfAdvertisements` / `findsAPictureWhosePhotographStartsInsideItsCard`。
   ⑫ **图在哪几页显示**：识别核对表（`data-scan-shot`）→ 到货单列表展开的明细行 / 到货单详情（`data-line-shot`）→
-     **物料批次台账的批次号下面**（40px，`data-lot-shot`，点开看原图）。台账那页的指针不另存字段：
-     `MfgStockServices.shotOfLot` 用**一次**查询把 `MfgPurchaseReceiptLine.lotId → scanShotId` 全取回来，
-     不要在行循环里查。另外两张图一个字节都不复制：商品图和整张截图都是 `MfgAttachment` 的一个 roW，
-     业务表里只有 id。
+     **物料批次台账的批次号下面**（40px，`data-lot-shot`，点开看原图）→ **凡是列出这个料号的地方**
+     （`data-part-shot`，34px）：产品与 BOM 的 BOM 行、研发 BOM 的料号输入框下面、库存结存、出入库流水、
+     盘点、工单详情的齐套表与发料记录、齐套预警的欠料明细。
+     台账那页的指针不另存字段：`MfgStockServices.shotOfLot` 用**一次**查询把
+     `MfgPurchaseReceiptLine.lotId → scanShotId` 全取回来；按料号的那些页用
+     `MfgStockServices.shotByComponent`（`componentCode → scanShotId`，`createdStamp` 排序取最新的那条），
+     **也是每页一次**——不要在行循环里查，20 行就是 20 次查询。
+     塞进去的键一律叫 `scanShotId`（行上 `row.put("scanShotId", …)`），模板里判 `?has_content`。
+     另外两张图一个字节都不复制：商品图和整张截图都是 `MfgAttachment` 的一个 row，业务表里只有 id。
+     **`workOrderDetail.ftl` 没有 `<#setting url_escaping_charset="UTF-8">`**，那里写 `${x?url}` 会让整页
+     `FreeMarker template error`（HTTP 200，巡检才看得出来）——`SCAN-<数字>` 是安全字符，直接拼。
 - **识别有超时：服务端 120 秒，页面 135 秒（Step 179f）**：`OirScan.SCAN_TIMEOUT_SECONDS = 120`，从拿图起算，
   每波 `future.get(min(SLICE_WAIT_SECONDS, secondsLeft(deadline)))`，到点就把还没回来的分段**丢掉**并取消线程池；
   已经有单就照常返回 + 消息里写“识别超时：一次最多等 120 秒，只读了 N 张单”，一张都没有就回 `code=TIMEOUT`。

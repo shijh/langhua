@@ -211,6 +211,7 @@ public final class MfgReportServices {
                     .orderBy("dueDate").queryList();
             List<Map<String, Object>> rows = new ArrayList<>();
             long shortageOrders = 0;
+            Map<String, String> shots = MfgStockServices.shotByComponent(delegator);
             for (GenericValue order : orders) {
                 String statusId = order.getString("statusId");
                 if (MfgConstants.WO_CLOSED.equals(statusId) || MfgConstants.WO_COMPLETED.equals(statusId)) {
@@ -222,6 +223,7 @@ public final class MfgReportServices {
                 for (Map<String, Object> line : lines) {
                     Double shortage = (Double) line.get("shortage");
                     if (shortage != null && shortage.doubleValue() > 0.0001) {
+                        line.put("scanShotId", shots.get(String.valueOf(line.get("componentCode"))));
                         shortages.add(line);
                         totalShortage += shortage.doubleValue();
                     }
@@ -698,6 +700,7 @@ public final class MfgReportServices {
         List<Map<String, Object>> rows = new ArrayList<>();
         List<GenericValue> orders = EntityQuery.use(delegator).from("MfgWorkOrder")
                 .orderBy("dueDate").queryList();
+        Map<String, String> shots = MfgStockServices.shotByComponent(delegator);
         for (GenericValue order : orders) {
             String statusId = order.getString("statusId");
             if (MfgConstants.WO_CLOSED.equals(statusId) || MfgConstants.WO_COMPLETED.equals(statusId)) {
@@ -715,6 +718,7 @@ public final class MfgReportServices {
                 row.put("customerName", order.getString("customerName"));
                 row.put("componentCode", line.get("componentCode"));
                 row.put("componentName", line.get("componentName"));
+                row.put("scanShotId", shots.get(String.valueOf(line.get("componentCode"))));
                 row.put("requiredQty", line.get("requiredQty"));
                 row.put("issuedQty", line.get("issuedQty"));
                 row.put("shortage", Double.valueOf(shortage));

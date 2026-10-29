@@ -226,7 +226,10 @@ BAT-18650,18650 电池,1,BT1,Y,12</textarea></p>
                 <#assign formId = 'bomLine' + item.lineSeq>
                 <tr data-line-seq="${item.lineSeq}">
                     <td class="num">${(item.lineSeq)?string("0")}</td>
-                    <td>${item.componentCode!}</td>
+                    <td>${item.componentCode!}<#if (item.scanShotId!'')?has_content>
+                        <#-- the shop's own photo of this part, when it came in from an order screenshot -->
+                        <img class="shot" data-part-shot="${item.scanShotId}" alt=""
+                             src="/mfg/control/attachment?ownerTypeId=MFG_ATT_ORDER_SCAN&amp;ownerId=${item.scanShotId?url}&amp;thumb=1"/></#if></td>
                     <td>${item.componentName!}</td>
                     <td class="num"><input class="narrow" type="text" form="${formId}" name="qty" value="${(item.qty)?string("0.###")}" title="每台用量"/></td>
                     <td><input type="text" form="${formId}" name="designators" size="12" value="${item.designators!''}"/></td>

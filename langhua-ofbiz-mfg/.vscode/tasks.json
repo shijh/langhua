@@ -59,6 +59,12 @@
 			"type": "shell",
 			"command": "powershell -NoProfile -ExecutionPolicy Bypass -File C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\verify-m28b.ps1; Copy-Item F:\\build-ofbiz\\mfg-m28.txt F:\\build-ofbiz\\mfg-m28-r4.txt -Force",
 			"group": "test"
+		},
+		{
+			"label": "commit 179h",
+			"type": "shell",
+			"command": "git add -A ; git --no-pager commit -F F:\\build-ofbiz\\msg179h.txt ; git --no-pager log --oneline -1",
+			"group": "none"
 		}
 	]
 }
