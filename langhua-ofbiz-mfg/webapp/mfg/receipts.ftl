@@ -693,8 +693,12 @@
                 var seq = cell(row, String(index + 1), 'num');
                 seq.setAttribute('data-scan-seq', String(index + 1));
                 /* the pictures the shop printed next to this order, cut out of the screenshot: one
-                   beside each article, so a block that bought a reel and an iron shows both (Step 179l) */
+                   beside each article, so a block that bought a reel and an iron shows both (Step 179l).
+                   A block can print ten of them, so they wrap inside a narrow cell instead of
+                   stretching the table sideways (Step 179n) */
                 var picture = document.createElement('td');
+                var stack = document.createElement('div');
+                stack.className = 'shots';
                 shotsOf(order).forEach(function (id) {
                     var img = document.createElement('img');
                     img.className = 'shot';
@@ -702,8 +706,11 @@
                     img.title = '订单截图里的商品图';
                     img.src = '/mfg/control/attachment?ownerTypeId=MFG_ATT_ORDER_SCAN&ownerId='
                         + encodeURIComponent(id) + '&thumb=1';
-                    picture.appendChild(img);
+                    stack.appendChild(img);
                 });
+                if (stack.firstChild) {
+                    picture.appendChild(stack);
+                }
                 row.appendChild(picture);
                 cell(row, order.orderNo || '（没读到单号）');
                 /* the platform is printed next to the shop (淘宝 / 天猫); the store itself stays

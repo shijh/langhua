@@ -449,6 +449,26 @@ img.shot[data-line-shot] {
     width: 64px;
     height: 64px;
 }
+/* a block can buy ten things and prints ten pictures: they stack in a narrow cell, three to a row,
+   instead of pushing the numbers of the check table off the screen (Step 179n) */
+.shots {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .15em;
+    max-width: 200px;
+}
+.shots img.shot {
+    width: 60px;
+    height: 60px;
+    margin: 0;
+}
+/* inside the opened article rows the picture sits beside the numbers of that one line, so it stays
+   small: the person is comparing it with the row, not admiring it */
+img.shot[data-scan-line-shot] {
+    width: 48px;
+    height: 48px;
+    margin: 0;
+}
 /* in the material ledger the picture sits under the lot number, so it must not make the row tall */
 img.shot[data-lot-shot] {
     width: 40px;

@@ -165,7 +165,7 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
 | `verify-m47.ps1` | 照淘宝订单一步入库（Step 60/65/110）：订单表单、两行明细 → 建单+入库、订单号已存、货款 4.41、便宜料单价 0.0291、重复提交不重复入库、补运费累加、不满四列/数量 0 被拒、**长料号被缩短且全称留在名称里**、识图按钮与 `/mfg/control/orderImage` 降级回答、**淘宝导出的 xlsx 导入块（`#excelForm` / multipart / `#excelNoteTable` / 空提交回 JSON）**（日志 `mfg-m47.txt`；识图那几项要求实例上没配识图，跑完 m48 会清掉） | 42 |
 | `verify-m48.ps1` | 系统设置页（Step 61）：识图配置块与状态、密钥不回显、接口必须 http(s)、空密钥保留旧的、保存后状态变 DATABASE、`clear=Y` 恢复未配置、没配/配了两种 scan 回答（日志 `mfg-m48.txt`） | 26 |
 | `verify-m52-devbom.ps1` | 研发 BOM（Step 175，测试实例）：导入真工程的 `pixel-flash-v94_bom.html` → 11 个元件与料号、有库存的不进缺货清单、没库存的进；第二版（CSV）1 个数量变化 / 9 不变 / 1 停用 + `VAR_SAMPLE` 离开货架；缺货清单 CSV；改料号重锁；释放锁料后又变缺（日志 `mfg-m52-test.txt`） | 33 |
-| `verify-m56-shots.ps1` | 订单商品图（Step 179）：核对表有「图」列并带上 `o<i>.shot`、明细行 `data-line-shot` 与 `img.shot`、图走 `MFG_ATT_ORDER_SCAN` 的附件地址（**自己上传一张 8×8 PNG 并断言 `image/*` 能取回**）、同一单重导换上一张图、没带图导入时一行都不显示、**指针在但图不在了的行不显示**、`shots.js` 已加载、**一张单两件商品时两行各拿各的图（单条与批量两个入口）**、展开行里每行有 `data-scan-line-shot`、**同一个 `scanShotId` 还要出现在库存结存 / 出入库流水 / 产品 BOM / 研发 BOM / 齐套预警 / 工单齐套表 / 盘点页（`data-part-shot`）** | 60 |
+| `verify-m56-shots.ps1` | 订单商品图（Step 179）：核对表有「图」列并带上 `o<i>.shot`、明细行 `data-line-shot` 与 `img.shot`、图走 `MFG_ATT_ORDER_SCAN` 的附件地址（**自己上传一张 8×8 PNG 并断言 `image/*` 能取回**）、同一单重导换上一张图、没带图导入时一行都不显示、**指针在但图不在了的行不显示**、`shots.js` 已加载、**一张单两件商品时两行各拿各的图（单条与批量两个入口）**、展开行里每行有 `data-scan-line-shot`、**十张图在核对表里换行排（`div.shots`）**、**同一个 `scanShotId` 还要出现在库存结存 / 出入库流水 / 产品 BOM / 研发 BOM / 齐套预警 / 工单齐套表 / 盘点页（`data-part-shot`）** | 61 |
 
 ## 设计决策
 
@@ -1612,7 +1612,7 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
      与「同料号不同数字」（`samePart` 分支）。只在一条上写，重导一次就留着上一张图（`verify-m56` 抓到的）。
   ⑥ 页面：核对表多一列「图」（`data-scan-shot`）、明细的名称列后面跟 `img.shot`（`data-line-shot`）；
      导入时带 `o<i>.shot`，`MfgReceiptEvents.ordersJson` 转给服务。`mfg.css` 末尾是 `img.shot` 那段。
-  ⑦ 巡检 `verify-m56-shots.ps1`（60 项，日志 `mfg-m56.txt`）**自己上传一张 8×8 的 PNG**（`StorePicture`，multipart
+  ⑦ 巡检 `verify-m56-shots.ps1`（61 项，日志 `mfg-m56.txt`）**自己上传一张 8×8 的 PNG**（`StorePicture`，multipart
      到 `attachmentUpload`），所以断言的是“图真的能显示”：`ServedPicture` 要回 `image/*`。**不要再用假 id**——
      指针指不到图时页面原本会顶个裂图图标（用户报过），现在这种行会被 `dropMissingPictures` 剔掉，
      巡检里 `GHO…` 那条就是钉它的；真裁图那段要识图服务在线（单测 `MfgOrderReadRulesTest` 用画出来的页面钉住裁图与缩略图）。
@@ -1687,6 +1687,13 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
     “页面上印了 N 张商品图，却读出 M 条明细”（`addNote` 与已有 note 用“；”拼，别覆盖），
     页面「状态」列于是显示“请核对”。图比明细**多**不算问题（推荐位的广告卡），不提示。
     单测 `warnsWhenThePagePrintsFewerPicturesThanArticles` 钉住“相等/更多不提示、更少才提示、note 叠加”。
+  ⑮ **核对表的图要换行，不能并成一长条（Step 179n）**：一个块买十件东西就印十张图，并排在「图」列里
+    会把整行的数字挤出屏幕。现在 `showOrders` 把图放进 `<div class="shots">`（`mfg.css`：flex + wrap、
+    `max-width: 200px`、每张 60px → 一行 3 张，多了往下排）；展开的明细表里每行那张图是 48px
+    （`img.shot[data-scan-line-shot]`），只为和这一行对一眼。`mfg.css?v=4`。
+    看效果不必登录：`%TEMP%\jup\shotprobe\shoot-layout.bat`（Chrome headless 截 `shots-layout.html`，
+    同一个 css，10 张图 → 3/3/3/1）。巡检里那条断言查的是“页面用了 `stack.className = 'shots'`”
+    且 css 里有 `.shots img.shot`。
 - **识别有超时：服务端 120 秒，页面 135 秒（Step 179f）**：`OirScan.SCAN_TIMEOUT_SECONDS = 120`，从拿图起算，
   每波 `future.get(min(SLICE_WAIT_SECONDS, secondsLeft(deadline)))`，到点就把还没回来的分段**丢掉**并取消线程池；
   已经有单就照常返回 + 消息里写“识别超时：一次最多等 120 秒，只读了 N 张单”，一张都没有就回 `code=TIMEOUT`。
