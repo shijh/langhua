@@ -118,6 +118,9 @@
         <attribute name="scanId" type="String" mode="IN" optional="true"/>
         <!-- the product picture of this order, cut out of that screenshot and filed under this id -->
         <attribute name="shot" type="String" mode="IN" optional="true"/>
+        <!-- one picture per article line, comma separated, when the page printed a picture beside each:
+             line k of the order points at picture k -->
+        <attribute name="shots" type="String" mode="IN" optional="true"/>
         <attribute name="receiptId" type="String" mode="OUT" optional="true"/>
         <attribute name="importedCount" type="String" mode="OUT" optional="true"/>
         <attribute name="updatedCount" type="String" mode="OUT" optional="true"/>

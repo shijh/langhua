@@ -773,17 +773,22 @@ public final class OirScan {
     }
 
     /**
-     * Hands the pictures of one slice to the orders read from it.
+     * Hands the pictures of one slice to the articles read from it.
      *
-     * <p>Only when the counts agree: the orders of a slice are read top to bottom and the pictures of a
-     * slice are cut top to bottom, so the first picture belongs to the first order - but if the page
-     * printed three pictures and the model read two orders (or the other way round) there is no way to
-     * tell which is which, and a picture shown against the wrong part is worse than no picture.
+     * <p>A block that bought two different things prints two pictures, one beside each article, and the
+     * two are not the same (a reel of resistors next to a soldering iron). So a picture belongs to an
+     * <b>article</b> and not to the order: the pictures of a slice are cut top to bottom and the articles
+     * are read top to bottom, so article k takes picture k. Each order therefore receives {@code shots},
+     * one id per article row, and {@code shot}, the first of them, for the small picture next to the row.
+     *
+     * <p>Only when the counts agree: if the page printed fewer pictures than there are articles (a white
+     * part on a white card cannot be cut out) nothing is handed over for that slice unless the pictures at
+     * least match the orders one to one - then each order keeps one picture, as it always did.
      *
      * @param boxes the boxes of every picture of the page
      * @param thumbs the thumbnail of each box
      * @param range the rows of the slice
-     * @param orders the orders read from that slice, they receive a {@code shot} field
+     * @param orders the orders read from that slice, they receive {@code shot} and {@code shots} fields
      * @param request the request, for the delegator
      * @param scanId the id of this scan, the pictures are filed under it
      * @param nextShot how many pictures have been filed so far, one number in an array
@@ -793,57 +798,129 @@ public final class OirScan {
         if (orders == null || orders.isEmpty() || boxes.isEmpty()) {
             return;
         }
+        int articles = articlesOf(orders);
         List<Integer> mine = picturesForOrders(OirShots.indexesWithin(boxes, range[0], range[1]),
-                orders.size());
-        if (mine.size() != orders.size()) {
-            Debug.logInfo("The rows printed " + mine.size() + " product pictures and " + orders.size()
-                    + " orders were read from them, so no picture is handed over", MODULE);
+                orders.size(), articles);
+        if (mine.isEmpty()) {
+            Debug.logInfo("The rows printed too few product pictures for " + orders.size()
+                    + " orders to tell which picture belongs to which article, so none is handed over",
+                    MODULE);
             return;
         }
+        // one picture per article only when the page printed a picture for each of them; otherwise the
+        // pictures can only be told apart one per order, as they always could
+        boolean perArticle = articles > 0 && mine.size() >= articles;
+        int at = 0;
         for (int i = 0; i < orders.size(); i++) {
-            byte[] thumb = thumbs.get(mine.get(i).intValue());
-            if (thumb == null || thumb.length == 0) {
+            Map<String, String> order = orders.get(i);
+            int take = perArticle ? Math.max(1, articlesOf(java.util.Collections.singletonList(order))) : 1;
+            StringBuilder ids = new StringBuilder();
+            for (int k = 0; k < take && at < mine.size(); k++) {
+                String shotId = storeOne(thumbs, mine.get(at), request, scanId, nextShot);
+                if (shotId == null) {
+                    // no room left in the id for another picture, or nothing to store: the rest of the
+                    // page keeps the whole screenshot, which is honest, instead of sharing an id
+                    return;
+                }
+                at++;
+                if (ids.length() > 0) {
+                    ids.append(',');
+                }
+                ids.append(shotId);
+            }
+            if (ids.length() == 0) {
                 continue;
             }
-            String shotId = shotIdOf(scanId, nextShot[0]);
-            if (shotId == null) {
-                // no room left in the id for another picture: the rest of the page keeps the whole
-                // screenshot, which is honest, instead of sharing an id with the first one
-                Debug.logInfo("The scan id has no room for picture " + nextShot[0]
-                        + ", the rest of the page keeps the whole screenshot", MODULE);
-                return;
-            }
-            if (storeShot(request, shotId, thumb)) {
-                nextShot[0]++;
-                orders.get(i).put("shot", shotId);
-            }
+            String all = ids.toString();
+            order.put("shots", all);
+            order.put("shot", all.indexOf(',') < 0 ? all : all.substring(0, all.indexOf(',')));
         }
+    }
+
+    /**
+     * The number of article rows the orders of one slice print.
+     *
+     * <p>Used for the pictures: a block that bought two different things prints two, one beside each
+     * article, so the pictures are handed to the article rows and not to the orders.
+     *
+     * @param orders the orders read from a slice
+     * @return how many pictures the page should print for them
+     */
+    public static int articlesOf(List<Map<String, String>> orders) {
+        int articles = 0;
+        for (Map<String, String> order : orders) {
+            articles += OirOrders.parseOrderArticleLines(order == null ? null : order.get("lines")).size();
+        }
+        return articles;
+    }
+
+    /**
+     * Files one thumbnail and says under which id.
+     *
+     * @param thumbs the thumbnails of the page
+     * @param place which picture of the page
+     * @param request the request, for the delegator
+     * @param scanId the id of this scan
+     * @param nextShot how many pictures have been filed so far
+     * @return the id, {@code null} when it could not be filed
+     */
+    private static String storeOne(List<byte[]> thumbs, Integer place, HttpServletRequest request,
+            String scanId, int[] nextShot) {
+        byte[] thumb = thumbs.get(place.intValue());
+        if (thumb == null || thumb.length == 0) {
+            return null;
+        }
+        String shotId = shotIdOf(scanId, nextShot[0]);
+        if (shotId == null) {
+            Debug.logInfo("The scan id has no room for picture " + nextShot[0]
+                    + ", the rest of the page keeps the whole screenshot", MODULE);
+            return null;
+        }
+        if (!storeShot(request, shotId, thumb)) {
+            return null;
+        }
+        nextShot[0]++;
+        return shotId;
     }
 
     /**
      * Which of the pictures of a slice belong to its orders.
      *
-     * <p>A slice prints one picture per article, so the counts agree and every picture is handed over. Two
-     * things make them disagree:
+     * <p>A slice prints one picture per article, so when the counts agree every picture is handed over,
+     * one after the other. Three things make them disagree:
      * <ul>
-     * <li>the page prints more pictures than there are orders - its 猜你喜欢 / 推荐常看商品 strip sits
+     * <li>the page prints more pictures than there are articles - its 猜你喜欢 / 推荐常看商品 strip sits
      *     inside the block, with a card of advertisements that has a picture of its own. The strip comes
      *     after the articles, so the pictures nearest the top of the slice are the articles' (a real page
      *     of 26 orders printed 27 pictures and lost the first order's picture to the strip);</li>
-     * <li>fewer pictures than orders - an article whose picture could not be cut out (a white part on a
-     *     white card), or a block the model read twice. There is no way to tell which is which, and a
-     *     picture against the wrong part is worse than no picture, so none is handed over.</li>
+     * <li>fewer pictures than articles, but as many pictures as orders - an article whose picture could
+     *     not be cut out (a white part on a white card). Then one picture per order is still right;</li>
+     * <li>fewer pictures than orders - a block the model read twice. There is no way to tell which is
+     *     which, and a picture against the wrong part is worse than no picture, so none is handed over.</li>
      * </ul>
+     *
+     * @param pictures the places of the pictures in the slice, top to bottom
+     * @param orders how many orders were read from the slice
+     * @param articles how many article rows those orders print
+     * @return the places to hand over, in the same order; empty when nothing should be
+     */
+    public static List<Integer> picturesForOrders(List<Integer> pictures, int orders, int articles) {
+        if (pictures == null || orders <= 0 || pictures.size() < orders) {
+            return new ArrayList<>();
+        }
+        int wanted = Math.max(orders, articles);
+        return new ArrayList<>(pictures.subList(0, Math.min(wanted, pictures.size())));
+    }
+
+    /**
+     * Which of the pictures of a slice belong to its orders, one per order.
      *
      * @param pictures the places of the pictures in the slice, top to bottom
      * @param orders how many orders were read from the slice
      * @return the places to hand over, in the same order; empty when nothing should be
      */
     public static List<Integer> picturesForOrders(List<Integer> pictures, int orders) {
-        if (pictures == null || orders <= 0 || pictures.size() < orders) {
-            return new ArrayList<>();
-        }
-        return new ArrayList<>(pictures.subList(0, orders));
+        return picturesForOrders(pictures, orders, orders);
     }
 
     /**

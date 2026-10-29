@@ -258,6 +258,9 @@ public final class MfgReceiptEvents {
                 // the picture the shop printed next to this order, already cut out of the screenshot
                 // and filed under this id: the receipt line points at it and shows it
                 context.put("shot", value(parameters, i, "shot"));
+                // a block that bought two different things prints two pictures, one beside each
+                // article: they come as a comma separated list, one per line of the order
+                context.put("shots", value(parameters, i, "shots"));
                 // the screenshot these numbers were read from: the receipt keeps a pointer to it, so
                 // the document can show the picture (the bytes live once, under the scan id)
                 context.put("scanId", MfgSupport.toText(parameters.get("scanId")));

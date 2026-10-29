@@ -372,6 +372,67 @@ public class MfgOrderReadRulesTest {
     }
 
     @Test
+    public void takesOnePictureForEachArticleWhenTheBlockBoughtTwoThings() {
+        // a block with two different articles prints two pictures, one beside each: one order, two
+        // articles, so both pictures are handed over and line one and line two get different pictures
+        assertEquals(Arrays.asList(Integer.valueOf(0), Integer.valueOf(1)),
+                OirScan.picturesForOrders(
+                        Arrays.asList(Integer.valueOf(0), Integer.valueOf(1), Integer.valueOf(2)), 1, 2));
+        // one picture for two articles: only the order as a whole can be shown a picture
+        assertEquals(Arrays.asList(Integer.valueOf(0)),
+                OirScan.picturesForOrders(Collections.singletonList(Integer.valueOf(0)), 1, 2));
+        // two orders, four articles, four pictures: all four belong to the articles
+        assertEquals(4, OirScan.picturesForOrders(
+                Arrays.asList(Integer.valueOf(0), Integer.valueOf(1), Integer.valueOf(2),
+                        Integer.valueOf(3), Integer.valueOf(4)), 2, 4).size());
+        // fewer pictures than orders: nothing can be told apart
+        assertTrue(OirScan.picturesForOrders(
+                Collections.singletonList(Integer.valueOf(0)), 2, 3).isEmpty());
+    }
+
+    @Test
+    public void countsTheArticlesOfTheOrdersOfOneSlice() {
+        Map<String, String> one = new LinkedHashMap<>();
+        one.put("lines", "A,part a,1,2.00");
+        Map<String, String> two = new LinkedHashMap<>();
+        two.put("lines", "B,part b,1,3.00\nC,part c,2,4.00");
+        assertEquals(3, OirScan.articlesOf(Arrays.asList(one, two)));
+        assertEquals(1, OirScan.articlesOf(Collections.singletonList(one)));
+        assertEquals(0, OirScan.articlesOf(Collections.emptyList()));
+    }
+
+    @Test
+    public void givesEachArticleLineItsOwnPicture() {
+        // the page printed a picture beside each article: line one takes the first, line two the second,
+        // and a third line keeps none rather than borrowing the first one (that is another part)
+        List<String> two = Arrays.asList("SCAN-176170000000001", "SCAN-176170000000002");
+        assertEquals("SCAN-176170000000001", MfgPurchaseServices.shotOfLine(two, 0, null));
+        assertEquals("SCAN-176170000000002", MfgPurchaseServices.shotOfLine(two, 1, null));
+        assertNull(MfgPurchaseServices.shotOfLine(two, 2, "SCAN-176170000000001"));
+        // one picture for the whole order belongs to every line of it
+        List<String> one = Collections.singletonList("SCAN-176170000000003");
+        assertEquals("SCAN-176170000000003", MfgPurchaseServices.shotOfLine(one, 0, null));
+        assertEquals("SCAN-176170000000003", MfgPurchaseServices.shotOfLine(one, 4, null));
+        // an order without a list falls back to the picture of the order itself
+        assertEquals("SCAN-176170000000004",
+                MfgPurchaseServices.shotOfLine(new ArrayList<String>(), 0, "SCAN-176170000000004"));
+        assertEquals("SCAN-176170000000004",
+                MfgPurchaseServices.shotOfLine(null, 2, "SCAN-176170000000004"));
+        assertNull(MfgPurchaseServices.shotOfLine(new ArrayList<String>(), 0, null));
+    }
+
+    @Test
+    public void readsThePictureListThePagePosted() {
+        List<String> ids = MfgPurchaseServices.shotsOf("SCAN-176170000000001,SCAN-176170000000002");
+        assertEquals(Arrays.asList("SCAN-176170000000001", "SCAN-176170000000002"), ids);
+        assertTrue(MfgPurchaseServices.shotsOf(null).isEmpty());
+        assertTrue(MfgPurchaseServices.shotsOf("").isEmpty());
+        assertTrue(MfgPurchaseServices.shotsOf(" , ").isEmpty());
+        assertEquals(Collections.singletonList("SCAN-176170000000005"),
+                MfgPurchaseServices.shotsOf(" SCAN-176170000000005 "));
+    }
+
+    @Test
     public void givesUpAfterTwoMinutes() {
         // a page of 26 orders needs about 20 seconds, so two minutes is ten times the room - and no call
         // is ever handed less than a second (a short deadline must not mean a zero second wait)

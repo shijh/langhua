@@ -783,9 +783,10 @@ public final class MfgPurchaseServices {
             String receiptId = receipt.getString("receiptId");
             boolean overwrite = "Y".equalsIgnoreCase(MfgSupport.toText(context.get("overwrite")));
             // the product picture the order screenshot printed next to this article, filed as an
-            // attachment of the scan: every line of the order points at the same one, because a shop
-            // order prints one picture for all of its lines when it has one
+            // attachment of the scan: a block that bought two different things prints two pictures, so
+            // the answer may carry one per line (shots) and the order keeps the first as its own
             String shot = MfgSupport.toText(context.get("shot"));
+            List<String> shots = shotsOf(MfgSupport.toText(context.get("shots")));
             // a receipt that was booked in before the screenshot was kept (or from an older scan) gets
             // the picture of this read as well: the detail page shows "原图：打开截图" from this id, and
             // without it a re-import left the document without a way back to what was read
@@ -814,7 +815,11 @@ public final class MfgPurchaseServices {
             int updated = 0;
             Set<String> answeredCodes = new LinkedHashSet<>();
             long lineSeq = nextReceiptLineSeq(delegator, receiptId);
-            for (String[] row : rows) {
+            for (int rowIndex = 0; rowIndex < rows.size(); rowIndex++) {
+                String[] row = rows.get(rowIndex);
+                // the picture of this article: one per line when the page printed one beside each of
+                // them, the one picture of the order when it printed a single one
+                String lineShot = shotOfLine(shots, rowIndex, shot);
                 String componentCode = row[0];
                 answeredCodes.add(componentCode);
                 double qty = MfgSupport.toDouble(row[2], 0.0);
@@ -826,7 +831,7 @@ public final class MfgPurchaseServices {
                     // this very line is already on the receipt: an order read twice, nothing to add
                     if (overwrite) {
                         mergeOrderLine(delegator, exact, receiptDate, qty, amount);
-                        rememberShot(exact, shot);
+                        rememberShot(exact, lineShot);
                         updated++;
                     } else {
                         skipped++;
@@ -842,7 +847,7 @@ public final class MfgPurchaseServices {
                         continue;
                     }
                     mergeOrderLine(delegator, samePart, receiptDate, qty, amount);
-                    rememberShot(samePart, shot);
+                    rememberShot(samePart, lineShot);
                     updated++;
                     continue;
                 }
@@ -877,8 +882,8 @@ public final class MfgPurchaseServices {
                 line.set("qty", Double.valueOf(qty));
                 line.set("unitPrice", lot.get("unitPrice"));
                 line.set("goodsAmount", Double.valueOf(MfgSupport.round2(amount)));
-                if (shot != null) {
-                    line.set("scanShotId", shot);
+                if (lineShot != null) {
+                    line.set("scanShotId", lineShot);
                 }
                 delegator.create(line);
                 lineSeq += 10L;
@@ -1231,6 +1236,54 @@ public final class MfgPurchaseServices {
             line.set("scanShotId", shot);
             line.store();
         }
+    }
+
+    /**
+     * The pictures one order brought, one per line.
+     *
+     * @param text the ids as the page sent them (comma separated), {@code null} or empty when the order
+     *        carries a single picture only
+     * @return the ids, in the order of the article rows; empty when none was sent
+     */
+    static List<String> shotsOf(String text) {
+        List<String> ids = new ArrayList<>();
+        if (text == null) {
+            return ids;
+        }
+        for (String part : text.split(",")) {
+            String id = part.trim();
+            if (!id.isEmpty()) {
+                ids.add(id);
+            }
+        }
+        return ids;
+    }
+
+    /**
+     * The picture of one article line.
+     *
+     * <p>A shop prints one picture beside each article, so line k of the answer takes picture k. When the
+     * answer brought a single picture for the whole order it belongs to every line (that is what a block
+     * with one article, or a page where only one picture could be cut out, looks like). A line past the
+     * end of the list keeps no picture rather than borrowing the first one, which belongs to another part.
+     *
+     * @param shots the pictures of this order, in the order of its lines
+     * @param index which line of the order
+     * @param orderShot the picture of the order as a whole
+     * @return the id for this line, {@code null} when there is none
+     */
+    static String shotOfLine(List<String> shots, int index, String orderShot) {
+        if (shots != null && index >= 0 && index < shots.size()) {
+            return shots.get(index);
+        }
+        if (shots != null && shots.size() == 1) {
+            return shots.get(0);
+        }
+        if (shots != null && shots.size() > 1) {
+            // the page printed a picture per article and this line has none of its own
+            return null;
+        }
+        return orderShot;
     }
 
     static GenericValue claimOne(List<GenericValue> lines, Set<String> claimed) {

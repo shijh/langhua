@@ -500,6 +500,14 @@
                 return row.trim().length > 0;
             });
         }
+        /* the pictures of one order: one beside each article when the page printed them that way (a
+           block that bought two different things), otherwise the single picture of the block */
+        function shotsOf(order) {
+            var list = (order.shots || order.shot || '').split(',');
+            return list.filter(function (id) {
+                return id.trim().length > 0;
+            });
+        }
         /* the articles of one order, opened under its row: what exactly will be written, and the
            box to correct it - a block that came back with the articles of the block above it is fixed
            here instead of being typed again (Step 138) */
@@ -660,18 +668,18 @@
                    block that was read twice or not at all is seen at once (Step 136) */
                 var seq = cell(row, String(index + 1), 'num');
                 seq.setAttribute('data-scan-seq', String(index + 1));
-                /* the picture the shop printed next to this order, cut out of the screenshot: the
-                   person sees the reel itself, not only the numbers read from it */
+                /* the pictures the shop printed next to this order, cut out of the screenshot: one
+                   beside each article, so a block that bought a reel and an iron shows both (Step 179l) */
                 var picture = document.createElement('td');
-                if (order.shot) {
+                shotsOf(order).forEach(function (id) {
                     var img = document.createElement('img');
                     img.className = 'shot';
-                    img.setAttribute('data-scan-shot', order.shot);
+                    img.setAttribute('data-scan-shot', id);
                     img.title = '订单截图里的商品图';
                     img.src = '/mfg/control/attachment?ownerTypeId=MFG_ATT_ORDER_SCAN&ownerId='
-                        + encodeURIComponent(order.shot) + '&thumb=1';
+                        + encodeURIComponent(id) + '&thumb=1';
                     picture.appendChild(img);
-                }
+                });
                 row.appendChild(picture);
                 cell(row, order.orderNo || '（没读到单号）');
                 /* the platform is printed next to the shop (淘宝 / 天猫); the store itself stays
@@ -781,9 +789,11 @@
                     params.append('o' + index + '.freight', order.freight || '0');
                     params.append('o' + index + '.discount', order.discount || '0');
                     params.append('o' + index + '.lines', order.lines || '');
-                    // the picture the shop printed next to this order, cut out of the screenshot: the
-                    // receipt line keeps the pointer and shows it (nothing to copy, the bytes sit once)
+                    // the pictures the shop printed next to this order, cut out of the screenshot: one
+                    // per article, so line k of the receipt keeps picture k (nothing to copy, the bytes
+                    // sit once under their id)
                     params.append('o' + index + '.shot', order.shot || '');
+                    params.append('o' + index + '.shots', shotsOf(order).join(','));
                 });
                 var skipped = orders.length - wanted.length;
                 if (!wanted.length) {
