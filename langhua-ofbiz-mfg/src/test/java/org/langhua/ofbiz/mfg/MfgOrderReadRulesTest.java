@@ -433,6 +433,31 @@ public class MfgOrderReadRulesTest {
     }
 
     @Test
+    public void tellsAStripOfCardsFromTheArticlesOfAnOrder() {
+        // an order prints its articles one under the other: no two pictures share their rows
+        List<int[]> article = Arrays.asList(new int[] {550, 100, 800, 350},
+                new int[] {550, 400, 800, 650}, new int[] {550, 700, 800, 950});
+        assertEquals(Integer.MAX_VALUE, OirShots.stripStartOf(article));
+        assertFalse(OirShots.sharesRows(article.get(0), article.get(1)));
+        // the page's 猜你喜欢 grid prints four cards side by side: they do share their rows, and that is
+        // what tells the feed apart from the articles of the last order (a real page put three
+        // advertisement titles into the last order)
+        List<int[]> withFeed = new ArrayList<>(article);
+        withFeed.add(new int[] {550, 1200, 800, 1450});
+        withFeed.add(new int[] {900, 1210, 1150, 1460});
+        assertEquals(1200, OirShots.stripStartOf(withFeed));
+        assertTrue(OirShots.sharesRows(withFeed.get(3), withFeed.get(4)));
+        // only the pictures above the strip can belong to the slice
+        List<Integer> places = Arrays.asList(Integer.valueOf(0), Integer.valueOf(1),
+                Integer.valueOf(2), Integer.valueOf(3), Integer.valueOf(4));
+        assertEquals(Arrays.asList(Integer.valueOf(0), Integer.valueOf(1), Integer.valueOf(2)),
+                OirScan.withoutStrips(places, withFeed));
+        // a slice that is nothing but the feed hands nothing over
+        assertTrue(OirScan.withoutStrips(Arrays.asList(Integer.valueOf(3), Integer.valueOf(4)),
+                withFeed).isEmpty());
+    }
+
+    @Test
     public void warnsWhenThePagePrintsFewerPicturesThanArticles() {
         // the counts agree: nothing to say
         assertNull(OirScan.picturesShortfallNote(2, 2));

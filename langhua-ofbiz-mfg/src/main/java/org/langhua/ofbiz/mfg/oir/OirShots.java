@@ -179,6 +179,46 @@ public final class OirShots {
     }
 
     /**
+     * Whether two pictures are printed side by side, on (nearly) the same rows.
+     *
+     * <p>An order prints its articles one under the other, so a picture of an article never shares its
+     * rows with another one. The page's 猜你喜欢 grid prints three or four cards in a row, and those do:
+     * that is what tells the feed of advertisements from the articles (Step 179q).
+     *
+     * @param one one box
+     * @param other another box
+     * @return {@code true} when more than half of the shorter box lies on the rows of the other
+     */
+    public static boolean sharesRows(int[] one, int[] other) {
+        if (one == null || other == null) {
+            return false;
+        }
+        int top = Math.max(one[1], other[1]);
+        int bottom = Math.min(one[3], other[3]);
+        int shorter = Math.min(one[3] - one[1], other[3] - other[1]);
+        return shorter > 0 && (bottom - top) > shorter / 2;
+    }
+
+    /**
+     * The first row of the page's strip of cards printed side by side, or
+     * {@link Integer#MAX_VALUE} when every picture stands on its own.
+     *
+     * @param boxes the boxes of the page, top to bottom
+     * @return the row the strip starts on
+     */
+    public static int stripStartOf(List<int[]> boxes) {
+        if (boxes == null) {
+            return Integer.MAX_VALUE;
+        }
+        for (int i = 0; i + 1 < boxes.size(); i++) {
+            if (sharesRows(boxes.get(i), boxes.get(i + 1))) {
+                return Math.min(boxes.get(i)[1], boxes.get(i + 1)[1]);
+            }
+        }
+        return Integer.MAX_VALUE;
+    }
+
+    /**
      * The boxes whose middle falls between two rows: how the pictures are handed to the order blocks
      * of a page, which are known by the rows they print between.
      *

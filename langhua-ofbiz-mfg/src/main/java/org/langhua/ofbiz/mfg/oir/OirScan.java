@@ -433,6 +433,9 @@ public final class OirScan {
         List<int[]> shotBoxes = new ArrayList<>();
         List<byte[]> shotThumbs = new ArrayList<>();
         fillShots(image, shotBoxes, shotThumbs);
+        // where the page's grid of recommendations starts: its cards stand side by side, an order's
+        // articles one under the other, so the grid can be told apart from the orders (Step 179q)
+        int stripTop = OirShots.stripStartOf(shotBoxes);
         long picturesDone = System.currentTimeMillis();
         int[] nextShot = new int[] {1};
         String reply = null;
@@ -442,7 +445,7 @@ public final class OirScan {
         // a long page (several order blocks one under the other) is cut into overlapping slices: one
         // small picture per slice is read far more reliably than five blocks at once, and the rows of
         // an order that straddles two slices are joined afterwards by its number
-        Slices sliced = slicesOfRanges(image);
+        Slices sliced = slicesOfRanges(image, stripTop);
         List<byte[]> slices = sliced.pictures;
         String sliceNote = "";
         boolean timedOut = false;
@@ -803,7 +806,8 @@ public final class OirScan {
             return;
         }
         int articles = articlesOf(orders);
-        List<Integer> mine = picturesForOrders(OirShots.indexesWithin(boxes, range[0], range[1]),
+        List<Integer> mine = picturesForOrders(
+                withoutStrips(OirShots.indexesWithin(boxes, range[0], range[1]), boxes),
                 orders.size(), articles);
         if (mine.isEmpty()) {
             Debug.logInfo("The rows printed too few product pictures for " + orders.size()
@@ -879,6 +883,34 @@ public final class OirScan {
         }
         String seen = order.get("note");
         order.put("note", seen == null || seen.isEmpty() ? note : seen + "；" + note);
+    }
+
+    /**
+     * The pictures of a slice that can belong to its articles: the ones printed one above the other.
+     *
+     * <p>A block ends with the page's 猜你喜欢 grid, which prints three or four cards side by side and
+     * whose titles look exactly like article titles. Those cards share their rows, which an article's
+     * picture never does, so the first picture that shares its rows with the next one marks the strip -
+     * and nothing from there on belongs to an article (Step 179q).
+     *
+     * @param pictures the places of the pictures in the slice, top to bottom
+     * @param boxes the boxes of every picture of the page
+     * @return the places up to the strip, in the same order
+     */
+    public static List<Integer> withoutStrips(List<Integer> pictures, List<int[]> boxes) {
+        List<Integer> kept = new ArrayList<>();
+        if (pictures == null || boxes == null) {
+            return kept;
+        }
+        for (int i = 0; i < pictures.size(); i++) {
+            int place = pictures.get(i).intValue();
+            if (i + 1 < pictures.size()
+                    && OirShots.sharesRows(boxes.get(place), boxes.get(pictures.get(i + 1).intValue()))) {
+                break;
+            }
+            kept.add(pictures.get(i));
+        }
+        return kept;
     }
 
     /**
@@ -1425,6 +1457,18 @@ public final class OirScan {
     }
 
     private static Slices slicesOfRanges(byte[] image) {
+        return slicesOfRanges(image, Integer.MAX_VALUE);
+    }
+
+    /**
+     * The slices of a picture, cut at the blocks of the list.
+     *
+     * @param image the screenshot
+     * @param stripTop the first row of the page's grid of recommendation cards, or
+     *        {@link Integer#MAX_VALUE} when the page prints none
+     * @return the slices, each with the rows it was cut from
+     */
+    private static Slices slicesOfRanges(byte[] image, int stripTop) {
         Slices sliced = new Slices();
         BufferedImage full;
         try {
@@ -1473,6 +1517,18 @@ public final class OirScan {
             // past the old fixed room and lost the rows below the cut, and the model filled them in
             // from the paid total (Step 161)
             int end = tailCutOf(full, list, blockHeightOf(full));
+            // the grid of recommendation cards below the list is not orders: when its cards stand side
+            // by side somewhere below the last button, the list ends there. This is what keeps the feed
+            // out of the last block on a page whose last order is shorter than the tallest one - there
+            // the room after the button was measured on the tallest block and reached past the feed,
+            // so the model read three advertisement titles as three articles of the last order
+            // (Step 179q)
+            int lastButton = list.get(list.size() - 1).intValue();
+            if (stripTop < end && stripTop > lastButton) {
+                Debug.logInfo("A strip of cards printed side by side starts at row " + stripTop
+                        + ", the order list ends there", MODULE);
+                end = stripTop;
+            }
             if (end < height) {
                 Debug.logInfo("The order list ends at row " + end + " of " + height
                         + ", the rest is the recommendation feed", MODULE);
@@ -1534,8 +1590,10 @@ public final class OirScan {
      * middle of its last order.
      *
      * <p>A page whose cards do load separates nothing (its bands are 18 to 40 rows, like the ones
-     * between two articles), so the room below the last button falls back to one block - the tallest
-     * block the page prints, which is never less than the block height measured on the page. A cut at
+     * between two articles), so the room below the last button falls back to one block: the height the
+     * page measures for itself, or the **median** gap between two of its buttons. The median and not the
+     * tallest: one order with eleven articles is eight thousand rows tall, and the tallest gap pushed the
+     * search past the end of the picture, so nothing was cut (Step 179q). A cut at
      * one block below the last button used to be the only rule, and it cut the tallest order of the
      * list whenever that order was taller than the room: a ten article order (20.00 yuan) had only its
      * header and two rows inside the picture, and the model then filled the rest in from the paid total
@@ -1555,13 +1613,21 @@ public final class OirScan {
         if (lastButton <= 0 || lastButton >= height - 1) {
             return height;
         }
-        int tallest = 0;
+        List<Integer> apart = new ArrayList<>();
         for (int i = 1; i < buttons.size(); i++) {
-            tallest = Math.max(tallest, buttons.get(i).intValue() - buttons.get(i - 1).intValue());
+            apart.add(Integer.valueOf(buttons.get(i).intValue() - buttons.get(i - 1).intValue()));
         }
-        // one block of room below the last button, measured on the tallest block of the page: an order
-        // that prints no button of its own, or that prints more articles than the others, is still inside
-        int room = Math.max(Math.max(300, blockHeight), tallest);
+        // one block of room below the last button, measured on the page's own block height and on the
+        // typical gap between two buttons - the median and not the tallest: on a page where one order
+        // is far taller than the others (eleven articles), the tallest gap pushed the search past the
+        // end of the picture, so nothing was cut and the whole recommendation grid stayed in the last
+        // slice, where the model read its titles as three more articles of the last order (Step 179q)
+        int typical = 0;
+        if (!apart.isEmpty()) {
+            Collections.sort(apart);
+            typical = apart.get(apart.size() / 2).intValue();
+        }
+        int room = Math.max(Math.max(300, blockHeight), typical);
         int from = (int) Math.min((long) height, (long) lastButton + room);
         boolean[] blank = blankRows(image);
         // how wide the widest empty band of the list itself is: the articles of one order sit that far

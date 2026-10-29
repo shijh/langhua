@@ -1705,6 +1705,15 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
     **别把 `scanHint` 一起清**：`take()` 紧接着要写“已粘贴截图：…”。
     页面脚本的语法不用浏览器就能查：`%TEMP%\jup\js-check\check-pages.ps1` 取几个渲染后的页面、
     把内联 `<script>` 拆出来跑 `node --check`（结果写 `F:\build-ofbiz\js-check.txt`），改完 `.ftl` 里的脚本跑一下。
+  ⑰ **列表末尾的「猜你喜欢」网格不是订单（Step 179q）**：一张 5 单的页面上，最后一单被读成 4 行
+    （真值是 1 行 ×5），多出来的 3 行是推荐区的三个标题，配的图也是推荐卡。两道：
+    ① `tailCutOf` 的 `room` 原来取**最大**的按钮间距 —— 那个页面第一单 11 件商品、块高 8000+，
+    于是 `from = lastButton + 8000` 超出画面，函数直接返回页面高度（**等于不切**），整块推荐区留在最后一段里。
+    现在取**中位数**（`apart` 排序取中）与 `blockHeightOf` 的较大值；
+    ② `OirShots.stripStartOf` / `sharesRows`：推荐卡**并排**（三到四张共享行范围），订单的商品图**上下排**，
+    所以切段时 `stripTop`（第一处两张图共用行）盖掉 `tailCut`，发图时 `OirScan.withoutStrips` 只留 strip 以上的图。
+    **两条都要留着**：截图里推荐卡的图常常没加载完（白色占位），那时 `stripStartOf` 量不出图，只有 `tailCut` 兜。
+    单测 `tellsAStripOfCardsFromTheArticlesOfAnOrder`。实测（25 那张 5 单页）：最后一单恢复成 1 行、qty 10（x5 × 一包 2 个）。
 - **识别有超时：服务端 120 秒，页面 135 秒（Step 179f）**：`OirScan.SCAN_TIMEOUT_SECONDS = 120`，从拿图起算，
   每波 `future.get(min(SLICE_WAIT_SECONDS, secondsLeft(deadline)))`，到点就把还没回来的分段**丢掉**并取消线程池；
   已经有单就照常返回 + 消息里写“识别超时：一次最多等 120 秒，只读了 N 张单”，一张都没有就回 `code=TIMEOUT`。
