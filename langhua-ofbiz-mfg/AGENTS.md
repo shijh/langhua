@@ -1615,6 +1615,11 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   ⑦ 巡检 `verify-m56-shots.ps1`（20 项，日志 `mfg-m56.txt`）**不需要真图**：用一个假 id 就能断言属性与 `src`，
      真裁图那段要识图服务在线（单元测试 `MfgOrderReadRulesTest` 用画出来的页面钉住裁图与缩略图）。
   ⑧ 实体列 `SCAN_SHOT_ID` 由 OFBiz 启动时的 `[addColumn]` 自动补，**不用**跑手工 SQL。
+  ⑨ **图片 id 只能 20 个字符**：`MfgAttachment.ownerId` 是 `id` 类型，而 `SCAN-<13 位毫秒>` 已经 18 位，
+     再拼 `-12` 就是 21 位 —— Derby 直接截断，于是**第 10 张以后的图全落在第 1、2 张的 id 上**，
+     到货单从第 10 行起显示的、都是第一件商品的图（2026-10-29 那张 26 单的真页面上当场看见）。
+     现在统一走 `OirScan.shotIdOf(scanId, n)` = `scanId + 两位序号`（正好 20 位），超过 99 张就不给图、
+     只留整张截图；单测 `keepsThePictureIdInsideAnIdField` 钉住长度与不重复。**加长 scanId 前先算这个账**。
 - **PowerShell 写文件别用 `Set-Content -Encoding UTF8`**：PS 5.1 会带 BOM，javac 直接报
   `非法字符: '\ufeff'`（三个文件同时中招）。要改源码用 `create_file`/编辑工具，或写完后用
   `[System.IO.File]::WriteAllBytes` 去掉前 3 个字节。

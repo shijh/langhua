@@ -163,6 +163,9 @@ public final class OirScan {
      */
     public static final int SHOT_SIDE = 160;
 
+    /** How many characters a key of the model holds: an {@code id} field of the data model. */
+    public static final int MAX_ID_LENGTH = 20;
+
     /**
      * The orange of the 再买一单 button of a shop order block. Every block of a Taobao / 天猫 list
      * prints one, so the blocks can be counted in the picture and the cuts put between them instead
@@ -732,12 +735,40 @@ public final class OirScan {
             if (thumb == null || thumb.length == 0) {
                 continue;
             }
-            String shotId = scanId + "-" + nextShot[0];
+            String shotId = shotIdOf(scanId, nextShot[0]);
+            if (shotId == null) {
+                // no room left in the id for another picture: the rest of the page keeps the whole
+                // screenshot, which is honest, instead of sharing an id with the first one
+                Debug.logInfo("The scan id has no room for picture " + nextShot[0]
+                        + ", the rest of the page keeps the whole screenshot", MODULE);
+                return;
+            }
             if (storeShot(request, shotId, thumb)) {
                 nextShot[0]++;
                 orders.get(i).put("shot", shotId);
             }
         }
+    }
+
+    /**
+     * The id one product picture of a scan is filed under, or {@code null} when no more fit.
+     *
+     * <p>Why this is not just {@code scanId + "-" + number}: the key of an attachment is an
+     * {@code id}, which holds 20 characters, and a scan id is 18 (Step: "SCAN-" and the milliseconds).
+     * With a dash and a two digit number that is 21 - Derby shortens it on the way in, so pictures 10 and
+     * up were filed under the id of picture 1, and every receipt line past the tenth showed the first
+     * product of the page (found on a real page of 26 orders).
+     *
+     * @param scanId the id of the scan
+     * @param number which picture of the scan, counting from 1
+     * @return the id, {@code null} when it would not fit or the arguments make no sense
+     */
+    public static String shotIdOf(String scanId, int number) {
+        if (scanId == null || scanId.isEmpty() || number <= 0) {
+            return null;
+        }
+        String id = scanId + (number < 10 ? "0" + number : String.valueOf(number));
+        return id.length() > MAX_ID_LENGTH ? null : id;
     }
 
     /**

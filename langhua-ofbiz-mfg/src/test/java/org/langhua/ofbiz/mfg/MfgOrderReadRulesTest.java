@@ -223,6 +223,25 @@ public class MfgOrderReadRulesTest {
     }
 
     @Test
+    public void keepsThePictureIdInsideAnIdField() {
+        // a scan id is "SCAN-" and the milliseconds: 18 characters of the 20 an id field holds
+        String scanId = "SCAN-1761700000000";
+        assertEquals(18, scanId.length());
+        assertEquals("SCAN-176170000000001", OirScan.shotIdOf(scanId, 1));
+        // the tenth picture used to become "SCAN-1761700000000-10", which Derby shortened to the id of
+        // the first one: every receipt line past the tenth showed the first product of the page
+        assertEquals(20, OirScan.shotIdOf(scanId, 10).length());
+        assertEquals(20, OirScan.shotIdOf(scanId, 99).length());
+        assertNull(OirScan.shotIdOf(scanId, 100));
+        assertNull(OirScan.shotIdOf(null, 1));
+        java.util.Set<String> ids = new java.util.HashSet<>();
+        for (int i = 1; i <= 99; i++) {
+            ids.add(OirScan.shotIdOf(scanId, i));
+        }
+        assertEquals(99, ids.size());
+    }
+
+    @Test
     public void readsTheFieldsOfAVisionAnswer() {
         // the model may answer plain, fenced, or inside a chat envelope
         Map<String, String> plain = oneOrder(
