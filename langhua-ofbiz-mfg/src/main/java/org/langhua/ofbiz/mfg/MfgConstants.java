@@ -526,7 +526,14 @@ public final class MfgConstants {
 
     public static final String ATT_CLAIM = "MFG_ATT_CLAIM";
 
+    /**
+     * A shop page somebody photographed for the order recognition. The screenshot is kept as it was,
+     * under the scan id the page hands back, so the receipts made from it can point at the picture the
+     * numbers came from - and the product pictures can be cut out of it later.
+     */
+    public static final String ATT_ORDER_SCAN = "MFG_ATT_ORDER_SCAN";
+
     /** Owner types an attachment can hang on. */
     public static final String[] ATTACHMENT_OWNER_TYPES = {
-        ATT_PRODUCT, ATT_DEV_PROJECT, ATT_WORK_ORDER, ATT_DELIVERY, ATT_CLAIM};
+        ATT_PRODUCT, ATT_DEV_PROJECT, ATT_WORK_ORDER, ATT_DELIVERY, ATT_CLAIM, ATT_ORDER_SCAN};
 }

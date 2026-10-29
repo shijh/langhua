@@ -165,6 +165,7 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
 | `verify-m47.ps1` | 照淘宝订单一步入库（Step 60/65/110）：订单表单、两行明细 → 建单+入库、订单号已存、货款 4.41、便宜料单价 0.0291、重复提交不重复入库、补运费累加、不满四列/数量 0 被拒、**长料号被缩短且全称留在名称里**、识图按钮与 `/mfg/control/orderImage` 降级回答、**淘宝导出的 xlsx 导入块（`#excelForm` / multipart / `#excelNoteTable` / 空提交回 JSON）**（日志 `mfg-m47.txt`；识图那几项要求实例上没配识图，跑完 m48 会清掉） | 42 |
 | `verify-m48.ps1` | 系统设置页（Step 61）：识图配置块与状态、密钥不回显、接口必须 http(s)、空密钥保留旧的、保存后状态变 DATABASE、`clear=Y` 恢复未配置、没配/配了两种 scan 回答（日志 `mfg-m48.txt`） | 26 |
 | `verify-m52-devbom.ps1` | 研发 BOM（Step 175，测试实例）：导入真工程的 `pixel-flash-v94_bom.html` → 11 个元件与料号、有库存的不进缺货清单、没库存的进；第二版（CSV）1 个数量变化 / 9 不变 / 1 停用 + `VAR_SAMPLE` 离开货架；缺货清单 CSV；改料号重锁；释放锁料后又变缺（日志 `mfg-m52-test.txt`） | 33 |
+| `verify-m56-shots.ps1` | 订单商品图（Step 179）：核对表有「图」列并带上 `o<i>.shot`、明细行 `data-line-shot` 与 `img.shot`、图走 `MFG_ATT_ORDER_SCAN` 的附件地址、同一单重导换上一张图、没带图导入时一行都不显示（用一个假 id 就能测，不需要真图） | 20 |
 
 ## 设计决策
 
@@ -1595,6 +1596,25 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   ④ 提示词补一句：**不要为了让合计对上改动某一行、也不要把实付款写成一行**——第 9 单最后一行 `446.04` 就是从
      2562.84 里反推出来的（210 件的单价算出来 2.124，不是两位小数）。同一个单里同款按键六个颜色，
      模型前三条把颜色写进料号、后三条没写（料号变成整条标题）——提示词里本来有这条要求，属于模型没照做。
+- **商品图跟着到货明细走（Step 179）**：截图里每张单左边那张商品图裁下来贴在**到货单明细**上（`oir/OirShots`，
+  纯函数、不碰库）。规则：
+  ① 全页左侧找「够高（≥`MIN_SIDE` 90）且够彩色（色差 ≥ `COLOUR_SPREAD` 40）」的长条，**最多长条共用的左边缘**
+     （按 20 像素分桶）就是商品图那一列（`pictureColumn`）；② 再**只在这一列**（`COLUMN_BAND` 340）里量上下边界，
+     像素算“有东西”的条件是「彩色 **或** 最深通道 < `PART_DARKEST` 220」——淘宝订单头那条浅色横带是
+     `235,231,215`，必须**排除**（不排除的话每块多出一张“头带图”，55 → 28 张就是这么修好的）；
+     商品卡是 250、空白页是 255，所以线画在 220，不能画在 253（画到 253 会把整页的浅色横带全算进来）。
+  ③ **只有「这一段数出来的图数 == 这一段读出的单数」才贴**，否则退回“只有整张截图”——贴错一张比没有图更糟。
+     一页只有一张单时定不出“那一列”（要求 ≥2 个长条）→ 不给图；**白底浅色件**（白色连接器、白排线）也裁不出来。
+  ④ 存法：整图 `SCAN-<毫秒>`、商品图 `SCAN-<毫秒>-<n>`，都在 `MfgAttachment`（`ownerTypeId=MFG_ATT_ORDER_SCAN`），
+     商品图是 160×160 的 JPEG（`OirScan.SHOT_SIDE`；`thumbnailOf` **先铺白底再画**，否则透明区在 JPEG 里是黑的）。
+     明细只存**指针** `MfgPurchaseReceiptLine.scanShotId`（同一次识别里几张单共用一个附件，不复制字节）。
+  ⑤ **`receiptFromOrder` 的两条覆盖路径都要 `rememberShot`**：同一行（code+qty+amount 都相同，走 `exact` 分支）
+     与「同料号不同数字」（`samePart` 分支）。只在一条上写，重导一次就留着上一张图（`verify-m56` 抓到的）。
+  ⑥ 页面：核对表多一列「图」（`data-scan-shot`）、明细的名称列后面跟 `img.shot`（`data-line-shot`）；
+     导入时带 `o<i>.shot`，`MfgReceiptEvents.ordersJson` 转给服务。`mfg.css` 末尾是 `img.shot` 那段。
+  ⑦ 巡检 `verify-m56-shots.ps1`（20 项，日志 `mfg-m56.txt`）**不需要真图**：用一个假 id 就能断言属性与 `src`，
+     真裁图那段要识图服务在线（单元测试 `MfgOrderReadRulesTest` 用画出来的页面钉住裁图与缩略图）。
+  ⑧ 实体列 `SCAN_SHOT_ID` 由 OFBiz 启动时的 `[addColumn]` 自动补，**不用**跑手工 SQL。
 - **PowerShell 写文件别用 `Set-Content -Encoding UTF8`**：PS 5.1 会带 BOM，javac 直接报
   `非法字符: '\ufeff'`（三个文件同时中招）。要改源码用 `create_file`/编辑工具，或写完后用
   `[System.IO.File]::WriteAllBytes` 去掉前 3 个字节。

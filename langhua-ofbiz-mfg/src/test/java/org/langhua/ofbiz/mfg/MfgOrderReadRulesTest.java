@@ -34,6 +34,7 @@ import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 
 import org.langhua.ofbiz.mfg.oir.OirScan;
+import org.langhua.ofbiz.mfg.oir.OirShots;
 
 import org.junit.Test;
 
@@ -133,6 +134,92 @@ public class MfgOrderReadRulesTest {
             row.put(String.valueOf((char) ('A' + i)), cells[i]);
         }
         return row;
+    }
+
+    /**
+     * A page shaped like a shop order list: every block prints a pale band with its number, a product
+     * picture on the left of its article and the title right of it.
+     *
+     * @param blocks how many blocks the page prints
+     * @param part the colour of the part photographed on the card
+     * @return the picture
+     */
+    private static BufferedImage shopPage(int blocks, java.awt.Color part) {
+        int blockHeight = 600;
+        BufferedImage image = new BufferedImage(400, blocks * blockHeight + 200, BufferedImage.TYPE_INT_RGB);
+        java.awt.Graphics2D pen = image.createGraphics();
+        pen.setColor(java.awt.Color.WHITE);
+        pen.fillRect(0, 0, image.getWidth(), image.getHeight());
+        for (int i = 0; i < blocks; i++) {
+            int top = i * blockHeight;
+            // the number band: pale, 235 by 231 by 215 on the audited page
+            pen.setColor(new java.awt.Color(235, 231, 215));
+            pen.fillRect(40, top + 10, 360, 110);
+            // the part on its card, at the column the page prints its pictures in
+            pen.setColor(part);
+            pen.fillRect(40, top + 150, 120, 120);
+            // the title and the price, right of the picture
+            pen.setColor(java.awt.Color.BLACK);
+            for (int line = 0; line < 3; line++) {
+                pen.fillRect(300, top + 160 + line * 30, 90, 18);
+            }
+        }
+        pen.dispose();
+        return image;
+    }
+
+    @Test
+    public void cutsTheProductPictureOutOfEveryOrderBlock() {
+        List<int[]> boxes = OirShots.boxesOf(shopPage(3, java.awt.Color.BLUE));
+        assertEquals(3, boxes.size());
+        // top to bottom, one per block, and each on the picture column the page prints; the box is a
+        // square taken a little larger than the part, so its top sits a few rows above the part
+        assertEquals(30, boxes.get(0)[0]);
+        assertEquals(140, boxes.get(0)[1]);
+        assertEquals(740, boxes.get(1)[1]);
+        assertEquals(1340, boxes.get(2)[1]);
+        assertTrue(boxes.get(0)[3] - boxes.get(0)[1] >= 120);
+    }
+
+    @Test
+    public void keepsThePaleBandOfAnOrderHeaderOutOfThePictures() {
+        // a page that prints no picture at all: its bands are pale, its words are thin
+        BufferedImage page = shopPage(2, java.awt.Color.WHITE);
+        assertEquals(0, OirShots.boxesOf(page).size());
+    }
+
+    @Test
+    public void leavesAPageOfOneOrderWithoutAPicture() {
+        // one picture on a page says nothing about a column, and the title of an order sits in a
+        // column of its own: rather than guess, the receipt line keeps the whole screenshot
+        assertEquals(0, OirShots.boxesOf(shopPage(1, java.awt.Color.BLUE)).size());
+    }
+
+    @Test
+    public void handsThePicturesOfOneBlockToItsOrders() {
+        List<int[]> boxes = OirShots.boxesOf(shopPage(3, java.awt.Color.BLUE));
+        // the first block prints rows 0..600, the second 600..1200
+        List<Integer> first = OirShots.indexesWithin(boxes, 0, 600);
+        assertEquals(1, first.size());
+        assertEquals(Integer.valueOf(0), first.get(0));
+        assertEquals(1, OirShots.indexesWithin(boxes, 600, 1200).size());
+        assertEquals(1, OirShots.indexesWithin(boxes, 1200, 1800).size());
+        assertEquals(0, OirShots.indexesWithin(boxes, 1900, 2000).size());
+    }
+
+    @Test
+    public void scalesAPictureDownToASmallJpeg() throws IOException {
+        BufferedImage page = shopPage(2, java.awt.Color.RED);
+        List<int[]> boxes = OirShots.boxesOf(page);
+        assertEquals(2, boxes.size());
+        byte[] thumb = OirShots.thumbnailOf(page, boxes.get(0), 160);
+        assertNotNull(thumb);
+        // a JPEG starts with SOI, and a thumbnail of 160 pixels is a few kilobytes
+        assertEquals(0xFF, thumb[0] & 0xFF);
+        assertEquals(0xD8, thumb[1] & 0xFF);
+        assertTrue(thumb.length > 100);
+        assertTrue(thumb.length < 40000);
+        assertEquals(160, ImageIO.read(new java.io.ByteArrayInputStream(thumb)).getWidth());
     }
 
     @Test

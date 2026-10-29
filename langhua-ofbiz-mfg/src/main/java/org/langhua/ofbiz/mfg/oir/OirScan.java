@@ -11,7 +11,9 @@
 
 package org.langhua.ofbiz.mfg.oir;
 
+import org.langhua.ofbiz.mfg.MfgAttachmentServices;
 import org.langhua.ofbiz.mfg.MfgBomEvents;
+import org.langhua.ofbiz.mfg.MfgConstants;
 import org.langhua.ofbiz.mfg.MfgSettingsServices;
 
 import java.io.ByteArrayInputStream;
@@ -154,6 +156,12 @@ public final class OirScan {
      * captured, while the whole slice of 3434 has to be scaled down (Step 156).
      */
     public static final int STRIP_WIDTH = 1700;
+
+    /**
+     * How large the product picture of a receipt line is kept, in pixels: the page prints it about 250
+     * wide, and 160 is enough to tell one reel from another while staying a few kilobytes.
+     */
+    public static final int SHOT_SIDE = 160;
 
     /**
      * The orange of the 再买一单 button of a shop order block. Every block of a Taobao / 天猫 list
@@ -396,6 +404,13 @@ public final class OirScan {
         if (contentType == null) {
             contentType = "image/png";
         }
+        // the product pictures of the page are cut out before the model is asked anything: the page
+        // itself is far too big to keep while ten calls run, a handful of thumbnails is not
+        String scanId = "SCAN-" + System.currentTimeMillis();
+        List<int[]> shotBoxes = new ArrayList<>();
+        List<byte[]> shotThumbs = new ArrayList<>();
+        fillShots(image, shotBoxes, shotThumbs);
+        int[] nextShot = new int[] {1};
         String reply = null;
         String transportProblem = null;
         List<Map<String, String>> orders = Collections.emptyList();
@@ -417,6 +432,8 @@ public final class OirScan {
             reply = read.reply;
             seen = read.seen;
             transportProblem = read.transportProblem;
+            handPicturesOver(shotBoxes, shotThumbs,
+                    new int[] {0, shotsHeight(shotBoxes)}, orders, request, scanId, nextShot);
         } else {
             // the slices are read side by side: four small calls in parallel take about as long as
             // one, while reading them one after the other made a five order page wait minutes
@@ -450,7 +467,8 @@ public final class OirScan {
                 }));
             }
             try {
-                for (Future<Read> future : running) {
+                for (int at = 0; at < running.size(); at++) {
+                    Future<Read> future = running.get(at);
                     Read read;
                     try {
                         read = future.get(SLICE_WAIT_SECONDS, TimeUnit.SECONDS);
@@ -469,6 +487,11 @@ public final class OirScan {
                     }
                     answers.add(read.orders);
                     blocksSaid.add(Integer.valueOf(read.seen));
+                    // the rows this slice was cut from: the pictures in them belong to the orders read
+                    // from them, one each when the counts agree
+                    int[] range = sliced.ranges.get(at);
+                    handPicturesOver(shotBoxes, shotThumbs, range, read.orders, request, scanId,
+                            nextShot);
                 }
             } finally {
                 // a slice whose call is still hanging is cancelled here, not left running: the page
@@ -611,7 +634,143 @@ public final class OirScan {
         if (skipped < orders.size()) {
             message += "，核对后点「" + (orders.size() == 1 ? "导入这张单" : "导入这些单") + "」";
         }
-        return answer(response, true, message + sliceNote + shortfall + countOff, orders, null);
+        // the screenshot itself is kept under this id: the receipts made from it point at the picture
+        // their numbers came from, and the product pictures sit beside it under the same id
+        storeScreenshotOf(request, scanId, image, contentType);
+        return answer(response, true, message + sliceNote + shortfall + countOff, orders, null, scanId);
+    }
+
+    /**
+     * Keeps the uploaded screenshot under the scan id the product pictures are already filed under.
+     *
+     * <p>Best effort on purpose: a picture that cannot be stored must not cost the person the read
+     * that was just made - the orders are already parsed at this point.
+     *
+     * @param request the request, for the delegator
+     * @param scanId the id of this scan
+     * @param image the uploaded bytes
+     * @param contentType what the browser said the bytes are
+     * @return the scan id, {@code null} when the picture could not be kept
+     */
+    private static String storeScreenshotOf(HttpServletRequest request, String scanId, byte[] image,
+            String contentType) {
+        org.apache.ofbiz.entity.Delegator delegator = delegatorOf(request);
+        if (delegator == null || image == null || image.length == 0) {
+            return null;
+        }
+        String name = "order-scan-" + scanId + (contentType != null && contentType.contains("jpeg")
+                ? ".jpg" : ".png");
+        try {
+            MfgAttachmentServices.storeScreenshot(delegator, MfgConstants.ATT_ORDER_SCAN, scanId, name,
+                    contentType, image, "识图用的原图");
+            return scanId;
+        } catch (Exception e) {
+            Debug.logError(e, "Could not keep the screenshot " + scanId, MODULE);
+            return null;
+        }
+    }
+
+    /**
+     * Cuts the product pictures out of the page and scales each to a thumbnail, before the model is
+     * asked anything: a page of 3255 by 16384 pixels takes a fifth of a gigabyte decoded, and holding it
+     * through ten model calls would risk the instance for a handful of small pictures.
+     *
+     * <p>Best effort: a page whose pictures cannot be found simply hands over none, and the receipt
+     * line keeps the whole screenshot instead.
+     *
+     * @param image the uploaded bytes
+     * @param boxes receives the box of every picture, top to bottom
+     * @param thumbs receives one small picture per box, in the same order
+     */
+    private static void fillShots(byte[] image, List<int[]> boxes, List<byte[]> thumbs) {
+        BufferedImage page;
+        try {
+            page = ImageIO.read(new ByteArrayInputStream(image));
+        } catch (IOException e) {
+            Debug.logError(e, "Could not read the screenshot to find its product pictures", MODULE);
+            return;
+        }
+        if (page == null) {
+            return;
+        }
+        for (int[] box : OirShots.boxesOf(page)) {
+            boxes.add(box);
+            thumbs.add(OirShots.thumbnailOf(page, box, SHOT_SIDE));
+        }
+        Debug.logInfo("The page printed " + boxes.size() + " product pictures", MODULE);
+    }
+
+    /**
+     * Hands the pictures of one slice to the orders read from it.
+     *
+     * <p>Only when the counts agree: the orders of a slice are read top to bottom and the pictures of a
+     * slice are cut top to bottom, so the first picture belongs to the first order - but if the page
+     * printed three pictures and the model read two orders (or the other way round) there is no way to
+     * tell which is which, and a picture shown against the wrong part is worse than no picture.
+     *
+     * @param boxes the boxes of every picture of the page
+     * @param thumbs the thumbnail of each box
+     * @param range the rows of the slice
+     * @param orders the orders read from that slice, they receive a {@code shot} field
+     * @param request the request, for the delegator
+     * @param scanId the id of this scan, the pictures are filed under it
+     * @param nextShot how many pictures have been filed so far, one number in an array
+     */
+    private static void handPicturesOver(List<int[]> boxes, List<byte[]> thumbs, int[] range,
+            List<Map<String, String>> orders, HttpServletRequest request, String scanId, int[] nextShot) {
+        if (orders == null || orders.isEmpty() || boxes.isEmpty()) {
+            return;
+        }
+        List<Integer> mine = OirShots.indexesWithin(boxes, range[0], range[1]);
+        if (mine.size() != orders.size()) {
+            Debug.logInfo("The rows printed " + mine.size() + " product pictures and " + orders.size()
+                    + " orders were read from them, so no picture is handed over", MODULE);
+            return;
+        }
+        for (int i = 0; i < orders.size(); i++) {
+            byte[] thumb = thumbs.get(mine.get(i).intValue());
+            if (thumb == null || thumb.length == 0) {
+                continue;
+            }
+            String shotId = scanId + "-" + nextShot[0];
+            if (storeShot(request, shotId, thumb)) {
+                nextShot[0]++;
+                orders.get(i).put("shot", shotId);
+            }
+        }
+    }
+
+    /**
+     * Keeps one product picture. Best effort, like the screenshot itself: a picture that cannot be
+     * kept must not cost the person the read.
+     *
+     * @param request the request, for the delegator
+     * @param shotId the id the picture is filed under
+     * @param data the bytes of the small JPEG
+     * @return whether it was kept
+     */
+    private static boolean storeShot(HttpServletRequest request, String shotId, byte[] data) {
+        org.apache.ofbiz.entity.Delegator delegator = delegatorOf(request);
+        if (delegator == null) {
+            return false;
+        }
+        try {
+            MfgAttachmentServices.storeScreenshot(delegator, MfgConstants.ATT_ORDER_SCAN, shotId,
+                    "order-picture-" + shotId + ".jpg", "image/jpeg", data, "订单商品图");
+            return true;
+        } catch (Exception e) {
+            Debug.logError(e, "Could not keep the product picture " + shotId, MODULE);
+            return false;
+        }
+    }
+
+    /** The last row a picture sits at, or 0 when there is none: the whole page is one slice then. */
+    private static int shotsHeight(List<int[]> boxes) {
+        int bottom = 0;
+        for (int[] box : boxes) {
+            bottom = Math.max(bottom, box[3]);
+        }
+        return bottom + 1;
     }
 
     /**
@@ -1957,11 +2116,25 @@ public final class OirScan {
      */
     private static String answer(HttpServletResponse response, boolean ok, String message,
             List<Map<String, String>> orders, String code) {
+        return answer(response, ok, message, orders, code, null);
+    }
+
+    /**
+     * Writes the answer, naming the stored screenshot so the receipts made from it can point back at
+     * the picture the numbers came from.
+     *
+     * @param scanId the id the screenshot was stored under, {@code null} when it could not be kept
+     */
+    private static String answer(HttpServletResponse response, boolean ok, String message,
+            List<Map<String, String>> orders, String code, String scanId) {
         StringBuilder json = new StringBuilder();
         json.append("{\"ok\":").append(ok).append(",\"message\":")
                 .append(MfgBomEvents.jsonString(message));
         if (code != null) {
             json.append(",\"code\":").append(MfgBomEvents.jsonString(code));
+        }
+        if (scanId != null) {
+            json.append(",\"scanId\":").append(MfgBomEvents.jsonString(scanId));
         }
         if (orders != null) {
             json.append(",\"count\":").append(orders.size()).append(",\"orders\":[");

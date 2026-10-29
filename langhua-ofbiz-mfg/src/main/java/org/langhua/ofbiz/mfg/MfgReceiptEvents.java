@@ -255,6 +255,12 @@ public final class MfgReceiptEvents {
                 context.put("discountAmount", value(parameters, i, "discount"));
                 context.put("lines", value(parameters, i, "lines"));
                 context.put("refunded", value(parameters, i, "refunded"));
+                // the picture the shop printed next to this order, already cut out of the screenshot
+                // and filed under this id: the receipt line points at it and shows it
+                context.put("shot", value(parameters, i, "shot"));
+                // the screenshot these numbers were read from: the receipt keeps a pointer to it, so
+                // the document can show the picture (the bytes live once, under the scan id)
+                context.put("scanId", MfgSupport.toText(parameters.get("scanId")));
                 boolean ok;
                 String message;
                 long newLines = 0L;

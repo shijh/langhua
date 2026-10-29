@@ -15,7 +15,12 @@
 | --- | --- | --- |
 | `OirScan.java` | 联网、分段、提示词、重试、打分 | HTTP + AWT（读图）+ `MfgSettingsServices.setting` |
 | `OirOrders.java` | **纯函数**：读答案 → 订单列表 → 合并 → 整理 → 金额核对 | 只有 `java.util` + 零件号规范化（`MfgProductServices.fittingComponentCode` 等） |
+| `OirShots.java` | **纯函数**：从截图里裁出每张单的商品图，并缩成缩略图 | 只有 AWT / `javax.imageio` + `java.util` |
 | `README.md` | 本文件 | — |
+
+**要审计算法，只看 `OirOrders`（2167 行）就够了**；`OirScan` 那 1388 行是"怎么问、怎么切、怎么重试"。
+商品图那件事是单独的、可选的：`OirShots` 只回答"这张图上每张商品图在哪"，切不开就一个都不给，
+到货单退回“只看整张截图”。
 
 **要审计算法，只看 `OirOrders`（2167 行）就够了**；`OirScan` 那 1388 行是"怎么问、怎么切、怎么重试"。
 

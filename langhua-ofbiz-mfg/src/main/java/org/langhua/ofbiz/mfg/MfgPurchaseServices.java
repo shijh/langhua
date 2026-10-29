@@ -743,6 +743,9 @@ public final class MfgPurchaseServices {
                 receipt.set("allocationId", MfgConstants.ALLOC_NONE);
                 receipt.set("note", MfgSupport.toText(context.get("note")));
                 receipt.set("statusId", MfgConstants.RECEIPT_ACTIVE);
+                // the screenshot these numbers were read from, so the document can show the picture
+                // it came from (the bytes stay in one place, under the scan id)
+                receipt.set("sourceScanId", MfgSupport.toText(context.get("scanId")));
                 delegator.create(receipt);
             } else if (MfgConstants.RECEIPT_VOID.equals(statusOfReceipt(receipt))) {
                 // the order number is the key: importing it again means it was wanted after all, so
@@ -751,6 +754,9 @@ public final class MfgPurchaseServices {
                 receipt.set("voidedDate", null);
                 receipt.set("voidedByUserLoginId", null);
                 receipt.set("voidReason", null);
+                if (MfgSupport.toText(context.get("scanId")) != null) {
+                    receipt.set("sourceScanId", MfgSupport.toText(context.get("scanId")));
+                }
                 if (freight != null) {
                     receipt.set("freightAmount", Double.valueOf(freight.doubleValue()));
                 }
@@ -776,6 +782,10 @@ public final class MfgPurchaseServices {
             }
             String receiptId = receipt.getString("receiptId");
             boolean overwrite = "Y".equalsIgnoreCase(MfgSupport.toText(context.get("overwrite")));
+            // the product picture the order screenshot printed next to this article, filed as an
+            // attachment of the scan: every line of the order points at the same one, because a shop
+            // order prints one picture for all of its lines when it has one
+            String shot = MfgSupport.toText(context.get("shot"));
             // a shop prints the same article several times (one board in six colours), so one part
             // number may sit on more than one line: a line is identified by code + quantity + money,
             // and every line of the receipt may be claimed once by the answer
@@ -808,6 +818,7 @@ public final class MfgPurchaseServices {
                     // this very line is already on the receipt: an order read twice, nothing to add
                     if (overwrite) {
                         mergeOrderLine(delegator, exact, receiptDate, qty, amount);
+                        rememberShot(exact, shot);
                         updated++;
                     } else {
                         skipped++;
@@ -823,6 +834,7 @@ public final class MfgPurchaseServices {
                         continue;
                     }
                     mergeOrderLine(delegator, samePart, receiptDate, qty, amount);
+                    rememberShot(samePart, shot);
                     updated++;
                     continue;
                 }
@@ -857,6 +869,9 @@ public final class MfgPurchaseServices {
                 line.set("qty", Double.valueOf(qty));
                 line.set("unitPrice", lot.get("unitPrice"));
                 line.set("goodsAmount", Double.valueOf(MfgSupport.round2(amount)));
+                if (shot != null) {
+                    line.set("scanShotId", shot);
+                }
                 delegator.create(line);
                 lineSeq += 10L;
                 imported++;
@@ -1191,6 +1206,25 @@ public final class MfgPurchaseServices {
      * @param claimed the lines already matched to a row of this answer
      * @return the line to use, {@code null} when all of them are taken
      */
+    /**
+     * Points a line at the product picture of the order it belongs to, when this read brought one.
+     *
+     * <p>Shared by both paths of a re-read: the very same line (same code, quantity and money) and the
+     * same part with other numbers. A picture that is not carried over would leave the line showing the
+     * reel of the previous, wrong read (found by the sweep of Step 179: the second read kept the first
+     * picture).
+     *
+     * @param line the receipt line
+     * @param shot the id of the picture, {@code null} when the read brought none
+     * @throws GenericEntityException when it cannot be written
+     */
+    private static void rememberShot(GenericValue line, String shot) throws GenericEntityException {
+        if (shot != null) {
+            line.set("scanShotId", shot);
+            line.store();
+        }
+    }
+
     static GenericValue claimOne(List<GenericValue> lines, Set<String> claimed) {
         if (lines == null) {
             return null;
@@ -1288,6 +1322,7 @@ public final class MfgPurchaseServices {
         map.put("voidedDate", receipt.get("voidedDate"));
         map.put("voidedByUserLoginId", receipt.getString("voidedByUserLoginId"));
         map.put("voidReason", receipt.getString("voidReason"));
+        map.put("sourceScanId", receipt.getString("sourceScanId"));
         map.put("note", receipt.getString("note"));
         return map;
     }
@@ -1320,6 +1355,8 @@ public final class MfgPurchaseServices {
         map.put("unitPriceExact", Double.valueOf(qty > 0.0
                 ? MfgSupport.numberOrZero(line.get("goodsAmount")) / qty : MfgSupport.numberOrZero(line.get("unitPrice"))));
         map.put("goodsAmount", line.get("goodsAmount"));
+        // the picture the shop printed next to this article, if the scan could cut it out
+        map.put("scanShotId", line.getString("scanShotId"));
         map.put("note", line.getString("note"));
         return map;
     }

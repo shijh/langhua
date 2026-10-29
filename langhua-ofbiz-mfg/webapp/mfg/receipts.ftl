@@ -89,7 +89,9 @@
                                     <td class="num">${(l.lineSeq)!0}</td>
                                     <td><a href="/mfg/control/materials?search=${(l.lotId)!''?url}">${l.lotId!}</a></td>
                                     <td>${l.componentCode!}</td>
-                                    <td>${l.componentName!}</td>
+                                    <td>${l.componentName!}<#if (l.scanShotId)?has_content>
+                                        <img class="shot" data-line-shot="${l.scanShotId}" alt="订单截图里的商品图"
+                                             src="/mfg/control/attachment?ownerTypeId=MFG_ATT_ORDER_SCAN&amp;ownerId=${l.scanShotId?url}&amp;thumb=1"/></#if></td>
                                     <td class="num"><input class="narrow" type="text" name="qty"
                                             form="${lineForm}" value="${(l.qty)!0}"/></td>
                                     <td class="num"><input class="narrow" type="text" name="unitPrice"
@@ -289,6 +291,7 @@
         <table class="inner" id="scanOrderTable">
             <tr>
                 <th class="num">#</th>
+                <th>图</th>
                 <th>订单号</th><th>店铺</th><th>下单</th><th class="num">运费</th><th class="num">优惠</th>
                 <th class="num">明细</th><th class="num">货款</th><th class="num">实付</th><th>状态</th>
             </tr>
@@ -424,6 +427,9 @@
                         return;
                     }
                     button.textContent = '识别并核对';
+                    /* the screenshot is kept on the server under this id: the receipts made from
+                       these numbers point back at the picture they came from */
+                    window.orderScanId = data.scanId || null;
                     /* one order is just a list of one: the table is always what comes back, so there
                        is only one way to go on (Step 90) */
                     if (data.orders && data.orders.length) {
@@ -472,7 +478,7 @@
             var holder = document.createElement('tr');
             holder.setAttribute('data-lines', key);
             var cellHolder = document.createElement('td');
-            cellHolder.colSpan = 10;
+            cellHolder.colSpan = 11;
             var table = document.createElement('table');
             table.className = 'inner';
             var head = document.createElement('tr');
@@ -624,6 +630,19 @@
                    block that was read twice or not at all is seen at once (Step 136) */
                 var seq = cell(row, String(index + 1), 'num');
                 seq.setAttribute('data-scan-seq', String(index + 1));
+                /* the picture the shop printed next to this order, cut out of the screenshot: the
+                   person sees the reel itself, not only the numbers read from it */
+                var picture = document.createElement('td');
+                if (order.shot) {
+                    var img = document.createElement('img');
+                    img.className = 'shot';
+                    img.setAttribute('data-scan-shot', order.shot);
+                    img.title = '订单截图里的商品图';
+                    img.src = '/mfg/control/attachment?ownerTypeId=MFG_ATT_ORDER_SCAN&ownerId='
+                        + encodeURIComponent(order.shot) + '&thumb=1';
+                    picture.appendChild(img);
+                }
+                row.appendChild(picture);
                 cell(row, order.orderNo || '（没读到单号）');
                 /* the platform is printed next to the shop (淘宝 / 天猫); the store itself stays
                    untouched for the import */
@@ -732,6 +751,9 @@
                     params.append('o' + index + '.freight', order.freight || '0');
                     params.append('o' + index + '.discount', order.discount || '0');
                     params.append('o' + index + '.lines', order.lines || '');
+                    // the picture the shop printed next to this order, cut out of the screenshot: the
+                    // receipt line keeps the pointer and shows it (nothing to copy, the bytes sit once)
+                    params.append('o' + index + '.shot', order.shot || '');
                 });
                 var skipped = orders.length - wanted.length;
                 if (!wanted.length) {
@@ -742,6 +764,11 @@
                     return;
                 }
                 params.append('count', String(wanted.length));
+                // the screenshot the numbers came from: the receipt keeps the pointer, so its page can
+                // show the picture (the bytes are stored once, under this scan id)
+                if (window.orderScanId) {
+                    params.append('scanId', window.orderScanId);
+                }
                 importButton.className = (importButton.className + ' busy').replace(/^\s+/, '');
                 if (batchHint) {
                     batchHint.className = 'hint';
@@ -1029,6 +1056,12 @@
 <#if receipt.receiptId??>
     <#assign receiptVoid = ((receipt.statusId)!'MFG_RCPT_ACTIVE') == 'MFG_RCPT_VOID'>
     <h2 id="receiptDetail">到货单 ${receipt.receiptId}（${(rd.lineCount)!0} 行）<#if receiptVoid><span class="error">已作废</span></#if></h2>
+    <#if (receipt.sourceScanId)?has_content>
+        <p class="hint" data-receipt-scan="${receipt.sourceScanId}">这张单是识图建的，原图：
+            <a href="/mfg/control/attachment?ownerTypeId=MFG_ATT_ORDER_SCAN&amp;ownerId=${receipt.sourceScanId?url}"
+               target="_blank" rel="noopener">打开截图</a>
+            <span>（${receipt.sourceScanId}，同一次识别里读出的其它单也能从这张图对上）</span></p>
+    </#if>
     <#if receiptVoid>
         <p class="error">
             这张单已作废<#if receipt.voidedDate??>（${receipt.voidedDate?string("yyyy-MM-dd HH:mm")}<#if (receipt.voidedByUserLoginId)?has_content>，${receipt.voidedByUserLoginId}</#if><#if (receipt.voidReason)?has_content>，原因：${receipt.voidReason}</#if>）</#if>：
@@ -1143,7 +1176,9 @@
                     <td class="num">${(l.lineSeq)?string("0")}</td>
                     <td><a href="/mfg/control/materials?componentCode=${l.componentCode!''?url}">${l.lotId!}</a></td>
                     <td>${l.componentCode!}</td>
-                    <td>${l.componentName!}</td>
+                    <td>${l.componentName!}<#if (l.scanShotId)?has_content>
+                        <img class="shot" data-line-shot="${l.scanShotId}" alt="订单截图里的商品图"
+                             src="/mfg/control/attachment?ownerTypeId=MFG_ATT_ORDER_SCAN&amp;ownerId=${l.scanShotId?url}&amp;thumb=1"/></#if></td>
                     <td class="num">${((l.qty)!0)?string("0.##")}</td>
                     <td class="num" title="单价 = 实付金额 ÷ 数量">${((l.unitPriceExact)!0)?string("0.0000")}</td>
                     <td class="num" data-amount="${((l.goodsAmount)!0)}">${((l.goodsAmount)!0)?string("0.00")}</td>

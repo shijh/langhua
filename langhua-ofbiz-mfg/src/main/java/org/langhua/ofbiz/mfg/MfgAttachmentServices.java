@@ -202,6 +202,39 @@ public final class MfgAttachmentServices {
     }
 
     /**
+     * Stores a file as it is, without the picture/pdf rules of the attachment form.
+     *
+     * <p>Why: a screenshot of a shop page is a `png` of up to 32 MB, which the upload form would
+     * refuse (it is meant for pictures of a product). The order recognition keeps the page it read so
+     * the numbers can be held against it afterwards, so this writes the row directly.
+     *
+     * @param delegator the delegator
+     * @param ownerTypeId the kind of record the file belongs to
+     * @param ownerId the key of that record
+     * @param fileName the original file name
+     * @param contentType what the bytes are
+     * @param data the bytes
+     * @param note an optional note
+     * @return the sequence number of the stored file
+     * @throws GenericEntityException when it cannot be written
+     */
+    public static long storeScreenshot(Delegator delegator, String ownerTypeId, String ownerId, String fileName,
+            String contentType, byte[] data, String note) throws GenericEntityException {
+        long seq = nextAttachmentSeq(delegator, ownerTypeId, ownerId);
+        GenericValue attachment = delegator.makeValue("MfgAttachment");
+        attachment.set("ownerTypeId", ownerTypeId);
+        attachment.set("ownerId", ownerId);
+        attachment.set("seq", Long.valueOf(seq));
+        attachment.set("fileName", cleanFileName(fileName));
+        attachment.set("contentType", contentType == null ? "image/png" : contentType);
+        attachment.set("fileSize", Long.valueOf(data.length));
+        attachment.set("fileData", data);
+        attachment.set("note", note);
+        delegator.create(attachment);
+        return seq;
+    }
+
+    /**
      * Validates and stores one attachment. Shared by the upload event and the service so both
      * behave the same way.
      *

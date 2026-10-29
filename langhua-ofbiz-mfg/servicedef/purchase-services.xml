@@ -114,6 +114,10 @@
         <attribute name="refunded" type="String" mode="IN" optional="true"/>
         <attribute name="locationId" type="String" mode="IN" optional="true"/>
         <attribute name="note" type="String" mode="IN" optional="true"/>
+        <!-- the screenshot the order was read from, kept as an attachment under this scan id -->
+        <attribute name="scanId" type="String" mode="IN" optional="true"/>
+        <!-- the product picture of this order, cut out of that screenshot and filed under this id -->
+        <attribute name="shot" type="String" mode="IN" optional="true"/>
         <attribute name="receiptId" type="String" mode="OUT" optional="true"/>
         <attribute name="importedCount" type="String" mode="OUT" optional="true"/>
         <attribute name="updatedCount" type="String" mode="OUT" optional="true"/>

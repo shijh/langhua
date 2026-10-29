@@ -933,6 +933,7 @@
         <field name="voidedDate" type="date-time"><description>When the receipt was voided</description></field>
         <field name="voidedByUserLoginId" type="id-vlong"><description>Who voided it</description></field>
         <field name="voidReason" type="description"><description>Why it was voided, e.g. 建错了</description></field>
+        <field name="sourceScanId" type="id"><description>Screenshot the order was read from (an attachment of kind MFG_ATT_ORDER_SCAN), so the document can show the picture its numbers came from</description></field>
         <field name="note" type="description"/>
         <field name="createdStamp" type="date-time"/>
         <field name="createdTxStamp" type="date-time"/>
@@ -953,6 +954,7 @@
         <field name="qty" type="floating-point"><description>Quantity received on the line</description></field>
         <field name="unitPrice" type="currency-amount"><description>Purchase price per unit, without freight</description></field>
         <field name="goodsAmount" type="currency-amount"><description>Quantity times price</description></field>
+        <field name="scanShotId" type="id"><description>The product picture cut out of the order screenshot, filed as an attachment of MfgConstants.ATT_ORDER_SCAN</description></field>
         <field name="note" type="description"/>
         <prim-key field="receiptId"/>
         <prim-key field="lineSeq"/>
