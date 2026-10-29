@@ -1620,6 +1620,14 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
      到货单从第 10 行起显示的、都是第一件商品的图（2026-10-29 那张 26 单的真页面上当场看见）。
      现在统一走 `OirScan.shotIdOf(scanId, n)` = `scanId + 两位序号`（正好 20 位），超过 99 张就不给图、
      只留整张截图；单测 `keepsThePictureIdInsideAnIdField` 钉住长度与不重复。**加长 scanId 前先算这个账**。
+  ⑩ **照片可以比卡片靠右**：`pictureColumn` 定的是**卡片**的左边缘，但白卡片中间的黑连接器从 `column+126` 才开始
+     （那张单是 26 单里唯一没图的）——所以第二遍的接受范围是 `column-COLUMN_TOLERANCE .. column+COLUMN_REACH(220)`，
+     而标题文字在 `column+320` 一带，进不来。**框仍锚在 column 上、边长 = max(内容高+40, MIN_PICTURE_SIDE 260)**：
+     按内容居中会把标题头几个字也框进来（试过，四张缩略图右侧全是半个字）。
+  ⑪ **块里会插「猜你喜欢 / 推荐常看商品」卡片**（自带图片与按钮）：一个块打印的图可能**多于**单数（26 单那页 27 张，
+     第一张单的图就被广告条挤掉了）。`OirScan.picturesForOrders` 取**最靠上的 n 张**（广告在商品之后）；
+     图数**少于**单数时一张都不给（分不清是哪张，贴错比没有更糟）。单测
+     `takesThePicturesNearestTheTopWhenThePagePrintsItsStripOfAdvertisements` / `findsAPictureWhosePhotographStartsInsideItsCard`。
 - **PowerShell 写文件别用 `Set-Content -Encoding UTF8`**：PS 5.1 会带 BOM，javac 直接报
   `非法字符: '\ufeff'`（三个文件同时中招）。要改源码用 `create_file`/编辑工具，或写完后用
   `[System.IO.File]::WriteAllBytes` 去掉前 3 个字节。

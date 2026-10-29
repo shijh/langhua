@@ -145,8 +145,19 @@ public class MfgOrderReadRulesTest {
      * @return the picture
      */
     private static BufferedImage shopPage(int blocks, java.awt.Color part) {
+        return shopPage(blocks, part, 0);
+    }
+
+    /**
+     * The same page, with the photograph drawn {@code inset} pixels to the right of the card: a part in
+     * the middle of a white card does not start where the card starts.
+     */
+    private static BufferedImage shopPage(int blocks, java.awt.Color part, int inset) {
         int blockHeight = 600;
-        BufferedImage image = new BufferedImage(400, blocks * blockHeight + 200, BufferedImage.TYPE_INT_RGB);
+        // 800 wide: the left 45 per cent is searched for pictures, and the title of the row sits far
+        // enough right to stay out of the picture strip (the page prints it about 320 pixels right of
+        // the column, as the audited page does)
+        BufferedImage image = new BufferedImage(800, blocks * blockHeight + 200, BufferedImage.TYPE_INT_RGB);
         java.awt.Graphics2D pen = image.createGraphics();
         pen.setColor(java.awt.Color.WHITE);
         pen.fillRect(0, 0, image.getWidth(), image.getHeight());
@@ -154,14 +165,14 @@ public class MfgOrderReadRulesTest {
             int top = i * blockHeight;
             // the number band: pale, 235 by 231 by 215 on the audited page
             pen.setColor(new java.awt.Color(235, 231, 215));
-            pen.fillRect(40, top + 10, 360, 110);
+            pen.fillRect(40, top + 10, 740, 110);
             // the part on its card, at the column the page prints its pictures in
             pen.setColor(part);
-            pen.fillRect(40, top + 150, 120, 120);
+            pen.fillRect(40 + inset, top + 150, 120, 120);
             // the title and the price, right of the picture
             pen.setColor(java.awt.Color.BLACK);
             for (int line = 0; line < 3; line++) {
-                pen.fillRect(300, top + 160 + line * 30, 90, 18);
+                pen.fillRect(420, top + 160 + line * 30, 300, 18);
             }
         }
         pen.dispose();
@@ -172,13 +183,37 @@ public class MfgOrderReadRulesTest {
     public void cutsTheProductPictureOutOfEveryOrderBlock() {
         List<int[]> boxes = OirShots.boxesOf(shopPage(3, java.awt.Color.BLUE));
         assertEquals(3, boxes.size());
-        // top to bottom, one per block, and each on the picture column the page prints; the box is a
-        // square taken a little larger than the part, so its top sits a few rows above the part
-        assertEquals(30, boxes.get(0)[0]);
-        assertEquals(140, boxes.get(0)[1]);
-        assertEquals(740, boxes.get(1)[1]);
-        assertEquals(1340, boxes.get(2)[1]);
-        assertTrue(boxes.get(0)[3] - boxes.get(0)[1] >= 120);
+        // top to bottom, one per block, each a square of at least one card that holds the part
+        for (int i = 0; i < 3; i++) {
+            assertEquals(boxes.get(i)[2] - boxes.get(i)[0], boxes.get(i)[3] - boxes.get(i)[1]);
+            assertTrue(boxes.get(i)[0] <= 40);
+            assertTrue(boxes.get(i)[2] >= 160);
+            assertTrue(boxes.get(i)[1] <= i * 600 + 150);
+            assertTrue(boxes.get(i)[3] >= i * 600 + 270);
+        }
+        assertTrue(boxes.get(0)[1] < boxes.get(1)[1]);
+        assertTrue(boxes.get(1)[1] < boxes.get(2)[1]);
+    }
+
+    @Test
+    public void findsAPictureWhosePhotographStartsInsideItsCard() {
+        // two orders whose picture fills its card tell the page where the pictures are printed, and the
+        // third is a black connector in the middle of a white card: its content starts 126 pixels right
+        // of the column. It was the one picture of 26 that never appeared on the audited page
+        BufferedImage page = shopPage(3, java.awt.Color.BLUE);
+        java.awt.Graphics2D pen = page.createGraphics();
+        pen.setColor(java.awt.Color.WHITE);
+        pen.fillRect(40, 2 * 600 + 150, 120, 120);
+        pen.setColor(java.awt.Color.BLACK);
+        pen.fillRect(40 + 126, 2 * 600 + 150, 120, 120);
+        pen.dispose();
+        List<int[]> boxes = OirShots.boxesOf(page);
+        assertEquals(3, boxes.size());
+        // the box is centred on the connector, so the part is inside it
+        assertTrue(boxes.get(2)[0] <= 166);
+        assertTrue(boxes.get(2)[2] >= 286);
+        assertTrue(boxes.get(2)[1] <= 2 * 600 + 150);
+        assertTrue(boxes.get(2)[3] >= 2 * 600 + 270);
     }
 
     @Test
@@ -239,6 +274,21 @@ public class MfgOrderReadRulesTest {
             ids.add(OirScan.shotIdOf(scanId, i));
         }
         assertEquals(99, ids.size());
+    }
+
+    @Test
+    public void takesThePicturesNearestTheTopWhenThePagePrintsItsStripOfAdvertisements() {
+        // the strip of the page (猜你喜欢) sits inside a block and has a picture of its own: a real page of
+        // 26 orders printed 27 pictures, and the first order lost its picture to the strip
+        assertEquals(Arrays.asList(Integer.valueOf(0), Integer.valueOf(1)),
+                OirScan.picturesForOrders(
+                        Arrays.asList(Integer.valueOf(0), Integer.valueOf(1), Integer.valueOf(2)), 2));
+        assertEquals(Arrays.asList(Integer.valueOf(0)),
+                OirScan.picturesForOrders(Collections.singletonList(Integer.valueOf(0)), 1));
+        // fewer pictures than orders: nothing is handed over, the line keeps the whole screenshot
+        assertTrue(OirScan.picturesForOrders(Collections.singletonList(Integer.valueOf(0)), 2).isEmpty());
+        assertTrue(OirScan.picturesForOrders(null, 2).isEmpty());
+        assertTrue(OirScan.picturesForOrders(Collections.singletonList(Integer.valueOf(0)), 0).isEmpty());
     }
 
     @Test

@@ -78,6 +78,19 @@ public final class OirShots {
      */
     static final int COLUMN_TOLERANCE = 60;
 
+    /**
+     * How far right of the column the content of a picture may start.
+     *
+     * <p>Only the left edge of a card is fixed; the photograph inside it is not. On the audited page the
+     * cards start at 680, a picture that fills its card starts at once 690, and a black connector in the
+     * middle of a white card starts at 806 - while the words of the row start around 1000. A narrower
+     * reach dropped that first order (it was the one picture of 26 that never appeared).
+     */
+    static final int COLUMN_REACH = 220;
+
+    /** The smallest box a picture is cut with: one card wide (the pages print about 250). */
+    static final int MIN_PICTURE_SIDE = 260;
+
     /** Why a picture is taken a little larger than the colourful pixels inside it. */
     static final int PICTURE_MARGIN = 20;
 
@@ -122,7 +135,11 @@ public final class OirShots {
         int xFrom = Math.max(0, column - PICTURE_MARGIN / 2);
         int xTo = Math.min(width, column + COLUMN_BAND);
         for (int[] run : runsOf(page, from, to, xFrom, xTo, Mode.PICTURE)) {
-            if (Math.abs(run[0] - column) <= COLUMN_TOLERANCE) {
+            // the picture has to sit at the column the page prints its cards in - but only its left
+            // edge is fixed: a photo of a part in the middle of a white card starts later than one of a
+            // card whose picture fills it, so the reach is generous. Words of the row start further
+            // right than the reach, so they stay out
+            if (run[0] >= column - COLUMN_TOLERANCE && run[0] <= column + COLUMN_REACH) {
                 boxes.add(boxAround(run, column, page));
             }
         }
@@ -288,14 +305,17 @@ public final class OirShots {
     }
 
     /**
-     * The box of one picture: a square starting at the column, a little larger than the colourful
-     * pixels inside it (a photo of a dark part on a white card is mostly white).
+     * The box of one picture: a square that starts where the cards start and is as tall as what was
+     * found, never narrower than one card.
+     *
+     * <p>Anchored on the column and not on the content: the run of a picture can reach into the words of
+     * the row (the first letters of the title are inside the strip), and a box centred on it drifts right
+     * and cuts the card in half.
      */
     private static int[] boxAround(int[] run, int column, BufferedImage page) {
-        int side = Math.max(run[3] - run[1], MIN_SIDE) + PICTURE_MARGIN;
-        int middle = (run[1] + run[3]) / 2;
+        int side = Math.max(run[3] - run[1] + PICTURE_MARGIN * 2, MIN_PICTURE_SIDE);
         int x0 = Math.max(0, column - PICTURE_MARGIN / 2);
-        int y0 = Math.max(0, middle - side / 2);
+        int y0 = Math.max(0, (run[1] + run[3]) / 2 - side / 2);
         return new int[] {x0, y0,
                 Math.min(page.getWidth(), x0 + side), Math.min(page.getHeight(), y0 + side)};
     }

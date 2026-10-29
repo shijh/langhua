@@ -432,15 +432,20 @@ body.signin {
 .signin-actions .button.secondary { color: var(--fg); background: var(--bg-input); border-color: var(--border-strong); }
 .signin-actions .button.secondary:hover { background: #3a3d41; }
 .signin-foot { margin: 1.2em 0 0; color: var(--fg-muted); font-size: .72em; text-align: center; }
-/* the product picture a shop order printed, cut out of the screenshot: small enough to sit in a
-   table cell next to the part name, and stored once per order (the receipt line points at it) */
+/* the product picture a shop order printed, cut out of the screenshot: big enough to recognise the
+   reel at a glance (the check table is where a person decides), and smaller once it sits in a line of
+   an existing receipt */
 img.shot {
-    width: 48px;
-    height: 48px;
+    width: 96px;
+    height: 96px;
     object-fit: cover;
     margin-left: .4em;
     vertical-align: middle;
     border: 1px solid var(--border);
     border-radius: 4px;
     background: #ffffff;
+}
+img.shot[data-line-shot] {
+    width: 64px;
+    height: 64px;
 }

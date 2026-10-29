@@ -724,7 +724,8 @@ public final class OirScan {
         if (orders == null || orders.isEmpty() || boxes.isEmpty()) {
             return;
         }
-        List<Integer> mine = OirShots.indexesWithin(boxes, range[0], range[1]);
+        List<Integer> mine = picturesForOrders(OirShots.indexesWithin(boxes, range[0], range[1]),
+                orders.size());
         if (mine.size() != orders.size()) {
             Debug.logInfo("The rows printed " + mine.size() + " product pictures and " + orders.size()
                     + " orders were read from them, so no picture is handed over", MODULE);
@@ -748,6 +749,32 @@ public final class OirScan {
                 orders.get(i).put("shot", shotId);
             }
         }
+    }
+
+    /**
+     * Which of the pictures of a slice belong to its orders.
+     *
+     * <p>A slice prints one picture per article, so the counts agree and every picture is handed over. Two
+     * things make them disagree:
+     * <ul>
+     * <li>the page prints more pictures than there are orders - its 猜你喜欢 / 推荐常看商品 strip sits
+     *     inside the block, with a card of advertisements that has a picture of its own. The strip comes
+     *     after the articles, so the pictures nearest the top of the slice are the articles' (a real page
+     *     of 26 orders printed 27 pictures and lost the first order's picture to the strip);</li>
+     * <li>fewer pictures than orders - an article whose picture could not be cut out (a white part on a
+     *     white card), or a block the model read twice. There is no way to tell which is which, and a
+     *     picture against the wrong part is worse than no picture, so none is handed over.</li>
+     * </ul>
+     *
+     * @param pictures the places of the pictures in the slice, top to bottom
+     * @param orders how many orders were read from the slice
+     * @return the places to hand over, in the same order; empty when nothing should be
+     */
+    public static List<Integer> picturesForOrders(List<Integer> pictures, int orders) {
+        if (pictures == null || orders <= 0 || pictures.size() < orders) {
+            return new ArrayList<>();
+        }
+        return new ArrayList<>(pictures.subList(0, orders));
     }
 
     /**
