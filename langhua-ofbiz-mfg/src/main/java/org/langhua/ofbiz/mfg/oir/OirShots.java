@@ -88,8 +88,8 @@ public final class OirShots {
      */
     static final int COLUMN_REACH = 220;
 
-    /** The smallest box a picture is cut with: one card wide (the pages print about 250). */
-    static final int MIN_PICTURE_SIDE = 260;
+    /** The smallest box a picture is cut with: a card is about 250 wide, plus the margin on its left. */
+    static final int MIN_PICTURE_SIDE = 300;
 
     /** Why a picture is taken a little larger than the colourful pixels inside it. */
     static final int PICTURE_MARGIN = 20;
