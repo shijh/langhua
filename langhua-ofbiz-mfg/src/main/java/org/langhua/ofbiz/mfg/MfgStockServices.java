@@ -853,9 +853,14 @@ public final class MfgStockServices {
                 }
             }
             Map<String, Double> issued = MfgWorkOrderServices.issuedQtyByLot(delegator);
+            // the picture the shop printed next to this article, when the lot came in from a screenshot:
+            // one query for the page and not one per row
+            Map<String, String> shots = shotOfLot(delegator);
             List<Map<String, Object>> list = new ArrayList<>(lots.size());
             for (GenericValue lot : lots) {
-                list.add(MfgRecordMaps.toLotMap(lot, issued.get(lot.getString("lotId"))));
+                Map<String, Object> row = MfgRecordMaps.toLotMap(lot, issued.get(lot.getString("lotId")));
+                row.put("scanShotId", shots.get(lot.getString("lotId")));
+                list.add(row);
             }
             Map<String, Object> result = ServiceUtil.returnSuccess();
             MfgPaging.putPage(result, "lots",
@@ -868,6 +873,28 @@ public final class MfgStockServices {
         } catch (GenericEntityException e) {
             return ServiceUtil.returnError("Could not read the material lots: " + e.getMessage());
         }
+    }
+
+    /**
+     * The product picture of every lot that came in with a screenshot of a shop order.
+     *
+     * <p>The pointer lives on the receipt line ({@code scanShotId}), so a lot has no picture of its own:
+     * looking them up for the whole page at once keeps the material page at one extra query.
+     *
+     * @param delegator the delegator
+     * @return lotId to picture id, empty when no lot has one
+     * @throws GenericEntityException when the lines cannot be read
+     */
+    private static Map<String, String> shotOfLot(Delegator delegator) throws GenericEntityException {
+        Map<String, String> shots = new java.util.HashMap<>();
+        for (GenericValue line : EntityQuery.use(delegator).from("MfgPurchaseReceiptLine")
+                .select("lotId", "scanShotId").orderBy("lineSeq").queryList()) {
+            String shot = line.getString("scanShotId");
+            if (shot != null && !shot.isEmpty()) {
+                shots.put(line.getString("lotId"), shot);
+            }
+        }
+        return shots;
     }
 
     /**

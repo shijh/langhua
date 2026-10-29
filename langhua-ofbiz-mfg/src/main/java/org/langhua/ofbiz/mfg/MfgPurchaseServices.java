@@ -786,6 +786,14 @@ public final class MfgPurchaseServices {
             // attachment of the scan: every line of the order points at the same one, because a shop
             // order prints one picture for all of its lines when it has one
             String shot = MfgSupport.toText(context.get("shot"));
+            // a receipt that was booked in before the screenshot was kept (or from an older scan) gets
+            // the picture of this read as well: the detail page shows "原图：打开截图" from this id, and
+            // without it a re-import left the document without a way back to what was read
+            String scanId = MfgSupport.toText(context.get("scanId"));
+            if (scanId != null && !scanId.equals(receipt.getString("sourceScanId"))) {
+                receipt.set("sourceScanId", scanId);
+                receipt.store();
+            }
             // a shop prints the same article several times (one board in six colours), so one part
             // number may sit on more than one line: a line is identified by code + quantity + money,
             // and every line of the receipt may be claimed once by the answer

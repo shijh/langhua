@@ -122,6 +122,14 @@ C0402-100N,100nF 0402 电容,立创商城,DC2409B,500,2026-10-19</textarea>
                     <#-- one click brings the batch into the split box above: a pack of 2600 resistors
                          has to become one lot per value -->
                     <a class="hint" href="/mfg/control/materials?lotId=${lot.lotId}#splitBox" title="拆包">拆</a>
+                    <#if (lot.scanShotId!'')?has_content>
+                        <#-- the picture the shop printed on the order screenshot this batch came in with:
+                             the shop's own photo is what tells one reel from another at a glance -->
+                        <br/><a href="/mfg/control/attachment?ownerTypeId=MFG_ATT_ORDER_SCAN&amp;ownerId=${lot.scanShotId?url}"
+                                target="_blank" title="订单截图里的商品图"><img class="shot"
+                                data-lot-shot="${lot.scanShotId}"
+                                src="/mfg/control/attachment?ownerTypeId=MFG_ATT_ORDER_SCAN&amp;ownerId=${lot.scanShotId?url}&amp;thumb=1"/></a>
+                    </#if>
                     <#if (lot.splitFromLotId!'')?has_content>
                         <br/><span class="hint">拆自
                             <a href="/mfg/control/materials?search=${lot.splitFromLotId?url}">${lot.splitFromLotId}</a></span>

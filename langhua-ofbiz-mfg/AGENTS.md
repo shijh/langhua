@@ -1629,6 +1629,11 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
      第一张单的图就被广告条挤掉了）。`OirScan.picturesForOrders` 取**最靠上的 n 张**（广告在商品之后）；
      图数**少于**单数时一张都不给（分不清是哪张，贴错比没有更糟）。单测
      `takesThePicturesNearestTheTopWhenThePagePrintsItsStripOfAdvertisements` / `findsAPictureWhosePhotographStartsInsideItsCard`。
+  ⑫ **图在哪几页显示**：识别核对表（`data-scan-shot`）→ 到货单列表展开的明细行 / 到货单详情（`data-line-shot`）→
+     **物料批次台账的批次号下面**（40px，`data-lot-shot`，点开看原图）。台账那页的指针不另存字段：
+     `MfgStockServices.shotOfLot` 用**一次**查询把 `MfgPurchaseReceiptLine.lotId → scanShotId` 全取回来，
+     不要在行循环里查。另外两张图一个字节都不复制：商品图和整张截图都是 `MfgAttachment` 的一个 roW，
+     业务表里只有 id。
 - **识别有超时：服务端 120 秒，页面 135 秒（Step 179f）**：`OirScan.SCAN_TIMEOUT_SECONDS = 120`，从拿图起算，
   每波 `future.get(min(SLICE_WAIT_SECONDS, secondsLeft(deadline)))`，到点就把还没回来的分段**丢掉**并取消线程池；
   已经有单就照常返回 + 消息里写“识别超时：一次最多等 120 秒，只读了 N 张单”，一张都没有就回 `code=TIMEOUT`。
