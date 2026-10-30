@@ -1612,6 +1612,67 @@ public final class OirOrders {
     }
 
     /**
+     * One order out of the whole-block read and the two halves it was read in again.
+     *
+     * <p>A block of fifteen packs of capacitors came back with fourteen rows, and naming the count did
+     * not always make the model go back over it. The block is then read in two halves - the top one and
+     * one that carries the header of the block stitched on top of the lower rows - and the rows of the
+     * two are joined here. The block is <em>one</em> order whatever the halves wrote in their own
+     * header, so the number of orders must not grow: the head (shop, date, paid total, freight) of the
+     * whole-block read stands, and only its rows are replaced.
+     *
+     * <p>The row count the page printed is dropped: each half counts the rows of its own picture, which
+     * is not the count of the block. Which reading stands is decided by the money - the halves when
+     * their rows come to what was paid, otherwise whichever of the two is closer (the money checks of
+     * {@link #tidyOrder} then get another go at it).
+     *
+     * @param whole the answer to the whole block, {@code null} when it read nothing
+     * @param upper the answer to the top half, {@code null} when it read nothing
+     * @param lower the answer to the lower half, {@code null} when it read nothing
+     * @return the order the block is, {@code null} when no reading has anything in it
+     */
+    public static Map<String, String> joinHalves(Map<String, String> whole, Map<String, String> upper,
+            Map<String, String> lower) {
+        Map<String, String> head = whole != null ? whole : upper != null ? upper : lower;
+        if (head == null) {
+            return null;
+        }
+        List<String[]> rows = new ArrayList<>();
+        java.util.Set<String> seen = new java.util.LinkedHashSet<>();
+        for (Map<String, String> read : new Map[] {upper, lower}) {
+            if (read == null) {
+                continue;
+            }
+            for (String[] row : parseOrderArticleLines(read.get("lines"))) {
+                if (seen.add(rowIdentity(row))) {
+                    rows.add(row);
+                }
+            }
+        }
+        List<String[]> wholeRows = whole == null
+                ? new ArrayList<String[]>() : parseOrderArticleLines(whole.get("lines"));
+        if (rows.isEmpty()) {
+            // a half that read nothing says nothing: the whole-block read stands as it is
+            rows = wholeRows;
+        }
+        Double paid = optionalAmount(head.get("paidTotal"));
+        if (paid != null && !wholeRows.isEmpty() && !rows.isEmpty()) {
+            double wanted = round2(paid.doubleValue() - toDouble(head.get("freight"), 0.0)
+                    + toDouble(head.get("discount"), 0.0));
+            boolean halvesAddUp = addsUp(rows, wanted);
+            boolean wholeAddsUp = addsUp(wholeRows, wanted);
+            if (!halvesAddUp && (wholeAddsUp || Math.abs(round2(sumOfRows(wholeRows)) - wanted)
+                    < Math.abs(round2(sumOfRows(rows)) - wanted))) {
+                rows = wholeRows;
+            }
+        }
+        Map<String, String> joined = new LinkedHashMap<>(head);
+        joined.put("lines", rowsToText(rows));
+        joined.remove("rowCount");
+        return joined;
+    }
+
+    /**
      * The number of the order a read belongs to: the join keeps a second read of one number under
      * {@code <number> #2}, and folding the two back together has to look behind that mark.
      *

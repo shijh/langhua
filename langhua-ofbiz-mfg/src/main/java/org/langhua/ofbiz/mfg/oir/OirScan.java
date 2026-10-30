@@ -26,6 +26,7 @@ import java.net.URL;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Base64;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -235,6 +236,18 @@ public final class OirScan {
      * and tells nothing about the rows.
      */
     private static final int MAX_ARTICLES_MISSING = 3;
+
+    /**
+     * From how many article rows a block is worth reading in two halves when the count does not work
+     * out: a block of a dozen rows is what a model still reads in one picture.
+     */
+    public static final int SPLIT_FROM_ARTICLES = 12;
+
+    /** How many rows the two halves of a block read twice, so the seam never falls between two rows. */
+    private static final int HALF_OVERLAP_ROWS = 80;
+
+    /** How far below the top of a block its header line (order number, date, shop, paid) may sit. */
+    private static final int MAX_BLOCK_HEAD_ROWS = 400;
 
     /** Seconds one call to the vision service may take, with room on top of the socket timeouts. */
     public static final int SLICE_WAIT_SECONDS = 240;
@@ -507,6 +520,9 @@ public final class OirScan {
             // how many blocks each picture said it shows: a model that splits one block into two
             // objects says one and answers two, which tells the join those two are one order
             List<Integer> blocksSaid = new ArrayList<>();
+            // how many articles each slice prints, kept beside the futures: a block that is still short
+            // of its rows after the count was named is read again in two halves below
+            List<Integer> articlesBySlice = new ArrayList<>();
             ExecutorService pool = Executors.newFixedThreadPool(Math.min(MAX_PARALLEL, slices.size()));
             List<Future<Read>> running = new ArrayList<>();
             final String sliceEndpoint = endpoint;
@@ -529,6 +545,7 @@ public final class OirScan {
                 final boolean lastSlice = at + 1 >= slices.size();
                 final int articlesHere = blocksHere == 1 && !lastSlice
                         ? OirShots.indexesWithin(shotBoxes, range[0], range[1]).size() : 0;
+                articlesBySlice.add(Integer.valueOf(articlesHere));
                 running.add(pool.submit(new Callable<Read>() {
                     @Override
                     public Read call() {
@@ -568,6 +585,19 @@ public final class OirScan {
                     }
                     if (read.reply != null) {
                         reply = read.reply;
+                    }
+                    int articlesHere = at < articlesBySlice.size()
+                            ? articlesBySlice.get(at).intValue() : 0;
+                    if (articlesHere >= SPLIT_FROM_ARTICLES
+                            && printsMoreArticles(articlesHere, read.orders)) {
+                        // a long block that stays short even after the count was named: read it in two
+                        // halves, the lower one carrying the header of the block so it still says which
+                        // order it belongs to, and add the rows of both together (Step 183)
+                        read = readInHalves(slices.get(at), sliced.ranges.get(at), shotBoxes, read,
+                                sliceEndpoint, sliceModel, sliceKey);
+                        if (read.reply != null) {
+                            reply = read.reply;
+                        }
                     }
                     if (read.transportProblem != null) {
                         transportProblem = read.transportProblem;
@@ -1920,6 +1950,149 @@ public final class OirScan {
             return null;
         }
         return out.toByteArray();
+    }
+
+    /**
+     * One picture holding the top of a block and its lower rows: the header lines (order number, date,
+     * shop, paid total) are printed only once, at the top of the block, so the lower half of a block
+     * sent on its own would say nothing about which order it belongs to.
+     *
+     * @param image the picture
+     * @param left the first column to keep
+     * @param right the last column to keep
+     * @param headBottom the row after the header lines of the block
+     * @param bodyTop the first row of the lower half
+     * @param bodyBottom the row after the last one
+     * @return the picture as PNG bytes, {@code null} when it cannot be written
+     */
+    private static byte[] stitchedPicture(BufferedImage image, int left, int right, int headBottom,
+            int bodyTop, int bodyBottom) {
+        int width = Math.max(1, Math.min(right, image.getWidth() - 1) - Math.max(0, left) + 1);
+        int height = Math.max(1, headBottom) + Math.max(0, bodyBottom - bodyTop);
+        BufferedImage joined = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
+        Graphics2D pen = joined.createGraphics();
+        pen.setColor(Color.WHITE);
+        pen.fillRect(0, 0, width, height);
+        pen.drawImage(image, 0, 0, width, Math.max(1, headBottom), Math.max(0, left), 0,
+                Math.max(0, left) + width, Math.max(1, headBottom), null);
+        pen.drawImage(image, 0, Math.max(1, headBottom), width, height, Math.max(0, left), bodyTop,
+                Math.max(0, left) + width, Math.max(bodyTop, bodyBottom), null);
+        pen.dispose();
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        try {
+            ImageIO.write(joined, "png", out);
+        } catch (IOException e) {
+            Debug.logError(e, "Could not write the lower half of a block", MODULE);
+            return null;
+        }
+        return out.toByteArray();
+    }
+
+    /**
+     * Reads a block that is still short of its rows in two halves and adds the rows together.
+     *
+     * <p>A block of fifteen packs of capacitors came back with fourteen rows, and naming the count did
+     * not always help: one picture of the whole block is more rows than the model reads carefully. Two
+     * pictures of half a block each are read row by row, and the rows are joined by the order number
+     * they both carry. The two halves overlap by {@link #HALF_OVERLAP_ROWS} rows so that the seam never
+     * falls between two rows; a row both halves saw is kept once.
+     *
+     * @param slice the slice as it was sent, the block being inside it
+     * @param range the rows of the whole page this slice was cut from
+     * @param boxes the product pictures of the whole page
+     * @param first what the whole block answered before
+     * @param endpoint the vision endpoint
+     * @param model the model name
+     * @param key the api key
+     * @return the two halves joined with the first answer, or {@code first} when the block cannot be cut
+     */
+    private static Read readInHalves(byte[] slice, int[] range, List<int[]> boxes, Read first,
+            String endpoint, String model, String key) {
+        BufferedImage page;
+        try {
+            page = ImageIO.read(new ByteArrayInputStream(slice));
+        } catch (IOException e) {
+            Debug.logError(e, "Could not read a slice again to cut it in two", MODULE);
+            return first;
+        }
+        if (page == null) {
+            return first;
+        }
+        // the pictures of this block, in the rows of the slice: the header lines sit above the first of
+        // them, and the middle one is where the block is cut
+        List<int[]> inside = new ArrayList<>();
+        for (Integer index : OirShots.indexesWithin(boxes, range[0], range[1])) {
+            inside.add(boxes.get(index.intValue()));
+        }
+        if (inside.size() < 4) {
+            return first;
+        }
+        int headBottom = Math.min(inside.get(0)[1] - range[0], MAX_BLOCK_HEAD_ROWS);
+        int middle = inside.get(inside.size() / 2)[1] - range[0];
+        int bottom = page.getHeight();
+        if (headBottom <= 0 || middle <= headBottom + 200 || middle >= bottom - 200) {
+            return first;
+        }
+        int[] columns = contentColumns(page, 0, bottom);
+        byte[] upper = sliceOf(page, columns[0], columns[1], 0,
+                Math.min(bottom, middle + HALF_OVERLAP_ROWS));
+        byte[] lower = stitchedPicture(page, columns[0], columns[1], headBottom, middle, bottom);
+        if (upper == null || lower == null) {
+            return first;
+        }
+        Debug.logInfo("A block that stays short of its rows is read in two halves of " + upper.length
+                + " and " + lower.length + " bytes", MODULE);
+        Read up = readPicture(upper, endpoint, model, key, "image/png", true, 1, 0);
+        Read down = readPicture(lower, endpoint, model, key, "image/png", true, 1, 0);
+        return joinHalves(first, up, down);
+    }
+
+    /**
+     * Joins the whole-block read with the two halves it was re-read in into the one order the block
+     * is (the rule itself is in {@link OirOrders#joinHalves}).
+     *
+     * @param whole the answer to the whole block
+     * @param upper the answer to the top half
+     * @param lower the answer to the lower half, its head stitched on top
+     * @return one answer holding the block
+     */
+    private static Read joinHalves(Read whole, Read upper, Read lower) {
+        Read joined = new Read();
+        for (Read read : new Read[] {whole, upper, lower}) {
+            if (read == null) {
+                continue;
+            }
+            if (joined.reply == null && read.reply != null) {
+                joined.reply = read.reply;
+            }
+            joined.seen = Math.max(joined.seen, read.seen);
+            if (joined.transportProblem == null) {
+                joined.transportProblem = read.transportProblem;
+            }
+        }
+        Map<String, String> one = OirOrders.joinHalves(onlyOrderOf(whole), onlyOrderOf(upper),
+                onlyOrderOf(lower));
+        if (one == null) {
+            joined.orders = whole == null ? Collections.emptyList() : whole.orders;
+            return joined;
+        }
+        Debug.logInfo("The halves of a block came out as one order of "
+                + OirOrders.parseOrderArticleLines(one.get("lines")).size() + " rows", MODULE);
+        joined.orders = new ArrayList<>();
+        joined.orders.add(one);
+        return joined;
+    }
+
+    /**
+     * @param read one answer to one picture
+     * @return the order it holds, {@code null} unless it holds exactly one (a half of a block is one
+     *     order, and an answer with two of them is a model that did not do what it was asked)
+     */
+    private static Map<String, String> onlyOrderOf(Read read) {
+        if (read == null || read.orders == null || read.orders.size() != 1) {
+            return null;
+        }
+        return read.orders.get(0);
     }
 
     /**

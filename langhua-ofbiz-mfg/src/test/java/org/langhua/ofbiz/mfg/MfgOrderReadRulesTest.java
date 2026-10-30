@@ -472,6 +472,83 @@ public class MfgOrderReadRulesTest {
     }
 
     @Test
+    public void addsTheRowsOfTwoHalvesOfOneBlockWithoutPrintingTheSeamTwice() {
+        // a block of fifteen packs that stayed at fourteen rows, read again in two halves (the second
+        // one carrying the header of the block stitched on top); the halves overlap, so the row of the
+        // seam comes back from both answers and must keep one place
+        Map<String, String> whole = blockOf(wholeRowsOf(14), "14");
+        Map<String, String> upper = blockOf(linesOf(1, 8), "8");
+        Map<String, String> lower = blockOf(linesOf(8, 15), "8");
+        Map<String, String> joined = OirOrders.joinHalves(whole, upper, lower);
+        // one block is one order: the number of orders never grows, whatever the halves wrote
+        assertEquals("2398936398415500570", joined.get("orderNo"));
+        assertEquals("YSUNK旗舰店", joined.get("shop"));
+        assertEquals(15, OirOrders.parseOrderArticleLines(joined.get("lines")).size());
+        assertEquals("C1", OirOrders.parseOrderArticleLines(joined.get("lines")).get(0)[0]);
+        assertEquals("C15", OirOrders.parseOrderArticleLines(joined.get("lines")).get(14)[0]);
+        // the rows of the two halves now come to what the block paid, which the short read did not
+        double total = 0.0;
+        for (String[] row : OirOrders.parseOrderArticleLines(joined.get("lines"))) {
+            total += Double.parseDouble(row[3]);
+        }
+        assertEquals(38.50, total, 0.001);
+        // the head of the block is the one the page printed, not a half's guess
+        assertEquals("38.50", joined.get("paidTotal"));
+        // a row count of one half is not the count of the block, so none is handed on
+        assertNull(joined.get("rowCount"));
+        // a half that read nothing leaves the whole-block read standing
+        assertEquals(14, OirOrders.parseOrderArticleLines(
+                OirOrders.joinHalves(whole, null, null).get("lines")).size());
+        // the halves lead nowhere better than the whole read: the whole read stands
+        Map<String, String> worse = blockOf("C1,cap,50,2.50\nC2,cap,50,2.50", "2");
+        assertEquals(14, OirOrders.parseOrderArticleLines(
+                OirOrders.joinHalves(whole, worse, null).get("lines")).size());
+    }
+
+    /**
+     * @param from the first row of the range
+     * @param to the last row of the range
+     * @return the article rows C&lt;from&gt; to C&lt;to&gt; of the block of capacitors, the last two cost
+     *     a little more so the block does not come to a round number
+     */
+    private static String linesOf(int from, int to) {
+        StringBuilder lines = new StringBuilder();
+        for (int i = from; i <= to; i++) {
+            lines.append(lines.length() == 0 ? "" : "\n").append("C").append(i)
+                    .append(",cap,50,").append(i >= 14 ? "3.00" : "2.50");
+        }
+        return lines.toString();
+    }
+
+    /**
+     * @param read how many rows the short read has
+     * @return the rows of a block of fifteen that was read with one row missing at the end
+     */
+    private static String wholeRowsOf(int read) {
+        StringBuilder lines = new StringBuilder();
+        for (int i = 1; i <= read; i++) {
+            lines.append(lines.length() == 0 ? "" : "\n").append("C").append(i)
+                    .append(",cap,50,2.50");
+        }
+        return lines.toString();
+    }
+
+    /**
+     * @param lines the article rows of the answer
+     * @param rowCount what the answer says the block prints
+     * @return an answer to the block of capacitors of the audited page
+     */
+    private static Map<String, String> blockOf(String lines, String rowCount) {
+        Map<String, String> order = new LinkedHashMap<>();
+        order.put("orderNo", "2398936398415500570");
+        order.put("shop", "YSUNK旗舰店");
+        order.put("paidTotal", "38.50");
+        order.put("rowCount", rowCount);
+        order.put("lines", lines);
+        return order;
+    }
+
+    @Test
     public void givesEachArticleLineItsOwnPicture() {
         // the page printed a picture beside each article: line one takes the first, line two the second,
         // and a third line keeps none rather than borrowing the first one (that is another part)
