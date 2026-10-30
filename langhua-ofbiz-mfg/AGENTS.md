@@ -1865,6 +1865,14 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
     这种自带半角括号的料号不动。两个提示词里也各补了一句（`SHORT_PROMPT` 原本根本没提 `code`，
     而分段一律用短的）。实测四行现在读成 `2K / 100K / 100K / 5.1K`（第三行页面上是 `100R`，
     模型把上一行的值抄了一遍——钱和行数都对，属模型读错，核对表里改一下）。
+- **“做成 DeepSeek Harness（`dsh`）插件”评估过，结论是暂时不做（2026-10-31 用户定的）**：`dsh` 确实存在
+  （官方开源、TypeScript + Cordis、“Everything is a Plugin”、developer preview 明确会破坏兼容；插件 = 导出
+  `apply(ctx)` 的模块，`inject: ['tools']` 后 `ctx.tools.register(...)`，本地用 `cordis.yml --patch` 加载，
+  npm 包里声明 `dsh.bundle` 可上插件市场）。**干净的形态是 TS 重写，而那等于把 `oir` 里 2700 行调过的规则
+  （数图数、一块切两半、锚在商品图底边、`valueOfSpecLine`、金额对账…）连 224 个单测和 5 张真截图的基线一起作废**，
+  所以算了。spawn `oir-cli.jar` / POST `/mfg/control/orderImage` 这两条桥也评估过（能用但不对劲：要 JVM、
+  要会话 cookie、毛病散在两个语言里）。完整分析在 `docs/识图设计.md` 的 §11.1（含“什么时候再回头看”和
+  “别再想的两条”）——**别再从头论证一遍，也别让插件里的模型自己看图**。
 - **识别有超时：服务端 120 秒，页面 135 秒（Step 179f）**：`OirScan.SCAN_TIMEOUT_SECONDS = 120`，从拿图起算，
   每波 `future.get(min(SLICE_WAIT_SECONDS, secondsLeft(deadline)))`，到点就把还没回来的分段**丢掉**并取消线程池；
   已经有单就照常返回 + 消息里写“识别超时：一次最多等 120 秒，只读了 N 张单”，一张都没有就回 `code=TIMEOUT`。
