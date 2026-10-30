@@ -410,6 +410,7 @@ public final class OirOrders {
             if (code == null && name == null && qty == null && amount == null) {
                 continue;
             }
+            code = valueOfSpecLine(code);
             if ((code == null || code.trim().isEmpty()) && name != null && !name.trim().isEmpty()) {
                 // the model left the code out: the import derives it from the name anyway, so the
                 // table shows the code that will really be stored instead of an empty cell
@@ -422,6 +423,42 @@ public final class OirOrders {
             rows.add(row);
         }
         return rows.isEmpty() ? null : String.join("\n", rows);
+    }
+
+    /** The pack size a shop prints after a value in half width brackets: {@code 5.1K (50只)}. */
+    private static final Pattern PACK_IN_BRACKETS =
+            Pattern.compile("\\s*[（(]\\s*\\d+\\s*(?:只|个|件|只装|片|套)\\s*[)）]\\s*$");
+
+    /**
+     * The code of a row, cut back to the value when the model answered the whole grey spec line of the
+     * page instead of the one value that tells this row from the next.
+     *
+     * <p>One shop prints {@code 2K （一件100只）;1%精度;0603贴片电阻} under every row of a long list of
+     * resistors, and a block of four came back with that whole line as the code of each row - four rows
+     * that import as one part (Step 187). The value is what the line starts with, up to the pack size in
+     * full width brackets or the first semicolon; a code that carries half width brackets of its own
+     * ({@code 502035(350mah)}, {@code 2.0mm单排8P(共8P)}) has no such separator and is left alone.
+     *
+     * @param code the code as the answer gave it
+     * @return the value of the row, the code itself when it is not a spec line
+     */
+    public static String valueOfSpecLine(String code) {
+        if (code == null) {
+            return null;
+        }
+        String text = code.trim();
+        int semicolon = text.indexOf(';');
+        if (semicolon > 0) {
+            text = text.substring(0, semicolon).trim();
+        }
+        // a pack size in half width brackets at the end (5.1K (50只)) goes too, so the same part bought
+        // in another pack size keeps one code
+        text = PACK_IN_BRACKETS.matcher(text).replaceFirst("").trim();
+        int bracket = text.indexOf('（');
+        if (bracket > 0) {
+            text = text.substring(0, bracket).trim();
+        }
+        return text.isEmpty() ? code : text;
     }
 
     /**

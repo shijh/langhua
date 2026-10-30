@@ -1859,6 +1859,12 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
     (25) 5 单（15 行那块仍是 15 行）、(26) 17 单、(31) 20 单不变。单测
     `cutsAtTheBandBelowTheLastOrderEvenWhenTheListPrintsItsRowsFarApart`（4 行的块、行距 260、带子只有 340 < 2×260）、
     `keepsTheWholePageRatherThanCutAnOrderInTwo`（页面什么都不分隔时整张保留）。**别再退回“猜一个行”**。
+    同一步里还夹了一件：这一单四行的**料号**也读成了整条灰色规格行（`2K（一件100只）;1%精度;0603贴片电阻`），
+    四行就成了同一个料号。现在答题里的 `code` 先过 `OirOrders.valueOfSpecLine`：取 `;` 之前、再去掉末尾
+    “（50只）/ (50只)”这种半角包装量、`（` 之前的内容 → `2K`；`502035(350mah)` / `2.0mm单排8P(共8P)`
+    这种自带半角括号的料号不动。两个提示词里也各补了一句（`SHORT_PROMPT` 原本根本没提 `code`，
+    而分段一律用短的）。实测四行现在读成 `2K / 100K / 100K / 5.1K`（第三行页面上是 `100R`，
+    模型把上一行的值抄了一遍——钱和行数都对，属模型读错，核对表里改一下）。
 - **识别有超时：服务端 120 秒，页面 135 秒（Step 179f）**：`OirScan.SCAN_TIMEOUT_SECONDS = 120`，从拿图起算，
   每波 `future.get(min(SLICE_WAIT_SECONDS, secondsLeft(deadline)))`，到点就把还没回来的分段**丢掉**并取消线程池；
   已经有单就照常返回 + 消息里写“识别超时：一次最多等 120 秒，只读了 N 张单”，一张都没有就回 `code=TIMEOUT`。

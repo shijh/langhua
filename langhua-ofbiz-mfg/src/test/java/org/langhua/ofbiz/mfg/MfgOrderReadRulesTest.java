@@ -1872,6 +1872,28 @@ public class MfgOrderReadRulesTest {
     }
 
     @Test
+    public void takesTheValueOutOfASpecLineAnsweredAsTheCode() {
+        // one shop prints 2K （一件100只）;1%精度;0603贴片电阻 under every row of a long list of resistors,
+        // and a block of four came back with that whole line as the code of each row - four rows that
+        // would import as one part (Step 187)
+        assertEquals("2K", OirOrders.valueOfSpecLine("2K（一件100只）;1%精度;0603贴片电阻"));
+        assertEquals("100R", OirOrders.valueOfSpecLine("100R（一件100只）;1%精度;0603贴片电阻"));
+        assertEquals("5.1K", OirOrders.valueOfSpecLine("5.1K (50只)"));
+        assertEquals("0906红色", OirOrders.valueOfSpecLine("0906红色 （1件=100个）"));
+        // a code with half width brackets of its own has no such separator and stays as it is
+        assertEquals("502035(350mah)", OirOrders.valueOfSpecLine("502035(350mah)"));
+        assertEquals("2.0mm单排8P(共8P)", OirOrders.valueOfSpecLine("2.0mm单排8P(共8P)"));
+        assertEquals("SAM8108", OirOrders.valueOfSpecLine("SAM8108"));
+        assertNull(OirOrders.valueOfSpecLine(null));
+        // and the row of an answer carries that value, not the line
+        List<Map<String, String>> orders = OirOrders.orderListFrom("{\"orders\":[{\"orderNo\":\"1\""
+                + ",\"items\":[{\"code\":\"2K（一件100只）;1%精度;0603贴片电阻\",\"name\":\"0603 贴片电阻\""
+                + ",\"qty\":\"100\",\"amount\":\"1.20\"}]}]}");
+        assertEquals(1, orders.size());
+        assertEquals("2K", OirOrders.parseOrderArticleLines(orders.get(0).get("lines")).get(0)[0]);
+    }
+
+    @Test
     public void keepsTheWholePageRatherThanCutAnOrderInTwo() {
         // cards with pictures of their own leave no wide empty band under the list (measured 18 to 40
         // rows, like the space between two articles), and then nothing says where the list ends: the
