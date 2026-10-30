@@ -206,7 +206,16 @@ public final class OirScan {
      * that spacing either.
      */
     public static final int MIN_TAIL_GAP = 300;
+
     private static final int TAIL_GAP_RATIO = 2;
+
+    /**
+     * How many empty rows make a real gap between two things on the page. Used for the cut below the
+     * last picture of the last block: there the question is not "is this the feed" but "has the last
+     * order run out", and the answer is the first gap after its last row.
+     */
+    private static final int ROW_GAP_ROWS = 60;
+
 
     /** A row of the page counts as empty when fewer samples of it are dark than this. */
     private static final int BLANK_ROW_DARK = 3;
@@ -470,7 +479,7 @@ public final class OirScan {
         // a long page (several order blocks one under the other) is cut into overlapping slices: one
         // small picture per slice is read far more reliably than five blocks at once, and the rows of
         // an order that straddles two slices are joined afterwards by its number
-        Slices sliced = slicesOfRanges(image, stripTop);
+        Slices sliced = slicesOfRanges(image, stripTop, shotBoxes);
         List<byte[]> slices = sliced.pictures;
         String sliceNote = "";
         boolean timedOut = false;
@@ -1552,7 +1561,7 @@ public final class OirScan {
     }
 
     private static Slices slicesOfRanges(byte[] image) {
-        return slicesOfRanges(image, Integer.MAX_VALUE);
+        return slicesOfRanges(image, Integer.MAX_VALUE, Collections.<int[]>emptyList());
     }
 
     /**
@@ -1561,9 +1570,10 @@ public final class OirScan {
      * @param image the screenshot
      * @param stripTop the first row of the page's grid of recommendation cards, or
      *        {@link Integer#MAX_VALUE} when the page prints none
+     * @param pictures the boxes of the page's product pictures, top to bottom
      * @return the slices, each with the rows it was cut from
      */
-    private static Slices slicesOfRanges(byte[] image, int stripTop) {
+    private static Slices slicesOfRanges(byte[] image, int stripTop, List<int[]> pictures) {
         Slices sliced = new Slices();
         BufferedImage full;
         try {
@@ -1611,7 +1621,8 @@ public final class OirScan {
             // tallest block the page prints when it separates nothing: a tall order (ten articles) ran
             // past the old fixed room and lost the rows below the cut, and the model filled them in
             // from the paid total (Step 161)
-            int end = tailCutOf(full, list, blockHeightOf(full));
+            int end = tailCutOf(full, list, blockHeightOf(full),
+                    lastPictureBelow(pictures, list.get(list.size() - 1).intValue()));
             // the grid of recommendation cards below the list is not orders: when its cards stand side
             // by side somewhere below the last button, the list ends there. This is what keeps the feed
             // out of the last block on a page whose last order is shorter than the tallest one - there
@@ -1694,12 +1705,35 @@ public final class OirScan {
      * header and two rows inside the picture, and the model then filled the rest in from the paid total
      * - the right ten rows once, one or two rows the other times (Step 161).
      *
+     * <p>That room is now only where the search <em>starts</em>: the cut is a band of empty rows, never
+     * a guessed row. The surest signal the page gives comes first - every article row prints its product
+     * picture, so the lowest picture of the last block ends with that block, and the first real gap
+     * below it is where the list runs out. Without it the guess could lie in the middle of the last
+     * order: a block of four packs of resistors printed its rows 260 rows apart, the guess cut the third
+     * row's pack size away (its quantity came back as 1 instead of 100) and the fourth row was gone with
+     * nothing to notice it (Step 187). When the page separates nothing at all the picture is kept whole:
+     * a title of the cards read as an article is flagged by the money of that order, a row cut away is
+     * flagged by nothing.
+     *
      * @param image the picture being cut
      * @param buttons the top row of every button of the list, top to bottom
      * @param blockHeight the height of one block as the page measures itself, 0 when it does not say
      * @return the row where the list ends, the height of the picture when nothing is cut
      */
     public static int tailCutOf(BufferedImage image, List<Integer> buttons, int blockHeight) {
+        return tailCutOf(image, buttons, blockHeight, 0);
+    }
+
+    /**
+     * @param image the picture being cut
+     * @param buttons the top row of every button of the list, top to bottom
+     * @param blockHeight the height of one block as the page measures itself, 0 when it does not say
+     * @param lastPictureBottom the bottom row of the lowest product picture below the last button, 0
+     *        when the page prints none (a page of text only)
+     * @return the row where the list ends, the height of the picture when nothing is cut
+     */
+    public static int tailCutOf(BufferedImage image, List<Integer> buttons, int blockHeight,
+            int lastPictureBottom) {
         int height = image.getHeight();
         if (buttons == null || buttons.isEmpty()) {
             return height;
@@ -1724,6 +1758,13 @@ public final class OirScan {
         }
         int room = Math.max(Math.max(300, blockHeight), typical);
         int from = (int) Math.min((long) height, (long) lastButton + room);
+        // every article row of a block prints its product picture, and that picture stands beside the
+        // whole row: below the last picture of the last block there is nothing of that order left, so
+        // the search for the end of the list starts there. This is what a page needs whose last block
+        // is taller than any room measured from the other blocks (Step 187)
+        if (lastPictureBottom > lastButton) {
+            from = Math.max(from, (int) Math.min((long) height, (long) lastPictureBottom + ROW_GAP_ROWS));
+        }
         boolean[] blank = blankRows(image);
         // how wide the widest empty band of the list itself is: the articles of one order sit that far
         // apart, and a band below it has to be much wider to be the feed
@@ -1740,20 +1781,88 @@ public final class OirScan {
             }
         }
         int least = Math.max(MIN_TAIL_GAP, TAIL_GAP_RATIO * widestInside);
-        start = -1;
-        for (int y = lastButton; y < height; y++) {
-            if (blank[y]) {
-                if (start < 0) {
-                    start = y;
-                }
-            } else if (start >= 0) {
-                if (start >= from && y - start >= least) {
-                    return start;
-                }
-                start = -1;
+        // the lowest picture of the last block ends with its last row, so the first real gap below it is
+        // where that block runs out - the surest signal the page gives. It has to come first: below a
+        // block of four packs of resistors (its rows 260 rows apart) the band the page puts between the
+        // list and the cards was narrower than twice that spacing, and the guessed row that followed cut
+        // the third row's pack size away (its quantity came back as 1 instead of 100) and lost the
+        // fourth row entirely - with nothing to notice it, because the product pictures below the cut
+        // are not counted either (Step 187)
+        int separated = -1;
+        if (lastPictureBottom > lastButton) {
+            separated = bandAfter(blank, from, ROW_GAP_ROWS, height);
+        }
+        // otherwise the band the page puts between its list and the cards below it, when it separates
+        // them ...
+        if (separated < 0) {
+            separated = bandAfter(blank, from, least, height);
+        }
+        if (separated >= 0) {
+            Debug.logInfo("The tail of the page: last button at " + lastButton + ", last picture ends at "
+                    + lastPictureBottom + ", a band of " + least + " empty rows or more at " + separated
+                    + ", one block is " + blockHeight + " and two buttons are " + typical + " apart",
+                    MODULE);
+            return separated;
+        }
+        // nothing separates the cards below from the list: the whole picture is kept rather than cut an
+        // order in two. The cards are told apart later (their pictures stand side by side, and the money
+        // of the last order never comes to what was paid when a title of the feed is read as an
+        // article), while a row cut away is gone with nothing to notice it (Step 187)
+        Debug.logInfo("The page separates nothing below the last button at " + lastButton
+                + ", so the whole picture is kept instead of cutting an order in two", MODULE);
+        return height;
+    }
+
+    /**
+     * @param boxes the boxes of the page's product pictures, top to bottom
+     * @param row the row of the last button of the list
+     * @return the bottom row of the lowest picture below that button, 0 when there is none
+     */
+    private static int lastPictureBelow(List<int[]> boxes, int row) {
+        int bottom = 0;
+        if (boxes == null) {
+            return bottom;
+        }
+        for (int[] box : boxes) {
+            if (box[1] >= row) {
+                bottom = Math.max(bottom, box[3]);
             }
         }
-        return from;
+        return bottom;
+    }
+
+    /**
+     * @param blank the rows that carry nothing, one flag per row
+     * @param from the first row the cut may be made at
+     * @param least how many empty rows the band needs
+     * @param height how tall the picture is
+     * @return the row to cut at, {@code -1} when the picture has no such band
+     */
+    private static int bandAfter(boolean[] blank, int from, int least, int height) {
+        int row = 0;
+        int limit = Math.min(height, blank.length);
+        while (row < limit) {
+            if (!blank[row]) {
+                row++;
+                continue;
+            }
+            int start = row;
+            while (row < limit && blank[row]) {
+                row++;
+            }
+            if (row - start < least) {
+                continue;
+            }
+            if (start >= from) {
+                return start;
+            }
+            if (row > from) {
+                // the search starts inside this band (below the last picture of the block, say):
+                // anywhere in a band of empty rows is a safe place to cut
+                return from;
+            }
+        }
+        return -1;
     }
 
     /**

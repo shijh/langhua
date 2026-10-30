@@ -1872,16 +1872,59 @@ public class MfgOrderReadRulesTest {
     }
 
     @Test
-    public void keepsOneBlockOfRoomWhenThePageSeparatesNoFeed() {
+    public void keepsTheWholePageRatherThanCutAnOrderInTwo() {
         // cards with pictures of their own leave no wide empty band under the list (measured 18 to 40
-        // rows, like the space between two articles), so the room below the last button is the tallest
-        // block the page prints - never less than before, so this cannot cut away more than it did
+        // rows, like the space between two articles), and then nothing says where the list ends: the
+        // picture is kept whole. One block of room below the last button used to be the answer, and it
+        // cut the articles below that row away (Step 187)
         BufferedImage image = orderPage(2200, 70, false);
-        assertEquals(1350 + 400, OirScan.tailCutOf(image, orderPageButtons(), 400));
-        // a page whose blocks are taller than the measured block height keeps that room
-        assertEquals(1350 + 400, OirScan.tailCutOf(image, orderPageButtons(), 0));
+        int lastArticleEnd = 1400 + 9 * 70 + 20;
+        assertEquals(2200, OirScan.tailCutOf(image, orderPageButtons(), 400));
+        assertEquals(2200, OirScan.tailCutOf(image, orderPageButtons(), 0));
         // a picture with no button of its own keeps all of it
         assertEquals(2200, OirScan.tailCutOf(image, java.util.Collections.<Integer>emptyList(), 400));
+        assertTrue(lastArticleEnd < 2200);
+    }
+
+    @Test
+    public void cutsAtTheBandBelowTheLastOrderEvenWhenTheListPrintsItsRowsFarApart() {
+        // a block of four packs of resistors printed its rows 260 rows apart, so the band between the
+        // list and the cards below it (520 rows) was narrower than twice their distance; the cut then
+        // fell back to one block below the button, which lay in the middle of the last row: the model
+        // read three rows of four, and the third one without the pack size that says 100 pieces
+        // (Step 187)
+        BufferedImage image = new BufferedImage(300, 3400, BufferedImage.TYPE_INT_RGB);
+        java.awt.Graphics2D pen = image.createGraphics();
+        pen.setColor(java.awt.Color.WHITE);
+        pen.fillRect(0, 0, 300, 3400);
+        pen.setColor(java.awt.Color.BLACK);
+        int[] buttons = new int[] {150, 550, 950, 1350};
+        for (int i = 0; i < buttons.length; i++) {
+            pen.fillRect(10, buttons[i] - 140, 280, 30);
+            pen.fillRect(240, buttons[i], 50, 20);
+            // the last block prints four rows of articles, 260 rows apart
+            if (i == buttons.length - 1) {
+                for (int k = 0; k < 4; k++) {
+                    pen.fillRect(10, buttons[i] + 70 + k * 260, 200, 60);
+                }
+            } else {
+                pen.fillRect(10, buttons[i] + 50, 200, 20);
+            }
+        }
+        // the cards of the feed start at 2600
+        for (int r = 0; r < 6; r++) {
+            pen.fillRect(10, 2600 + r * 40, 260, 20);
+        }
+        pen.dispose();
+        int lastArticleEnd = 1350 + 70 + 3 * 260 + 60;
+        // the block prints a picture beside every row, and the lowest of them ends with the last row:
+        // that is what the cut is anchored on
+        int cut = OirScan.tailCutOf(image, orderPageButtons(), 690, lastArticleEnd);
+        assertTrue("the cut at " + cut + " leaves the last article, which ends at " + lastArticleEnd,
+                cut >= lastArticleEnd);
+        assertTrue("the cut at " + cut + " reaches into the feed", cut <= 2600);
+        // one block below the last button (1350 + 690) lies inside the fourth article, not on a band
+        assertTrue("the cut at " + cut + " is not the guessed row", cut != 1350 + 690);
     }
 
     @Test
