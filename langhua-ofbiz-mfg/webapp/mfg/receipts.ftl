@@ -339,15 +339,13 @@
         /* the screenshot may come from the picker, from Ctrl+V or from a drop; all three end up
            as the file of the input, which the button then sends as before */
         var chosen = null;
-        /* a picture is waiting for the person to start the reading: only then does Enter start it, so
-           a key pressed later (after the results are on screen) cannot re-read the same picture */
-        var pending = false;
         function take(fileLike, source) {
             if (!fileLike || !/^image\//.test(fileLike.type)) {
                 return false;
             }
             chosen = fileLike;
-            pending = true;
+            /* a bare Enter now starts this reading, wherever the focus is (js/enter.js, Step 186) */
+            if (window.mfgAskEnter) { window.mfgAskEnter('scan', button, recognize); }
             /* what is below was read from the previous picture: it goes away, or a person takes it for
                this one and imports the wrong screenshot (Step 179p) */
             forget();
@@ -420,32 +418,9 @@
             try {
                 button.focus({ preventScroll: true });
             } catch (e) {
-                try { button.focus(); } catch (again) { /* an old browser: the key handling below does it */ }
+                try { button.focus(); } catch (again) { /* an old browser: js/enter.js does the key */ }
             }
         }
-        /* Enter starts the reading of the picture that is waiting (Step 185): after Ctrl+V the person's
-           hand is still on the keyboard, and reaching for the mouse is the slow part. Only a bare
-           Enter outside the boxes, so typing a line of articles keeps working (Enter there is a new
-           line), and only while a picture is waiting, so a key pressed later cannot re-read it. */
-        document.addEventListener('keydown', function (event) {
-            if (!pending || (event.key !== 'Enter' && event.keyCode !== 13)) {
-                return;
-            }
-            if (event.shiftKey || event.ctrlKey || event.altKey || event.metaKey) {
-                return;
-            }
-            var node = event.target;
-            var tag = node && node.tagName ? node.tagName.toLowerCase() : '';
-            if (tag === 'input' || tag === 'textarea' || tag === 'select') {
-                return;
-            }
-            if (node === button) {
-                // the button has the focus and the browser clicks it on Enter of its own
-                return;
-            }
-            event.preventDefault();
-            recognize();
-        });
         button.addEventListener('click', recognize);
         function recognize() {
             var image = chosen || (file.files && file.files[0]);
@@ -454,7 +429,8 @@
                 hint.textContent = '先选一张截图、Ctrl+V 粘贴，或把图拖进来';
                 return;
             }
-            pending = false;
+            /* the picture is being read now: Enter must not send it a second time (js/enter.js) */
+            if (window.mfgEnterDone) { window.mfgEnterDone('scan'); }
             var body = new FormData();
             body.append('image', image);
             /* the list on screen belongs to the previous read: it goes away while this one runs, so
@@ -1030,7 +1006,7 @@
             文件 <input type="file" id="excelFile" name="file" accept=".xlsx"/>
             <button type="submit" id="excelImport" data-once="Y">导入 Excel</button>
             <span id="excelHint" class="hint">淘宝「已买到的宝贝 → 导出」得到的 xlsx（1-10 页）；
-                也可以直接 <kbd>Ctrl+V</kbd> 粘贴这个文件，或者把它拖到这个框里；
+                也可以直接 <kbd>Ctrl+V</kbd> 粘贴这个文件（粘完直接按回车就开始导入），或者把它拖到这个框里；
                 料号取「型号款式」，没有就用商品名称；到货日用「订单提交时间」那天。</span>
         </p>
     </form>
@@ -1079,8 +1055,25 @@
         } catch (e) {
             // an older browser refuses a scripted FileList, the form uses `chosen` anyway
         }
-        say(source + '：' + (fileLike.name || 'xlsx') + '，点「导入 Excel」', 'ok');
+        say(source + '：' + (fileLike.name || 'xlsx') + '，点「导入 Excel」（或者直接按回车）', 'ok');
+        /* a bare Enter now imports this workbook, wherever the focus is (js/enter.js, Step 186) */
+        if (window.mfgAskEnter) { window.mfgAskEnter('excel', button, importIt); }
         return true;
+    }
+    /* the same thing the button does: the submit event is what starts the ajax import below */
+    function importIt() {
+        if (form.requestSubmit) {
+            form.requestSubmit(button);
+        } else {
+            button.click();
+        }
+    }
+    function focusImport() {
+        try {
+            button.focus({ preventScroll: true });
+        } catch (e) {
+            try { button.focus(); } catch (again) { /* an old browser: js/enter.js does the key */ }
+        }
     }
     /* a pasted screenshot belongs to the scanner above, so only a workbook is taken here */
     function pastedFile(event) {
@@ -1102,11 +1095,13 @@
         var workbook = pastedFile(event);
         if (!workbook) { return; }
         event.preventDefault();
-        take(workbook, '已粘贴文件');
+        if (!take(workbook, '已粘贴文件')) { return; }
         /* same rule as the screenshot block: line the file box up under the nav, even when the
            block below it carries a long list of orders that could not be booked in (Step 115) */
         if (window.jumpUnderNav) { window.jumpUnderNav(tools || block); }
         else if (block && block.scrollIntoView) { block.scrollIntoView(); }
+        /* the import button takes the focus, so the next Enter starts the import natively */
+        focusImport();
     });
     if (block) {
         block.addEventListener('dragover', function (event) {
@@ -1122,12 +1117,16 @@
             if (!take(dropped[0], '已拖入文件')) {
                 say('只认淘宝导出的 xlsx（' + (dropped[0].name || '这个文件') + ' 不是）；'
                     + '截图请拖到上面的识别框', 'error');
+                return;
             }
+            focusImport();
         });
     }
     form.addEventListener('submit', function (event) {
         if (!window.FormData || !window.fetch) { return; }
         event.preventDefault();
+        /* the import is running now: Enter must not send the same workbook a second time */
+        if (window.mfgEnterDone) { window.mfgEnterDone('excel'); }
         var data = new FormData(form);
         if (chosen && !(fileField.files && fileField.files.length)) {
             try { data.set('file', chosen, chosen.name || 'orders.xlsx'); }

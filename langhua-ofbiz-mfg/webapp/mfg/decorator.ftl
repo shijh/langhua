@@ -110,6 +110,7 @@
 </#if>
 <script src="/mfg/js/session.js"></script>
 <script src="/mfg/js/jump.js"></script>
+<script src="/mfg/js/enter.js"></script>
 <script src="/mfg/js/shots.js"></script>
 <script src="/mfg/js/once.js"></script>
 <script src="/mfg/js/expand.js"></script>
