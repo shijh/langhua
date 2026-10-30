@@ -347,7 +347,9 @@ public final class OirScan {
             + " for a block with two or more articles it is the printed row price times the number of"
             + " packs after x (1.20 with x2 is 2.40), never the price of a single piece nor the price of"
             + " one pack: the pack size only changes the quantity, so ¥2.00 with x2 is 4.00 however many"
-            + " pieces one pack holds. One element per"
+            + " pieces one pack holds. Whenever the number after x is larger than 1 the money of that row is"
+            + " larger than the price printed beside it - ¥13.68 with x2 is 27.36, ¥7.01 with x4 is 28.04 -"
+            + " and only a row printed with x1 is the printed price itself. One element per"
             + " article - a block that shows two products gets two elements, never one. Never use the"
             + " struck through price. code is the short model or spec line printed under the title"
             + " (2.0mm单排8P(共8P), 502035(350mah), 30K) and name is the title itself; when the article"
@@ -411,7 +413,8 @@ public final class OirScan {
             + " money (paidTotal"
             + " minus freight for a block with one article, printed row price times the packs after x for"
             + " a block with several - the pack size changes the quantity, never the row money, so ¥2.00"
-            + " with x2 is 4.00), as printed: never bend a row's amount so the rows add up, and never make"
+            + " with x2 is 4.00, and x larger than 1 always means more money than the price beside it), as"
+            + " printed: never bend a row's amount so the rows add up, and never make"
             + " paidTotal an item of its own. Pictures of other products below the order list (猜你喜欢 / 推荐 /"
             + " 广告) are not orders and are not items; the articles of one block are never items of the"
             + " block under it. No explanation.";
@@ -553,10 +556,13 @@ public final class OirScan {
                 // how many articles the slice prints: one picture beside each row, so the pictures
                 // inside its rows count the rows. A block of fifteen packs of capacitors came back
                 // with fourteen of them, twice in a row, and the money alone did not make the model
-                // go back over it (Step 183) - the count does. The last slice is left out: the page's
-                // recommendation cards stand in it too, and their pictures are not article rows
+                // go back over it (Step 183) - the count does. A last slice is left out when the page's
+                // recommendation cards still stand in it, because their pictures are not article rows;
+                // once the feed is cut off below the list it holds orders only, and the count of the
+                // last block is the one that was needed most: eight articles came back as seven, and
+                // the missing RF module was what the money could not account for (Step 189)
                 final boolean lastSlice = at + 1 >= slices.size();
-                final int articlesHere = blocksHere == 1 && !lastSlice
+                final int articlesHere = blocksHere == 1 && (!lastSlice || sliced.feedCut)
                         ? OirShots.indexesWithin(shotBoxes, range[0], range[1]).size() : 0;
                 articlesBySlice.add(Integer.valueOf(articlesHere));
                 running.add(pool.submit(new Callable<Read>() {
@@ -1561,6 +1567,8 @@ public final class OirScan {
         private final List<byte[]> pictures = new ArrayList<>();
         private final List<int[]> ranges = new ArrayList<>();
         private final List<Integer> buttons = new ArrayList<>();
+        /** Whether the page's recommendation feed was cut off, so the last slice holds orders only. */
+        private boolean feedCut;
         /** The same slices cropped to the numbered left of the page, for the second, sharper read. */
         private final List<byte[]> strips = new ArrayList<>();
     }
@@ -1643,6 +1651,7 @@ public final class OirScan {
             if (end < height) {
                 Debug.logInfo("The order list ends at row " + end + " of " + height
                         + ", the rest is the recommendation feed", MODULE);
+                sliced.feedCut = true;
                 height = end;
             }
         }

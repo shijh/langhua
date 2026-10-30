@@ -1693,6 +1693,24 @@ public class MfgOrderReadRulesTest {
         OirOrders.tidyOrder(fine);
         assertEquals("4.00", fine.get("lines").split("\n")[0].split("\t")[3]);
         assertNull(fine.get("note"));
+
+        // a row the page prints with x4 cannot be eleven packs of the price beside it: the prices of
+        // that block were unit prices the model forgot to multiply (¥13.68 x2, ¥7.01 x4), so the gap
+        // is inverted into 77.11 of a row that really cost 7.01. Nothing explains the gap and the money
+        // check must keep saying so instead of closing it with money nobody paid (Step 189)
+        Map<String, String> prices = new LinkedHashMap<>();
+        prices.put("paidTotal", "127.46");
+        prices.put("freight", "0.00");
+        prices.put("rowCount", "7");
+        prices.put("lines", "CH340C\tESP8266 NodeMCU\t2\t13.68\n线\t面包板线\t2\t4.05\n"
+                + "LCD1602\t1602A 蓝屏\t1\t8.00\n转接板\tLCD1602转接板\t1\t2.86\n"
+                + "SG90\t舵机\t2\t5.73\n830\t400孔面包板\t4\t7.01\nRC522\tRFID 模块\t1\t16.24");
+        OirOrders.tidyOrder(prices);
+        String[] kept = prices.get("lines").split("\n");
+        assertEquals(7, kept.length);
+        assertEquals("7.01", kept[5].split("\t")[3]);
+        assertEquals("13.68", kept[0].split("\t")[3]);
+        assertNotNull(OirOrders.checkOrderTotals(prices));
     }
 
     @Test

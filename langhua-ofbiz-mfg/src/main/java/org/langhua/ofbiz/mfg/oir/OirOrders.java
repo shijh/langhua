@@ -1400,7 +1400,13 @@ public final class OirOrders {
             if (amount <= 0.0) {
                 continue;
             }
-            for (int packs = 2; packs <= MAX_PACKS; packs++) {
+            // the page never sold more packs of a row than the pieces it prints for it, so a row read
+            // as x4 cannot be eleven packs of the price beside it: that product only closed the gap
+            // with money nobody paid (¥7.01 with x4 became 77.11, Step 189). A row whose quantity is
+            // not known (x1, the pack size only in the grey line) keeps the whole range
+            double pieces = toDouble(rows.get(i)[2], 0.0);
+            int ceiling = pieces > 1.0 ? (int) Math.min(MAX_PACKS, pieces) : MAX_PACKS;
+            for (int packs = 2; packs <= ceiling; packs++) {
                 if (Math.abs(round2(amount * (packs - 1)) - gap) > MONEY_TOLERANCE) {
                     continue;
                 }
