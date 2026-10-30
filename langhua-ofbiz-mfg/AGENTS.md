@@ -1821,6 +1821,19 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
        单测 `addsTheRowsOfTwoHalvesOfOneBlockWithoutPrintingTheSeamTwice`。
        **坑**：第一版把整块那次读数也并进“按单号分组”，两半的号少读一位就变成 3 张单（页面多一行、钱翻倍）；
        第二版并了行却没管金额，`220PF` 那一行在两次读里是 2.00 / 2.50，并出 18 行 45.00。
+  ㉓ **贴完图按回车就开始识别（Step 185）**：用户提的（“Ctrl+V 贴图后能不能用回车触发”）。三件事：
+    ① `take()` 里置 `pending = true`，`recognize()`（从按钮的 click 里抽出来的函数）里再置回 false——
+       **只有“有一张图在等着”时回车才动手**，否则结果出来以后再按一次回车又会把同一张图重读一遍；
+    ② 贴图 / 拖图之后 `focusButton()` 把焦点放到「识别并核对」按钮上（`focus({preventScroll:true})`，
+       滚动仍交给 `jumpUnderNav`），按钮本来就能被回车激活，所以**在任何位置贴图都能直接回车**；
+    ③ 另外挂一个 `document` 的 `keydown`：**光秃秃的回车、且焦点不在 `input`/`textarea`/`select` 里**才触发
+       （在「明细」框里回车还是换行，在订单号框里回车还是提交手工表单）；带 Shift/Ctrl/Alt/Meta 的一律不动，
+       焦点已经在按钮上时也不插手（浏览器自己会 click，否则会跑两次）。
+    提示文字跟着改成「点「识别并核对」（或者直接按回车）」。验法：`%TEMP%\jup\js-check\enter-test2.js`
+    （假 DOM 跑渲染出来的那段脚本，12 项：没贴图时回车无效、贴图后焦点落在按钮、明细框里回车不触发、
+    回车发一次 POST 到 `/mfg/control/orderImage`、结果出来后回车不再发第二次、Shift/Ctrl/回车无效、
+    带文字的粘贴不拦），跑法 `run-enter-test.ps1`（结果写 `F:\build-ofbiz\enter-test.txt`）；
+    `js-check\check-pages.ps1` 先用 `node --check` 验一遍渲染出来的内联脚本。巡检 m47 加了 5 项静态断言。
 - **识别有超时：服务端 120 秒，页面 135 秒（Step 179f）**：`OirScan.SCAN_TIMEOUT_SECONDS = 120`，从拿图起算，
   每波 `future.get(min(SLICE_WAIT_SECONDS, secondsLeft(deadline)))`，到点就把还没回来的分段**丢掉**并取消线程池；
   已经有单就照常返回 + 消息里写“识别超时：一次最多等 120 秒，只读了 N 张单”，一张都没有就回 `code=TIMEOUT`。

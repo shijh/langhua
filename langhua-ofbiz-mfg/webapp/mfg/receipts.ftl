@@ -339,11 +339,15 @@
         /* the screenshot may come from the picker, from Ctrl+V or from a drop; all three end up
            as the file of the input, which the button then sends as before */
         var chosen = null;
+        /* a picture is waiting for the person to start the reading: only then does Enter start it, so
+           a key pressed later (after the results are on screen) cannot re-read the same picture */
+        var pending = false;
         function take(fileLike, source) {
             if (!fileLike || !/^image\//.test(fileLike.type)) {
                 return false;
             }
             chosen = fileLike;
+            pending = true;
             /* what is below was read from the previous picture: it goes away, or a person takes it for
                this one and imports the wrong screenshot (Step 179p) */
             forget();
@@ -355,7 +359,8 @@
                 // an older browser refuses a scripted FileList, the button uses `chosen` anyway
             }
             hint.className = 'ok';
-            hint.textContent = source + '：' + (fileLike.name || '截图') + '，点「识别并核对」';
+            hint.textContent = source + '：' + (fileLike.name || '截图')
+                + '，点「识别并核对」（或者直接按回车）';
             return true;
         }
         function pasted(event) {
@@ -381,12 +386,17 @@
                 return;
             }
             event.preventDefault();
-            take(image, '已粘贴截图');
+            if (!take(image, '已粘贴截图')) {
+                return;
+            }
             /* aim at the box-and-button row, never the middle of the block: once it carries a long
                checklist the block is taller than the screen and centering hides the button
                (Step 115) */
             if (window.jumpUnderNav) { window.jumpUnderNav(tools || block); }
             else if (block && block.scrollIntoView) { block.scrollIntoView(); }
+            /* the button takes the focus, so the next Enter starts the reading wherever the person
+               was typing when the picture was pasted (Step 185) */
+            focusButton();
         });
         file.addEventListener('change', function () {
             if (file.files && file.files.length) { take(file.files[0], '已选文件'); }
@@ -401,16 +411,50 @@
                 event.preventDefault();
                 block.classList.remove('drop');
                 var dropped = event.dataTransfer && event.dataTransfer.files;
-                if (dropped && dropped.length) { take(dropped[0], '已拖入截图'); }
+                if (dropped && dropped.length && take(dropped[0], '已拖入截图')) { focusButton(); }
             });
         }
-        button.addEventListener('click', function () {
+        /* the button of the reading takes the focus, so Enter starts it natively; scrolling is left to
+           jumpUnderNav above, otherwise the box jumps up over the navbar */
+        function focusButton() {
+            try {
+                button.focus({ preventScroll: true });
+            } catch (e) {
+                try { button.focus(); } catch (again) { /* an old browser: the key handling below does it */ }
+            }
+        }
+        /* Enter starts the reading of the picture that is waiting (Step 185): after Ctrl+V the person's
+           hand is still on the keyboard, and reaching for the mouse is the slow part. Only a bare
+           Enter outside the boxes, so typing a line of articles keeps working (Enter there is a new
+           line), and only while a picture is waiting, so a key pressed later cannot re-read it. */
+        document.addEventListener('keydown', function (event) {
+            if (!pending || (event.key !== 'Enter' && event.keyCode !== 13)) {
+                return;
+            }
+            if (event.shiftKey || event.ctrlKey || event.altKey || event.metaKey) {
+                return;
+            }
+            var node = event.target;
+            var tag = node && node.tagName ? node.tagName.toLowerCase() : '';
+            if (tag === 'input' || tag === 'textarea' || tag === 'select') {
+                return;
+            }
+            if (node === button) {
+                // the button has the focus and the browser clicks it on Enter of its own
+                return;
+            }
+            event.preventDefault();
+            recognize();
+        });
+        button.addEventListener('click', recognize);
+        function recognize() {
             var image = chosen || (file.files && file.files[0]);
             if (!image) {
                 hint.className = 'error';
                 hint.textContent = '先选一张截图、Ctrl+V 粘贴，或把图拖进来';
                 return;
             }
+            pending = false;
             var body = new FormData();
             body.append('image', image);
             /* the list on screen belongs to the previous read: it goes away while this one runs, so
@@ -487,7 +531,7 @@
                     button.textContent = '再试一次';
                 })
                 .then(release, release);
-        });
+        }
 
         /* After a restart of the server the session is gone and the endpoint answers with the login
            page instead of JSON: jsonOrLogin (js/session.js) sends the person to the login page, and
