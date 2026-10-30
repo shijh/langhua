@@ -258,6 +258,56 @@ public class MfgOrderReadRulesTest {
         }
     }
 
+    /**
+     * A card whose photograph is taller than it is wide (a long connector), with the title close to it:
+     * the box must stop before the words even though it may then be a few pixels shorter than the
+     * photograph. A reader sent such a page and every thumbnail carried the first characters of the
+     * title, because the height of the photo was taken as the floor of a square box.
+     *
+     * @param blocks how many blocks the page prints
+     * @return the picture
+     */
+    private static BufferedImage portraitPhotographPage(int blocks) {
+        int blockHeight = 600;
+        int photoWidth = 146;
+        int photoHeight = 225;
+        int wordsAt = 222;
+        BufferedImage image = new BufferedImage(1200, blocks * blockHeight + 200, BufferedImage.TYPE_INT_RGB);
+        java.awt.Graphics2D pen = image.createGraphics();
+        pen.setColor(java.awt.Color.WHITE);
+        pen.fillRect(0, 0, image.getWidth(), image.getHeight());
+        for (int i = 0; i < blocks; i++) {
+            int top = i * blockHeight;
+            pen.setColor(new java.awt.Color(235, 231, 215));
+            pen.fillRect(40, top + 10, 1100, 110);
+            pen.setColor(java.awt.Color.BLUE);
+            pen.fillRect(40, top + 150, photoWidth, photoHeight);
+            // the title starts 222 pixels right of the column, a 76 pixel gutter after the photo
+            pen.setColor(java.awt.Color.BLACK);
+            for (int line = 0; line < 3; line++) {
+                pen.fillRect(40 + wordsAt, top + 160 + line * 30, 500, 18);
+            }
+        }
+        pen.dispose();
+        return image;
+    }
+
+    @Test
+    public void stopsThePictureBeforeTheWordsOfATallPhotograph() {
+        List<int[]> boxes = OirShots.boxesOf(portraitPhotographPage(3));
+        assertEquals(3, boxes.size());
+        for (int i = 0; i < 3; i++) {
+            int[] box = boxes.get(i);
+            // nothing of the title came with the picture
+            assertTrue("the box reaches into the words: " + (box[2] - box[0]), box[2] < 40 + 222);
+            // and the photograph is still (all but a hair of it) in the box
+            assertTrue("the box is too narrow for the photo: " + (box[2] - box[0]), box[2] - box[0] >= 146);
+            assertTrue("the photograph is cut at the top: " + box[1], box[1] <= i * 600 + 150 + 4);
+            assertTrue("the photograph is cut at the bottom: " + box[3],
+                    box[3] >= i * 600 + 150 + 225 - 4);
+        }
+    }
+
     @Test
     public void keepsTheBoxInsideTheRoomBetweenTwoPictures() {
         // a page that prints its cards close together: a box of the usual height would reach into the

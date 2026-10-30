@@ -394,14 +394,15 @@ public final class OirShots {
     private static int[] boxAround(int[] run, int column, BufferedImage page, int reach, int room) {
         int height = run[3] - run[1];
         int wanted = Math.max(height + PICTURE_MARGIN * 2, MIN_PICTURE_SIDE);
-        // never wider than the card: a zoomed out page prints a 205 wide card, and a 300 wide box would
-        // take the first two characters of the title with it. But a picture taller than the space before
-        // the words keeps its own height, or the crop would cut the picture itself
-        int side = Math.min(wanted, Math.max(reach, height + PICTURE_MARGIN));
+        // never wider than the distance to the words of the row. What has to be in the box is the
+        // photograph, and a photo of a long connector is taller than it is wide: taking its height as
+        // the floor is what dragged the first characters of the title into the thumbnail of a reader's
+        // page (Step 182), so the words are the hard limit and the photo loses a hair of its tips
+        int side = Math.min(wanted, reach);
         // never taller than the room between the neighbouring pictures, less a hair of white so two
-        // boxes never touch - but never shorter than the picture either
+        // boxes never touch - but not so short that the photograph is cut below what the words allow
         int fits = height + Math.max(0, room) * 2 - ROW_GAP;
-        side = Math.max(Math.min(side, fits), height);
+        side = Math.max(Math.min(side, fits), Math.min(height, Math.max(1, reach)));
         // left edge stays on the card: a narrower box takes the white right of the photograph and not a
         // slice of the photograph itself
         int x0 = Math.max(0, column - PICTURE_MARGIN / 2);
