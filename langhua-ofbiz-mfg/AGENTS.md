@@ -1865,6 +1865,23 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
     这种自带半角括号的料号不动。两个提示词里也各补了一句（`SHORT_PROMPT` 原本根本没提 `code`，
     而分段一律用短的）。实测四行现在读成 `2K / 100K / 100K / 5.1K`（第三行页面上是 `100R`，
     模型把上一行的值抄了一遍——钱和行数都对，属模型读错，核对表里改一下）。
+- **同一张单重导：行数相同就按行序覆盖，并把料号搬到旧批次上（Step 188）**：10-31 在生产重导第一张截图，
+  24 张单里 **16 张并排多出一行、多出一个批次，库存翻倍**。根因：重导是**按料号**认“同一行”的，而识图这十几天
+  改过料号取法（灰字规格行取开头），同一件货这次读成 `3高(V柄)带滚珠`、10-27 读成 `SK-12D02`，于是没认出来。
+  现在 `receiptFromOrder` 先算 `pairsByPosition(overwrite, 已有行数, 答案行数)`：**重读（`overwrite=Y`）且
+  两者行数相同**时**第 k 行配第 k 行**直接覆盖；`mergeOrderLine` 多了 `code` / `name` 两个参数，顺手把
+  **新料号写到旧批次和它的发料记录上**（`renameIssuedLines`），库存留在原来那个批次里，不会分裂成两个料号。
+  行数不同（这次漏读/多读一件、或单子里真有两件）仍按料号匹配，多出来的才新增、并在 `leftOverLines` 点名；
+  `leftOver` 改成按**被认领的行**数（以前按料号集合算，改了料号的那行会被同时算成“已用”和“遗留”）。
+  `pairsByPosition` 是纯函数、单测钉住（第二次到货、行数不等都不配对）。实测（开发实例，10 项断言）：
+  先入 1 行 `AAA-CODE`，再用 `BBB-CODE` 重导 → **新增 0 行 / 覆盖 1 行**、明细仍 1 行、料号变 `BBB-CODE`、
+  `BBB-CODE` 下只有 1 个批次；答案是两件商品时新增第 2 行。回归：单测 225、集成 433 全过，三套实例已发版。
+  **同日清生产库（用户要求“删掉所有库存和入库批次数据再手动导入”）**：停生产 → 备份到
+  `F:\build-ofbiz\backup\derby-ofbiz-prod-20261031-010858-prewipe` → ij 里删
+  `MFG_INVENTORY_DETAIL`(909) / `MFG_PURCHASE_RECEIPT_LINE`(894) / `MFG_PURCHASE_RECEIPT`(525) /
+  `MFG_MATERIAL_LOT`(894)（`MFG_MATERIAL_ISSUE`、`MFG_STOCK_COUNT` 本来是 0）→ 起生产。
+  型号、研发 BOM、账号、识图设置都留着；**研发 BOM 的锁料记在流水里，清库后开发页会显示全部缺货**。
+  教训：**“订单号是幂等键”只保证不重复建单，不保证不重复建行**；往生产重导之前先看那单已有哪些行。
 - **“做成 DeepSeek Harness（`dsh`）插件”评估过，结论是暂时不做（2026-10-31 用户定的）**：`dsh` 确实存在
   （官方开源、TypeScript + Cordis、“Everything is a Plugin”、developer preview 明确会破坏兼容；插件 = 导出
   `apply(ctx)` 的模块，`inject: ['tools']` 后 `ctx.tools.register(...)`，本地用 `cordis.yml --patch` 加载，

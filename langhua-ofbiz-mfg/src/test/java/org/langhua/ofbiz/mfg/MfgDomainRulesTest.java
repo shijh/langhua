@@ -478,6 +478,24 @@ public class MfgDomainRulesTest {
     }
 
     @Test
+    public void pairsAReReadOfAnOrderLineForLine() {
+        // the same screenshot read twice: as many lines as the receipt already holds, so row k belongs
+        // to line k even when the recogniser spells the part number differently (SK-12D02 vs
+        // 3高(V柄)带滚珠). Matching by part number alone made a second line and a second lot, and the
+        // stock of that part counted twice (Step 188)
+        assertTrue(MfgPurchaseServices.pairsByPosition(true, 1, 1));
+        assertTrue(MfgPurchaseServices.pairsByPosition(true, 4, 4));
+        // a plain second delivery is not a re-read: its lines are matched by part number
+        assertFalse(MfgPurchaseServices.pairsByPosition(false, 4, 4));
+        // an answer that shows more or fewer articles than the receipt cannot be paired by position -
+        // one of them is a line the receipt does not have (or the other way round)
+        assertFalse(MfgPurchaseServices.pairsByPosition(true, 4, 3));
+        assertFalse(MfgPurchaseServices.pairsByPosition(true, 3, 4));
+        // nothing on the receipt yet: every row is a new line
+        assertFalse(MfgPurchaseServices.pairsByPosition(true, 0, 1));
+    }
+
+    @Test
     public void readsTheLinesOfTheSplitBox() {
         // a pack of 2600 resistors has to become one lot per value: the box takes a pasted list,
         // "part number, name, quantity" with the name optional (most people type two cells)

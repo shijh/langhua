@@ -817,11 +817,12 @@ public final class MfgPurchaseServices {
             // a shop prints the same article several times (one board in six colours), so one part
             // number may sit on more than one line: a line is identified by code + quantity + money,
             // and every line of the receipt may be claimed once by the answer
+            List<GenericValue> existingLines = EntityQuery.use(delegator).from("MfgPurchaseReceiptLine")
+                    .where("receiptId", receiptId).orderBy("lineSeq").queryList();
             Map<String, List<GenericValue>> existingByKey = new LinkedHashMap<>();
             Map<String, List<GenericValue>> existingByCode = new LinkedHashMap<>();
             Set<String> claimed = new LinkedHashSet<>();
-            for (GenericValue line : EntityQuery.use(delegator).from("MfgPurchaseReceiptLine")
-                    .where("receiptId", receiptId).orderBy("lineSeq").queryList()) {
+            for (GenericValue line : existingLines) {
                 String code = line.getString("componentCode");
                 existingByKey.computeIfAbsent(lotLineKey(code, line.get("qty"), line.get("goodsAmount")),
                         key -> new ArrayList<>()).add(line);
@@ -829,10 +830,16 @@ public final class MfgPurchaseServices {
                     existingByCode.computeIfAbsent(code, key -> new ArrayList<>()).add(line);
                 }
             }
+            // a re-read of an order that holds exactly as many lines as the answer is taken to be the
+            // same list of articles, line for line (Step 188). Matching by part number alone turned a
+            // better wording of the code into a second article: the same switch read as SK-12D02 last
+            // week and as 3高(V柄)带滚珠 today became two lines and two lots, and the stock of the part
+            // counted twice. Pairing by position also carries the new code onto the old lot, so the
+            // stock stays with the material instead of being split over two numbers
+            boolean positional = pairsByPosition(overwrite, existingLines.size(), rows.size());
             int imported = 0;
             int skipped = 0;
             int updated = 0;
-            Set<String> answeredCodes = new LinkedHashSet<>();
             long lineSeq = nextReceiptLineSeq(delegator, receiptId);
             for (int rowIndex = 0; rowIndex < rows.size(); rowIndex++) {
                 String[] row = rows.get(rowIndex);
@@ -840,9 +847,16 @@ public final class MfgPurchaseServices {
                 // them, the one picture of the order when it printed a single one
                 String lineShot = shotOfLine(shots, rowIndex, shot);
                 String componentCode = row[0];
-                answeredCodes.add(componentCode);
                 double qty = MfgSupport.toDouble(row[2], 0.0);
                 double amount = MfgSupport.toDouble(row[3], 0.0);
+                if (positional) {
+                    GenericValue samePlace = existingLines.get(rowIndex);
+                    claimed.add(receiptLineId(samePlace));
+                    mergeOrderLine(delegator, samePlace, receiptDate, qty, amount, componentCode, row[1]);
+                    rememberShot(samePlace, lineShot);
+                    updated++;
+                    continue;
+                }
                 List<GenericValue> sameLine = existingByKey.get(lotLineKey(componentCode,
                         Double.valueOf(qty), Double.valueOf(MfgSupport.round2(amount))));
                 GenericValue exact = claimOne(sameLine, claimed);
@@ -925,21 +939,25 @@ public final class MfgPurchaseServices {
             result.put("shortenedCount", String.valueOf(shortened));
             result.put("updatedCount", String.valueOf(updated));
             // lines that are on the receipt but no longer in the answer: the person has to know, or a
-            // corrected read could leave a phantom article behind without a word
+            // corrected read could leave a phantom article behind without a word. Counted by the lines
+            // the answer really took, not by their part numbers: a re-read that renames a code took
+            // that line as well, and listing the old code as left over would send the person looking
+            // for a duplicate that is not there
             StringBuilder leftOver = new StringBuilder();
+            int leftOverCount = 0;
             if (overwrite) {
-                for (String code : existingByCode.keySet()) {
-                    if (answeredCodes.contains(code)) {
+                for (GenericValue line : existingLines) {
+                    if (claimed.contains(receiptLineId(line))) {
                         continue;
                     }
+                    leftOverCount++;
                     if (leftOver.length() > 0) {
                         leftOver.append('、');
                     }
-                    leftOver.append(code);
+                    leftOver.append(line.getString("componentCode"));
                 }
             }
-            result.put("leftOverCount", String.valueOf(leftOver.length() == 0 ? 0
-                    : leftOver.toString().split("、").length));
+            result.put("leftOverCount", String.valueOf(leftOverCount));
             result.put("leftOverLines", leftOver.toString());
             result.putAll(summary);
             return result;
@@ -1159,8 +1177,34 @@ public final class MfgPurchaseServices {
      */
     static void mergeOrderLine(Delegator delegator, GenericValue line, java.sql.Date receiptDate,
             double qty, double amount) throws GenericEntityException {
+        mergeOrderLine(delegator, line, receiptDate, qty, amount, null, null);
+    }
+
+    /**
+     * Writes new numbers into a line that is already on the receipt, and brings its lot and the
+     * receipt movement along, so the stock and the traceability keep saying the same thing.
+     *
+     * <p>A better read of the same order may also spell the part number differently ({@code SK-12D02}
+     * became {@code 3高(V柄)带滚珠} once the recogniser started taking the value off the grey spec line),
+     * and then the new code has to move onto the lot that already holds the stock: a second lot under
+     * the new wording would count the same material twice. The issues of that lot follow the rename, so
+     * the traceability does not show one material under two numbers.
+     *
+     * @param delegator the delegator
+     * @param line the receipt line of the same article
+     * @param receiptDate the arrival day of the order
+     * @param qty the new quantity
+     * @param amount the new goods value
+     * @param code the part number of this read, {@code null} to keep the one on the line
+     * @param name the description of this read, {@code null} to keep the one on the line
+     * @throws GenericEntityException when a row could not be stored
+     */
+    static void mergeOrderLine(Delegator delegator, GenericValue line, java.sql.Date receiptDate,
+            double qty, double amount, String code, String name) throws GenericEntityException {
         double unitPrice = MfgSupport.round2(amount / qty);
         String lotId = line.getString("lotId");
+        String oldCode = line.getString("componentCode");
+        boolean renamed = code != null && !code.trim().isEmpty() && !code.equals(oldCode);
         if (lotId != null) {
             GenericValue lot = EntityQuery.use(delegator).from("MfgMaterialLot")
                     .where("lotId", lotId).queryFirst();
@@ -1169,6 +1213,12 @@ public final class MfgPurchaseServices {
                 lot.set("receivedAmount", Double.valueOf(MfgSupport.round2(amount)));
                 lot.set("unitPrice", Double.valueOf(unitPrice));
                 lot.set("receivedDate", receiptDate);
+                if (renamed) {
+                    lot.set("componentCode", code);
+                    if (name != null && !name.trim().isEmpty()) {
+                        lot.set("componentName", name);
+                    }
+                }
                 lot.store();
                 GenericValue movement = EntityQuery.use(delegator).from("MfgInventoryDetail")
                         .where("lotId", lotId, "movementTypeId", MfgConstants.MOVE_RECEIPT).queryFirst();
@@ -1177,12 +1227,59 @@ public final class MfgPurchaseServices {
                     movement.store();
                 }
                 MfgStockLedger.recalcLotStock(delegator, lot);
+                if (renamed) {
+                    renameIssuedLines(delegator, lotId, oldCode, code);
+                }
+            }
+        }
+        if (renamed) {
+            line.set("componentCode", code);
+            if (name != null && !name.trim().isEmpty()) {
+                line.set("componentName", name);
             }
         }
         line.set("qty", Double.valueOf(qty));
         line.set("unitPrice", Double.valueOf(unitPrice));
         line.set("goodsAmount", Double.valueOf(MfgSupport.round2(amount)));
         line.store();
+    }
+
+    /**
+     * Whether a re-read of an order is matched line for line with what the receipt already holds.
+     *
+     * <p>Only a re-read ({@code overwrite=Y}) of an order with exactly as many lines as the answer can be
+     * paired by position; a plain second delivery, or an answer that shows more or fewer articles than
+     * the receipt, has to be matched by part number, where an extra line is added and the person is told
+     * which old line is no longer in the answer.
+     *
+     * @param overwrite whether the caller said the answer replaces the numbers of that order
+     * @param existingCount how many lines the receipt of that order holds
+     * @param answeringCount how many article rows the answer has
+     * @return {@code true} when row k belongs to line k
+     */
+    static boolean pairsByPosition(boolean overwrite, int existingCount, int answeringCount) {
+        return overwrite && existingCount > 0 && existingCount == answeringCount;
+    }
+
+    /**
+     * A lot that took the part number of a better read: the issues written with the old number follow,
+     * or the same material would show up under two numbers in the traceability.
+     *
+     * @param delegator the delegator
+     * @param lotId the lot that was renamed
+     * @param oldCode the part number before the rename
+     * @param newCode the part number after it
+     * @throws GenericEntityException when a row could not be stored
+     */
+    private static void renameIssuedLines(Delegator delegator, String lotId, String oldCode, String newCode)
+            throws GenericEntityException {
+        for (GenericValue issue : EntityQuery.use(delegator).from("MfgMaterialIssue")
+                .where("lotId", lotId).queryList()) {
+            if (oldCode != null && oldCode.equals(issue.getString("componentCode"))) {
+                issue.set("componentCode", newCode);
+                issue.store();
+            }
+        }
     }
 
     /**
