@@ -155,7 +155,7 @@
     page=(cl.page)!1 pageCount=(cl.pageCount)!1 total=(cl.totalCount)!0 unit="单" pageSize=(cl.pageSize)!20/>
 
 <#if (claim.claimId)??>
-    <h2>售后单详情 ${claim.claimId}</h2>
+    <h2 id="claimDetail">售后单详情 ${claim.claimId}</h2>
     <#if (claim.buyerRiskLevel)??>
         <#if (claim.buyerRiskLevel!'') == 'BLOCK'>
             <p class="error">⚠ 该买家在风险名单中（人工复核）：发货 / 换货前请复核收货信息并保留开箱视频等证据。
@@ -249,6 +249,8 @@
         <legend>处理售后单</legend>
         <form method="post" action="/mfg/control/claimUpdate">
             <input type="hidden" name="claimId" value="${claim.claimId}"/>
+            <#-- the detail sits below the claim list: come back to it (UI rule: 改完停在原地) -->
+            <input type="hidden" name="backTo" value="claimDetail"/>
             <p>
                 状态
                 <select name="statusId">
@@ -312,6 +314,7 @@
 
         <form method="post" action="/mfg/control/claimExchange" style="display:inline-block;margin-right:2em;">
             <input type="hidden" name="claimId" value="${claim.claimId}"/>
+            <input type="hidden" name="backTo" value="claimDetail"/>
             换货：新 SN（留空自动取同型号未出货的一台）
             <input type="text" name="newSn" size="18" placeholder="留空自动选"/>
             快递 <input type="text" name="carrier" size="6"/>
@@ -320,6 +323,7 @@
         </form>
         <form method="post" action="/mfg/control/claimRepair" style="display:inline-block;">
             <input type="hidden" name="claimId" value="${claim.claimId}"/>
+            <input type="hidden" name="backTo" value="claimDetail"/>
             维修：返修工单交期 <input type="text" name="dueDate" size="10" placeholder="yyyy-MM-dd"/>
             <input type="submit" value="开返修工单"/>
         </form>

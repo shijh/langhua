@@ -160,6 +160,8 @@
                         <#if v.bomVersionId != currentVersionId>
                             <form method="post" action="/mfg/control/bomVersionActivate" class="inline">
                                 <input type="hidden" name="bomVersionId" value="${v.bomVersionId}"/>
+                                <#-- the BOM block is below the product form: come back to it (改完停在原地) -->
+                                <input type="hidden" name="backTo" value="bomBlock"/>
                                 <input type="submit" value="启用此版本"/>
                             </form>
                         <#else>

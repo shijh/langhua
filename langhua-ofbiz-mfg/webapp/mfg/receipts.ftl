@@ -1138,6 +1138,12 @@
 <fieldset id="refundedBlock">
     <legend>退款 / 关闭的单（登记后这些订单号不再入库）</legend>
     <form method="post" action="/mfg/control/refundedOrderSave" class="inline">
+        <#-- the reader is working in this block, far below the order blocks: come back to it, and
+             keep the list he filtered (a bare `receipts` threw both away) -->
+        <input type="hidden" name="backTo" value="refundedBlock"/>
+        <input type="hidden" name="search" value="${(lr.search)!''}"/>
+        <input type="hidden" name="page" value="${(lr.page)!'1'}"/>
+        <input type="hidden" name="pageSize" value="${(lr.pageSize)!'20'}"/>
         <p>
             订单号 <input type="text" name="orderNo" size="22" placeholder="淘宝订单号"/>
             店铺 <input type="text" name="shop" size="16" placeholder="可空"/>
@@ -1160,6 +1166,10 @@
                     <td>
                         <form method="post" action="/mfg/control/refundedOrderDelete" class="inline">
                             <input type="hidden" name="orderNo" value="${r.orderNo!}"/>
+                            <input type="hidden" name="backTo" value="refundedBlock"/>
+                            <input type="hidden" name="search" value="${(lr.search)!''}"/>
+                            <input type="hidden" name="page" value="${(lr.page)!'1'}"/>
+                            <input type="hidden" name="pageSize" value="${(lr.pageSize)!'20'}"/>
                             <input type="submit" value="撤掉标记"/>
                         </form>
                     </td>

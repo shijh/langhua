@@ -125,6 +125,38 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
 - **`Invoke-WebRequest -Body @{...}` 适合几 KB 的文本 POST**：巡检导入 `bom.html` 不必手拼 multipart
   （那份只在真选文件时才需要），把整个 HTML 放进 `bomText` 字段即可。
 
+## UI 规则：改完停在原地（Step 181）
+
+**凡是在页面上就地改的东西（表格行里的「改 / 删 / 保存」、长页面中段的表单、够不着的块），提交后
+必须回到读者刚才所在的那一块，不能把人甩到页面顶部，也不能让刚改的那一行消失。** 这条规则是用户提的，
+它管的是“改完看不见自己改了什么”这一类反馈（Step 179s 的 Lot 行、Step 181 的退款单 / 操作记录 /
+外协费 / BOM 版本 / 采购/售后/变更单详情、附件块）。
+
+三种落地方式，按代价从低到高：
+
+| 场景 | 做法 | 例子 |
+| --- | --- | --- |
+| 就地改一行、页面不用整刷 | **JSON 出口 + 只换那一块的 innerHTML**（块外面留提示） | BOM 行（`bomItemSaveJson`）、到货单头 / 明细行（`receiptSaveJson` / `receiptLineJson`）、销售订单行数量 |
+| 必须整页刷新（服务要重算很多东西） | 表单带一个隐藏的 **`backTo=<块 id>`**，`controller.xml` 的 success 加 `<redirect-parameter name="backTo"/>`，`decorator.ftl` 在 `</body>` 前统一 `window.jumpBackTo(...)`（`js/jump.js`，只认 `[A-Za-z][\w-]*`） | 退款/关闭的单、操作记录清理、外协费删除、BOM 版本启用、采购/售后/变更单详情、采购盘点 |
+| 改的是“列表里的某一行”，整页会重新排序/翻页 | 服务把 `search` **收窄成这一行的号**、`page=1`、清掉别的筛选 | 物料台账四个行内动作（`narrowToTheLot`，Step 179s） |
+
+几件配套的事，别漏：
+
+- **附件块**（`attachmentBlock.ftl`）的 `back` 直接带 `#attachments` 片段，`redirectBack` 原样 302 过去，
+  不需要 JS；`mfg.css` 里 `[id] { scroll-margin-top: 5.2em }` 是给**所有**锚点留出导航条的高度，
+  否则原生锚点会把标题顶到 sticky 导航条底下。
+- **滚动位置**同理：`#receiptListBlock` 被换掉后整页会往下滑，要按 `anchorBefore` 差值 `scrollBy`
+  （Step 115），别指望浏览器的 scroll anchoring。
+- **展开状态**要复原：整块 innerHTML 换掉之后，之前展开的行要重新点开（`again.click()`）。
+- **筛选条件：只还原页面真的提交过的东西**。表单字段名**不要和 redirect-parameter 同名**（除非是故意的，
+  比如 `backTo`）——`makeQueryString` 取不到 request 属性时会退回 `request.getParameter`，
+  于是“搜索里写的词”会被当成筛选项带回来（Step 179s 的坑）。
+- **买家名单的坑**：行内表单已经用 `riskLevel` / `statusId` 表示“这条名单的等级/状态”，
+  而列表筛选也叫这两个名字，所以它**只带 `backTo`、不还原筛选**（带了会拿行里的值当筛选项）。
+  要改就得先把行表单的字段改名，别只加 `<redirect-parameter>`。
+- 新的行内表单照这三条挑一个：`backTo` 最省事，`narrowToTheLot` 适合“排序会把行挤走”的列表。
+
+
 ## 测试与巡检
 
 **要点死按钮的地方用测试实例（http 8095）**：`deploy-test.bat` 部署一份把 `https` 关掉的副本，
@@ -165,6 +197,7 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
 | `verify-m47.ps1` | 照淘宝订单一步入库（Step 60/65/110）：订单表单、两行明细 → 建单+入库、订单号已存、货款 4.41、便宜料单价 0.0291、重复提交不重复入库、补运费累加、不满四列/数量 0 被拒、**长料号被缩短且全称留在名称里**、识图按钮与 `/mfg/control/orderImage` 降级回答、**淘宝导出的 xlsx 导入块（`#excelForm` / multipart / `#excelNoteTable` / 空提交回 JSON）**（日志 `mfg-m47.txt`；识图那几项要求实例上没配识图，跑完 m48 会清掉） | 42 |
 | `verify-m48.ps1` | 系统设置页（Step 61）：识图配置块与状态、密钥不回显、接口必须 http(s)、空密钥保留旧的、保存后状态变 DATABASE、`clear=Y` 恢复未配置、没配/配了两种 scan 回答（日志 `mfg-m48.txt`） | 26 |
 | `verify-m52-devbom.ps1` | 研发 BOM（Step 175，测试实例）：导入真工程的 `pixel-flash-v94_bom.html` → 11 个元件与料号、有库存的不进缺货清单、没库存的进；第二版（CSV）1 个数量变化 / 9 不变 / 1 停用 + `VAR_SAMPLE` 离开货架；缺货清单 CSV；改料号重锁；释放锁料后又变缺（日志 `mfg-m52-test.txt`） | 33 |
+| `verify-m58-inplace.ps1` | 改完停在原地（Step 181 的 `backTo` 规则）：`jump.js` 有 `jumpBackTo` 且只认 id、`mfg.css` 有 `scroll-margin-top`、打开页面不会自己跳；登记 / 撤掉退款单、清理操作记录都带 `backTo=<块>` 回到那一块；盘点带 `backTo=countList`；附件 `back` 带 `#attachments` 且块有 id；外协费行带 `backTo=outsourceTable`；买家名单行带 `backTo=buyerTable` | 18 |
 | `verify-m57-arrival.ps1` | 到货日 = 下单日 + 3 天（Step 180）：2018-12-01 的单入库后单据与批次都是 `2018-12-04`（不是今天）、今天下的单就是今天、没读到下单日退回今天、**再导一次带上日期能把原先记成今天的旧单改回当年**、人填的到货日优先、核对表有 `data-scan-arrival` 且页面 `arrivalOf()` 与服务端同算法、导入带 `o<i>.date` | 15 |
 | `verify-m56-shots.ps1` | 订单商品图（Step 179）：核对表有「图」列并带上 `o<i>.shot`、明细行 `data-line-shot` 与 `img.shot`、图走 `MFG_ATT_ORDER_SCAN` 的附件地址（**自己上传一张 8×8 PNG 并断言 `image/*` 能取回**）、同一单重导换上一张图、没带图导入时一行都不显示、**指针在但图不在了的行不显示**、`shots.js` 已加载、**一张单两件商品时两行各拿各的图（单条与批量两个入口）**、展开行里每行有 `data-scan-line-shot`、**十张图在核对表里换行排（`div.shots`）**、**拆包出来的子批次继承父批次的图（`data-split-child` + `data-lot-shot`，台账与料号页各一条）**、**同一个 `scanShotId` 还要出现在库存结存 / 出入库流水 / 产品 BOM / 研发 BOM / 齐套预警 / 工单齐套表 / 盘点页（`data-part-shot`）** | 69 |
 

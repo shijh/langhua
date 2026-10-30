@@ -113,6 +113,7 @@
         <event type="service" invoke="mfgStockCount"/>
         <response name="success" type="request-redirect" value="stockCount">
             <redirect-parameter name="lotId"/>
+            <redirect-parameter name="backTo"/>
         </response>
         <response name="error" type="view" value="stockCount"/>
     </request-map>
@@ -587,14 +588,24 @@
     <request-map uri="refundedOrderSave">
         <security https="true" auth="true"/>
         <event type="service" invoke="mfgRefundedOrderSave"/>
-        <response name="success" type="request-redirect" value="receipts"/>
+        <response name="success" type="request-redirect" value="receipts">
+            <redirect-parameter name="backTo"/>
+            <redirect-parameter name="search"/>
+            <redirect-parameter name="page"/>
+            <redirect-parameter name="pageSize"/>
+        </response>
         <response name="error" type="view" value="receipts"/>
     </request-map>
 
     <request-map uri="refundedOrderDelete">
         <security https="true" auth="true"/>
         <event type="service" invoke="mfgRefundedOrderDelete"/>
-        <response name="success" type="request-redirect" value="receipts"/>
+        <response name="success" type="request-redirect" value="receipts">
+            <redirect-parameter name="backTo"/>
+            <redirect-parameter name="search"/>
+            <redirect-parameter name="page"/>
+            <redirect-parameter name="pageSize"/>
+        </response>
         <response name="error" type="view" value="receipts"/>
     </request-map>
 
@@ -727,6 +738,7 @@
         <event type="service" invoke="mfgAuditPurge"/>
         <response name="success" type="request-redirect" value="users">
             <redirect-parameter name="purged"/>
+            <redirect-parameter name="backTo"/>
         </response>
         <response name="error" type="view" value="users"/>
     </request-map>
@@ -759,6 +771,7 @@
         <event type="service" invoke="mfgClaimUpdate"/>
         <response name="success" type="request-redirect" value="claims">
             <redirect-parameter name="claimId"/>
+            <redirect-parameter name="backTo"/>
         </response>
         <response name="error" type="view" value="claims"/>
     </request-map>
@@ -768,6 +781,7 @@
         <event type="service" invoke="mfgClaimExchange"/>
         <response name="success" type="request-redirect" value="claims">
             <redirect-parameter name="claimId"/>
+            <redirect-parameter name="backTo"/>
         </response>
         <response name="error" type="view" value="claims"/>
     </request-map>
@@ -777,6 +791,7 @@
         <event type="service" invoke="mfgClaimRepair"/>
         <response name="success" type="request-redirect" value="claims">
             <redirect-parameter name="claimId"/>
+            <redirect-parameter name="backTo"/>
         </response>
         <response name="error" type="view" value="claims"/>
     </request-map>
@@ -789,7 +804,9 @@
     <request-map uri="buyerFlagSave">
         <security https="true" auth="true"/>
         <event type="service" invoke="mfgBuyerFlagSave"/>
-        <response name="success" type="request-redirect" value="buyers"/>
+        <response name="success" type="request-redirect" value="buyers">
+            <redirect-parameter name="backTo"/>
+        </response>
         <response name="error" type="view" value="buyers"/>
     </request-map>
 
@@ -812,6 +829,7 @@
         <event type="service" invoke="mfgBomVersionActivate"/>
         <response name="success" type="request-redirect" value="products">
             <redirect-parameter name="productCode"/>
+            <redirect-parameter name="backTo"/>
         </response>
         <response name="error" type="view" value="products"/>
     </request-map>
@@ -1016,6 +1034,7 @@
         <event type="service" invoke="mfgOutsourceFeeDelete"/>
         <response name="success" type="request-redirect" value="workOrder">
             <redirect-parameter name="workOrderId"/>
+            <redirect-parameter name="backTo"/>
         </response>
         <response name="error" type="view" value="workOrder"/>
     </request-map>
@@ -1039,6 +1058,7 @@
         <event type="service" invoke="mfgDevEcoApprove"/>
         <response name="success" type="request-redirect" value="eco">
             <redirect-parameter name="ecoId"/>
+            <redirect-parameter name="backTo"/>
         </response>
         <response name="error" type="view" value="eco"/>
     </request-map>
@@ -1048,6 +1068,7 @@
         <event type="service" invoke="mfgDevEcoApply"/>
         <response name="success" type="request-redirect" value="eco">
             <redirect-parameter name="ecoId"/>
+            <redirect-parameter name="backTo"/>
         </response>
         <response name="error" type="view" value="eco"/>
     </request-map>
@@ -1057,6 +1078,7 @@
         <event type="service" invoke="mfgDevEcoCancel"/>
         <response name="success" type="request-redirect" value="eco">
             <redirect-parameter name="ecoId"/>
+            <redirect-parameter name="backTo"/>
         </response>
         <response name="error" type="view" value="eco"/>
     </request-map>

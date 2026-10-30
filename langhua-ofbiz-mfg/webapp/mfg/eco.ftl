@@ -122,7 +122,7 @@
     page=(lr.page)!1 pageCount=(lr.pageCount)!1 total=(lr.totalCount)!0 unit="条" pageSize=(lr.pageSize)!20/>
 
 <#if eco.ecoId??>
-    <h2>${eco.ecoId}（${statusLabel(eco.statusId!'')}）</h2>
+    <h2 id="ecoDetail">${eco.ecoId}（${statusLabel(eco.statusId!'')}）</h2>
     <table>
         <tr><th>型号</th><td>${eco.productCode!}</td></tr>
         <tr><th>类型</th><td>${typeLabel(eco.ecoTypeId!'')}</td></tr>
@@ -165,6 +165,8 @@
         <#if eco.statusId == 'MFG_ECO_DRAFT'>
             <form method="post" action="/mfg/control/ecoApprove" class="inline">
                 <input type="hidden" name="ecoId" value="${eco.ecoId}"/>
+                <#-- the detail sits below the list of changes: come back to it (改完停在原地) -->
+                <input type="hidden" name="backTo" value="ecoDetail"/>
                 <input type="hidden" name="approvedBy" value="${eco.approvedBy!''}"/>
                 <input type="submit" value="批准"/>
             </form>
@@ -172,12 +174,14 @@
         <#if eco.statusId == 'MFG_ECO_APPROVED'>
             <form method="post" action="/mfg/control/ecoApply" class="inline">
                 <input type="hidden" name="ecoId" value="${eco.ecoId}"/>
+                <input type="hidden" name="backTo" value="ecoDetail"/>
                 <input type="submit" value="生效（切换到目标 BOM）"/>
             </form>
         </#if>
         <#if eco.statusId == 'MFG_ECO_DRAFT' || eco.statusId == 'MFG_ECO_APPROVED'>
             <form method="post" action="/mfg/control/ecoCancel" class="inline">
                 <input type="hidden" name="ecoId" value="${eco.ecoId}"/>
+                <input type="hidden" name="backTo" value="ecoDetail"/>
                 <input type="submit" value="取消变更"/>
             </form>
         </#if>

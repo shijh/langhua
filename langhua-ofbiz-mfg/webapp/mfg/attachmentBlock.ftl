@@ -19,12 +19,13 @@
             <#else>上传失败，请检查文件后重试</#if>
         </p>
     </#if>
-    <fieldset>
+    <fieldset id="attachments">
         <legend>${title}</legend>
         <form method="post" action="/mfg/control/attachmentUpload" enctype="multipart/form-data">
             <input type="hidden" name="ownerTypeId" value="${ownerTypeId}"/>
             <input type="hidden" name="ownerId" value="${ownerId}"/>
-            <input type="hidden" name="back" value="${back}"/>
+            <#-- come back to this block, not to the top of the page (UI rule: 改完停在原地) -->
+            <input type="hidden" name="back" value="${back}#attachments"/>
             <p>
                 <input type="file" name="file" accept="image/jpeg,image/png,image/gif,application/pdf"/>
                 <input type="text" name="note" size="22" placeholder="备注：正面 / 破损 / 合同扫描件"/>
@@ -57,7 +58,7 @@
                             <input type="hidden" name="ownerTypeId" value="${ownerTypeId}"/>
                             <input type="hidden" name="ownerId" value="${ownerId}"/>
                             <input type="hidden" name="seq" value="${att.seq}"/>
-                            <input type="hidden" name="back" value="${back}"/>
+                            <input type="hidden" name="back" value="${back}#attachments"/>
                             <input type="submit" value="删除"/>
                         </form>
                     </td>

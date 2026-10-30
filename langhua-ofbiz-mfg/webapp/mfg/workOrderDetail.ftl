@@ -305,6 +305,8 @@
                         <form method="post" action="/mfg/control/outsourceFeeDelete" class="inline">
                             <input type="hidden" name="workOrderId" value="${wo.workOrderId}"/>
                             <input type="hidden" name="seqId" value="${fee.seqId?string("0")}"/>
+                            <#-- the fee table sits low on a long page: come back to it (改完停在原地) -->
+                            <input type="hidden" name="backTo" value="outsourceTable"/>
                             <input type="submit" value="删除"/>
                         </form>
                     </td>

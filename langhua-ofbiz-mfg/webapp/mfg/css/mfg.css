@@ -65,6 +65,11 @@ a { color: var(--link); text-decoration: none; }
 a:hover { text-decoration: underline; }
 ::selection { background: #264f78; color: #ffffff; }
 
+/* A jump to a block (#devbom, #attachments, ?backTo=…) aims its top at the navbar. A plain browser
+   anchor scrolls the element to the very top of the viewport, where the sticky navbar hides the
+   heading - leave the room it takes, so the rule "改完停在原地" also lands on a visible heading. */
+[id] { scroll-margin-top: 5.2em; }
+
 /* the navigation bar behaves like the editor title bar: one line, scrolls sideways */
 .nav {
     position: sticky;

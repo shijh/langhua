@@ -48,6 +48,8 @@
                 <td>
                     <form method="post" action="/mfg/control/stockCountSave" class="inline">
                         <input type="hidden" name="lotId" value="${lot.lotId}"/>
+                        <#-- the history of the counts is below the table: come back to the reader's place -->
+                        <input type="hidden" name="backTo" value="countList"/>
                         数量 <input type="text" name="countedQty" size="6"/>
                         原因
                         <select name="reasonEnumId" class="narrow" title="为什么账实不符；留空也行">

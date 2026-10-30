@@ -28,7 +28,7 @@
     <link rel="icon" type="image/png" sizes="32x32" href="/mfg/images/logo-32.png"/>
     <link rel="icon" type="image/png" sizes="64x64" href="/mfg/images/logo-64.png"/>
     <link rel="apple-touch-icon" href="/mfg/images/logo-180.png"/>
-    <link rel="stylesheet" type="text/css" href="/mfg/css/mfg.css?v=5"/>
+    <link rel="stylesheet" type="text/css" href="/mfg/css/mfg.css?v=6"/>
 <#--
   A login that was asked for because the session ran out renders the start page in place (the
   framework answers the login form by rendering the main view, so the address bar still says
@@ -113,5 +113,12 @@
 <script src="/mfg/js/shots.js"></script>
 <script src="/mfg/js/once.js"></script>
 <script src="/mfg/js/expand.js"></script>
+<#-- A form filled in where it stands (a table row, a block far down the page) sends back `backTo`,
+     the id of the block it was edited in: put that block under the navbar instead of leaving the
+     reader at the top of the page he just scrolled through (the UI rule "改完停在原地").
+     jump.js ignores anything that is not an id, and a plain visit carries no backTo at all. -->
+<#if (parameters.backTo)?has_content>
+<script>window.jumpBackTo('${parameters.backTo}');</script>
+</#if>
 </body>
 </html>

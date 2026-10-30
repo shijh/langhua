@@ -132,7 +132,7 @@
 </form>
 
 <#if flags?has_content>
-    <table>
+    <table id="buyerTable">
         <tr><th>匹配键</th><th>手机号</th><th>昵称</th><th>收件人</th><th>等级</th><th>原因</th>
             <th>证据</th><th>状态</th><th>到期日</th><th>登记时间</th><th>操作</th></tr>
         <#list flags as f>
@@ -156,6 +156,9 @@
                             <input type="hidden" name="buyerNick" value="${f.buyerNick!}"/>
                             <input type="hidden" name="riskLevel" value="${f.riskLevel!}"/>
                             <input type="hidden" name="statusId" value="MFG_FLAG_RELEASED"/>
+                            <#-- come back to this row (改完停在原地); the list filter is not carried
+                                 because riskLevel / statusId are already the flag's own values here -->
+                            <input type="hidden" name="backTo" value="buyerTable"/>
                             <input type="submit" value="解除"/>
                         </form>
                     <#else>
@@ -164,6 +167,7 @@
                             <input type="hidden" name="buyerNick" value="${f.buyerNick!}"/>
                             <input type="hidden" name="riskLevel" value="${f.riskLevel!}"/>
                             <input type="hidden" name="statusId" value="MFG_FLAG_ACTIVE"/>
+                            <input type="hidden" name="backTo" value="buyerTable"/>
                             <input type="submit" value="恢复"/>
                         </form>
                     </#if>

@@ -158,6 +158,8 @@
     <#if ((audit.lastPurge)!'')?has_content>上次清理：${audit.lastPurge}。</#if></p>
 <form method="post" action="/mfg/control/auditPurge" class="inline"
       onsubmit="return confirm('删除一年以前的记录？这个动作不会影响账号和单据。');">
+    <#-- the audit list is the last block of the page: come back to it (UI rule: 改完停在原地) -->
+    <input type="hidden" name="backTo" value="auditTable"/>
     <button type="submit" class="secondary">清理一年以前的记录</button>
 </form>
 </#if>

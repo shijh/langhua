@@ -34,4 +34,29 @@
     }
 
     window.jumpUnderNav = jumpUnderNav;
+
+    /*
+     * A form that is filled in where it stands (a row of a table, a block far below the fold) has to
+     * leave the reader where he was: the page comes back with `?backTo=<the id of the block>` and this
+     * puts that block under the nav. Without the flag nothing happens, so opening a page from the menu
+     * still starts at the top.
+     *
+     * The id comes from the request, so it is only used when it looks like an id: anything else (a
+     * broken link, a hand-made query string) is ignored instead of being handed to the DOM.
+     */
+    function jumpBackTo(backTo) {
+        if (!backTo || !/^[A-Za-z][\w-]*$/.test(backTo)) {
+            return;
+        }
+        var run = function () {
+            jumpUnderNav(document.getElementById(backTo));
+        };
+        if (document.readyState === 'complete') {
+            run();
+        } else {
+            window.addEventListener('load', run);
+        }
+    }
+
+    window.jumpBackTo = jumpBackTo;
 }());
