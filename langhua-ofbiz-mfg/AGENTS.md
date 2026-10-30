@@ -165,7 +165,7 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
 | `verify-m47.ps1` | 照淘宝订单一步入库（Step 60/65/110）：订单表单、两行明细 → 建单+入库、订单号已存、货款 4.41、便宜料单价 0.0291、重复提交不重复入库、补运费累加、不满四列/数量 0 被拒、**长料号被缩短且全称留在名称里**、识图按钮与 `/mfg/control/orderImage` 降级回答、**淘宝导出的 xlsx 导入块（`#excelForm` / multipart / `#excelNoteTable` / 空提交回 JSON）**（日志 `mfg-m47.txt`；识图那几项要求实例上没配识图，跑完 m48 会清掉） | 42 |
 | `verify-m48.ps1` | 系统设置页（Step 61）：识图配置块与状态、密钥不回显、接口必须 http(s)、空密钥保留旧的、保存后状态变 DATABASE、`clear=Y` 恢复未配置、没配/配了两种 scan 回答（日志 `mfg-m48.txt`） | 26 |
 | `verify-m52-devbom.ps1` | 研发 BOM（Step 175，测试实例）：导入真工程的 `pixel-flash-v94_bom.html` → 11 个元件与料号、有库存的不进缺货清单、没库存的进；第二版（CSV）1 个数量变化 / 9 不变 / 1 停用 + `VAR_SAMPLE` 离开货架；缺货清单 CSV；改料号重锁；释放锁料后又变缺（日志 `mfg-m52-test.txt`） | 33 |
-| `verify-m57-arrival.ps1` | 到货日 = 下单日 + 3 天（Step 180）：2018-12-01 的单入库后单据与批次都是 `2018-12-04`（不是今天）、今天下的单就是今天、没读到下单日退回今天、人填的到货日优先、核对表有 `data-scan-arrival` 且页面 `arrivalOf()` 与服务端同算法、导入带 `o<i>.date` | 13 |
+| `verify-m57-arrival.ps1` | 到货日 = 下单日 + 3 天（Step 180）：2018-12-01 的单入库后单据与批次都是 `2018-12-04`（不是今天）、今天下的单就是今天、没读到下单日退回今天、**再导一次带上日期能把原先记成今天的旧单改回当年**、人填的到货日优先、核对表有 `data-scan-arrival` 且页面 `arrivalOf()` 与服务端同算法、导入带 `o<i>.date` | 15 |
 | `verify-m56-shots.ps1` | 订单商品图（Step 179）：核对表有「图」列并带上 `o<i>.shot`、明细行 `data-line-shot` 与 `img.shot`、图走 `MFG_ATT_ORDER_SCAN` 的附件地址（**自己上传一张 8×8 PNG 并断言 `image/*` 能取回**）、同一单重导换上一张图、没带图导入时一行都不显示、**指针在但图不在了的行不显示**、`shots.js` 已加载、**一张单两件商品时两行各拿各的图（单条与批量两个入口）**、展开行里每行有 `data-scan-line-shot`、**十张图在核对表里换行排（`div.shots`）**、**拆包出来的子批次继承父批次的图（`data-split-child` + `data-lot-shot`，台账与料号页各一条）**、**同一个 `scanShotId` 还要出现在库存结存 / 出入库流水 / 产品 BOM / 研发 BOM / 齐套预警 / 工单齐套表 / 盘点页（`data-part-shot`）** | 69 |
 
 ## 设计决策
@@ -344,6 +344,9 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   （核对表日期格下面写“到货 xxxx-xx-xx”，`data-scan-arrival` 给巡检断言），**改一边必须改另一边**；
   展开行里的「下单日」输入框可以就地改（`data-scan-day`，别用 `data-scan-date`——那是日期格的）。
   `MfgOrderExcel.dateOf` 顺手放宽成 `2018/12/1`、`2018年12月1日` 都认（读不出来就退回今天，等于又错一次）。
+  **已经导错的老单不用手工改库**：同一张单再导一次（批量那条永远带 `overwrite=Y`），
+  单头的 `receiptDate` 跟着这次的下单日改回来——条件是这次**真的给了** `orderDate` / `receiptDate`，
+  否则“同一张单第二批货也记在这张单上”会被改成今天。
 - **同一订单再次导入会先问（Step 77）**：`receiptFromOrder` 对**同料号**不再新增行（以前只跳过完全相同的
   qty+金额，改过数字就会加成两行）；新增 IN `overwrite`：`Y` 时走 `mergeOrderLine` ——
   改单行 qty/unitPrice/goodsAmount **以及那个批次的 receivedQty/receivedAmount/unitPrice 和它的 RECEIPT 流水**

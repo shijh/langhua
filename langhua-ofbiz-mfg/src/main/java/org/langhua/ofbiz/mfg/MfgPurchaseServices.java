@@ -718,15 +718,14 @@ public final class MfgPurchaseServices {
             }
         }
         try {
-            java.sql.Date receiptDate = (java.sql.Date) MfgSupport.parseDate(context.get("receiptDate"));
-            if (receiptDate == null) {
-                // a shop order only prints the day it was placed, so the parcel is taken to have come
-                // three days later (never later than today): filling in today put a 2018 order into
-                // this month's stock and into this month's freight report
-                receiptDate = MfgSupport.arrivalDateOf(
-                        (java.sql.Date) MfgSupport.parseDate(context.get("orderDate")),
-                        java.sql.Date.valueOf(LocalDate.now()), MfgConstants.ARRIVAL_DAYS);
-            }
+            java.sql.Date typedDate = (java.sql.Date) MfgSupport.parseDate(context.get("receiptDate"));
+            java.sql.Date orderDate = (java.sql.Date) MfgSupport.parseDate(context.get("orderDate"));
+            // a shop order only prints the day it was placed, so the parcel is taken to have come
+            // three days later (never later than today): filling in today put a 2018 order into
+            // this month's stock and into this month's freight report
+            java.sql.Date receiptDate = typedDate != null ? typedDate
+                    : MfgSupport.arrivalDateOf(orderDate, java.sql.Date.valueOf(LocalDate.now()),
+                            MfgConstants.ARRIVAL_DAYS);
             // an order that was refunded or closed stays out of the stock for good, even when the
             // person types the number in by hand and the screenshot is long gone
             String blocked = refundedOrderProblem(delegator, supplierOrderNo);
@@ -783,7 +782,22 @@ public final class MfgPurchaseServices {
                             : MfgSupport.round2(MfgSupport.numberOrZero(receipt.get("discountAmount")) + discount.doubleValue());
                     receipt.set("discountAmount", Double.valueOf(MfgSupport.round2(amount)));
                 }
+                // the date follows the same rule: importing the order again with the day it was placed
+                // repairs a receipt that was booked in as "arrived today" - but only when this import
+                // really says which day it is, so a second delivery without a date cannot move it
+                if (replace && (typedDate != null || orderDate != null)) {
+                    receipt.set("receiptDate", receiptDate);
+                }
                 receipt.store();
+            } else {
+                // the date follows the same rule: importing the order again with the day it was placed
+                // repairs a receipt that was booked in as "arrived today" - but only when this import
+                // really says which day it is, so a second delivery without a date cannot move it
+                if ((typedDate != null || orderDate != null)
+                        && "Y".equalsIgnoreCase(MfgSupport.toText(context.get("overwrite")))) {
+                    receipt.set("receiptDate", receiptDate);
+                    receipt.store();
+                }
             }
             String receiptId = receipt.getString("receiptId");
             boolean overwrite = "Y".equalsIgnoreCase(MfgSupport.toText(context.get("overwrite")));
