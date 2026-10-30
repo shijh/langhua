@@ -160,11 +160,7 @@ public final class MfgStockServices {
             result.put("lotId", lotId);
             result.put("editedLot", lotId);
             keepView(result, context);
-            if (!postedAView(context)) {
-                // nothing was posted to come back to (an old link, a script): come back filtered to
-                // the part number, where the row is visible
-                result.put("search", lot.getString("componentCode"));
-            }
+            narrowToTheLot(result, lotId);
             return result;
         } catch (GenericEntityException e) {
             return ServiceUtil.returnError("保存批次资料失败：" + e.getMessage());
@@ -214,16 +210,7 @@ public final class MfgStockServices {
             result.put("renamedLot", lotId);
             result.put("newCode", newCode);
             keepView(result, context);
-            // the reader may have been looking at this very part - in the search box or in the part
-            // filter. Both spellings now point at nothing, so they follow the rename; anything else
-            // is left alone, because a filter the reader never typed must not appear on the page
-            // (the search word and the part filter are combined, so an invented one empties the list).
-            if (oldCode.equals(MfgSupport.toText(context.get("backSearch"))) || !postedAView(context)) {
-                result.put("search", newCode);
-            }
-            if (oldCode.equals(MfgSupport.toText(context.get("backComponentCode")))) {
-                result.put("componentCode", newCode);
-            }
+            narrowToTheLot(result, lotId);
             if (newCode.equals(oldCode)) {
                 return result;
             }
@@ -310,6 +297,7 @@ public final class MfgStockServices {
             result.put("inspectStatusId", status);
             result.put("rejectedQty", Double.valueOf(rejectedQty));
             keepView(result, context);
+            narrowToTheLot(result, lotId);
             return result;
         } catch (GenericEntityException e) {
             return ServiceUtil.returnError("Could not store the inspection: " + e.getMessage());
@@ -369,10 +357,10 @@ public final class MfgStockServices {
             result.put("recounted", lotId);
             result.put("recountQty", MfgSupport.formatQty(actualQty));
             keepView(result, context);
-            if (!postedAView(context)) {
-                // the page did not say what it was showing: come back filtered to this part
-                result.put("search", lot.getString("componentCode"));
-            }
+            // the reader is brought back to this very row: with no search of his own he used to land
+            // on page one of the whole ledger, where the row he just changed was often not to be seen,
+            // so the page showed the success line and nothing that proved it (Step 179s)
+            narrowToTheLot(result, lotId);
             return result;
         } catch (GenericEntityException e) {
             return ServiceUtil.returnError("按点数修正失败：" + e.getMessage());
@@ -512,7 +500,10 @@ public final class MfgStockServices {
                                 ? "（其中 " + MfgSupport.formatQty(reserved) + " 件已被预留，先释放再拆）"
                                 : "；先用「点数修正」把数量改对，再拆"));
             }
-            double unitPrice = MfgSupport.round2(MfgStockLedger.lotUnitCost(parent));
+            // the exact cost of one piece (amount / quantity); the price columns of the lot and of
+            // the movement only keep two decimals, so the money of a child comes from this number
+            double unitCost = MfgStockLedger.lotUnitCost(parent);
+            double unitPrice = MfgSupport.round2(unitCost);
             LocalDate today = LocalDate.now();
             String prefix = "LOT-" + today.format(MfgConstants.DAY) + "-";
             int sequence = MfgSupport.parseTrailingNumber(nextLotId(delegator, today).substring(prefix.length()));
@@ -535,7 +526,7 @@ public final class MfgStockServices {
                 child.set("supplierLot", parent.getString("supplierLot"));
                 child.set("receivedQty", Double.valueOf(MfgSupport.round2(qty)));
                 child.set("receivedDate", receivedDate);
-                child.set("receivedAmount", Double.valueOf(MfgSupport.round2(qty * unitPrice)));
+                child.set("receivedAmount", Double.valueOf(MfgSupport.round2(qty * unitCost)));
                 child.set("unitPrice", Double.valueOf(unitPrice));
                 child.set("inspectStatusId", parent.getString("inspectStatusId"));
                 child.set("splitFromLotId", lotId);
@@ -557,7 +548,7 @@ public final class MfgStockServices {
             Double amount = MfgSupport.optionalAmount(parent.get("receivedAmount"));
             if (amount != null) {
                 parent.set("receivedAmount", Double.valueOf(
-                        MfgSupport.round2(Math.max(0.0, amount.doubleValue() - total * unitPrice))));
+                        MfgSupport.round2(Math.max(0.0, amount.doubleValue() - total * unitCost))));
             }
             MfgStockLedger.recalcLotStock(delegator, parent);
             parent.store();
@@ -1040,12 +1031,37 @@ public final class MfgStockServices {
     }
 
     /**
+     * Comes back to the one row that was just changed, instead of to the page the reader came from.
+     *
+     * <p>Why: the ledger is sorted by creation time and paged, so a row edited on page three - or on
+     * page one of a list that keeps growing with today's arrivals - is often not on the page he is
+     * returned to. What he then sees is the success line and no row at all, which reads as "the batch
+     * I changed has disappeared" (reported on a real screen after a recount).
+     *
+     * <p>The batch number always matches exactly one row, so narrowing to it can never come back
+     * empty; the part filter is dropped on purpose, because a search word and a part number combined
+     * are what emptied pages in the past. The search box above the table is one click from the whole
+     * ledger again.
+     *
+     * @param result the service result that becomes the redirect parameters
+     * @param lotId the batch that was just changed
+     */
+    static void narrowToTheLot(Map<String, Object> result, String lotId) {
+        if (result == null || lotId == null) {
+            return;
+        }
+        result.put("search", lotId);
+        result.remove("componentCode");
+        result.put("page", "1");
+    }
+
+    /**
      * Carries the filter and the page of the material list back into the redirect of a row action, so
      * saving one row does not throw the reader onto page one of the whole ledger.
      *
      * <p>The page posts its own state as {@code back…} fields, so this works for a filtered list and
      * a page size of 50 alike. A value that was not posted is left out, so the redirect does not carry
-     * empty parameters.
+     * empty parameters. {@link #narrowToTheLot} then overrides the search with the changed batch.
      *
      * @param result the service result that becomes the redirect parameters
      * @param context the service context, holding the {@code back…} fields

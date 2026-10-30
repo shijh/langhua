@@ -15,6 +15,10 @@
         <attribute name="receivedQty" type="Double" mode="IN" optional="false"/>
         <attribute name="receivedDate" type="String" mode="IN" optional="true"/>
         <attribute name="unitPrice" type="Double" mode="IN" optional="true"/>
+        <!-- the amount really paid for the whole lot: exact, the price column only keeps two decimals
+             (100 resistors for 2.91 is 0.0291 a piece). It went missing here once, so a lot booked
+             with an amount had no price at all and a split parcel gave its children a price of 0 -->
+        <attribute name="amount" type="Double" mode="IN" optional="true"/>
         <attribute name="locationId" type="String" mode="IN" optional="true"/>
         <attribute name="inspectStatusId" type="String" mode="IN" optional="true"/>
         <attribute name="note" type="String" mode="IN" optional="true"/>

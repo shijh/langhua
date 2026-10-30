@@ -178,7 +178,8 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   **别用「补入库/盘点」去救数量**：那两条只改在库、不动 `receivedAmount ÷ receivedQty`，单价还是 21/块，
   材料成本会错（README 里写清了）。成品批次（`FG-…`）不能这么改。
   坑：`<redirect-parameter>` 只吃 String，所以 OUT 用 `recountQty` / `recounted` 这种字符串，
-  页面用 `${parameters.recounted}` 显示；巡检 `verify-m55-recount.ps1`（20 项，断言流水里的 `4.2000` / `+4` / `21.0000`）。
+  页面用 `${parameters.recounted}` 显示；巡检 `verify-m55-recount.ps1`（54 项，断言流水里的 `4.2000` / `+4` / `21.0000`，
+  以及四个行内动作改完回到的地址是 `search=<批次号>`，见下面 ⑲）。
   **名称 / 备注 / 供应商 / 批号用 `mfgLotEdit`**（批次台账行内改，`context.containsKey` 只写传了的字段）；
   **一包里是很多种料（电阻包 130 种 × 20 只）用 `mfgLotSplit`**：台账每行批次号后面有个「拆」，点了把
   批次号带进上面的「拆包」框；框里一行一个 `料号,名称,数量`（名称可空、可只写 `料号,数量`，Tab 也行），
@@ -1722,6 +1723,26 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
     台账行上加了 `data-split-child="<父批次>"` 给巡检断言用。实测（开发实例）：262 个拆包子批次里 132 个有图，
     另 130 个的父批次本身没图；`LOT-261030-150` 与它的子批次 `LOT-261030-292` 是同一个 `SCAN-…`。
     单测 `letsThePartsOfASplitParcelShowThePictureOfTheParcel`。
+  ⑲ **行内四个动作改完停在这—行（Step 179s）**：用户报“改了一条 Lot 记录后，返回的页面只有这条信息，
+    没有了修改的 lot 的详细信息”。根因不是页面画错了，是**回到的列表里根本没有那一行**：台账按
+    `-createdStamp` 排、还会翻页，旧做法 `keepView` 把读者原来的 `search`（`sot23-6` 那种 20+ 行）和 `page` 原样带回来，
+    刚改的那一行在第 2 页之外，于是页面上只剩一句绿字。现在 `MfgStockServices.narrowToTheLot(result, lotId)`
+    （`lotEdit` / `lotCodeChange` / `lotInspect` / `lotRecount` 末尾调）把 `search` 设成**批次号**、`page` 设成 1、
+    **去掉 `componentCode`**（两个条件相与会变成 0 条），`materials.ftl` 再加一句“要回到整张台账就清空搜索再点筛选”。
+    它取代了原来的 `postedAView` + “读本按这个料号筛选就把筛选跟着改”那两段（那段逻辑现在没用了）。
+    巡检 `verify-m55-recount.ps1` 的断言跟着改：`search=` 现在是**批次号**、`page=1`、`pageSize` 照旧。
+    **同时修了 m55 三个一直红着的老问题**（不是这次改动引起的）：① 取批次号的正则用 `LOT-[0-9]{6}-[0-9]+`
+    取全页**第一个**，而拆包框的 `placeholder="LOT-261025-844"` 就在表格前面——一律改成从
+    `data-lot-row="(LOT-…)"` 取；② “名称为空沿用原批次名称”那条断言拿 `1/4W resistor pack` 去比，
+    而页面里 `/` 是 `&#x2f;`（老实体坑），改比 `resistor pack`；③ “没数量的行被拒”那行原来写成
+    `料号,名称,1`（三格，是合法的），改成两格 `料号,名称`。
+  ⑳ **`mfgLotSave` 的 `amount` 从来没在描述符里声明过（Step 179s 顺手修的）**：`lotSave` 里写着
+    “金额精确、单价列只留两位小数”，可 `stock-services.xml` 只声明了 `unitPrice`——`ModelService` 把没声明的 IN 静默丢掉，
+    于是**按金额记的批次没有单价**，再拆包时子批次单价是 `0`（m55 一直在报 `0.0000` / `0.3250`）。
+    现在 `amount` 声明成 `<attribute name="amount" type="Double" mode="IN" optional="true"/>`。
+    拆包的钱也改成用**实付 ÷ 数量**（`unitCost`）而不是两位小数的价格列：子批次 `receivedAmount = 数量 × unitCost`、
+    单价列仍写四舍五入后的两位（`MfgInventoryDetail.unitCost` 是 `currency-amount`，存不下 0.325）。
+    教训：**服务里 `context.get("x")` 读的参数，一定要在描述符里有同名 `mode="IN"`**，否则代码看着对、数据永远是空的。
 - **识别有超时：服务端 120 秒，页面 135 秒（Step 179f）**：`OirScan.SCAN_TIMEOUT_SECONDS = 120`，从拿图起算，
   每波 `future.get(min(SLICE_WAIT_SECONDS, secondsLeft(deadline)))`，到点就把还没回来的分段**丢掉**并取消线程池；
   已经有单就照常返回 + 消息里写“识别超时：一次最多等 120 秒，只读了 N 张单”，一张都没有就回 `code=TIMEOUT`。

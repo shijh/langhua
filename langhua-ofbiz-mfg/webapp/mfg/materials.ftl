@@ -212,6 +212,10 @@ C0402-100N,100nF 0402 电容,立创商城,DC2409B,500,2026-10-19</textarea>
     <#if parameters.renamedLot??>
         <p class="ok">批次 ${parameters.renamedLot} 的料号已改成 <code>${(parameters.newCode)!''}</code>（<b>只改了这一行</b>，它的发料与到货单行也一起改；其他同料号的批次没动）。</p>
     </#if>
+    <#if parameters.recounted?? || parameters.editedLot?? || parameters.renamedLot??>
+        <p class="hint">表格现在只显示刚改的这一行（台账按到货时间排序、还会翻页，原来那一页上常常找不到它）。
+            把上面的搜索框清空、再点「筛选」就回到整张台账。</p>
+    </#if>
     <p class="hint">「点数修正」用在<b>一个订单里有几块/几片</b>的料上（PCB 打样最常见：订单写 ¥21.00 x1，实际发 3~5 块）：
         拆包点清楚后在这里填真实数量。金额不变，单价自动变成 实付 ÷ 数量（如 21 元 5 块 = 4.20/块），
         到货单上那一行也跟着改。数量变多就多出库存，变少就少（流水里会多一条「调整」，谁数的、为什么改都在）。
