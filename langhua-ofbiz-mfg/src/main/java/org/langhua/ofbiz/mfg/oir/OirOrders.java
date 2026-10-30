@@ -78,6 +78,21 @@ public final class OirOrders {
     private static final int MAX_PACKS = 20;
 
     /**
+     * How far short of what was paid the rows of a block have to come before their amounts are taken
+     * for the price of one piece each: a block that holds the money of its rows comes close to the paid
+     * total, while prices alone come to a half or a third of it (Step 190).
+     */
+    private static final double ROW_MONEY_SHORTFALL = 0.75;
+
+    /**
+     * How large a gap may be before it stops looking like the freight the model did not read: a page
+     * of that shape paid 127.46 with 4.00 of freight and the pieces left 3.96 (Step 190).
+     */
+    private static final double FREIGHT_FLOOR = 10.0;
+
+    private static final double FREIGHT_SHARE = 0.1;
+
+    /**
      * How much of the goods a red packet or a 满减 may take, when the discount is not read but worked
      * out from the paid total. Half is generous for a coupon and far below what a bad read makes of the
      * difference: a block of five rows copied over answers 975.00 of goods against 195.65 paid, and
@@ -410,6 +425,15 @@ public final class OirOrders {
             if (code == null && name == null && qty == null && amount == null) {
                 continue;
             }
+            // the price printed beside the row and the number printed after x are asked for on their
+            // own, and the multiplication is done here: a model that reads ¥13.68 beside x2 answers the
+            // money of the row as 13.68 often enough that the block came back at a third of what was
+            // paid (Step 191)
+            String money = moneyOfPriceAndTimes(jsonStringField(item, "price"),
+                    jsonStringField(item, "times"));
+            if (money != null) {
+                amount = money;
+            }
             code = valueOfSpecLine(code);
             if ((code == null || code.trim().isEmpty()) && name != null && !name.trim().isEmpty()) {
                 // the model left the code out: the import derives it from the name anyway, so the
@@ -423,6 +447,41 @@ public final class OirOrders {
             rows.add(row);
         }
         return rows.isEmpty() ? null : String.join("\n", rows);
+    }
+
+    /**
+     * The money of an article row out of the two numbers the page prints: the price beside it and the
+     * number after {@code x}.
+     *
+     * <p>The page prints {@code ¥13.68} and {@code x2}, and the money of that row is 27.36. A model
+     * reads those two numbers far more reliably than it multiplies them: the same block came back with
+     * 68.29 of the 127.46 that was paid, twice, and with seven rows out of eight (Step 191). So the row
+     * carries its own price and its own count, and the product is worked out here.
+     *
+     * @param priceText the price printed beside the row, {@code ¥} and blanks allowed
+     * @param timesText the number printed after {@code x}
+     * @return the money of the row as text, {@code null} when the answer did not give both
+     */
+    public static String moneyOfPriceAndTimes(String priceText, String timesText) {
+        if (priceText == null || timesText == null) {
+            return null;
+        }
+        String price = priceText.replace("¥", "").replace("￥", "").replace("元", "")
+                .replace(",", "").replace("，", "").trim();
+        String times = timesText.trim();
+        int x = times.indexOf('x');
+        if (x < 0) {
+            x = times.indexOf('X');
+        }
+        if (x >= 0) {
+            times = times.substring(x + 1).trim();
+        }
+        double money = toDouble(price, -1.0);
+        double count = toDouble(times, -1.0);
+        if (money <= 0.0 || count < 1.0) {
+            return null;
+        }
+        return String.format(Locale.ROOT, "%.2f", Double.valueOf(round2(money * count)));
     }
 
     /** The pack size a shop prints after a value in half width brackets: {@code 5.1K (50只)}. */
@@ -1095,6 +1154,25 @@ public final class OirOrders {
                 }
             }
             if (!addsUp(kept, wanted)) {
+                // the price beside an article is the price of one piece, and the number after x is how
+                // many were bought: a block of eight rows paid 127.46 came back as 68.29 of prices
+                // (13.68 beside x2, 7.01 beside x4), and the freight was not read either. Multiplying
+                // by the quantities leaves 3.96, which is that freight - so the reading is tried
+                // against the paid total itself (Step 190)
+                List<String[]> byPieces = multipliedByPieces(kept, printed, paid.doubleValue());
+                if (byPieces != null) {
+                    kept = byPieces;
+                    double gap = round2(paid.doubleValue() - sumOfRows(kept));
+                    order.put("freight", String.format(Locale.ROOT, "%.2f", Double.valueOf(gap)));
+                    if (discountValue > 0.0) {
+                        order.put("discount", "0");
+                    }
+                    order.put("note", "这一块的价签是单价，已按数量乘回去；差的 "
+                            + String.format(Locale.ROOT, "%.2f", Double.valueOf(gap))
+                            + " 记为运费，请对着截图核对");
+                }
+            }
+            if (!addsUp(kept, wanted)) {
                 // a row whose money is the price of one pack: the block pays 14.00, the rows come to
                 // 12.00, and one of them is the 2.00 of a pack sold twice (Step 145)
                 double plain = round2(paid.doubleValue() - freightValue);
@@ -1369,6 +1447,61 @@ public final class OirOrders {
     }
 
     /**
+     * Rebuilds every row's money as the printed price times the pieces that were bought, when the rows
+     * really carry prices and the gap they leave can only be the freight.
+     *
+     * <p>A page prints {@code ¥13.68} beside {@code x2}, so that row is 27.36. A model that keeps the
+     * price as the money of the row leaves a block of eight rows at 68.29 of the 127.46 that was paid,
+     * and the freight of 4.00 is not read either, so no reading of the rows alone can add up. The gap
+     * the pieces leave is then taken as the freight, and only a small gap is taken for it: a block whose
+     * amounts already are the money of its rows overshoots the paid total as soon as they are
+     * multiplied, and a block that prints more rows than were read is missing an article (Step 190).
+     *
+     * @param rows the article rows of one order
+     * @param printed how many rows the block says it prints, 0 when it did not say
+     * @param paid what was paid for the order, freight included
+     * @return the rows with the money of the pieces, {@code null} when the rows are not prices
+     */
+    private static List<String[]> multipliedByPieces(List<String[]> rows, int printed, double paid) {
+        if (rows.size() < 2 || paid <= 0.0 || (printed > 0 && printed > rows.size())) {
+            return null;
+        }
+        // the rows as they were read have to come well short: a block that is nearly there holds the
+        // money of its rows, not the price of one piece
+        if (sumOfRows(rows) >= paid * ROW_MONEY_SHORTFALL) {
+            return null;
+        }
+        int pieces = 0;
+        double sum = 0.0;
+        List<String[]> scaled = new ArrayList<>();
+        for (String[] row : rows) {
+            double qty = toDouble(row[2], 0.0);
+            double amount = toDouble(row[3], 0.0);
+            if (qty > 1.0) {
+                pieces++;
+                amount = round2(amount * qty);
+            }
+            sum += amount;
+            scaled.add(new String[] {row[0], row[1], row[2],
+                String.format(Locale.ROOT, "%.2f", Double.valueOf(round2(amount)))});
+        }
+        // most rows have to say how many pieces were bought, or there is no quantity to go by
+        if (pieces * 2 < rows.size()) {
+            return null;
+        }
+        double gap = round2(paid - round2(sum));
+        if (gap < -MONEY_TOLERANCE) {
+            // the pieces would cost more than the whole order: these were the money of the rows
+            return null;
+        }
+        // what is left is the freight, and freight is small beside what was paid
+        if (gap > Math.max(FREIGHT_FLOOR, paid * FREIGHT_SHARE)) {
+            return null;
+        }
+        return scaled;
+    }
+
+    /**
      * Reads the money of a row that was given as the price of one pack instead of the money of the
      * whole row: a page prints {@code 0603叠层高频电感 … ¥2.00 x2} with {@code （50个）} in the grey
      * spec line, so the row is 100 pieces for 4.00 (two packs at 2.00), while the model takes the 2.00
@@ -1402,10 +1535,12 @@ public final class OirOrders {
             }
             // the page never sold more packs of a row than the pieces it prints for it, so a row read
             // as x4 cannot be eleven packs of the price beside it: that product only closed the gap
-            // with money nobody paid (¥7.01 with x4 became 77.11, Step 189). A row whose quantity is
-            // not known (x1, the pack size only in the grey line) keeps the whole range
+            // with money nobody paid (¥7.01 with x4 became 77.11, Step 189). A row of one piece cannot
+            // be several packs either - a page that sold two packs prints two pieces at the least, and
+            // the row of one LCD that came back at 6.00 must not turn into 12.00 to close a gap
+            // (Step 190)
             double pieces = toDouble(rows.get(i)[2], 0.0);
-            int ceiling = pieces > 1.0 ? (int) Math.min(MAX_PACKS, pieces) : MAX_PACKS;
+            int ceiling = (int) Math.min(MAX_PACKS, Math.max(1.0, Math.floor(pieces)));
             for (int packs = 2; packs <= ceiling; packs++) {
                 if (Math.abs(round2(amount * (packs - 1)) - gap) > MONEY_TOLERANCE) {
                     continue;

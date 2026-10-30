@@ -1711,6 +1711,85 @@ public class MfgOrderReadRulesTest {
         assertEquals("7.01", kept[5].split("\t")[3]);
         assertEquals("13.68", kept[0].split("\t")[3]);
         assertNotNull(OirOrders.checkOrderTotals(prices));
+
+        // a row of one piece cannot be two packs of the price beside it: 6.00 for one LCD turned into
+        // 12.00 to close a gap, and with it a freight and a discount appeared out of nowhere, while the
+        // others of the block were already the money of their rows (Step 190)
+        Map<String, String> mixed = new LinkedHashMap<>();
+        mixed.put("paidTotal", "127.46");
+        mixed.put("rowCount", "5");
+        mixed.put("lines", "LCD1602\t1602A 蓝屏\t1\t6.00\n830\t400孔面包板\t4\t28.04\n"
+                + "PN532\tRC522\t1\t16.24\nPN532\tRC522 送S50\t2\t21.42\nSG90\t舵机\t2\t11.46");
+        OirOrders.tidyOrder(mixed);
+        assertEquals("6.00", mixed.get("lines").split("\n")[0].split("\t")[3]);
+        assertEquals("28.04", mixed.get("lines").split("\n")[1].split("\t")[3]);
+        assertNotNull(OirOrders.checkOrderTotals(mixed));
+    }
+
+    @Test
+    public void worksOutTheRowMoneyFromThePrintedPriceAndCount() {
+        // the page prints the price of one piece and the number of pieces, and the money of the row is
+        // their product; the model answers those two numbers far more reliably than it multiplies them
+        // (Step 191)
+        assertEquals("27.36", OirOrders.moneyOfPriceAndTimes("¥13.68", "2"));
+        assertEquals("28.04", OirOrders.moneyOfPriceAndTimes("7.01", "x4"));
+        assertEquals("8.00", OirOrders.moneyOfPriceAndTimes("¥8.00", "1"));
+        assertEquals("0.20", OirOrders.moneyOfPriceAndTimes("0.10元", "2"));
+        assertNull(OirOrders.moneyOfPriceAndTimes(null, "2"));
+        assertNull(OirOrders.moneyOfPriceAndTimes("13.68", null));
+        assertNull(OirOrders.moneyOfPriceAndTimes("", "2"));
+        assertNull(OirOrders.moneyOfPriceAndTimes("¥13.68", "0"));
+
+        // an answer that carries both numbers gets its row money from them, whatever it wrote itself
+        String reply = "{\"orders\":[{\"orderNo\":\"1675157882638500570\",\"shop\":\"佳仕通\","
+                + "\"paidTotal\":\"127.46\",\"freight\":\"4.00\",\"rowCount\":\"2\",\"items\":["
+                + "{\"code\":\"LCD1602\",\"name\":\"1602A 蓝屏\",\"qty\":\"1\",\"price\":\"8.00\","
+                + "\"times\":\"1\",\"amount\":\"6.00\"},"
+                + "{\"code\":\"830\",\"name\":\"400孔面包板\",\"qty\":\"4\",\"price\":\"7.01\","
+                + "\"times\":\"4\",\"amount\":\"7.01\"}]}]}";
+        java.util.List<java.util.Map<String, String>> orders = OirOrders.orderListFrom(reply, false);
+        assertEquals(1, orders.size());
+        String[] rows = orders.get(0).get("lines").split("\n");
+        assertEquals("8.00", rows[0].split("\t")[3]);
+        assertEquals("28.04", rows[1].split("\t")[3]);
+    }
+
+    @Test
+    public void multipliesThePrintedPricesWhenTheFreightIsTheGap() {
+        // the same block, with all eight rows read: the page prints ¥13.68 beside x2 and ¥7.01 beside
+        // x4, so the rows are 27.36 and 28.04, and the 3.96 left over is the 含运费 4.00 the model did
+        // not read. Prices alone come to 68.29 of 127.46, which is how the block is recognised (Step 190)
+        Map<String, String> order = new LinkedHashMap<>();
+        order.put("paidTotal", "127.46");
+        order.put("rowCount", "8");
+        order.put("lines", "CH340G\tESP8266 NodeMCU\t2\t13.68\n40P\t彩色排线 一排40P\t2\t4.06\n"
+                + "LCD1602\t1602A 蓝屏\t1\t8.00\nLCD1602\tLCD1602 转接板\t1\t2.86\n"
+                + "SG90\tSG90 9g舵机\t2\t5.73\n830\t400孔面包板\t4\t7.01\n"
+                + "PN532\tRC522 射频模块\t1\t16.24\nPN532\tRC522 射频模块 送S50\t2\t10.71");
+        OirOrders.tidyOrder(order);
+        String[] rows = order.get("lines").split("\n");
+        assertEquals(8, rows.length);
+        assertEquals("27.36", rows[0].split("\t")[3]);
+        assertEquals("8.12", rows[1].split("\t")[3]);
+        assertEquals("8.00", rows[2].split("\t")[3]);
+        assertEquals("28.04", rows[5].split("\t")[3]);
+        assertEquals("21.42", rows[7].split("\t")[3]);
+        // the pieces leave 3.96, and that is what the freight becomes
+        assertEquals("3.96", order.get("freight"));
+        assertNotNull(order.get("note"));
+        assertNull(OirOrders.checkOrderTotals(order));
+
+        // a block whose amounts already are the money of its rows must not be multiplied: the pieces
+        // would cost more than the whole order
+        Map<String, String> real = new LinkedHashMap<>();
+        real.put("paidTotal", "40.00");
+        real.put("freight", "0.00");
+        real.put("rowCount", "2");
+        real.put("lines", "A\tswitch\t3\t20.00\nB\tcable\t2\t15.00");
+        OirOrders.tidyOrder(real);
+        assertEquals("20.00", real.get("lines").split("\n")[0].split("\t")[3]);
+        assertEquals("15.00", real.get("lines").split("\n")[1].split("\t")[3]);
+        assertNotNull(OirOrders.checkOrderTotals(real));
     }
 
     @Test

@@ -313,7 +313,7 @@ public final class OirScan {
             + " JSON object only, no prose, no explanation:"
             + " {\"orderCount\":\"1\",\"orders\":[{\"orderNo\":\"\",\"shop\":\"\",\"platform\":\"\","
             + "\"orderDate\":\"\",\"paidTotal\":\"\",\"freight\":\"\",\"discount\":\"\","
-            + "\"refunded\":\"\",\"closed\":\"\",\"rowCount\":\"\",\"items\":[{\"code\":\"\",\"name\":\"\",\"qty\":\"\",\"amount\":\"\"}]}]}"
+            + "\"refunded\":\"\",\"closed\":\"\",\"rowCount\":\"\",\"items\":[{\"code\":\"\",\"name\":\"\",\"qty\":\"\",\"price\":\"\",\"times\":\"\",\"amount\":\"\"}]}]}"
             + " orderCount is how many order blocks the picture shows; orders has one element per"
             + " block, top to bottom, and items has one element per article of that order - two"
             + " products are two elements, never one. rowCount is how many article rows that block"
@@ -349,7 +349,9 @@ public final class OirScan {
             + " one pack: the pack size only changes the quantity, so ¥2.00 with x2 is 4.00 however many"
             + " pieces one pack holds. Whenever the number after x is larger than 1 the money of that row is"
             + " larger than the price printed beside it - ¥13.68 with x2 is 27.36, ¥7.01 with x4 is 28.04 -"
-            + " and only a row printed with x1 is the printed price itself. One element per"
+            + " and only a row printed with x1 is the printed price itself. price and times are those two"
+            + " printed numbers on their own: price is the money beside the row without the ¥, times is the"
+            + " number after x, and amount is price times times. One element per"
             + " article - a block that shows two products gets two elements, never one. Never use the"
             + " struck through price. code is the short model or spec line printed under the title"
             + " (2.0mm单排8P(共8P), 502035(350mah), 30K) and name is the title itself; when the article"
@@ -387,7 +389,7 @@ public final class OirScan {
             + " {\"orderCount\":\"1\",\"orders\":[{\"orderNo\":\"\",\"shop\":\"\",\"platform\":\"\","
             + "\"orderDate\":\"\",\"paidTotal\":\"\",\"freight\":\"\",\"discount\":\"\","
             + "\"refunded\":\"Y or N\",\"closed\":\"Y or N\",\"rowCount\":\"\","
-            + "\"items\":[{\"code\":\"\",\"name\":\"\",\"qty\":\"\",\"amount\":\"\"}]}]}"
+            + "\"items\":[{\"code\":\"\",\"name\":\"\",\"qty\":\"\",\"price\":\"\",\"times\":\"\",\"amount\":\"\"}]}]}"
             + " orderCount = how many order blocks you see; one element per block, top to bottom."
             + " One block carries one order number, so the same number never comes back twice: the"
             + " articles of a block all go into that block's items."
@@ -409,12 +411,11 @@ public final class OirScan {
             + " title"
             + " (一件100只 → x1 is 100, (50只) → x4 is 200, 带扣（5个） → x1 is 5, 测试板 5只 → x3 is 15); a set"
             + " sold as one article (套装 / 组合 / 套餐 in the brackets) is qty = the number after x"
-            + " itself, so （4块组合套装） with x1 is 1; amount = the row's own"
-            + " money (paidTotal"
-            + " minus freight for a block with one article, printed row price times the packs after x for"
-            + " a block with several - the pack size changes the quantity, never the row money, so ¥2.00"
-            + " with x2 is 4.00, and x larger than 1 always means more money than the price beside it), as"
-            + " printed: never bend a row's amount so the rows add up, and never make"
+            + " itself, so （4块组合套装） with x1 is 1; price = the money printed beside that row without the"
+            + " ¥, times = the number printed after x, amount = price times times (¥13.68 with x2 is 27.36,"
+            + " and x larger than 1 always means more money than the price beside it); a block with one"
+            + " article whose page prints 实付款 has amount = paidTotal minus freight. Never bend"
+            + " a row's amount so the rows add up, and never make"
             + " paidTotal an item of its own. Pictures of other products below the order list (猜你喜欢 / 推荐 /"
             + " 广告) are not orders and are not items; the articles of one block are never items of the"
             + " block under it. No explanation.";
@@ -552,18 +553,26 @@ public final class OirScan {
                 // way to see a block the model dropped (a slice cuts nothing else, so nothing else
                 // notices)
                 int[] range = sliced.ranges.get(at);
-                final int blocksHere = blocksInside(sliced.buttons, range[0], range[1]);
+                int counted = blocksInside(sliced.buttons, range[0], range[1]);
                 // how many articles the slice prints: one picture beside each row, so the pictures
                 // inside its rows count the rows. A block of fifteen packs of capacitors came back
                 // with fourteen of them, twice in a row, and the money alone did not make the model
-                // go back over it (Step 183) - the count does. A last slice is left out when the page's
-                // recommendation cards still stand in it, because their pictures are not article rows;
-                // once the feed is cut off below the list it holds orders only, and the count of the
-                // last block is the one that was needed most: eight articles came back as seven, and
-                // the missing RF module was what the money could not account for (Step 189)
+                // go back over it (Step 183) - the count does. The pictures of the page's recommendation
+                // cards below the list are not article rows, so they are left out where the page prints
+                // them: they stand side by side in a grid, and the grid's top row is where the count
+                // stops. The last slice is counted too - a block of eight articles came back as seven
+                // with the money of prices, and nothing could tell the model it was a row short
+                // (Step 190)
+                int picturesEnd = stripTop > 0 && stripTop > range[0] && stripTop < range[1]
+                        ? stripTop : range[1];
+                int pictures = OirShots.indexesWithin(shotBoxes, range[0], picturesEnd).size();
+                // the last block of the page has no button after it, so the blocks that stand whole in
+                // the last slice count as none even though its block is all there: when that slice
+                // prints article pictures, they are the rows of one block, and they are compared
+                // (Step 191)
                 final boolean lastSlice = at + 1 >= slices.size();
-                final int articlesHere = blocksHere == 1 && (!lastSlice || sliced.feedCut)
-                        ? OirShots.indexesWithin(shotBoxes, range[0], range[1]).size() : 0;
+                final int blocksHere = counted == 0 && lastSlice && pictures > 0 ? 1 : counted;
+                final int articlesHere = blocksHere == 1 ? pictures : 0;
                 articlesBySlice.add(Integer.valueOf(articlesHere));
                 running.add(pool.submit(new Callable<Read>() {
                     @Override
