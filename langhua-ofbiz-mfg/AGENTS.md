@@ -1784,13 +1784,27 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
     `data-lot-row="(LOT-…)"` 取；② “名称为空沿用原批次名称”那条断言拿 `1/4W resistor pack` 去比，
     而页面里 `/` 是 `&#x2f;`（老实体坑），改比 `resistor pack`；③ “没数量的行被拒”那行原来写成
     `料号,名称,1`（三格，是合法的），改成两格 `料号,名称`。
-  ⑳ **`mfgLotSave` 的 `amount` 从来没在描述符里声明过（Step 179s 顺手修的）**：`lotSave` 里写着
-    “金额精确、单价列只留两位小数”，可 `stock-services.xml` 只声明了 `unitPrice`——`ModelService` 把没声明的 IN 静默丢掉，
+  ⑳ **`mfgLotSave` 的 `amount` 从来没在描述符里声明过（Step 179s 顺手修的）**：`lotSave` 里写着    “金额精确、单价列只留两位小数”，可 `stock-services.xml` 只声明了 `unitPrice`——`ModelService` 把没声明的 IN 静默丢掉，
     于是**按金额记的批次没有单价**，再拆包时子批次单价是 `0`（m55 一直在报 `0.0000` / `0.3250`）。
     现在 `amount` 声明成 `<attribute name="amount" type="Double" mode="IN" optional="true"/>`。
     拆包的钱也改成用**实付 ÷ 数量**（`unitCost`）而不是两位小数的价格列：子批次 `receivedAmount = 数量 × unitCost`、
     单价列仍写四舍五入后的两位（`MfgInventoryDetail.unitCost` 是 `currency-amount`，存不下 0.325）。
     教训：**服务里 `context.get("x")` 读的参数，一定要在描述符里有同名 `mode="IN"`**，否则代码看着对、数据永远是空的。
+  ㉑ **一块十几行：用左侧商品图数当第二意见（Step 183）**：用户报“第三个订单始终只能识别出 14 条，而实际是 15 条”——
+    一张 5 单的截图，第 3 单印 15 行 0805 电容，模型稳定地只答 14 行（钱差 3.00），
+    **提示词加一句“读到按钮上方那一行”没用，重发一次也没用**（两次都答 14，`finish_reason=stop`，不是被截断）；
+    把那一块**单独**发一次（1302×2200 PNG）也 3 次里错 2 次——就是模型对“十几行几乎一样”会漏最后一行。
+    所以给它一个**不依赖模型的数字**：块里每一行商品旁边印一张图，`OirShots.boxesOf` 已经裁出来了，**图数就是行数**
+    （这一页实测：块 1/2/3/4 = 2/1/15/11 张，与行数完全一致）。`scan` 里算
+    `articlesHere = OirShots.indexesWithin(shotBoxes, range)`，`whyAskAgain` 多一条 `COUNT_REASON`：
+    **读出的行比图少 1~3 张**时再问一次，并在提示里把数字说出来（“This block prints 15 article rows … your
+    answer has 14”）。实测同一张图 **3/3 都是 15 行、钱正好**，(26) 17 单 / (31) 20 单回归不变
+    （(31) 第 1 单还从 `12/11` 变成 `12/12`）。**两个前提别去掉**：① 只在这一段**只含一个块**时算
+    （多块的话图数跨块，对不上哪一块）；② **最后一段不算**（里面夹着「猜你喜欢」卡片，实测最后一块印 1 行却有 5 张图，
+    照着问会让模型编出 4 行）；③ 差超过 3 张不问（页面一行印两张图时会要成两倍）。
+    单测 `countsThePicturesOfABlockAgainstTheRowsItAnswered`（含“没读出任何行时不算少、差太多不算少”）。
+    **试过但没用、别回头再试**：把切片缩放到 1800 / 2400 行再发（单独可救、整页仍 1/3）、
+    切片也改用长提示词（1/3）、单靠“钱差 3.00”的提示重发（0/3）。
 - **识别有超时：服务端 120 秒，页面 135 秒（Step 179f）**：`OirScan.SCAN_TIMEOUT_SECONDS = 120`，从拿图起算，
   每波 `future.get(min(SLICE_WAIT_SECONDS, secondsLeft(deadline)))`，到点就把还没回来的分段**丢掉**并取消线程池；
   已经有单就照常返回 + 消息里写“识别超时：一次最多等 120 秒，只读了 N 张单”，一张都没有就回 `code=TIMEOUT`。

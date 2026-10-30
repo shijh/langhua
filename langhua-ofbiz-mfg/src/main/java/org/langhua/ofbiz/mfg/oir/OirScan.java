@@ -223,6 +223,19 @@ public final class OirScan {
      */
     private static final String MONEY_REASON = "the goods of an order and its freight are not its paid total";
 
+    /**
+     * Why a slice is asked again when it prints more article pictures than the answer has rows: the
+     * number is named in the next request, which is what makes a model go back over a long block.
+     */
+    private static final String COUNT_REASON = "the slice prints more article pictures than were read";
+
+    /**
+     * How many rows an answer may be short of the pictures the block prints and still be asked again:
+     * a row or two is a model that stopped early, ten is a page that prints two pictures beside a row
+     * and tells nothing about the rows.
+     */
+    private static final int MAX_ARTICLES_MISSING = 3;
+
     /** Seconds one call to the vision service may take, with room on top of the socket timeouts. */
     public static final int SLICE_WAIT_SECONDS = 240;
 
@@ -463,7 +476,7 @@ public final class OirScan {
                 @Override
                 public Read call() {
                     Read read = readPicture(onlyPicture, pageEndpoint, pageModel, pageKey, pageType,
-                            false, 0);
+                            false, 0, 0);
                     // the numbers read from the whole page, and a second reading from the narrow strip:
                     // they are compared after the join, where the length this page prints at is known
                     OirOrders.noteTheSecondRead(read.orders,
@@ -508,11 +521,19 @@ public final class OirScan {
                 // notices)
                 int[] range = sliced.ranges.get(at);
                 final int blocksHere = blocksInside(sliced.buttons, range[0], range[1]);
+                // how many articles the slice prints: one picture beside each row, so the pictures
+                // inside its rows count the rows. A block of fifteen packs of capacitors came back
+                // with fourteen of them, twice in a row, and the money alone did not make the model
+                // go back over it (Step 183) - the count does. The last slice is left out: the page's
+                // recommendation cards stand in it too, and their pictures are not article rows
+                final boolean lastSlice = at + 1 >= slices.size();
+                final int articlesHere = blocksHere == 1 && !lastSlice
+                        ? OirShots.indexesWithin(shotBoxes, range[0], range[1]).size() : 0;
                 running.add(pool.submit(new Callable<Read>() {
                     @Override
                     public Read call() {
                         Read read = readPicture(picture, sliceEndpoint, sliceModel, sliceKey,
-                                sliceType, true, blocksHere);
+                                sliceType, true, blocksHere, articlesHere);
                         OirOrders.noteTheSecondRead(read.orders,
                                 readHeaders(strip, sliceEndpoint, sliceModel, sliceKey, "image/png"));
                         return read;
@@ -1269,10 +1290,13 @@ public final class OirScan {
      * @param blocksHere how many order blocks the picture prints whole, {@code 0} when unknown: an
      *        answer with one block less is asked again, which is the only check that sees a block
      *        dropped in the middle of a slice
+     * @param articlesHere how many article rows the picture prints (one product picture beside each),
+     *        {@code 0} when unknown: a slice that holds one block has one picture per row, so its
+     *        pictures count the rows a block of fifteen packs kept hidden from the model (Step 183)
      * @return what was read
      */
     private static Read readPicture(byte[] picture, String endpoint, String model, String key,
-            String contentType, boolean partial, int blocksHere) {
+            String contentType, boolean partial, int blocksHere, int articlesHere) {
         Read read = new Read();
         // a slice of a page full of product photographs is far smaller as JPEG and the text stays
         // readable at this quality; the PNG is kept when it comes out smaller than the JPEG
@@ -1299,10 +1323,12 @@ public final class OirScan {
             }
             String reply;
             try {
-                // a slice is asked with the short request from the start: the long one makes a
-                // thinking model deliberate about every rule, and on a hard page it then spends the
-                // whole output budget on the thinking and answers with nothing at all
-                String question = partial || attempt > 1 ? SHORT_PROMPT : PROMPT;
+                // a slice gets the long request too: it carries the rules for a block of many articles
+                // (read every row, the pack size, the money of a row), and a block of fifteen packs
+                // came back one row short whenever a slice was asked with the short one (Step 183).
+                // Thinking is off in the request itself, so the long list of rules no longer eats the
+                // output budget the way it did when the short prompt was written
+                String question = attempt > 1 ? SHORT_PROMPT : PROMPT;
                 reply = askVision(endpoint, model, key, picture, contentType, question + gapHint);
                 read.transportProblem = null;
             } catch (IOException e) {
@@ -1327,7 +1353,7 @@ public final class OirScan {
             // back, or (on a whole screenshot) an order whose goods plus freight is not the paid
             // total: either way one more send is worth it
             boolean shortRead = !partial && counted > 0 && got.size() < counted;
-            String why = whyAskAgain(got, counted, partial, shortRead, blocksHere, reply);
+            String why = whyAskAgain(got, counted, partial, shortRead, blocksHere, articlesHere, reply);
             if (why == null) {
                 bestOrders = got;
                 bestReply = reply;
@@ -1336,6 +1362,14 @@ public final class OirScan {
             }
             Debug.logInfo("Attempt " + attempt + " of " + attempts + " scored " + score
                     + " (kept " + kept + ", best " + bestScore + "), asking again: " + why, MODULE);
+            if (COUNT_REASON.equals(why)) {
+                // the pictures beside the rows say how many rows the block prints: tell the model the
+                // number it has to reach, which is what makes it go back over a block of fifteen
+                // packs it had stopped at fourteen (Step 183)
+                gapHint = " This block prints " + articlesHere + " article rows, one product picture"
+                        + " beside each; your answer has " + OirScan.articlesOf(got)
+                        + ". Read every row, including the one just above the block's buttons.";
+            }
             if (MONEY_REASON.equals(why)) {
                 // the money says what went missing, and it is the only reason that can be put into
                 // words for the model: one more look with it named, not a third call
@@ -1370,11 +1404,12 @@ public final class OirScan {
      * @param partial {@code true} for one slice of a long page, whose money is allowed not to add up
      * @param shortRead {@code true} when fewer orders came back than the model said it saw
      * @param blocksHere how many order blocks the picture prints whole, {@code 0} when unknown
+     * @param articlesHere how many article pictures the picture prints, {@code 0} when unknown
      * @param reply the answer text
      * @return why the picture should be asked again, {@code null} when it need not be
      */
     private static String whyAskAgain(List<Map<String, String>> got, int counted, boolean partial,
-            boolean shortRead, int blocksHere, String reply) {
+            boolean shortRead, int blocksHere, int articlesHere, String reply) {
         if (got.isEmpty()) {
             return "no order came back";
         }
@@ -1386,6 +1421,14 @@ public final class OirScan {
             // of them and answers one has dropped one: nothing else notices, the money of what came
             // back adds up on its own (Step 154)
             return "the slice prints " + blocksHere + " blocks and answered " + got.size();
+        }
+        if (printsMoreArticles(articlesHere, got)) {
+            // the page prints one product picture beside every article row, and a slice that holds one
+            // block has nothing else in its picture column: a block of fifteen packs of capacitors was
+            // read as fourteen twice in a row, and the money difference alone never made the model go
+            // back over it (Step 183). A page that prints two pictures beside a row would ask for
+            // twice the rows, so only a short answer close to the count counts
+            return COUNT_REASON;
         }
         if (OirOrders.echoesTemplate(reply)) {
             return "the answer is the answer format itself";
@@ -1406,6 +1449,29 @@ public final class OirScan {
             return MONEY_REASON;
         }
         return null;
+    }
+
+    /**
+     * Whether an answer has fewer article rows than the block prints pictures.
+     *
+     * <p>The page prints one product picture beside every article row, so a slice that holds one block
+     * counts its rows in its picture column. Only an answer that is short by a few rows counts: more
+     * than {@link #MAX_ARTICLES_MISSING} apart is a page that prints two pictures beside a row (or a
+     * picture column that caught something else), and asking for twice the rows would be worse than
+     * the short answer.
+     *
+     * @param articlesHere how many pictures the block prints, {@code 0} when unknown
+     * @param got the orders the answer was read into
+     * @return {@code true} when the answer is a few rows short of the pictures
+     */
+    public static boolean printsMoreArticles(int articlesHere, List<Map<String, String>> got) {
+        if (articlesHere <= 0) {
+            return false;
+        }
+        int read = articlesOf(got);
+        // an answer with no row at all is a different trouble (it is asked again for that), and a few
+        // rows short is the case this rule is for
+        return read > 0 && read < articlesHere && articlesHere - read <= MAX_ARTICLES_MISSING;
     }
 
     /**

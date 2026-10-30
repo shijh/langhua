@@ -452,6 +452,26 @@ public class MfgOrderReadRulesTest {
     }
 
     @Test
+    public void countsThePicturesOfABlockAgainstTheRowsItAnswered() {
+        // a block of fifteen packs came back with fourteen rows twice in a row, and only the pictures
+        // counted beside the rows said which of the two numbers is right
+        Map<String, String> fourteen = new LinkedHashMap<>();
+        StringBuilder lines = new StringBuilder();
+        for (int i = 0; i < 14; i++) {
+            lines.append(lines.length() == 0 ? "" : "\n").append("C").append(i).append(",cap,50,2.50");
+        }
+        fourteen.put("lines", lines.toString());
+        assertTrue(OirScan.printsMoreArticles(15, Collections.singletonList(fourteen)));
+        // the same answer against the fourteen rows it holds is complete
+        assertFalse(OirScan.printsMoreArticles(14, Collections.singletonList(fourteen)));
+        // a picture column that caught the page's advertisements says nothing about the rows
+        assertFalse(OirScan.printsMoreArticles(30, Collections.singletonList(fourteen)));
+        // and nothing is asked when the page did not count its pictures
+        assertFalse(OirScan.printsMoreArticles(0, Collections.singletonList(fourteen)));
+        assertFalse(OirScan.printsMoreArticles(3, Collections.emptyList()));
+    }
+
+    @Test
     public void givesEachArticleLineItsOwnPicture() {
         // the page printed a picture beside each article: line one takes the first, line two the second,
         // and a third line keeps none rather than borrowing the first one (that is another part)
