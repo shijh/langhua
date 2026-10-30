@@ -496,6 +496,15 @@ public final class MfgConstants {
     /** Ways a receipt may treat its freight; only {@link #ALLOC_NONE} is open for now. */
     public static final String[] ALLOCATIONS = {ALLOC_NONE, ALLOC_BY_AMOUNT, ALLOC_BY_QTY};
 
+    /**
+     * Days between the day an order was placed and the day its parcel is taken to have arrived.
+     *
+     * <p>The screenshots and the shop exports only print the day of the order; filling in today
+     * would book last year's order into this month's stock (and into this month's freight report),
+     * so the arrival day is the order day plus this many days - never later than today.
+     */
+    public static final int ARRIVAL_DAYS = 3;
+
     /** How many unassigned lots the receipt page offers in its picker. */
     static final int MAX_FREE_LOTS = 200;
 

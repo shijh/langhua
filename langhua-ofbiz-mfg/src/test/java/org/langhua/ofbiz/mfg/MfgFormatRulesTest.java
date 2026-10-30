@@ -354,6 +354,21 @@ public class MfgFormatRulesTest {
     }
 
     @Test
+    public void takesTheArrivalDayAsTheOrderDayPlusThree() {
+        java.sql.Date today = java.sql.Date.valueOf(LocalDate.of(2026, 10, 30));
+        // an order placed in 2018 arrives three days after it was placed, not today: otherwise the
+        // old order lands in this month's stock and in this month's freight report
+        assertEquals("2018-12-04", MfgSupport.arrivalDateOf(
+                java.sql.Date.valueOf(LocalDate.of(2018, 12, 1)), today, 3).toString());
+        // an order placed today has just arrived: the arrival day may never be in the future
+        assertEquals("2026-10-30", MfgSupport.arrivalDateOf(today, today, 3).toString());
+        assertEquals("2026-10-30", MfgSupport.arrivalDateOf(
+                java.sql.Date.valueOf(LocalDate.of(2026, 10, 29)), today, 3).toString());
+        // without an order day there is nothing to count from
+        assertEquals("2026-10-30", MfgSupport.arrivalDateOf(null, today, 3).toString());
+    }
+
+    @Test
     public void parsesTheLinesOfAShopOrder() {
         List<String[]> rows = OirOrders.parseOrderArticleLines(
                 "料号,名称,数量,实付金额\n"

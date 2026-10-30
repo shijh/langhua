@@ -72,6 +72,10 @@ public final class MfgOrderExcel {
     static final String SKIP_CLOSED = "交易关闭（没成交），不入库";
     static final String SKIP_TOPUP = "充值订单，没有商品，不入库";
 
+    /** The date part of {@code 2023-11-10 16:22:01}, empty when unknown. */
+    private static final java.util.regex.Pattern ORDER_STAMP =
+            java.util.regex.Pattern.compile("(\\d{4})\\s*[-/.年]\\s*(\\d{1,2})\\s*[-/.月]\\s*(\\d{1,2})");
+
     private MfgOrderExcel() {
     }
 
@@ -458,13 +462,26 @@ public final class MfgOrderExcel {
         return value == null ? "" : value.trim();
     }
 
-    /** The date part of the {@code 2023-11-10 16:22:01} the export prints, empty when unknown. */
+    /**
+     * The date part of the {@code 2023-11-10 16:22:01} the export prints, empty when unknown.
+     *
+     * <p>{@code 2018/12/1} and {@code 2018年12月1日} are read as well: the day of the order decides
+     * the day the goods are taken to have arrived, so a stamp that is not read means the order falls
+     * back to today - and a 2018 order would then sit in this month's stock.
+     */
     private static String dateOf(String stamp) {
-        String text = trim(stamp);
-        if (text.length() >= 10 && text.charAt(4) == '-' && text.charAt(7) == '-') {
-            return text.substring(0, 10);
+        java.util.regex.Matcher found = ORDER_STAMP.matcher(trim(stamp));
+        if (!found.find()) {
+            return "";
         }
-        return "";
+        int year = Integer.parseInt(found.group(1));
+        int month = Integer.parseInt(found.group(2));
+        int day = Integer.parseInt(found.group(3));
+        if (month < 1 || month > 12 || day < 1 || day > 31) {
+            return "";
+        }
+        return String.format(Locale.ROOT, "%04d-%02d-%02d",
+                Integer.valueOf(year), Integer.valueOf(month), Integer.valueOf(day));
     }
 
     /** Reads a money cell such as {@code ￥5.05} or {@code 5.05}. */

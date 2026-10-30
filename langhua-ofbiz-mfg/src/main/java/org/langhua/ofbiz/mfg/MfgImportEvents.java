@@ -161,7 +161,9 @@ public final class MfgImportEvents {
             context.put("userLogin", userLogin);
             context.put("supplierOrderNo", orderNo);
             context.put("supplierName", order.get("shop"));
-            context.put("receiptDate", order.get("orderDate"));
+            // the export prints the day the order was placed; the arrival day is three days after it
+            // (the import works it out, so a 2018 order is not booked into today's stock)
+            context.put("orderDate", order.get("orderDate"));
             context.put("freightAmount", order.get("freight"));
             context.put("discountAmount", order.get("discount"));
             context.put("lines", order.get("lines"));

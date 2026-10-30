@@ -73,6 +73,27 @@ public final class MfgSupport {
         return qtyOk <= 0.0 ? 0.0 : round2(hours / qtyOk);
     }
 
+    /**
+     * The day a shop order's parcel is taken to have arrived: a few days after the order was placed.
+     *
+     * <p>A screenshot or a shop export only prints the day the order was placed; nobody knows the
+     * day the parcel came, and filling in today booked a 2018 order into this month's stock and into
+     * this month's freight report. So it is the order day plus {@code days} - and never later than
+     * today, because an order placed this morning has just arrived, not in three days.
+     *
+     * @param orderDate the day the order was placed, may be {@code null} when it was not read
+     * @param today the day it is now
+     * @param days how many days after the order the parcel is expected
+     * @return the arrival day, {@code today} when the order day is unknown
+     */
+    static java.sql.Date arrivalDateOf(java.sql.Date orderDate, java.sql.Date today, int days) {
+        if (orderDate == null) {
+            return today;
+        }
+        java.sql.Date expected = java.sql.Date.valueOf(orderDate.toLocalDate().plusDays(days));
+        return today != null && expected.after(today) ? today : expected;
+    }
+
     static double round2(double value) {
         return Math.round(value * 100.0) / 100.0;
     }

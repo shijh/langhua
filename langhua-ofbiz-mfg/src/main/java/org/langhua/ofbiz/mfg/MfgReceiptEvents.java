@@ -250,6 +250,10 @@ public final class MfgReceiptEvents {
                 String orderNo = value(parameters, i, "orderNo");
                 context.put("supplierOrderNo", orderNo);
                 context.put("supplierName", value(parameters, i, "shop"));
+                // the day the order was placed: the parcel is taken to have come three days later, so
+                // importing an order from 2018 does not land in today's stock (nobody knows the day
+                // the parcel really came, and today is surely wrong)
+                context.put("orderDate", value(parameters, i, "date"));
                 context.put("freightAmount", value(parameters, i, "freight"));
                 // a red packet or coupon comes off the whole order: 实付 = goods + freight - discount
                 context.put("discountAmount", value(parameters, i, "discount"));

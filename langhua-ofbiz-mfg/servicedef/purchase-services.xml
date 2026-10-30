@@ -107,6 +107,9 @@
         <attribute name="supplierOrderNo" type="String" mode="IN" optional="true"/>
         <attribute name="supplierName" type="String" mode="IN" optional="true"/>
         <attribute name="receiptDate" type="String" mode="IN" optional="true"/>
+        <!-- the day the order was placed, as the screenshot or the export printed it: when no arrival
+             day is given, the parcel is taken to have come ARRIVAL_DAYS after it (never after today) -->
+        <attribute name="orderDate" type="String" mode="IN" optional="true"/>
         <attribute name="freightAmount" type="String" mode="IN" optional="true"/>
         <attribute name="discountAmount" type="String" mode="IN" optional="true"/>
         <attribute name="lines" type="String" mode="IN" optional="false"/>

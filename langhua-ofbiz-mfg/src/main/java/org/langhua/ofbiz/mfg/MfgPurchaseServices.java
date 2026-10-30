@@ -720,7 +720,12 @@ public final class MfgPurchaseServices {
         try {
             java.sql.Date receiptDate = (java.sql.Date) MfgSupport.parseDate(context.get("receiptDate"));
             if (receiptDate == null) {
-                receiptDate = java.sql.Date.valueOf(LocalDate.now());
+                // a shop order only prints the day it was placed, so the parcel is taken to have come
+                // three days later (never later than today): filling in today put a 2018 order into
+                // this month's stock and into this month's freight report
+                receiptDate = MfgSupport.arrivalDateOf(
+                        (java.sql.Date) MfgSupport.parseDate(context.get("orderDate")),
+                        java.sql.Date.valueOf(LocalDate.now()), MfgConstants.ARRIVAL_DAYS);
             }
             // an order that was refunded or closed stays out of the stock for good, even when the
             // person types the number in by hand and the screenshot is long gone

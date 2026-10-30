@@ -617,6 +617,10 @@
             head.appendChild(inputOf(key, 'no', order.orderNo || '', 22));
             head.appendChild(document.createTextNode(' 店铺 '));
             head.appendChild(inputOf(key, 'shop', order.shop || '', 16));
+            /* the day the order was placed: the arrival day is worked out from it (three days later),
+               so a mis-read date can be corrected here instead of typing the whole order again */
+            head.appendChild(document.createTextNode(' 下单日 '));
+            head.appendChild(inputOf(key, 'day', order.orderDate || '', 10));
             head.appendChild(document.createTextNode(' 运费 '));
             head.appendChild(inputOf(key, 'freight', order.freight || '0', 5));
             head.appendChild(document.createTextNode(' 实付 '));
@@ -657,11 +661,13 @@
             var box = orderRows.querySelector('[data-scan-lines="' + key + '"]');
             var number = orderRows.querySelector('[data-scan-no="' + key + '"]');
             var shop = orderRows.querySelector('[data-scan-shop="' + key + '"]');
+            var day = orderRows.querySelector('[data-scan-day="' + key + '"]');
             var freight = orderRows.querySelector('[data-scan-freight="' + key + '"]');
             var paid = orderRows.querySelector('[data-scan-paid="' + key + '"]');
             if (box) { order.lines = box.value.replace(/\r/g, ''); }
             if (number && number.value.trim()) { order.orderNo = number.value.trim(); }
             if (shop) { order.shop = shop.value.trim(); }
+            if (day) { order.orderDate = day.value.trim(); }
             if (freight) { order.freight = freight.value.trim() || '0'; }
             if (paid) { order.paidTotal = paid.value.trim(); }
             /* the person has looked at it, so the doubt the scan raised is settled */
@@ -697,6 +703,22 @@
             td.textContent = text;
             row.appendChild(td);
             return td;
+        }
+        /* the arrival day the import will write: the order day plus three, and never later than
+           today (see MfgSupport.arrivalDateOf - the two have to say the same thing) */
+        function arrivalOf(day) {
+            var parts = String(day || '').split('-');
+            if (parts.length !== 3) { return ''; }
+            var when = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+            if (isNaN(when.getTime())) { return ''; }
+            when.setDate(when.getDate() + 3);
+            var now = new Date();
+            var today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+            if (when.getTime() > today.getTime()) { when = today; }
+            return when.getFullYear() + '-' + two(when.getMonth() + 1) + '-' + two(when.getDate());
+        }
+        function two(value) {
+            return (value < 10 ? '0' : '') + value;
         }
         function amountsOf(order) {
             var total = 0;
@@ -748,10 +770,20 @@
                 /* the platform is printed next to the shop (淘宝 / 天猫); the store itself stays
                    untouched for the import */
                 cell(row, order.platform ? (order.platform + ' · ' + (order.shop || '')) : (order.shop || ''));
-                /* the date on a shop order is the day it was placed; the arrival day is a few days
-                   later and the person picks it, so it is only shown here */
+                /* the date on a shop order is the day it was placed; the parcel is taken to have come
+                   three days later (never later than today), and that is what gets written - so say
+                   it here, or a 2018 order looks like it arrived today */
                 var dateCell = cell(row, order.orderDate || '');
                 dateCell.setAttribute('data-scan-date', order.orderDate || '');
+                var arrival = arrivalOf(order.orderDate);
+                if (arrival) {
+                    dateCell.setAttribute('data-scan-arrival', arrival);
+                    dateCell.setAttribute('title', '下单 ' + order.orderDate + '，到货按 ' + arrival + ' 入库');
+                    var arrivalHint = document.createElement('div');
+                    arrivalHint.className = 'hint';
+                    arrivalHint.textContent = '到货 ' + arrival;
+                    dateCell.appendChild(arrivalHint);
+                }
                 cell(row, order.freight || '0', 'num');
                 cell(row, order.discount || '0', 'num');
                 /* what will be written, article by article: the person must be able to read it
@@ -849,6 +881,9 @@
                     wanted.push(order);
                     params.append('o' + index + '.orderNo', order.orderNo || '');
                     params.append('o' + index + '.shop', order.shop || '');
+                    /* the day the order was placed: the server books it in three days later (an order
+                       from 2018 must not land in today's stock) */
+                    params.append('o' + index + '.date', order.orderDate || '');
                     params.append('o' + index + '.freight', order.freight || '0');
                     params.append('o' + index + '.discount', order.discount || '0');
                     params.append('o' + index + '.lines', order.lines || '');

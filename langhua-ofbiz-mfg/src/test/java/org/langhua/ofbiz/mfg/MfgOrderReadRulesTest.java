@@ -2555,6 +2555,23 @@ public class MfgOrderReadRulesTest {
     }
 
     @Test
+    public void readsTheOrderDayOfAnExportWrittenWithSlashes() {
+        // the day of the order decides the day the goods arrived: a stamp that is not read falls
+        // back to today, so a 2018 order would be booked into this month's stock
+        List<Map<String, String>> rows = new ArrayList<>();
+        rows.add(excelRow("订单号", "订单提交时间", "订单状态", "店铺名称", "商品名称", "型号款式",
+                "商品数量", "商品金额", "实付金额", "运费"));
+        rows.add(excelRow("3316000000000000001", "2018/12/1 10:22:01", "交易成功", "旧器件行",
+                "电阻包", "1/4W", "1", "￥9.50", "￥9.50", "￥0.00"));
+        rows.add(excelRow("3316000000000000002", "2018年12月5日 09:00", "交易成功", "旧器件行",
+                "电容包", "0603", "1", "￥6.00", "￥6.00", "￥0.00"));
+        List<Map<String, String>> orders = MfgOrderExcel.ordersOfRows(rows);
+        assertEquals(2, orders.size());
+        assertEquals("2018-12-01", orders.get(0).get("orderDate"));
+        assertEquals("2018-12-05", orders.get(1).get("orderDate"));
+    }
+
+    @Test
     public void readsTheZipOfAWorkbookAndItsSharedStrings() throws IOException {
         // an xlsx is a zip: xl/sharedStrings.xml holds the text, the sheet points at it by index
         java.io.ByteArrayOutputStream bytes = new java.io.ByteArrayOutputStream();
