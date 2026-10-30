@@ -898,7 +898,82 @@ public final class MfgStockServices {
             }
         }
         dropMissingPictures(delegator, shots);
+        // a parcel that was taken apart (one bag of 130 kinds of resistors) was photographed once, as
+        // the bag: every kind that came out of it shows that same picture, because it is the only one
+        // there is (Step 179r)
+        inheritFromTheParcel(delegator, shots);
         return shots;
+    }
+
+    /**
+     * Lets the parts that were split out of another lot show the picture of that lot.
+     *
+     * <p>{@code mfgLotSplit} files the children under {@code splitFromLotId}; their own component code
+     * was never bought on its own, so it has no receipt line and no picture. The photograph of the
+     * parcel they came in is the honest answer - the warehouse person recognises the bag, and a part
+     * without any picture is the one thing a split parcel can never provide.
+     *
+     * @param delegator the delegator
+     * @param shots componentCode to picture id, filled in place; an own picture is never overwritten
+     * @throws GenericEntityException when the lots cannot be read
+     */
+    private static void inheritFromTheParcel(Delegator delegator, Map<String, String> shots)
+            throws GenericEntityException {
+        Map<String, String> lotComponent = new java.util.HashMap<>();
+        Map<String, String> lotParent = new java.util.HashMap<>();
+        for (GenericValue lot : EntityQuery.use(delegator).from("MfgMaterialLot")
+                .select("lotId", "componentCode", "splitFromLotId").queryList()) {
+            String lotId = lot.getString("lotId");
+            lotComponent.put(lotId, lot.getString("componentCode"));
+            String parent = lot.getString("splitFromLotId");
+            if (parent != null && !parent.isEmpty()) {
+                lotParent.put(lotId, parent);
+            }
+        }
+        // the map this fills is keyed by part number, so the chain has to be read in part numbers as
+        // well: the child lot and the parcel it came out of are two different parts
+        Map<String, String> componentParent = new java.util.HashMap<>();
+        for (Map.Entry<String, String> entry : lotParent.entrySet()) {
+            String child = lotComponent.get(entry.getKey());
+            String parent = lotComponent.get(entry.getValue());
+            if (child != null && parent != null) {
+                componentParent.put(child, parent);
+            }
+        }
+        inheritFromParents(shots, componentParent);
+    }
+
+    /**
+     * Copies a picture down a chain of parent and child keys, without ever overwriting one of its own.
+     *
+     * <p>Split in two from the database on purpose: the rule is worth a unit test, and the walk has to
+     * stop on a chain that points at itself.
+     *
+     * @param shots key to picture id, filled in place
+     * @param parentOf key to the key it was split out of
+     */
+    static void inheritFromParents(Map<String, String> shots, Map<String, String> parentOf) {
+        if (shots == null || parentOf == null || parentOf.isEmpty()) {
+            return;
+        }
+        // a child of a child is possible, so the walk repeats until nothing changes (it never does
+        // more than a handful of times: a parcel is taken apart once)
+        for (int round = 0; round < 5; round++) {
+            boolean changed = false;
+            for (Map.Entry<String, String> entry : parentOf.entrySet()) {
+                if (shots.containsKey(entry.getKey())) {
+                    continue;
+                }
+                String shot = shots.get(entry.getValue());
+                if (shot != null) {
+                    shots.put(entry.getKey(), shot);
+                    changed = true;
+                }
+            }
+            if (!changed) {
+                break;
+            }
+        }
     }
 
     /**
@@ -950,6 +1025,17 @@ public final class MfgStockServices {
             }
         }
         dropMissingPictures(delegator, shots);
+        // the children of a parcel that was taken apart show the picture of the parcel: they were
+        // never on a receipt of their own, so nothing else can be shown for them (Step 179r)
+        Map<String, String> parents = new java.util.HashMap<>();
+        for (GenericValue lot : EntityQuery.use(delegator).from("MfgMaterialLot")
+                .select("lotId", "splitFromLotId").queryList()) {
+            String parent = lot.getString("splitFromLotId");
+            if (parent != null && !parent.isEmpty()) {
+                parents.put(lot.getString("lotId"), parent);
+            }
+        }
+        inheritFromParents(shots, parents);
         return shots;
     }
 

@@ -458,6 +458,41 @@ public class MfgOrderReadRulesTest {
     }
 
     @Test
+    public void letsThePartsOfASplitParcelShowThePictureOfTheParcel() {
+        // one bag of 130 kinds of resistors was photographed once, as the bag: every kind that came out
+        // of it shows that picture, because it is the only one there is
+        Map<String, String> shots = new LinkedHashMap<>();
+        shots.put("RES-BAG-130", "SCAN-176170000000001");
+        Map<String, String> parents = new LinkedHashMap<>();
+        parents.put("10K-0603", "RES-BAG-130");
+        parents.put("22K-0603", "RES-BAG-130");
+        MfgStockServices.inheritFromParents(shots, parents);
+        assertEquals("SCAN-176170000000001", shots.get("10K-0603"));
+        assertEquals("SCAN-176170000000001", shots.get("22K-0603"));
+        // a part that was bought on its own keeps its own picture
+        Map<String, String> own = new LinkedHashMap<>();
+        own.put("RES-BAG-130", "SCAN-176170000000001");
+        own.put("10K-0603", "SCAN-176170000000009");
+        MfgStockServices.inheritFromParents(own, parents);
+        assertEquals("SCAN-176170000000009", own.get("10K-0603"));
+        // a child of a child follows the chain, and a chain that points at itself stops
+        Map<String, String> chain = new LinkedHashMap<>();
+        chain.put("A", "SCAN-176170000000002");
+        Map<String, String> deeper = new LinkedHashMap<>();
+        deeper.put("B", "A");
+        deeper.put("C", "B");
+        deeper.put("A", "C");
+        MfgStockServices.inheritFromParents(chain, deeper);
+        assertEquals("SCAN-176170000000002", chain.get("B"));
+        assertEquals("SCAN-176170000000002", chain.get("C"));
+        // a parcel with no picture hands nothing down
+        Map<String, String> bare = new LinkedHashMap<>();
+        MfgStockServices.inheritFromParents(bare, parents);
+        assertTrue(bare.isEmpty());
+        MfgStockServices.inheritFromParents(null, parents);
+    }
+
+    @Test
     public void warnsWhenThePagePrintsFewerPicturesThanArticles() {
         // the counts agree: nothing to say
         assertNull(OirScan.picturesShortfallNote(2, 2));

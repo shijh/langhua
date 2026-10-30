@@ -117,7 +117,7 @@ C0402-100N,100nF 0402 电容,立创商城,DC2409B,500,2026-10-19</textarea>
             <th class="num">到货</th><th class="num">已发</th><th class="num">剩余</th><th>到货日期</th>
             <th>来料检验</th><th>点数修正</th><th>追溯</th></tr>
         <#list lots as lot>
-            <tr data-lot-row="${lot.lotId}">
+            <tr data-lot-row="${lot.lotId}"<#if (lot.splitFromLotId!'')?has_content> data-split-child="${lot.splitFromLotId}"</#if>>
                 <td>${lot.lotId!}
                     <#-- one click brings the batch into the split box above: a pack of 2600 resistors
                          has to become one lot per value -->
