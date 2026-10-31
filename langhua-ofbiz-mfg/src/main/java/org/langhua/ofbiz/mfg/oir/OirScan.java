@@ -148,10 +148,12 @@ public final class OirScan {
     public static final int SLICE_OVERLAP = 500;
 
     /**
-     * Slices that are read at the same time. Six is still well inside what the vision service allows,
-     * and it turns the nine slices of a long page into two waiting rounds instead of three (Step 155).
+     * Slices that are read at the same time. Ten turns the nineteen slices of a long page into two
+     * waiting rounds instead of four, which is what the wait of such a page is made of; a page of five
+     * orders has fewer slices than this and is unaffected. Raising it further buys nothing until the
+     * service starts answering slower or refusing (Step 195).
      */
-    public static final int MAX_PARALLEL = 6;
+    public static final int MAX_PARALLEL = 10;
 
     /**
      * How wide the strip with the order numbers is, in pixels of the picture: the page prints its number
