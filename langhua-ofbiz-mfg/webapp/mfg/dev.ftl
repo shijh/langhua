@@ -356,7 +356,7 @@
     </#if>
 
     <#if bomItems?has_content>
-        <h4>本版元件（${bomItems?size} 个）</h4>
+        <h4 id="devbomitems">本版元件（${bomItems?size} 个）</h4>
         <p class="hint">整表改完之后可以一次保存，不必逐行按。</p>
         <form method="post" action="/mfg/control/devBomItemSaveAll" id="devBomAll">
             <input type="hidden" name="projectCode" value="${project.projectCode}"/>
@@ -394,7 +394,7 @@
                 <th>位号</th><th>相对上一版</th><th class="num">已锁</th><th class="num">在库</th><th>操作</th>
             </tr>
             <#list bomItems as r>
-                <tr data-bom-line="${r.lineSeq}" data-bom-change="${r.changeId}">
+                <tr data-bom-line="${r.lineSeq}" data-bom-change="${r.changeId}" id="bomLine${r.lineSeq}">
                     <td class="num">${r_index + 1}</td>
                     <td><input type="text" name="componentCode" form="bomRow${r.lineSeq}" size="20" value="${r.componentCode}" list="stockCodes"/>
                         <#-- the photo the shop printed for this part: it is what tells one 0603 from another
@@ -719,14 +719,31 @@
      /mfg/js/jump.js, shared with the paste jumps and the receipt detail (Step 115). The list links
      carry #project as well, so the browser already jumps before this runs.
      Saving a BOM row, saving the whole table or releasing the lock comes back to the BOM block
-     instead: the reader was working in that table, the project description is far above it. -->
+     instead: the reader was working in that table, the project description is far above it.
+
+     A saved row comes back to that row and not to the block: between the block's heading and the
+     table stands the shortage list, ten rows long on a board that is mostly unstocked, so landing on
+     the heading put the table the reader was working on out of sight (it looked as if the form had
+     gone). The row is tinted for a moment so the eye finds it. -->
 <#if parameters.projectCode??>
 <script>
 (function () {
-    var toBom = <#if parameters.componentCode?? || parameters.savedLines?? || parameters.releasedQty?? || parameters.addedCode??>true<#else>false</#if>;
+    var targetId = 'project';
+    <#-- the row just saved: the answer names its line and the code it was given -->
+    <#if parameters.lineSeq?? && (parameters.componentCode?? || parameters.lockedQty??)>
+    targetId = 'bomLine${parameters.lineSeq}';
+    <#-- the row just added -->
+    <#elseif parameters.addedLine??>
+    targetId = 'bomLine${parameters.addedLine}';
+    <#-- a whole table saved, or the lock released: the table is what changed -->
+    <#elseif parameters.savedLines?? || parameters.releasedQty?? || parameters.addedCode??>
+    targetId = 'devbomitems';
+    </#if>
     function jump() {
-        var block = document.getElementById(toBom ? 'devbom' : 'project');
-        if (block && window.jumpUnderNav) { window.jumpUnderNav(block); }
+        var block = document.getElementById(targetId) || document.getElementById('devbom');
+        if (!block) { return; }
+        if (block.tagName === 'TR') { block.className = block.className + ' saved-row'; }
+        if (window.jumpUnderNav) { window.jumpUnderNav(block); }
     }
     if (document.readyState === 'complete') {
         jump();

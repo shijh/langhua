@@ -994,6 +994,13 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   于是提示跑到首页去了。现在组件里**重写了一份 `forgotPassword` request-map**（自己的 request-map 压住 common 的），
   把 `auth` 也接成 view `forgotPassword`；`signIn.groovy` 先读 `_EVENT_MESSAGE_` 再读 `_ERROR_MESSAGE_`，
   把「密码提示：x / 没有设密码提示 / 没填账号」翻成中文（提示用蓝框 `.signin-note`，抱怨用红框）。
+- **保存一行要回到这一行，不是回到这一块（Step 201）**：用户报“点保存，表单跑没影了”——研发 BOM 里按行上的「保存」，
+  页面回来后停在 `#devbom` 那个 `<h3>`，而 **h3 与元件表之间隔着「缺货外购清单」**（板子大半没料时十几行），
+  于是读者看到的是一张自己没在改的表，行和它的输入框全在屏幕外——看起来就像“表单没了”。
+  现在 `dev.ftl` 的跳转目标按回来的参数分四种：**按行保存 → 那一行（`tr id="bomLine<行号>"`，并加 `saved-row` 淡绿底）**、
+  加元件 → 新加的那一行、整表保存 / 释放锁 → `#devbomitems`（元件表标题）、其余（导入等）→ `#project`。
+  行上加了 `id="bomLine${r.lineSeq}"`（**别叫 `bomRow…`，那是隐藏表单的 id**），`mfg.css` 加了 `tr.saved-row td`，
+  `decorator.ftl` 的 `mfg.css?v=6 → 7`。**改这块别再退回“回整块”**：块头与表之间隔着缺货清单，这是这页的固定结构。
 - **操作记录 / 审计（Step 125）**：新实体 `MfgAuditLog`（`AU-yyMMdd-NN`，`userLoginId` / `actionId` /
   `targetId` / `remoteAddr` / `note` / `createdStamp`）+ `MfgAudit`（写行、编号、中文动作名、一天一次清理）。
   **四个记录点**：① `MfgLoginEvents.login` 包住 `LoginWorker.login`（`error`→`LOGIN_FAIL`；`success` /

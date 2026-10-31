@@ -497,3 +497,7 @@ img.shot.gone,
 a.gone {
     display: none;
 }
+/* the row a save came back to: tinted for a moment so the eye finds it (Step 201) */
+tr.saved-row td {
+    background: rgba(137, 209, 133, 0.14);
+}
