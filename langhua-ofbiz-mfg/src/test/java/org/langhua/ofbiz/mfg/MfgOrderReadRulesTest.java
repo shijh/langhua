@@ -1727,6 +1727,38 @@ public class MfgOrderReadRulesTest {
     }
 
     @Test
+    public void takesThePromiseOutOfTheCode() {
+        // the grey line of a row starts with the shop's own promise on some pages, and a model that
+        // answers the start of that line gives two rows of one order the same code (Step 192)
+        assertEquals("", OirOrders.valueOfSpecLine("7天无理由退货"));
+        assertEquals("", OirOrders.valueOfSpecLine("退货宝 "));
+        assertEquals("2K", OirOrders.valueOfSpecLine("7天无理由退货 2K"));
+        assertEquals("2K", OirOrders.valueOfSpecLine("2K （一件100只）"));
+    }
+
+    @Test
+    public void stopsTheBlockAtTheFirstPictureThatComesAfterABigGap() {
+        // the last order prints eight articles, one picture each, and below them the page prints its
+        // recommendation cards: their pictures stand a whole block apart, so the block ends at the last
+        // picture of that run. Taking the lowest picture of the page instead pushed the cut past the end
+        // of the page, nothing was cut, and the last slice became eight times as tall as the others -
+        // there the model lost the eighth row (Step 192)
+        java.util.List<int[]> boxes = new java.util.ArrayList<>();
+        for (int i = 0; i < 8; i++) {
+            int top = 9905 + i * 250;
+            boxes.add(new int[] {550, top, 802, top + 252});
+        }
+        // the cards below the list
+        boxes.add(new int[] {550, 12734, 802, 12986});
+        boxes.add(new int[] {550, 14111, 802, 14363});
+        assertEquals(11907, OirScan.lastArticlePictureBottom(boxes, 9868, 409));
+        // the same page without the cards: the block still ends at its own last picture
+        assertEquals(11907, OirScan.lastArticlePictureBottom(boxes.subList(0, 8), 9868, 409));
+        // nothing printed below the button
+        assertEquals(0, OirScan.lastArticlePictureBottom(boxes, 16000, 409));
+    }
+
+    @Test
     public void worksOutTheRowMoneyFromThePrintedPriceAndCount() {
         // the page prints the price of one piece and the number of pieces, and the money of the row is
         // their product; the model answers those two numbers far more reliably than it multiplies them

@@ -1644,7 +1644,9 @@ public final class OirScan {
             // past the old fixed room and lost the rows below the cut, and the model filled them in
             // from the paid total (Step 161)
             int end = tailCutOf(full, list, blockHeightOf(full),
-                    lastPictureBelow(pictures, list.get(list.size() - 1).intValue()));
+                    lastArticlePictureBottom(pictures,
+                            list.get(list.size() - 1).intValue() - ROW_GAP_ROWS,
+                            blockHeightOf(full)));
             // the grid of recommendation cards below the list is not orders: when its cards stand side
             // by side somewhere below the last button, the list ends there. This is what keeps the feed
             // out of the last block on a page whose last order is shorter than the tallest one - there
@@ -1837,19 +1839,38 @@ public final class OirScan {
     }
 
     /**
+     * The bottom row of the last product picture of the last block.
+     *
+     * <p>The page then prints its recommendation cards, which carry pictures of their own. Taking the
+     * lowest picture of the page for the last article pushed the cut past the end of the picture, so
+     * nothing was cut and the last slice became the whole tail - 7106 rows where every other slice is
+     * 900 - and the model lost a row of the last order reading a slice eight times as tall as the
+     * rest (Step 192). The rows of one block print their pictures one after another, while the cards
+     * below the list stand a whole block apart from the last of them, so the block ends at the first
+     * picture that follows a gap wider than a block.
+     *
      * @param boxes the boxes of the page's product pictures, top to bottom
-     * @param row the row of the last button of the list
-     * @return the bottom row of the lowest picture below that button, 0 when there is none
+     * @param after the row of the last button of the list
+     * @param blockHeight the height of one block as the page measures itself, 0 when it does not say
+     * @return the bottom row of the last picture of that block, 0 when it prints none
      */
-    private static int lastPictureBelow(List<int[]> boxes, int row) {
-        int bottom = 0;
-        if (boxes == null) {
-            return bottom;
+    public static int lastArticlePictureBottom(List<int[]> boxes, int after, int blockHeight) {
+        if (boxes == null || boxes.isEmpty()) {
+            return 0;
         }
+        int limit = Math.max(ROW_GAP_ROWS, blockHeight);
+        int bottom = 0;
+        int previous = 0;
         for (int[] box : boxes) {
-            if (box[1] >= row) {
-                bottom = Math.max(bottom, box[3]);
+            if (box[1] < after) {
+                continue;
             }
+            if (previous > 0 && box[1] - previous > limit) {
+                // the cards below the list begin: the block ended above this picture
+                break;
+            }
+            previous = box[3];
+            bottom = box[3];
         }
         return bottom;
     }

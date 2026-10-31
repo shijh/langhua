@@ -506,6 +506,21 @@ public final class OirOrders {
             return null;
         }
         String text = code.trim();
+        // the grey line of a row starts with the shop's own promises on some pages (7天无理由退货 /
+        // 退货宝), and a model that takes the start of that line answers the promise as the part number:
+        // two rows of one order then share the code 7天无理由退货 and the parts lose their number
+        // (Step 192)
+        for (int guard = 0; guard < 3; guard++) {
+            String stripped = SHOP_PROMISE.matcher(text).replaceFirst("").trim();
+            if (stripped.equals(text)) {
+                break;
+            }
+            text = stripped;
+        }
+        if (text.isEmpty()) {
+            // nothing but a promise: the caller falls back to the title
+            return "";
+        }
         int semicolon = text.indexOf(';');
         if (semicolon > 0) {
             text = text.substring(0, semicolon).trim();
@@ -519,6 +534,11 @@ public final class OirOrders {
         }
         return text.isEmpty() ? code : text;
     }
+
+    /** The shop's own promises, printed at the start of the grey line of every row. */
+    private static final Pattern SHOP_PROMISE = Pattern.compile(
+            "^(7天无理由退货|7天无理由|7天退换|15天无理由|退货宝|退换货|极速退款|48小时内发货|"
+                    + "赠运费险|官方正品)[\\s、,，:：]*");
 
     /**
      * One field of an article row, with tabs and line breaks flattened so they cannot break the row
