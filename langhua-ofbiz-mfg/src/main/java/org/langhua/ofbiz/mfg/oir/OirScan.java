@@ -1402,6 +1402,13 @@ public final class OirScan {
         // makes a model go back over a block of thirteen rows it had summarised into five
         String gapHint = "";
         int attempts = partial ? SLICE_ATTEMPTS : ATTEMPTS;
+        // a block of a dozen articles or more is the one that keeps failing (fifteen packs of
+        // capacitors came back with fourteen rows, or with one part number for all of them), and every
+        // attempt at it costs another call: two attempts and then the halves keep a scan under half a
+        // minute instead of forty seconds, and the halves are asked one call each (Step 194)
+        if (articlesHere >= SPLIT_FROM_ARTICLES) {
+            attempts = Math.min(attempts, 2);
+        }
         for (int attempt = 1; attempt <= attempts; attempt++) {
             if (attempt > 1) {
                 pause(attempt);
@@ -2233,10 +2240,10 @@ public final class OirScan {
         if (upper == null || lower == null) {
             return first;
         }
-        Debug.logInfo("A block that stays short of its rows is read in two halves of " + upper.length
-                + " and " + lower.length + " bytes", MODULE);
-        Read up = readPicture(upper, endpoint, model, key, "image/png", true, 1, 0);
-        Read down = readPicture(lower, endpoint, model, key, "image/png", true, 1, 0);
+        Debug.logInfo("A block of " + inside.size() + " articles is read in two halves of "
+                + upper.length + " and " + lower.length + " bytes", MODULE);
+        Read up = readPicture(upper, endpoint, model, key, "image/png", true, 0, 0);
+        Read down = readPicture(lower, endpoint, model, key, "image/png", true, 0, 0);
         return joinHalves(first, up, down);
     }
 
