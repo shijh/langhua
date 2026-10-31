@@ -19,6 +19,8 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
 | `deploy-prod.bat` | **生产实例（8453）**：停生产 → robocopy 两个插件到 `ofbiz-prod\plugins` → `gradle jar` → 启动（日志 `prod-deploy.txt`） |
 | `start-prod.bat` / `stop-prod.bat` | 只启/停生产实例（按命令行里的 `ofbiz-prod` 匹配进程） |
 | `reset-admin.bat` | **生产 `admin` 忘了密码**：停生产 → `gradle loadAdminUserLogin -PuserLoginId=admin` → 起生产（日志 `reset-admin.txt` / `reset-admin-gradle.log`） |
+| `backup-prod.ps1` | **生产数据库冷备份**：`--shutdown` 优雅停 → 拷贝 `ofbiz-prod\runtime\data\derby` 到 `F:\build-ofbiz\backup\derby-ofbiz-prod-<时间戳>` → 起生产（日志 `F:\build-ofbiz\backup-prod.txt`；配套 `prod-backup-guard.bat` 是“窗口被关掉也要把生产拉起来”的看门狗） |
+| `verify-backup.ps1` | 把备份与在线库**逐文件**比一遍（缺几个、大小差几个），顺带确认生产在跑、登录页回 200 |
 | `mfg-tests.bat` | 单元测试（JUnit 4，离线，依赖 `F:\build-ofbiz\lib` 的 jar）；**只编一个类**（老脚本，`MfgServices.java` 已拆掉，现在用下面那个） |
 | `mfg-tests-all.bat` | 同上，但先编**全部源码 + 全部测试源码**（别的类改坏会当场报），然后一次跑六个 `*RulesTest` 类 |
 | `mfg-it.bat` | 集成测试 `integration-test/MfgServiceIT.java`，走 `/webtools/control/scheduleServiceSync` + `_RUN_SYNC_=Y`（日志 `mfg-it.txt`） |
@@ -1120,6 +1122,19 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   **`-Dlanghua.instance=` 与 jar 的绝对路径都要留着**：`stop-*.bat` 是按命令行里的实例目录名匹配进程的，
   写成相对路径 `build\libs\ofbiz.jar` 就找不到了（踩过：手工起的 jar 实例停不下来，只能按 PID 杀）。
   另外**别去 kill `GradleMain`**：它一死，挂在它下面的服务进程也一起退（曾把生产+开发一起停掉）。
+- **生产数据库备份 = 优雅停机 + 冷拷贝（Step 203）**：`backup-prod.ps1` 先
+  `java -Dofbiz.admin.port=10623 -jar <实例>\build\libs\ofbiz.jar --shutdown`（`--status` / `--shutdown` 都走**管理端口**，
+  生产是 10623、测试 10723、开发 10523；**别拿 `stop-prod.bat` 的强杀去做备份**——强杀不跑 shutdown hook，
+  Derby 的 `log\` 是断的），等进程真的退出、8453 不再 LISTEN，再 `robocopy runtime\data\derby`，最后重新起生产。
+  备份落在 `F:\build-ofbiz\backup\derby-ofbiz-prod-<yyyyMMdd-HHmmss>`（连 `ofbiz` / `ofbizolap` / `ofbiztenant` 一起，
+  外加一份 `BACKUP.txt`：时间、停机方式、文件数、大小、`ofbiz.jar` 时间戳、java 版本、还原步骤），**不压缩**（用户要的）。
+  **拷贝做完之前绝不能起实例**（半拷的库等于坏库），所以脚本停库前先写 `%TEMP%\jup\prod-backup.lock`、
+  并另起脱离窗口的 `prod-backup-guard.bat`：它守着锁文件，锁一消失就看 8453 有没有在听，没在听就把生产拉起来。
+  **这是踩出来的**：第一次跑备份时同步终端把脚本掐在“拷完、还没起库”那一步，生产多躺了约一分钟。
+  验完用 `verify-backup.ps1` 逐文件比：上次 5871 个文件、**0 个缺失**，只有 `seg0\c6ed0.dat` 差 4 KB
+  （重启后在库又写了几页，备份代表的是拷贝那一刻）。还原：停生产 → 把备份目录覆盖回 `runtime\data\derby` →
+  起生产，让 Derby 自己从 `log\` 恢复。**库会越来越大**：识图把整张截图存进 `MfgAttachment`（BLOB），
+  29 张长图就是几百 MB——2026-10-31 那份 514 MB，同一天早些时候的两份只有 83 MB / 101 MB。
 - **同一单被读成两个号 / 页面底部的商品图被算进最后一单（Step 131）**：生产上 29 张单被识别成 30 或 31 张。
   两个原因都修在 `MfgServices` 里：
   ① **同一个订单号被读缺了几位**（`3316453503083081392` 被读成 `331645303083081392`，另一次读成
