@@ -147,6 +147,10 @@ C0402-100N,100nF 0402 电容,立创商城,DC2409B,500,2026-10-19</textarea>
                                title="${(lot.componentCode)!}"/>
                         <input type="submit" value="改"/>
                     </form>
+                    <#-- 规格书 / 图纸挂在这个料号上（不是这一批），从这里进去上传和看 -->
+                    <a class="hint" data-part-docs="${(lot.componentCode)!}"
+                       href="/mfg/control/partDocs?componentCode=${(lot.componentCode)!''?url}"
+                       title="这个料号的资料（PDF / 图片）">资料</a>
                 </td>
                 <td>
                     <#-- a lot imported from a shop order carries the whole article title; a readable

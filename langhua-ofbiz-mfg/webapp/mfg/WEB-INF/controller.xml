@@ -82,6 +82,11 @@
         <response name="success" type="view" value="stock"/>
     </request-map>
 
+    <request-map uri="partDocs">
+        <security https="true" auth="true"/>
+        <response name="success" type="view" value="partDocs"/>
+    </request-map>
+
     <request-map uri="stockMoves">
         <security https="true" auth="true"/>
         <response name="success" type="view" value="stockMoves"/>
@@ -1119,6 +1124,7 @@
     <view-map name="software" type="screen" page="component://mfg/widget/MfgScreens.xml#software"/>
     <view-map name="reports" type="screen" page="component://mfg/widget/MfgScreens.xml#reports"/>
     <view-map name="stock" type="screen" page="component://mfg/widget/MfgScreens.xml#stock"/>
+    <view-map name="partDocs" type="screen" page="component://mfg/widget/MfgScreens.xml#partDocs"/>
     <view-map name="stockMoves" type="screen" page="component://mfg/widget/MfgScreens.xml#stockMoves"/>
     <view-map name="stockCount" type="screen" page="component://mfg/widget/MfgScreens.xml#stockCount"/>
 </site-conf>

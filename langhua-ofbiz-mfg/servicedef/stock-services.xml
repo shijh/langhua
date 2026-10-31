@@ -372,4 +372,18 @@
         <attribute name="lotId" type="String" mode="IN" optional="true"/>
         <attribute name="counts" type="java.util.List" mode="OUT" optional="true"/>
     </service>
+    <service name="mfgPartDocs" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgStockServices" invoke="partDocs"
+            auth="false" use-transaction="false">
+        <description>One part number with its numbers, its picture and the batches that carry it; the files themselves come from mfgAttachmentList with owner type MFG_ATT_PART</description>
+        <attribute name="componentCode" type="String" mode="IN" optional="true"/>
+        <attribute name="componentCode" type="String" mode="OUT" optional="true"/>
+        <attribute name="componentName" type="String" mode="OUT" optional="true"/>
+        <attribute name="onHandQty" type="Double" mode="OUT" optional="true"/>
+        <attribute name="reservedQty" type="Double" mode="OUT" optional="true"/>
+        <attribute name="availableQty" type="Double" mode="OUT" optional="true"/>
+        <attribute name="lotCount" type="Integer" mode="OUT" optional="true"/>
+        <attribute name="scanShotId" type="String" mode="OUT" optional="true"/>
+        <attribute name="lots" type="java.util.List" mode="OUT" optional="true"/>
+    </service>
 </services>

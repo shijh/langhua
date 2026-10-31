@@ -3,7 +3,7 @@
   Reusable attachment block: upload form, list with optional thumbnails and a delete button.
 
   Usage: <@attachmentBlock ownerTypeId ownerId back title attachments/>
-    ownerTypeId  MFG_ATT_PRODUCT / DEV_PROJECT / WORK_ORDER / DELIVERY / CLAIM
+    ownerTypeId  MFG_ATT_PRODUCT / DEV_PROJECT / WORK_ORDER / DELIVERY / CLAIM / PART (a part number)
     ownerId      key of the record
     back         path the upload and the delete go back to, e.g. /mfg/control/claims?claimId=RMA-261021-01
     title         legend of the block

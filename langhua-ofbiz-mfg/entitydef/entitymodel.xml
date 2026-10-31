@@ -128,8 +128,8 @@
             package-name="org.langhua.ofbiz.mfg"
             title="Attachment">
         <description>File attached to any business record of the component: product photo, 3D print photo, delivery receipt, damage photo of a claim. Kept in the database so a redeploy never loses it</description>
-        <field name="ownerTypeId" type="id"><description>MFG_ATT_PRODUCT, MFG_ATT_DEV_PROJECT, MFG_ATT_WORK_ORDER, MFG_ATT_DELIVERY or MFG_ATT_CLAIM</description></field>
-        <field name="ownerId" type="id"><description>Key of the owning record: productCode, projectCode, workOrderId, deliveryId or claimId</description></field>
+        <field name="ownerTypeId" type="id"><description>MFG_ATT_PRODUCT, MFG_ATT_DEV_PROJECT, MFG_ATT_WORK_ORDER, MFG_ATT_DELIVERY, MFG_ATT_CLAIM, MFG_ATT_ORDER_SCAN or MFG_ATT_PART</description></field>
+        <field name="ownerId" type="name"><description>Key of the owning record: productCode, projectCode, workOrderId, deliveryId, claimId or a part number (up to 100 characters, which is why this is a name and not an id)</description></field>
         <field name="seq" type="numeric"><description>Running number inside the owner, 1 is the oldest file</description></field>
         <field name="fileName" type="short-varchar"><description>Original file name, cleaned of any path</description></field>
         <field name="contentType" type="short-varchar"><description>image/jpeg, image/png, image/gif or application/pdf</description></field>

@@ -64,6 +64,8 @@
                 <td>
                     <a href="/mfg/control/stockMoves?componentCode=${row.componentCode?url}">流水</a>
                     <a href="/mfg/control/materials?componentCode=${row.componentCode?url}">批次</a>
+                    <#-- datasheets and drawings hang on the part number, not on one batch of it -->
+                    <a data-part-docs="${row.componentCode}" href="/mfg/control/partDocs?componentCode=${row.componentCode?url}">资料</a>
                 </td>
             </tr>
         </#list>

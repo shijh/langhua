@@ -1165,6 +1165,21 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   再把另一个批次也改成 `NFC COIL` 让它变成共用的号 → 引用不动、黄条说还有一个批次）、
   `check-rename-msg.ps1` / `check-rename-warn.ps1` 读绿字与黄条（**跑完都把料号改回原样**）；
   `verify-m55-recount.ps1` 54 项仍全过（“the other lot kept the old code” 那条正好盯着“不许连坐”）。
+- **元件资料：给料号上传 / 浏览 PDF（Step 206）**：新页面 `/mfg/control/partDocs?componentCode=…`（`partDocs.ftl`），
+  一个元件一行数据（在库 / 已锁 / 可发 / 批次数 / 商品图）+ **附件块**（`attachmentBlock.ftl`，新的 owner 类型
+  `MFG_ATT_PART`，`ownerId` 就是料号本身）+ 这个料号的批次表。**资料挂在料号上、不挂在批次上**：一次上传，
+  以后进的货都能看到。PDF 走 `attachment?ownerTypeId=MFG_ATT_PART&ownerId=…`，`serve` 事件给的是
+  `Content-Disposition: inline`，所以点「查看 PDF」直接在浏览器里打开（不下载）。
+  入口在**物料批次台账**每行料号后面的「资料」和**库存结存**每行的「资料」（`data-part-docs="<料号>"` 给巡检用）；
+  `mfgPartDocs` 服务返回那一行的数字与批次（`MfgStockServices.partDocs`，批次行复用 `MfgRecordMaps.toLotMap`）。
+  **要记住的一处结构改动**：`MfgAttachment.ownerId` 原来是 `id`（VARCHAR(20)），而料号可以到 100 字符
+  （Step 66 加宽过），所以模型里改成 **`name`**，旧库要手工 ALTER —— `tools/attachment-owner-100.sql`
+  （`ALTER TABLE OFBIZ.MFG_ATTACHMENT ALTER COLUMN OWNER_ID SET DATA TYPE VARCHAR(100)`；
+  **Derby 允许改主键列的长度**，实测过；停实例 → ij → 起实例，脚本 `%TEMP%\jup\apply-attachment-owner-100.ps1`）。
+  三套实例都已跑过（dev 7948 / test 1613 / prod 1769 行附件未变）。
+  验法：`%TEMP%\jup\check-part-docs.ps1`（21 个字符的料号 → 页面 200、上传 PDF → 列表里出现 →
+  `application/pdf` + `inline` + 字节数一致 → 删掉）、`check-part-links.ps1`（台账与结存每行都有入口、
+  真料号的页面上批次表与 `back` 路径正确）、`verify-m28b.ps1` **59 项**仍全过（老的五个 owner 类型没被改坏）。
 - **同一单被读成两个号 / 页面底部的商品图被算进最后一单（Step 131）**：生产上 29 张单被识别成 30 或 31 张。
   两个原因都修在 `MfgServices` 里：
   ① **同一个订单号被读缺了几位**（`3316453503083081392` 被读成 `331645303083081392`，另一次读成

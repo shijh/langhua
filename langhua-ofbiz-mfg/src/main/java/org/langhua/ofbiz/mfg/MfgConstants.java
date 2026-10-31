@@ -552,6 +552,13 @@ public final class MfgConstants {
     public static final String ATT_CLAIM = "MFG_ATT_CLAIM";
 
     /**
+     * Files that belong to a part number, not to one parcel of it: the datasheet, the drawing, the
+     * supplier's certificate. The owner id is the part number as the stock books it, so the same
+     * sheet shows for every batch of that part.
+     */
+    public static final String ATT_PART = "MFG_ATT_PART";
+
+    /**
      * A shop page somebody photographed for the order recognition. The screenshot is kept as it was,
      * under the scan id the page hands back, so the receipts made from it can point at the picture the
      * numbers came from - and the product pictures can be cut out of it later.
@@ -560,5 +567,5 @@ public final class MfgConstants {
 
     /** Owner types an attachment can hang on. */
     public static final String[] ATTACHMENT_OWNER_TYPES = {
-        ATT_PRODUCT, ATT_DEV_PROJECT, ATT_WORK_ORDER, ATT_DELIVERY, ATT_CLAIM, ATT_ORDER_SCAN};
+        ATT_PRODUCT, ATT_DEV_PROJECT, ATT_WORK_ORDER, ATT_DELIVERY, ATT_CLAIM, ATT_ORDER_SCAN, ATT_PART};
 }

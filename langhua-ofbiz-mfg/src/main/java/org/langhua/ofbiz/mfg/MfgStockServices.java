@@ -280,6 +280,70 @@ public final class MfgStockServices {
     }
 
     /**
+     * Everything the part page shows about one part number: the picture of the parcel it came in
+     * with, how much of it is on the shelf and the batches that carry it.
+     *
+     * <p>The files of the part (datasheet, drawing, supplier certificate) come from
+     * {@code mfgAttachmentList} with owner type {@link MfgConstants#ATT_PART}, because they belong to
+     * the part number and not to one parcel of it: a datasheet uploaded once shows for every batch
+     * bought later.
+     *
+     * @param dctx the dispatch context
+     * @param context service context, see {@code servicedef/stock-services.xml#mfgPartDocs}
+     * @return the service result with the numbers, {@code scanShotId} and {@code lots}
+     */
+    public static Map<String, Object> partDocs(DispatchContext dctx, Map<String, ? extends Object> context) {
+        Delegator delegator = dctx.getDelegator();
+        String code = MfgSupport.toText(context.get("componentCode"));
+        Map<String, Object> result = ServiceUtil.returnSuccess();
+        List<Map<String, Object>> lots = new ArrayList<>();
+        result.put("lots", lots);
+        result.put("componentCode", code);
+        result.put("componentName", null);
+        result.put("onHandQty", Double.valueOf(0.0));
+        result.put("reservedQty", Double.valueOf(0.0));
+        result.put("availableQty", Double.valueOf(0.0));
+        result.put("lotCount", Integer.valueOf(0));
+        result.put("scanShotId", null);
+        if (code == null) {
+            return result;
+        }
+        try {
+            String wanted = pictureKey(code);
+            double onHand = 0.0;
+            double reserved = 0.0;
+            double available = 0.0;
+            String name = null;
+            for (GenericValue lot : MfgStockLedger.componentLots(delegator)) {
+                if (!wanted.equals(pictureKey(lot.getString("componentCode")))) {
+                    continue;
+                }
+                if (lot.get("onHandQty") == null) {
+                    MfgStockLedger.ensureLotLedger(delegator, lot);
+                }
+                if (name == null) {
+                    name = lot.getString("componentName");
+                }
+                lots.add(MfgRecordMaps.toLotMap(lot, null));
+                onHand += MfgSupport.numberOrZero(lot.get("onHandQty"));
+                reserved += MfgSupport.numberOrZero(lot.get("reservedQty"));
+                available += MfgSupport.numberOrZero(lot.get("availableQty"));
+            }
+            // newest first: the batch somebody just received is the one he is looking for
+            Collections.reverse(lots);
+            result.put("componentName", name);
+            result.put("onHandQty", Double.valueOf(MfgSupport.round2(onHand)));
+            result.put("reservedQty", Double.valueOf(MfgSupport.round2(reserved)));
+            result.put("availableQty", Double.valueOf(MfgSupport.round2(available)));
+            result.put("lotCount", Integer.valueOf(lots.size()));
+            result.put("scanShotId", pictureOf(shotByComponent(delegator), code));
+            return result;
+        } catch (GenericEntityException e) {
+            return ServiceUtil.returnError("读取元件资料失败：" + e.getMessage());
+        }
+    }
+
+    /**
      * How many other lots still carry this part number, ignoring case and blanks.
      *
      * <p>A case-only correction counts as the same number: the picture and the stock lookups ignore the

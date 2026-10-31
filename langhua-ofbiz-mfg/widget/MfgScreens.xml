@@ -203,6 +203,34 @@
         </section>
     </screen>
 
+    <screen name="partDocs">
+        <section>
+            <actions>
+                <set field="title" value="Part Documents"/>
+                <set field="pageTitle" value="元件资料"/>
+                <set field="activeMenu" value="stock"/>
+                <service service-name="mfgPartDocs" result-map="part" auto-field-map="false">
+                    <field-map field-name="componentCode" from-field="parameters.componentCode"/>
+                </service>
+                <service service-name="mfgAttachmentList" result-map="docResult" auto-field-map="false">
+                    <field-map field-name="ownerTypeId" value="MFG_ATT_PART"/>
+                    <field-map field-name="ownerId" from-field="parameters.componentCode"/>
+                </service>
+            </actions>
+            <widgets>
+                <decorator-screen name="mfg-decorator" location="component://mfg/widget/MfgCommonScreens.xml">
+                    <decorator-section name="body">
+                        <platform-specific>
+                            <html>
+                                <html-template location="component://mfg/webapp/mfg/partDocs.ftl"/>
+                            </html>
+                        </platform-specific>
+                    </decorator-section>
+                </decorator-screen>
+            </widgets>
+        </section>
+    </screen>
+
     <screen name="stockMoves">
         <section>
             <actions>
