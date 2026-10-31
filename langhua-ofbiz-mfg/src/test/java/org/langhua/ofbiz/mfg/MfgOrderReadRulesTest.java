@@ -1839,6 +1839,27 @@ public class MfgOrderReadRulesTest {
     }
 
     @Test
+    public void doesNotTakeAPaddedRowForAReachedCount() {
+        // a block printing one article was read as one row, and the request that names the picture
+        // count is what made the model answer a second row of the title with no quantity at all. A row
+        // that cannot be imported is padding, not a row that was read: the whole answer must lose to
+        // the shorter one, even though the pictures say two (Step 198)
+        Map<String, String> real = new LinkedHashMap<>();
+        real.put("paidTotal", "3.98");
+        real.put("freight", "2.00");
+        real.put("lines", "2X1P\tMX3.0连接器 3.0mm间距 双排直针\t10\t1.98");
+        Map<String, String> padded = new LinkedHashMap<>();
+        padded.put("paidTotal", "3.98");
+        padded.put("freight", "0");
+        padded.put("lines", "2X1P\tMX3.0连接器 3.0mm间距 双排直针\t10\t2.00\n"
+                + "MX3.0连接器 3.0mm间距 双排直针\tMX3.0连接器 3.0mm间距 双排直针\t\t1.98");
+        assertTrue(OirOrders.anyUnreadable(Collections.singletonList(padded)));
+        assertFalse(OirOrders.anyUnreadable(Collections.singletonList(real)));
+        assertTrue(OirOrders.answerScore(Collections.singletonList(real), 1, 2)
+                > OirOrders.answerScore(Collections.singletonList(padded), 1, 2));
+    }
+
+    @Test
     public void takesThePromiseOutOfTheCode() {
         // the grey line of a row starts with the shop's own promise on some pages, and a model that
         // answers the start of that line gives two rows of one order the same code (Step 192)

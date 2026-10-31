@@ -1554,12 +1554,21 @@ public final class OirScan {
             // back adds up on its own (Step 154)
             return "the slice prints " + blocksHere + " blocks and answered " + got.size();
         }
-        if (printsMoreArticles(articlesHere, got)) {
+        if (OirOrders.anyUnreadable(got)) {
+            // a row with no quantity or no amount is padding, and it is the row an answer invents to
+            // reach a count it was told to reach: it is named before the count is, or the request goes
+            // back asking for more of the same (Step 198)
+            return "a row has no readable quantity or amount";
+        }
+        if (printsMoreArticles(articlesHere, got) && !anyTotalsDisagree(got)) {
             // the page prints one product picture beside every article row, and a slice that holds one
             // block has nothing else in its picture column: a block of fifteen packs of capacitors was
             // read as fourteen twice in a row, and the money difference alone never made the model go
             // back over it (Step 183). A page that prints two pictures beside a row would ask for
-            // twice the rows, so only a short answer close to the count counts
+            // twice the rows, so only a short answer close to the count counts. Rows that already come
+            // to what was paid are not short at all: the picture counted is one the page prints of
+            // something else, an advertisement card that starts where the product picture column does
+            // (Step 198)
             return COUNT_REASON;
         }
         if (OirOrders.echoesTemplate(reply)) {
@@ -1569,9 +1578,6 @@ public final class OirScan {
             // a block of fifteen capacitor packs, each with its own value on the grey line, came back
             // with 0805 as the part number of all fifteen: they would import as one part (Step 193)
             return CODES_REASON;
-        }
-        if (OirOrders.anyUnreadable(got)) {
-            return "a row has no readable quantity or amount";
         }
         if (OirOrders.ignoredThePackSize(reply, OirOrders.linesOfOrders(got))) {
             return "the page prints a pack size and every line came back as one piece";

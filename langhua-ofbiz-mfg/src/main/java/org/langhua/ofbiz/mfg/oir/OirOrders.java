@@ -1202,7 +1202,14 @@ public final class OirOrders {
         if (seen > 0 && orders.size() == seen) {
             score += 500;
         }
-        if (articlesHere > 0 && orders.size() == 1) {
+        // a row with no quantity or no amount cannot be imported at all, so an answer carrying one is
+        // worse than a shorter answer that is whole - and it never counts as having reached the
+        // pictures: a padded row is how an answer reaches a count it did not really read (Step 198)
+        boolean whole = !anyUnreadable(orders);
+        if (!whole) {
+            score -= 100;
+        }
+        if (articlesHere > 0 && orders.size() == 1 && whole) {
             if (rows == articlesHere) {
                 score += 60;
             } else if (rows < articlesHere) {
