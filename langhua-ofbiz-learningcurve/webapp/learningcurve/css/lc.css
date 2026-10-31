@@ -254,7 +254,12 @@ body.signin {
        justify-content: center does */
     margin: auto;
     padding: 1.7em 1.9em 1.5em;
-    background: var(--bg-panel);
+    /* the card itself is the gradient (Step 214): bright at the top, black from under the title down */
+    background-image:
+        linear-gradient(180deg, rgba(0, 0, 0, 0) 0px, rgba(0, 0, 0, 0) 165px, rgba(0, 0, 0, .62) 260px, rgba(0, 0, 0, .85) 330px, #000000 100%),
+        linear-gradient(90deg, rgba(47, 124, 246, .62) 0%, rgba(255, 255, 255, 0) 50%, rgba(255, 160, 0, .62) 100%),
+        linear-gradient(180deg, rgba(47, 124, 246, .38) 0%, rgba(255, 255, 255, 0) 50%, rgba(255, 160, 0, .38) 100%),
+        linear-gradient(#ffffff, #ffffff);
     border: 1px solid var(--border);
     border-radius: 10px;
     box-shadow: 0 14px 40px rgba(0, 0, 0, .5);
@@ -262,27 +267,20 @@ body.signin {
 }
 /* the password page and the error page hold a form or a stack trace: they need the room */
 .signin-card-wide { width: 560px; text-align: left; }
-.signin-card h1 { margin: 0; font-size: 1.28em; color: var(--fg-strong); text-align: center; }
+.signin-card h1 { margin: 0; font-size: 1.28em; color: #16202c; text-align: center; }
 .signin-logo { display: block; width: 68px; height: 68px; }
 /* same tile as the MES login card (Step 211) */
-/* the login card's masthead (Step 213): same as the MES login card - the mark sits on a full-width
-   band of its own colours, white in the middle, no rounded tile around it */
+/* the card is the band now (Step 213/214): the mark sits straight on its bright top */
 .signin-badge {
     display: flex;
     align-items: center;
     justify-content: center;
-    margin: -1.7em -1.9em 1.1em;
-    padding: 20px 0 18px;
-    border-radius: 9px 9px 0 0;
-    background-image:
-        linear-gradient(90deg, rgba(47, 124, 246, .62) 0%, rgba(255, 255, 255, 0) 50%, rgba(255, 160, 0, .62) 100%),
-        linear-gradient(180deg, rgba(47, 124, 246, .38) 0%, rgba(255, 255, 255, 0) 50%, rgba(255, 160, 0, .38) 100%),
-        linear-gradient(#ffffff, #ffffff);
-    box-shadow: inset 0 -1px 0 rgba(0, 0, 0, .28);
+    margin: 0 0 1.1em;
 }
-.signin-sub { margin: .35em 0 1.3em; color: var(--fg-muted); font-size: .82em; line-height: 1.5; text-align: center; }
+/* the gap under the strap line is where the card fades to black, so the form sits on black */
+.signin-sub { margin: .35em 0 6em; color: rgba(22, 32, 44, .62); font-size: .82em; line-height: 1.5; text-align: center; }
 .signin-card form { margin: 0; }
-.signin-field { display: block; box-sizing: border-box; width: 100%; margin-bottom: .8em; color: var(--fg-muted); font-size: .82em; text-align: left; }
+.signin-field { display: block; box-sizing: border-box; width: 100%; margin-bottom: .8em; color: #dcdcdc; font-size: .82em; text-align: left; }
 .signin-card input[type="text"],
 .signin-card input[type="password"] {
     display: block;
