@@ -536,6 +536,27 @@ public final class OirOrders {
         return null;
     }
 
+    /**
+     * Tells a package size from a value, so a request that goes back can say what to do with the word
+     * every row of a block was answered with.
+     *
+     * <p>The package size is the four digits a shop prints at the start of the grey spec line (0402,
+     * 0603, 0805, 1206, 2512), and it is the one thing all rows of a list of capacitors have in common.
+     * It is told by its shape and not by a list of the sizes in use: a page that prints 2010 or 1812 is
+     * the same page. Nothing is decided by the name here - the word itself is taken from the answer
+     * ({@link #sharedCodeOf}), and this only says whether it is a size, so the request can tell the
+     * model to drop it and write what follows it (Step 196).
+     *
+     * @param code the word every row of a block was answered with
+     * @return {@code true} when that word is a bare package size
+     */
+    public static boolean looksLikeAPackageSize(String code) {
+        return code != null && PACKAGE_SIZE.matcher(code.trim()).matches();
+    }
+
+    /** A bare package size: the three or four digits printed at the head of a grey spec line. */
+    private static final Pattern PACKAGE_SIZE = Pattern.compile("\\d{3,4}");
+
     /** The pack size a shop prints after a value in half width brackets: {@code 5.1K (50只)}. */
     private static final Pattern PACK_IN_BRACKETS =
             Pattern.compile("\\s*[（(]\\s*\\d+\\s*(?:只|个|件|只装|片|套)\\s*[)）]\\s*$");

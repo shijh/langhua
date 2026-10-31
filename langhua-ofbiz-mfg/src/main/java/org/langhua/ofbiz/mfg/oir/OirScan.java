@@ -1487,18 +1487,23 @@ public final class OirScan {
                 }
             }
             if (CODES_REASON.equals(why)) {
-                // fifteen packs of capacitors all came back as 0805, and 0805 is only the package size
-                // printed at the start of each row's own grey spec line: name the word the answer kept
-                // repeating and ask for what follows it on every row, which is what tells the rows
-                // apart (Step 193). A block read this way would import as one part, so this is the one
-                // reason that may take a third send even though a long block is kept at two (Step 196)
+                // the word every row was answered with is whatever the answer kept repeating - 0805 on
+                // a list of capacitors, something else on another page - so it is read back out of the
+                // answer and named, never assumed: a word that is only the package size printed at the
+                // start of each row's own grey spec line is dropped and what follows it written, and any
+                // other word is simply not the value of that row (Step 193/196). A block read this way
+                // would import as one part, so this is the one reason that may take a third send even
+                // though a long block is kept at two (Step 196)
                 String shared = OirOrders.sharedCodeOf(got);
+                String named = shared == null ? "" : " (" + shared + ")";
+                String what = shared != null && OirOrders.looksLikeAPackageSize(shared)
+                        ? " " + shared + " is the package size printed at the start of the grey spec"
+                                + " line, not the article: drop it and write what follows it on that row's"
+                                + " own line, so a line beginning " + shared + " 47UF 476M 10% 16V gives"
+                                + " 47UF 476M 10% 16V."
+                        : "";
                 gapHint = " The rows of that block are different articles, but your answer gave every"
-                        + " row the same code" + (shared == null ? "" : " (" + shared + ")") + "."
-                        + (shared == null ? "" : " " + shared + " is the package size printed at the"
-                                + " start of the grey spec line, not the article: drop it and write what"
-                                + " follows it on that row's own line, so 0805 680PF 681K 10% 50V 50个"
-                                + " is 680PF 681K.")
+                        + " row the same code" + named + "." + what
                         + " Every row takes the value of its own grey line and no two rows share one"
                         + " code.";
                 if (attempt >= attempts && attempts < ceiling) {

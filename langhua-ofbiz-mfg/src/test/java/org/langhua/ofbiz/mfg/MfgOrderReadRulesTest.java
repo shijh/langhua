@@ -1786,6 +1786,22 @@ public class MfgOrderReadRulesTest {
     }
 
     @Test
+    public void tellsAPackageSizeFromTheValueOfTheRow() {
+        // the request that goes back drops the word the answer repeated only when that word is a bare
+        // package size, and it is told by its shape rather than by a list of the sizes a page happens to
+        // print: 2010 and 1812 are package sizes too, and a value never is (Step 196)
+        assertTrue(OirOrders.looksLikeAPackageSize("0805"));
+        assertTrue(OirOrders.looksLikeAPackageSize("0603"));
+        assertTrue(OirOrders.looksLikeAPackageSize("2010"));
+        assertTrue(OirOrders.looksLikeAPackageSize("1206"));
+        assertFalse(OirOrders.looksLikeAPackageSize("680PF 681K"));
+        assertFalse(OirOrders.looksLikeAPackageSize("2K"));
+        assertFalse(OirOrders.looksLikeAPackageSize("0805 680PF"));
+        assertFalse(OirOrders.looksLikeAPackageSize("0805贴片电容"));
+        assertFalse(OirOrders.looksLikeAPackageSize(null));
+    }
+
+    @Test
     public void prefersTheAnswerThatReachesThePictures() {
         // the block of fifteen capacitor packs was answered twice: fifteen rows that all carried 0805,
         // and fourteen rows that named each value. The pictures beside the rows say the block prints
