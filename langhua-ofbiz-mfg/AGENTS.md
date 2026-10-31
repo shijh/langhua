@@ -2000,9 +2000,17 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   所以算了。spawn `oir-cli.jar` / POST `/mfg/control/orderImage` 这两条桥也评估过（能用但不对劲：要 JVM、
   要会话 cookie、毛病散在两个语言里）。完整分析在 `docs/识图设计.md` 的 §11.1（含“什么时候再回头看”和
   “别再想的两条”）——**别再从头论证一遍，也别让插件里的模型自己看图**。
-  **2026-10-31 用户又主动提了一次要做**，看到法律面三条（`oir` 是 LGPL v3、翻译成 TS 属于改编要授权；
-  真实截图含收件人信息不能进仓库；`taobao` 是注册商标 + 平台禁止自动登录抓取）后再次搁置，
-  理由记在 §11.1 末尾——**再启动先解决许可那条**，别再从“要不要做”开始讨论。
+  **2026-10-31 用户又主动提了一次要做**，原以为卡在许可证上，查完发现仓库里是**三种头**（30 个 java 是 LGPL v3、
+  2 个是从模板粘来的 ASF 头、24 个压根没有许可头），当天已**统一换成 Apache-2.0**（见下面那条），
+  于是剩下的只有两条：真实截图含收件人信息不能进仓库；`taobao` 是注册商标 + 平台禁止自动登录抓取。
+  理由记在 §11.1 末尾——**别再从头论证一遍**。
+- **许可证统一 Apache-2.0（2026-10-31）**：两个组件的 **56 个 `.java`** 全部是同一个头
+  （`Copyright (C) 2010-2026 Tianjin Langhua Ltd.` + Apache License 2.0），
+  两个组件根目录各一份 `LICENSE`（官方 `LICENSE-2.0.txt`）与 `NOTICE`。
+  改之前是：**30 个 LGPL v3**（所有 Events、`MfgOrderScan`/`MfgOrderExcel`、`oir` 三个、测试类、两个 IT）、
+  **2 个 ASF 头**（`MfgAudit` / `MfgLoginEvents`）、**24 个没有头**（Step 164~174 拆出来的服务类与 `tools/oir-anchors`）。
+  脚本 `%TEMP%\jup\licence-to-apache.ps1`（`-Apply` 才写盘，默认 dry run，按“第一个 `/* … */` 块”判断该替换还是该前置）。
+  **以后新建文件照抄这个头**，别再粘 LGPL 或 ASF 模板；那两个 ASF 头若将来确认派生自 OFBiz 源码，要单独补出处。
 - **识别有超时：服务端 120 秒，页面 135 秒（Step 179f）**：`OirScan.SCAN_TIMEOUT_SECONDS = 120`，从拿图起算，
   每波 `future.get(min(SLICE_WAIT_SECONDS, secondsLeft(deadline)))`，到点就把还没回来的分段**丢掉**并取消线程池；
   已经有单就照常返回 + 消息里写“识别超时：一次最多等 120 秒，只读了 N 张单”，一张都没有就回 `code=TIMEOUT`。
