@@ -402,7 +402,12 @@
                         <#if (r.scanShotId!'')?has_content><br/><a
                             href="/mfg/control/attachment?ownerTypeId=MFG_ATT_ORDER_SCAN&amp;ownerId=${r.scanShotId?url}"
                             target="_blank"><img class="shot" data-part-shot="${r.scanShotId}" alt=""
-                            src="/mfg/control/attachment?ownerTypeId=MFG_ATT_ORDER_SCAN&amp;ownerId=${r.scanShotId?url}&amp;thumb=1"/></a></#if></td>
+                            src="/mfg/control/attachment?ownerTypeId=MFG_ATT_ORDER_SCAN&amp;ownerId=${r.scanShotId?url}&amp;thumb=1"/></a></#if>
+                        <#-- the datasheet / drawing of this part number (Step 206): this is the page where the
+                             part number is corrected, so it is also where the sheet has to be reachable -->
+                        <a class="hint" data-part-docs="${r.componentCode}"
+                           href="/mfg/control/partDocs?componentCode=${r.componentCode?url}"
+                           title="这个料号的资料（PDF / 图片）">资料</a></td>
                     <td>${r.componentName!}<#if (r.sourceId!'') == 'MFG_BOM_MANUAL'> <span class="hint">（手工添加）</span></#if><#if r.properties??><br/><span class="hint">${r.properties}</span></#if></td>
                     <td class="num"><input type="text" name="qty" form="bomRow${r.lineSeq}" size="5" value="${r.qty?string("0.##")}"/></td>
                     <td>${r.designators!}</td>

@@ -1170,7 +1170,9 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   `MFG_ATT_PART`，`ownerId` 就是料号本身）+ 这个料号的批次表。**资料挂在料号上、不挂在批次上**：一次上传，
   以后进的货都能看到。PDF 走 `attachment?ownerTypeId=MFG_ATT_PART&ownerId=…`，`serve` 事件给的是
   `Content-Disposition: inline`，所以点「查看 PDF」直接在浏览器里打开（不下载）。
-  入口在**物料批次台账**每行料号后面的「资料」和**库存结存**每行的「资料」（`data-part-docs="<料号>"` 给巡检用）；
+  入口在三处（都是料号旁边一个「资料」，带 `data-part-docs="<料号>"` 给巡检断言）：
+  **物料批次台账**每行的料号后面、**库存结存**每行的操作列、**研发 BOM 表**每行的料号框下面
+  （`dev.ftl`——料号就是在这里改正的，资料也得从这里够得着）；
   `mfgPartDocs` 服务返回那一行的数字与批次（`MfgStockServices.partDocs`，批次行复用 `MfgRecordMaps.toLotMap`）。
   **要记住的一处结构改动**：`MfgAttachment.ownerId` 原来是 `id`（VARCHAR(20)），而料号可以到 100 字符
   （Step 66 加宽过），所以模型里改成 **`name`**，旧库要手工 ALTER —— `tools/attachment-owner-100.sql`
@@ -1179,7 +1181,8 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   三套实例都已跑过（dev 7948 / test 1613 / prod 1769 行附件未变）。
   验法：`%TEMP%\jup\check-part-docs.ps1`（21 个字符的料号 → 页面 200、上传 PDF → 列表里出现 →
   `application/pdf` + `inline` + 字节数一致 → 删掉）、`check-part-links.ps1`（台账与结存每行都有入口、
-  真料号的页面上批次表与 `back` 路径正确）、`verify-m28b.ps1` **59 项**仍全过（老的五个 owner 类型没被改坏）。
+  真料号的页面上批次表与 `back` 路径正确）、`check-bom-docs.ps1`（研发 BOM 的行数 = 「资料」链接数，
+  点进去 200 且有附件块）、`verify-m28b.ps1` **59 项**仍全过（老的五个 owner 类型没被改坏）。
 - **同一单被读成两个号 / 页面底部的商品图被算进最后一单（Step 131）**：生产上 29 张单被识别成 30 或 31 张。
   两个原因都修在 `MfgServices` 里：
   ① **同一个订单号被读缺了几位**（`3316453503083081392` 被读成 `331645303083081392`，另一次读成
