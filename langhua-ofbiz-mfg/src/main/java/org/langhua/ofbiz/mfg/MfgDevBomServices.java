@@ -316,6 +316,7 @@ public final class MfgDevBomServices {
         try {
             Map<String, double[]> stock = componentStock(delegator);
             Map<String, String> shots = MfgStockServices.shotByComponent(delegator);
+            Map<String, Map<String, Object>> docs = MfgStockServices.partDocsByComponent(delegator);
             Map<String, Double> lockedByComponent = MfgStockLedger.lockedByProjectComponent(delegator, projectCode);
             GenericValue latest = lastImport(delegator, projectCode);
             List<GenericValue> versionItems = latest == null ? new ArrayList<GenericValue>()
@@ -347,6 +348,8 @@ public final class MfgDevBomServices {
                     row.put("componentName", item.getString("componentName"));
                     // the photo the shop printed for this part, when it came in from a screenshot
                     row.put("scanShotId", MfgStockServices.pictureOf(shots, code));
+                    // and the datasheet, when one has been uploaded for this part number
+                    MfgStockServices.withPartDocs(row, docs, code);
                     row.put("partType", item.getString("partType"));
                     row.put("properties", item.getString("properties"));
                     row.put("designators", item.getString("designators"));

@@ -1199,6 +1199,16 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   验法：`check-att-paste.ps1`（取渲染出来的那段脚本跑 `node --check`）+ `js-check\att-paste-test.js`
   （假 DOM **18 项**：粘贴 PDF/图片被收下、提示与焦点、回车传一次、再按不再传、csv/html/文字不拦、
   输入框里回车与 Shift+Enter 不动）。
+- **有资料就先给资料，维护放第二位（Step 208）**：用户要求“有资料了应该优先是浏览资料，其次是维护（传新版、删错的）”。
+  现在三处入口都按同一规则变两态：**没有文件**只有「资料」（进元件资料页上传）；
+  **已有文件**是「看资料」（直接开最新那份，`/mfg/control/attachment?ownerTypeId=MFG_ATT_PART&ownerId=…&seq=…`，
+  PDF 在浏览器里打开）+「维护（N）」（进元件资料页传新版 / 删错的）。
+  判断靠 `MfgStockServices.partDocsByComponent`（**整页一次查询**，key 走 `pictureKey` 所以大小写无关）+
+  `withPartDocs(row, docs, code)` 往行里塞 `partDocSeq` / `partDocName` / `partDocCount`；
+  `devBomDetail`、`lotList`、`stockSummary` 三处已接。模板判 `(x.partDocSeq!'')?has_content`
+  （两种链接都带 `data-part-docs`，有文件时另带 `data-part-doc-view` / `data-part-docs-open` 给巡检）。
+  验法：`%TEMP%\jup\check-doc-first.ps1`（dev 与 test 各跑一遍：先只有「资料」→ 传一份 PDF →
+  「看资料」的 href 回 `application/pdf` 且字节数一致 → 删掉又只剩「资料」）。
 - **同一单被读成两个号 / 页面底部的商品图被算进最后一单（Step 131）**：生产上 29 张单被识别成 30 或 31 张。
   两个原因都修在 `MfgServices` 里：
   ① **同一个订单号被读缺了几位**（`3316453503083081392` 被读成 `331645303083081392`，另一次读成

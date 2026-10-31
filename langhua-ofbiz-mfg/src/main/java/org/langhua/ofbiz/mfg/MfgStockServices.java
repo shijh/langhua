@@ -280,6 +280,61 @@ public final class MfgStockServices {
     }
 
     /**
+     * The files of every part number that has some: how many there are and which one to open.
+     *
+     * <p>One query for a whole page, like the pictures: a part number that already carries a datasheet
+     * offers the sheet itself first and the maintenance page second, and a part without one offers the
+     * upload page. Keyed through {@link #pictureKey}, so a row written in another case finds its sheet
+     * (Step 204).
+     *
+     * @param delegator the delegator
+     * @return part number key to {componentCode, count, seq, fileName, contentType}
+     * @throws GenericEntityException when the attachments cannot be read
+     */
+    public static Map<String, Map<String, Object>> partDocsByComponent(Delegator delegator)
+            throws GenericEntityException {
+        Map<String, Map<String, Object>> byComponent = new LinkedHashMap<>();
+        for (GenericValue doc : EntityQuery.use(delegator).from("MfgAttachment")
+                .select("ownerId", "seq", "fileName", "contentType")
+                .where("ownerTypeId", MfgConstants.ATT_PART).orderBy("seq").queryList()) {
+            String key = pictureKey(doc.getString("ownerId"));
+            Map<String, Object> row = byComponent.get(key);
+            if (row == null) {
+                row = new LinkedHashMap<>();
+                row.put("componentCode", doc.getString("ownerId"));
+                row.put("count", Integer.valueOf(0));
+                byComponent.put(key, row);
+            }
+            row.put("count", Integer.valueOf(((Integer) row.get("count")).intValue() + 1));
+            // the sequence number grows inside one part, so the last one read is the newest
+            row.put("seq", doc.get("seq"));
+            row.put("fileName", doc.getString("fileName"));
+            row.put("contentType", doc.getString("contentType"));
+        }
+        return byComponent;
+    }
+
+    /**
+     * Puts what a row needs to offer the datasheet of its part: the newest file, its name and how many
+     * there are.
+     *
+     * <p>{@code partDocSeq} empty means "this part has no file yet", which is what the pages test: with
+     * a file the row opens it directly and offers maintenance next to it, without one the row opens the
+     * upload page.
+     *
+     * @param row the page row to fill in
+     * @param docs the map from {@link #partDocsByComponent}, may be null
+     * @param componentCode the part number of the row
+     */
+    public static void withPartDocs(Map<String, Object> row, Map<String, Map<String, Object>> docs,
+            String componentCode) {
+        Map<String, Object> doc = docs == null || componentCode == null ? null : docs.get(pictureKey(componentCode));
+        row.put("partDocSeq", doc == null ? null : doc.get("seq"));
+        row.put("partDocName", doc == null ? null : doc.get("fileName"));
+        row.put("partDocCount", doc == null ? Integer.valueOf(0) : doc.get("count"));
+    }
+
+    /**
      * Everything the part page shows about one part number: the picture of the parcel it came in
      * with, how much of it is on the shelf and the batches that carry it.
      *
@@ -982,10 +1037,13 @@ public final class MfgStockServices {
             // the picture the shop printed next to this article, when the lot came in from a screenshot:
             // one query for the page and not one per row
             Map<String, String> shots = shotOfLot(delegator);
+            // and the datasheet of the part number, so the row can open it instead of the upload page
+            Map<String, Map<String, Object>> docs = partDocsByComponent(delegator);
             List<Map<String, Object>> list = new ArrayList<>(lots.size());
             for (GenericValue lot : lots) {
                 Map<String, Object> row = MfgRecordMaps.toLotMap(lot, issued.get(lot.getString("lotId")));
                 row.put("scanShotId", shots.get(lot.getString("lotId")));
+                withPartDocs(row, docs, lot.getString("componentCode"));
                 list.add(row);
             }
             Map<String, Object> result = ServiceUtil.returnSuccess();
@@ -1759,6 +1817,7 @@ public final class MfgStockServices {
             }
             Map<String, Map<String, Object>> byComponent = new LinkedHashMap<>();
             Map<String, String> shots = shotByComponent(delegator);
+            Map<String, Map<String, Object>> docs = partDocsByComponent(delegator);
             for (GenericValue lot : EntityQuery.use(delegator).from("MfgMaterialLot")
                     .orderBy("componentCode", "lotId").queryList()) {
                 if (MfgStockLedger.isProductLot(lot)) {
@@ -1783,6 +1842,7 @@ public final class MfgStockServices {
                     row.put("lotCount", Integer.valueOf(0));
                     // the picture the shop printed for this part, if it ever came in from a screenshot
                     row.put("scanShotId", pictureOf(shots, componentCode));
+                    withPartDocs(row, docs, componentCode);
                     byComponent.put(componentCode, row);
                 }
                 double onHand = MfgSupport.numberOrZero(lot.get("onHandQty"));

@@ -404,10 +404,21 @@
                             target="_blank"><img class="shot" data-part-shot="${r.scanShotId}" alt=""
                             src="/mfg/control/attachment?ownerTypeId=MFG_ATT_ORDER_SCAN&amp;ownerId=${r.scanShotId?url}&amp;thumb=1"/></a></#if>
                         <#-- the datasheet / drawing of this part number (Step 206): this is the page where the
-                             part number is corrected, so it is also where the sheet has to be reachable -->
-                        <a class="hint" data-part-docs="${r.componentCode}"
-                           href="/mfg/control/partDocs?componentCode=${r.componentCode?url}"
-                           title="这个料号的资料（PDF / 图片）">资料</a></td>
+                             part number is corrected, so it is also where the sheet has to be reachable.
+                             Once there is a file, the row opens the file itself and keeps the upload page
+                             behind a second link: reading comes first, maintaining second (Step 208) -->
+                        <#if (r.partDocSeq!'')?has_content>
+                            <a data-part-docs="${r.componentCode}" data-part-doc-view="${r.partDocSeq}"
+                               target="_blank" title="${(r.partDocName)!'资料'}"
+                               href="/mfg/control/attachment?ownerTypeId=MFG_ATT_PART&amp;ownerId=${r.componentCode?url}&amp;seq=${r.partDocSeq}">看资料</a>
+                            <a class="hint" data-part-docs-open="${r.componentCode}"
+                               href="/mfg/control/partDocs?componentCode=${r.componentCode?url}"
+                               title="上传新版 / 删除传错的资料">维护<#if ((r.partDocCount)!0) gt 1>（${r.partDocCount}）</#if></a>
+                        <#else>
+                            <a class="hint" data-part-docs="${r.componentCode}"
+                               href="/mfg/control/partDocs?componentCode=${r.componentCode?url}"
+                               title="这个料号的资料（PDF / 图片）">资料</a>
+                        </#if></td>
                     <td>${r.componentName!}<#if (r.sourceId!'') == 'MFG_BOM_MANUAL'> <span class="hint">（手工添加）</span></#if><#if r.properties??><br/><span class="hint">${r.properties}</span></#if></td>
                     <td class="num"><input type="text" name="qty" form="bomRow${r.lineSeq}" size="5" value="${r.qty?string("0.##")}"/></td>
                     <td>${r.designators!}</td>
