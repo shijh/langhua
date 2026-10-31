@@ -2153,9 +2153,16 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   图片换成新增的 **`logo-nav.png`（96 px）**：26 px 显示时从 96 缩下来比 64 更清楚（高分屏上是 2× 以上）。
   **favicon 仍用完整图案（带括号）**，只有导航条这点小图挑清晰度。改完把 `mfg.css?v=8` / `lc.css?v=2` 加一，
   两个组件的 `decorator.ftl` 都要改（学习曲线也是同一套导航）。
-  验法：`%TEMP%\jup\check-nav.ps1`（主页面 200、css 链接是 `?v=8`、brand 指向 `logo-nav.png`、
-  css 里 `.nav` 是 flex 且 `.brand` 有 `display:block`、旧 `-0.42em` 不再出现、图片 200 + `image/png` + 96×96），
+  验法：`%TEMP%\jup\check-nav.ps1`（主页面 200、css 链接是 `?v=9`、brand 指向 `logo-nav.png`、
+  css 里 `.nav` 是 flex 且 `.brand-badge` 有渐变环、旧 `-0.42em` 不再出现、图片 200 + `image/png` + 96×96），
   `check-nav-lc.ps1` 验学习曲线那一边。
+- **logo 加了个领章（Step 210）**：用户要“加一点儿背景色，让 logo 显得朝气蓬勃”。图形本身是**藏青 + 橙**
+  （实测 `rgb(0,0,128)` / `rgb(255,160,0)`），所以纯色底一定会吃掉其中一个：现在 `.brand-badge` 是一个
+  **1.95em 的圆角小方块**，内里近白渐变（`#f8fbff → #fff3e0`）、**边框走蓝→橙的渐变环**（`border:2px transparent` +
+  `background: … padding-box, linear-gradient(…) border-box`），加一层软阴影与内高光；图片缩到 1.35em 放进方块里，
+  外距 .7em。**别把内里改成彩色**：那两个颜色会在自己的色相上糊掉。两个组件的 `decorator.ftl`（含改密门禁页）
+  四处都要包 `<span class="brand-badge">`；`mfg.css?v=9` / `lc.css?v=3`。
+  验法：`%TEMP%\jup\check-badge.ps1`（页面里带 badge 外壳、css 是 `?v=9`、`.brand-badge` 有渐变环、`.brand` 是 1.35em）。
 
 ## 兄弟组件 langhua-ofbiz-learningcurve
 

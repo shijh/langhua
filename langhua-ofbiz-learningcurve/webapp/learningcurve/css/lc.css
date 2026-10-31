@@ -143,10 +143,24 @@ input[type="submit"].secondary:hover, button.secondary:hover { background: #3a3d
     text-decoration: none;
 }
 .nav a:hover { background: var(--bg-hover); text-decoration: none; }.nav .brand {
-    height: 1.55em;
+    height: 1.35em;
     width: auto;
     display: block;
-    margin: 0 .65em 0 .15em;
+}
+/* the logo sits on a small tile, same as the MES bar (Step 210) */
+.nav .brand-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.95em;
+    height: 1.95em;
+    border-radius: .55em;
+    margin: 0 .7em 0 .15em;
+    border: 2px solid transparent;
+    background:
+        linear-gradient(135deg, #f8fbff 0%, #fff3e0 100%) padding-box,
+        linear-gradient(135deg, #2f7cf6 0%, #ffa000 100%) border-box;
+    box-shadow: 0 2px 7px rgba(0, 0, 0, .45), inset 0 0 0 1px rgba(255, 255, 255, .6);
 }
 .nav a.active {
     background: var(--bg-widget);
