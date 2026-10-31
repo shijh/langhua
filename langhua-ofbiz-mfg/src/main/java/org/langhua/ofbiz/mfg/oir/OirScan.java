@@ -377,6 +377,10 @@ public final class OirScan {
             + " a piece count printed bare at the end of the title: IC测试板 … 5只 with x3 is 15 - but a set"
             + " sold as one article (brackets saying 套装 / 组合 / 套餐) does not: 实验板（4块组合套装）"
             + " with x1 is 1 set, so qty is 1."
+            + " A spec line that opens with a package size (0201 / 0402 / 0603 / 0805 / 1206 / 1210) is never"
+            + " answered with that size alone: the size is what the fifteen rows of a capacitor list have in"
+            + " common, so 0805 680PF 681K 10% 50V 50个 is the code 680PF 681K and 0805 33NF 333K 10% 50V"
+            + " 50个 is 33NF 333K - one row of that list, one value, never 0805 for every row."
             + " Read every row's money as printed (the struck through price is never used): never change a"
             + " row's amount to make the rows add up to paidTotal, and never write paidTotal as a row of"
             + " its own - when the rows do not add up, answer the rows you can read as they are."
@@ -415,7 +419,9 @@ public final class OirScan {
             + " never two products in one element: their amounts add up to paidTotal minus freight;"
             + " rows that print the same title are still one element each, with the colour in code;"
             + " code = the short model, or the value the grey spec line starts with (2K), never the title,"
-            + " never the whole spec line; name = the title itself;"
+            + " never the whole spec line; when the line opens with a package size (0603 / 0805) the code"
+            + " is what follows it (0805 680PF 681K 10% 50V → 680PF 681K), never the size on its own, which"
+            + " every row of that list shares; name = the title itself;"
             + " qty = the number after x times the pack size printed in the grey spec line or inside the"
             + " title"
             + " (一件100只 → x1 is 100, (50只) → x4 is 200, 带扣（5个） → x1 is 5, 测试板 5只 → x3 is 15); a set"
@@ -1403,11 +1409,14 @@ public final class OirScan {
         // what the first read lost, in money: the second read is asked with that named, which is what
         // makes a model go back over a block of thirteen rows it had summarised into five
         String gapHint = "";
-        int attempts = partial ? SLICE_ATTEMPTS : ATTEMPTS;
         // a block of a dozen articles or more is the one that keeps failing (fifteen packs of
         // capacitors came back with fourteen rows, or with one part number for all of them), and every
         // attempt at it costs another call: two attempts and then the halves keep a scan under half a
-        // minute instead of forty seconds, and the halves are asked one call each (Step 194)
+        // minute instead of forty seconds, and the halves are asked one call each (Step 194). The
+        // ceiling a call may reach is kept, so the one reason that is worth a third send (the same part
+        // number on every row, which would import the block as one part) can take it (Step 196)
+        int attempts = partial ? SLICE_ATTEMPTS : ATTEMPTS;
+        int ceiling = attempts;
         if (articlesHere >= SPLIT_FROM_ARTICLES) {
             attempts = Math.min(attempts, 2);
         }
@@ -1421,8 +1430,11 @@ public final class OirScan {
                 // (read every row, the pack size, the money of a row), and a block of fifteen packs
                 // came back one row short whenever a slice was asked with the short one (Step 183).
                 // Thinking is off in the request itself, so the long list of rules no longer eats the
-                // output budget the way it did when the short prompt was written
-                String question = attempt > 1 ? SHORT_PROMPT : PROMPT;
+                // output budget the way it did when the short prompt was written. A long block keeps it
+                // on a retry as well: the short request is the one that answered all fifteen rows with
+                // the same 0805 (Step 196)
+                String question = attempt > 1 && articlesHere < SPLIT_FROM_ARTICLES
+                        ? SHORT_PROMPT : PROMPT;
                 reply = askVision(endpoint, model, key, picture, contentType, question + gapHint);
                 read.transportProblem = null;
             } catch (IOException e) {
@@ -1433,7 +1445,9 @@ public final class OirScan {
             read.reply = reply;
             List<Map<String, String>> got = OirOrders.orderListFrom(reply, partial);
             int counted = OirOrders.orderCountIn(reply);
-            int score = OirOrders.answerScore(got, counted);
+            // the pictures beside the rows say how many rows the block prints, and that is worth more
+            // than how well an answer named them: a row that is missing never reaches stock (Step 196)
+            int score = OirOrders.answerScore(got, counted, articlesHere);
             int kept = bestScore;
             if (score > bestScore) {
                 bestScore = score;
@@ -1473,13 +1487,23 @@ public final class OirScan {
                 }
             }
             if (CODES_REASON.equals(why)) {
-                // fifteen packs of capacitors all came back as 0805: the value that tells them apart is
-                // printed at the start of each row's own grey spec line, and naming it is what makes
-                // the model read that line instead of the title (Step 193). The next call is the one
-                // that carries this hint, so it has to be made
-                gapHint = " Every row of that block is a different article: read the part number of each"
-                        + " row from the start of its own grey spec line (0805 47UF 476M 10% 16V,"
-                        + " 0805 100NF 104K, 0805 22UF 226K), never one number for all the rows.";
+                // fifteen packs of capacitors all came back as 0805, and 0805 is only the package size
+                // printed at the start of each row's own grey spec line: name the word the answer kept
+                // repeating and ask for what follows it on every row, which is what tells the rows
+                // apart (Step 193). A block read this way would import as one part, so this is the one
+                // reason that may take a third send even though a long block is kept at two (Step 196)
+                String shared = OirOrders.sharedCodeOf(got);
+                gapHint = " The rows of that block are different articles, but your answer gave every"
+                        + " row the same code" + (shared == null ? "" : " (" + shared + ")") + "."
+                        + (shared == null ? "" : " " + shared + " is the package size printed at the"
+                                + " start of the grey spec line, not the article: drop it and write what"
+                                + " follows it on that row's own line, so 0805 680PF 681K 10% 50V 50个"
+                                + " is 680PF 681K.")
+                        + " Every row takes the value of its own grey line and no two rows share one"
+                        + " code.";
+                if (attempt >= attempts && attempts < ceiling) {
+                    attempts++;
+                }
             }
             if (got.isEmpty()) {
                 Debug.logInfo("The answer that carried no order was: " + reply, MODULE);

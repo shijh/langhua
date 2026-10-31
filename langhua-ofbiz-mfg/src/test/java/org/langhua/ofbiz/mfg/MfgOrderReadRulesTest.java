@@ -1766,6 +1766,63 @@ public class MfgOrderReadRulesTest {
     }
 
     @Test
+    public void namesTheWordEveryRowOfTheBlockWasAnsweredWith() {
+        // the request that goes back names the word the answer kept repeating, so the model can drop
+        // it: 0805 is the package size printed at the start of each row's own grey spec line, and the
+        // value of the row is what follows it (Step 196)
+        Map<String, String> flat = new LinkedHashMap<>();
+        flat.put("lines", "0805\t0805贴片电容\t50\t2.50\n0805\t0805贴片电容\t50\t2.50\n"
+                + "0805\t0805贴片电容\t50\t3.00");
+        assertEquals("0805", OirOrders.sharedCodeOf(Collections.singletonList(flat)));
+        // nothing to name when the rows tell themselves apart
+        Map<String, String> told = new LinkedHashMap<>();
+        told.put("lines", "0805 680PF\t0805贴片电容\t50\t2.50\n0805 33NF\t0805贴片电容\t50\t3.00\n"
+                + "0805 47NF\t0805贴片电容\t50\t2.50");
+        assertNull(OirOrders.sharedCodeOf(Collections.singletonList(told)));
+        // and nothing to name when one part was bought three times at one price
+        Map<String, String> same = new LinkedHashMap<>();
+        same.put("lines", "1/4W 10K\t电阻\t100\t2.00\n1/4W 10K\t电阻\t100\t2.00\n1/4W 10K\t电阻\t100\t2.00");
+        assertNull(OirOrders.sharedCodeOf(Collections.singletonList(same)));
+    }
+
+    @Test
+    public void prefersTheAnswerThatReachesThePictures() {
+        // the block of fifteen capacitor packs was answered twice: fifteen rows that all carried 0805,
+        // and fourteen rows that named each value. The pictures beside the rows say the block prints
+        // fifteen, and a missing row is material that never reaches stock, so the fuller answer is the
+        // one to keep even though its part numbers are the worse ones (Step 196)
+        StringBuilder flat = new StringBuilder();
+        StringBuilder short_ = new StringBuilder();
+        StringBuilder told = new StringBuilder();
+        for (int i = 0; i < 15; i++) {
+            String money = i % 3 == 0 ? "3.00" : "2.50";
+            flat.append("0805\t0805贴片电容\t50\t").append(money).append('\n');
+            told.append("0805 ").append(i).append("UF\t0805贴片电容\t50\t").append(money).append('\n');
+            if (i < 14) {
+                short_.append("0805 ").append(i).append("UF\t0805贴片电容\t50\t").append(money).append('\n');
+            }
+        }
+        Map<String, String> fifteenFlat = new LinkedHashMap<>();
+        fifteenFlat.put("paidTotal", "38.50");
+        fifteenFlat.put("lines", flat.toString().trim());
+        Map<String, String> fourteenTold = new LinkedHashMap<>();
+        fourteenTold.put("paidTotal", "38.50");
+        fourteenTold.put("lines", short_.toString().trim());
+        Map<String, String> fifteenTold = new LinkedHashMap<>();
+        fifteenTold.put("paidTotal", "38.50");
+        fifteenTold.put("lines", told.toString().trim());
+        // without the picture count the fourteen row answer wins, which is why the count is held
+        // against it: it names the articles that it read
+        assertTrue(OirOrders.answerScore(Collections.singletonList(fourteenTold), 1)
+                > OirOrders.answerScore(Collections.singletonList(fifteenFlat), 1));
+        assertTrue(OirOrders.answerScore(Collections.singletonList(fifteenFlat), 1, 15)
+                > OirOrders.answerScore(Collections.singletonList(fourteenTold), 1, 15));
+        // and the answer that has both, every row and every value, still beats them all
+        assertTrue(OirOrders.answerScore(Collections.singletonList(fifteenTold), 1, 15)
+                > OirOrders.answerScore(Collections.singletonList(fifteenFlat), 1, 15));
+    }
+
+    @Test
     public void takesThePromiseOutOfTheCode() {
         // the grey line of a row starts with the shop's own promise on some pages, and a model that
         // answers the start of that line gives two rows of one order the same code (Step 192)
@@ -2350,10 +2407,12 @@ public class MfgOrderReadRulesTest {
         assertEquals("3102077787932500570", short1.get("orderNo"));
         assertEquals("2025-12-04", short1.get("orderDate"));
         assertEquals("盛创", short1.get("shop"));
-        assertTrue(short1.get("note").contains("单号两遍读数不一致"));
+        // the length of the number settled it, so the row is not marked for a look (Step 196)
+        assertNull(short1.get("note"));
 
         // the other way round: the strip read a digit too many, the whole page was right, so the number
-        // stays - it is only written into the note
+        // stays - and a length the page does not print at settled it, so the row is not marked for a
+        // look: the picture answered the question itself (Step 196)
         Map<String, String> good = new LinkedHashMap<>();
         good.put("orderNo", "3102077787932500570");
         Map<String, String> other = new LinkedHashMap<>();
@@ -2370,7 +2429,7 @@ public class MfgOrderReadRulesTest {
         assertEquals(1, OirOrders.noteTheSecondRead(run, longStrip));
         assertEquals(0, OirOrders.settleNumbers(run));
         assertEquals("3102077787932500570", good.get("orderNo"));
-        assertTrue(good.get("note").contains("已保留 3102077787932500570"));
+        assertNull(good.get("note"));
 
         // two readings of the same length cannot be told apart by the picture: the first stays, and the
         // row says both were seen
@@ -2383,6 +2442,7 @@ public class MfgOrderReadRulesTest {
         assertEquals(0, OirOrders.settleNumbers(one));
         assertEquals("3102077787932500570", same.get("orderNo"));
         assertNull(same.get("headerOrderNo"));
+        assertTrue(same.get("note").contains("单号两遍读数不一致"));
 
         // a block cut at the top of the picture has no number of its own: the two lists are not the same
         // blocks then, so nothing may be lined up

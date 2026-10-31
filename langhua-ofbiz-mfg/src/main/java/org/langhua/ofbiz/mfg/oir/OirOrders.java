@@ -498,8 +498,22 @@ public final class OirOrders {
      * @return {@code true} when a block of several rows shares one part number but not one price
      */
     public static boolean codesDoNotTellTheRowsApart(List<Map<String, String>> orders) {
+        return sharedCodeOf(orders) != null;
+    }
+
+    /**
+     * The part number an answer gave every row of a block whose rows are different articles, so the
+     * request that goes back can name it: a block of fifteen capacitor packs came back with
+     * {@code 0805} on all fifteen rows, and that is the package size printed at the start of each
+     * grey spec line, not the article. Naming it is what makes the model drop it and read the value
+     * behind it instead of answering the same word again (Step 196).
+     *
+     * @param orders the order maps of one answer
+     * @return the code every row of such a block carries, {@code null} when no block does that
+     */
+    public static String sharedCodeOf(List<Map<String, String>> orders) {
         if (orders == null) {
-            return false;
+            return null;
         }
         for (Map<String, String> order : orders) {
             if (order == null) {
@@ -516,10 +530,10 @@ public final class OirOrders {
                 amounts.add(String.valueOf(round2(toDouble(row[3], 0.0))));
             }
             if (codes.size() == 1 && amounts.size() >= 2) {
-                return true;
+                return rowKey(rows.get(0)[0]);
             }
         }
-        return false;
+        return null;
     }
 
     /** The pack size a shop prints after a value in half width brackets: {@code 5.1K (50只)}. */
@@ -1124,6 +1138,25 @@ public final class OirOrders {
      * @return the grade, negative when the answer holds no order at all
      */
     public static int answerScore(List<Map<String, String>> orders, int seen) {
+        return answerScore(orders, seen, 0);
+    }
+
+    /**
+     * The same grade, with the picture count of the block held against the answer.
+     *
+     * <p>The product pictures beside the rows count them, and that count is not the model's opinion:
+     * a block answered with fifteen rows where fourteen were read is a row of material missing from
+     * the receipt, while the same block answered with fourteen rows that each carry their own value
+     * reads better to a grade that only looks at money and codes. Both answers of one block were sent
+     * for the fifteen packs of capacitors, and the short one won by two points because it named the
+     * articles (Step 196).
+     *
+     * @param orders the orders of that answer
+     * @param seen how many orders the model said the picture shows, 0 when it did not say
+     * @param articlesHere how many article rows the picture prints, {@code 0} when unknown
+     * @return the grade, negative when the answer holds no order at all
+     */
+    public static int answerScore(List<Map<String, String>> orders, int seen, int articlesHere) {
         if (orders == null || orders.isEmpty()) {
             return -1;
         }
@@ -1147,6 +1180,13 @@ public final class OirOrders {
         int score = orders.size() * 1000 + rows * 10 + agree + codes;
         if (seen > 0 && orders.size() == seen) {
             score += 500;
+        }
+        if (articlesHere > 0 && orders.size() == 1) {
+            if (rows == articlesHere) {
+                score += 60;
+            } else if (rows < articlesHere) {
+                score -= 60;
+            }
         }
         return score;
     }
@@ -1797,6 +1837,11 @@ public final class OirOrders {
                 kept = clearer;
                 order.put("orderNo", clearer);
                 replaced++;
+            }
+            // a number whose length is not the page's own was decided by that length alone, and the
+            // person need not look at it; both of one length (or no length to go by) stay ambiguous
+            if (usual > 0 && firstFits != secondFits) {
+                continue;
             }
             String why = "单号两遍读数不一致（" + first + " / " + clearer + "），已保留 " + kept
                     + "，请对着截图核对";
