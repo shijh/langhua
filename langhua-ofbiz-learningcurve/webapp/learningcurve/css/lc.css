@@ -263,7 +263,22 @@ body.signin {
 /* the password page and the error page hold a form or a stack trace: they need the room */
 .signin-card-wide { width: 560px; text-align: left; }
 .signin-card h1 { margin: 0; font-size: 1.28em; color: var(--fg-strong); text-align: center; }
-.signin-logo { display: block; width: 72px; height: 72px; margin: 0 auto .7em; }
+.signin-logo { display: block; width: 68px; height: 68px; }
+/* same tile as the MES login card (Step 211) */
+.signin-badge {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 96px;
+    height: 96px;
+    margin: 0 auto .85em;
+    border-radius: 20px;
+    border: 2px solid transparent;
+    background:
+        linear-gradient(135deg, #f8fbff 0%, #fff3e0 100%) padding-box,
+        linear-gradient(135deg, #2f7cf6 0%, #ffa000 100%) border-box;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, .45), inset 0 0 0 1px rgba(255, 255, 255, .6);
+}
 .signin-sub { margin: .35em 0 1.3em; color: var(--fg-muted); font-size: .82em; line-height: 1.5; text-align: center; }
 .signin-card form { margin: 0; }
 .signin-field { display: block; box-sizing: border-box; width: 100%; margin-bottom: .8em; color: var(--fg-muted); font-size: .82em; text-align: left; }

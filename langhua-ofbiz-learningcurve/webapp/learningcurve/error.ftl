@@ -21,11 +21,11 @@
     <link rel="icon" type="image/png" sizes="32x32" href="/learningcurve/images/logo-32.png"/>
     <link rel="icon" type="image/png" sizes="64x64" href="/learningcurve/images/logo-64.png"/>
     <link rel="apple-touch-icon" href="/learningcurve/images/logo-180.png"/>
-    <link rel="stylesheet" type="text/css" href="/learningcurve/css/lc.css?v=4"/>
+    <link rel="stylesheet" type="text/css" href="/learningcurve/css/lc.css?v=6"/>
 </head>
 <body class="signin">
 <main class="signin-card signin-card-wide">
-    <img class="signin-logo" src="/learningcurve/images/logo-180.png" alt="" width="72" height="72"/>
+    <span class="signin-badge"><img class="signin-logo" src="/learningcurve/images/logo-180.png" alt="" width="72" height="72"/></span>
     <h1>这次请求没做完</h1>
     <p class="signin-sub">要么是数据不允许这么做（数量或样本不够、单号重复、没权限），要么是页面里有东西坏了。
         先回上一页看看这件事是不是已经做成了，再重试一次；同样的操作连着失败，就把下面这一段发给管理员。</p>

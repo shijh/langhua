@@ -2163,6 +2163,12 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   外距 .7em。**别把内里改成彩色**：那两个颜色会在自己的色相上糊掉。两个组件的 `decorator.ftl`（含改密门禁页）
   四处都要包 `<span class="brand-badge">`；`mfg.css?v=9` / `lc.css?v=3`。
   验法：`%TEMP%\jup\check-badge.ps1`（页面里带 badge 外壳、css 是 `?v=9`、`.brand-badge` 有渐变环、`.brand` 是 1.35em）。
+- **登录 / 改密 / 报错这三张独立页的 logo 也套同一个领章（Step 211）**：它们不走装饰器，各自带整份 html，
+  所以 `.signin-badge` 是同一套写法（96px、圆角 20px、蓝→橙渐变环、图 68px），改的是 `login.ftl` /
+  `changePassword.ftl` / `error.ftl`（两个组件各三份）。**这三张页面的 `<link>` 版本号是各自写死的**，
+  跟装饰器里的 `?v=` 不是同一个数——现在统一成 **mfg 全部 `?v=10`、学习曲线全部 `?v=6`**（以后改 css 只加这两个数，
+  别只改装饰器，否则登录页会用缓存里的旧样式）。验法：`%TEMP%\jup\check-signin-logo.ps1`（登录页 200、
+  带 `signin-badge` 外壳、css 是 `?v=10`、`.signin-badge` 有渐变环、`.signin-logo` 是 68px）。
 
 ## 兄弟组件 langhua-ofbiz-learningcurve
 

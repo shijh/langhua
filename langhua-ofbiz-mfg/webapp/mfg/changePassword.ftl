@@ -28,11 +28,11 @@
     <link rel="icon" type="image/png" sizes="32x32" href="/mfg/images/logo-32.png"/>
     <link rel="icon" type="image/png" sizes="64x64" href="/mfg/images/logo-64.png"/>
     <link rel="apple-touch-icon" href="/mfg/images/logo-180.png"/>
-    <link rel="stylesheet" type="text/css" href="/mfg/css/mfg.css?v=4"/>
+    <link rel="stylesheet" type="text/css" href="/mfg/css/mfg.css?v=10"/>
 </head>
 <body class="signin">
 <main class="signin-card signin-card-wide">
-    <img class="signin-logo" src="/mfg/images/logo-180.png" alt="" width="72" height="72"/>
+    <span class="signin-badge"><img class="signin-logo" src="/mfg/images/logo-180.png" alt="" width="72" height="72"/></span>
     <h1>请先修改密码</h1>
     <p class="signin-sub"><#if typed?has_content>账号 ${typed} 还在用出厂密码<#else>这个账号还在用出厂密码</#if>，改完才能继续用</p>
 <#if ((errorMessageList)![])?has_content>
