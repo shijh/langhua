@@ -27,12 +27,12 @@
     <link rel="icon" type="image/png" sizes="32x32" href="/learningcurve/images/logo-32.png"/>
     <link rel="icon" type="image/png" sizes="64x64" href="/learningcurve/images/logo-64.png"/>
     <link rel="apple-touch-icon" href="/learningcurve/images/logo-180.png"/>
-    <link rel="stylesheet" type="text/css" href="/learningcurve/css/lc.css?v=10"/>
+    <link rel="stylesheet" type="text/css" href="/learningcurve/css/lc.css?v=11"/>
 </head>
 <body class="signin">
 <main class="signin-card">
     <span class="signin-badge"><img class="signin-logo" src="/learningcurve/images/logo-180.png" alt="" width="72" height="72"/></span>
-    <h1>花石箓 · 学习曲线</h1>
+    <h1>花石箓 · 学习曲线<span class="seal" aria-hidden="true">箓</span></h1>
     <p class="signin-sub">学习曲线估算 · 估算记录 · 软件报价</p>
 <#if errList?has_content>
     <p class="signin-error"><#list errList as msg>${msg}<#if msg_has_next><br/></#if></#list></p>

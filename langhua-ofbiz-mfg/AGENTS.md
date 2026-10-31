@@ -2206,6 +2206,19 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   来得太早且直接到底（`#000 250px` 那版）= 用户说的“中断突然”。现在是“165 起、260 到六成、330 到八成半、之后慢慢到黑”。
   验法同上，`check-signin-logo.ps1` 现在断言 `card ramp`（那串断点）、`white mid`、`dark title`、
   `no tile`（`.signin-badge` 里没有 background）；版本号是 `mfg.css?v=14` / `lc.css?v=10`。
+- **登录区改成“宣纸 + 朱砂”的符箓样子（Step 216）**：用户说“不落黑了，感觉落黑不好看，花石箓那一行换成朱红色，
+  让这个登录区更有中国古代道家符箓的感觉”。所以 214/215 的黑纱与灰字一套**全部作废**，三张独立页现在是：
+  **米色宣纸卡片**（`--paper` → `--paper-mid` → `--paper-low` 竖向渐变，永不落黑）+ **朱砂内框**
+  （`.signin-card::before`，`inset: 7px`，`rgba(195,39,43,.42)`）+ **朱红标题**（`--cinnabar: #c3272b`，
+  楷体 `KaiTi/STKaiti/楷体`，字距 .09em）+ **标题下面的印章**（`<span class="seal">箓</span>`，只在两张
+  `login.ftl` 里，`display:block; width:1.9em; margin:.55em auto`）+ 墨色标签/暖白输入框/朱红按钮。
+  调色板是 `body.signin` 上的 8 个局部变量（`--paper*` / `--cinnabar*` / `--ink*`），只作用于这三张页。
+  **坑**：① 印章一开始写成 `inline-block`，标题一行放不下就折到下一行、看着像多了一个红点——必须 `display:block`
+  自己占一行；② `code` 有全局深色底（`--bg-widget`），纸面上就成了黑补丁，要 `body.signin code` 改回纸色；
+  ③ 链接同理，全局 `--link` 是蓝色，`body.signin a` 改成朱红；④ `.signin-sub` 的 6em 大空隙是给黑纱留的，
+  没有黑纱以后收回 1.4em。
+  改完 `mfg.css?v=15` / `lc.css?v=11`；`check-signin-logo.ps1` 现在断言 `paper card`、`no black`（卡片规则里
+  **不能**再出现 `#000000`）、`cinnabar`、`red frame`、`red action`、`seal`（登录页 h1 里的那个 span）。
 
 ## 兄弟组件 langhua-ofbiz-learningcurve
 
