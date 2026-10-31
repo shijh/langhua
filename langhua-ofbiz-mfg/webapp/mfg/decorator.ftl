@@ -28,7 +28,7 @@
     <link rel="icon" type="image/png" sizes="32x32" href="/mfg/images/logo-32.png"/>
     <link rel="icon" type="image/png" sizes="64x64" href="/mfg/images/logo-64.png"/>
     <link rel="apple-touch-icon" href="/mfg/images/logo-180.png"/>
-    <link rel="stylesheet" type="text/css" href="/mfg/css/mfg.css?v=7"/>
+    <link rel="stylesheet" type="text/css" href="/mfg/css/mfg.css?v=8"/>
 <#--
   A login that was asked for because the session ran out renders the start page in place (the
   framework answers the login form by rendering the main view, so the address bar still says
@@ -44,7 +44,7 @@
 <#if mustChange>
 <#-- the account still uses the password of a fresh database: nothing else is reachable until it is changed -->
 <p class="nav">
-    <img class="brand" src="/mfg/images/logo-64.png" alt="" width="26" height="26"/>
+    <img class="brand" src="/mfg/images/logo-nav.png" alt="" width="26" height="26"/>
     <b>修改密码</b>
     <a href="/mfg/control/logout" class="logout">退出登录</a>
 </p>
@@ -71,7 +71,7 @@
 </form>
 <#else>
 <p class="nav">
-    <img class="brand" src="/mfg/images/logo-64.png" alt="" width="26" height="26"/>
+    <img class="brand" src="/mfg/images/logo-nav.png" alt="" width="26" height="26"/>
     <@navItem 'main' '/mfg/control/main' '工单'/>
     <#if canEng>
         <@navItem 'products' '/mfg/control/products' '产品与 BOM'/>

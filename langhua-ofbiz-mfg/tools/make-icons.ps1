@@ -73,6 +73,7 @@ foreach ($dir in @($MfgDir, $LcDir)) {
     if (-not (Test-Path $dir)) { New-Item -ItemType Directory -Path $dir -Force | Out-Null }
     Save-Square $flat $minX $minY $boxW $boxH 512 (Join-Path $dir 'logo.png')
     Save-Square $flat $minX $minY $boxW $boxH 180 (Join-Path $dir 'logo-180.png')
+    Save-Square $flat $minX $minY $boxW $boxH 96  (Join-Path $dir 'logo-nav.png')
     Save-Square $flat $minX $minY $boxW $boxH 64  (Join-Path $dir 'logo-64.png')
     Save-Square $flat $minX $minY $boxW $boxH 32  (Join-Path $dir 'logo-32.png')
 }

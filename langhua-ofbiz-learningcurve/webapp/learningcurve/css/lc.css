@@ -129,7 +129,11 @@ input[type="submit"].secondary:hover, button.secondary:hover { background: #3a3d
     white-space: nowrap;
     overflow-x: auto;
     overflow-y: hidden;
+    /* one row, everything centred on the same line (Step 209: the logo used to be nudged by hand) */
+    display: flex;
+    align-items: center;
 }
+.nav > * { flex: 0 0 auto; }
 .nav a {
     display: inline-block;
     margin-right: .15em;
@@ -139,10 +143,10 @@ input[type="submit"].secondary:hover, button.secondary:hover { background: #3a3d
     text-decoration: none;
 }
 .nav a:hover { background: var(--bg-hover); text-decoration: none; }.nav .brand {
-    height: 1.7em;
+    height: 1.55em;
     width: auto;
-    vertical-align: -.42em;
-    margin-right: .5em;
+    display: block;
+    margin: 0 .65em 0 .15em;
 }
 .nav a.active {
     background: var(--bg-widget);

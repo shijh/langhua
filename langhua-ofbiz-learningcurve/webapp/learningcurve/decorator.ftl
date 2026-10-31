@@ -21,12 +21,12 @@
     <link rel="icon" type="image/png" sizes="32x32" href="/learningcurve/images/logo-32.png"/>
     <link rel="icon" type="image/png" sizes="64x64" href="/learningcurve/images/logo-64.png"/>
     <link rel="apple-touch-icon" href="/learningcurve/images/logo-180.png"/>
-    <link rel="stylesheet" type="text/css" href="/learningcurve/css/lc.css"/>
+    <link rel="stylesheet" type="text/css" href="/learningcurve/css/lc.css?v=2"/>
 </head>
 <body>
 <#if mustChange>
 <p class="nav">
-    <img class="brand" src="/learningcurve/images/logo-64.png" alt="" width="26" height="26"/>
+    <img class="brand" src="/learningcurve/images/logo-nav.png" alt="" width="26" height="26"/>
     <b>修改密码</b>
     <a href="/learningcurve/control/logout" class="logout">退出登录</a>
 </p>
@@ -52,7 +52,7 @@
 </form>
 <#else>
 <p class="nav">
-    <img class="brand" src="/learningcurve/images/logo-64.png" alt="" width="26" height="26"/>
+    <img class="brand" src="/learningcurve/images/logo-nav.png" alt="" width="26" height="26"/>
     <@navItem 'estimate' '/learningcurve/control/main' '新建估算'/>
     <@navItem 'records' '/learningcurve/control/records' '估算记录'/>
     <@navItem 'quote' '/learningcurve/control/quote' '软件报价'/>

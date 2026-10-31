@@ -82,7 +82,12 @@ a:hover { text-decoration: underline; }
     white-space: nowrap;
     overflow-x: auto;
     overflow-y: hidden;
+    /* one row, everything centred on the same line: the logo used to be nudged by hand with
+       vertical-align and never sat right next to the taller link buttons */
+    display: flex;
+    align-items: center;
 }
+.nav > * { flex: 0 0 auto; }
 /* jumping to a block (e.g. a receipt opened from its list) must not hide its heading under the nav */
 #receiptDetail {
     scroll-margin-top: 3.6em;
@@ -96,10 +101,10 @@ a:hover { text-decoration: underline; }
     text-decoration: none;
 }
 .nav a:hover { background: var(--bg-hover); text-decoration: none; }.nav .brand {
-    height: 1.7em;
+    height: 1.55em;
     width: auto;
-    vertical-align: -.42em;
-    margin-right: .5em;
+    display: block;
+    margin: 0 .65em 0 .15em;
 }
 .nav a.active {
     background: var(--bg-widget);

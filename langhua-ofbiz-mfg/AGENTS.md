@@ -2144,8 +2144,18 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   `--border: #3a3a3a` 比 VS Code 原生 `#2b2b2b` 亮一档；`h2`/`h3` 带 `border-top` 做区块分隔；
   导航条是一行 sticky、放不下横向滚动；**一页只有一个蓝色主按钮**，表格行内按钮用深灰次要样式
 - **网站图标**：源图 `F:\build-ofbiz\langhua-logo.png`（400×400 白底）→ `tools/make-icons.ps1` 把白色转透明并生成
-  `logo.png`(512) / `logo-180` / `logo-64` / `logo-32` 到两个组件的 `webapp/<组件>/images/`；
-  `decorator.ftl` 里 `rel="icon"` ×2 + `apple-touch-icon`，导航条第一项是 `<img class="brand">`（`alt=""`，CSS `height:1.7em`）
+  `logo.png`(512) / `logo-180` / `logo-nav`(96) / `logo-64` / `logo-32` 到两个组件的 `webapp/<组件>/images/`；
+  `decorator.ftl` 里 `rel="icon"` ×2 + `apple-touch-icon`，导航条第一项是 `<img class="brand">`（`alt=""`，CSS `height:1.55em`）
+- **导航条用 flex 居中，别再拿 `vertical-align` 手工垫（Step 209）**：用户报“左上角 logo 不够漂亮、也没有居中对齐”。
+  原来 `.nav .brand` 是 `height:1.7em; vertical-align:-.42em`，而这个值要跟旁边带 `.3em` 内边距的链接按钮凑，
+  永远差一点。现在 `.nav { display:flex; align-items:center }` + `.nav > * { flex:0 0 auto }`，
+  logo 与每个导航项共用一条中线，横向滚动（`overflow-x:auto`）照旧。
+  图片换成新增的 **`logo-nav.png`（96 px）**：26 px 显示时从 96 缩下来比 64 更清楚（高分屏上是 2× 以上）。
+  **favicon 仍用完整图案（带括号）**，只有导航条这点小图挑清晰度。改完把 `mfg.css?v=8` / `lc.css?v=2` 加一，
+  两个组件的 `decorator.ftl` 都要改（学习曲线也是同一套导航）。
+  验法：`%TEMP%\jup\check-nav.ps1`（主页面 200、css 链接是 `?v=8`、brand 指向 `logo-nav.png`、
+  css 里 `.nav` 是 flex 且 `.brand` 有 `display:block`、旧 `-0.42em` 不再出现、图片 200 + `image/png` + 96×96），
+  `check-nav-lc.ps1` 验学习曲线那一边。
 
 ## 兄弟组件 langhua-ofbiz-learningcurve
 
