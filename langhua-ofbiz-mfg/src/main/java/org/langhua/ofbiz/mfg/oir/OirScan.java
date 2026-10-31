@@ -239,6 +239,13 @@ public final class OirScan {
     private static final String COUNT_REASON = "the slice prints more article pictures than were read";
 
     /**
+     * Why a slice is asked again when every row of a block came back with the same part number: a block
+     * of different articles that all carry one code imports as one part, and the next request names the
+     * grey spec line each row prints of its own (Step 193).
+     */
+    private static final String CODES_REASON = "every row of a block was answered with one part number";
+
+    /**
      * How many rows an answer may be short of the pictures the block prints and still be asked again:
      * a row or two is a model that stopped early, ten is a page that prints two pictures beside a row
      * and tells nothing about the rows.
@@ -481,6 +488,10 @@ public final class OirScan {
         int stripTop = OirShots.stripStartOf(shotBoxes);
         long picturesDone = System.currentTimeMillis();
         int[] nextShot = new int[] {1};
+        // the pictures a slice printed beside its rows, kept for the warning written after the rows are
+        // tidied: written earlier it counts rows that are dropped again and tells the person the page
+        // printed sixteen articles where it printed fifteen (Step 193)
+        java.util.Map<Map<String, String>, Integer> picturesOf = new java.util.IdentityHashMap<>();
         String reply = null;
         String transportProblem = null;
         List<Map<String, String>> orders = Collections.emptyList();
@@ -529,7 +540,7 @@ public final class OirScan {
                 one.shutdownNow();
             }
             handPicturesOver(shotBoxes, shotThumbs,
-                    new int[] {0, shotsHeight(shotBoxes)}, orders, request, scanId, nextShot);
+                    new int[] {0, shotsHeight(shotBoxes)}, orders, request, scanId, nextShot, picturesOf);
         } else {
             // the slices are read side by side: four small calls in parallel take about as long as
             // one, while reading them one after the other made a five order page wait minutes
@@ -636,7 +647,7 @@ public final class OirScan {
                     // from them, one each when the counts agree
                     int[] range = sliced.ranges.get(at);
                     handPicturesOver(shotBoxes, shotThumbs, range, read.orders, request, scanId,
-                            nextShot);
+                            nextShot, picturesOf);
                 }
             } finally {
                 // a slice whose call is still hanging is cancelled here, not left running: the page
@@ -665,6 +676,9 @@ public final class OirScan {
         if (orders.isEmpty()) {
             return answer(response, false, scanFailure(reply, transportProblem), null, NO_ORDERS);
         }
+        // the pictures a slice printed beside its rows, kept for the warning below: the note has to be
+        // written once the rows are tidied, or it counts rows that are dropped again and tells the
+        // person the page printed sixteen articles where it printed fifteen (Step 193)
         // how many blocks the picture shows, told by the buttons and not by the model: a block keeps
         // its button whatever became of the deal (a closed one offers 再买一单 or 加入购物车 as well),
         // so this count can be held against the read - one order too many is a block read as two
@@ -701,6 +715,17 @@ public final class OirScan {
             // so the page already shows the code that will be stored
             OirOrders.tidyOrder(order);
             order.put("lines", OirOrders.fitOrderLines(order.get("lines")));
+            // the pictures this block printed beside its rows, told against the rows that are left: a
+            // different count means one of the two sides was read wrong, and only a person can settle
+            // which (Step 193)
+            Integer pictures = picturesOf.get(order);
+            if (pictures != null) {
+                String picturesOff = picturesShortfallNote(pictures.intValue(),
+                        OirOrders.parseOrderArticleLines(order.get("lines")).size());
+                if (picturesOff != null) {
+                    addNote(order, picturesOff);
+                }
+            }
             if (OirOrders.isRefunded(order)) {
                 // a refund is not booked in, but reading one is a guess like everything else: the model
                 // took 「7天无理由退货」 and 「退货宝」 for a refund and blocked a good order for good.
@@ -730,7 +755,9 @@ public final class OirScan {
                 String note = totals == null ? rowsOff
                         : (rowsOff == null ? totals : totals + "；" + rowsOff);
                 if (note != null) {
-                    order.put("note", note);
+                    // appended, not written over: the order may already carry what the second read of
+                    // its number found (Step 193)
+                    addNote(order, note);
                 }
             }
         }
@@ -878,9 +905,11 @@ public final class OirScan {
      * @param request the request, for the delegator
      * @param scanId the id of this scan, the pictures are filed under it
      * @param nextShot how many pictures have been filed so far, one number in an array
+     * @param picturesOf receives how many pictures the slice printed, for the warning written later
      */
     private static void handPicturesOver(List<int[]> boxes, List<byte[]> thumbs, int[] range,
-            List<Map<String, String>> orders, HttpServletRequest request, String scanId, int[] nextShot) {
+            List<Map<String, String>> orders, HttpServletRequest request, String scanId, int[] nextShot,
+            java.util.Map<Map<String, String>, Integer> picturesOf) {
         if (orders == null || orders.isEmpty() || boxes.isEmpty()) {
             return;
         }
@@ -924,11 +953,9 @@ public final class OirScan {
         }
         // the page prints one picture beside each article, so a different count means one of the two
         // sides was read wrong: the person is told, instead of trusting a picture that may sit beside
-        // the wrong part
-        String shortfall = picturesShortfallNote(mine.size(), articles);
-        if (shortfall != null) {
-            addNote(orders.get(0), shortfall);
-        }
+        // the wrong part. The counts are remembered and told after the rows were tidied, because the
+        // tidy pass may drop a duplicated row and the warning would then name a wrong count
+        picturesOf.put(orders.get(0), Integer.valueOf(mine.size()));
     }
 
     /**
@@ -1436,6 +1463,15 @@ public final class OirScan {
                     break;
                 }
             }
+            if (CODES_REASON.equals(why)) {
+                // fifteen packs of capacitors all came back as 0805: the value that tells them apart is
+                // printed at the start of each row's own grey spec line, and naming it is what makes
+                // the model read that line instead of the title (Step 193). The next call is the one
+                // that carries this hint, so it has to be made
+                gapHint = " Every row of that block is a different article: read the part number of each"
+                        + " row from the start of its own grey spec line (0805 47UF 476M 10% 16V,"
+                        + " 0805 100NF 104K, 0805 22UF 226K), never one number for all the rows.";
+            }
             if (got.isEmpty()) {
                 Debug.logInfo("The answer that carried no order was: " + reply, MODULE);
             }
@@ -1490,6 +1526,11 @@ public final class OirScan {
         }
         if (OirOrders.echoesTemplate(reply)) {
             return "the answer is the answer format itself";
+        }
+        if (OirOrders.codesDoNotTellTheRowsApart(got)) {
+            // a block of fifteen capacitor packs, each with its own value on the grey line, came back
+            // with 0805 as the part number of all fifteen: they would import as one part (Step 193)
+            return CODES_REASON;
         }
         if (OirOrders.anyUnreadable(got)) {
             return "a row has no readable quantity or amount";

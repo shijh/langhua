@@ -1727,6 +1727,45 @@ public class MfgOrderReadRulesTest {
     }
 
     @Test
+    public void noticesWhenOnePartNumberStandforFifteenArticles() {
+        // a block of fifteen capacitor packs prints one title and the value of each pack on its own
+        // grey line; answering 0805 for all fifteen imports them as one part, and different money is
+        // what tells those rows apart (Step 193)
+        Map<String, String> fifteen = new LinkedHashMap<>();
+        StringBuilder lines = new StringBuilder();
+        for (int i = 0; i < 15; i++) {
+            lines.append("0805\t0805贴片电容\t50\t").append(i % 3 == 0 ? "3.00" : "2.50").append('\n');
+        }
+        fifteen.put("lines", lines.toString().trim());
+        assertTrue(OirOrders.codesDoNotTellTheRowsApart(Collections.singletonList(fifteen)));
+        // the same part bought twice at the same price keeps its one number
+        Map<String, String> twice = new LinkedHashMap<>();
+        twice.put("lines", "1/4W 10K\t电阻\t100\t2.00\n1/4W 10K\t电阻\t100\t2.00\n1/4W 10K\t电阻\t100\t2.00");
+        assertFalse(OirOrders.codesDoNotTellTheRowsApart(Collections.singletonList(twice)));
+        // different numbers are what the answer should give
+        Map<String, String> told = new LinkedHashMap<>();
+        told.put("lines", "0805 47UF\t0805贴片电容\t20\t5.00\n0805 6.8UF\t0805贴片电容\t50\t4.00\n"
+                + "0805 22UF\t0805贴片电容\t50\t6.00");
+        assertFalse(OirOrders.codesDoNotTellTheRowsApart(Collections.singletonList(told)));
+        // and the answer that read each value grades higher than the one that wrote 0805 fifteen
+        // times: same orders, same rows, same money, so the part numbers are what decides (Step 193)
+        Map<String, String> flat = new LinkedHashMap<>();
+        flat.put("paidTotal", "38.50");
+        flat.put("lines", lines.toString().trim());
+        StringBuilder read = new StringBuilder();
+        for (int i = 0; i < 15; i++) {
+            read.append("0805 ").append(i).append("UF\t0805贴片电容\t50\t")
+                    .append(i % 3 == 0 ? "3.00" : "2.50").append('\n');
+        }
+        Map<String, String> toldSameMoney = new LinkedHashMap<>();
+        toldSameMoney.put("paidTotal", "38.50");
+        toldSameMoney.put("lines", read.toString().trim());
+        assertFalse(OirOrders.codesDoNotTellTheRowsApart(Collections.singletonList(toldSameMoney)));
+        assertTrue(OirOrders.answerScore(Collections.singletonList(toldSameMoney), 1)
+                > OirOrders.answerScore(Collections.singletonList(flat), 1));
+    }
+
+    @Test
     public void takesThePromiseOutOfTheCode() {
         // the grey line of a row starts with the shop's own promise on some pages, and a model that
         // answers the start of that line gives two rows of one order the same code (Step 192)

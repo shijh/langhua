@@ -484,6 +484,44 @@ public final class OirOrders {
         return String.format(Locale.ROOT, "%.2f", Double.valueOf(round2(money * count)));
     }
 
+    /**
+     * Tells whether an answer gave every row of a block the same part number although the rows are
+     * different articles.
+     *
+     * <p>A page of fifteen capacitor packs prints one title for all of them and the value of each pack
+     * on its own grey spec line ({@code 0805 47UF 476M 10% 16V 20个}); a model that answers the start
+     * of the line answers {@code 0805} for all fifteen, and the fifteen articles then import as one
+     * part. Different money is what makes them different articles - a block that bought the same part
+     * twice pays the same for both rows and is left alone (Step 193).
+     *
+     * @param orders the order maps of one answer
+     * @return {@code true} when a block of several rows shares one part number but not one price
+     */
+    public static boolean codesDoNotTellTheRowsApart(List<Map<String, String>> orders) {
+        if (orders == null) {
+            return false;
+        }
+        for (Map<String, String> order : orders) {
+            if (order == null) {
+                continue;
+            }
+            List<String[]> rows = parseOrderArticleLines(order.get("lines"));
+            if (rows.size() < 3) {
+                continue;
+            }
+            Set<String> codes = new LinkedHashSet<>();
+            Set<String> amounts = new LinkedHashSet<>();
+            for (String[] row : rows) {
+                codes.add(rowKey(row[0]));
+                amounts.add(String.valueOf(round2(toDouble(row[3], 0.0))));
+            }
+            if (codes.size() == 1 && amounts.size() >= 2) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     /** The pack size a shop prints after a value in half width brackets: {@code 5.1K (50只)}. */
     private static final Pattern PACK_IN_BRACKETS =
             Pattern.compile("\\s*[（(]\\s*\\d+\\s*(?:只|个|件|只装|片|套)\\s*[)）]\\s*$");
@@ -1076,7 +1114,10 @@ public final class OirOrders {
      * Grades one answer of the picture, so the best of several sends survives: the last send is not
      * always the best one (a third attempt dropped a whole order the first one had read). The number
      * of orders outweighs everything, then the number of article rows, then how many orders agree on
-     * the money.
+     * the money, and last how many of the rows carry a part number of their own: a block of fifteen
+     * capacitor packs answered as fifteen rows of {@code 0805} has the same orders, rows and money as
+     * the answer that read each value, so without that last term the good one would be dropped
+     * (Step 193).
      *
      * @param orders the orders of that answer
      * @param seen how many orders the model said the picture shows, 0 when it did not say
@@ -1088,15 +1129,22 @@ public final class OirOrders {
         }
         int rows = 0;
         int agree = 0;
+        int codes = 0;
         for (Map<String, String> order : orders) {
-            rows += parseOrderArticleLines(order == null ? null : order.get("lines")).size();
+            List<String[]> own = parseOrderArticleLines(order == null ? null : order.get("lines"));
+            rows += own.size();
+            Set<String> distinct = new LinkedHashSet<>();
+            for (String[] row : own) {
+                distinct.add(rowKey(row[0]));
+            }
+            codes += Math.min(distinct.size(), 40);
             boolean readable = order != null && optionalAmount(order.get("paidTotal")) != null
                     && !totalsDisagree(order);
             if (readable && !anyUnreadable(java.util.Collections.singletonList(order))) {
                 agree++;
             }
         }
-        int score = orders.size() * 1000 + rows * 10 + agree;
+        int score = orders.size() * 1000 + rows * 10 + agree + codes;
         if (seen > 0 && orders.size() == seen) {
             score += 500;
         }
