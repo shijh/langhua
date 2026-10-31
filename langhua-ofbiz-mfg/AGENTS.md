@@ -2168,7 +2168,20 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   `changePassword.ftl` / `error.ftl`（两个组件各三份）。**这三张页面的 `<link>` 版本号是各自写死的**，
   跟装饰器里的 `?v=` 不是同一个数——现在统一成 **mfg 全部 `?v=10`、学习曲线全部 `?v=6`**（以后改 css 只加这两个数，
   别只改装饰器，否则登录页会用缓存里的旧样式）。验法：`%TEMP%\jup\check-signin-logo.ps1`（登录页 200、
-  带 `signin-badge` 外壳、css 是 `?v=10`、`.signin-badge` 有渐变环、`.signin-logo` 是 68px）。
+  带 `signin-badge` 外壳、css 版本号、`.signin-logo` 是 68px）。
+- **登录页那块内里改成“正中白、四边透色”（Step 212）**：用户要“背景用渐变的白色，整条从左到右、
+  从上到下，正中是白色”。做法是**两层半透明方向渐变叠在一层不透明白底上**：`90deg` 与 `180deg` 各一条
+  `rgba(47,124,246,.5) → 透明@50% → rgba(255,160,0,.5)`，下面压 `linear-gradient(#fff,#fff)`，
+  最后仍是 `border-box` 的蓝→橙渐变环；四层一起写 `background-clip: padding-box, padding-box, padding-box, border-box`。
+  **不能写成一个对角 `135deg` 渐变**：那样只有一条轴上“中间是白”，另一条轴两端都是同一个颜色。
+  也别把白底那层删掉——半透明层没有白底会直接透出深色卡片，正中就不是白的。
+  `.brand-badge`（导航条那个小方块）仍用 Step 210 的近白对角渐变，两者不是同一份样式，改的时候别混。
+  改完 `mfg.css?v=11` / `lc.css?v=7`（**五处 `<link>` 全要加**：decorator / login / changePassword /
+  error / forgotPassword，两个组件共十个模板，用脚本统一改，别手点）。验法仍是
+  `%TEMP%\jup\check-signin-logo.ps1`（断言 `90deg` 那条、`180deg` 那条、四段 `background-clip`、`signin-logo` 68px），
+  想看图就直接用 Edge headless 拍：
+  `& "$env:ProgramFiles(x86)\Microsoft\Edge\Application\msedge.exe" --headless=new --screenshot=… http://localhost:8095/mfg/control/login`
+  （开发实例是自签 https，headless 拍不了；测试实例 8095 是 http）。
 
 ## 兄弟组件 langhua-ofbiz-learningcurve
 
