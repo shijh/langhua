@@ -2219,6 +2219,11 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   没有黑纱以后收回 1.4em。
   改完 `mfg.css?v=15` / `lc.css?v=11`；`check-signin-logo.ps1` 现在断言 `paper card`、`no black`（卡片规则里
   **不能**再出现 `#000000`）、`cinnabar`、`red frame`、`red action`、`seal`（登录页 h1 里的那个 span）。
+  **Step 217 用户把印章和楷体都去掉了**：“印章去掉吧，花石箓那一行不用楷体，用之前的字体更好”——
+  所以 `.seal` 那条 CSS 与两个 `login.ftl` 里的 span 都删了，`h1` 只留朱红 + `.09em` 字距（字体回到全局无衬线）。
+  以后想再加回来：span + `.signin-card h1 .seal` 那段（`display:block`，别用 inline-block），字体那句在 h1 里。
+  现在 `check-signin-logo.ps1` 断言的是 `plain font`（h1 里**没有** `font-family`）与 `seal` 为 **false**；
+  版本号 `mfg.css?v=16` / `lc.css?v=12`。
 
 ## 兄弟组件 langhua-ofbiz-learningcurve
 

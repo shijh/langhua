@@ -289,24 +289,8 @@ body.signin {
     margin: 0;
     font-size: 1.3em;
     color: var(--cinnabar);
-    /* a brush face where the machine has one, the ordinary serif otherwise */
-    font-family: "KaiTi", "STKaiti", "Kaiti SC", "楷体", serif;
     letter-spacing: .09em;
     text-align: center;
-}
-/* the seal pressed under the title: cream character in a cinnabar square, the way a 印 is stamped
-   under the name on a 符 (login.ftl only) */
-.signin-card h1 .seal {
-    display: block;
-    width: 1.9em;
-    margin: .55em auto .1em;
-    padding: .1em 0;
-    font-size: .62em;
-    line-height: 1.3;
-    letter-spacing: 0;
-    color: #fdf6e6;
-    background: var(--cinnabar);
-    border-radius: 2px;
 }
 .signin-logo { display: block; width: 68px; height: 68px; }
 /* the mark sits straight on the paper: no tile and no band of its own (Step 213/216) */
