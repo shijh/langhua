@@ -77,7 +77,7 @@
     <service name="mfgLotCodeChange" engine="java"
             location="org.langhua.ofbiz.mfg.MfgStockServices" invoke="lotCodeChange"
             auth="false" use-transaction="true">
-        <description>Correct the part number of ONE lot, with its issues and its receipt line; other lots keep their own number (mfgPartCodeRename is the tool that moves a code everywhere)</description>
+        <description>Correct the part number of ONE lot, with its issues and its receipt line; other lots keep their own number. When the old number is no longer used by any other lot, the rows that only name the part (product BOM, design BOM, minimum stock setting, repair parts) move with it; otherwise they stay and the page says how many lots still carry the old number</description>
         <attribute name="lotId" type="String" mode="IN" optional="false"/>
         <!-- the new code. Not called componentCode on purpose: the redirect of the page also carries a
              componentCode (the part filter), and makeQueryString falls back to the *posted* parameter,
@@ -97,6 +97,13 @@
         <attribute name="pageSize" type="String" mode="OUT" optional="true"/>
         <attribute name="issuesUpdated" type="String" mode="OUT" optional="true"/>
         <attribute name="receiptLinesUpdated" type="String" mode="OUT" optional="true"/>
+        <!-- how many other lots still carry the old number; empty/0 means the references below moved -->
+        <attribute name="otherLots" type="String" mode="OUT" optional="true"/>
+        <attribute name="referencesUpdated" type="String" mode="OUT" optional="true"/>
+        <attribute name="bomLinesUpdated" type="String" mode="OUT" optional="true"/>
+        <attribute name="devBomLinesUpdated" type="String" mode="OUT" optional="true"/>
+        <attribute name="replacementsUpdated" type="String" mode="OUT" optional="true"/>
+        <attribute name="stockSettingMoved" type="String" mode="OUT" optional="true"/>
     </service>
 
 

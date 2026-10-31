@@ -568,9 +568,9 @@ public final class MfgProductServices {
 
     /**
      * Renames a part number everywhere it is stored: the lots, the issues, the receipt lines, the
-     * BOM lines of every version, the replaced parts of a repair and the stock setting of that part.
-     * A code built from the name of an article is only a guess, so it has to be correctable without
-     * breaking the traceability.
+     * BOM lines of every version, the design BOM of every project, the parts replaced during a repair
+     * and the stock setting of that part. A code built from the name of an article is only a guess, so
+     * it has to be correctable without breaking the traceability.
      *
      * @param dctx the dispatch context
      * @param context service context, see {@code servicedef/product-services.xml#mfgPartCodeRename}
@@ -597,35 +597,18 @@ public final class MfgProductServices {
             int lots = renameWhere(delegator, "MfgMaterialLot", oldCode, newCode);
             int issues = renameWhere(delegator, "MfgMaterialIssue", oldCode, newCode);
             int receiptLines = renameWhere(delegator, "MfgPurchaseReceiptLine", oldCode, newCode);
-            int bomLines = renameWhere(delegator, "MfgBomItem", oldCode, newCode)
-                    + renameWhere(delegator, "MfgBomVersionItem", oldCode, newCode);
-            int replacements = renameWhere(delegator, "MfgReplacement", oldCode, newCode);
-            // the stock setting keeps the code as its key, so it is copied when the new one is free
-            boolean setting = false;
-            GenericValue oldSetting = EntityQuery.use(delegator).from("MfgStockSetting")
-                    .where("componentCode", oldCode).queryFirst();
-            if (oldSetting != null) {
-                GenericValue newSetting = EntityQuery.use(delegator).from("MfgStockSetting")
-                        .where("componentCode", newCode).queryFirst();
-                if (newSetting == null) {
-                    GenericValue copy = delegator.makeValue("MfgStockSetting");
-                    copy.setNonPKFields(oldSetting.getAllFields());
-                    copy.set("componentCode", newCode);
-                    delegator.create(copy);
-                }
-                oldSetting.remove();
-                setting = true;
-            }
-            int total = lots + issues + receiptLines + bomLines + replacements;
+            RenamedReferences refs = renamePartReferences(delegator, oldCode, newCode);
+            int total = lots + issues + receiptLines + refs.total();
             Map<String, Object> result = ServiceUtil.returnSuccess();
-            if (total == 0 && !setting) {
+            if (total == 0) {
                 return ServiceUtil.returnError("没有找到料号 " + oldCode + "，没有改动");
             }
             result.put("lotsUpdated", Long.valueOf(lots));
             result.put("issuesUpdated", Long.valueOf(issues));
             result.put("receiptLinesUpdated", Long.valueOf(receiptLines));
-            result.put("bomLinesUpdated", Long.valueOf(bomLines));
-            result.put("replacementsUpdated", Long.valueOf(replacements));
+            result.put("bomLinesUpdated", Long.valueOf(refs.bomLines + refs.versionLines));
+            result.put("devBomLinesUpdated", Long.valueOf(refs.devBomLines));
+            result.put("replacementsUpdated", Long.valueOf(refs.replacements));
             result.put("renamed", String.valueOf(total));
             result.put("search", newCode);
             return result;
@@ -654,6 +637,85 @@ public final class MfgProductServices {
             changed++;
         }
         return changed;
+    }
+
+    /**
+     * How many rows of which tables were moved to a new part number, so the page can say what
+     * happened instead of just "done".
+     */
+    static final class RenamedReferences {
+
+        int bomLines;
+        int versionLines;
+        int devBomLines;
+        int replacements;
+        boolean stockSetting;
+
+        /** @return every reference that was moved, the stock setting counted as one */
+        int total() {
+            return bomLines + versionLines + devBomLines + replacements + (stockSetting ? 1 : 0);
+        }
+    }
+
+    /**
+     * Moves every row that <em>names</em> a part from the old number to the new one: the BOM lines
+     * (the old table and the versioned one), the design BOM of every development project, the parts
+     * swapped during a repair, and the minimum stock setting of that part.
+     *
+     * <p>These rows describe the part; they are not the part on the shelf. They have to follow a
+     * rename or the BOM keeps asking for a number nothing is booked under, which shows up as "0 in
+     * stock, everything missing" while the shelf is full (Step 205: the design BOM was the one table
+     * the old rename forgot, and the row in front of the user kept its picture-less, stock-less life
+     * after the lot had been corrected).
+     *
+     * <p>The lots, the issues and the receipt lines are <b>not</b> touched here: whoever renames one
+     * parcel must not silently move the other parcels booked under the same number with it.
+     *
+     * @param delegator the delegator
+     * @param oldCode the number the rows carry now
+     * @param newCode the number they should carry
+     * @return the counts per table
+     * @throws GenericEntityException when the rows cannot be read or stored
+     */
+    static RenamedReferences renamePartReferences(Delegator delegator, String oldCode, String newCode)
+            throws GenericEntityException {
+        RenamedReferences refs = new RenamedReferences();
+        refs.bomLines = renameWhere(delegator, "MfgBomItem", oldCode, newCode);
+        refs.versionLines = renameWhere(delegator, "MfgBomVersionItem", oldCode, newCode);
+        refs.devBomLines = renameWhere(delegator, "MfgDevBomItem", oldCode, newCode);
+        refs.replacements = renameWhere(delegator, "MfgReplacement", oldCode, newCode);
+        refs.stockSetting = moveStockSetting(delegator, oldCode, newCode);
+        return refs;
+    }
+
+    /**
+     * Moves the minimum stock setting to the new part number. The code is the primary key of that
+     * table, so the row is copied when the new number is free and the old row is dropped; an existing
+     * setting of the new number wins and the old one is simply removed.
+     *
+     * @param delegator the delegator
+     * @param oldCode the number the setting is filed under
+     * @param newCode the number it should be filed under
+     * @return true when there was a setting to move
+     * @throws GenericEntityException when the setting cannot be read or written
+     */
+    private static boolean moveStockSetting(Delegator delegator, String oldCode, String newCode)
+            throws GenericEntityException {
+        GenericValue oldSetting = EntityQuery.use(delegator).from("MfgStockSetting")
+                .where("componentCode", oldCode).queryFirst();
+        if (oldSetting == null) {
+            return false;
+        }
+        GenericValue newSetting = EntityQuery.use(delegator).from("MfgStockSetting")
+                .where("componentCode", newCode).queryFirst();
+        if (newSetting == null) {
+            GenericValue copy = delegator.makeValue("MfgStockSetting");
+            copy.setNonPKFields(oldSetting.getAllFields());
+            copy.set("componentCode", newCode);
+            delegator.create(copy);
+        }
+        oldSetting.remove();
+        return true;
     }
 
     /**

@@ -193,6 +193,12 @@ public final class MfgStockServices {
      * the BOM lines and the stock setting); this one is the tool for "this parcel is a different
      * part".
      *
+     * <p>The rows that only <em>name</em> the part follow, but only once the old number is free: the
+     * product BOM, the design BOM of every project, the parts swapped during a repair and the minimum
+     * stock setting. A BOM line left on a number nothing is booked under shows the part as missing even
+     * though the shelf is full, which is what the user was looking at when he asked for this (Step 205).
+     * While another parcel still carries the old number nothing is moved, and the page says so.
+     *
      * @param dctx the dispatch context
      * @param context service context, see {@code servicedef/stock-services.xml#mfgLotCodeChange}
      * @return the service result with {@code lotId}, {@code newCode}, {@code renamedLot} and the view
@@ -250,10 +256,59 @@ public final class MfgStockServices {
             result.put("issuesUpdated", String.valueOf(issues));
             result.put("receiptLinesUpdated", String.valueOf(lines));
             result.put("oldCode", oldCode);
+            // the places that only *name* this part follow it once the old number is free: a BOM line
+            // or a minimum stock setting left on a number no parcel carries any more reports "0 in
+            // stock, everything missing" for ever. While another parcel still carries it nothing is
+            // touched - renaming one reel must not hand another board's BOM this reel's number (Step 205)
+            int others = otherLotsWith(delegator, oldCode, lotId);
+            result.put("otherLots", String.valueOf(others));
+            if (others == 0) {
+                MfgProductServices.RenamedReferences refs =
+                        MfgProductServices.renamePartReferences(delegator, oldCode, newCode);
+                result.put("bomLinesUpdated", String.valueOf(refs.bomLines + refs.versionLines));
+                result.put("devBomLinesUpdated", String.valueOf(refs.devBomLines));
+                result.put("replacementsUpdated", String.valueOf(refs.replacements));
+                result.put("stockSettingMoved", refs.stockSetting ? "Y" : "");
+                result.put("referencesUpdated", String.valueOf(refs.total()));
+            } else {
+                result.put("referencesUpdated", "0");
+            }
             return result;
         } catch (GenericEntityException e) {
             return ServiceUtil.returnError("改料号失败：" + e.getMessage());
         }
+    }
+
+    /**
+     * How many other lots still carry this part number, ignoring case and blanks.
+     *
+     * <p>A case-only correction counts as the same number: the picture and the stock lookups ignore the
+     * case (Step 204), so nothing has to be moved for it. The lot that is being renamed is left out by
+     * its id, because it has already been stored under the new number when this runs.
+     *
+     * @param delegator the delegator
+     * @param componentCode the number the row had before the change
+     * @param exceptLotId the lot being renamed, may be null
+     * @return how many other lots are booked under that number
+     * @throws GenericEntityException when the lots cannot be read
+     */
+    static int otherLotsWith(Delegator delegator, String componentCode, String exceptLotId)
+            throws GenericEntityException {
+        String wanted = MfgSupport.toText(componentCode);
+        if (wanted == null) {
+            return 0;
+        }
+        int count = 0;
+        for (GenericValue lot : MfgStockLedger.componentLots(delegator)) {
+            if (exceptLotId != null && exceptLotId.equals(lot.getString("lotId"))) {
+                continue;
+            }
+            String code = MfgSupport.toText(lot.getString("componentCode"));
+            if (code != null && code.equalsIgnoreCase(wanted)) {
+                count++;
+            }
+        }
+        return count;
     }
 
     /**

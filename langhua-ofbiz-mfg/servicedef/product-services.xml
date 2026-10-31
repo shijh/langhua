@@ -197,13 +197,14 @@
     <service name="mfgPartCodeRename" engine="java"
             location="org.langhua.ofbiz.mfg.MfgProductServices" invoke="partCodeRename"
             auth="false" use-transaction="true">
-        <description>Rename a part number where it is stored: lots, issues, receipt lines, BOM lines of every version, replaced parts and the stock setting</description>
+        <description>Rename a part number where it is stored: lots, issues, receipt lines, BOM lines of every version, the design BOM of every project, replaced parts and the stock setting</description>
         <attribute name="oldCode" type="String" mode="IN" optional="false"/>
         <attribute name="newCode" type="String" mode="IN" optional="false"/>
         <attribute name="lotsUpdated" type="Long" mode="OUT" optional="true"/>
         <attribute name="issuesUpdated" type="Long" mode="OUT" optional="true"/>
         <attribute name="receiptLinesUpdated" type="Long" mode="OUT" optional="true"/>
         <attribute name="bomLinesUpdated" type="Long" mode="OUT" optional="true"/>
+        <attribute name="devBomLinesUpdated" type="Long" mode="OUT" optional="true"/>
         <attribute name="replacementsUpdated" type="Long" mode="OUT" optional="true"/>
         <attribute name="renamed" type="String" mode="OUT" optional="true"/>
         <attribute name="search" type="String" mode="OUT" optional="true"/>

@@ -249,6 +249,8 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   **料号有两条路，别混**：`mfgLotCodeChange`（台账「元件料号」格，**只改这一个批次** + 它的发料 + 它的到货单行）；
   `mfgPartCodeRename`（上方那个框，**按料号改所有行**，还带 BOM / 售后换件 / 安全库存）。用户就是被后者坑过：
   想改一行，结果“已把 46 行料号改成 …”，两块不同的板子混成一个料号。所以页面上前者在行里、后者加了提醒文字。
+  **Step 205 起**：行内那条在**旧料号已经没有别的批次**时，会把“只写着这个料号”的地方（产品 BOM / 研发 BOM /
+  售后换件 / 安全库存）一起改过去；还有别的批次就只提醒不改（见下面 Step 205 那条）。
   **行内四个动作（料号 / 名称 / 点数修正 / 来料检验）要回到当前那一页**：`materials.ftl` 的 `<@keepView/>` 宏
   在每张行表单里放 `backSearch` / `backPage` / `backPageSize` / `backComponentCode`，服务用 `keepView(...)` 原样回写，
   controller 的 `<redirect-parameter>` 带上 `search` / `page` / `pageSize` / `componentCode`。少一个就会被甩到台账第一页。
@@ -1148,6 +1150,21 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   单测 `findsThePictureOfAPartWhateverTheCaseOfItsNumber` / `carriesAPictureDownASplitChainWhosePartNumbersDifferInCase`；
   真机验法（测试实例）：把带图的批次用 `lotCodeChange` 改成 `Nfc Coil`，研发 BOM 行仍是 `NFC COIL` 且**图还在**，
   再改回去复原（脚本 `%TEMP%\jup\check-picture-case3.ps1`，走 `/mfg/control/lotCodeChange` + 两个页面读回来）。
+- **改一个批次的料号，引用它的地方跟着改（Step 205）**：用户要求“在物料批次里改了元件料号，希望使用旧名字的地方都会自动跟着改”。
+  现在台账行里的「改」改完之后，**只要旧料号已经没有别的批次**（`MfgStockServices.otherLotsWith`：大小写不敏感、
+  按 `componentLots` 排除成品批次、按 id 排除自己），就把“只写着这个料号”的几处一起改过去：
+  **产品 BOM（`MfgBomItem` + `MfgBomVersionItem`）、研发 BOM（`MfgDevBomItem`）、售后换件（`MfgReplacement`）、
+  安全库存（`MfgStockSetting`，主键是料号，所以复制一行再删旧行）**——这份清单就是
+  `MfgProductServices.renamePartReferences`，**「料号重命名」那个框也改成调它**（顺带补上原来漏掉的**研发 BOM**：
+  以前连整体改名的框都不改研发 BOM 的行，于是批次改了名、研发 BOM 还指着死号）。
+  **旧料号还有别的批次时一律不动**（改引用会把那些批次的料从 BOM 里挤掉），页面用黄条说“还有 N 个批次在用”，
+  来自 OUT `otherLots`；要整体改名还是用上面的「料号重命名」。
+  绿字会点出改了几处（`bomLinesUpdated` / `devBomLinesUpdated` / `replacementsUpdated` / `stockSettingMoved`），
+  这些 OUT 全是 String，**`controller.xml` 的 `<redirect-parameter>` 一个都不能漏**，漏了页面上只是少个数（不报错，难发现）。
+  验法（测试实例）：`%TEMP%\jup\check-rename-follows2.ps1`（`LOT-261031-295` 改成 `NFC COIL-Z` → 研发 BOM 那一行跟着变；
+  再把另一个批次也改成 `NFC COIL` 让它变成共用的号 → 引用不动、黄条说还有一个批次）、
+  `check-rename-msg.ps1` / `check-rename-warn.ps1` 读绿字与黄条（**跑完都把料号改回原样**）；
+  `verify-m55-recount.ps1` 54 项仍全过（“the other lot kept the old code” 那条正好盯着“不许连坐”）。
 - **同一单被读成两个号 / 页面底部的商品图被算进最后一单（Step 131）**：生产上 29 张单被识别成 30 或 31 张。
   两个原因都修在 `MfgServices` 里：
   ① **同一个订单号被读缺了几位**（`3316453503083081392` 被读成 `331645303083081392`，另一次读成

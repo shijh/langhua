@@ -450,6 +450,13 @@
             <redirect-parameter name="search"/>
             <redirect-parameter name="renamedLot"/>
             <redirect-parameter name="newCode"/>
+            <redirect-parameter name="oldCode"/>
+            <redirect-parameter name="otherLots"/>
+            <redirect-parameter name="referencesUpdated"/>
+            <redirect-parameter name="devBomLinesUpdated"/>
+            <redirect-parameter name="bomLinesUpdated"/>
+            <redirect-parameter name="replacementsUpdated"/>
+            <redirect-parameter name="stockSettingMoved"/>
             <redirect-parameter name="page"/>
             <redirect-parameter name="pageSize"/>
             <redirect-parameter name="componentCode"/>

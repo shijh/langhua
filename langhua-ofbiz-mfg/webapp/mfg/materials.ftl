@@ -210,7 +210,18 @@ C0402-100N,100nF 0402 电容,立创商城,DC2409B,500,2026-10-19</textarea>
         <p class="ok">批次 ${parameters.editedLot} 的名称/备注已保存（料号要改的话用上面的「料号重命名」）。</p>
     </#if>
     <#if parameters.renamedLot??>
-        <p class="ok">批次 ${parameters.renamedLot} 的料号已改成 <code>${(parameters.newCode)!''}</code>（<b>只改了这一行</b>，它的发料与到货单行也一起改；其他同料号的批次没动）。</p>
+        <p class="ok">批次 ${parameters.renamedLot} 的料号已改成 <code>${(parameters.newCode)!''}</code>
+            （<b>只改了这一行</b>，它的发料与到货单行也一起改；其他同料号的批次没动）。
+            <#if ((parameters.otherLots!'0') == '0') && ((parameters.referencesUpdated!'0') != '0')>
+                用了旧料号 <code>${(parameters.oldCode)!''}</code> 的地方也跟过去了：
+                产品 BOM ${(parameters.bomLinesUpdated)!'0'} 行、研发 BOM ${(parameters.devBomLinesUpdated)!'0'} 行、
+                售后换件 ${(parameters.replacementsUpdated)!'0'} 行<#if (parameters.stockSettingMoved!'') == 'Y'>、安全库存 1 项</#if>。
+            </#if></p>
+        <#if (parameters.otherLots!'0') != '0'>
+            <p class="warn">旧料号 <code>${(parameters.oldCode)!''}</code> 还有 <b>${parameters.otherLots}</b> 个批次在用，
+                所以 BOM、安全库存、售后换件这些地方<b>没动</b>（改了会把那些批次的料从 BOM 里挤掉）。
+                要让这个料号整体改名，用上面的「料号重命名」。</p>
+        </#if>
     </#if>
     <#if parameters.recounted?? || parameters.editedLot?? || parameters.renamedLot??>
         <p class="hint">表格现在只显示刚改的这一行（台账按到货时间排序、还会翻页，原来那一页上常常找不到它）。
@@ -221,7 +232,8 @@ C0402-100N,100nF 0402 电容,立创商城,DC2409B,500,2026-10-19</textarea>
         到货单上那一行也跟着改。数量变多就多出库存，变少就少（流水里会多一条「调整」，谁数的、为什么改都在）。
         <br/><b>名称 / 备注</b>在「名称」格里直接改（改了之后 BOM 的料号下拉、发料、追溯里都是这个名字，好认）；
         <b>料号</b>在「元件料号」格里改（<b>只改这一行</b>，它的发料与到货单行一起改；同一个料号的其他批次不动）；
-        要把一个料号一次性改成另一个（合并两个料号、或者这个号本来就错），用上方的「料号重命名」。</p>
+        这个料号如果<b>再没有别的批次</b>，产品 BOM、研发 BOM、安全库存、售后换件里写着旧料号的行会跟着改成新料号；
+        还有别的批次在用就不动（以免把那些批次的料从 BOM 里挤掉），那种情况用上方的「料号重命名」。</p>
 <#else>
     <p class="hint">还没有批次记录。</p>
 </#if>
