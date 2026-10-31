@@ -265,23 +265,20 @@ body.signin {
 .signin-card h1 { margin: 0; font-size: 1.28em; color: var(--fg-strong); text-align: center; }
 .signin-logo { display: block; width: 68px; height: 68px; }
 /* same tile as the MES login card (Step 211) */
+/* the login card's masthead (Step 213): same as the MES login card - the mark sits on a full-width
+   band of its own colours, white in the middle, no rounded tile around it */
 .signin-badge {
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 96px;
-    height: 96px;
-    margin: 0 auto .85em;
-    border-radius: 20px;
-    border: 2px solid transparent;
-    /* white in the middle, colour on both axes, ring around: same as the MES login card (Step 212) */
+    margin: -1.7em -1.9em 1.1em;
+    padding: 20px 0 18px;
+    border-radius: 9px 9px 0 0;
     background-image:
-        linear-gradient(90deg, rgba(47, 124, 246, .5) 0%, rgba(255, 255, 255, 0) 50%, rgba(255, 160, 0, .5) 100%),
-        linear-gradient(180deg, rgba(47, 124, 246, .5) 0%, rgba(255, 255, 255, 0) 50%, rgba(255, 160, 0, .5) 100%),
-        linear-gradient(#ffffff, #ffffff),
-        linear-gradient(135deg, #2f7cf6 0%, #ffa000 100%);
-    background-clip: padding-box, padding-box, padding-box, border-box;
-    box-shadow: 0 6px 18px rgba(0, 0, 0, .45), inset 0 0 0 1px rgba(255, 255, 255, .6);
+        linear-gradient(90deg, rgba(47, 124, 246, .62) 0%, rgba(255, 255, 255, 0) 50%, rgba(255, 160, 0, .62) 100%),
+        linear-gradient(180deg, rgba(47, 124, 246, .38) 0%, rgba(255, 255, 255, 0) 50%, rgba(255, 160, 0, .38) 100%),
+        linear-gradient(#ffffff, #ffffff);
+    box-shadow: inset 0 -1px 0 rgba(0, 0, 0, .28);
 }
 .signin-sub { margin: .35em 0 1.3em; color: var(--fg-muted); font-size: .82em; line-height: 1.5; text-align: center; }
 .signin-card form { margin: 0; }

@@ -2177,11 +2177,21 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   也别把白底那层删掉——半透明层没有白底会直接透出深色卡片，正中就不是白的。
   `.brand-badge`（导航条那个小方块）仍用 Step 210 的近白对角渐变，两者不是同一份样式，改的时候别混。
   改完 `mfg.css?v=11` / `lc.css?v=7`（**五处 `<link>` 全要加**：decorator / login / changePassword /
-  error / forgotPassword，两个组件共十个模板，用脚本统一改，别手点）。验法仍是
-  `%TEMP%\jup\check-signin-logo.ps1`（断言 `90deg` 那条、`180deg` 那条、四段 `background-clip`、`signin-logo` 68px），
+  error / forgotPassword，两个组件共十个模板，用脚本统一改，别手点）。验法仍是  `%TEMP%\jup\check-signin-logo.ps1`（断言 `90deg` 那条、`180deg` 那条、四段 `background-clip`、`signin-logo` 68px），
   想看图就直接用 Edge headless 拍：
   `& "$env:ProgramFiles(x86)\Microsoft\Edge\Application\msedge.exe" --headless=new --screenshot=… http://localhost:8095/mfg/control/login`
   （开发实例是自签 https，headless 拍不了；测试实例 8095 是 http）。
+- **登录页那块不再是方块，而是卡片顶上的一条通栏（Step 213）**：用户说“横线所画的部分都是这个背景色，
+  去掉 logo 的圆角方框拘束”——也就是**方块撤掉，渐变铺满卡片顶部那一条**，logo 直接压在带上。
+  做法：`.signin-badge` 保留 flex 居中，但去掉 `width/height: 96px`、圆角 20px 和 2px 渐变环，
+  改成 `margin: -1.7em -1.9em 1.1em`（吃进 `.signin-card` 的 `padding: 1.7em 1.9em`，于是带上、左、右
+  都顶到卡片边）+ `padding: 20px 0 18px` + `border-radius: 9px 9px 0 0`（嵌在卡片 10px 圆角、1px 边框里），
+  底下留一条 `inset 0 -1px 0 rgba(0,0,0,.28)` 当分隔线。渐变还是那三层（横 + 竖 + 白底），
+  但**横向那条从 .5 加到 .62**——带子变宽以后 .5 在两端的蓝/橙太淡。
+  **卡片一改 padding 就要跟着改那个负 margin**（`.signin-card-wide` 用的是同一套 padding，所以两边都对），
+  别把它写成固定像素。带子上的 logo 仍是 68px（`.signin-logo`）。
+  改完 `mfg.css?v=12` / `lc.css?v=8`；验法 `%TEMP%\jup\check-signin-logo.ps1` 现在断言
+  `margin: -1.7em -1.9em 1.1em`（通栏）与 `.signin-badge` 里**没有** `width: 96px`（方块已撤）。
 
 ## 兄弟组件 langhua-ofbiz-learningcurve
 
