@@ -553,8 +553,10 @@
         <input type="hidden" name="projectCode" value="${project.projectCode}"/>
         <fieldset>
             <legend>导入 Fritzing 的 BOM（bom.html 或 CSV）</legend>
+            <p class="hint" id="devBomImportHint">把 <code>&lt;项目&gt;_bom.html</code> 在资源管理器里复制，
+                在这里按 <b>Ctrl+V</b> 粘进来，然后直接按 <b>回车</b>导入。</p>
             <p>
-                文件 <input type="file" name="file" size="46"/>
+                文件 <input type="file" name="file" size="46" id="devBomFile"/>
                 <span class="hint">Fritzing 里「导出 → 作为图片 → 物料清单」生成的 &lt;项目&gt;_bom.html</span>
             </p>
             <p>
@@ -567,9 +569,89 @@
                 或粘贴内容<br/>
                 <textarea name="bomText" rows="6" cols="100" placeholder="也可以把 bom.html 的内容整段粘进来"></textarea>
             </p>
-            <p><input type="submit" value="导入这一版 BOM"/></p>
+            <p><input type="submit" value="导入这一版 BOM" id="devBomImportButton"/></p>
         </fieldset>
     </form>
+    <script>
+        (function () {
+            var form = document.getElementById('devBomImportForm');
+            if (!form) { return; }
+            var fileField = document.getElementById('devBomFile');
+            var button = document.getElementById('devBomImportButton');
+            var hint = document.getElementById('devBomImportHint');
+            if (!fileField || !button || !hint) { return; }
+            function say(text, style) {
+                hint.className = style || 'hint';
+                hint.textContent = text;
+            }
+            /* what the form takes: a Fritzing bom.html, or the CSV of the same list. A pasted
+               screenshot, a workbook or a piece of text is none of this block's business */
+            function bomish(fileLike) {
+                var name = (fileLike && fileLike.name ? fileLike.name : '').toLowerCase();
+                var type = (fileLike && fileLike.type ? fileLike.type : '').toLowerCase();
+                if (name.length) { return /\.(html?|csv)$/.test(name); }
+                return type.indexOf('html') >= 0 || type.indexOf('csv') >= 0
+                    || type === 'application/vnd.ms-excel';
+            }
+            function pastedFile(event) {
+                var data = event.clipboardData;
+                if (!data) { return null; }
+                var files = data.files || [];
+                for (var i = 0; i < files.length; i++) {
+                    if (bomish(files[i])) { return files[i]; }
+                }
+                var items = data.items || [];
+                for (var j = 0; j < items.length; j++) {
+                    if (items[j].kind !== 'file') { continue; }
+                    var got = items[j].getAsFile();
+                    if (got && bomish(got)) { return got; }
+                }
+                return null;
+            }
+            /* the pasted file goes into the file input, and the form then sends it exactly as it
+               would a file picked with the button - a normal multipart post, no ajax */
+            function take(fileLike, source) {
+                var placed = false;
+                try {
+                    var carrier = new DataTransfer();
+                    carrier.items.add(fileLike);
+                    fileField.files = carrier.files;
+                    placed = !!(fileField.files && fileField.files.length === 1);
+                } catch (e) {
+                    placed = false;
+                }
+                if (!placed) {
+                    say('这个浏览器不让页面把文件放进表单：点「选择文件」选它，或者把内容粘到下面的框里。', 'error');
+                    return false;
+                }
+                say(source + '：' + (fileLike.name || 'bom.html') + '，按回车导入（或点下面的按钮）', 'ok');
+                /* a bare Enter now imports this file, wherever the focus is (js/enter.js, Step 186) */
+                if (window.mfgAskEnter) { window.mfgAskEnter('devbom', button, submitIt); }
+                return true;
+            }
+            function submitIt() {
+                if (form.requestSubmit) {
+                    form.requestSubmit(button);
+                } else {
+                    button.click();
+                }
+            }
+            document.addEventListener('paste', function (event) {
+                var bom = pastedFile(event);
+                if (!bom) { return; }
+                event.preventDefault();
+                if (!take(bom, '已粘贴')) { return; }
+                /* line the block up under the nav and leave the focus on the button: the next
+                   Enter both starts the import and is the browser's own click (Step 115/186) */
+                if (window.jumpUnderNav) { window.jumpUnderNav(hint); }
+                try { button.focus({ preventScroll: true }); } catch (e) { try { button.focus(); } catch (again) { } }
+            });
+            form.addEventListener('submit', function () {
+                /* it is running: Enter must not send the same file twice */
+                if (window.mfgEnterDone) { window.mfgEnterDone('devbom'); }
+            });
+        }());
+    </script>
     <p class="hint">每次导入都会存一份快照并按上一版比对：新出现的元件进缺货清单；数量变大的补锁；
         不再使用的元件<b>不退回库存</b>，按研发消耗（样品）记一笔——面包板和连线阶段的东西已经用掉了。
         锁料是预留，不影响在库数量，但工单就抢不走这几颗料；缺货清单里的「建议采购」= 需求 − 已锁。</p>

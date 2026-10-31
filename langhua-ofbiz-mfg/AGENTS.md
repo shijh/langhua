@@ -1001,6 +1001,22 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   加元件 → 新加的那一行、整表保存 / 释放锁 → `#devbomitems`（元件表标题）、其余（导入等）→ `#project`。
   行上加了 `id="bomLine${r.lineSeq}"`（**别叫 `bomRow…`，那是隐藏表单的 id**），`mfg.css` 加了 `tr.saved-row td`，
   `decorator.ftl` 的 `mfg.css?v=6 → 7`。**改这块别再退回“回整块”**：块头与表之间隔着缺货清单，这是这页的固定结构。
+- **bom.html 也能 Ctrl+V 粘进来、按回车导入（Step 202）**：`dev.ftl` 的导入表单（`#devBomImportForm`，
+  multipart，字段名还是 `file`）多了一个粘贴块，做法照 `receipts.ftl`（Step 67/114）：
+  `bomish(fileLike)` **只认 `.html/.htm/.csv`**（没有文件名时看 `type` 里有 html/csv 或 `application/vnd.ms-excel`），
+  `pastedFile(event)` 先看 `clipboardData.files` 再退到 `items` 里的 `getAsFile()`，`take()` 用 `new DataTransfer()`
+  把文件塞回 `#devBomFile.files`（**老浏览器失败也照样能导入**，因为这一步只是“帮人把文件填进输入框”），
+  提示写进 `#devBomImportHint`（`.ok` 绿框：“已粘贴：xxx，按回车导入”），再 `jumpUnderNav` 把那一行顶到导航条下面。
+  **回车交给 `js/enter.js`**（`mfgAskEnter('devbom', button, submitIt)`，提交时 `mfgEnterDone('devbom')`），
+  开始动作是 `form.requestSubmit(button)`——**不能用 `form.submit()`**（绕过表单的 submit 事件）。
+  **三块（截图 / xlsx / 这里）共用一个 `keydown`**，所以粘了哪一块就哪一块接管回车：截图与 xlsx 在 `receipts.ftl`，
+  这一页只有这一个粘贴块，不冲突。**别收 `.png` / `.xlsx`**：那两种各有自己的块（截图识别在下单页、xlsx 在到货单页），
+  在这里接手会把人的图/表吃掉。
+  验法：`%TEMP%\jup\check-bom-paste.ps1` 取渲染出来的那段脚本（`-base http://localhost:8095 -project DEV-…`）跑
+  `node --check`，再用 `js-check\bom-paste-test.js <脚本> webapp\mfg\js\enter.js` 在假 DOM 里跑 **17 项**
+  （粘贴 html/csv 被收下 + 提示 + 按钮拿焦点 + 回车导入一次、再按回车不再导、截图/xlsx/纯文字不拦、
+  内容框里回车不触发、Shift+Enter 不动）。**测试实例上没有 `DEV-261030-18` 这个项目**（开发库有），
+  拿它跑会看到 `GenericTransactionException` 的报错页——换一个测试实例里真有的项目号。
 - **操作记录 / 审计（Step 125）**：新实体 `MfgAuditLog`（`AU-yyMMdd-NN`，`userLoginId` / `actionId` /
   `targetId` / `remoteAddr` / `note` / `createdStamp`）+ `MfgAudit`（写行、编号、中文动作名、一天一次清理）。
   **四个记录点**：① `MfgLoginEvents.login` 包住 `LoginWorker.login`（`error`→`LOGIN_FAIL`；`success` /
