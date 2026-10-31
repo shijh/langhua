@@ -1478,6 +1478,14 @@ public final class OirScan {
             }
             Debug.logInfo("Attempt " + attempt + " of " + attempts + " scored " + score
                     + " (kept " + kept + ", best " + bestScore + "), asking again: " + why, MODULE);
+            // the two reasons that make an imported receipt wrong rather than untidy - a row of the
+            // block that was never read, and every row carrying one part number - may take the third
+            // send even though a long block is kept at two: a block of fifteen packs came back with
+            // fourteen once in a regression run of twenty-nine pages and nothing asked again (Step 200)
+            if ((COUNT_REASON.equals(why) || CODES_REASON.equals(why))
+                    && attempt >= attempts && attempts < ceiling) {
+                attempts++;
+            }
             if (COUNT_REASON.equals(why)) {
                 // the pictures beside the rows say how many rows the block prints: tell the model the
                 // number it has to reach, which is what makes it go back over a block of fifteen
@@ -1514,9 +1522,6 @@ public final class OirScan {
                         + " row the same code" + named + "." + what
                         + " Every row takes the value of its own grey line and no two rows share one"
                         + " code.";
-                if (attempt >= attempts && attempts < ceiling) {
-                    attempts++;
-                }
             }
             if (got.isEmpty()) {
                 Debug.logInfo("The answer that carried no order was: " + reply, MODULE);
@@ -1568,7 +1573,12 @@ public final class OirScan {
             // back asking for more of the same (Step 198)
             return "a row has no readable quantity or amount";
         }
-        if (printsMoreArticles(articlesHere, got) && !anyTotalsDisagree(got)) {
+        if (OirOrders.paysNothing(got)) {
+            // the block prints 实付款 1.20 and the row beside it came back as 0.00: a page whose unit
+            // price rounds to zero (0.024) is a row to read again, not a row worth nothing (Step 200)
+            return "the block paid money that none of its rows carry";
+        }
+        if (printsMoreArticles(articlesHere, got) && !moneyBalances(got, partial, blocksHere)) {
             // the page prints one product picture beside every article row, and a slice that holds one
             // block has nothing else in its picture column: a block of fifteen packs of capacitors was
             // read as fourteen twice in a row, and the money difference alone never made the model go
@@ -1576,7 +1586,7 @@ public final class OirScan {
             // twice the rows, so only a short answer close to the count counts. Rows that already come
             // to what was paid are not short at all: the picture counted is one the page prints of
             // something else, an advertisement card that starts where the product picture column does
-            // (Step 198)
+            // (Step 198) - and then nothing is asked (Step 200)
             return COUNT_REASON;
         }
         if (OirOrders.echoesTemplate(reply)) {
@@ -1600,6 +1610,20 @@ public final class OirScan {
             return MONEY_REASON;
         }
         return null;
+    }
+
+    /**
+     * Says whether the money of an answer already comes to what was paid, which is what makes a short
+     * answer a page printing something else in its picture column rather than a lost row.
+     *
+     * @param orders the orders of the answer
+     * @param partial {@code true} for one slice of a long page
+     * @param blocksHere how many blocks the slice prints whole, {@code 0} when unknown
+     * @return {@code true} when the money can be checked and it adds up
+     */
+    private static boolean moneyBalances(List<Map<String, String>> orders, boolean partial,
+            int blocksHere) {
+        return moneyCanBeChecked(partial, orders.size(), blocksHere) && !anyTotalsDisagree(orders);
     }
 
     /**

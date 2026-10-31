@@ -1826,6 +1826,54 @@ public class MfgOrderReadRulesTest {
     }
 
     @Test
+    public void noticesABlockWhoseRowsCarryNoneOfItsMoney() {
+        // a shop prints its unit price rounded to the cent, and 0.024 shows as ¥0.00: the block paid
+        // 1.20, the row came back as 0.00 and no freight was read, so nothing at all carries the money
+        // and the block was not read (Step 200)
+        Map<String, String> free = new LinkedHashMap<>();
+        free.put("paidTotal", "1.20");
+        free.put("freight", "0");
+        free.put("lines", "XH2.54 2P\t接线端子 2P\t50\t0.00");
+        assertTrue(OirOrders.paysNothing(Collections.singletonList(free)));
+        // a row that carries the money is a block that was read
+        Map<String, String> paid = new LinkedHashMap<>();
+        paid.put("paidTotal", "1.20");
+        paid.put("freight", "0");
+        paid.put("lines", "XH2.54 2P\t接线端子 2P\t50\t1.20");
+        assertFalse(OirOrders.paysNothing(Collections.singletonList(paid)));
+        // and a free gift beside a paid article is a page that prints 赠品 with 0.00, not a bad read
+        Map<String, String> gift = new LinkedHashMap<>();
+        gift.put("paidTotal", "21.00");
+        gift.put("freight", "0");
+        gift.put("lines", "PCB打样\tPCB打样\t1\t21.00\n赠品\t赠品电阻包\t1\t0.00");
+        assertFalse(OirOrders.paysNothing(Collections.singletonList(gift)));
+        // a block with nothing paid at all cannot be checked this way
+        Map<String, String> nothing = new LinkedHashMap<>();
+        nothing.put("paidTotal", "0");
+        nothing.put("lines", "XH2.54 2P\t接线端子 2P\t50\t0.00");
+        assertFalse(OirOrders.paysNothing(Collections.singletonList(nothing)));
+        // a free sample is 0.00 of articles and its shipping: the block was read, the money is the
+        // freight, and the freight the page prints in grey (3.00) is more than the order cost, so what
+        // was charged is what the articles left of the paid total (Step 200)
+        Map<String, String> sample = new LinkedHashMap<>();
+        sample.put("paidTotal", "1.20");
+        sample.put("freight", "3.00");
+        sample.put("lines", "XH2.54 2P\t接线端子 2P\t1\t0.00");
+        assertFalse(OirOrders.paysNothing(Collections.singletonList(sample)));
+        assertNull(OirOrders.checkOrderTotals(sample));
+        assertEquals("1.20", sample.get("freight"));
+        assertNotNull(sample.get("note"));
+        // a freight that fits inside the paid total is left exactly as printed
+        Map<String, String> shipped = new LinkedHashMap<>();
+        shipped.put("paidTotal", "9.40");
+        shipped.put("freight", "5.00");
+        shipped.put("lines", "BAS70BRW\t肖特基二极管\t20\t4.40");
+        assertNull(OirOrders.checkOrderTotals(shipped));
+        assertEquals("5.00", shipped.get("freight"));
+        assertNull(shipped.get("note"));
+    }
+
+    @Test
     public void prefersTheAnswerThatReachesThePictures() {
         // the block of fifteen capacitor packs was answered twice: fifteen rows that all carried 0805,
         // and fourteen rows that named each value. The pictures beside the rows say the block prints

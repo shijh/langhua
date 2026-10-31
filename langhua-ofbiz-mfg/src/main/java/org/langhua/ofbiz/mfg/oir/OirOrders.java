@@ -946,17 +946,36 @@ public final class OirOrders {
             goods += toDouble(row[3], 0.0);
         }
         goods = round2(goods);
-        if (goods <= 0.0) {
-            // no line could be read: there is nothing to check the freight against
+        double freightValue = freight == null ? 0.0 : freight.doubleValue();
+        if (goods <= 0.0 && freightValue <= 0.0) {
+            // no line and no freight could be read: there is nothing to check the money against
             return null;
         }
         // a page prints its unit prices rounded to the cent (0.095 shows as 0.10), so two pieces of
         // 0.10 come to 1.20 where 1.19 was paid: that is rounding, not a missing article
         double slack = roundingSlack(rows);
-        double freightValue = freight == null ? 0.0 : freight.doubleValue();
         if (freight == null) {
             // nothing printed next to 含运费 means there was no freight
             fields.put("freight", "0.00");
+        }
+        if (freight != null && paid.doubleValue() > 0.0 && freightValue > paid.doubleValue()
+                && goods <= 0.0) {
+            // a block's freight is part of what was paid for it, so it can never be more than that. A
+            // page that prints ¥0.00 beside a struck through ¥1.20 and 实付款 ¥1.20 also prints
+            // 含运费 ¥3.00 in grey - the shipping the shop charges, not the one it charged - and the
+            // model reads that grey number as the freight, so the receipt would carry more shipping
+            // than the order cost. What was really paid for the freight is what the articles left of
+            // the paid total (Step 200). Only a block whose articles are printed at 0.00 is mended
+            // this way: with articles of their own, the difference is as likely to be an article the
+            // model missed, and that is reported rather than turned into freight (Step 92/94)
+            double rest = round2(paid.doubleValue() - goods);
+            fields.put("freight", String.format(Locale.ROOT, "%.2f", Double.valueOf(rest)));
+            String already = fields.get("note");
+            String why = "运费 " + money(Double.valueOf(freightValue))
+                    + " 比实付 " + money(paid) + " 还多（那是页面上划掉的运费），已按「实付 − 货款」记成 "
+                    + money(Double.valueOf(rest)) + "，请对着截图核对";
+            fields.put("note", already == null || already.trim().isEmpty() ? why : already + "；" + why);
+            freightValue = rest;
         }
         if (discount != null && discount.doubleValue() > 0.0
                 && Math.abs(round2(goods + freightValue) - paid.doubleValue()) <= slack) {
@@ -1140,6 +1159,46 @@ public final class OirOrders {
                 if (toDouble(row[2], 0.0) <= 0.0 || optionalAmount(row[3]) == null) {
                     return true;
                 }
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Says whether a block carries a paid total while every row of it comes to nothing.
+     *
+     * <p>A page prints its unit price rounded, and a price of {@code 0.024} shows as {@code ¥0.00}: a
+     * row of that came back as {@code 0.00} beside a 实付款 of 1.20, and no check noticed it - a zero
+     * is a number, and the freight the model reported covered the difference (Step 200). A block with
+     * a paid total whose rows come to nothing was not read, whatever the numbers say.
+     *
+     * @param orders the orders of one answer
+     * @return {@code true} when a block paid money that none of its rows carry
+     */
+    public static boolean paysNothing(List<Map<String, String>> orders) {
+        if (orders == null) {
+            return false;
+        }
+        for (Map<String, String> order : orders) {
+            Double paid = optionalAmount(order == null ? null : order.get("paidTotal"));
+            if (paid == null || paid.doubleValue() <= 0.0) {
+                continue;
+            }
+            List<String[]> rows = parseOrderArticleLines(order.get("lines"));
+            if (rows.isEmpty()) {
+                continue;
+            }
+            double goods = 0.0;
+            for (String[] row : rows) {
+                goods += Math.max(0.0, toDouble(row[3], 0.0));
+            }
+            Double freight = optionalAmount(order.get("freight"));
+            boolean shipped = freight != null && freight.doubleValue() > 0.0;
+            // a block of a free sample is 0.00 of articles and the money it paid is its shipping, so
+            // the rows carry nothing and the block was still read: only a block with nothing in the
+            // rows and nothing of freight is a block that was not read (Step 200)
+            if (round2(goods) <= 0.0 && !shipped) {
+                return true;
             }
         }
         return false;
