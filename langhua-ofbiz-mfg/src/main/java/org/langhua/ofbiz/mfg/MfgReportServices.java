@@ -239,7 +239,7 @@ public final class MfgReportServices {
                 for (Map<String, Object> line : lines) {
                     Double shortage = (Double) line.get("shortage");
                     if (shortage != null && shortage.doubleValue() > 0.0001) {
-                        line.put("scanShotId", shots.get(String.valueOf(line.get("componentCode"))));
+                        line.put("scanShotId", MfgStockServices.pictureOf(shots, String.valueOf(line.get("componentCode"))));
                         shortages.add(line);
                         totalShortage += shortage.doubleValue();
                     }
@@ -734,7 +734,7 @@ public final class MfgReportServices {
                 row.put("customerName", order.getString("customerName"));
                 row.put("componentCode", line.get("componentCode"));
                 row.put("componentName", line.get("componentName"));
-                row.put("scanShotId", shots.get(String.valueOf(line.get("componentCode"))));
+                row.put("scanShotId", MfgStockServices.pictureOf(shots, String.valueOf(line.get("componentCode"))));
                 row.put("requiredQty", line.get("requiredQty"));
                 row.put("issuedQty", line.get("issuedQty"));
                 row.put("shortage", Double.valueOf(shortage));

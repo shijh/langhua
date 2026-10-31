@@ -959,7 +959,7 @@ public final class MfgProductServices {
             map.put("lineSeq", item.getLong("lineSeq"));
             map.put("componentCode", item.getString("componentCode"));
             map.put("componentName", item.getString("componentName"));
-            map.put("scanShotId", shots == null ? null : shots.get(item.getString("componentCode")));
+            map.put("scanShotId", MfgStockServices.pictureOf(shots, item.getString("componentCode")));
             map.put("qty", item.getDouble("qty"));
             map.put("designators", item.getString("designators"));
             map.put("isKeyPart", item.getString("isKeyPart"));

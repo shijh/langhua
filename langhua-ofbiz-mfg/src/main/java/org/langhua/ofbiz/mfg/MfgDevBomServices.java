@@ -331,9 +331,13 @@ public final class MfgDevBomServices {
                 long importSeq = latest.getLong("importSeq").longValue();
                 for (GenericValue item : versionItems) {
                     String code = item.getString("componentCode");
+                    // the stock and the locks are grouped by the upper case part number, so a row the
+                    // sketch prints in another case has to be looked up the same way, or it reports
+                    // "0 in stock / 0 locked" while the shelf is full (the same rule as the photo)
+                    String key = upperCode(code);
                     double qty = MfgSupport.numberOrZero(item.get("qty"));
-                    double locked = MfgSupport.numberOrZero(lockedByComponent.get(code));
-                    double[] sums = stock.get(code);
+                    double locked = MfgSupport.numberOrZero(lockedByComponent.get(key));
+                    double[] sums = stock.get(key);
                     double onHand = sums == null ? 0.0 : sums[0];
                     double available = sums == null ? 0.0 : sums[2];
                     double shortQty = Math.max(0.0, qty - locked);
@@ -342,7 +346,7 @@ public final class MfgDevBomServices {
                     row.put("componentCode", code);
                     row.put("componentName", item.getString("componentName"));
                     // the photo the shop printed for this part, when it came in from a screenshot
-                    row.put("scanShotId", shots.get(code));
+                    row.put("scanShotId", MfgStockServices.pictureOf(shots, code));
                     row.put("partType", item.getString("partType"));
                     row.put("properties", item.getString("properties"));
                     row.put("designators", item.getString("designators"));

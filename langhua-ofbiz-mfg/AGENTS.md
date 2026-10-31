@@ -1135,6 +1135,19 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   （重启后在库又写了几页，备份代表的是拷贝那一刻）。还原：停生产 → 把备份目录覆盖回 `runtime\data\derby` →
   起生产，让 Derby 自己从 `log\` 恢复。**库会越来越大**：识图把整张截图存进 `MfgAttachment`（BLOB），
   29 张长图就是几百 MB——2026-10-31 那份 514 MB，同一天早些时候的两份只有 83 MB / 101 MB。
+- **按料号找商品图要忽略大小写（Step 204）**：用户报“同样拆了一个批次，测试系统的研发 BOM 行有商品图，生产没有”。
+  查下来**不是代码版本**（三套实例的 `MfgStockServices.class` 与 `dev.ftl` 的哈希完全一致），也不是“图没继承”：
+  生产那个子批次记的是 `NFC Coil`，而研发 BOM 行存的是 `NFC COIL`——**行永远是大写**（`MfgDevBomServices.codeOf`
+  把输入的料号 `toUpperCase(Locale.ROOT)`），批次却保留店铺/人写的原样，而 `shotByComponent` 的 map 是**原样 key**，
+  于是 `shots.get("NFC COIL")` 取不到 `NFC Coil` 的图；测试那边那个批次正好也写成 `NFC COIL`，所以“能带过来”。
+  现在 `MfgStockServices.pictureKey`（trim + 大写，null → 空串）统一 map 的键、`pictureOf(shots, code)` 统一取值，
+  **七个按料号找图的地方全走它**（研发 BOM、产品 BOM、报表两处、库存结存、出入库流水、工单齐套与发料）。
+  顺带把 `devBomDetail` 的 `stock.get(code)` / `lockedByComponent.get(code)` 改成按 `upperCode(code)` 取：
+  这两张表本来就按大写分组（`componentStock` / `lockedByProjectComponent`），老行存成小写时“在库 / 已锁”会显示 0。
+  **别去掉 `codeOf` 的大写**——BOM 行统一大写是“一份清单一种写法”的前提，要改的是取图那一侧的比对。
+  单测 `findsThePictureOfAPartWhateverTheCaseOfItsNumber` / `carriesAPictureDownASplitChainWhosePartNumbersDifferInCase`；
+  真机验法（测试实例）：把带图的批次用 `lotCodeChange` 改成 `Nfc Coil`，研发 BOM 行仍是 `NFC COIL` 且**图还在**，
+  再改回去复原（脚本 `%TEMP%\jup\check-picture-case3.ps1`，走 `/mfg/control/lotCodeChange` + 两个页面读回来）。
 - **同一单被读成两个号 / 页面底部的商品图被算进最后一单（Step 131）**：生产上 29 张单被识别成 30 或 31 张。
   两个原因都修在 `MfgServices` 里：
   ① **同一个订单号被读缺了几位**（`3316453503083081392` 被读成 `331645303083081392`，另一次读成

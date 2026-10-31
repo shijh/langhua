@@ -590,4 +590,42 @@ public class MfgDomainRulesTest {
         assertEquals("R-1/4W-10K", rows.get(2).get("componentCode"));
         assertEquals(20.0, ((Double) rows.get(2).get("qty")).doubleValue(), 0.0001);
     }
+
+    @Test
+    public void findsThePictureOfAPartWhateverTheCaseOfItsNumber() {
+        // the shop books the parcel as "NFC Coil", the sketch calls the same part "NFC COIL" and the
+        // person may type either: the photo of the parcel belongs on all three (Step 204 - the row
+        // showed no picture on production and did on the test copy, only the case differed)
+        java.util.Map<String, String> shots = new java.util.HashMap<>();
+        shots.put(MfgStockServices.pictureKey("NFC Coil"), "SCAN-1");
+        assertEquals("SCAN-1", MfgStockServices.pictureOf(shots, "NFC COIL"));
+        assertEquals("SCAN-1", MfgStockServices.pictureOf(shots, " nfc coil "));
+        assertEquals("SCAN-1", MfgStockServices.pictureOf(shots, "NFC Coil"));
+        assertNull(MfgStockServices.pictureOf(shots, "NFC-COIL-20-6T"));
+        assertNull(MfgStockServices.pictureOf(shots, null));
+        assertNull(MfgStockServices.pictureOf(null, "NFC Coil"));
+        // the key keeps the part number, it only trims and raises it
+        assertEquals("NFC COIL", MfgStockServices.pictureKey("  nfc coil "));
+        assertEquals("", MfgStockServices.pictureKey(null));
+    }
+
+    @Test
+    public void carriesAPictureDownASplitChainWhosePartNumbersDifferInCase() {
+        // a parcel is photographed once, as the parcel; the kinds that come out of it were never
+        // bought on their own. The key of the picture map is the part number, so the chain has to be
+        // read in the same case as the map (the caller builds it through pictureKey)
+        java.util.Map<String, String> shots = new java.util.HashMap<>();
+        shots.put(MfgStockServices.pictureKey("NFC Coil"), "SCAN-1");
+        java.util.Map<String, String> parentOf = new java.util.HashMap<>();
+        parentOf.put(MfgStockServices.pictureKey("nfc coil small"), MfgStockServices.pictureKey("NFC COIL"));
+        parentOf.put(MfgStockServices.pictureKey("nfc coil tiny"), MfgStockServices.pictureKey("NFC COIL SMALL"));
+        MfgStockServices.inheritFromParents(shots, parentOf);
+        // one hop and two hops both arrive at the photo of the parcel
+        assertEquals("SCAN-1", MfgStockServices.pictureOf(shots, "NFC COIL SMALL"));
+        assertEquals("SCAN-1", MfgStockServices.pictureOf(shots, "NFC Coil Tiny"));
+        // and a part that has a picture of its own never has it overwritten by its parcel
+        shots.put(MfgStockServices.pictureKey("NFC COIL SMALL"), "SCAN-2");
+        MfgStockServices.inheritFromParents(shots, parentOf);
+        assertEquals("SCAN-2", MfgStockServices.pictureOf(shots, "NFC COIL SMALL"));
+    }
 }

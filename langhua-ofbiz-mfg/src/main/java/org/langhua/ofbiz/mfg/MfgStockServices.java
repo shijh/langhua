@@ -901,7 +901,7 @@ public final class MfgStockServices {
             String shot = line.getString("scanShotId");
             if (shot != null && !shot.isEmpty()) {
                 // the newest line wins: it overwrites what an older purchase of the same part filed
-                shots.put(line.getString("componentCode"), shot);
+                shots.put(pictureKey(line.getString("componentCode")), shot);
             }
         }
         dropMissingPictures(delegator, shots);
@@ -938,16 +938,53 @@ public final class MfgStockServices {
             }
         }
         // the map this fills is keyed by part number, so the chain has to be read in part numbers as
-        // well: the child lot and the parcel it came out of are two different parts
+        // well: the child lot and the parcel it came out of are two different parts. Both sides go
+        // through pictureKey, or a parcel booked as "NFC 模块" and its child typed as "nfc 模块" would
+        // look like two unrelated parts and the child would show nothing (Step 204)
         Map<String, String> componentParent = new java.util.HashMap<>();
         for (Map.Entry<String, String> entry : lotParent.entrySet()) {
             String child = lotComponent.get(entry.getKey());
             String parent = lotComponent.get(entry.getValue());
             if (child != null && parent != null) {
-                componentParent.put(child, parent);
+                componentParent.put(pictureKey(child), pictureKey(parent));
             }
         }
         inheritFromParents(shots, componentParent);
+    }
+
+    /**
+     * The part number in the form the picture map is keyed by: no blanks at either end, one case.
+     *
+     * <p>Part numbers are matched ignoring case everywhere else (the BOM's stock lookup groups by
+     * {@code upperCode}, {@code lotsOfComponent} compares with {@code equalsIgnoreCase}), so a picture
+     * has to be found the same way. A BOM row typed as {@code NFC COIL} and the batch it came out of
+     * booked as {@code NFC Coil} are the same part, and the photo of the batch belongs on the row
+     * (Step 204: the row showed no picture on production while the test copy of it did, and only the
+     * case of the two numbers differed).
+     *
+     * @param componentCode the part number as printed anywhere
+     * @return the key to look its picture up with, empty when there is no part number
+     */
+    public static String pictureKey(String componentCode) {
+        return componentCode == null ? "" : componentCode.trim().toUpperCase(java.util.Locale.ROOT);
+    }
+
+    /**
+     * The picture of a part, from the map {@code shotByComponent} returned.
+     *
+     * <p>Every caller goes through this instead of {@code map.get(code)}: the map is keyed by
+     * {@link #pictureKey} and a plain get would silently miss a part whose number is typed in another
+     * case, which is exactly the bug this rule exists for.
+     *
+     * @param shots the map from {@code shotByComponent}, may be null or empty
+     * @param componentCode the part number of the row
+     * @return the picture id, null when the part has none
+     */
+    public static String pictureOf(Map<String, String> shots, String componentCode) {
+        if (shots == null || shots.isEmpty() || componentCode == null) {
+            return null;
+        }
+        return shots.get(pictureKey(componentCode));
     }
 
     /**
@@ -1626,7 +1663,7 @@ public final class MfgStockServices {
                     row.put("value", Double.valueOf(0.0));
                     row.put("lotCount", Integer.valueOf(0));
                     // the picture the shop printed for this part, if it ever came in from a screenshot
-                    row.put("scanShotId", shots.get(componentCode));
+                    row.put("scanShotId", pictureOf(shots, componentCode));
                     byComponent.put(componentCode, row);
                 }
                 double onHand = MfgSupport.numberOrZero(lot.get("onHandQty"));
@@ -1784,7 +1821,7 @@ public final class MfgStockServices {
                 row.put("locationId", movement.getString("locationId"));
                 row.put("componentCode", lot == null ? null : lot.getString("componentCode"));
                 row.put("componentName", lot == null ? null : lot.getString("componentName"));
-                row.put("scanShotId", lot == null ? null : shots.get(lot.getString("componentCode")));
+                row.put("scanShotId", lot == null ? null : pictureOf(shots, lot.getString("componentCode")));
                 row.put("movementTypeId", movement.getString("movementTypeId"));
                 row.put("quantityDiff", Double.valueOf(MfgSupport.round2(diff)));
                 row.put("reservedDiff", Double.valueOf(MfgSupport.round2(MfgSupport.numberOrZero(movement.get("reservedDiff")))));

@@ -867,7 +867,7 @@ public final class MfgWorkOrderServices {
                 if (shortage != null && shortage.doubleValue() > 0.0001) {
                     kitComplete = false;
                 }
-                line.put("scanShotId", shots.get(MfgSupport.toText(line.get("componentCode"))));
+                line.put("scanShotId", MfgStockServices.pictureOf(shots, MfgSupport.toText(line.get("componentCode"))));
             }
 
             List<Map<String, Object>> issueMaps = new ArrayList<>(issues.size());
@@ -875,7 +875,7 @@ public final class MfgWorkOrderServices {
                 GenericValue lot = EntityQuery.use(delegator).from("MfgMaterialLot")
                         .where("lotId", issue.getString("lotId")).queryOne();
                 Map<String, Object> issueMap = MfgRecordMaps.toIssueMap(issue, lot);
-                issueMap.put("scanShotId", shots.get(issue.getString("componentCode")));
+                issueMap.put("scanShotId", MfgStockServices.pictureOf(shots, issue.getString("componentCode")));
                 issueMaps.add(issueMap);
             }
             List<Map<String, Object>> shipmentMaps = new ArrayList<>(shipments.size());
