@@ -14,7 +14,7 @@
     <p class="hint">先选一个元件：在「物料批次」或「库存结存」里点料号后面的「资料」，就会到这里来。</p>
 <#else>
     <#assign code = part.componentCode>
-    <h2><code>${code}</code> <#if (part.componentName)!''?has_content><span class="hint">${part.componentName}</span></#if></h2>
+    <h2><code>${code}</code> <#if ((part.componentName)!'')?has_content><span class="hint">${part.componentName}</span></#if></h2>
 
     <table>
         <tr><th>料号</th><th>名称</th><th class="num">在库</th><th class="num">已锁</th><th class="num">可发</th><th class="num">批次</th><th>商品图</th></tr>

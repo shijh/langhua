@@ -103,8 +103,13 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   （只加 request-map 会报 `No definition found for view with name [...]`）；导航项在 `decorator.ftl`
 - **OFBiz 的错误页也是 HTTP 200**：巡检的 `NoTemplateError` 必须同时扫 `ERROR MESSAGE`、`FTL stack trace`、
   `FreeMarker template error`、`Error rendering`，否则错误页会被当成通过
-- **FreeMarker 默认值运算符 `!` 的优先级低于比较**：`<#if (x)!0 gt 0>` 会解析成 `x!(0 gt 0)` 而报
-  `Expected a boolean, but this has evaluated to a number+extended_hash`；要写 `<#if ((x)!0) gt 0>`
+- **FreeMarker 默认值运算符 `!` 的优先级低于比较与内建函数**：`<#if (x)!0 gt 0>` 会解析成 `x!(0 gt 0)` 而报
+  `Expected a boolean, but this has evaluated to a number+extended_hash`；要写 `<#if ((x)!0) gt 0>`。
+  **同样的坑还有两种写法**（Step 207 踩的）：`<#if (x)!''?has_content>` 解析成 `x!(''?has_content)`——值是
+  **空的**时候恰好返回 false 不报错，**有值就报** `Expected a boolean, but this has evaluated to a string+extended_hash`；
+  `${(x)!''?url}` 则更阴——`?url` 只作用在默认值上，**有值时不转义**，于是带空格/中文的料号、批次号
+  拼出来的链接是坏的。一律写 `((x)!'')?has_content` / `((x)!'')?url`（括号把 `!` 关在里面）。
+  教训：验模板不能只拿“空的”那一种数据试——`partDocs.ftl` 的 bug 就是因为探针料号没有名称而躲过了巡检。
 - **`${x?url}` 要求同一模板里有 `<#setting url_escaping_charset="UTF-8">`**，否则渲染抛
   `To do URL encoding, the framework that encloses FreeMarker must specify the "output_encoding" setting ...`；
   `workOrderDetail.ftl` 没有这个 setting，所以在那里用 `?url` 会让整页报错，而且 POST 后的 302 目标页报错时
@@ -1183,6 +1188,17 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   `application/pdf` + `inline` + 字节数一致 → 删掉）、`check-part-links.ps1`（台账与结存每行都有入口、
   真料号的页面上批次表与 `back` 路径正确）、`check-bom-docs.ps1`（研发 BOM 的行数 = 「资料」链接数，
   点进去 200 且有附件块）、`verify-m28b.ps1` **59 项**仍全过（老的五个 owner 类型没被改坏）。
+- **附件块也能 Ctrl+V + 回车上传（Step 207）**：`attachmentBlock.ftl` 里那段脚本是**共用的**（产品 / 研发项目 /
+  工单 / 出货 / 售后 / 元件资料六个页面），所以粘贴与回车一次做好、六处都有：`attachmentish` 只认
+  `.jpg/.jpeg/.png/.gif/.pdf`（没有文件名时看 `image/*` 或 `pdf`），`take()` 用 `DataTransfer` 把文件塞回
+  文件输入框 → 提示条写“已粘贴：xxx，按回车上传”（`.ok`）→ `mfgAskEnter('attachments', 上传按钮, submitIt)`，
+  提交时 `mfgEnterDone('attachments')`；`submitIt` 用 `form.requestSubmit(button)`（不能 `form.submit()`，那样
+  绕过 submit 事件，回车收不回来会传两次）。**`DataTransfer` 失败时不谎报**：输入框里没文件就只提示
+  “请点「选择文件」”，也不接管回车。块里的 id 由 owner 类型派生（`attFormPART` / `attFilePART` /
+  `attUploadPART` / `attHintPART`），一个页面只有一个附件块，所以不会撞。
+  验法：`check-att-paste.ps1`（取渲染出来的那段脚本跑 `node --check`）+ `js-check\att-paste-test.js`
+  （假 DOM **18 项**：粘贴 PDF/图片被收下、提示与焦点、回车传一次、再按不再传、csv/html/文字不拦、
+  输入框里回车与 Shift+Enter 不动）。
 - **同一单被读成两个号 / 页面底部的商品图被算进最后一单（Step 131）**：生产上 29 张单被识别成 30 或 31 张。
   两个原因都修在 `MfgServices` 里：
   ① **同一个订单号被读缺了几位**（`3316453503083081392` 被读成 `331645303083081392`，另一次读成

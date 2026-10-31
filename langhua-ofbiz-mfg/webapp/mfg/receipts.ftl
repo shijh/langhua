@@ -54,7 +54,7 @@
     <input type="hidden" name="includeVoid" value="<#if showVoid>Y<#else>N</#if>"/>
 </form>
 <p class="hint">作废的单不算钱也不占批次，默认不列出来：
-    <#if showVoid><a href="/mfg/control/receipts?search=${(rl.search)!''?url}">只看有效的</a>（现在</#if><#if !showVoid><a href="/mfg/control/receipts?search=${(rl.search)!''?url}&amp;includeVoid=Y">连已作废的一起看</a></#if><#if showVoid>已把作废的也列出来）</#if>。
+    <#if showVoid><a href="/mfg/control/receipts?search=${((rl.search)!'')?url}">只看有效的</a>（现在</#if><#if !showVoid><a href="/mfg/control/receipts?search=${((rl.search)!'')?url}&amp;includeVoid=Y">连已作废的一起看</a></#if><#if showVoid>已把作废的也列出来）</#if>。
 </p>
 <#if receipts?has_content>
     <table id="receiptTable">
@@ -87,7 +87,7 @@
                                 <#assign deleteForm = "receiptLineDel_" + r.receiptId + "_" + (l.lineSeq)!0>
                                 <tr data-receipt-line-seq="${(l.lineSeq)!0}">
                                     <td class="num">${(l.lineSeq)!0}</td>
-                                    <td><a href="/mfg/control/materials?search=${(l.lotId)!''?url}">${l.lotId!}</a></td>
+                                    <td><a href="/mfg/control/materials?search=${((l.lotId)!'')?url}">${l.lotId!}</a></td>
                                     <td>${l.componentCode!}</td>
                                     <td>${l.componentName!}<#if (l.scanShotId)?has_content>
                                         <img class="shot" data-line-shot="${l.scanShotId}" alt="订单截图里的商品图"
@@ -1365,7 +1365,7 @@
             <#list lines as l>
                 <tr data-line-seq="${l.lineSeq}">
                     <td class="num">${(l.lineSeq)?string("0")}</td>
-                    <td><a href="/mfg/control/materials?componentCode=${l.componentCode!''?url}">${l.lotId!}</a></td>
+                    <td><a href="/mfg/control/materials?componentCode=${((l.componentCode)!'')?url}">${l.lotId!}</a></td>
                     <td>${l.componentCode!}</td>
                     <td>${l.componentName!}<#if (l.scanShotId)?has_content>
                         <img class="shot" data-line-shot="${l.scanShotId}" alt="订单截图里的商品图"
