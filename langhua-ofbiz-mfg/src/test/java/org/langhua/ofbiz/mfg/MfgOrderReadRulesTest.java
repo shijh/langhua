@@ -1802,6 +1802,30 @@ public class MfgOrderReadRulesTest {
     }
 
     @Test
+    public void takesTwoDaysApartForTwoPurchases() {
+        // two blocks of one shop paying the same money for the same article are a copy of one another
+        // only when they are printed on one day: the page prints PCB打样 twice, three weeks apart, and
+        // both are real orders. A day nobody read leaves the question open, so the caution stays
+        // (Step 199)
+        Map<String, String> first = new LinkedHashMap<>();
+        first.put("orderNo", "3316485867036009372");
+        first.put("orderDate", "2026-10-10");
+        Map<String, String> same = new LinkedHashMap<>();
+        same.put("orderNo", "3316452855010009372");
+        same.put("orderDate", "2026-10-10");
+        Map<String, String> other = new LinkedHashMap<>();
+        other.put("orderNo", "3316452855010009372");
+        other.put("orderDate", "2026-09-24");
+        Map<String, String> unknown = new LinkedHashMap<>();
+        unknown.put("orderNo", "3316452855010009372");
+        unknown.put("orderDate", "");
+        assertTrue(OirScan.sameDay(first, same));
+        assertFalse(OirScan.sameDay(first, other));
+        assertTrue(OirScan.sameDay(first, unknown));
+        assertFalse(OirScan.sameDay(first, null));
+    }
+
+    @Test
     public void prefersTheAnswerThatReachesThePictures() {
         // the block of fifteen capacitor packs was answered twice: fifteen rows that all carried 0805,
         // and fourteen rows that named each value. The pictures beside the rows say the block prints

@@ -775,29 +775,37 @@ public final class OirScan {
         // same chip are really there - so the caution is only worth its noise when the buttons say the
         // picture holds fewer blocks than rows, or when the page does not say at all (Step 157)
         boolean mayHoldACopy = blocks <= 0 || orders.size() > blocks;
-        Map<String, String> firstOfKind = new LinkedHashMap<>();
-        Map<String, String> firstOfMoney = new LinkedHashMap<>();
+        Map<String, Map<String, String>> firstOfKind = new LinkedHashMap<>();
+        Map<String, Map<String, String>> firstOfMoney = new LinkedHashMap<>();
+        Map<String, Integer> firstOfMoneyAt = new LinkedHashMap<>();
         for (int i = 0; i < orders.size(); i++) {
             Map<String, String> order = orders.get(i);
             String content = OirOrders.orderContentKey(order);
             String money = OirOrders.moneyKeyOf(order);
-            String other = content == null ? null : firstOfKind.get(content);
-            String otherMoney = money == null ? null : firstOfMoney.get(money);
+            Map<String, String> other = content == null ? null : firstOfKind.get(content);
+            Map<String, String> otherMoney = money == null ? null : firstOfMoney.get(money);
+            Integer otherMoneyAt = money == null ? null : firstOfMoneyAt.get(money);
             if (content != null && other == null) {
-                firstOfKind.put(content, order.get("orderNo"));
+                firstOfKind.put(content, order);
             }
             if (money != null && otherMoney == null) {
-                firstOfMoney.put(money, String.valueOf(i + 1));
+                firstOfMoney.put(money, order);
+                firstOfMoneyAt.put(money, Integer.valueOf(i + 1));
             }
             String copied = null;
             if (other != null) {
-                copied = "明细与单号 " + other + " 那张一模一样，可能识别时抄错了，请对着截图核对";
-            } else if (otherMoney != null) {
+                copied = "明细与单号 " + other.get("orderNo") + " 那张一模一样，可能识别时抄错了，请对着截图核对";
+            } else if (otherMoney != null && otherMoneyAt != null) {
                 // the codes and names two reads write differ now and then, so two rows of one printed
                 // line do not always look alike: what matches is the quantity and the money
-                copied = "明细和金额与第 " + otherMoney + " 张单完全相同，可能把上一块的明细带下来了，请对着截图核对";
+                copied = "明细和金额与第 " + otherMoneyAt + " 张单完全相同，可能把上一块的明细带下来了，请对着截图核对";
             }
-            if (copied != null && mayHoldACopy) {
+            // the same part bought again on another day is not a copy: the page prints the day of
+            // every block, so two of them carrying one order's articles and money on two days are two
+            // purchases - a shop that sells PCB打样 twice three weeks apart looks exactly like a copy
+            // otherwise (Step 199)
+            if (copied != null && mayHoldACopy
+                    && sameDay(order, other != null ? other : otherMoney)) {
                 String note = order.get("note");
                 order.put("note", note == null ? copied : note + "；" + copied);
             }
@@ -2636,6 +2644,30 @@ public final class OirScan {
         return "这次没从截图里读出订单（已自动重试 " + (ATTEMPTS - 1) + " 次）。"
                 + "再点一次「识别并核对」通常就好了；也可以把截图截小一点（只框住订单列表），或者手工填。"
                 + "模型的原话：" + OirOrders.visionReplyExcerpt(reply, 160);
+    }
+
+    /**
+     * Says whether two orders of one page carry the same day, which is what makes two blocks with the
+     * same articles and money a copy of one another rather than a purchase made twice.
+     *
+     * <p>Two blocks of one shop paying the same money for the same article three weeks apart are two
+     * real orders - a page of PCB打样 carries exactly that - so the caution is only written when both
+     * days were read and they are the same. When either is missing nothing can tell them apart and the
+     * caution stays, because a copied block costs an imported row that never existed (Step 199).
+     *
+     * @param one one order
+     * @param two the other order
+     * @return {@code true} when both carry a day and it is the same day
+     */
+    public static boolean sameDay(Map<String, String> one, Map<String, String> two) {
+        String here = one == null ? null : one.get("orderDate");
+        String there = two == null ? null : two.get("orderDate");
+        if (here == null || there == null) {
+            return false;
+        }
+        String mine = here.trim();
+        String theirs = there.trim();
+        return mine.isEmpty() || theirs.isEmpty() || mine.equals(theirs);
     }
 
     /**
