@@ -2240,8 +2240,11 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   UTF-8 文件、用 `[System.IO.File]::ReadAllText(..., UTF8)` 读；结尾用循环吞掉所有 `}` 和空白；
   改完**数一遍 `{` 和 `}` 是否相等**（本次 168/168、95/95）。② 中文文件名不能写进 `.ps1`（同样被 ANSI 读坏，
   会报“找不到文件”），选源文件改成按 `viewBox="0 0 2210 1024"` 在 `D:\Downloads\*.svg` 里找。
-  `check-signin-logo.ps1` 断言改成 `red frame`（`inset: 12px`）、`breathes`、`cloud band`（`url(../images/cloud-top.svg?v=1)`
-  + `background-size: auto 1.8mm`）与 `cloud tile`（两张图都要 200）；版本号 `mfg.css?v=20` / `lc.css?v=16`。
+  `check-signin-logo.ps1` 断言改成 `red frame`（`inset: 12px`）、`breathes`、`cloud band`（`url(../images/cloud-top.svg?v=2)`
+  + `background-size: auto 1.8mm`）与 `cloud tile`（两张图都要 200）；版本号 `mfg.css?v=21` / `lc.css?v=17`。
+  **Step 222 的更正**：用户说“一正一反，反是指水平和垂直都做镜像，不是只做一个方向”——所以镜像那半个是
+  `translate(W2,H) scale(-1,-1)`（**180° 翻转**），不是 `scale(-1,1)`。四张图重新生成，CSS 里的
+  `?v=1` 也跟着改成 `?v=2`（**铺图换了必须换 URL**，否则浏览器拿缓存里的旧图）。
 
 ## 兄弟组件 langhua-ofbiz-learningcurve
 

@@ -402,10 +402,10 @@ body.signin {
     border-radius: 6px;
     pointer-events: none;
     background-image:
-        url(../images/cloud-top.svg?v=1),
-        url(../images/cloud-bottom.svg?v=1),
-        url(../images/cloud-left.svg?v=1),
-        url(../images/cloud-right.svg?v=1);
+        url(../images/cloud-top.svg?v=2),
+        url(../images/cloud-bottom.svg?v=2),
+        url(../images/cloud-left.svg?v=2),
+        url(../images/cloud-right.svg?v=2);
     background-repeat: repeat-x, repeat-x, repeat-y, repeat-y;
     background-position: left top, left bottom, left top, right top;
     background-size: auto 1.8mm, auto 1.8mm, 1.8mm auto, 1.8mm auto;
