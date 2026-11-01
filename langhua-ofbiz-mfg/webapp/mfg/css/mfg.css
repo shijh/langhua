@@ -398,8 +398,9 @@ body.signin {
 .signin-card::after {
     content: "";
     position: absolute;
-    inset: 4px;
-    border-radius: 6px;
+    /* flush with the card's inner edge on all four sides */
+    inset: 0;
+    border-radius: 9px;
     pointer-events: none;
     background-image:
         url(../images/cloud-top.svg?v=2),
