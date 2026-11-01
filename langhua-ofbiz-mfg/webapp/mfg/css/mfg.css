@@ -404,10 +404,10 @@ body.signin {
     border-radius: 9px;
     pointer-events: none;
     background-image:
-        url(../images/cloud-top.svg?v=5),
-        url(../images/cloud-bottom.svg?v=5),
-        url(../images/cloud-left.svg?v=5),
-        url(../images/cloud-right.svg?v=5);
+        url(../images/cloud-top.svg?v=6),
+        url(../images/cloud-bottom.svg?v=6),
+        url(../images/cloud-left.svg?v=6),
+        url(../images/cloud-right.svg?v=6);
     background-repeat: repeat-x, repeat-x, repeat-y, repeat-y;
     background-position: left top, left bottom, left top, right top;
     background-size: auto 1.8mm, auto 1.8mm, 1.8mm auto, 1.8mm auto;
