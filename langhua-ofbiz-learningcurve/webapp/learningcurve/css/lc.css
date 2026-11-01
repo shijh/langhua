@@ -287,22 +287,45 @@ body.signin {
 }
 /* the 云纹 band: one motif then its mirror, so the run reads one upright and one reversed; 1.8mm thick,
    drawn inside the card's edge */
-.signin-card::after {
-    content: "";
+/* the 云纹 band: 1.8mm thick, drawn inside the card's edge. Both directions live on one element so the
+   top/bottom runs can own the corners while the side runs stop under them (Step 233). Drawn the plain
+   way the horizontal and the vertical run paint over each other in the 1.8mm corner square and the
+   pattern reads as a blot; cutting the side runs short lets the band turn the rounded corner in one
+   piece. */
+.signin-frame {
     position: absolute;
-    /* flush with the card's inner edge on all four sides */
     inset: 0;
     border-radius: 9px;
+    overflow: hidden;
     pointer-events: none;
+}
+.signin-frame::before,
+.signin-frame::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    animation: signin-breathe 6s ease-in-out infinite;
+}
+/* the top and bottom runs: full width, so they own the four corners - the band turns the rounded
+   corner in one piece instead of meeting another run there */
+.signin-frame::before {
     background-image:
         url(../images/cloud-top.svg?v=10),
-        url(../images/cloud-bottom.svg?v=10),
+        url(../images/cloud-bottom.svg?v=10);
+    background-repeat: repeat-x, repeat-x;
+    background-position: left top, left bottom;
+    background-size: auto 1.8mm, auto 1.8mm;
+}
+/* the left and right runs: cut short at both ends so they butt under the corner runs. Clipping the
+   element (not scaling the image) keeps the pattern at its own size and phase. */
+.signin-frame::after {
+    background-image:
         url(../images/cloud-left.svg?v=10),
         url(../images/cloud-right.svg?v=10);
-    background-repeat: repeat-x, repeat-x, repeat-y, repeat-y;
-    background-position: left top, left bottom, left top, right top;
-    background-size: auto 1.8mm, auto 1.8mm, 1.8mm auto, 1.8mm auto;
-    animation: signin-breathe 6s ease-in-out infinite;
+    background-repeat: repeat-y, repeat-y;
+    background-position: left top, right top;
+    background-size: 1.8mm auto, 1.8mm auto;
+    clip-path: inset(1.8mm 0);
 }
 @keyframes signin-breathe {
     0%, 100% { opacity: .62; }
@@ -310,7 +333,7 @@ body.signin {
 }
 /* whoever asked the system not to animate things gets the frame still */
 @media (prefers-reduced-motion: reduce) {
-    .signin-card::before, .signin-card::after { animation: none; }
+    .signin-card::before, .signin-frame::before, .signin-frame::after { animation: none; }
 }
 /* the password page and the error page hold a form or a stack trace: they need the room */
 .signin-card-wide { width: 560px; text-align: left; }

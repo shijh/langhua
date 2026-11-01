@@ -2304,6 +2304,16 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   方向靠事实保证：块的本地 `y=0` 是**卡片外侧**、`y=1.8mm` 是**内侧**，所以渐变 `y1=0 → y2=H` 写成
   “外 → 内”；下边那张 `scale(1,-1)`、左右两张 `rotate(±90)` 都带着渐变一起转，所以四面朝向天然一致。
   版本：图 `?v=10`、`mfg.css?v=31` / `lc.css?v=27`。
+  **Step 233 四个角不再互相压（云纹“自然转弯”）**：原来是四个背景层直接铺满，两条带子在每个 1.8mm 的角上
+  **叠着画**，放大看就是一团交叉的墨。现在是**上面/下面两条占角**（`repeat-x` 铺满整个宽度，卡片 10px 圆角
+  会把它们裁成弧形，等于带子转过弯），**左右两条让位**：`.signin-frame::after` 加 `clip-path: inset(1.8mm 0)`，
+  上下各截掉 1.8mm，正好塞在上下两条带子底下。**用 clip 而不是改 `background-size` 的高度**——
+  后者会把图案拉扁（试过，竖条变胖）。**也别用 45° 斜接**（八边形 `polygon()`）：那样两条带子在对角线上
+  硬碰、笔画被削平，看着更碎。
+  四张图搬到新元素 `.signin-frame` 上（`login` / `changePassword` / `error` / `forgotPassword` 四个模板的
+  `<main class="signin-card">` 里都加了一行 `<span class="signin-frame" aria-hidden="true"></span>`），
+  `::before` 画上下、`::after` 画左右，两者都跑 `signin-breathe`。
+  版本：`mfg.css?v=33` / `lc.css?v=29`（图仍是 `?v=10`）。
   **颜色**：路径属性是 `fill="#e0bc9c"`，但 Inkscape 留下的 `style="fill:#d45500"`（CSS 优先）让实际渲染
   变成**深橙 `#d45500`**——Step 232 起这些 fill 都被洗掉、改用渐变（见下一条），SVG 里不再有颜色。
   版本：图 `?v=10`、`mfg.css?v=31` / `lc.css?v=27`。
