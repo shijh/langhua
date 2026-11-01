@@ -868,7 +868,7 @@ public final class MfgDevBomServices {
         if (projectCode == null) {
             return ServiceUtil.returnError("projectCode is required");
         }
-        String operatorName = MfgSupport.toText(context.get("operatorName"));
+        String operatorName = operatorOf(context);
         try {
             GenericValue project = EntityQuery.use(delegator).from("MfgDevProject")
                     .where("projectCode", projectCode).queryOne();
@@ -967,7 +967,7 @@ public final class MfgDevBomServices {
         if (outboundId == null) {
             return ServiceUtil.returnError("outboundId is required");
         }
-        String operatorName = MfgSupport.toText(context.get("operatorName"));
+        String operatorName = operatorOf(context);
         try {
             GenericValue head = EntityQuery.use(delegator).from("MfgOutbound")
                     .where("outboundId", outboundId).queryOne();
@@ -1139,6 +1139,26 @@ public final class MfgDevBomServices {
         } catch (GenericEntityException e) {
             return ServiceUtil.returnError("读取出库单失败：" + e.getMessage());
         }
+    }
+
+    /**
+     * The account to write on an outbound document and on the stock movements it makes: the name the
+     * form sent, or the account that is logged in.
+     *
+     * <p>The page has no field for it (the same as the other actions of this screen), and a shelf
+     * movement without a name is useless when someone asks who took the parts, so the session wins
+     * over an empty parameter.
+     *
+     * @param context the service context, holding {@code operatorName} and {@code userLogin}
+     * @return the name, {@code null} when nobody is logged in
+     */
+    static String operatorOf(Map<String, ? extends Object> context) {
+        String name = MfgSupport.toText(context.get("operatorName"));
+        if (name != null) {
+            return name;
+        }
+        GenericValue userLogin = (GenericValue) context.get("userLogin");
+        return userLogin == null ? null : userLogin.getString("userLoginId");
     }
 
     /**

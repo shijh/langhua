@@ -2337,6 +2337,43 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   变成**深橙 `#d45500`**——Step 232 起这些 fill 都被洗掉、改用渐变（见下一条），SVG 里不再有颜色。
   版本：图 `?v=10`、`mfg.css?v=31` / `lc.css?v=27`。
 
+- **出库单（Step 237）**：锁料只是把料替项目留着，**真正从货架拿走要有一张单**。开发页的
+  `#devoutbound`（在「释放本项目的锁料」下面）把这一版还要用的料写成清单，仓库照单捡料，回来一次扣库存。
+  - **实体**：`MfgOutbound`（`outboundId` = `OUT-yyMMdd-NN`、`projectCode`、`bomVersion`、`outboundDate`、
+    `statusId`、`lineCount`、`totalQty`/`issuedQty`、`operatorName`、`note`）+ `MfgOutboundItem`
+    （`outboundId` + `lineSeq` 联合主键、`componentCode` 是 **name(100)**、`componentName`、`designators`、
+    `qty`、`issuedQty`）；**表不用手工建**，OFBiz 启动时自己建（日志里的 `[addColumn]`）。
+    状态三个：`MfgConstants.OUT_DRAFT` / `OUT_ISSUED` / `OUT_CANCELLED`。
+  - **服务**（都在 `MfgDevBomServices`，描述符 `servicedef/devbom-services.xml`）：
+    `mfgDevBomOutbound` 按**最新一次导入**的那一版写单（`changeId != DROPPED` 且 qty > 0 的行，行号 10/20/…）；
+    **同一版已有待出库的单就不开第二张**（`openOutbound` **只看 DRAFT**，所以作废的那张不会挡住新单）；
+    没有可出库的料就把刚建的单头删掉再报错，不留空单。
+    `mfgOutboundIssue` **全有或全无**：每行按 FIFO 在可发量里取（`lotsOfComponent`，跳过来料不合格的批次），
+    算可发量时**加回本项目在该批次上的预留**（否则自己的锁把自己拦住），写一条 `MFG_MOVE_ISSUE`
+    （`referenceNo` = 出库单号、`unitCost` 用批次单价），再 `releaseProjectReservation` 放掉
+    `min(取走, 本项目在这个批次上的锁)`，最后 `recalcLotStock`；**任何一行不够就整单返回错误**，
+    话术点名「料号 [X] 只够 N，单据要 M：先补货或把这一行改小，整张单还没有出库」。
+    `mfgOutboundCancel` 只作废 DRAFT（已出库的拒绝——要退回得走库存流水），只改状态 + note 追加原因，
+    **库存一点不动**；OUT 里 `cancelled` 是 String（`<redirect-parameter>` 只吃 String）。
+    `mfgOutboundList` 给页面用，屏幕 action 装进 `outboundResult`。
+  - **操作人**：页面没有操作人字段（和这一页其它动作一样），所以服务里 `operatorOf(context)` 在没传
+    `operatorName` 时**退回会话里的 `userLoginId`**（服务事件的 context 里框架会放 `userLogin`）——
+    单据与库存流水于是记得住是谁拿的料。
+  - **页面**：有草稿时显示 `#devOutboundTable`（`data-outbound="OUT-…"`、`data-outbound-by="账号"`、
+    行上 `data-outbound-line="料号"`）+「按这张单出库」/「撤掉这张单」（`confirm` 里写明库存不动）；
+    **没有草稿才显示「转出库单」**（有草稿时那个按钮不该出现，别两边都给）；历史 `#devOutboundHistory`
+    （`data-outbound-history`、`data-outbound-by`，状态「已出库 / 已作废 / 待出库」+ 制作人）。
+    `dev.ftl` 末尾那段跳转脚本按回来的参数落到 `#devoutbound`（`outboundId` / `issuedQty`）。
+  - **巡检** `verify-m60b.ps1`（14 项，`-base` 指哪套实例都行，`-readOnly` 只读）：写单 → 行数与两个按钮 →
+    同一版不会再开第二张 → 出库（成功时查 `stockMoves?search=<单号>` 至少两条流水；被拒时页面红字点名缺料、
+    草稿保留）→ 作废 → 历史里还留着。**断言只用 ASCII 与 data 属性**，别碰中文。
+  - **两个 PowerShell 坑（这次踩的）**：① `@('a=' + $x, 'b=' + $y)` 里**逗号比 `+` 先算**，
+    拼出来是 `@('a=',$x,'b=',$y)`，到了服务里就是“缺参数”，看着像服务坏了——拼 `--data-urlencode`
+    要一条一条 `$list.Add(...)`；② 服务失败时的红字在 **POST 的那份响应**里，重新 GET 一次页面是看不到的
+    （`class="error"` 要读 POST 的 body）。
+  - 开发库现状：`OUT-261101-01` 已出库（`NFC COIL` 那批第 3 条发料 −1、第 4 条释放预留 −1），
+    其余 `OUT-261101-0x` 是试验后作废的；测试实例 `DEV-261029-02` 那张因缺料被拒后作废。三套实例都已发版。
+
 ## 兄弟组件 langhua-ofbiz-learningcurve
 
 - 部署到 `plugins/learningcurve`；`deploy-lc.bat`（`lc-deploy.txt`）、`run-tests.bat`（40 个单元测试，需要 jama

@@ -471,7 +471,7 @@
         <#list outbounds as o>
             <#if !o.issued && !o.cancelled>
                 <#assign hasDraft = true>
-                <table id="devOutboundTable" data-outbound="${o.outboundId}">
+                <table id="devOutboundTable" data-outbound="${o.outboundId}" data-outbound-by="${o.operatorName!}">
                     <tr>
                         <th class="num">#</th><th>料号</th><th>名称</th><th class="num">数量</th>
                         <th class="num">已出</th><th>位号</th>
@@ -514,10 +514,10 @@
             <table id="devOutboundHistory">
                 <tr>
                     <th>单号</th><th>日期</th><th>BOM 版本</th><th class="num">行数</th>
-                    <th class="num">合计</th><th class="num">已出</th><th>状态</th><th>备注</th>
+                    <th class="num">合计</th><th class="num">已出</th><th>状态</th><th>制作</th><th>备注</th>
                 </tr>
                 <#list outbounds as o>
-                    <tr data-outbound-history="${o.outboundId}">
+                    <tr data-outbound-history="${o.outboundId}" data-outbound-by="${o.operatorName!}">
                         <td>${o.outboundId}</td>
                         <td><#if o.outboundDate??>${o.outboundDate?string("yyyy-MM-dd")}</#if></td>
                         <td>${o.bomVersion!}</td>
@@ -525,6 +525,7 @@
                         <td class="num">${(o.totalQty!0)?string("0.##")}</td>
                         <td class="num">${(o.issuedQty!0)?string("0.##")}</td>
                         <td><#if o.issued><span class="ok">已出库</span><#elseif o.cancelled><span class="hint">已作废</span><#else><span class="warn">待出库</span></#if></td>
+                        <td>${o.operatorName!}</td>
                         <td>${o.note!}</td>
                     </tr>
                 </#list>
