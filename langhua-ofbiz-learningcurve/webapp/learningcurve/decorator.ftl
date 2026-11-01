@@ -21,7 +21,7 @@
     <link rel="icon" type="image/png" sizes="32x32" href="/learningcurve/images/logo-32.png"/>
     <link rel="icon" type="image/png" sizes="64x64" href="/learningcurve/images/logo-64.png"/>
     <link rel="apple-touch-icon" href="/learningcurve/images/logo-180.png"/>
-    <link rel="stylesheet" type="text/css" href="/learningcurve/css/lc.css?v=26"/>
+    <link rel="stylesheet" type="text/css" href="/learningcurve/css/lc.css?v=27"/>
 </head>
 <body>
 <#if mustChange>
