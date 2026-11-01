@@ -2327,8 +2327,12 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   同时**四条带子都退让**：`.signin-frame::before` 加 `clip-path: inset(0 1.8mm)`、`::after` 加 `inset(1.8mm 0)`，
   角花放到**空出来的 `.signin-card::after`** 上（`no-repeat`、四个角各 1.8×1.8mm、跟着 `signin-breathe` 一起呼吸）。
   这样四边不重叠、转角也不是“切一刀”，而是由角花把两个方向接起来。
+  **Step 236 角花放大 10%（`$scale = 1.10`）**：原尺寸 1.634mm 宽，离带子端头还差 0.17mm 的白，
+  看着像四段拼起来的；放大后 1.798×1.518mm，尾巴正好顶到 1.8mm 方格的左右边，四段就接上了。
+  想再调就改 `make-corner-tiles.ps1` 里 `$scale` 一个数（1.0 = 原尺寸），改完记得把 CSS 里
+  `corner-*.svg?v=` 加一。
   **改这里要同时动三处**：带子的 clip、角花的位置、以及 `.signin-card::after` 的动画（它在 reduced-motion 里也要列上）。
-  版本：图 `?v=10` / 角花 `?v=1`、`mfg.css?v=35` / `lc.css?v=31`。
+  版本：图 `?v=10` / 角花 `?v=2`、`mfg.css?v=36` / `lc.css?v=32`。
   **颜色**：路径属性是 `fill="#e0bc9c"`，但 Inkscape 留下的 `style="fill:#d45500"`（CSS 优先）让实际渲染
   变成**深橙 `#d45500`**——Step 232 起这些 fill 都被洗掉、改用渐变（见下一条），SVG 里不再有颜色。
   版本：图 `?v=10`、`mfg.css?v=31` / `lc.css?v=27`。

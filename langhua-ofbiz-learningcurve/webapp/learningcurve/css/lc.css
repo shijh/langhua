@@ -332,10 +332,10 @@ body.signin {
     border-radius: 9px;
     pointer-events: none;
     background-image:
-        url(../images/corner-tl.svg?v=1),
-        url(../images/corner-tr.svg?v=1),
-        url(../images/corner-bl.svg?v=1),
-        url(../images/corner-br.svg?v=1);
+        url(../images/corner-tl.svg?v=2),
+        url(../images/corner-tr.svg?v=2),
+        url(../images/corner-bl.svg?v=2),
+        url(../images/corner-br.svg?v=2);
     background-repeat: no-repeat;
     background-position: left top, right top, left bottom, right bottom;
     background-size: 1.8mm 1.8mm, 1.8mm 1.8mm, 1.8mm 1.8mm, 1.8mm 1.8mm;
