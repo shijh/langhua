@@ -851,8 +851,11 @@ public final class MfgDevBomServices {
      * emptied by a document - somebody walks to the shelves with a list, picks the parts and books
      * them off. Without this the person issues part by part from the lot page and there is nothing to
      * compare the pick against afterwards. The document is written as
-     * {@link MfgConstants#OUT_DRAFT} and carries the requirement of every part that is still used;
-     * {@link #outboundIssue} walks it afterwards.
+     * {@link MfgConstants#OUT_DRAFT} and carries <b>what the project still has to pick</b>: the
+     * requirement of every part that is still used less what the earlier documents already took off
+     * the shelf. A board that is drafted again with two more resistors therefore asks for those two
+     * resistors, not for the whole version again - the parts of the first draft are in the drawer,
+     * not on the shelf. {@link #outboundIssue} walks the document afterwards.
      *
      * @param dctx the dispatch context
      * @param context service context, see {@code servicedef/devbom-services.xml#mfgDevBomOutbound}
@@ -887,6 +890,14 @@ public final class MfgDevBomServices {
             long importSeq = latest.getLong("importSeq").longValue();
             String version = latest.getString("bomVersion");
             List<GenericValue> items = itemsOf(delegator, projectCode, importSeq);
+            // The list is what is still missing on the shelf, not what the version needs: the parts
+            // of the earlier documents are already in the engineer's drawer, so asking for them again
+            // would book the same part off twice (Step 238).
+            List<Map<String, Object>> rows = outstandingRows(requirementOf(items),
+                    issuedForProject(delegator, projectCode));
+            if (rows.isEmpty()) {
+                return ServiceUtil.returnError("这一版的料都已经出过库了（本项目累计），没有要补的料");
+            }
             String outboundId = nextOutboundId(delegator);
             int lineCount = 0;
             double totalQty = 0.0;
@@ -903,32 +914,22 @@ public final class MfgDevBomServices {
             head.set("operatorName", operatorName);
             head.set("note", MfgSupport.toText(context.get("note")));
             delegator.create(head);
-            for (GenericValue item : items) {
-                if (MfgConstants.BOM_DROPPED.equals(item.getString("changeId"))) {
-                    continue;
-                }
-                double qty = MfgSupport.numberOrZero(item.get("qty"));
-                if (qty <= 0.0001) {
-                    continue;
-                }
+            for (Map<String, Object> row : rows) {
                 GenericValue line = delegator.makeValue("MfgOutboundItem");
                 line.set("outboundId", outboundId);
                 line.set("lineSeq", Long.valueOf(lineSeq));
-                line.set("componentCode", item.getString("componentCode"));
-                line.set("componentName", item.getString("componentName"));
-                line.set("designators", item.getString("designators"));
-                line.set("qty", Double.valueOf(MfgSupport.round2(qty)));
+                line.set("componentCode", row.get("componentCode"));
+                line.set("componentName", row.get("componentName"));
+                line.set("designators", row.get("designators"));
+                line.set("qty", row.get("qty"));
+                line.set("neededQty", row.get("neededQty"));
+                line.set("alreadyQty", row.get("alreadyQty"));
                 line.set("issuedQty", Double.valueOf(0.0));
                 line.set("note", null);
                 delegator.create(line);
                 lineCount++;
-                totalQty += qty;
+                totalQty += MfgSupport.numberOrZero(row.get("qty"));
                 lineSeq += 10L;
-            }
-            if (lineCount == 0) {
-                // nothing to pick: the version is all dropped parts, do not leave an empty document
-                delegator.removeValue(head);
-                return ServiceUtil.returnError("这一版没有要出库的料");
             }
             head.set("lineCount", Long.valueOf(lineCount));
             head.set("totalQty", Double.valueOf(MfgSupport.round2(totalQty)));
@@ -1129,6 +1130,8 @@ public final class MfgDevBomServices {
                     item.put("componentName", line.getString("componentName"));
                     item.put("designators", line.getString("designators"));
                     item.put("qty", line.get("qty"));
+                    item.put("neededQty", line.get("neededQty"));
+                    item.put("alreadyQty", line.get("alreadyQty"));
                     item.put("issuedQty", line.get("issuedQty"));
                     lines.add(item);
                 }
@@ -1159,6 +1162,138 @@ public final class MfgDevBomServices {
         }
         GenericValue userLogin = (GenericValue) context.get("userLogin");
         return userLogin == null ? null : userLogin.getString("userLoginId");
+    }
+
+    /**
+     * What one version of the design BOM needs, one row per part: the same part printed twice in the
+     * report is one line to pick, so the quantities are added up here and not by whoever reads the
+     * list. Dropped parts and parts with no quantity are left out.
+     *
+     * @param items the rows of one imported version
+     * @return one entry per part with {@code componentCode}, {@code componentName},
+     *         {@code designators} and {@code neededQty}, in the order the report prints them
+     */
+    static List<Map<String, Object>> requirementOf(List<GenericValue> items) {
+        List<Map<String, Object>> rows = new ArrayList<>();
+        for (GenericValue item : items) {
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("changeId", item.getString("changeId"));
+            row.put("qty", item.get("qty"));
+            row.put("componentCode", item.getString("componentCode"));
+            row.put("componentName", item.getString("componentName"));
+            row.put("designators", item.getString("designators"));
+            rows.add(row);
+        }
+        return requirementRows(rows);
+    }
+
+    /**
+     * The same, over plain rows, so the adding up can be tested without a database.
+     *
+     * @param items rows holding {@code changeId}, {@code qty}, {@code componentCode},
+     *        {@code componentName} and {@code designators}
+     * @return one entry per part with {@code componentCode}, {@code componentName},
+     *         {@code designators} and {@code neededQty}, in the order the report prints them
+     */
+    static List<Map<String, Object>> requirementRows(List<Map<String, Object>> items) {
+        Map<String, Map<String, Object>> byCode = new LinkedHashMap<>();
+        for (Map<String, Object> item : items) {
+            if (MfgConstants.BOM_DROPPED.equals(MfgSupport.toText(item.get("changeId")))) {
+                continue;
+            }
+            double qty = MfgSupport.numberOrZero(item.get("qty"));
+            String code = MfgSupport.toText(item.get("componentCode"));
+            if (code == null || qty <= 0.0001) {
+                continue;
+            }
+            String key = upperCode(code);
+            Map<String, Object> row = byCode.get(key);
+            if (row == null) {
+                row = new LinkedHashMap<>();
+                row.put("componentCode", code);
+                row.put("componentName", item.get("componentName"));
+                row.put("designators", item.get("designators"));
+                row.put("neededQty", Double.valueOf(0.0));
+                byCode.put(key, row);
+            } else {
+                String more = MfgSupport.toText(item.get("designators"));
+                String had = MfgSupport.toText(row.get("designators"));
+                if (more != null && more.trim().length() > 0) {
+                    row.put("designators", had == null ? more : had + "," + more);
+                }
+            }
+            row.put("neededQty", Double.valueOf(MfgSupport.numberOrZero(row.get("neededQty")) + qty));
+        }
+        return new ArrayList<>(byCode.values());
+    }
+
+    /**
+     * What a development project has already taken off the shelf: the issued quantities of its
+     * issued outbound documents, added up per part number.
+     *
+     * <p>A cancelled or still waiting document counts for nothing - the parts never left the shelf,
+     * so the next document asks for them again. Comparing with the document and not with the stock
+     * ledger on purpose: the ledger keeps the number of the document and not the project, and the
+     * document is where "picked" is written down.
+     *
+     * @param delegator the delegator
+     * @param projectCode the development project
+     * @return the picked quantity per part number, keyed by {@link #upperCode(String)}
+     * @throws GenericEntityException when the documents cannot be read
+     */
+    static Map<String, Double> issuedForProject(Delegator delegator, String projectCode)
+            throws GenericEntityException {
+        Map<String, Double> picked = new LinkedHashMap<>();
+        for (GenericValue head : EntityQuery.use(delegator).from("MfgOutbound")
+                .where("projectCode", projectCode, "statusId", MfgConstants.OUT_ISSUED).queryList()) {
+            for (GenericValue line : EntityQuery.use(delegator).from("MfgOutboundItem")
+                    .where("outboundId", head.getString("outboundId")).queryList()) {
+                String code = line.getString("componentCode");
+                double qty = MfgSupport.numberOrZero(line.get("issuedQty"));
+                if (code == null || qty <= 0.0) {
+                    continue;
+                }
+                String key = upperCode(code);
+                Double had = picked.get(key);
+                picked.put(key, Double.valueOf((had == null ? 0.0 : had.doubleValue()) + qty));
+            }
+        }
+        return picked;
+    }
+
+    /**
+     * What a project still has to pick: the requirement less what it has already taken off the
+     * shelf, part by part.
+     *
+     * <p>A part the version now needs less of than it took is left out instead of being booked back
+     * in: what left the shelf was used on the board, the same rule the version comparison follows
+     * when a line shrinks or disappears. The subtraction is by net quantity, not by the change flags
+     * of the version, so a document that was cancelled or refused still gets its parts asked for on
+     * the next one.
+     *
+     * @param needs one entry per part, see {@link #requirementOf(List)}
+     * @param already the picked quantity per part number, see {@link #issuedForProject}
+     * @return the parts that are still short, each with {@code qty} to pick, {@code neededQty} and
+     *         {@code alreadyQty}
+     */
+    static List<Map<String, Object>> outstandingRows(List<Map<String, Object>> needs,
+            Map<String, Double> already) {
+        List<Map<String, Object>> rows = new ArrayList<>();
+        for (Map<String, Object> need : needs) {
+            String code = MfgSupport.toText(need.get("componentCode"));
+            double needed = MfgSupport.numberOrZero(need.get("neededQty"));
+            Double had = already == null || code == null ? null : already.get(upperCode(code));
+            double picked = had == null ? 0.0 : had.doubleValue();
+            double qty = MfgSupport.round2(needed - picked);
+            if (qty <= 0.0001) {
+                continue;
+            }
+            Map<String, Object> row = new LinkedHashMap<>(need);
+            row.put("alreadyQty", Double.valueOf(MfgSupport.round2(picked)));
+            row.put("qty", Double.valueOf(qty));
+            rows.add(row);
+        }
+        return rows;
     }
 
     /**

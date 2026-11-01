@@ -465,7 +465,8 @@
                 拿去捡料，回来在下面点「按这张单出库」。</p>
         </#if>
         <p class="hint">锁料只是把料替这个项目留着，真正从货架拿走要有一张单。
-            「转出库单」把这一版还要用的每个料号写成一行（已经停用的不算），
+            「转出库单」把这一版还要用的料写成清单，<b>只写还没领过的差额</b>：本项目累计已经出过库的料不再重复要
+            （第一版领走的料已经在抽屉里，第二版改了数量就只要多的那几个），数量变少或停用的料不会回补——
             按单捡完料回来一次性扣库存，并把本项目的锁放掉相应数量。</p>
         <#assign hasDraft = false>
         <#list outbounds as o>
@@ -473,16 +474,19 @@
                 <#assign hasDraft = true>
                 <table id="devOutboundTable" data-outbound="${o.outboundId}" data-outbound-by="${o.operatorName!}">
                     <tr>
-                        <th class="num">#</th><th>料号</th><th>名称</th><th class="num">数量</th>
-                        <th class="num">已出</th><th>位号</th>
+                        <th class="num">#</th><th>料号</th><th>名称</th><th class="num">这一版要</th>
+                        <th class="num">之前已出</th><th class="num">本次领</th><th>位号</th>
                     </tr>
                     <#list o.lines as ln>
-                        <tr data-outbound-line="${ln.componentCode}">
+                        <tr data-outbound-line="${ln.componentCode}"
+                            data-outbound-needed="${(ln.neededQty!0)?string("0.##")}"
+                            data-outbound-before="${(ln.alreadyQty!0)?string("0.##")}">
                             <td class="num">${ln_index + 1}</td>
                             <td>${ln.componentCode}</td>
                             <td>${ln.componentName!}</td>
+                            <td class="num">${(ln.neededQty!0)?string("0.##")}</td>
+                            <td class="num">${(ln.alreadyQty!0)?string("0.##")}</td>
                             <td class="num">${(ln.qty!0)?string("0.##")}</td>
-                            <td class="num">${(ln.issuedQty!0)?string("0.##")}</td>
                             <td>${ln.designators!}</td>
                         </tr>
                     </#list>
@@ -508,7 +512,7 @@
                 <input type="hidden" name="projectCode" value="${project.projectCode}"/>
                 <input type="submit" value="转出库单"/>
             </form>
-            <span class="hint">按当前这一版 BOM 生成。同一版已经有待出库的单时不会重复开单，会提醒你先把那张出完。</span>
+            <span class="hint">按当前这一版 BOM 生成，只写还没出过库的差额（本项目累计）。同一版已经有待出库的单时不会重复开单，会提醒你先把那张出完。</span>
         </#if>
         <#if outbounds?has_content>
             <table id="devOutboundHistory">

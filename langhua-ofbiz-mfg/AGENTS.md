@@ -2374,6 +2374,23 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   - 开发库现状：`OUT-261101-01` 已出库（`NFC COIL` 那批第 3 条发料 −1、第 4 条释放预留 −1），
     其余 `OUT-261101-0x` 是试验后作废的；测试实例 `DEV-261029-02` 那张因缺料被拒后作废。三套实例都已发版。
 
+- **出库单只列差额：按项目累计（Step 238）**：研发 BOM 会改版，第一版领走的料已经在工程师抽屉里，
+  第二版再开单不能把整版再要一遍。所以 `mfgDevBomOutbound` 写的是
+  **`max(0, 这一版需求 − 本项目已出库)`**，不是整版清单：
+  - **需求** `requirementOf` / `requirementRows`：一版里**同一个料号的多行先合并**（`upperCode`，大小写无关；
+    `designators` 拼起来），跳过 `DROPPED` 与数量 ≤ 0 的行；
+  - **已出库** `issuedForProject`：只数 **`MFG_OUT_ISSUED`** 的单据（`MfgOutboundItem.issuedQty` 求和，按 `upperCode` 归组）——
+    作废的和还没出的单算 0，所以**单没出成（作废 / 缺料被拒）时下一张单会重新要**；
+    **不要改成读流水**：出库写的 `MFG_MOVE_ISSUE` 只记单号（`referenceNo`）、不记 `devProjectCode`，单据才是“领了没有”的账本；
+  - 逐行存 `neededQty`（这一版要）/ `alreadyQty`（之前已出）/ `qty`（本次领），页面三列都显示，
+    行上 `data-outbound-needed` / `data-outbound-before` 给巡检断言；
+  - **数量变少或停用不回补**（`max(0, …)`）——与 Step 175「减少不回退、停用记研发消耗」同一口径；
+  - 差额为 0 时**不开空单**，回「这一版的料都已经出过库了（本项目累计），没有要补的料」。
+  **不要做成“按版本 diff（NEW/CHANGED）出库”**：上一张单作废时那些料会永远不被要，料号改名（Step 205）也认不出来。
+  单测 `MfgDevBomRulesTest` 五条钉住（合并、跳过停用与空行、只出差额、大小写、减少不回补、作废重问）。
+  验法：dev 上 `DEV-261031-04` 那一版已全部出库，再点「转出库单」→ 正确拒绝且不留空单（`verify-m60b.ps1` 7 项分支）；
+  test 上 `DEV-261029-02` 什么都没出过 → 仍是整版 12 行（16 项）。三套实例已发版。
+
 ## 兄弟组件 langhua-ofbiz-learningcurve
 
 - 部署到 `plugins/learningcurve`；`deploy-lc.bat`（`lc-deploy.txt`）、`run-tests.bat`（40 个单元测试，需要 jama

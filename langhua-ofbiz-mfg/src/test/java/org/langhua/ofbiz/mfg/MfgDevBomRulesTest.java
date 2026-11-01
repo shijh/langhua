@@ -385,4 +385,116 @@ public class MfgDevBomRulesTest {
         option.put("onHandQty", Double.valueOf(3.0));
         return option;
     }
+
+    @Test
+    public void addsUpTheRequirementOfAPartTheReportPrintsTwice() {
+        // the same part on two lines of the report is one line to pick, not two
+        List<Map<String, Object>> items = new ArrayList<>();
+        items.add(bomRow("C-100NF-16V-0603", "100nF 16V 0603", 2.0, "C1", MfgConstants.BOM_SAME));
+        items.add(bomRow("c-100nf-16v-0603", "100nF 16V 0603", 3.0, "C7", MfgConstants.BOM_SAME));
+        items.add(bomRow("R-10K-0603", "10k 0603", 1.0, null, MfgConstants.BOM_SAME));
+
+        List<Map<String, Object>> needs = MfgDevBomServices.requirementRows(items);
+        assertEquals(2, needs.size());
+        // the first spelling of the part number is the one written down, and case does not split it
+        assertEquals("C-100NF-16V-0603", needs.get(0).get("componentCode"));
+        assertEquals(5.0, number(needs.get(0).get("neededQty")), 0.0001);
+        assertEquals("C1,C7", needs.get(0).get("designators"));
+        assertEquals(1.0, number(needs.get(1).get("neededQty")), 0.0001);
+        assertNull(needs.get(1).get("designators"));
+    }
+
+    @Test
+    public void leavesDroppedPartsAndEmptyLinesOutOfTheRequirement() {
+        List<Map<String, Object>> items = new ArrayList<>();
+        items.add(bomRow("OLD-1", "gone", 0.0, null, MfgConstants.BOM_DROPPED));
+        items.add(bomRow("ZERO-1", "nobody counts it", 0.0, null, MfgConstants.BOM_SAME));
+        items.add(bomRow("R-10K-0603", "10k 0603", 2.0, "R1", MfgConstants.BOM_NEW));
+
+        List<Map<String, Object>> needs = MfgDevBomServices.requirementRows(items);
+        assertEquals(1, needs.size());
+        assertEquals("R-10K-0603", needs.get(0).get("componentCode"));
+    }
+
+    @Test
+    public void asksOnlyForWhatTheProjectHasNotPickedYet() {
+        // the second draft of a board: the first document already took what it took
+        List<Map<String, Object>> needs = new ArrayList<>();
+        needs.add(need("C-100NF-16V-0603", 20.0));
+        needs.add(need("NFC COIL", 1.0));
+        needs.add(need("LED-0805", 2.0));
+        Map<String, Double> picked = new LinkedHashMap<>();
+        picked.put("C-100NF-16V-0603", Double.valueOf(10.0));
+        picked.put("NFC COIL", Double.valueOf(1.0));
+
+        List<Map<String, Object>> rows = MfgDevBomServices.outstandingRows(needs, picked);
+        assertEquals(2, rows.size());
+        // what the version needs and what is left to pick are both kept: the page shows three numbers
+        assertEquals("C-100NF-16V-0603", rows.get(0).get("componentCode"));
+        assertEquals(20.0, number(rows.get(0).get("neededQty")), 0.0001);
+        assertEquals(10.0, number(rows.get(0).get("alreadyQty")), 0.0001);
+        assertEquals(10.0, number(rows.get(0).get("qty")), 0.0001);
+        // a part the version wants no more of does not come back to the shelf
+        assertEquals("LED-0805", rows.get(1).get("componentCode"));
+        assertEquals(2.0, number(rows.get(1).get("qty")), 0.0001);
+    }
+
+    @Test
+    public void comparesThePartNumbersWhateverTheCaseOfTheRows() {
+        List<Map<String, Object>> needs = new ArrayList<>();
+        needs.add(need("nfc coil", 1.0));
+        Map<String, Double> picked = new LinkedHashMap<>();
+        picked.put(MfgDevBomServices.upperCode("NFC Coil"), Double.valueOf(1.0));
+
+        assertTrue(MfgDevBomServices.outstandingRows(needs, picked).isEmpty());
+    }
+
+    @Test
+    public void booksNothingBackWhenTheVersionNeedsLessThanWasPicked() {
+        // a line that shrank is a part that was used on the board, not a part to put back
+        List<Map<String, Object>> needs = new ArrayList<>();
+        needs.add(need("C-100NF-16V-0603", 5.0));
+        Map<String, Double> picked = new LinkedHashMap<>();
+        picked.put("C-100NF-16V-0603", Double.valueOf(10.0));
+
+        assertTrue(MfgDevBomServices.outstandingRows(needs, picked).isEmpty());
+    }
+
+    @Test
+    public void asksAgainForEverythingWhenNoDocumentWasIssued() {
+        // a document that was cancelled or refused never left the shelf, so its parts are asked for
+        // again: the picked quantities come from the issued documents only
+        List<Map<String, Object>> needs = new ArrayList<>();
+        needs.add(need("C-100NF-16V-0603", 3.0));
+
+        List<Map<String, Object>> rows = MfgDevBomServices.outstandingRows(needs, new LinkedHashMap<>());
+        assertEquals(1, rows.size());
+        assertEquals(3.0, number(rows.get(0).get("qty")), 0.0001);
+        assertEquals(0.0, number(rows.get(0).get("alreadyQty")), 0.0001);
+        // and a project with no document at all takes the whole requirement
+        assertEquals(1, MfgDevBomServices.outstandingRows(needs, null).size());
+    }
+
+    private static Map<String, Object> bomRow(String code, String name, double qty, String designators,
+            String changeId) {
+        Map<String, Object> row = new LinkedHashMap<>();
+        row.put("componentCode", code);
+        row.put("componentName", name);
+        row.put("qty", Double.valueOf(qty));
+        row.put("designators", designators);
+        row.put("changeId", changeId);
+        return row;
+    }
+
+    private static Map<String, Object> need(String code, double needed) {
+        Map<String, Object> row = new LinkedHashMap<>();
+        row.put("componentCode", code);
+        row.put("componentName", code);
+        row.put("neededQty", Double.valueOf(needed));
+        return row;
+    }
+
+    private static double number(Object value) {
+        return value == null ? 0.0 : ((Number) value).doubleValue();
+    }
 }
