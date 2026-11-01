@@ -423,8 +423,9 @@ body.signin {
     background-position: left top, left bottom;
     background-size: auto 1.8mm, auto 1.8mm;
 }
-/* the left and right runs: cut short at both ends so they butt under the corner runs. Clipping the
-   element (not scaling the image) keeps the pattern at its own size and phase. */
+/* the left and right runs: they fade out before the corner instead of stopping on a hard line, so the
+   eye reads the band turning the corner in the top/bottom run rather than two pieces butted together.
+   Masking the element (not scaling the image) keeps the pattern at its own size and phase. */
 .signin-frame::after {
     background-image:
         url(../images/cloud-left.svg?v=10),
@@ -432,7 +433,9 @@ body.signin {
     background-repeat: repeat-y, repeat-y;
     background-position: left top, right top;
     background-size: 1.8mm auto, 1.8mm auto;
-    clip-path: inset(1.8mm 0);
+    mask-image: linear-gradient(180deg,
+        transparent 1.8mm, #000 4.2mm,
+        #000 calc(100% - 4.2mm), transparent calc(100% - 1.8mm));
 }
 @keyframes signin-breathe {
     0%, 100% { opacity: .62; }

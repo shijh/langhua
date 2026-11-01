@@ -2313,7 +2313,14 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   四张图搬到新元素 `.signin-frame` 上（`login` / `changePassword` / `error` / `forgotPassword` 四个模板的
   `<main class="signin-card">` 里都加了一行 `<span class="signin-frame" aria-hidden="true"></span>`），
   `::before` 画上下、`::after` 画左右，两者都跑 `signin-breathe`。
-  版本：`mfg.css?v=33` / `lc.css?v=29`（图仍是 `?v=10`）。
+  **Step 234 把硬切改成渐隐**：`clip-path: inset(1.8mm 0)` 那个断口放大看是“一刀切”，改成
+  `mask-image: linear-gradient(180deg, transparent 1.8mm, #000 4.2mm, #000 calc(100% - 4.2mm), transparent calc(100% - 1.8mm))`，
+  左右两条在离角 ~2.4mm 处就淡到全透明，眼睛读到的就是“上下那条带子转过弯”。
+  **照样是遮罩元素、不是缩 `background-size`**（缩会拉扁图案）。
+  想做“把云纹当 pattern 铺到圆角矩形路径上”（一笔画完四边）没做成：SVG 的 `pattern` 只能平铺复复制，
+  `patternTransform` 不会沿着路径弯；真要在路径上铺，得先把图案**烘成沿弧线弯曲的新图形**（逐条切片旋转，
+  内外弧长比差 25%，硬切会有缺口），代价远大于收益——**已评估，放弃**。
+  版本：`mfg.css?v=34` / `lc.css?v=30`（图仍是 `?v=10`）。
   **颜色**：路径属性是 `fill="#e0bc9c"`，但 Inkscape 留下的 `style="fill:#d45500"`（CSS 优先）让实际渲染
   变成**深橙 `#d45500`**——Step 232 起这些 fill 都被洗掉、改用渐变（见下一条），SVG 里不再有颜色。
   版本：图 `?v=10`、`mfg.css?v=31` / `lc.css?v=27`。

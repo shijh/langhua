@@ -30,7 +30,7 @@
     <link rel="icon" type="image/png" sizes="32x32" href="/mfg/images/logo-32.png"/>
     <link rel="icon" type="image/png" sizes="64x64" href="/mfg/images/logo-64.png"/>
     <link rel="apple-touch-icon" href="/mfg/images/logo-180.png"/>
-    <link rel="stylesheet" type="text/css" href="/mfg/css/mfg.css?v=33"/>
+    <link rel="stylesheet" type="text/css" href="/mfg/css/mfg.css?v=34"/>
 </head>
 <body class="signin">
 <main class="signin-card">
