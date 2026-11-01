@@ -2224,6 +2224,24 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   以后想再加回来：span + `.signin-card h1 .seal` 那段（`display:block`，别用 inline-block），字体那句在 h1 里。
   现在 `check-signin-logo.ps1` 断言的是 `plain font`（h1 里**没有** `font-family`）与 `seal` 为 **false**；
   版本号 `mfg.css?v=16` / `lc.css?v=12`。
+- **边框换成用户选的云纹（Step 221）**：用户给了 `D:\Downloads\云纹.svg`（`viewBox="0 0 2210 1024"`，
+  3 个 `path`，填充 `#e0bc9c`），要求“宽度 1.8mm、一正一反拼接、云纹也跟着呼吸”。
+  做法：**每个组件生成四张平铺图**（`webapp/<组件>/images/cloud-{top,bottom,left,right}.svg`），
+  每张 = 原图 + 它沿走向的镜像（`<g transform="translate(4420,0) scale(-1,1)">`），所以铺出来是一正一反；
+  下边上下镜像（`scale(1,-1)`），左右把整张双联图转 90°（`translate(0,4420) rotate(-90)` / `translate(1024,0) rotate(90)`）。
+  CSS：`.signin-card::after` 四层 `background-image`（`url(../images/cloud-*.svg?v=1)`），
+  `background-repeat: repeat-x, repeat-x, repeat-y, repeat-y`，`background-size: auto 1.8mm` / `1.8mm auto`，
+  `inset: 4px`；`.signin-card::before`（朱砂细线）挪到 `inset: 12px` 给它让位；两者都跑 `signin-breathe`
+  （`opacity: .62 → 1`，6 s）。**原来那道沿框走的流光去掉了**（`::after` 现在被云纹占用，`@property --signin-flow`
+  与 `@keyframes signin-flow` 一并删掉）。
+  **踩的两个坑**：① **PowerShell 5.1 按 ANSI 读 `.ps1`**，把 here-string 里的中文注释写成了乱码
+  （`浜戠汗`），而且我“吞掉媒体查询结尾大括号”的逻辑只前进了一个字符，留下 `}}`——于是后面的
+  `.signin-card-wide` 被挤出规则外，**报错页的 560px 宽卡片变成了 322px**。现在的做法：替换块单独放一个
+  UTF-8 文件、用 `[System.IO.File]::ReadAllText(..., UTF8)` 读；结尾用循环吞掉所有 `}` 和空白；
+  改完**数一遍 `{` 和 `}` 是否相等**（本次 168/168、95/95）。② 中文文件名不能写进 `.ps1`（同样被 ANSI 读坏，
+  会报“找不到文件”），选源文件改成按 `viewBox="0 0 2210 1024"` 在 `D:\Downloads\*.svg` 里找。
+  `check-signin-logo.ps1` 断言改成 `red frame`（`inset: 12px`）、`breathes`、`cloud band`（`url(../images/cloud-top.svg?v=1)`
+  + `background-size: auto 1.8mm`）与 `cloud tile`（两张图都要 200）；版本号 `mfg.css?v=20` / `lc.css?v=16`。
 
 ## 兄弟组件 langhua-ofbiz-learningcurve
 

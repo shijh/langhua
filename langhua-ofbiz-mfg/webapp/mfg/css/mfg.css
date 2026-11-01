@@ -382,52 +382,43 @@ body.signin {
     color: var(--ink);
     text-align: center;
 }
-/* the cinnabar rule drawn inside the edge, the way a 绗?is framed; it breathes, and a lighter stroke
-   runs round it the way the ink runs down a 绗?(Step 219) */
-@property --signin-flow {
-    syntax: "<angle>";
-    inherits: false;
-    initial-value: 0deg;
-}
+/* the cinnabar rule drawn inside the edge, the way a 符 is framed (Step 219), now sitting inside the
+   band of 云纹; the rule and the band breathe together (Step 221) */
 .signin-card::before {
     content: "";
     position: absolute;
-    inset: 7px;
+    inset: 12px;
     border: 1px solid rgba(195, 39, 43, .42);
     border-radius: 5px;
     pointer-events: none;
     animation: signin-breathe 6s ease-in-out infinite;
 }
-/* the stroke that travels round the frame: a 1px ring cut out of a turning cone of light */
+/* the 云纹 band: one motif then its mirror, so the run reads one upright and one reversed; 1.8mm thick,
+   drawn inside the card's edge */
 .signin-card::after {
     content: "";
     position: absolute;
-    inset: 7px;
-    padding: 1px;
-    border-radius: 5px;
+    inset: 4px;
+    border-radius: 6px;
     pointer-events: none;
-    background: conic-gradient(from var(--signin-flow),
-        transparent 0deg 250deg,
-        rgba(195, 39, 43, .10) 285deg,
-        rgba(214, 60, 45, .70) 330deg,
-        rgba(255, 186, 158, .95) 352deg,
-        transparent 360deg);
-    -webkit-mask: linear-gradient(#000, #000) content-box, linear-gradient(#000, #000);
-    -webkit-mask-composite: xor;
-    mask: linear-gradient(#000, #000) content-box, linear-gradient(#000, #000);
-    mask-composite: exclude;
-    animation: signin-flow 7s linear infinite;
+    background-image:
+        url(../images/cloud-top.svg?v=1),
+        url(../images/cloud-bottom.svg?v=1),
+        url(../images/cloud-left.svg?v=1),
+        url(../images/cloud-right.svg?v=1);
+    background-repeat: repeat-x, repeat-x, repeat-y, repeat-y;
+    background-position: left top, left bottom, left top, right top;
+    background-size: auto 1.8mm, auto 1.8mm, 1.8mm auto, 1.8mm auto;
+    animation: signin-breathe 6s ease-in-out infinite;
 }
 @keyframes signin-breathe {
-    0%, 100% { border-color: rgba(195, 39, 43, .32); box-shadow: 0 0 0 rgba(195, 39, 43, 0); }
-    50% { border-color: rgba(195, 39, 43, .82); box-shadow: 0 0 7px rgba(195, 39, 43, .20), inset 0 0 7px rgba(195, 39, 43, .12); }
+    0%, 100% { opacity: .62; }
+    50% { opacity: 1; }
 }
-@keyframes signin-flow { to { --signin-flow: 360deg; } }
 /* whoever asked the system not to animate things gets the frame still */
 @media (prefers-reduced-motion: reduce) {
     .signin-card::before, .signin-card::after { animation: none; }
 }
-}}
 /* the password page and the error page hold a form or a stack trace: they need the room */
 .signin-card-wide { width: 560px; text-align: left; }
 /* the title is written in cinnabar and spaced out the way a 符 is lettered (Step 216) */
