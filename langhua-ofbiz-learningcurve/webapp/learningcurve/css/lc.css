@@ -273,14 +273,15 @@ body.signin {
     color: var(--ink);
     text-align: center;
 }
-/* the cinnabar rule drawn inside the edge, the way a 符 is framed (Step 219), now sitting inside the
-   band of 云纹; the rule and the band breathe together (Step 221) */
+/* the cinnabar rule drawn inside the edge, the way a 符 is framed (Step 219), sitting right against
+   the inner edge of the 云纹 band; the rule and the band breathe together (Step 221/224) */
 .signin-card::before {
     content: "";
     position: absolute;
-    inset: 12px;
+    /* the band is 1.8mm thick, so the rule starts where the band ends: no gap between them */
+    inset: 1.8mm;
     border: 1px solid rgba(195, 39, 43, .42);
-    border-radius: 5px;
+    border-radius: 4px;
     pointer-events: none;
     animation: signin-breathe 6s ease-in-out infinite;
 }
