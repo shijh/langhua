@@ -32,6 +32,7 @@
 <#assign bomShortCount = (bom.shortCount)!0>
 <#assign bomShortQty = (bom.shortQty)!0>
 <#assign bomStock = (bom.stockOptions)![]>
+<#assign outbounds = ((outboundResult).outbounds)![]>
 <#assign errList = (errorMessageList)![]>
 
 <#function stageLabel stageId>
@@ -450,6 +451,86 @@
         </form>
         <span class="hint">板子下单或项目暂停时用：只把锁放掉，库存不动。</span>
 
+        <#-- an outbound order (出库单): locking a part only earmarks it, the shelf is emptied by a
+             document. The warehouse walks to the shelves with a list and books the whole list off in
+             one go (Step 237) -->
+        <h4 id="devoutbound">出库单（按单出库）</h4>
+        <#if parameters.issuedQty??>
+            <p class="ok">出库单 <b>${(parameters.outboundId)!''}</b> 已出库 <b>${parameters.issuedQty}</b> 件：
+                库存按先进先出扣减，本项目在那些批次上的锁也放掉了同样数量。</p>
+        <#elseif parameters.cancelled??>
+            <p class="ok">出库单 <b>${(parameters.outboundId)!''}</b> 已作废（当作没开过，可以重新生成一张）。</p>
+        <#elseif parameters.outboundId??>
+            <p class="ok">已生成出库单 <b>${parameters.outboundId}</b>：这一版要用的料写成了清单，
+                拿去捡料，回来在下面点「按这张单出库」。</p>
+        </#if>
+        <p class="hint">锁料只是把料替这个项目留着，真正从货架拿走要有一张单。
+            「转出库单」把这一版还要用的每个料号写成一行（已经停用的不算），
+            按单捡完料回来一次性扣库存，并把本项目的锁放掉相应数量。</p>
+        <#assign hasDraft = false>
+        <#list outbounds as o>
+            <#if !o.issued && !o.cancelled>
+                <#assign hasDraft = true>
+                <table id="devOutboundTable" data-outbound="${o.outboundId}">
+                    <tr>
+                        <th class="num">#</th><th>料号</th><th>名称</th><th class="num">数量</th>
+                        <th class="num">已出</th><th>位号</th>
+                    </tr>
+                    <#list o.lines as ln>
+                        <tr data-outbound-line="${ln.componentCode}">
+                            <td class="num">${ln_index + 1}</td>
+                            <td>${ln.componentCode}</td>
+                            <td>${ln.componentName!}</td>
+                            <td class="num">${(ln.qty!0)?string("0.##")}</td>
+                            <td class="num">${(ln.issuedQty!0)?string("0.##")}</td>
+                            <td>${ln.designators!}</td>
+                        </tr>
+                    </#list>
+                </table>
+                <form method="post" action="/mfg/control/outboundIssue" class="inline">
+                    <input type="hidden" name="projectCode" value="${project.projectCode}"/>
+                    <input type="hidden" name="outboundId" value="${o.outboundId}"/>
+                    <input type="submit" value="按这张单出库"/>
+                </form>
+                <form method="post" action="/mfg/control/outboundCancel" class="inline">
+                    <input type="hidden" name="projectCode" value="${project.projectCode}"/>
+                    <input type="hidden" name="outboundId" value="${o.outboundId}"/>
+                    <input type="hidden" name="reason" value="页面上作废"/>
+                    <input type="submit" value="撤掉这张单" class="secondary"
+                           onclick="return confirm('作废 ${o.outboundId}？库存一点不动，只是这张单不再用。');"/>
+                </form>
+                <span class="hint">单号 ${o.outboundId}：${(o.lineCount)!0} 行 / 合计 ${(o.totalQty!0)?string("0.##")} 件，
+                    ${(o.operatorName)!''} 制作。只要有一个料号不够，整张单都不出库，会告诉你是哪个料号缺多少。</span>
+            </#if>
+        </#list>
+        <#if !hasDraft>
+            <form method="post" action="/mfg/control/devBomOutbound" class="inline">
+                <input type="hidden" name="projectCode" value="${project.projectCode}"/>
+                <input type="submit" value="转出库单"/>
+            </form>
+            <span class="hint">按当前这一版 BOM 生成。同一版已经有待出库的单时不会重复开单，会提醒你先把那张出完。</span>
+        </#if>
+        <#if outbounds?has_content>
+            <table id="devOutboundHistory">
+                <tr>
+                    <th>单号</th><th>日期</th><th>BOM 版本</th><th class="num">行数</th>
+                    <th class="num">合计</th><th class="num">已出</th><th>状态</th><th>备注</th>
+                </tr>
+                <#list outbounds as o>
+                    <tr data-outbound-history="${o.outboundId}">
+                        <td>${o.outboundId}</td>
+                        <td><#if o.outboundDate??>${o.outboundDate?string("yyyy-MM-dd")}</#if></td>
+                        <td>${o.bomVersion!}</td>
+                        <td class="num">${(o.lineCount)!0}</td>
+                        <td class="num">${(o.totalQty!0)?string("0.##")}</td>
+                        <td class="num">${(o.issuedQty!0)?string("0.##")}</td>
+                        <td><#if o.issued><span class="ok">已出库</span><#elseif o.cancelled><span class="hint">已作废</span><#else><span class="warn">待出库</span></#if></td>
+                        <td>${o.note!}</td>
+                    </tr>
+                </#list>
+            </table>
+        </#if>
+
         <h4 id="devbomadd">加一个元件（Fritzing 导出里没有的）</h4>
         <p class="hint">面包板上常有些件不在原理图里：元件的<b>转接板</b>（传感器插不进面包板，得先焊到一块小板上）、
             电池盒、杜邦线组。把它们加进这一版：跟导入的元件一样锁料、一样进缺货清单，
@@ -836,6 +917,9 @@
     <#-- a whole table saved, or the lock released: the table is what changed -->
     <#elseif parameters.savedLines?? || parameters.releasedQty?? || parameters.addedCode??>
     targetId = 'devbomitems';
+    <#-- an outbound order written or booked: the reader was working in that block -->
+    <#elseif parameters.outboundId?? || parameters.issuedQty??>
+    targetId = 'devoutbound';
     </#if>
     function jump() {
         var block = document.getElementById(targetId) || document.getElementById('devbom');

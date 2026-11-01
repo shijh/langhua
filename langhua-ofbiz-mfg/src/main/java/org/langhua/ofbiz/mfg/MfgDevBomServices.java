@@ -845,6 +845,356 @@ public final class MfgDevBomServices {
     }
 
     /**
+     * Writes the parts of the version in use into an outbound order (出库单).
+     *
+     * <p>Why it exists: locking the parts of a version says what the board needs, but the shelf is
+     * emptied by a document - somebody walks to the shelves with a list, picks the parts and books
+     * them off. Without this the person issues part by part from the lot page and there is nothing to
+     * compare the pick against afterwards. The document is written as
+     * {@link MfgConstants#OUT_DRAFT} and carries the requirement of every part that is still used;
+     * {@link #outboundIssue} walks it afterwards.
+     *
+     * @param dctx the dispatch context
+     * @param context service context, see {@code servicedef/devbom-services.xml#mfgDevBomOutbound}
+     * @return the service result with {@code outboundId}, {@code lineCount} and {@code totalQty}
+     */
+    public static Map<String, Object> devBomOutbound(DispatchContext dctx, Map<String, ? extends Object> context) {
+        String denied = MfgSecurity.permissionProblem(dctx, context, MfgConstants.PERM_STOCK);
+        if (denied != null) {
+            return ServiceUtil.returnError(denied);
+        }
+        Delegator delegator = dctx.getDelegator();
+        String projectCode = MfgSupport.toText(context.get("projectCode"));
+        if (projectCode == null) {
+            return ServiceUtil.returnError("projectCode is required");
+        }
+        String operatorName = MfgSupport.toText(context.get("operatorName"));
+        try {
+            GenericValue project = EntityQuery.use(delegator).from("MfgDevProject")
+                    .where("projectCode", projectCode).queryOne();
+            if (project == null) {
+                return ServiceUtil.returnError("Unknown development project [" + projectCode + "]");
+            }
+            GenericValue latest = lastImport(delegator, projectCode);
+            if (latest == null) {
+                return ServiceUtil.returnError("这个项目还没有导入研发 BOM，没有可出库的料");
+            }
+            Map<String, Object> existing = openOutbound(delegator, projectCode, latest.getString("bomVersion"));
+            if (existing != null) {
+                return ServiceUtil.returnError("这一版已经有一张待出库的单（" + existing.get("outboundId")
+                        + "，共 " + existing.get("lineCount") + " 项），先按它出库，不要重复开单");
+            }
+            long importSeq = latest.getLong("importSeq").longValue();
+            String version = latest.getString("bomVersion");
+            List<GenericValue> items = itemsOf(delegator, projectCode, importSeq);
+            String outboundId = nextOutboundId(delegator);
+            int lineCount = 0;
+            double totalQty = 0.0;
+            long lineSeq = 10L;
+            GenericValue head = delegator.makeValue("MfgOutbound");
+            head.set("outboundId", outboundId);
+            head.set("projectCode", projectCode);
+            head.set("bomVersion", version);
+            head.set("outboundDate", java.sql.Date.valueOf(java.time.LocalDate.now()));
+            head.set("statusId", MfgConstants.OUT_DRAFT);
+            head.set("lineCount", Long.valueOf(0));
+            head.set("totalQty", Double.valueOf(0.0));
+            head.set("issuedQty", Double.valueOf(0.0));
+            head.set("operatorName", operatorName);
+            head.set("note", MfgSupport.toText(context.get("note")));
+            delegator.create(head);
+            for (GenericValue item : items) {
+                if (MfgConstants.BOM_DROPPED.equals(item.getString("changeId"))) {
+                    continue;
+                }
+                double qty = MfgSupport.numberOrZero(item.get("qty"));
+                if (qty <= 0.0001) {
+                    continue;
+                }
+                GenericValue line = delegator.makeValue("MfgOutboundItem");
+                line.set("outboundId", outboundId);
+                line.set("lineSeq", Long.valueOf(lineSeq));
+                line.set("componentCode", item.getString("componentCode"));
+                line.set("componentName", item.getString("componentName"));
+                line.set("designators", item.getString("designators"));
+                line.set("qty", Double.valueOf(MfgSupport.round2(qty)));
+                line.set("issuedQty", Double.valueOf(0.0));
+                line.set("note", null);
+                delegator.create(line);
+                lineCount++;
+                totalQty += qty;
+                lineSeq += 10L;
+            }
+            if (lineCount == 0) {
+                // nothing to pick: the version is all dropped parts, do not leave an empty document
+                delegator.removeValue(head);
+                return ServiceUtil.returnError("这一版没有要出库的料");
+            }
+            head.set("lineCount", Long.valueOf(lineCount));
+            head.set("totalQty", Double.valueOf(MfgSupport.round2(totalQty)));
+            head.set("note", "按研发 BOM " + version + " 生成");
+            delegator.store(head);
+            Map<String, Object> result = ServiceUtil.returnSuccess();
+            result.put("outboundId", outboundId);
+            result.put("bomVersion", version);
+            result.put("lineCount", String.valueOf(lineCount));
+            result.put("totalQty", MfgSupport.formatQty(totalQty));
+            return result;
+        } catch (GenericEntityException e) {
+            return ServiceUtil.returnError("生成出库单失败：" + e.getMessage());
+        }
+    }
+
+    /**
+     * Books every line of an outbound order off the shelf: oldest lot first, releasing the
+     * development project's lock for exactly what was taken.
+     *
+     * <p>It is all-or-nothing on purpose. A picking list that only half left the shelf tells nobody
+     * what the board still misses, so the first line that cannot be covered stops the whole document
+     * and the person sees which part is missing.
+     *
+     * @param dctx the dispatch context
+     * @param context service context, see {@code servicedef/devbom-services.xml#mfgOutboundIssue}
+     * @return the service result with {@code outboundId} and {@code issuedQty}
+     */
+    public static Map<String, Object> outboundIssue(DispatchContext dctx, Map<String, ? extends Object> context) {
+        String denied = MfgSecurity.permissionProblem(dctx, context, MfgConstants.PERM_STOCK);
+        if (denied != null) {
+            return ServiceUtil.returnError(denied);
+        }
+        Delegator delegator = dctx.getDelegator();
+        String outboundId = MfgSupport.toText(context.get("outboundId"));
+        if (outboundId == null) {
+            return ServiceUtil.returnError("outboundId is required");
+        }
+        String operatorName = MfgSupport.toText(context.get("operatorName"));
+        try {
+            GenericValue head = EntityQuery.use(delegator).from("MfgOutbound")
+                    .where("outboundId", outboundId).queryOne();
+            if (head == null) {
+                return ServiceUtil.returnError("Unknown outbound order [" + outboundId + "]");
+            }
+            if (MfgConstants.OUT_ISSUED.equals(head.getString("statusId"))) {
+                return ServiceUtil.returnError("出库单 " + outboundId + " 已经出过库了");
+            }
+            String projectCode = head.getString("projectCode");
+            java.sql.Timestamp when = new java.sql.Timestamp(System.currentTimeMillis());
+            double issuedTotal = 0.0;
+            for (GenericValue line : EntityQuery.use(delegator).from("MfgOutboundItem")
+                    .where("outboundId", outboundId).orderBy("lineSeq").queryList()) {
+                double wanted = MfgSupport.numberOrZero(line.get("qty"))
+                        - MfgSupport.numberOrZero(line.get("issuedQty"));
+                if (wanted <= 0.0001) {
+                    continue;
+                }
+                String componentCode = line.getString("componentCode");
+                double taken = 0.0;
+                for (GenericValue lot : MfgStockLedger.lotsOfComponent(delegator, componentCode)) {
+                    if (taken >= wanted - 0.0001) {
+                        break;
+                    }
+                    if (!lotUsable(lot)) {
+                        continue;
+                    }
+                    MfgStockLedger.ensureLotLedger(delegator, lot);
+                    double free = MfgSupport.numberOrZero(lot.get("availableQty"));
+                    // what this project has locked on the lot is not in its way: it is being picked now
+                    double mine = projectCode == null ? 0.0
+                            : MfgStockLedger.projectReservationOf(delegator, lot.getString("lotId"), projectCode);
+                    double usable = free + mine;
+                    if (usable <= 0.0001) {
+                        continue;
+                    }
+                    double take = Math.min(wanted - taken, usable);
+                    MfgStockLedger.recordMovement(delegator, lot, MfgConstants.MOVE_ISSUE, -take,
+                            MfgStockLedger.lotUnitCost(lot), null, null, outboundId, operatorName, when,
+                            "按出库单 " + outboundId + " 出库");
+                    if (projectCode != null && mine > 0.0001) {
+                        MfgStockLedger.releaseProjectReservation(delegator, projectCode, componentCode,
+                                Math.min(take, mine), operatorName, "出库单 " + outboundId + " 出库");
+                    }
+                    MfgStockLedger.recalcLotStock(delegator, lot);
+                    taken += take;
+                }
+                if (taken + 0.0001 < wanted) {
+                    return ServiceUtil.returnError("料号 [" + componentCode + "] 只够 "
+                            + MfgSupport.formatQty(taken) + "，单据要 " + MfgSupport.formatQty(wanted)
+                            + "：先补货或把这一行改小，整张单还没有出库");
+                }
+                line.set("issuedQty", Double.valueOf(MfgSupport.round2(
+                        MfgSupport.numberOrZero(line.get("issuedQty")) + taken)));
+                delegator.store(line);
+                issuedTotal += taken;
+            }
+            head.set("issuedQty", Double.valueOf(MfgSupport.round2(issuedTotal)));
+            head.set("statusId", MfgConstants.OUT_ISSUED);
+            head.set("note", (MfgSupport.toText(head.get("note")) == null ? "" : head.get("note") + "；")
+                    + "已于 " + MfgSupport.formatQty(issuedTotal) + " 件出库");
+            delegator.store(head);
+            Map<String, Object> result = ServiceUtil.returnSuccess();
+            result.put("outboundId", outboundId);
+            result.put("issuedQty", MfgSupport.formatQty(issuedTotal));
+            result.put("projectCode", projectCode);
+            return result;
+        } catch (GenericEntityException e) {
+            return ServiceUtil.returnError("出库失败：" + e.getMessage());
+        }
+    }
+
+    /**
+     * Drops a draft outbound order that will not be picked - the part cannot be bought, or the board
+     * changed - so that a fresh document can be written from the version in use.
+     *
+     * <p>Only a draft can be dropped: once the lines have left the shelf the document is the record of
+     * what was taken, and undoing it would mean booking the parts back in, which the stock ledger does
+     * with its own movements.
+     *
+     * @param dctx the dispatch context
+     * @param context service context, see {@code servicedef/devbom-services.xml#mfgOutboundCancel}
+     * @return the service result with {@code outboundId} and {@code projectCode}
+     */
+    public static Map<String, Object> outboundCancel(DispatchContext dctx, Map<String, ? extends Object> context) {
+        String denied = MfgSecurity.permissionProblem(dctx, context, MfgConstants.PERM_STOCK);
+        if (denied != null) {
+            return ServiceUtil.returnError(denied);
+        }
+        Delegator delegator = dctx.getDelegator();
+        String outboundId = MfgSupport.toText(context.get("outboundId"));
+        if (outboundId == null) {
+            return ServiceUtil.returnError("outboundId is required");
+        }
+        String reason = MfgSupport.toText(context.get("reason"));
+        try {
+            GenericValue head = EntityQuery.use(delegator).from("MfgOutbound")
+                    .where("outboundId", outboundId).queryOne();
+            if (head == null) {
+                return ServiceUtil.returnError("Unknown outbound order [" + outboundId + "]");
+            }
+            if (MfgConstants.OUT_ISSUED.equals(head.getString("statusId"))) {
+                return ServiceUtil.returnError("出库单 " + outboundId + " 已经出过库了，不能作废");
+            }
+            String oldNote = MfgSupport.toText(head.get("note"));
+            head.set("statusId", MfgConstants.OUT_CANCELLED);
+            head.set("note", (oldNote == null ? "" : oldNote + "；") + "已作废"
+                    + (reason == null ? "" : "：" + reason));
+            delegator.store(head);
+            Map<String, Object> result = ServiceUtil.returnSuccess();
+            result.put("outboundId", outboundId);
+            result.put("projectCode", head.getString("projectCode"));
+            result.put("cancelled", outboundId);
+            return result;
+        } catch (GenericEntityException e) {
+            return ServiceUtil.returnError("作废出库单失败：" + e.getMessage());
+        }
+    }
+
+    /**
+     * The outbound orders of one development project, newest first, each with its lines, so the BOM
+     * page can show what is waiting to be picked and what already left.
+     *
+     * @param dctx the dispatch context
+     * @param context service context, see {@code servicedef/devbom-services.xml#mfgOutboundList}
+     * @return the service result containing {@code outbounds}
+     */
+    public static Map<String, Object> outboundList(DispatchContext dctx, Map<String, ? extends Object> context) {
+        Delegator delegator = dctx.getDelegator();
+        String projectCode = MfgSupport.toText(context.get("projectCode"));
+        Map<String, Object> result = ServiceUtil.returnSuccess();
+        List<Map<String, Object>> outbounds = new ArrayList<>();
+        result.put("outbounds", outbounds);
+        if (projectCode == null) {
+            return result;
+        }
+        try {
+            for (GenericValue head : EntityQuery.use(delegator).from("MfgOutbound")
+                    .where("projectCode", projectCode).orderBy("-createdStamp").queryList()) {
+                Map<String, Object> row = new LinkedHashMap<>();
+                row.put("outboundId", head.getString("outboundId"));
+                row.put("bomVersion", head.getString("bomVersion"));
+                row.put("outboundDate", head.get("outboundDate"));
+                row.put("statusId", head.getString("statusId"));
+                row.put("lineCount", head.get("lineCount"));
+                row.put("totalQty", head.get("totalQty"));
+                row.put("issuedQty", head.get("issuedQty"));
+                row.put("operatorName", head.getString("operatorName"));
+                row.put("note", head.getString("note"));
+                row.put("issued", Boolean.valueOf(MfgConstants.OUT_ISSUED.equals(head.getString("statusId"))));
+                row.put("cancelled", Boolean.valueOf(MfgConstants.OUT_CANCELLED.equals(head.getString("statusId"))));
+                List<Map<String, Object>> lines = new ArrayList<>();
+                for (GenericValue line : EntityQuery.use(delegator).from("MfgOutboundItem")
+                        .where("outboundId", head.getString("outboundId")).orderBy("lineSeq").queryList()) {
+                    Map<String, Object> item = new LinkedHashMap<>();
+                    item.put("lineSeq", line.get("lineSeq"));
+                    item.put("componentCode", line.getString("componentCode"));
+                    item.put("componentName", line.getString("componentName"));
+                    item.put("designators", line.getString("designators"));
+                    item.put("qty", line.get("qty"));
+                    item.put("issuedQty", line.get("issuedQty"));
+                    lines.add(item);
+                }
+                row.put("lines", lines);
+                outbounds.add(row);
+            }
+            return result;
+        } catch (GenericEntityException e) {
+            return ServiceUtil.returnError("读取出库单失败：" + e.getMessage());
+        }
+    }
+
+    /**
+     * The draft outbound order of one BOM version, when one is still waiting to be picked.
+     *
+     * @param delegator the delegator
+     * @param projectCode the development project
+     * @param bomVersion the version the document would be written from
+     * @return the draft, {@code null} when there is none
+     * @throws GenericEntityException when it cannot be read
+     */
+    static Map<String, Object> openOutbound(Delegator delegator, String projectCode, String bomVersion)
+            throws GenericEntityException {
+        for (GenericValue head : EntityQuery.use(delegator).from("MfgOutbound")
+                .where("projectCode", projectCode, "statusId", MfgConstants.OUT_DRAFT).queryList()) {
+            String version = head.getString("bomVersion");
+            if (version == null ? bomVersion == null : version.equals(bomVersion)) {
+                Map<String, Object> row = new LinkedHashMap<>();
+                row.put("outboundId", head.getString("outboundId"));
+                row.put("lineCount", head.get("lineCount"));
+                return row;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * The next free outbound number of today, e.g. {@code OUT-261101-01}.
+     *
+     * @param delegator the delegator
+     * @return the number
+     * @throws GenericEntityException when the existing documents cannot be read
+     */
+    static String nextOutboundId(Delegator delegator) throws GenericEntityException {
+        String prefix = "OUT-" + java.time.LocalDate.now().format(MfgConstants.DAY) + "-";
+        int max = 0;
+        for (GenericValue head : EntityQuery.use(delegator).from("MfgOutbound").queryList()) {
+            String id = head.getString("outboundId");
+            if (id != null && id.startsWith(prefix)) {
+                max = Math.max(max, MfgSupport.parseTrailingNumber(id.substring(prefix.length())));
+            }
+        }
+        return prefix + String.format(Locale.ROOT, "%02d", max + 1);
+    }
+
+    /**
+     * Whether a lot may be picked: a lot that failed incoming inspection must not leave the shelf.
+     *
+     * @param lot the material lot
+     * @return {@code true} unless the lot failed inspection
+     */
+    static boolean lotUsable(GenericValue lot) {
+        return !MfgConstants.IQC_FAIL.equals(lot.getString("inspectStatusId"));
+    }
+
+    /**
      * One part of one imported version, with what the version means for it. Pure data, so the diff can
      * be tested without a database.
      */

@@ -971,6 +971,37 @@
         <response name="error" type="view" value="dev"/>
     </request-map>
 
+    <request-map uri="devBomOutbound">
+        <security https="true" auth="true"/>
+        <event type="service" invoke="mfgDevBomOutbound"/>
+        <response name="success" type="request-redirect" value="dev">
+            <redirect-parameter name="projectCode"/>
+            <redirect-parameter name="outboundId"/>
+        </response>
+        <response name="error" type="view" value="dev"/>
+    </request-map>
+
+    <request-map uri="outboundIssue">
+        <security https="true" auth="true"/>
+        <event type="service" invoke="mfgOutboundIssue"/>
+        <response name="success" type="request-redirect" value="dev">
+            <redirect-parameter name="projectCode"/>
+            <redirect-parameter name="outboundId"/>
+            <redirect-parameter name="issuedQty"/>
+        </response>
+        <response name="error" type="view" value="dev"/>
+    </request-map>
+
+    <request-map uri="outboundCancel">
+        <security https="true" auth="true"/>
+        <event type="service" invoke="mfgOutboundCancel"/>
+        <response name="success" type="request-redirect" value="dev">
+            <redirect-parameter name="projectCode"/>
+            <redirect-parameter name="cancelled"/>
+        </response>
+        <response name="error" type="view" value="dev"/>
+    </request-map>
+
     <request-map uri="devBomCsv">
         <security https="true" auth="true"/>
         <event type="java" path="org.langhua.ofbiz.mfg.MfgDevBomEvents" invoke="shortageCsv"/>

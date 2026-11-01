@@ -278,6 +278,23 @@ public final class MfgConstants {
      */
     public static final String BOM_SOURCE_MANUAL = "MFG_BOM_MANUAL";
 
+    /**
+     * An outbound order (出库单): the list of parts that are about to leave the shelf. It is written
+     * first and walked afterwards, so what the warehouse picks can be compared with what the BOM
+     * asked for instead of issuing part by part and hoping the totals add up.
+     */
+    public static final String OUT_DRAFT = "MFG_OUT_DRAFT";
+
+    /** The outbound order has been booked: every line left the shelf and the project's lock with it. */
+    public static final String OUT_ISSUED = "MFG_OUT_ISSUED";
+
+    /**
+     * The outbound order was dropped before anything left the shelf: the parts could not be found, or
+     * the board changed. It stays in the history so the numbering and the reason are not lost.
+     */
+    public static final String OUT_CANCELLED = "MFG_OUT_CANCELLED";
+
+
     /** What kind of place a stock location is. */
     public static final String LOC_WAREHOUSE = "MFG_LOC_WAREHOUSE";
 

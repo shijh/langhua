@@ -65,6 +65,138 @@
 			"type": "shell",
 			"command": "git add -A ; git --no-pager commit -F F:\\build-ofbiz\\msg179h.txt ; git --no-pager log --oneline -1",
 			"group": "none"
+		},
+		{
+			"label": "check entitymodel",
+			"type": "shell",
+			"command": "cmd /c \"powershell -NoProfile -ExecutionPolicy Bypass -File C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\check-entitymodel.ps1\"",
+			"group": "none"
+		},
+		{
+			"label": "compile and test 237",
+			"type": "shell",
+			"command": "cmd /c \"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\mfg-tests-all.bat\"",
+			"group": "none"
+		},
+		{
+			"label": "check descriptors 237",
+			"type": "shell",
+			"command": "cmd /c \"powershell -NoProfile -ExecutionPolicy Bypass -File C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\check-xml-237.ps1\"",
+			"group": "none"
+		},
+		{
+			"label": "deploy dev 237",
+			"type": "shell",
+			"command": "cmd /c \"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\deploy-mfg.bat\"",
+			"group": "none"
+		},
+		{
+			"label": "check outbound page",
+			"type": "shell",
+			"command": "cmd /c \"powershell -NoProfile -ExecutionPolicy Bypass -File C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\check-outbound-page.ps1\"",
+			"group": "none"
+		},
+		{
+			"label": "find project with bom",
+			"type": "shell",
+			"command": "cmd /c \"powershell -NoProfile -ExecutionPolicy Bypass -File C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\find-bom-project.ps1\"",
+			"group": "none"
+		},
+		{
+			"label": "dump outbound section",
+			"type": "shell",
+			"command": "cmd /c \"powershell -NoProfile -ExecutionPolicy Bypass -File C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\dump-outbound-section.ps1\"",
+			"group": "none"
+		},
+		{
+			"label": "outbound flow test",
+			"type": "shell",
+			"command": "cmd /c \"powershell -NoProfile -ExecutionPolicy Bypass -File C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\outbound-flow.ps1\"",
+			"group": "none"
+		},
+		{
+			"label": "check stock movements",
+			"type": "shell",
+			"command": "cmd /c \"powershell -NoProfile -ExecutionPolicy Bypass -File C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\check-movements.ps1\"",
+			"group": "none"
+		},
+		{
+			"label": "dump move row",
+			"type": "shell",
+			"command": "cmd /c \"powershell -NoProfile -ExecutionPolicy Bypass -File C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\dump-move-row.ps1\"",
+			"group": "none"
+		},
+		{
+			"label": "verify outbound dev",
+			"type": "shell",
+			"command": "cmd /c \"powershell -NoProfile -ExecutionPolicy Bypass -File C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\verify-m60-outbound.ps1 -base https://localhost:8443 -project DEV-261031-04\"",
+			"group": "none"
+		},
+		{
+			"label": "dump outbound error",
+			"type": "shell",
+			"command": "cmd /c \"powershell -NoProfile -ExecutionPolicy Bypass -File C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\dump-outbound-error.ps1\"",
+			"group": "none"
+		},
+		{
+			"label": "post issue manually",
+			"type": "shell",
+			"command": "cmd /c \"powershell -NoProfile -ExecutionPolicy Bypass -File C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\post-issue.ps1\"",
+			"group": "none"
+		},
+		{
+			"label": "compile and test 237b",
+			"type": "shell",
+			"command": "cmd /c \"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\mfg-tests-all.bat\"",
+			"group": "none"
+		},
+		{
+			"label": "deploy dev 237b",
+			"type": "shell",
+			"command": "cmd /c \"powershell -NoProfile -ExecutionPolicy Bypass -File C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\deploy-mfg.bat\"",
+			"group": "none"
+		},
+		{
+			"label": "verify outbound dev b",
+			"type": "shell",
+			"command": "cmd /c powershell -NoProfile -ExecutionPolicy Bypass -File C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\verify-m60b.ps1 -base https://localhost:8443 -project DEV-261031-04",
+			"group": "none"
+		},
+		{
+			"label": "debug cancel dev",
+			"type": "shell",
+			"command": "cmd /c powershell -NoProfile -ExecutionPolicy Bypass -File C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\debug-cancel.ps1",
+			"group": "none"
+		},
+		{
+			"label": "debug cancel dev 2",
+			"type": "shell",
+			"command": "cmd /c powershell -NoProfile -ExecutionPolicy Bypass -File C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\debug-cancel2.ps1",
+			"group": "none"
+		},
+		{
+			"label": "debug issue dev",
+			"type": "shell",
+			"command": "cmd /c powershell -NoProfile -ExecutionPolicy Bypass -File C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\debug-issue.ps1",
+			"group": "none"
+		},
+		{
+			"label": "verify outbound dev c",
+			"type": "shell",
+			"command": "cmd /c powershell -NoProfile -ExecutionPolicy Bypass -File C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\verify-m60b.ps1 -base https://localhost:8443 -project DEV-261031-04",
+			"group": "none"
+		},
+		{
+			"label": "verify outbound dev d",
+			"type": "shell",
+			"command": "cmd /c powershell -NoProfile -ExecutionPolicy Bypass -File C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\verify-m60b.ps1 -base https://localhost:8443 -project DEV-261031-04",
+			"group": "none"
+		},
+		{
+			"label": "mfg it 237",
+			"type": "shell",
+			"command": "cmd /c \"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\mfg-it.bat\"",
+			"group": "none"
 		}
 	]
 }

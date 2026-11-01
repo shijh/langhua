@@ -377,6 +377,57 @@
         </index>
     </entity>
 
+    <entity entity-name="MfgOutbound"
+            package-name="org.langhua.ofbiz.mfg"
+            title="Outbound order">
+        <description>Parts that are about to leave the shelf, written down first and picked afterwards, so the warehouse can work from one list instead of issuing part by part. A development project fills it from the parts its BOM version needs; issuing it books the movements and gives the project's lock back</description>
+        <field name="outboundId" type="id"><description>Outbound number, e.g. OUT-261101-01</description></field>
+        <field name="projectCode" type="id"><description>Development project the material is for, empty for a document that belongs to a work order</description></field>
+        <field name="workOrderId" type="id"><description>Work order the material is for, kept for issuing from a work order later</description></field>
+        <field name="bomVersion" type="name"><description>BOM version the lines were taken from</description></field>
+        <field name="outboundDate" type="date"><description>Date the material leaves</description></field>
+        <field name="statusId" type="id"><description>MFG_OUT_DRAFT while it is a picking list, MFG_OUT_ISSUED once the lines have left the shelf</description></field>
+        <field name="lineCount" type="numeric"><description>How many part numbers the document lists</description></field>
+        <field name="totalQty" type="floating-point"><description>Units the document asks for</description></field>
+        <field name="issuedQty" type="floating-point"><description>Units that actually left the shelf</description></field>
+        <field name="operatorName" type="name"><description>Who wrote the document</description></field>
+        <field name="note" type="description"/>
+        <field name="createdStamp" type="date-time"/>
+        <field name="createdTxStamp" type="date-time"/>
+        <field name="lastUpdatedStamp" type="date-time"/>
+        <field name="lastUpdatedTxStamp" type="date-time"/>
+        <prim-key field="outboundId"/>
+        <relation type="one" fk-name="MFG_OUT_PROJECT" rel-entity-name="MfgDevProject">
+            <key-map field-name="projectCode"/>
+        </relation>
+        <index name="MFG_OUT_HEAD_IDX" unique="false">
+            <index-field name="projectCode"/>
+            <index-field name="statusId"/>
+        </index>
+    </entity>
+
+    <entity entity-name="MfgOutboundItem"
+            package-name="org.langhua.ofbiz.mfg"
+            title="Line of an outbound order">
+        <description>One part number of an outbound order: how many the document asks for and how many were picked</description>
+        <field name="outboundId" type="id"><description>Outbound number</description></field>
+        <field name="lineSeq" type="numeric"><description>Line number inside the document</description></field>
+        <field name="componentCode" type="name"><description>Part number, up to 100 characters</description></field>
+        <field name="componentName" type="name"><description>Description as the BOM has it</description></field>
+        <field name="designators" type="description"><description>Reference designators, e.g. C1,C2</description></field>
+        <field name="qty" type="floating-point"><description>Units the document asks for</description></field>
+        <field name="issuedQty" type="floating-point"><description>Units picked and booked off the shelf</description></field>
+        <field name="note" type="description"/>
+        <prim-key field="outboundId"/>
+        <prim-key field="lineSeq"/>
+        <relation type="one" fk-name="MFG_OUTITEM_HEAD" rel-entity-name="MfgOutbound">
+            <key-map field-name="outboundId"/>
+        </relation>
+        <index name="MFG_OUTITEM_CODE" unique="false">
+            <index-field name="componentCode"/>
+        </index>
+    </entity>
+
     <entity entity-name="MfgShipment"
             package-name="org.langhua.ofbiz.mfg"
             title="Shipment">

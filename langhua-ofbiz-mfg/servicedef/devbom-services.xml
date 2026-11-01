@@ -110,4 +110,47 @@
         <attribute name="releasedQty" type="String" mode="OUT" optional="true"/>
     </service>
 
+    <!-- ==================== outbound order (出库单) ==================== -->
+
+    <service name="mfgDevBomOutbound" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgDevBomServices" invoke="devBomOutbound"
+            auth="false" use-transaction="true">
+        <description>Write the parts of the BOM version in use into an outbound order: one line per part that is still used, so the warehouse picks from a list instead of issuing part by part</description>
+        <attribute name="projectCode" type="String" mode="IN" optional="true"/>
+        <attribute name="operatorName" type="String" mode="IN" optional="true"/>
+        <attribute name="note" type="String" mode="IN" optional="true"/>
+        <attribute name="outboundId" type="String" mode="OUT" optional="true"/>
+        <attribute name="bomVersion" type="String" mode="OUT" optional="true"/>
+        <attribute name="lineCount" type="String" mode="OUT" optional="true"/>
+        <attribute name="totalQty" type="String" mode="OUT" optional="true"/>
+    </service>
+
+    <service name="mfgOutboundIssue" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgDevBomServices" invoke="outboundIssue"
+            auth="false" use-transaction="true">
+        <description>Book every line of an outbound order off the shelf, oldest lot first, giving the development project's lock back for what was picked. All or nothing: the first line that cannot be covered stops the whole document</description>
+        <attribute name="outboundId" type="String" mode="IN" optional="true"/>
+        <attribute name="operatorName" type="String" mode="IN" optional="true"/>
+        <attribute name="issuedQty" type="String" mode="OUT" optional="true"/>
+        <attribute name="projectCode" type="String" mode="OUT" optional="true"/>
+    </service>
+
+    <service name="mfgOutboundCancel" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgDevBomServices" invoke="outboundCancel"
+            auth="false" use-transaction="true">
+        <description>Drop a draft outbound order that will not be picked, so a fresh one can be written from the version in use. A document that has already been booked cannot be dropped: undoing it would mean booking the parts back in</description>
+        <attribute name="outboundId" type="String" mode="IN" optional="true"/>
+        <attribute name="reason" type="String" mode="IN" optional="true"/>
+        <attribute name="projectCode" type="String" mode="OUT" optional="true"/>
+        <attribute name="cancelled" type="String" mode="OUT" optional="true"/>
+    </service>
+
+    <service name="mfgOutboundList" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgDevBomServices" invoke="outboundList"
+            auth="false" use-transaction="false">
+        <description>The outbound orders of one development project with their lines, newest first</description>
+        <attribute name="projectCode" type="String" mode="IN" optional="true"/>
+        <attribute name="outbounds" type="java.util.List" mode="OUT" optional="true"/>
+    </service>
+
 </services>
