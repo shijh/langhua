@@ -23,7 +23,7 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
 | `verify-backup.ps1` | 把备份与在线库**逐文件**比一遍（缺几个、大小差几个），顺带确认生产在跑、登录页回 200 |
 | `mfg-tests.bat` | 单元测试（JUnit 4，离线，依赖 `F:\build-ofbiz\lib` 的 jar）；**只编一个类**（老脚本，`MfgServices.java` 已拆掉，现在用下面那个） |
 | `mfg-tests-all.bat` | 同上，但先编**全部源码 + 全部测试源码**（别的类改坏会当场报），然后一次跑六个 `*RulesTest` 类 |
-| `mfg-it.bat` | 集成测试 `integration-test/MfgServiceIT.java`，走 `/webtools/control/scheduleServiceSync` + `_RUN_SYNC_=Y`（日志 `mfg-it.txt`） |
+| `mfg-it.bat` | 集成测试 `integration-test/MfgServiceIT.java`，走 `/webtools/control/scheduleServiceSync` + `_RUN_SYNC_=Y`（日志 `mfg-it.txt`）；**默认打测试实例 8095**（`-Dofbiz.url=http://localhost:8095`），要打别处就 `set OFBIZ_IT_URL=https://localhost:8443` 再调它——它会写 `ITMFG`/`COSTM` 这些固定名字的型号、项目、工单与批次，跑在开发实例上等于往开发库里倒测试数据 |
 | `deploy-test.bat` | **测试实例（http 8095）**：停 → robocopy 两个插件 → 把部署副本的 `https="true"` 改成 `false` → `gradle jar` → 启动（日志 `test-deploy.txt`） |
 | `start-test.bat` / `stop-test.bat` | 只启/停**测试**实例（按命令行里的 `ofbiz-test` 匹配，admin 端口 10723） |
 | `make-test-instance.ps1` / `relax-test-https.ps1` | 一次性从开发实例复制出 `F:\build-ofbiz\ofbiz-test` 并改端口；后者把测试实例里 37 个 controller 的 `https="true"` 改 `false`（每次 deploy-test 都会重跑） |
@@ -169,6 +169,10 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
 **要点死按钮的地方用测试实例（http 8095）**：`deploy-test.bat` 部署一份把 `https` 关掉的副本，
 浏览器（含编辑器的内置浏览器 / Playwright）用 `admin` / `ofbiz` 登录后可以直接点、可以截图，
 不碰自签证书。`verify-m*.ps1` 仍旧打开发实例的 8443。
+
+**集成测试打哪套实例**：`mfg-it.bat` **默认打测试实例 8095**（`-Dofbiz.url=http://localhost:8095`），
+要打别处先 `set OFBIZ_IT_URL=https://localhost:8443`。原因见下面「测试数据把开发库灌满了」那一条：
+它写的是 `ITMFG` / `COSTM` 这些**固定名字**的型号与单据，跑在开发实例上等于往开发库里倒垃圾。
 
 | 脚本 | 覆盖 | 断言数 |
 | --- | --- | --- |
@@ -2390,6 +2394,29 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   单测 `MfgDevBomRulesTest` 五条钉住（合并、跳过停用与空行、只出差额、大小写、减少不回补、作废重问）。
   验法：dev 上 `DEV-261031-04` 那一版已全部出库，再点「转出库单」→ 正确拒绝且不留空单（`verify-m60b.ps1` 7 项分支）；
   test 上 `DEV-261029-02` 什么都没出过 → 仍是整版 12 行（16 项）。三套实例已发版。
+
+- **测试数据把开发库灌满了：清一次，并让 IT 打测试实例（Step 239）**：几个月下来开发库里
+  **383 个开发项目**、268 个型号、728 个工单、3959 个批次、13192 条流水、1152 张到货单，几乎全是
+  `mfg-it.bat` 与 `verify-m*.ps1` 造出来的（IT 每跑一次就建 4 个项目 + 2 个型号 + 一堆单据）。
+  结果就是用户「在产品开发里找不到自己的板子」——列表最上面全是今天的空项目。
+  两件事：
+  ① **`mfg-it.bat` 默认打测试实例 8095**（`-Dofbiz.url`，可用 `OFBIZ_IT_URL` 覆盖），开发库不再被灌；
+  ② **`tools/purge-test-data.sql`**：停实例 → 备份 `runtime\data\derby` → ij 跑它 → 起实例。
+     它**只删带标识的测试数据**（IT 的型号 `ITMFG`/`COSTM`/`ITFZ…`/`RSVM…`/`RSV…`/`INV…`、IT 的料号、
+     IT 的客户名与供应商名），**保留** `DEV-261031-04`（手工导入真板子 Fritzing BOM 的那个项目，
+     连它的 12 张出库单）与真实采购的批次；开发层则**只留这一个项目**（EOL 的测试项目连
+     steps / gates / issues / devBom / outbound 一起删，并删掉它们压在货架上的预留流水，最后按
+     `recalcLotStock` 的公式重算每个批次的在库/预留/可用）。
+     实测：项目 383→1、型号 268→150、工单 728→57、批次 3959→3042、流水 13192→3581、
+     到货单 1152→1084、`itu*` 测试账号全部停用（`USER_LOGIN` 有外键，只能停不能删——和 Step 126 一样）。
+     **两个坑**：① **先把 id 收进 `SESSION.*` 临时表再删**——写成 `IN (SELECT … 大表)` Derby 会对每一行
+     重跑子查询，一条 delete 跑了十分钟（第一版就是这么被 kill 的）；② 子表先删（实体有真外键），
+     顺序不是装饰。验法 `verify-purge.ps1`（14 项：只剩一个项目、BOM 13 行还在、出库历史还在、
+     型号/工单/批次里查不到 IT 的东西）。
+  **注意**：`DEV-261031-04` 的**名称还是「Cost test project」**、型号是 `COSTM`（它本来就是 IT 建的项目，
+  后来往里手工导入了真板子 BOM）——要改名就在「立项 / 修改项目」表单里改，研发 BOM 挂在项目上、
+  与型号无关。其它 verify 脚本留下的数据（`PXL…`、`PSLC…`、`VERIFY…` 等型号与批次）这次**没有**清，
+  要连它们一起清得另开一次（或整库 `loadAll` 重来，代价是识图密钥与账号要重新填）。
 
 ## 兄弟组件 langhua-ofbiz-learningcurve
 
