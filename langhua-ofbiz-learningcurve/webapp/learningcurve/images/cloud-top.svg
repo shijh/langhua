@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape" xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd" xmlns:svg="http://www.w3.org/2000/svg" viewBox="0 0 17.4795494 1.8000019"><defs><g id="art"><g
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape" xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd" xmlns:svg="http://www.w3.org/2000/svg" viewBox="0 0 8.4897747 1.8000019"><defs><g id="art"><g
      inkscape:label="图层 1"
      inkscape:groupmode="layer"
      id="layer1"
@@ -54,4 +54,4 @@
            style="fill:#d45500;stroke-width:0.900002" />
       </g>
     </g>
-  </g></g></defs><use href="#art"/><use href="#art" transform="translate(17.4795494,0) scale(-1,1)"/></svg>
+  </g></g></defs><use href="#art" transform="translate(-8.4897747,0)"/><use href="#art"/><use href="#art" transform="translate(8.4897747,0)"/></svg>
