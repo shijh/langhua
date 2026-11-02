@@ -30,7 +30,7 @@ were introduced when the logo and `verifyOutput` were added to the framework cop
 | QR-3 | medium | both | `QRCodeServices.java:118–120` | error-correction level is fixed at L, so a logo can make a code unscannable with no way out |
 | QR-4 | medium | framework | `QRCodeServices.java:151–171` | the logo is drawn at its native pixel size; a big default logo can eat a small code |
 | QR-5 | low | both | `qrcode.properties:26` vs `QRCodeServices.java:107` | the configured format list is ignored (key typo, works only thanks to the default) |
-| QR-6 | low | both | `QRCodeServices.java:91,98` | `width` and `height` default independently, so one of them silently gives a 200 px side |
+| QR-6 | nit | both | `QRCodeServices.java:91,98` | `width`/`height` size the **image**, not the symbol, and the service does not say so: asking for `width=300` alone gives a 300 × 200 canvas with a 200 px code in it |
 | QR-7 | low | framework | `QRCodeServices.java:166–169` | a transparent logo is drawn straight onto the modules (no white matte) |
 | QR-8 | nit | framework | `QRCodeServices.java:167` | `AffineTransformOp` is misused as the `drawImage` op, shifting the logo by one pixel |
 
@@ -225,19 +225,35 @@ since the code already uses it in three places.
 
 ---
 
-## QR-6 — `width` and `height` default independently
+## QR-6 — `width` / `height` size the image, and nothing says so
 
 ```java
 if (width == null)  { width  = Integer.parseInt(... "qrcode.default.width",  "200", ...); }
 if (height == null) { height = Integer.parseInt(... "qrcode.default.height", "200", ...); }
 ```
 
-A caller that asks for `width=300` and nothing else does not get a 300 px code: the matrix is square, so
-zxing fits it into the 300 × 200 canvas and the image comes back with white bars down the sides. The code
-itself is 200 px, i.e. what the caller did *not* ask for. **Expected**: the missing side follows the given
-one.
+This is **correct behaviour, not a bug**: a QR symbol is always square (the module matrix is
+21 × 21 … 177 × 177; rectangular variants are a different standard — rMQR — that zxing does not
+encode), and `MultiFormatWriter` centres that square in whatever canvas it is given. Measured with
+zxing 1.7 (the jar this component ships):
+
+| request | matrix | actually drawn |
+| --- | --- | --- |
+| 300 × 300 | 300 × 300 | 225 × 225 code at 37,37 |
+| 300 × 100 | 300 × 100 | **75 × 75** code at 112,12 |
+| 100 × 300 | 100 × 300 | 75 × 75 code at 12,112 |
+
+The traps are only in the documentation: neither the service description nor the attributes say that
+`width`/`height` are the canvas, so a caller who passes `width=300` expects a 300 px code and gets one
+200 px wide (the `qrcode.default.height` fallback) with white bars. **Expected**: say it in the service
+description / attribute docs — and, if the maintainers want to be helpful, default the missing side to
+the given one (easy to get wrong for a caller who really wants a banner, so documenting is the safer
+half).
 
 **Inherited**: the original component defaults the two sides the same way.
+
+*Measured with* `F:\build-ofbiz\qrshape\QrShape.java` (encodes 300 × 100 with the shipped zxing jar and
+prints the black bounding box); the same test is a good regression guard for any patch here.
 
 ---
 

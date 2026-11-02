@@ -2648,8 +2648,10 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   - **给 OFBiz 的 PR 材料在 `docs/ofbiz-qrcode-upstream.md`**（用户自己贡献过那个 qrcode 模块，要单独
     提 issue/PR）：`logoImage` 入参类型与实现不一致（完全用不了）、`verifyOutput` 对“带 logo 后解不开的图”
     返回成功、纠错等级写死 L、logo 按原始像素画、`qrcode.formats.supported` 与代码里的
-    `qrcode.format.supported` 拼写不一致、`width`/`height` 各默认 200、透明 logo 没有白底、
-    `AffineTransformOp` 误用。**这份文档里逐条写了 file:line、复现、期望和 patch 草稿**，改这块前先看它。
+    `qrcode.format.supported` 拼写不一致、透明 logo 没有白底、`AffineTransformOp` 误用。
+    **`width`/`height` 那条不是 bug**：二维码符号永远是正方形（21×21…177×177，长方的是另一种标准 rMQR），
+    zxing 把它居中画进给定画布——实测 300×100 得到 75×75 的码 + 两侧白边（`F:\build-ofbiz\qrshape\QrShape.java`），
+    值得提的只是“服务说明里没写清楚”。**这份文档里逐条写了 file:line、复现、期望和 patch 草稿**，改这块前先看它。
 
 - **测试数据把开发库灌满了：清一次，并让 IT 打测试实例（Step 239）**：几个月下来开发库里
   **383 个开发项目**、268 个型号、728 个工单、3959 个批次、13192 条流水、1152 张到货单，几乎全是
