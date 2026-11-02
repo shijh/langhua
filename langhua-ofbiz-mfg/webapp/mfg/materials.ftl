@@ -177,7 +177,15 @@ C0402-100N,100nF 0402 电容,立创商城,DC2409B,500,2026-10-19</textarea>
                 <td>${lot.supplierLot!}</td>
                 <td class="num">${((lot.receivedQty)!0)?string("0.##")}</td>
                 <td class="num">${((lot.issuedQty)!0)?string("0.##")}</td>
-                <td class="num">${((lot.remainingQty)!0)?string("0.##")}</td>
+                <td class="num">${((lot.remainingQty)!0)?string("0.##")}
+                    <#-- the shelf is empty but nothing went to a work order: an outbound document took
+                         the parts, and it only writes the ledger, so the other two columns cannot show it -->
+                    <#if ((lot.outboundRefs)![])?has_content>
+                        <br/><span class="hint">已由出库单
+                        <#list ((lot.outboundRefs)![]) as ref><a href="/mfg/control/outbound?outboundId=${ref?url}">${ref}</a><#if ref_has_next>、</#if></#list>
+                        领走</span>
+                    </#if>
+                </td>
                 <td><#if lot.receivedDate??>${lot.receivedDate?string("yyyy-MM-dd")}</#if></td>
                 <td>
                     <#if (lot.inspectStatusId!'') == 'MFG_IQC_PASS'><span class="ok">合格</span>

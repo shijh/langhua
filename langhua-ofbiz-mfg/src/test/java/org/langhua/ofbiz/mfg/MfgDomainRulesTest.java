@@ -341,6 +341,46 @@ public class MfgDomainRulesTest {
     }
 
     @Test
+    public void saysWhichOutboundDocumentEmptiedALot() {
+        // one downloader arrived, no work order ever took it, and the shelf says 0: an outbound
+        // document took it, so the row has to name that document
+        Map<String, Object> row = new java.util.LinkedHashMap<>();
+        row.put("remainingQty", Double.valueOf(0.0));
+        row.put("issuedQty", Double.valueOf(0.0));
+        java.util.List<String> refs = new java.util.ArrayList<>();
+        refs.add("OUT-261101-01");
+        MfgStockServices.addOutboundHint(row, refs);
+        assertEquals(refs, row.get("outboundRefs"));
+    }
+
+    @Test
+    public void leavesTheOutboundDocumentOffWhenTheColumnsExplainThemselves() {
+        java.util.List<String> refs = new java.util.ArrayList<>();
+        refs.add("OUT-261101-01");
+
+        // stock is still on the shelf
+        Map<String, Object> left = new java.util.LinkedHashMap<>();
+        left.put("remainingQty", Double.valueOf(3.0));
+        left.put("issuedQty", Double.valueOf(0.0));
+        MfgStockServices.addOutboundHint(left, refs);
+        assertFalse(left.containsKey("outboundRefs"));
+
+        // a work order already consumed it, the "issued" column says so
+        Map<String, Object> issued = new java.util.LinkedHashMap<>();
+        issued.put("remainingQty", Double.valueOf(0.0));
+        issued.put("issuedQty", Double.valueOf(2.0));
+        MfgStockServices.addOutboundHint(issued, refs);
+        assertFalse(issued.containsKey("outboundRefs"));
+
+        // it never went out on a document either: a scrap or a count explains it through the ledger
+        Map<String, Object> none = new java.util.LinkedHashMap<>();
+        none.put("remainingQty", Double.valueOf(0.0));
+        none.put("issuedQty", Double.valueOf(0.0));
+        MfgStockServices.addOutboundHint(none, null);
+        assertFalse(none.containsKey("outboundRefs"));
+    }
+
+    @Test
     public void spreadsTheActualCostOverTheGoodUnits() {
         // 300 yuan for 4 good units is 75 each
         assertEquals(75.0, MfgStockLedger.productUnitCost(300.0, 4.0), 1e-9);

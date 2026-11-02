@@ -1037,11 +1037,16 @@ public final class MfgStockServices {
             // the picture the shop printed next to this article, when the lot came in from a screenshot:
             // one query for the page and not one per row
             Map<String, String> shots = shotOfLot(delegator);
+            // a batch can be empty because an outbound document took the parts away, which writes a
+            // ledger movement and releases the reservation but no work-order issue; without this the
+            // row reads "arrived 1 / issued 0 / left 0", which looks like a mistake
+            Map<String, List<String>> outboundRefs = outboundRefsByLot(delegator);
             // and the datasheet of the part number, so the row can open it instead of the upload page
             Map<String, Map<String, Object>> docs = partDocsByComponent(delegator);
             List<Map<String, Object>> list = new ArrayList<>(lots.size());
             for (GenericValue lot : lots) {
                 Map<String, Object> row = MfgRecordMaps.toLotMap(lot, issued.get(lot.getString("lotId")));
+                addOutboundHint(row, outboundRefs.get(lot.getString("lotId")));
                 row.put("scanShotId", shots.get(lot.getString("lotId")));
                 withPartDocs(row, docs, lot.getString("componentCode"));
                 list.add(row);
@@ -1258,6 +1263,66 @@ public final class MfgStockServices {
         }
         inheritFromParents(shots, parents);
         return shots;
+    }
+
+    /**
+     * The outbound documents (出库单) that took parts out of each batch, one entry per batch.
+     *
+     * <p>An outbound document issues through the ledger and releases the reservation, but it never
+     * writes a work-order issue. A batch that arrived with one piece, fed no work order and is empty
+     * therefore shows as "arrived 1 / issued 0 / left 0", which reads as a mistake rather than as
+     * "the parts are in the engineer's drawer".
+     *
+     * @param delegator the delegator
+     * @return lotId to the documents that issued from it, empty when no batch went out this way
+     * @throws GenericEntityException when the ledger cannot be read
+     */
+    static Map<String, List<String>> outboundRefsByLot(Delegator delegator) throws GenericEntityException {
+        Map<String, List<String>> refs = new LinkedHashMap<>();
+        for (GenericValue move : EntityQuery.use(delegator).from("MfgInventoryDetail")
+                .select("lotId", "referenceNo").where("movementTypeId", MfgConstants.MOVE_ISSUE).queryList()) {
+            String ref = move.getString("referenceNo");
+            String lotId = move.getString("lotId");
+            if (ref == null || !ref.startsWith("OUT-") || lotId == null) {
+                continue;
+            }
+            List<String> list = refs.get(lotId);
+            if (list == null) {
+                list = new ArrayList<>();
+                refs.put(lotId, list);
+            }
+            if (!list.contains(ref)) {
+                list.add(ref);
+            }
+        }
+        for (List<String> list : refs.values()) {
+            Collections.sort(list);
+        }
+        return refs;
+    }
+
+    /**
+     * Puts the outbound documents on a row that would otherwise look contradictory: the shelf is
+     * empty, yet nothing was issued to a work order.
+     *
+     * <p>Only that shape gets the line: a batch that still has stock, or that was consumed by a work
+     * order, explains itself through the other two columns.
+     *
+     * @param row the row built by {@link MfgRecordMaps#toLotMap}
+     * @param refs the documents that issued from this batch, may be null
+     */
+    static void addOutboundHint(Map<String, Object> row, List<String> refs) {
+        if (row == null || refs == null || refs.isEmpty()) {
+            return;
+        }
+        if (!isZero(row.get("remainingQty")) || !isZero(row.get("issuedQty"))) {
+            return;
+        }
+        row.put("outboundRefs", refs);
+    }
+
+    private static boolean isZero(Object qty) {
+        return qty instanceof Number && ((Number) qty).doubleValue() == 0.0;
     }
 
     /**
