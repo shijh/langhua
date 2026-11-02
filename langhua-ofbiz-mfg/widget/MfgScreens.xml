@@ -172,6 +172,47 @@
         </section>
     </screen>
 
+    <!-- The sticker of one outbound order: 80 x 50 mm, a QR code and the few facts the box has to
+         carry. It stands on its own (no decorator) because it is printed, not browsed (Step 247) -->
+    <screen name="outboundLabel">
+        <section>
+            <actions>
+                <set field="title" value="Outbound Label"/>
+                <set field="pageTitle" value="出库单标签"/>
+                <service service-name="mfgOutboundDetail" result-map="outboundResult" auto-field-map="false">
+                    <field-map field-name="outboundId" from-field="parameters.outboundId"/>
+                </service>
+            </actions>
+            <widgets>
+                <platform-specific>
+                    <html>
+                        <html-template location="component://mfg/webapp/mfg/outboundLabel.ftl"/>
+                    </html>
+                </platform-specific>
+            </widgets>
+        </section>
+    </screen>
+
+    <!-- What the phone shows after scanning the sticker: the picking list of that box, readable in a
+         workshop. No decorator and no login: the key in the address is the guard (Step 247) -->
+    <screen name="outboundCheck">
+        <section>
+            <actions>
+                <set field="title" value="Outbound Check"/>
+                <set field="pageTitle" value="核对出库单"/>
+                <service service-name="mfgOutboundDetail" result-map="outboundResult" auto-field-map="false">
+                    <field-map field-name="outboundId" from-field="parameters.outboundId"/>
+                </service>
+            </actions>
+            <widgets>
+                <platform-specific>
+                    <html>
+                        <html-template location="component://mfg/webapp/mfg/outboundCheck.ftl"/>
+                    </html>
+                </platform-specific>
+            </widgets>
+        </section>
+    </screen>
     <!-- Purchase receipts: what one purchase brought in and the freight that belongs to it -->
     <screen name="receipts">
         <section>

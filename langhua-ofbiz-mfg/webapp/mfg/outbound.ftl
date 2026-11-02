@@ -26,11 +26,14 @@
            data-outbound-by="${outbound.operatorName!}"
            data-outbound-note="${(outbound.note)!}" data-outbound-reason="${(outbound.cancelReason)!}"
            data-outbound-receiver="${(outbound.receiverName)!}"
+           data-outbound-status="<#if outbound.issued>ISSUED<#elseif outbound.cancelled>CANCELLED<#elseif outbound.packed>PACKED<#else>DRAFT</#if>"
+           data-outbound-packages="${(outbound.packageCount!0)?string("0.##")}"
+           data-outbound-check-key="${outbound.checkKey!''}"
            data-outbound-issued-at="<#if outbound.issuedAt??>${outbound.issuedAt?string("yyyy-MM-dd HH:mm")}</#if>"
            data-outbound-issued-by="${(outbound.issuedBy)!}">
         <tr>
             <th>日期</th><th>BOM 版本</th><th class="num">行数</th><th class="num">合计</th>
-            <th class="num">已出</th><th>状态</th><th>制作</th><th>领料人</th><th>备注</th>
+            <th class="num">已出</th><th>状态</th><th>制作</th><th>领料人</th><th>包装</th><th>备注</th>
         </tr>
         <tr>
             <td><#if outbound.outboundDate??>${outbound.outboundDate?string("yyyy-MM-dd")}</#if></td>
@@ -38,15 +41,37 @@
             <td class="num">${(outbound.lineCount)!0}</td>
             <td class="num">${(outbound.totalQty!0)?string("0.##")}</td>
             <td class="num">${(outbound.issuedQty!0)?string("0.##")}</td>
-            <td><#if outbound.issued><span class="ok">已出库</span><#elseif outbound.cancelled><span class="hint"<#if ((outbound.cancelReason)!'')?has_content> title="作废原因：${outbound.cancelReason}"</#if>>已作废</span><#else><span class="warn">待出库</span></#if></td>
+            <td><#if outbound.issued><span class="ok">已出库</span><#elseif outbound.cancelled><span class="hint"<#if ((outbound.cancelReason)!'')?has_content> title="作废原因：${outbound.cancelReason}"</#if>>已作废</span><#elseif outbound.packed><span class="warn">已包装</span><#else><span class="warn">待出库</span></#if></td>
             <td>${outbound.operatorName!}</td>
             <td>${(outbound.receiverName)!}</td>
+            <td><#if outbound.packed || outbound.issued>${(outbound.packageCount!0)?string("0.##")} 盒<#else><span class="hint">—</span></#if></td>
             <td>${(outbound.note)!}</td>
         </tr>
     </table>
 
     <#if parameters.saved??>
         <p class="ok">领料人已保存。</p>
+    </#if>
+    <#if parameters.packed??>
+        <p class="ok">包装已登记：${parameters.packed}。把标签（下面「打印标签」）贴到盒子上。</p>
+    </#if>
+
+    <#-- 电子产品一般装塑料盒，盒子上贴一张带二维码的标签，手机扫一下就能对着明细核对（Step 247） -->
+    <#if !outbound.issued && !outbound.cancelled>
+        <form method="post" action="/mfg/control/outboundPack" class="inline">
+            <input type="hidden" name="outboundId" value="${outbound.outboundId}"/>
+            装 <input type="text" name="packageCount" size="3" value="<#if outbound.packed>${(outbound.packageCount!1)?string("0.##")}<#else>1</#if>"/> 盒
+            包装说明 <input type="text" name="packingNote" size="20" value="${(outbound.packingNote)!}" placeholder="塑料盒 / 防静电袋"/>
+            <input type="submit" value="<#if outbound.packed>改包装<#else>登记包装</#if>" class="secondary"/>
+        </form>
+        <span class="hint">可选的一步：料捡完装进塑料盒（电子产品防静电），登记后打印标签贴到盒子上；只有一件小东西也可以不包，直接出库。</span>
+    </#if>
+    <#if outbound.packed || outbound.issued>
+        <p>
+            <a href="/mfg/control/outboundLabel?outboundId=${outbound.outboundId?url}" target="_blank">打印标签（80×50mm）</a>
+            ｜ <a href="/mfg/control/outboundCheck?outboundId=${outbound.outboundId?url}&amp;key=${outbound.checkKey!''}" target="_blank">核对页（扫码看到的就是它）</a>
+            <#if outbound.packedDate??>｜ <span class="hint">包装：${(outbound.packageCount!0)?string("0.##")} 盒<#if ((outbound.packingNote)!'')?has_content>（${outbound.packingNote}）</#if>，${outbound.packedDate?string("yyyy-MM-dd HH:mm")}<#if ((outbound.packedByUserLoginId)!'')?has_content>，${outbound.packedByUserLoginId}</#if></span></#if>
+        </p>
     </#if>
 
     <form method="post" action="/mfg/control/outboundReceiverSave" class="inline">

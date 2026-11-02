@@ -16,6 +16,8 @@
 
 package org.langhua.ofbiz.mfg;
 
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -1295,9 +1297,113 @@ public final class MfgDevBomServices {
         row.put("cancelReason", head.getString("cancelReason"));
         row.put("cancelDate", head.get("cancelDate"));
         row.put("cancelByUserLoginId", head.getString("cancelByUserLoginId"));
+        row.put("packageCount", head.get("packageCount"));
+        row.put("packingNote", head.getString("packingNote"));
+        row.put("packedDate", head.get("packedDate"));
+        row.put("packedByUserLoginId", head.getString("packedByUserLoginId"));
+        row.put("checkKey", checkKeyOf(head.getString("outboundId")));
         row.put("issued", Boolean.valueOf(MfgConstants.OUT_ISSUED.equals(head.getString("statusId"))));
         row.put("cancelled", Boolean.valueOf(MfgConstants.OUT_CANCELLED.equals(head.getString("statusId"))));
+        row.put("packed", Boolean.valueOf(MfgConstants.OUT_PACKED.equals(head.getString("statusId"))));
         return row;
+    }
+
+    /**
+     * The short key that lets a phone open the check page of one document from the label, without a
+     * login: it is a hash of the number, so the page cannot be found by counting the numbers up.
+     *
+     * @param outboundId the number of the document
+     * @return twelve hexadecimal characters, empty when the algorithm is missing
+     */
+    static String checkKeyOf(String outboundId) {
+        if (outboundId == null) {
+            return "";
+        }
+        try {
+            byte[] hash = MessageDigest.getInstance("SHA-256").digest(
+                    ("mfg-outbound|" + outboundId).getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            StringBuilder text = new StringBuilder();
+            for (int i = 0; i < 6; i++) {
+                text.append(String.format(Locale.ROOT, "%02x", Byte.valueOf(hash[i])));
+            }
+            return text.toString();
+        } catch (NoSuchAlgorithmException e) {
+            return "";
+        }
+    }
+
+    /**
+     * Records that the picked parts are packed into plastic boxes, which is how an electronics order
+     * travels: the box gets a printed label with a QR code, and the phone that scans it shows the
+     * picking list to check against. Optional on purpose - one small part goes out without a box.
+     *
+     * @param dctx the dispatch context
+     * @param context service context, see {@code servicedef/devbom-services.xml#mfgOutboundPack}
+     * @return the service result with {@code outboundId}, {@code packed} and {@code packageCount}
+     */
+    public static Map<String, Object> outboundPack(DispatchContext dctx, Map<String, ? extends Object> context) {
+        String denied = MfgSecurity.permissionProblem(dctx, context, MfgConstants.PERM_STOCK);
+        if (denied != null) {
+            return ServiceUtil.returnError(denied);
+        }
+        Delegator delegator = dctx.getDelegator();
+        String outboundId = MfgSupport.toText(context.get("outboundId"));
+        if (outboundId == null) {
+            return ServiceUtil.returnError("outboundId is required");
+        }
+        Double boxes = MfgSupport.optionalAmount(context.get("packageCount"));
+        String problem = packingProblem(boxes);
+        if (problem != null) {
+            return ServiceUtil.returnError(problem);
+        }
+        try {
+            GenericValue head = EntityQuery.use(delegator).from("MfgOutbound")
+                    .where("outboundId", outboundId).queryOne();
+            if (head == null) {
+                return ServiceUtil.returnError("Unknown outbound order [" + outboundId + "]");
+            }
+            String state = head.getString("statusId");
+            if (MfgConstants.OUT_ISSUED.equals(state)) {
+                return ServiceUtil.returnError("出库单 " + outboundId + " 已经出过库了，包装信息不用再改");
+            }
+            if (MfgConstants.OUT_CANCELLED.equals(state)) {
+                return ServiceUtil.returnError("出库单 " + outboundId + " 已经作废了，不能再登记包装");
+            }
+            double packed = boxes == null ? 1.0 : boxes.doubleValue();
+            head.set("statusId", MfgConstants.OUT_PACKED);
+            head.set("packageCount", Double.valueOf(MfgSupport.round2(packed)));
+            head.set("packingNote", MfgSupport.toText(context.get("packingNote")));
+            head.set("packedDate", new java.sql.Timestamp(System.currentTimeMillis()));
+            head.set("packedByUserLoginId", operatorOf(context));
+            delegator.store(head);
+            Map<String, Object> result = ServiceUtil.returnSuccess();
+            result.put("outboundId", outboundId);
+            result.put("packed", "Y");
+            result.put("packageCount", MfgSupport.formatQty(packed));
+            result.put("projectCode", head.getString("projectCode"));
+            return result;
+        } catch (GenericEntityException e) {
+            return ServiceUtil.returnError("登记包装失败：" + e.getMessage());
+        }
+    }
+
+    /**
+     * Whether a number of boxes can be stored and makes sense on a label.
+     *
+     * @param boxes the number typed in, {@code null} means one box
+     * @return a message for the page, {@code null} when the number is usable
+     */
+    static String packingProblem(Double boxes) {
+        if (boxes == null) {
+            return null;
+        }
+        if (boxes.doubleValue() < 1.0) {
+            return "箱数至少是 1";
+        }
+        if (boxes.doubleValue() > 999.0) {
+            return "箱数最多 999：这么多请分开几张单";
+        }
+        return null;
     }
 
     /**
@@ -1535,8 +1641,14 @@ public final class MfgDevBomServices {
      */
     static Map<String, Object> openOutbound(Delegator delegator, String projectCode, String bomVersion)
             throws GenericEntityException {
+        // a packed document is still open: the parts are in the box, the shelf has not been booked yet,
+        // so writing a second document for that version would ask for the same parts twice
         for (GenericValue head : EntityQuery.use(delegator).from("MfgOutbound")
-                .where("projectCode", projectCode, "statusId", MfgConstants.OUT_DRAFT).queryList()) {
+                .where("projectCode", projectCode).queryList()) {
+            String state = head.getString("statusId");
+            if (!MfgConstants.OUT_DRAFT.equals(state) && !MfgConstants.OUT_PACKED.equals(state)) {
+                continue;
+            }
             String version = head.getString("bomVersion");
             if (version == null ? bomVersion == null : version.equals(bomVersion)) {
                 Map<String, Object> row = new LinkedHashMap<>();

@@ -188,6 +188,82 @@ public final class MfgDevBomEvents {
         }
     }
 
+    /**
+     * Draws the QR code of one outbound document for its label: the code carries the address of the
+     * check page, so a phone that scans the sticker shows the picking list to count the box against.
+     *
+     * <p>The image comes from the QR service OFBiz already ships ({@code generateQRCodeImage}, which
+     * uses zxing), so this component needs no barcode library of its own.
+     *
+     * @param request the request, holding {@code outboundId}
+     * @param response the response, receives the PNG
+     * @return {@code success} when the image was written
+     */
+    public static String labelQr(HttpServletRequest request, HttpServletResponse response) {
+        LocalDispatcher dispatcher = (LocalDispatcher) request.getAttribute("dispatcher");
+        String outboundId = text(request.getParameter("outboundId"));
+        if (dispatcher == null || outboundId == null) {
+            return notFound(response);
+        }
+        Map<String, Object> context = new java.util.HashMap<>();
+        context.put("message", checkUrlOf(request, outboundId));
+        context.put("width", Integer.valueOf(400));
+        context.put("height", Integer.valueOf(400));
+        context.put("format", "png");
+        context.put("encoding", "UTF-8");
+        context.put("verifyOutput", Boolean.TRUE);
+        try {
+            Map<String, Object> result = dispatcher.runSync("generateQRCodeImage", context, -1, true);
+            if (ServiceUtil.isError(result)) {
+                Debug.logError(ServiceUtil.getErrorMessage(result), MODULE);
+                return notFound(response);
+            }
+            Object image = result.get("bufferedImage");
+            if (!(image instanceof java.awt.image.BufferedImage)) {
+                return notFound(response);
+            }
+            java.io.ByteArrayOutputStream bytes = new java.io.ByteArrayOutputStream();
+            javax.imageio.ImageIO.write((java.awt.image.BufferedImage) image, "png", bytes);
+            response.setContentType("image/png");
+            response.setContentLength(bytes.size());
+            response.setHeader("Cache-Control", "no-store");
+            OutputStream out = response.getOutputStream();
+            out.write(bytes.toByteArray());
+            out.flush();
+            return "success";
+        } catch (GenericServiceException | IOException e) {
+            Debug.logError(e, "Could not draw the QR code of " + outboundId, MODULE);
+            return notFound(response);
+        }
+    }
+
+    /**
+     * The address the label points at: the check page of the document, built from the request so it
+     * works whatever name and port the instance is reached under.
+     *
+     * @param request the request the image was asked for
+     * @param outboundId the number of the document
+     * @return the absolute address, with the key that lets a phone open the page
+     */
+    static String checkUrlOf(HttpServletRequest request, String outboundId) {
+        String scheme = request.getScheme();
+        int port = request.getServerPort();
+        boolean plain = ("https".equals(scheme) && port == 443) || ("http".equals(scheme) && port == 80);
+        return scheme + "://" + request.getServerName() + (plain ? "" : ":" + port)
+                + "/mfg/control/outboundCheck?outboundId="
+                + java.net.URLEncoder.encode(outboundId, StandardCharsets.UTF_8)
+                + "&key=" + MfgDevBomServices.checkKeyOf(outboundId);
+    }
+
+    private static String notFound(HttpServletResponse response) {
+        try {
+            response.sendError(HttpServletResponse.SC_NOT_FOUND);
+        } catch (IOException ignored) {
+            // nothing left to say: the response is on its way out
+        }
+        return "error";
+    }
+
     /** The content type the file is served with when it is shown in the browser. */
     private static String viewTypeOf(String stored, String fileName) {
         String type = typeOf(stored, fileName);

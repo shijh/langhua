@@ -398,6 +398,10 @@
         <field name="cancelByUserLoginId" type="name"><description>Account that dropped the draft</description></field>
         <field name="issuedDate" type="date-time"><description>When the parts actually left the shelf, written when the document is booked</description></field>
         <field name="issuedByUserLoginId" type="name"><description>The warehouse keeper who booked the document: the account that pressed the issue button</description></field>
+        <field name="packageCount" type="numeric"><description>How many plastic boxes the parts were packed into, empty until somebody packs them</description></field>
+        <field name="packingNote" type="description"><description>How it was packed: box size, anti static bag, ...</description></field>
+        <field name="packedDate" type="date-time"><description>When the parts were packed</description></field>
+        <field name="packedByUserLoginId" type="name"><description>Account that packed the parts</description></field>
         <field name="createdStamp" type="date-time"/>
         <field name="createdTxStamp" type="date-time"/>
         <field name="lastUpdatedStamp" type="date-time"/>

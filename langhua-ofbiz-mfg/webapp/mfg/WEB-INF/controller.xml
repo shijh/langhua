@@ -1015,6 +1015,40 @@
         <response name="success" type="view" value="outbounds"/>
     </request-map>
 
+    <!-- pack the picked parts into a box (optional), then print the label -->
+    <request-map uri="outboundPack">
+        <security https="true" auth="true"/>
+        <event type="service" invoke="mfgOutboundPack"/>
+        <response name="success" type="request-redirect" value="outbound">
+            <redirect-parameter name="outboundId"/>
+            <redirect-parameter name="packed"/>
+        </response>
+        <response name="error" type="view" value="outbound"/>
+    </request-map>
+
+    <!-- the sticker: printed from the browser, one label per document -->
+    <request-map uri="outboundLabel">
+        <security https="true" auth="true"/>
+        <response name="success" type="view" value="outboundLabel"/>
+        <response name="error" type="view" value="outboundLabel"/>
+    </request-map>
+
+    <!-- the QR code on the sticker, drawn by OFBiz's own QR service -->
+    <request-map uri="outboundQr">
+        <security https="true" auth="true"/>
+        <event type="java" path="org.langhua.ofbiz.mfg.MfgDevBomEvents" invoke="labelQr"/>
+        <response name="success" type="none"/>
+        <response name="error" type="none"/>
+    </request-map>
+
+    <!-- what the phone sees when it scans the sticker: no login, the key in the address is the
+         guard, so counting the numbers up does not open other boxes -->
+    <request-map uri="outboundCheck">
+        <security https="false" auth="false"/>
+        <response name="success" type="view" value="outboundCheck"/>
+        <response name="error" type="view" value="outboundCheck"/>
+    </request-map>
+
     <!-- the same two actions, taken from the document page: they come back to the document -->
     <request-map uri="outboundIssueHere">
         <security https="true" auth="true"/>
@@ -1198,6 +1232,9 @@
     <view-map name="dev" type="screen" page="component://mfg/widget/MfgScreens.xml#dev"/>
     <view-map name="outbound" type="screen" page="component://mfg/widget/MfgScreens.xml#outbound"/>
     <view-map name="outbounds" type="screen" page="component://mfg/widget/MfgScreens.xml#outbounds"/>
+    <view-map name="outboundLabel" type="screen" page="component://mfg/widget/MfgScreens.xml#outboundLabel"/>
+    <view-map name="outboundCheck" type="screen" page="component://mfg/widget/MfgScreens.xml#outboundCheck"
+              auth="false" secure-context="true"/>
     <view-map name="eco" type="screen" page="component://mfg/widget/MfgScreens.xml#eco"/>
     <view-map name="software" type="screen" page="component://mfg/widget/MfgScreens.xml#software"/>
     <view-map name="reports" type="screen" page="component://mfg/widget/MfgScreens.xml#reports"/>

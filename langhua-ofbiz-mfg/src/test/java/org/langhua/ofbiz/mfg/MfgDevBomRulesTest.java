@@ -17,6 +17,7 @@
 package org.langhua.ofbiz.mfg;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
@@ -503,6 +504,27 @@ public class MfgDevBomRulesTest {
         assertNull(MfgDevBomServices.receiverProblem(name.toString()));
         name.append('x');
         assertNotNull(MfgDevBomServices.receiverProblem(name.toString()));
+    }
+
+    @Test
+    public void keepsTheBoxCountOfAPackedOrderSensible() {
+        // packing is optional (no number means one box), but zero boxes or a thousand are typos
+        assertNull(MfgDevBomServices.packingProblem(null));
+        assertNull(MfgDevBomServices.packingProblem(Double.valueOf(1.0)));
+        assertNull(MfgDevBomServices.packingProblem(Double.valueOf(999.0)));
+        assertNotNull(MfgDevBomServices.packingProblem(Double.valueOf(0.0)));
+        assertNotNull(MfgDevBomServices.packingProblem(Double.valueOf(1000.0)));
+    }
+
+    @Test
+    public void givesEveryDocumentItsOwnCheckKey() {
+        // the label lets a phone open the check page without a login, so the address carries a key:
+        // one document always gets the same twelve characters, two documents never share one
+        String one = MfgDevBomServices.checkKeyOf("OUT-261101-01");
+        assertEquals(12, one.length());
+        assertEquals(one, MfgDevBomServices.checkKeyOf("OUT-261101-01"));
+        assertFalse(one.equals(MfgDevBomServices.checkKeyOf("OUT-261101-02")));
+        assertEquals("", MfgDevBomServices.checkKeyOf(null));
     }
 
     private static Map<String, Object> bomRow(String code, String name, double qty, String designators,

@@ -530,7 +530,7 @@
                         <td class="num">${(o.lineCount)!0}</td>
                         <td class="num">${(o.totalQty!0)?string("0.##")}</td>
                         <td class="num">${(o.issuedQty!0)?string("0.##")}</td>
-                        <td><#if o.issued><span class="ok">已出库</span><#elseif o.cancelled><span class="hint"<#if ((o.cancelReason)!'')?has_content> title="作废原因：${o.cancelReason}"</#if>>已作废</span><#else><span class="warn">待出库</span></#if></td>
+                        <td><#if o.issued><span class="ok">已出库</span><#elseif o.cancelled><span class="hint"<#if ((o.cancelReason)!'')?has_content> title="作废原因：${o.cancelReason}</#if>>已作废</span><#elseif o.packed><span class="warn">已包装</span><#else><span class="warn">待出库</span></#if></td>
                         <td>${o.operatorName!}</td>
                         <td>${(o.receiverName)!}</td>
                         <td>${(o.note)!}</td>

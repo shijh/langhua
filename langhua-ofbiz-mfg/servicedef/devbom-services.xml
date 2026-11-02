@@ -161,6 +161,18 @@
         <attribute name="outbound" type="java.util.Map" mode="OUT" optional="true"/>
     </service>
 
+    <service name="mfgOutboundPack" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgDevBomServices" invoke="outboundPack"
+            auth="false" use-transaction="true">
+        <description>Record that the picked parts are packed into plastic boxes, so the box gets a label with a QR code that a phone can scan to check the picking list. Optional: one small part goes out without a box</description>
+        <attribute name="outboundId" type="String" mode="IN" optional="true"/>
+        <attribute name="packageCount" type="Double" mode="IN" optional="true"/>
+        <attribute name="packingNote" type="String" mode="IN" optional="true"/>
+        <attribute name="packed" type="String" mode="OUT" optional="true"/>
+        <attribute name="packageCount" type="String" mode="OUT" optional="true"/>
+        <attribute name="projectCode" type="String" mode="OUT" optional="true"/>
+    </service>
+
     <service name="mfgOutboundBrowse" engine="java"
             location="org.langhua.ofbiz.mfg.MfgDevBomServices" invoke="outboundBrowse"
             auth="false" use-transaction="false">

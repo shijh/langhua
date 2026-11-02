@@ -285,6 +285,12 @@ public final class MfgConstants {
      */
     public static final String OUT_DRAFT = "MFG_OUT_DRAFT";
 
+    /**
+     * The parts have been picked and packed (into a plastic box, with a label on it) but the shelf
+     * has not been booked yet. Optional: a single small part can be issued without packing.
+     */
+    public static final String OUT_PACKED = "MFG_OUT_PACKED";
+
     /** The outbound order has been booked: every line left the shelf and the project's lock with it. */
     public static final String OUT_ISSUED = "MFG_OUT_ISSUED";
 

@@ -2489,6 +2489,39 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
     `smoke-dev-pages.ps1` 现在 **28 项**（多了 `outbounds`）、`check-prod-237.ps1` **20 项**
     （多比 `outbounds.ftl` / `stock.ftl` / `decorator.ftl`，`javap` 确认 jar 里有 `outboundBrowse`）。
 
+- **包装 + 二维码标签 + 手机扫码核对（Step 247）**：用户要求“研发产品内部出库时加一个出货包装步骤”——
+  电子产品装塑料盒、盒子上贴一张二维码贴纸、手机扫一下就能对着明细核对。**包装是可选的**（小件直接出库）。
+  - 状态多一档 **`MFG_OUT_PACKED`（已包装）**：`待出库 → 已包装 → 已出库`。`outboundPack`
+    （`mfgOutboundPack`，IN `outboundId` / `packageCount` / `packingNote`）只把草稿改成已包装并记
+    `packedDate` / `packedByUserLoginId` / `packageCount` / `packingNote`；已出库、已作废的拒绝。
+    **`openOutbound` 把已包装也算“这一版已有未出库的单”**，否则会再写一张重复的要料单
+    （坑：`where("projectCode", x, "statusId", A, B)` 是**奇数个参数**，`EntityQuery` 直接抛
+    `You must pass an even sized array to the toMap method (size = 5)`——要多状态就查出来自己比，
+    或者用 `Op.IN`）。
+  - **标签页** `/mfg/control/outboundLabel?outboundId=…`（`outboundLabel.ftl`，**不走装饰器**）：
+    80mm × 50mm，`@page size`，左边二维码、右边单号/项目/BOM 版本/行数/合计/箱数/包装人/时间，
+    屏幕上看有一个「打印这张标签」按钮（`@media print` 里隐藏）。
+  - **二维码**：`/mfg/control/outboundQr?outboundId=…`（事件 `MfgDevBomEvents.labelQr`）——**不自己写编码器**，
+    调 OFBiz 自带的 `generateQRCodeImage`（`org.apache.ofbiz.common.qrcode.QRCodeServices`，底层 zxing）
+    拿 `BufferedImage` 再 `ImageIO.write` 成 PNG；`verifyOutput=true` 让它生成后再解一遍，等于自检。
+    插件 `build.gradle` 依旧没有第三方依赖。
+  - **手机核对页** `/mfg/control/outboundCheck?outboundId=…&key=…`（`outboundCheck.ftl`）：不用登录，
+    viewport 手机版式，列 料号/名称/位号/数量。**key 是单号的 SHA-256 前 12 位**（`MfgDevBomServices.checkKeyOf`），
+    key 不对就什么都不显示——数单号猜不到别的箱子。**`auth="false"` 的 request-map 还不够**：
+    `RequestHandler.renderView` 里 `viewMap.isSecurityAuth()` 是
+    `"true".equals(auth) || !secureContext`，所以 view-map 要写 **`auth="false" secure-context="true"`**
+    两个属性，否则报 `An active login is required for view with name […]`（HTTP 401）。
+  - **地址按请求拼**（`MfgDevBomEvents.checkUrlOf`，scheme/host/port 取自 request），所以换成局域网地址/域名
+    也能扫；`localhost` 的标签只能用电脑扫。
+  - 单据页多一列「包装」（N 盒）、状态显示「已包装」，草稿/已包装时显示「装 N 盒 + 包装说明」表单，
+    已包装或已出库时给「打印标签」「核对页」两个链接；`outbounds.ftl` 列表与开发页历史的三种状态也带上「已包装」。
+  - 验法：`check-outbound-pack.ps1`（**20 项**，test）：给一个料号建批次 → 把一行 BOM 的料号临时换成它
+    （这样单据只有 1 行、库存够）→ 转出库单 → 登记包装 2 盒 → 断言状态/箱数/说明 → 标签页有二维码 →
+    `outboundQr` 回 `image/png`（PNG magic + 14 KB）→ **不带 cookie** 打开核对页能看到料号、key 写错则看不到
+    → 出库成功且箱数还在 → 标签还能重印 → 最后把那一行的料号与数量改回去。
+    回归：单测 **249**、`verify-outbound-page.ps1` 21、`verify-outbounds.ps1` 13、`smoke-dev-pages.ps1` 28、
+    `check-prod-237.ps1` **24**（多比两个新模板、`javap` 确认 `outboundPack` / `labelQr`）。三套实例已发版。
+
 - **测试数据把开发库灌满了：清一次，并让 IT 打测试实例（Step 239）**：几个月下来开发库里
   **383 个开发项目**、268 个型号、728 个工单、3959 个批次、13192 条流水、1152 张到货单，几乎全是
   `mfg-it.bat` 与 `verify-m*.ps1` 造出来的（IT 每跑一次就建 4 个项目 + 2 个型号 + 一堆单据）。

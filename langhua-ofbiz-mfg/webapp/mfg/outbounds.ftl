@@ -43,7 +43,7 @@
         </tr>
         <#list rows as o>
             <tr data-outbound-row="${o.outboundId}"
-                data-outbound-status="<#if o.issued>ISSUED<#elseif o.cancelled>CANCELLED<#else>DRAFT</#if>"
+                data-outbound-status="<#if o.issued>ISSUED<#elseif o.cancelled>CANCELLED<#elseif o.packed>PACKED<#else>DRAFT</#if>"
                 data-outbound-receiver="${(o.receiverName)!}">
                 <td><a href="/mfg/control/outbound?outboundId=${o.outboundId}">${o.outboundId}</a></td>
                 <td><#if o.outboundDate??>${o.outboundDate?string("yyyy-MM-dd")}</#if></td>
@@ -52,7 +52,7 @@
                 <td class="num">${(o.lineCount)!0}</td>
                 <td class="num">${(o.totalQty!0)?string("0.##")}</td>
                 <td class="num">${(o.issuedQty!0)?string("0.##")}</td>
-                <td><#if o.issued><span class="ok">已出库</span><#elseif o.cancelled><span class="hint"<#if ((o.cancelReason)!'')?has_content> title="作废原因：${o.cancelReason}"</#if>>已作废</span><#else><span class="warn">待出库</span></#if></td>
+                <td><#if o.issued><span class="ok">已出库</span><#elseif o.cancelled><span class="hint"<#if ((o.cancelReason)!'')?has_content> title="作废原因：${o.cancelReason}"</#if>>已作废</span><#elseif o.packed><span class="warn">已包装</span><#else><span class="warn">待出库</span></#if></td>
                 <td>${(o.operatorName)!}</td>
                 <td>${(o.receiverName)!}</td>
                 <td>${(o.note)!}</td>
