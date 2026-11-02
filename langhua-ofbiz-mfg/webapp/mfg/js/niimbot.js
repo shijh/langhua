@@ -258,12 +258,17 @@
                 return waiting;
             });
         };
-        return once().then(function (payload) {
-            self.log('打印机已应答连接（' + (payload.length ? payload[0] : '?') + '）');
+        var answerOf = function (frameSeen) {
+            // frameSeen 是 [命令, 数据]；这里要的是数据第一个字节（0x01 = 连接成功）
+            var payload = frameSeen[1];
+            return payload.length ? payload[0] : '?';
+        };
+        return once().then(function (frameSeen) {
+            self.log('打印机已应答连接（' + answerOf(frameSeen) + '）');
         }, function () {
             self.log('第一次连接包没应答，再发一次');
-            return once().then(function (payload) {
-                self.log('打印机已应答连接（' + (payload.length ? payload[0] : '?') + '）');
+            return once().then(function (frameSeen) {
+                self.log('打印机已应答连接（' + answerOf(frameSeen) + '）');
             }, function () {
                 self.log('连接包始终没有应答（不致命，继续）');
             });
@@ -286,15 +291,21 @@
         var chain = Promise.resolve();
         steps.forEach(function (step) {
             chain = chain.then(function () {
+                if (self.silentHello) {
+                    return null;      // 第一条就不答，这一代机器不认这套，别再一条条白等
+                }
                 // 先挂监听、再发：先等的写法会让每条都白等满 900ms
-                var waiting = self.expectAny([replyOf(step[0], 16), 0xB5, 0xD9, 0xDD, 0xDE, 0xDF], 900);
+                var waiting = self.expectAny([replyOf(step[0], 16), 0xB5, 0xD9, 0xDD, 0xDE, 0xDF], 700);
                 return self.write(frame(step[0], step[1])).then(function () {
                     return waiting;
                 }).then(function (frameSeen) {
                     self.log('握手 ' + step[2] + ' → ' + hex([frameSeen[0]])
                         + ' ' + hex(frameSeen[1].slice(0, 12)));
                 }, function () {
-                    self.log('握手 ' + step[2] + ' 没有应答（跳过）');
+                    if (!self.silentHello) {
+                        self.silentHello = true;
+                        self.log('这台机器不回应握手（真机 D11 就是这样），后面的不再等');
+                    }
                 }).then(function () {
                     return sleep(40);
                 });
@@ -424,7 +435,7 @@
     Driver.prototype.soft = function (cmd, data, replies, label) {
         var self = this;
         if (self.silentSetup >= 2) {
-            // 前面已经两条没应答了：不再每条白等 1.2 秒，直接发
+            // 前面已经两条没应答了：不再每条白等，直接发
             return self.write(frame(cmd, data)).then(function () {
                 self.log(label + ' 已发送（前两条都没应答，不再等）');
                 return sleep(40).then(function () {
@@ -432,7 +443,9 @@
                 });
             });
         }
-        var waiting = self.expectAny(replies, 1200);
+        // 已经知道它不爱应答之后，剩下的命令只给很短的窗口
+        var window = self.silentSetup >= 1 ? 500 : 1200;
+        var waiting = self.expectAny(replies, window);
         return self.write(frame(cmd, data)).then(function () {
             return waiting;
         }).then(function (frameSeen) {
@@ -499,62 +512,81 @@
             });
             return chain;
         }).then(function () {
-            return step(CMD.END_PAGE, [0x01], [0xE4], '关页');
-        }).then(function () {
-            return self.waitForPrint(copies);
-        }).then(function (reached) {
-            return step(CMD.END_PRINT, [0x01], [0xF4], '结束').then(function () {
-                return reached;
+            // 先挂上“这一页印完了”的监听再关页：真机在关页后会主动发 0xE0（0001），
+            // 而 0xA3 那个进度查询它根本不答
+            self.pageDone = self.expectAny([0xE0], 4000);
+            self.pageDone.catch(function () {
+                return null;
             });
-        }).then(function (reached) {
-            if (reached) {
+            return step(CMD.END_PAGE, [0x01], [0xE4], '关页');
+        }).then(function (pageAccepted) {
+            return self.waitForPrint(copies).then(function (reached) {
+                return reached || pageAccepted;
+            });
+        }).then(function (ok) {
+            return step(CMD.END_PRINT, [0x01], [0xF4], '结束').then(function () {
+                return ok;
+            });
+        }).then(function (ok) {
+            if (ok) {
                 self.log('打印完成');
                 return { printed: true };
             }
-            self.log('位图已经全部发给打印机，但它一次进度都没回报：看纸出没出来，'
+            self.log('位图已经全部发给打印机，但它一条回执都没有：看纸出没出来，'
                 + '没有的话把上面的日志发我');
             return { printed: false };
         });
     };
 
     /**
-     * 轮询打印进度，直到 `page` 到份数。
+     * 等这一页印完。
      *
-     * **这一步不能省**：不等它就把 0xF3 发过去，纸会停在一半（社区里踩过）。
-     * 应答 `>HBB`：page(u16 大端)、进度、走纸进度。真机上一条应答都没有时，跑满
-     * `printTimeoutMs` 就返回 false（不抛异常），让页面自己说"已发送、没回执"。
+     * 真机（D11-B3180030，2026-11-02）实测：`0xA3` 进度查询**一次都不回**，但关页后会主动发
+     * `0xE0 0001`（这一页印完）。所以先等那条事件，没等到再退回去轮询 `0xA3`，两边都没反应
+     * 就快速收工（不再白等十几秒）。
      *
      * @param {number} copies 份数
      * @return {Promise} resolve(true) 表示确实打到份数了
      */
     Driver.prototype.waitForPrint = function (copies) {
         var self = this;
-        var deadline = Date.now() + (self.printTimeoutMs || 12000);
-        var last = -1;
-        var misses = 0;
-        var poll = function () {
-            if (Date.now() > deadline || misses >= 3) {
-                self.log('等打印完成超时（' + copies + ' 份只到 ' + last + '），仍然结束这一单');
-                return Promise.resolve(false);
-            }
-            return self.request(CMD.PRINT_STATUS, [0x01], 0xB3, 1200).then(function (frameSeen) {
-                var payload = frameSeen[1];
-                var page = payload.length >= 2 ? ((payload[0] << 8) | payload[1]) : 0;
-                misses = 0;
-                if (page !== last) {
-                    last = page;
-                    self.log('打印进度：' + page + ' / ' + copies);
+        var done = self.pageDone || Promise.reject(new Error('没有关页事件'));
+        done.catch(function () {
+            return null;
+        });
+        return done.then(function () {
+            self.log('打印机报：这一页印完了');
+            return true;
+        }, function () {
+            var deadline = Date.now() + (self.printTimeoutMs || 5000);
+            var last = -1;
+            var misses = 0;
+            var poll = function () {
+                if (Date.now() > deadline || misses >= 2) {
+                    if (last >= 0) {
+                        self.log('进度只报到 ' + last + ' / ' + copies);
+                    }
+                    return Promise.resolve(last >= copies);
                 }
-                if (page >= copies) {
-                    return true;
-                }
-                return sleep(150).then(poll);
-            }).catch(function () {
-                misses++;
-                return sleep(400).then(poll);
-            });
-        };
-        return Promise.resolve(poll());
+                return self.request(CMD.PRINT_STATUS, [0x01], 0xB3, 1200).then(function (frameSeen) {
+                    var payload = frameSeen[1];
+                    var page = payload.length >= 2 ? ((payload[0] << 8) | payload[1]) : 0;
+                    misses = 0;
+                    if (page !== last) {
+                        last = page;
+                        self.log('打印进度：' + page + ' / ' + copies);
+                    }
+                    if (page >= copies) {
+                        return true;
+                    }
+                    return sleep(150).then(poll);
+                }).catch(function () {
+                    misses++;
+                    return sleep(200).then(poll);
+                });
+            };
+            return poll();
+        });
     };
 
     Driver.prototype.disconnect = function () {

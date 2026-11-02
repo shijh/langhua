@@ -278,7 +278,9 @@
                     var cut = take;
                     if (take < rest.length) {
                         var space = rest.lastIndexOf(' ', take);
-                        if (space > take * 0.6) {
+                        /* 阈值放到 35%：宁可第一行短一点，也别把一个英文词从中间拆开
+                           （真机上 Cost test project 就被拆成了 “Cost test proje / ct”） */
+                        if (space > take * 0.35) {
                             cut = space;
                         }
                     }
