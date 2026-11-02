@@ -178,6 +178,7 @@
         this.characteristic = null;
         this.buffer = [];
         this.pending = {};
+        this.watchers = [];
         this.onFrame = null;
     }
 
@@ -213,19 +214,14 @@
             });
             return characteristic.startNotifications();
         }).then(function () {
-            // 连接包：整帧外面还套一个 0x03，是协议里唯一这样发的一条
-            var connect = frame(CMD.CONNECT, [0x01]);
-            var raw = new Uint8Array(connect.length + 1);
-            raw[0] = 0x03;
-            raw.set(connect, 1);
+            // 连接包：整帧外面再套一个 0x03，全协议只有这一条这样发。
+            // **只发这一条**：以前这里写完之后又用 request() 发了一次空数据的 0xC1，
+            // 打印机等于收到两个连接包（第二个还是 len=0 的畸形包），后面的命令就没人理了。
+            var raw = prefixedConnect();
             self.log('连接包 ' + hex(raw));
-            return self.write(raw).then(function () {
-                return self.request(CMD.CONNECT, [], 0xC2, 1500).then(function (payload) {
-                    self.log('打印机已应答连接（' + (payload.length ? payload[0] : '?') + '）');
-                });
-            }).catch(function () {
-                // 有的固件不回这条，但连接本身是通的：继续
-                self.log('没有等到连接应答（不致命，继续）');
+            return self.sendConnect(raw).then(function () {
+                // 连上以后让打印机喘一口气，紧接着灌命令容易被整条丢掉
+                return sleep(250);
             });
         }).then(function () {
             return self.hello();
@@ -234,25 +230,73 @@
         });
     };
 
+    function connectFrame() {
+        return frame(CMD.CONNECT, [0x01]);
+    }
+
+    function prefixedConnect() {
+        var one = connectFrame();
+        var raw = new Uint8Array(one.length + 1);
+        raw[0] = 0x03;
+        raw.set(one, 1);
+        return raw;
+    }
+
+    /**
+     * 发连接包并等 `0xC2`；没应答就原样再发一次（有的固件第一次会丢）。
+     * 两次都不应答也不算失败——后面能打印就行。
+     *
+     * @param {Uint8Array} raw 带 `0x03` 前缀的连接帧
+     * @return {Promise} 结束即 resolve
+     */
+    Driver.prototype.sendConnect = function (raw) {
+        var self = this;
+        var once = function () {
+            // 先挂上监听再写，免得应答比 write 的 Promise 还快
+            var waiting = self.expect(0xC2, 2500);
+            return self.write(raw).then(function () {
+                return waiting;
+            });
+        };
+        return once().then(function (payload) {
+            self.log('打印机已应答连接（' + (payload.length ? payload[0] : '?') + '）');
+        }, function () {
+            self.log('第一次连接包没应答，再发一次');
+            return once().then(function (payload) {
+                self.log('打印机已应答连接（' + (payload.length ? payload[0] : '?') + '）');
+            }, function () {
+                self.log('连接包始终没有应答（不致命，继续）');
+            });
+        });
+    };
+
     /**
      * 连接后的握手。
      *
      * B1 那一代不带这一套就"收命令但不打印"，D11 的老固件又不需要它——所以全部**尽力而为**：
-     * 每条等 400ms，没人应答就跳过，绝不因此让打印失败。
+     * 每条等 900ms，没人应答就跳过，绝不因此让打印失败。
      */
     Driver.prototype.hello = function () {
         var self = this;
         var steps = [
-            [CMD.STATUS_DATA, [0x01], replyOf(CMD.STATUS_DATA, 16)],
-            [CMD.HEARTBEAT, [0x04], 0xD9]
+            [CMD.STATUS_DATA, [0x01], '状态 0xA5'],
+            [CMD.HEARTBEAT, [0x04], '心跳 0xDC[04]'],
+            [CMD.HEARTBEAT, [0x03], '心跳 0xDC[03]']
         ];
         var chain = Promise.resolve();
         steps.forEach(function (step) {
             chain = chain.then(function () {
-                return self.request(step[0], step[1], step[2], 400).then(function (payload) {
-                    self.log('握手 ' + hex([step[0]]) + ' → ' + hex(payload.slice(0, 12)));
-                }).catch(function () {
-                    self.log('握手 ' + hex([step[0]]) + ' 没有应答（跳过）');
+                // 先挂监听、再发：先等的写法会让每条都白等满 900ms
+                var waiting = self.expectAny([replyOf(step[0], 16), 0xB5, 0xD9, 0xDD, 0xDE, 0xDF], 900);
+                return self.write(frame(step[0], step[1])).then(function () {
+                    return waiting;
+                }).then(function (frameSeen) {
+                    self.log('握手 ' + step[2] + ' → ' + hex([frameSeen[0]])
+                        + ' ' + hex(frameSeen[1].slice(0, 12)));
+                }, function () {
+                    self.log('握手 ' + step[2] + ' 没有应答（跳过）');
+                }).then(function () {
+                    return sleep(40);
                 });
             });
         });
@@ -298,10 +342,22 @@
             }
             var cmd = frameBytes[2];
             var payload = frameBytes.slice(4, 4 + length);
+            // 打印机说的每一句都记下来：排查时这行日志最有用
+            this.log('← ' + hex([cmd]) + (payload.length ? ' ' + hex(payload.slice(0, 32))
+                + (payload.length > 32 ? ' …(' + payload.length + ' 字节)' : '') : ''));
             var waiting = this.pending[cmd];
             if (waiting) {
                 delete this.pending[cmd];
                 waiting(payload);
+            }
+            if (this.watchers.length) {
+                this.watchers = this.watchers.filter(function (watcher) {
+                    if (watcher.cmds.indexOf(cmd) < 0) {
+                        return true;
+                    }
+                    watcher.done([cmd, payload]);
+                    return false;
+                });
             }
             if (this.onFrame) {
                 this.onFrame(cmd, payload);
@@ -309,23 +365,88 @@
         }
     };
 
-    /** 发一条要应答的命令，等 reply（超时 reject，但**不**抛到打印流程外面去吓人）。 */
-    Driver.prototype.request = function (cmd, data, reply, timeoutMs) {
+    /**
+     * 等某几个应答码里的任意一个，拿到 `[命令, 数据]`。
+     *
+     * 用「先挂监听、再写」的写法，免得应答比 write 的 Promise 还快。
+     *
+     * @param {number[]} cmds 要等的应答码
+     * @param {number} timeoutMs 超时就 reject
+     * @return {Promise} resolve([cmd, payload])
+     */
+    Driver.prototype.expectAny = function (cmds, timeoutMs) {
         var self = this;
         var wait = timeoutMs || 1500;
         return new Promise(function (resolve, reject) {
+            var watcher = { cmds: cmds, done: null };
             var timer = setTimeout(function () {
-                delete self.pending[reply];
-                reject(new Error('等 ' + hex([reply]) + ' 超时（' + wait + 'ms）'));
+                self.watchers = self.watchers.filter(function (one) {
+                    return one !== watcher;
+                });
+                reject(new Error('等 ' + cmds.map(function (cmd) {
+                    return hex([cmd]);
+                }).join('/') + ' 超时（' + wait + 'ms）'));
             }, wait);
-            self.pending[reply] = function (payload) {
+            watcher.done = function (frameSeen) {
                 clearTimeout(timer);
-                resolve(payload);
+                resolve(frameSeen);
             };
-            self.write(frame(cmd, data)).catch(function (error) {
-                clearTimeout(timer);
-                delete self.pending[reply];
-                reject(error);
+            self.watchers.push(watcher);
+        });
+    };
+
+    /** 等一个应答码。 */
+    Driver.prototype.expect = function (cmd, timeoutMs) {
+        return this.expectAny([cmd], timeoutMs);
+    };
+
+    /** 发一条要应答的命令。 */
+    Driver.prototype.request = function (cmd, data, reply, timeoutMs) {
+        var self = this;
+        var waiting = self.expect(reply, timeoutMs);
+        return self.write(frame(cmd, data)).then(function () {
+            return waiting;
+        });
+    };
+
+    /**
+     * 发一条**不指望应答**的命令：收不到就记一句、接着走。
+     *
+     * 真机实测（D11-B3180030，2026-11-02）：只答连接包，`0x23` 起的设置命令全不回。
+     * 卡在这里一点意义没有，所以设置类命令一律走这条路；真的没打出来，最后的进度轮询会说。
+     *
+     * @param {number} cmd 命令
+     * @param {number[]} data 数据
+     * @param {number[]} replies 可能收到的应答码
+     * @param {string} label 日志里的名字
+     * @return {Promise} 永远 resolve（带上是否应答了）
+     */
+    Driver.prototype.soft = function (cmd, data, replies, label) {
+        var self = this;
+        if (self.silentSetup >= 2) {
+            // 前面已经两条没应答了：不再每条白等 1.2 秒，直接发
+            return self.write(frame(cmd, data)).then(function () {
+                self.log(label + ' 已发送（前两条都没应答，不再等）');
+                return sleep(40).then(function () {
+                    return false;
+                });
+            });
+        }
+        var waiting = self.expectAny(replies, 1200);
+        return self.write(frame(cmd, data)).then(function () {
+            return waiting;
+        }).then(function (frameSeen) {
+            self.log(label + ' 已应答 ' + hex([frameSeen[0]])
+                + (frameSeen[1].length ? '（' + hex(frameSeen[1].slice(0, 6)) + '）' : ''));
+            return true;
+        }, function () {
+            self.silentSetup = (self.silentSetup || 0) + 1;
+            self.log(label + ' 没有应答（继续）');
+            return false;
+        }).then(function (answered) {
+            // 命令之间留一点空隙，BLE 上一口气灌容易丢
+            return sleep(40).then(function () {
+                return answered;
             });
         });
     };
@@ -346,28 +467,26 @@
         var copies = options.copies || 1;
         var pace = options.paceMs == null ? 10 : options.paceMs;
         var rows = rowFrames(bits, width, height);
-        var step = function (cmd, data, reply, label) {
-            return self.request(cmd, data, reply, 3000).then(function (payload) {
-                self.log(label + ' 已应答' + (payload.length ? '（' + hex(payload.slice(0, 4)) + '）' : ''));
-            });
+        var step = function (cmd, data, replies, label) {
+            return self.soft(cmd, data, replies, label);
         };
         return Promise.resolve().then(function () {
-            return step(CMD.SET_LABEL_TYPE, [0x01], 0x33, '标签类型（有间隙）');
+            return step(CMD.SET_LABEL_TYPE, [0x01], [0x33], '标签类型（有间隙）');
         }).then(function () {
-            return step(CMD.SET_DENSITY, [density & 0xFF], 0x31, '浓度 ' + density);
+            return step(CMD.SET_DENSITY, [density & 0xFF], [0x31], '浓度 ' + density);
         }).then(function () {
-            return step(CMD.START_PRINT, [0x01], 0x02, '开始打印');
+            return step(CMD.START_PRINT, [0x01], [0x02], '开始打印');
         }).then(function () {
-            return step(CMD.ALLOW_PRINT_CLEAR, [0x01], 0x30, '允许清除缓冲');
+            return step(CMD.ALLOW_PRINT_CLEAR, [0x01], [0x30], '允许清除缓冲');
         }).then(function () {
-            return step(CMD.START_PAGE, [0x01], 0x04, '开页');
+            return step(CMD.START_PAGE, [0x01], [0x04], '开页');
         }).then(function () {
             // 尺寸是 行在前、列在后（协议里 SetPageSize 的第一个参数是 feed 方向）
             return step(CMD.SET_DIMENSION,
-                [height >> 8, height & 0xFF, width >> 8, width & 0xFF], 0x14,
+                [height >> 8, height & 0xFF, width >> 8, width & 0xFF], [0x14],
                 '页面 ' + height + ' 行 × ' + width + ' 点');
         }).then(function () {
-            return step(CMD.SET_QUANTITY, [copies >> 8, copies & 0xFF], 0x16, '份数 ' + copies);
+            return step(CMD.SET_QUANTITY, [copies >> 8, copies & 0xFF], [0x16], '份数 ' + copies);
         }).then(function () {
             self.log('发送位图：' + rows.length + ' 行（每行 ' + rows[0].length + ' 字节的包）…');
             var chain = Promise.resolve();
@@ -380,13 +499,21 @@
             });
             return chain;
         }).then(function () {
-            return step(CMD.END_PAGE, [0x01], 0xE4, '关页');
+            return step(CMD.END_PAGE, [0x01], [0xE4], '关页');
         }).then(function () {
             return self.waitForPrint(copies);
-        }).then(function () {
-            return step(CMD.END_PRINT, [0x01], 0xF4, '结束');
-        }).then(function () {
-            self.log('打印完成');
+        }).then(function (reached) {
+            return step(CMD.END_PRINT, [0x01], [0xF4], '结束').then(function () {
+                return reached;
+            });
+        }).then(function (reached) {
+            if (reached) {
+                self.log('打印完成');
+                return { printed: true };
+            }
+            self.log('位图已经全部发给打印机，但它一次进度都没回报：看纸出没出来，'
+                + '没有的话把上面的日志发我');
+            return { printed: false };
         });
     };
 
@@ -394,29 +521,37 @@
      * 轮询打印进度，直到 `page` 到份数。
      *
      * **这一步不能省**：不等它就把 0xF3 发过去，纸会停在一半（社区里踩过）。
-     * 应答 `>HBB`：page(u16 大端)、进度、走纸进度。
+     * 应答 `>HBB`：page(u16 大端)、进度、走纸进度。真机上一条应答都没有时，跑满
+     * `printTimeoutMs` 就返回 false（不抛异常），让页面自己说"已发送、没回执"。
+     *
+     * @param {number} copies 份数
+     * @return {Promise} resolve(true) 表示确实打到份数了
      */
     Driver.prototype.waitForPrint = function (copies) {
         var self = this;
-        var deadline = Date.now() + (self.printTimeoutMs || 25000);
+        var deadline = Date.now() + (self.printTimeoutMs || 12000);
         var last = -1;
+        var misses = 0;
         var poll = function () {
-            if (Date.now() > deadline) {
+            if (Date.now() > deadline || misses >= 3) {
                 self.log('等打印完成超时（' + copies + ' 份只到 ' + last + '），仍然结束这一单');
-                return Promise.resolve();
+                return Promise.resolve(false);
             }
-            return self.request(CMD.PRINT_STATUS, [0x01], 0xB3, 1500).then(function (payload) {
+            return self.request(CMD.PRINT_STATUS, [0x01], 0xB3, 1200).then(function (frameSeen) {
+                var payload = frameSeen[1];
                 var page = payload.length >= 2 ? ((payload[0] << 8) | payload[1]) : 0;
+                misses = 0;
                 if (page !== last) {
                     last = page;
                     self.log('打印进度：' + page + ' / ' + copies);
                 }
                 if (page >= copies) {
-                    return null;
+                    return true;
                 }
-                return sleep(120).then(poll);
+                return sleep(150).then(poll);
             }).catch(function () {
-                return sleep(250).then(poll);
+                misses++;
+                return sleep(400).then(poll);
             });
         };
         return Promise.resolve(poll());
@@ -425,11 +560,59 @@
     Driver.prototype.disconnect = function () {
         this.characteristic = null;
         this.pending = {};
+        this.watchers = [];
         this.buffer = [];
         if (this.device && this.device.gatt && this.device.gatt.connected) {
             this.device.gatt.disconnect();
         }
         this.device = null;
+    };
+
+    /**
+     * 诊断：只问不打印，把打印机说的每一句都记进日志。
+     *
+     * 打印机型号很多、固件差得很远（这台 D11-B3180030 就只答连接包），
+     * 遇到打不出来时先跑这个：把 `←` 开头的行发出去，就能知道该用哪一套流程。
+     *
+     * @return {Promise} resolve 收集到的应答码数组
+     */
+    Driver.prototype.diagnose = function () {
+        var self = this;
+        var heard = [];
+        var probes = [
+            [CMD.STATUS_DATA, [0x01], [0xB5], '状态 0xA5[01]'],
+            [CMD.HEARTBEAT, [0x04], [0xD9, 0xDD, 0xDE, 0xDF], '心跳 0xDC[04]'],
+            [CMD.HEARTBEAT, [0x03], [0xD9, 0xDD, 0xDE, 0xDF], '心跳 0xDC[03]（打印头宽度）'],
+            [CMD.INFO, [0x08], [0x48], '型号 0x40[08]'],
+            [CMD.INFO, [0x01], [0x41], '浓度 0x40[01]'],
+            [CMD.INFO, [0x0B], [0x4B], '序列号 0x40[0b]'],
+            [CMD.INFO, [0x09], [0x49], '固件版本 0x40[09]'],
+            [0x1A, [0x01], [0x1B], '耗材 0x1A[01]']
+        ];
+        self.log('诊断：只问不打印，每条等 1.2 秒');
+        var chain = Promise.resolve();
+        probes.forEach(function (probe) {
+            chain = chain.then(function () {
+                var waiting = self.expectAny(probe[2], 1200);
+                return self.write(frame(probe[0], probe[1])).then(function () {
+                    return waiting;
+                }).then(function (frameSeen) {
+                    heard.push(frameSeen[0]);
+                    self.log('诊断 ' + probe[3] + ' → ' + hex([frameSeen[0]]) + ' '
+                        + hex(frameSeen[1].slice(0, 20)));
+                }, function () {
+                    self.log('诊断 ' + probe[3] + ' 没有应答');
+                }).then(function () {
+                    return sleep(60);
+                });
+            });
+        });
+        return chain.then(function () {
+            self.log(heard.length
+                ? '诊断结束：打印机答了 ' + heard.map(function (cmd) { return hex([cmd]); }).join(' / ')
+                : '诊断结束：除了连接包，打印机一个字都没回（把上面整段发给我）');
+            return heard;
+        });
     };
 
     /** 连过的打印机名（页面上显示一下，免得人不知道现在连的是哪台）。 */

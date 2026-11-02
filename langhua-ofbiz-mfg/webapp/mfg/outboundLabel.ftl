@@ -139,6 +139,7 @@
                 </select>
             </label>
             <button id="d11Test" data-d11-test="1">打印测试条</button>
+            <button id="d11Probe" class="secondary" data-d11-probe="1">诊断（只问不打印）</button>
             <span id="d11State" class="d11-state" data-d11-state=""></span>
             <pre id="d11Log" class="d11-log" data-d11-log="1" hidden></pre>
             <span class="hint">
@@ -194,6 +195,7 @@
             var logBox = document.getElementById('d11Log');
             var printButton = document.getElementById('d11Print');
             var testButton = document.getElementById('d11Test');
+            var probeButton = document.getElementById('d11Probe');
             var driver = null;
             var busy = false;
 
@@ -413,8 +415,13 @@
                                 copies: job.copies
                             });
                         });
-                    }).then(function () {
-                        say(label + '：已发送 ' + job.copies + ' 份（' + job.mm + 'mm）', 'ok');
+                    }).then(function (result) {
+                        if (result && result.printed === false) {
+                            say(label + '：位图已全部发出，但打印机没有回报进度——看纸出没出来；'
+                                + '没出来的话点「诊断」把日志发我', 'error');
+                        } else {
+                            say(label + '：已发送 ' + job.copies + ' 份（' + job.mm + 'mm）', 'ok');
+                        }
                     }).catch(function (error) {
                         say(label + '失败：' + (error && error.message ? error.message : error), 'error');
                         log('× ' + (error && error.message ? error.message : error));
@@ -434,6 +441,9 @@
                 if (testButton) {
                     testButton.disabled = true;
                 }
+                if (probeButton) {
+                    probeButton.disabled = true;
+                }
                 return;
             }
 
@@ -452,6 +462,31 @@
                 /* 测试条只占 11mm，不用整张纸那么长 */
                 return { bits: testBits(job.widthPx, 88), heightPx: 88 };
             });
+
+            /* 诊断：不打印，只把“打印机到底回什么”写进日志 */
+            if (probeButton) {
+                probeButton.addEventListener('click', function () {
+                    if (busy) {
+                        return;
+                    }
+                    busy = true;
+                    probeButton.disabled = true;
+                    say('诊断：正在连接蓝牙…');
+                    connected().then(function () {
+                        say('诊断：已连接 ' + driver.deviceName() + '，正在逐条问…');
+                        return driver.diagnose();
+                    }).then(function (heard) {
+                        say('诊断结束：打印机答了 ' + heard.length + ' 条（日志里 ← 开头的是它的原话）',
+                            heard.length ? 'ok' : 'error');
+                    }).catch(function (error) {
+                        say('诊断失败：' + (error && error.message ? error.message : error), 'error');
+                        log('× ' + (error && error.message ? error.message : error));
+                    }).then(function () {
+                        busy = false;
+                        probeButton.disabled = false;
+                    });
+                });
+            }
         })();
     </script>
 </#if>
