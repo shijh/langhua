@@ -2358,6 +2358,12 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   四张 `cloud-*.svg`，路径由程序算出、版权归本公司，`THIRD-PARTY-NOTICES.md` 第 6 节现在写“自有”。
   原来的 `Pictures\长云纹.svg` / `圆角.svg` 与 `%TEMP%\jup` 里那两个 `make-*-tiles.ps1` **都不再参与构建**，
   留着只是历史。**别再在文档里写“用户自己画的”（Step 229 那句也不对）**。
+  **Step 265 全部撤掉：登录卡片现在没有任何装饰图形**——用户看过自绘的那版说“不好看，不要纹路了”，所以
+  `.signin-frame` 那五条规则、八张页面里的 `<span class="signin-frame">`、两个组件里的 `cloud-*.svg` 全删了，
+  `.signin-card::before` 的朱砂内框从 `inset: 1.8mm` 回到 **`inset: 7px`**（Step 219 的位置），版本
+  `mfg.css?v=39` / `lc.css?v=35`（两个组件的五处 `<link>` 都加了）。`tools/make-cloud-tiles.js` 留在仓库里**只作记录**（没有样式表引用它），
+  想恢复某个版本就重跑它再把 CSS 加回去。验法 `check-signin-logo.ps1`：`red frame`（inset 7px）、`no band`、
+  `no frame`、`frame html`（页面里没有这个 span）、`no tiles`（`cloud-top.svg` / `corner-tl.svg` 都 404）。
   **Step 264 重画的口径**：一条带子 = 平缓正弦（周期 8.4mm、振幅 0.27mm、粗细 0.22mm）+ 浪峰/浪谷上各一个云头
   （半径 0.42→0.10、0.92 圈的螺旋，粗细收到 0.05）。**两个坑都踩过**：① 遮罩里的路径**必须写 `fill="#ffffff"`**
   （不写默认黑色，整块遮罩什么都不露，页面就是白框）；② `d` 必须包进 `<path>`，直接当 `<g>` 的文字内容写什么都不会画。

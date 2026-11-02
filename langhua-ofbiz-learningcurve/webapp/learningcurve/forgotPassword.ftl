@@ -30,11 +30,10 @@
     <link rel="icon" type="image/png" sizes="32x32" href="/learningcurve/images/logo-32.png"/>
     <link rel="icon" type="image/png" sizes="64x64" href="/learningcurve/images/logo-64.png"/>
     <link rel="apple-touch-icon" href="/learningcurve/images/logo-180.png"/>
-    <link rel="stylesheet" type="text/css" href="/learningcurve/css/lc.css?v=34"/>
+    <link rel="stylesheet" type="text/css" href="/learningcurve/css/lc.css?v=35"/>
 </head>
 <body class="signin">
 <main class="signin-card">
-    <span class="signin-frame" aria-hidden="true"></span>
     <img class="signin-logo" src="/learningcurve/images/logo-180.png" alt="" width="72" height="72"/>
     <h1>找回密码</h1>
     <p class="signin-sub">填账号名看看当初留下的密码提示</p>

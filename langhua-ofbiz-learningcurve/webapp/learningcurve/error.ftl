@@ -21,11 +21,10 @@
     <link rel="icon" type="image/png" sizes="32x32" href="/learningcurve/images/logo-32.png"/>
     <link rel="icon" type="image/png" sizes="64x64" href="/learningcurve/images/logo-64.png"/>
     <link rel="apple-touch-icon" href="/learningcurve/images/logo-180.png"/>
-    <link rel="stylesheet" type="text/css" href="/learningcurve/css/lc.css?v=34"/>
+    <link rel="stylesheet" type="text/css" href="/learningcurve/css/lc.css?v=35"/>
 </head>
 <body class="signin">
 <main class="signin-card signin-card-wide">
-    <span class="signin-frame" aria-hidden="true"></span>
     <span class="signin-badge"><img class="signin-logo" src="/learningcurve/images/logo-180.png" alt="" width="72" height="72"/></span>
     <h1>这次请求没做完</h1>
     <p class="signin-sub">要么是数据不允许这么做（数量或样本不够、单号重复、没权限），要么是页面里有东西坏了。

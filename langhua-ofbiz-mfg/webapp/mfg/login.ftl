@@ -28,11 +28,10 @@
     <link rel="icon" type="image/png" sizes="32x32" href="/mfg/images/logo-32.png"/>
     <link rel="icon" type="image/png" sizes="64x64" href="/mfg/images/logo-64.png"/>
     <link rel="apple-touch-icon" href="/mfg/images/logo-180.png"/>
-    <link rel="stylesheet" type="text/css" href="/mfg/css/mfg.css?v=38"/>
+    <link rel="stylesheet" type="text/css" href="/mfg/css/mfg.css?v=39"/>
 </head>
 <body class="signin">
 <main class="signin-card">
-    <span class="signin-frame" aria-hidden="true"></span>
     <span class="signin-badge"><img class="signin-logo" src="/mfg/images/logo-180.png" alt="" width="72" height="72"/></span>
     <h1>花石箓 · 硬件组装 MES</h1>
     <p class="signin-sub">产品与 BOM · 工单 · 报工 · 库存 · 成本</p>

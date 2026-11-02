@@ -382,53 +382,16 @@ body.signin {
     color: var(--ink);
     text-align: center;
 }
-/* the cinnabar rule drawn inside the edge, the way a 符 is framed (Step 219), sitting right against
-   the inner edge of the 云纹 band; the rule and the band breathe together (Step 221/224) */
+/* the cinnabar rule drawn inside the edge, the way a 符 is framed (Step 219, and again after the
+   cloud band was taken out in Step 265: 7px in from the card's border) */
 .signin-card::before {
     content: "";
     position: absolute;
-    /* the band is 1.8mm thick, so the rule starts where the band ends: no gap between them */
-    inset: 1.8mm;
+    inset: 7px;
     border: 1px solid rgba(195, 39, 43, .42);
     border-radius: 4px;
     pointer-events: none;
     animation: signin-breathe 6s ease-in-out infinite;
-}
-/* the 云纹 band: 1.8mm thick, drawn by tools/make-cloud-tiles.js. The four runs go all the way into
-   the corners; the card's own 10px radius clips them, so the two directions meet instead of
-   stopping short of an ornament (the corner tile of Step 235 was dropped: at 1.8mm it read as a
-   blob, and the run ends showed as cut stubs either side of it). */
-.signin-frame {
-    position: absolute;
-    inset: 0;
-    border-radius: 9px;
-    overflow: hidden;
-    pointer-events: none;
-}
-.signin-frame::before,
-.signin-frame::after {
-    content: "";
-    position: absolute;
-    inset: 0;
-    animation: signin-breathe 6s ease-in-out infinite;
-}
-/* the top and bottom runs */
-.signin-frame::before {
-    background-image:
-        url(../images/cloud-top.svg?v=11),
-        url(../images/cloud-bottom.svg?v=11);
-    background-repeat: repeat-x, repeat-x;
-    background-position: left top, left bottom;
-    background-size: auto 1.8mm, auto 1.8mm;
-}
-/* the left and right runs */
-.signin-frame::after {
-    background-image:
-        url(../images/cloud-left.svg?v=11),
-        url(../images/cloud-right.svg?v=11);
-    background-repeat: repeat-y, repeat-y;
-    background-position: left top, right top;
-    background-size: 1.8mm auto, 1.8mm auto;
 }
 @keyframes signin-breathe {
     0%, 100% { opacity: .62; }
@@ -436,8 +399,7 @@ body.signin {
 }
 /* whoever asked the system not to animate things gets the frame still */
 @media (prefers-reduced-motion: reduce) {
-    .signin-card::before,
-    .signin-frame::before, .signin-frame::after { animation: none; }
+    .signin-card::before { animation: none; }
 }
 /* the password page and the error page hold a form or a stack trace: they need the room */
 .signin-card-wide { width: 560px; text-align: left; }

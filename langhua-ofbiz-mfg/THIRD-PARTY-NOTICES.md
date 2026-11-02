@@ -54,18 +54,21 @@ ZXing 是 OFBiz 自己的依赖（平台仓库 `dependencies.gradle` 第 22 行 
 
 - `images/logo*.png`、`images/logo-qr.png`：由 `tools/make-icons.ps1` / `tools/make-qr-logo.ps1` 从本公司自己的
   `F:\build-ofbiz\langhua-logo.png` 生成（脚本在仓库里），源图自有。
-- `images/cloud-*.svg`（登录页的云纹边框）：**自有**，路径由 `tools/make-cloud-tiles.js`（Node，无依赖）按几何参数
-  算出——一条平缓正弦 + 浪峰/浪谷上各一个云头，再用同一个渐变遮罩拼成四张可平铺的图。脚本在仓库里，结果可重现。
+- **登录页不再有任何装饰图形**：那一道云纹边框已经撤掉（Step 265），`cloud-*.svg` / `corner-*.svg` 都已从两个组件删除，
+  登录卡片现在只是一张纸色卡片 + 一道朱砂内框（纯 CSS）。
 - 页面里的系统字体（`KaiTi` 等）只在客户端渲染时引用，不随本组件分发字体文件。
 
-> **云纹的来源变更（Step 264，留档）**
+> **那段云纹的来历与结局（留档）**
 >
-> 这一道边框原来用的是 **iconfont.cn 下载后在 Inkscape 里改的**两张图（`Pictures\长云纹.svg` / `圆角.svg`，
+> 最早的边框用的是 **iconfont.cn 下载后在 Inkscape 里改的**两张图（`Pictures\长云纹.svg` / `圆角.svg`，
 > 文件里留着 iconfont 的 `p-id` 属性与 `#d45500` / `#e0bc9c` 原色）。iconfont **没有统一许可证**，
 > 版权归上传者、按图标库页面上标明的授权条件用；而我们的用法是**切碎、镜像、加渐变遮罩后随产品分发**
-> （改编 + 再分发），比“在页面里显示原图”更依赖授权范围，因此改成了自绘。
-> 那两张源文件与 `%TEMP%\jup\make-long-tiles.ps1` / `make-corner-tiles.ps1` **不再参与构建，也不再随产品分发**。
-> 角花（`corner-*.svg`）同时撤掉了：1.8mm 见方时读成一块糊点，现在四条带子直接铺到角上、由卡片自己的圆角收边。
+> （改编 + 再分发），比“在页面里显示原图”更依赖授权范围。
+> Step 264 改成自己画（`tools/make-cloud-tiles.js`，几何参数生成、版权归本公司），Step 265 看过效果后
+> **整个撤掉**——用户觉得不好看。
+> 现在：那两张 iconfont 源图、`%TEMP%\jup` 里的 `make-*-tiles.ps1`、以及生成出来的 `cloud-*.svg`
+> **都不再参与构建、也不再随产品分发**；`tools/make-cloud-tiles.js` 留在仓库里只作记录（没有样式表引用它），
+> 真要恢复某个版本再跑它就行（那四张图会重新写进 `webapp/<组件>/images/`，还得把 CSS 加回去）。
 
 
 ## 7. 兼容性小结
@@ -75,7 +78,7 @@ ZXing 是 OFBiz 自己的依赖（平台仓库 `dependencies.gradle` 第 22 行 
 | 本组件代码 | Apache-2.0 | — |
 | 平台与 ZXing | Apache-2.0 | 兼容（同类许可，运行期链接） |
 | 协议参考文档 | MIT | 兼容（未复制代码，仅致谢） |
-| 云纹图形 | 自有（`tools/make-cloud-tiles.js` 生成） | 兼容 |
+| 云纹图形 | 不再分发（Step 265 撤掉） | — |
 | JUnit（测试期） | EPL-1.0 | 不涉及分发；即便分发也与 Apache-2.0 兼容（EPL 允许与其“同一作品”外的东西共存） |
 | JDK | GPLv2+CE | 由运维提供，本组件不分发 |
 
