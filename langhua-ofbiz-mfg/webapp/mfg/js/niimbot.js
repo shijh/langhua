@@ -185,6 +185,55 @@
     Driver.prototype.supported = supported;
     Driver.prototype.whyNotSupported = whyNotSupported;
 
+    /**
+     * 判断这个错误是不是“通道没接上”。
+     *
+     * Chrome 在 GATT 没连住的时候抛的就是这两句：
+     * `GATT Server is disconnected. Cannot retrieve services. (Re)connect first with device.gatt.connect.`
+     * 或者 `NetworkError: GATT operation already in progress.` / `… failed for unknown reason`。
+     * 这类都能靠“断干净再连一次”解决，别的错（没权限、设备被移除）重试也没用。
+     */
+    function looksDisconnected(error) {
+        var text = String((error && error.message) || error || '');
+        return /GATT Server is disconnected|NetworkError|disconnected|Connection.*(fail|closed)|No Services/i
+            .test(text);
+    }
+
+    /**
+     * 连上 GATT 并拿到打印特征值，**接不上就断干净重连**（最多三次）。
+     *
+     * 真机上最常见的情形是打印机已经被别的中心连着（手机里的精臣 App、另一个标签页，
+     * 或者上一轮点完没释放）：`gatt.connect()` 会**先 resolve**、紧接着链路就被对端断掉，
+     * 于是随后的 `getPrimaryService` 报 "GATT Server is disconnected"。只连一次就会把这种
+     * 很快就好的情况当成失败，所以这里要收尾重连。
+     */
+    Driver.prototype.openGatt = function (left) {
+        var self = this;
+        left = (left === undefined) ? 3 : left;
+        var gatt = self.device.gatt;
+        return gatt.connect().then(function (server) {
+            if (!gatt.connected) {
+                throw new Error('GATT Server is disconnected.');
+            }
+            return server.getPrimaryService(SERVICE_UUID);
+        }).then(function (service) {
+            return service.getCharacteristic(CHAR_UUID);
+        }).catch(function (error) {
+            if (left <= 1 || !looksDisconnected(error)) {
+                throw error;
+            }
+            self.log('蓝牙通道没接住（' + ((error && error.message) || error) + '），断开重连一次…');
+            try {
+                gatt.disconnect();
+            } catch (ignore) {
+                // 本来就断了
+            }
+            return sleep(600).then(function () {
+                return self.openGatt(left - 1);
+            });
+        });
+    };
+
     /** 弹系统蓝牙选择框、连 GATT、打开通知，并发送协议里的"连接"包。 */
     Driver.prototype.connect = function (options) {
         var self = this;
@@ -202,11 +251,16 @@
         }).then(function (device) {
             self.device = device;
             self.log('已选择：' + (device.name || '(没有名字)'));
-            return device.gatt.connect();
-        }).then(function (server) {
-            return server.getPrimaryService(SERVICE_UUID);
-        }).then(function (service) {
-            return service.getCharacteristic(CHAR_UUID);
+            // 链路被对端断开时（手机 App 抢走、打印机休眠）把特征值清掉，
+            // 不然页面以为还连着，下一次点打印直接往一个死通道上写
+            if (!self.disconnectWatched && device.addEventListener) {
+                self.disconnectWatched = true;
+                device.addEventListener('gattserverdisconnected', function () {
+                    self.characteristic = null;
+                    self.log('打印机断开了蓝牙连接（可能被手机 App 或别的标签页占着）');
+                });
+            }
+            return self.openGatt();
         }).then(function (characteristic) {
             self.characteristic = characteristic;
             characteristic.addEventListener('characteristicvaluechanged', function (event) {
@@ -227,6 +281,14 @@
             return self.hello();
         }).then(function () {
             return self;
+        }).catch(function (error) {
+            if (!looksDisconnected(error)) {
+                throw error;
+            }
+            // Chrome 的原话（“…… (Re)connect first with `device.gatt.connect`”）对着工位上的人说不通
+            throw new Error('连不上打印机的蓝牙通道：打印机可能正被手机里的 App 或另一个标签页连着，'
+                + '或者刚上电还没准备好。把那边断开、等两秒再点一次。'
+                + '（浏览器原话：' + ((error && error.message) || error) + '）');
         });
     };
 

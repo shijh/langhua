@@ -2810,6 +2810,22 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   **改 JS 测试文件里的中文断言别用 `.ps1` 做 `String.Replace`**：PS 5.1 按 ANSI 读 `.ps1`，中文变乱码、
   `Replace` 静默不命中（这次两处断言就是这么没改上，跑完还是旧名字），直接编辑文件或用带 BOM 的脚本。
 
+- **点打印报 “GATT Server is disconnected”：先重启电脑的蓝牙（Step 266）**：2026-11-02 用户点「打印」，
+  系统弹框里选到了 `D11-B3180030`，随后红字
+  `GATT Server is disconnected. Cannot retrieve services. (Re)connect first with device.gatt.connect.`。
+  **重启电脑后就好了**——那是 Windows 蓝牙栈的状态，不是页面或代码（服务器侧全部正常：标签页有
+  `data-d11-print`、`niimbot.js` 200、`outboundQr` 200）。所以遇到这句先按顺序试：
+  ① 关掉手机里的精臣 App、关掉其它还开着的标签页（BLE 只认一个中心）；② 打印机断电再上电；
+  ③ **重启电脑蓝牙/电脑**（这次就是这一条）。
+  顺手把代码也做厚了一点（`niimbot.js`）：`openGatt()` 在 `getPrimaryService` 报这句时**先 `disconnect()`、
+  停 600ms 再连，最多三次**（这种情况 `gatt.connect()` 会先 resolve、链路紧跟着被对端断掉）；三次都不行时把
+  Chrome 的原话换成能操作的中文（点名手机 App / 另一个标签页）；`device.addEventListener('gattserverdisconnected')`
+  把 `characteristic` 清掉，页面下次点打印会自己重连，而不是往一个死通道上写。
+  回归：`%TEMP%\jup\js-check\gatt-retry-test.js`（**11 项**：第一次就断能自己连上、只发一次连接包、
+  一直接不住时三次为止且话术点到了手机/标签页、掉线后 `characteristic` 被清掉），`run-js-tests.bat` 已加进这一套
+  （39 + 22 + 11）。**`js/` 是静态文件**，改完直接复制进三套实例的 `plugins/mfg/webapp/mfg/js/` 就生效，不必重启
+  （`deploy-niimbot.ps1`）。
+
 - **测试数据把开发库灌满了：清一次，并让 IT 打测试实例（Step 239）**：几个月下来开发库里
   **383 个开发项目**、268 个型号、728 个工单、3959 个批次、13192 条流水、1152 张到货单，几乎全是
   `mfg-it.bat` 与 `verify-m*.ps1` 造出来的（IT 每跑一次就建 4 个项目 + 2 个型号 + 一堆单据）。
