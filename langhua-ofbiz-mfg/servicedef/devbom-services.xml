@@ -138,7 +138,7 @@
     <service name="mfgOutboundCancel" engine="java"
             location="org.langhua.ofbiz.mfg.MfgDevBomServices" invoke="outboundCancel"
             auth="false" use-transaction="true">
-        <description>Drop a draft outbound order that will not be picked, so a fresh one can be written from the version in use. A document that has already been booked cannot be dropped: undoing it would mean booking the parts back in</description>
+        <description>Drop a draft outbound order that will not be picked, so a fresh one can be written from the version in use. A document that has already been booked cannot be dropped: undoing it would mean booking the parts back in. The reason, when the caller gives one, is kept in its own field: the note goes on saying which version the document came from, and the page reads 已作废 from the state</description>
         <attribute name="outboundId" type="String" mode="IN" optional="true"/>
         <attribute name="reason" type="String" mode="IN" optional="true"/>
         <attribute name="projectCode" type="String" mode="OUT" optional="true"/>

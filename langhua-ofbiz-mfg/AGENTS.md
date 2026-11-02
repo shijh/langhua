@@ -2422,6 +2422,22 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   `check-prod-237.ps1` 16 项（多比 `stockMoves.ftl` / `stock-services.xml`，并用 `javap` 确认 jar 里有
   `ledgerMatches`）。单测 `findsTheMovementsOfOneDocument` 钉住匹配规则。
 
+- **作废只留「已作废」，原因另存（Step 243）**：用户看到出库单页面上写着「已作废：verify」，问这是什么意思——
+  那是**我们自己巡检脚本**（`verify-m60b.ps1` 传 `reason=verify`）和页面按钮（原来塞 `reason=页面上作废`）
+  写进备注的字，而状态列本来就已经写着「已作废」，等于把调用方的随手字印到了单据上。
+  现在：
+  - `MfgOutbound` 多三列 **`cancelReason` / `cancelDate` / `cancelByUserLoginId`**（OFBiz 启动自己加，
+    日志里 `[addColumn] sql=ALTER TABLE OFBIZ.MFG_OUTBOUND ADD CANCEL_REASON VARCHAR(255)` …，不用手工 SQL）；
+    `outboundCancel` **只改状态 + 这三个字段，一律不动 `note`**（备注继续只说“按研发 BOM vX 生成”）。
+  - 页面：历史与单据页的状态列只有「已作废」，原因放在 `title` 里悬停可见；**单据页**表格下面多一行
+    「作废原因：X（时间，账号）」（只有真给了原因才出现）。两个页面的作废按钮不再塞占位 `reason`。
+  - **老单的备注里有 `；已作废：X` 尾巴**（Step 237 那版写的）：`MfgDevBomServices.noteWithoutCancellation`
+    **读的时候切掉**（存储不动、也不用停实例改库），开头就是「已作废」的整条返回 null；
+    单测 `dropsTheCancellationFromTheNoteOfAnOldDocument` 钉住四种形状。
+  - 巡检：行上多了 `data-outbound-note` / `data-outbound-reason` 两个属性（都是 ASCII 可断言的），
+    `verify-m60b.ps1` 现在 **18 项**（含“原因与备注分开”“备注里不再出现那个词”）、
+    `verify-outbound-page.ps1` dev 15 / test 12 项。三套实例已发版。
+
 - **测试数据把开发库灌满了：清一次，并让 IT 打测试实例（Step 239）**：几个月下来开发库里
   **383 个开发项目**、268 个型号、728 个工单、3959 个批次、13192 条流水、1152 张到货单，几乎全是
   `mfg-it.bat` 与 `verify-m*.ps1` 造出来的（IT 每跑一次就建 4 个项目 + 2 个型号 + 一堆单据）。

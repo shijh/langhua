@@ -1074,10 +1074,12 @@ public final class MfgDevBomServices {
             if (MfgConstants.OUT_ISSUED.equals(head.getString("statusId"))) {
                 return ServiceUtil.returnError("出库单 " + outboundId + " 已经出过库了，不能作废");
             }
-            String oldNote = MfgSupport.toText(head.get("note"));
+            // the state column already reads 已作废, so the note is left as it was (it carries the
+            // version the document was written from); why and by whom goes into its own fields
             head.set("statusId", MfgConstants.OUT_CANCELLED);
-            head.set("note", (oldNote == null ? "" : oldNote + "；") + "已作废"
-                    + (reason == null ? "" : "：" + reason));
+            head.set("cancelReason", reason);
+            head.set("cancelDate", new java.sql.Timestamp(System.currentTimeMillis()));
+            head.set("cancelByUserLoginId", operatorOf(context));
             delegator.store(head);
             Map<String, Object> result = ServiceUtil.returnSuccess();
             result.put("outboundId", outboundId);
@@ -1166,7 +1168,10 @@ public final class MfgDevBomServices {
         row.put("totalQty", head.get("totalQty"));
         row.put("issuedQty", head.get("issuedQty"));
         row.put("operatorName", head.getString("operatorName"));
-        row.put("note", head.getString("note"));
+        row.put("note", noteWithoutCancellation(head.getString("note")));
+        row.put("cancelReason", head.getString("cancelReason"));
+        row.put("cancelDate", head.get("cancelDate"));
+        row.put("cancelByUserLoginId", head.getString("cancelByUserLoginId"));
         row.put("issued", Boolean.valueOf(MfgConstants.OUT_ISSUED.equals(head.getString("statusId"))));
         row.put("cancelled", Boolean.valueOf(MfgConstants.OUT_CANCELLED.equals(head.getString("statusId"))));
         List<Map<String, Object>> lines = new ArrayList<>();
@@ -1185,6 +1190,30 @@ public final class MfgDevBomServices {
         }
         row.put("lines", lines);
         return row;
+    }
+
+    /**
+     * The note of an outbound order as the pages should print it.
+     *
+     * <p>Documents dropped by version 237 appended "；已作废：原因" to the note, which repeated what the
+     * state column already says and showed whatever the caller of the service happened to type (our
+     * own check passed {@code verify}). The reason lives in its own field now, so that tail is cut
+     * off when the row is read - the stored text of those old documents is left alone.
+     *
+     * @param note the note as stored, {@code null} when the document has none
+     * @return the note without the cancellation tail
+     */
+    static String noteWithoutCancellation(String note) {
+        if (note == null) {
+            return null;
+        }
+        int at = note.lastIndexOf("；已作废");
+        if (at < 0) {
+            // a document that only ever said it was dropped has nothing left to print
+            return note.trim().startsWith("已作废") ? null : note;
+        }
+        String kept = note.substring(0, at);
+        return kept.isEmpty() ? null : kept;
     }
 
     /**

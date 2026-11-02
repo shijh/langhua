@@ -499,7 +499,6 @@
                 <form method="post" action="/mfg/control/outboundCancel" class="inline">
                     <input type="hidden" name="projectCode" value="${project.projectCode}"/>
                     <input type="hidden" name="outboundId" value="${o.outboundId}"/>
-                    <input type="hidden" name="reason" value="页面上作废"/>
                     <input type="submit" value="撤掉这张单" class="secondary"
                            onclick="return confirm('作废 ${o.outboundId}？库存一点不动，只是这张单不再用。');"/>
                 </form>
@@ -521,16 +520,17 @@
                     <th class="num">合计</th><th class="num">已出</th><th>状态</th><th>制作</th><th>备注</th>
                 </tr>
                 <#list outbounds as o>
-                    <tr data-outbound-history="${o.outboundId}" data-outbound-by="${o.operatorName!}">
+                    <tr data-outbound-history="${o.outboundId}" data-outbound-by="${o.operatorName!}"
+                        data-outbound-note="${(o.note)!}" data-outbound-reason="${(o.cancelReason)!}">
                         <td><a href="/mfg/control/outbound?outboundId=${o.outboundId}">${o.outboundId}</a></td>
                         <td><#if o.outboundDate??>${o.outboundDate?string("yyyy-MM-dd")}</#if></td>
                         <td>${o.bomVersion!}</td>
                         <td class="num">${(o.lineCount)!0}</td>
                         <td class="num">${(o.totalQty!0)?string("0.##")}</td>
                         <td class="num">${(o.issuedQty!0)?string("0.##")}</td>
-                        <td><#if o.issued><span class="ok">已出库</span><#elseif o.cancelled><span class="hint">已作废</span><#else><span class="warn">待出库</span></#if></td>
+                        <td><#if o.issued><span class="ok">已出库</span><#elseif o.cancelled><span class="hint"<#if ((o.cancelReason)!'')?has_content> title="作废原因：${o.cancelReason}"</#if>>已作废</span><#else><span class="warn">待出库</span></#if></td>
                         <td>${o.operatorName!}</td>
-                        <td>${o.note!}</td>
+                        <td>${(o.note)!}</td>
                     </tr>
                 </#list>
             </table>

@@ -23,7 +23,8 @@
         （这一版要减去本项目之前已经领过的），已领够的料不会出现在单上。</p>
 
     <table id="outboundHead" data-outbound="${outbound.outboundId!''}"
-           data-outbound-by="${outbound.operatorName!}">
+           data-outbound-by="${outbound.operatorName!}"
+           data-outbound-note="${(outbound.note)!}" data-outbound-reason="${(outbound.cancelReason)!}">
         <tr>
             <th>日期</th><th>BOM 版本</th><th class="num">行数</th><th class="num">合计</th>
             <th class="num">已出</th><th>状态</th><th>制作</th><th>备注</th>
@@ -34,11 +35,15 @@
             <td class="num">${(outbound.lineCount)!0}</td>
             <td class="num">${(outbound.totalQty!0)?string("0.##")}</td>
             <td class="num">${(outbound.issuedQty!0)?string("0.##")}</td>
-            <td><#if outbound.issued><span class="ok">已出库</span><#elseif outbound.cancelled><span class="hint">已作废</span><#else><span class="warn">待出库</span></#if></td>
+            <td><#if outbound.issued><span class="ok">已出库</span><#elseif outbound.cancelled><span class="hint"<#if ((outbound.cancelReason)!'')?has_content> title="作废原因：${outbound.cancelReason}"</#if>>已作废</span><#else><span class="warn">待出库</span></#if></td>
             <td>${outbound.operatorName!}</td>
-            <td>${outbound.note!}</td>
+            <td>${(outbound.note)!}</td>
         </tr>
     </table>
+
+    <#if outbound.cancelled && ((outbound.cancelReason)!'')?has_content>
+        <p class="hint">作废原因：${outbound.cancelReason}<#if outbound.cancelDate??>（${outbound.cancelDate?string("yyyy-MM-dd HH:mm")}<#if ((outbound.cancelByUserLoginId)!'')?has_content>，${outbound.cancelByUserLoginId}</#if>）</#if></p>
+    </#if>
 
     <#if !outbound.issued && !outbound.cancelled>
         <form method="post" action="/mfg/control/outboundIssueHere" class="inline">
@@ -47,7 +52,6 @@
         </form>
         <form method="post" action="/mfg/control/outboundCancelHere" class="inline">
             <input type="hidden" name="outboundId" value="${outbound.outboundId}"/>
-            <input type="hidden" name="reason" value="页面上作废"/>
             <input type="submit" value="撤掉这张单" class="secondary"
                    onclick="return confirm('作废 ${outbound.outboundId}？库存一点不动，只是这张单不再用。');"/>
         </form>

@@ -475,6 +475,20 @@ public class MfgDevBomRulesTest {
         assertEquals(1, MfgDevBomServices.outstandingRows(needs, null).size());
     }
 
+    @Test
+    public void dropsTheCancellationFromTheNoteOfAnOldDocument() {
+        // documents dropped before the reason got its own field carry "；已作废：<原因>" in the note,
+        // which repeated the state column and printed whatever the caller typed (our own check wrote
+        // "verify"). It is cut off when the row is read; the note of the version stays.
+        assertEquals("按研发 BOM v94 生成",
+                MfgDevBomServices.noteWithoutCancellation("按研发 BOM v94 生成；已作废：verify"));
+        assertEquals("按研发 BOM v94 生成；已于 16 件出库",
+                MfgDevBomServices.noteWithoutCancellation("按研发 BOM v94 生成；已于 16 件出库"));
+        assertNull(MfgDevBomServices.noteWithoutCancellation("已作废：verify"));
+        assertNull(MfgDevBomServices.noteWithoutCancellation(null));
+        assertEquals("", MfgDevBomServices.noteWithoutCancellation(""));
+    }
+
     private static Map<String, Object> bomRow(String code, String name, double qty, String designators,
             String changeId) {
         Map<String, Object> row = new LinkedHashMap<>();
