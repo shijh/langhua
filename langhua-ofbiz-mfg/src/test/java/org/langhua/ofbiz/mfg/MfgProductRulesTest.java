@@ -219,6 +219,30 @@ public class MfgProductRulesTest {
     }
 
     @Test
+    public void keepsTheAttachmentHeadersAscii() {
+        // a part number may be Chinese: an HTTP header with it in it kills the whole response over
+        // HTTP/2 (ERR_HTTP2_PROTOCOL_ERROR), so the cache tag is hashed
+        String tag = MfgAttachmentServices.etagOf("MFG_ATT_PART", "蓝色WCH-LINKE下载器", 2, false);
+        assertTrue("the tag must stay printable ASCII, got " + tag, tag.matches("\"[0-9a-f]{40}\""));
+        assertEquals(tag, MfgAttachmentServices.etagOf("MFG_ATT_PART", "蓝色WCH-LINKE下载器", 2, false));
+        assertTrue(!tag.equals(MfgAttachmentServices.etagOf("MFG_ATT_PART", "蓝色WCH-LINKE下载器", 1, false)));
+        assertTrue(!tag.equals(MfgAttachmentServices.etagOf("MFG_ATT_PART", "蓝色WCH-LINKE下载器", 2, true)));
+        // ASCII owner ids still get a tag, of course
+        assertTrue(MfgAttachmentServices.etagOf("MFG_ATT_WORK_ORDER", "WO-261022-01", 1, false)
+                .matches("\"[0-9a-f]{40}\""));
+
+        // and the file name travels in the RFC 5987 parameter, with an ASCII name in the plain one
+        String plain = MfgAttachmentServices.contentDispositionOf("inline", "WCH-LinkUserManual.PDF");
+        assertTrue(plain.startsWith("inline; filename=\"WCH-LinkUserManual.PDF\""));
+        assertTrue(plain.endsWith("filename*=UTF-8''WCH-LinkUserManual.PDF"));
+        String chinese = MfgAttachmentServices.contentDispositionOf("attachment", "使用说明书.pdf");
+        assertTrue("no raw Chinese may reach the header, got " + chinese,
+                chinese.matches("[\\x20-\\x7E]*"));
+        assertTrue(chinese.contains("%E4%BD%BF%E7%94%A8%E8%AF%B4%E6%98%8E%E4%B9%A6.pdf"));
+        assertTrue(MfgAttachmentServices.contentDispositionOf("inline", null).startsWith("inline; filename=\"file\""));
+    }
+
+    @Test
     public void detectsTheBomFormat() {
         // Fritzing writes a header with a semicolon; everything else stays the component format
         assertTrue(MfgCsv.detectBomFormat("Label;Part Type;mn;mpn;part number;\nBT1;Supercapacitor;;;SE-5R5;\n")

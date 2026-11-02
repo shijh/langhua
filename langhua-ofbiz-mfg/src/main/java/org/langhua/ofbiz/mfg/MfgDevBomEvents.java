@@ -205,7 +205,7 @@ public final class MfgDevBomEvents {
             String fileName = (name == null ? "bom-" + importSeq + ".html" : name.replace("\"", ""));
             response.setContentType(download ? typeOf(type, fileName) : viewTypeOf(type, fileName));
             response.setHeader("Content-Disposition",
-                    (download ? "attachment" : "inline") + "; filename=\"" + fileName + "\"");
+                    MfgAttachmentServices.contentDispositionOf(download ? "attachment" : "inline", fileName));
             if (!download) {
                 // the file is somebody else's HTML: let it be seen, but not let it run against this
                 // application (a sandboxed document gets an opaque origin, so no cookies, no scripts

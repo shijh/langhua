@@ -16,6 +16,11 @@
 
 package org.langhua.ofbiz.mfg;
 
+import java.io.UnsupportedEncodingException;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -431,5 +436,68 @@ public final class MfgAttachmentServices {
             return ServiceUtil.returnError("ownerTypeId, ownerId and seq are required");
         }
         return deleteAttachment(dctx.getDelegator(), ownerTypeId, ownerId, seq);
+    }
+
+    /**
+     * The ETag of one attachment, in ASCII.
+     *
+     * <p>An owner id may be a part number with Chinese in it (a shop sells
+     * "蓝色WCH-LINKE下载器"), and an HTTP header can only carry ASCII: Tomcat writes headers as
+     * ISO-8859-1 and HTTP/2 rejects the whole response, which reaches the browser as
+     * {@code ERR_HTTP2_PROTOCOL_ERROR} while the PDF itself is perfectly fine. The tag is nothing
+     * but an opaque cache key, so it is hashed.
+     *
+     * @param ownerTypeId what the file hangs on
+     * @param ownerId the key of that record, may hold any character
+     * @param seq the sequence number of the attachment
+     * @param thumb whether the scaled down picture was asked for
+     * @return the header value, quotes included
+     */
+    public static String etagOf(String ownerTypeId, String ownerId, long seq, boolean thumb) {
+        String raw = ownerTypeId + "-" + ownerId + "-" + seq + "-" + (thumb ? "t" : "f");
+        return "\"" + sha1Hex(raw) + "\"";
+    }
+
+    /**
+     * A {@code Content-Disposition} header that survives a Chinese file name.
+     *
+     * <p>The plain {@code filename} is forced to ASCII (anything else breaks the response over
+     * HTTP/2, see {@link #etagOf}), and the real name travels in the RFC 5987 {@code filename*}
+     * parameter, which browsers understand - so the user still gets "使用说明书.pdf" when saving.
+     *
+     * @param kind {@code inline} to open in the browser, {@code attachment} to download
+     * @param fileName the name of the file, may be null
+     * @return the header value
+     */
+    public static String contentDispositionOf(String kind, String fileName) {
+        String name = fileName == null || fileName.isEmpty() ? "file" : fileName;
+        StringBuilder ascii = new StringBuilder(name.length());
+        for (int i = 0; i < name.length(); i++) {
+            char c = name.charAt(i);
+            // printable ASCII only, and neither quote nor backslash inside a quoted string
+            ascii.append(c >= 0x20 && c < 0x7F && c != '"' && c != '\\' ? c : '_');
+        }
+        String encoded;
+        try {
+            encoded = URLEncoder.encode(name, "UTF-8").replace("+", "%20");
+        } catch (UnsupportedEncodingException e) {
+            encoded = ascii.toString();
+        }
+        return kind + "; filename=\"" + ascii + "\"; filename*=UTF-8''" + encoded;
+    }
+
+    private static String sha1Hex(String text) {
+        try {
+            byte[] hash = MessageDigest.getInstance("SHA-1").digest(text.getBytes(StandardCharsets.UTF_8));
+            StringBuilder hex = new StringBuilder(hash.length * 2);
+            for (byte b : hash) {
+                hex.append(Character.forDigit((b >> 4) & 0xF, 16));
+                hex.append(Character.forDigit(b & 0xF, 16));
+            }
+            return hex.toString();
+        } catch (NoSuchAlgorithmException e) {
+            // every JRE ships SHA-1; keep the header working anyway
+            return Integer.toHexString(text.hashCode());
+        }
     }
 }

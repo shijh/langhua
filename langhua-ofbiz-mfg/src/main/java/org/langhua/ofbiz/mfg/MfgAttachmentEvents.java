@@ -191,13 +191,14 @@ public final class MfgAttachmentEvents {
             if (!thumb) {
                 String fileName = attachment.getString("fileName");
                 if (fileName != null) {
-                    response.setHeader("Content-Disposition", "inline; filename=\"" + fileName + "\"");
+                    response.setHeader("Content-Disposition",
+                            MfgAttachmentServices.contentDispositionOf("inline", fileName));
                 }
             }
             // the file of one sequence number never changes, so the browser can keep it
             response.setHeader("Cache-Control", "private, max-age=86400");
-            response.setHeader("ETag", "\"" + ownerTypeId + "-" + ownerId + "-" + attachment.getLong("seq")
-                    + "-" + (thumb ? "t" : "f") + "\"");
+            response.setHeader("ETag", MfgAttachmentServices.etagOf(ownerTypeId, ownerId,
+                    attachment.getLong("seq").longValue(), thumb));
             OutputStream out = response.getOutputStream();
             out.write(data);
             out.flush();
