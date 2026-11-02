@@ -2513,6 +2513,13 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
     两个属性，否则报 `An active login is required for view with name […]`（HTTP 401）。
   - **地址按请求拼**（`MfgDevBomEvents.checkUrlOf`，scheme/host/port 取自 request），所以换成局域网地址/域名
     也能扫；`localhost` 的标签只能用电脑扫。
+    **手机要能打开，实例还得认这个 Host**：OFBiz 会拒掉不认识的 Host（
+    `Domain 192.168.101.168 not accepted to prevent host header injection`），要把它加进
+    `framework/security/config/security.properties` 的 `host-headers-allowed`——**光改这个文件不够**，
+    真正跑的是 `build/resources/main/security.properties`（打进了 `ofbiz.jar`），所以改完还要
+    `gradle jar` 再重启（`deploy-*.bat` 会一起做）。三套实例都已经加上本机的 `192.168.101.168`
+    （脚本 `%TEMP%\jup\allow-lan-host.ps1` + `allow-lan-host2.ps1`）；**网络换了/路由器重新分配地址时，
+    这里要跟着改**，否则手机扫出来是“出错了”的页面。
   - 单据页多一列「包装」（N 盒）、状态显示「已包装」，草稿/已包装时显示「装 N 盒 + 包装说明」表单，
     已包装或已出库时给「打印标签」「核对页」两个链接；`outbounds.ftl` 列表与开发页历史的三种状态也带上「已包装」。
   - 验法：`check-outbound-pack.ps1`（**20 项**，test）：给一个料号建批次 → 把一行 BOM 的料号临时换成它
