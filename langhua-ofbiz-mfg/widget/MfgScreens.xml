@@ -124,7 +124,7 @@
             <actions>
                 <set field="title" value="Outbound Order"/>
                 <set field="pageTitle" value="出库单"/>
-                <set field="activeMenu" value="dev"/>
+                <set field="activeMenu" value="outbounds"/>
                 <service service-name="mfgOutboundDetail" result-map="outboundResult" auto-field-map="false">
                     <field-map field-name="outboundId" from-field="parameters.outboundId"/>
                 </service>
@@ -135,6 +135,35 @@
                         <platform-specific>
                             <html>
                                 <html-template location="component://mfg/webapp/mfg/outbound.ftl"/>
+                            </html>
+                        </platform-specific>
+                    </decorator-section>
+                </decorator-screen>
+            </widgets>
+        </section>
+    </screen>
+
+    <!-- Every outbound order, where the warehouse keeper works (Step 246): the documents are
+         written in product development, the parts are picked at the shelf -->
+    <screen name="outbounds">
+        <section>
+            <actions>
+                <set field="title" value="Outbound Orders"/>
+                <set field="pageTitle" value="出库单"/>
+                <set field="activeMenu" value="outbounds"/>
+                <service service-name="mfgOutboundBrowse" result-map="outboundResult" auto-field-map="false">
+                    <field-map field-name="search" from-field="parameters.search"/>
+                    <field-map field-name="statusId" from-field="parameters.statusId"/>
+                    <field-map field-name="page" from-field="parameters.page"/>
+                    <field-map field-name="pageSize" from-field="parameters.pageSize"/>
+                </service>
+            </actions>
+            <widgets>
+                <decorator-screen name="mfg-decorator" location="component://mfg/widget/MfgCommonScreens.xml">
+                    <decorator-section name="body">
+                        <platform-specific>
+                            <html>
+                                <html-template location="component://mfg/webapp/mfg/outbounds.ftl"/>
                             </html>
                         </platform-specific>
                     </decorator-section>

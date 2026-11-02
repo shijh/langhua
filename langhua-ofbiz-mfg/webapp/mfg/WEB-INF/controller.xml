@@ -1009,6 +1009,12 @@
         <response name="error" type="view" value="outbound"/>
     </request-map>
 
+    <!-- every outbound order, under stock: the warehouse keeper picks from this list -->
+    <request-map uri="outbounds">
+        <security https="true" auth="true"/>
+        <response name="success" type="view" value="outbounds"/>
+    </request-map>
+
     <!-- the same two actions, taken from the document page: they come back to the document -->
     <request-map uri="outboundIssueHere">
         <security https="true" auth="true"/>
@@ -1191,6 +1197,7 @@
     <view-map name="quality" type="screen" page="component://mfg/widget/MfgScreens.xml#quality"/>
     <view-map name="dev" type="screen" page="component://mfg/widget/MfgScreens.xml#dev"/>
     <view-map name="outbound" type="screen" page="component://mfg/widget/MfgScreens.xml#outbound"/>
+    <view-map name="outbounds" type="screen" page="component://mfg/widget/MfgScreens.xml#outbounds"/>
     <view-map name="eco" type="screen" page="component://mfg/widget/MfgScreens.xml#eco"/>
     <view-map name="software" type="screen" page="component://mfg/widget/MfgScreens.xml#software"/>
     <view-map name="reports" type="screen" page="component://mfg/widget/MfgScreens.xml#reports"/>

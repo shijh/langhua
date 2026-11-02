@@ -2471,6 +2471,24 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
     `check-outbound-cancel.ps1`（8 项：作废原因与备注分开、作废的单不能再出库）、
     `verify-outbound-page.ps1` **21 项**（dev 与 test 都过）、`verify-m60b.ps1` 7~19 项。
 
+- **出库单搬到「库存」下面，归库管员（Step 246）**：用户说“这张表应该在库存那里，归库管员管理”——
+  单子是研发 BOM 写的，但料是在货架上捡的，所以**列表与单据页挂在库存区**：
+  - 新页面 `/mfg/control/outbounds`（屏幕 `outbounds` + `webapp/mfg/outbounds.ftl`，服务
+    `mfgOutboundBrowse`）：全部出库单，按日期倒序，可按**关键词**（单号 / 项目 / 制作 / 领料人 / 备注，
+    复用 `MfgStockServices.ledgerMatches`）和**状态**（待出库 / 已出库 / 已作废）筛，`pager.ftl` 翻页；
+    行上 `data-outbound-row` / `data-outbound-status` / `data-outbound-receiver` 给巡检断言。
+    **状态筛选用 `MfgConstants.OUT_*`**；老单 `statusId` 为空按草稿算（`OUT_DRAFT` 筛选中包含它们）。
+  - **导航**：「出库单」放进 `canStock` 那一组（物料批次 / 采购到货 / 库存 / **出库单** / 库位）；
+    库存结存页的按钮行也多一个「出库单」，单据页页脚多「全部出库单」。
+  - `outbound` 屏幕的 `activeMenu` 从 `dev` 改成 **`outbounds`**（打开单据时导航高亮在库存这一组）。
+  - **列表不再读明细**：`outboundHeadRow(head)` 只拿单头上的缓存计数，`outboundRow` = 它 + 明细；
+    `mfgOutboundBrowse` 每行只读一行，不会把每张单的领料清单都拉出来。
+  - 开发页那一段照旧（生成单据在那里），提示里加了一句“全部出库单在「库存 → 出库单」”。
+  - 验法：`verify-outbounds.ps1`（13 项，dev 与 test 都过：列表、每行链到单据、导航高亮、库存页入口、
+    三个状态筛选互不串、三种相加等于全部、单号关键词收窄、胡写的词 0 条、单据页回列表）；
+    `smoke-dev-pages.ps1` 现在 **28 项**（多了 `outbounds`）、`check-prod-237.ps1` **20 项**
+    （多比 `outbounds.ftl` / `stock.ftl` / `decorator.ftl`，`javap` 确认 jar 里有 `outboundBrowse`）。
+
 - **测试数据把开发库灌满了：清一次，并让 IT 打测试实例（Step 239）**：几个月下来开发库里
   **383 个开发项目**、268 个型号、728 个工单、3959 个批次、13192 条流水、1152 张到货单，几乎全是
   `mfg-it.bat` 与 `verify-m*.ps1` 造出来的（IT 每跑一次就建 4 个项目 + 2 个型号 + 一堆单据）。

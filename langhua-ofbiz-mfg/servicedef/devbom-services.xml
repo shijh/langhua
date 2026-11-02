@@ -161,6 +161,23 @@
         <attribute name="outbound" type="java.util.Map" mode="OUT" optional="true"/>
     </service>
 
+    <service name="mfgOutboundBrowse" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgDevBomServices" invoke="outboundBrowse"
+            auth="false" use-transaction="false">
+        <description>Every outbound order, newest first, for the page the warehouse keeper works from: the picking lists are written in product development but the parts are picked at the shelf</description>
+        <attribute name="search" type="String" mode="IN" optional="true"/>
+        <attribute name="statusId" type="String" mode="IN" optional="true"/>
+        <attribute name="page" type="String" mode="IN" optional="true"/>
+        <attribute name="pageSize" type="String" mode="IN" optional="true"/>
+        <attribute name="rows" type="java.util.List" mode="OUT" optional="true"/>
+        <attribute name="totalCount" type="java.lang.Integer" mode="OUT" optional="true"/>
+        <attribute name="pageCount" type="java.lang.Long" mode="OUT" optional="true"/>
+        <attribute name="page" type="java.lang.Long" mode="OUT" optional="true"/>
+        <attribute name="pageSize" type="java.lang.Long" mode="OUT" optional="true"/>
+        <attribute name="search" type="String" mode="OUT" optional="true"/>
+        <attribute name="statusId" type="String" mode="OUT" optional="true"/>
+    </service>
+
     <service name="mfgOutboundReceiverSave" engine="java"
             location="org.langhua.ofbiz.mfg.MfgDevBomServices" invoke="outboundReceiverSave"
             auth="false" use-transaction="true">

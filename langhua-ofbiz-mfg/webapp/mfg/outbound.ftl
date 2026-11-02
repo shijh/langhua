@@ -103,6 +103,7 @@
         <#else>
             <a href="/mfg/control/dev">回到产品开发</a>
         </#if>
+        ｜ <a href="/mfg/control/outbounds">全部出库单</a>
         <#if outbound.issued>
             ｜ <a href="/mfg/control/stockMoves?search=${outbound.outboundId}">在库存流水里看这张单</a>
         <#elseif outbound.cancelled>

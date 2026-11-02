@@ -1253,6 +1253,33 @@ public final class MfgDevBomServices {
      * @throws GenericEntityException when the lines cannot be read
      */
     static Map<String, Object> outboundRow(Delegator delegator, GenericValue head) throws GenericEntityException {
+        Map<String, Object> row = outboundHeadRow(head);
+        List<Map<String, Object>> lines = new ArrayList<>();
+        for (GenericValue line : EntityQuery.use(delegator).from("MfgOutboundItem")
+                .where("outboundId", head.getString("outboundId")).orderBy("lineSeq").queryList()) {
+            Map<String, Object> item = new LinkedHashMap<>();
+            item.put("lineSeq", line.get("lineSeq"));
+            item.put("componentCode", line.getString("componentCode"));
+            item.put("componentName", line.getString("componentName"));
+            item.put("designators", line.getString("designators"));
+            item.put("qty", line.get("qty"));
+            item.put("neededQty", line.get("neededQty"));
+            item.put("alreadyQty", line.get("alreadyQty"));
+            item.put("issuedQty", line.get("issuedQty"));
+            lines.add(item);
+        }
+        row.put("lines", lines);
+        return row;
+    }
+
+    /**
+     * The head of an outbound order without its lines, for a list that would otherwise read every
+     * picking list of the workshop one by one. The counts are the ones the document already caches.
+     *
+     * @param head the row of {@code MfgOutbound}
+     * @return the fields a list row shows
+     */
+    static Map<String, Object> outboundHeadRow(GenericValue head) {
         Map<String, Object> row = new LinkedHashMap<>();
         row.put("outboundId", head.getString("outboundId"));
         row.put("projectCode", head.getString("projectCode"));
@@ -1270,22 +1297,55 @@ public final class MfgDevBomServices {
         row.put("cancelByUserLoginId", head.getString("cancelByUserLoginId"));
         row.put("issued", Boolean.valueOf(MfgConstants.OUT_ISSUED.equals(head.getString("statusId"))));
         row.put("cancelled", Boolean.valueOf(MfgConstants.OUT_CANCELLED.equals(head.getString("statusId"))));
-        List<Map<String, Object>> lines = new ArrayList<>();
-        for (GenericValue line : EntityQuery.use(delegator).from("MfgOutboundItem")
-                .where("outboundId", head.getString("outboundId")).orderBy("lineSeq").queryList()) {
-            Map<String, Object> item = new LinkedHashMap<>();
-            item.put("lineSeq", line.get("lineSeq"));
-            item.put("componentCode", line.getString("componentCode"));
-            item.put("componentName", line.getString("componentName"));
-            item.put("designators", line.getString("designators"));
-            item.put("qty", line.get("qty"));
-            item.put("neededQty", line.get("neededQty"));
-            item.put("alreadyQty", line.get("alreadyQty"));
-            item.put("issuedQty", line.get("issuedQty"));
-            lines.add(item);
-        }
-        row.put("lines", lines);
         return row;
+    }
+
+    /**
+     * Every outbound order, newest first, for the page the warehouse keeper works from: the picking
+     * lists are created in product development but they are picked at the shelf, so the list lives
+     * with the stock and not with the project.
+     *
+     * @param dctx the dispatch context
+     * @param context service context, see {@code servicedef/devbom-services.xml#mfgOutboundBrowse}
+     * @return the service result containing {@code rows} and the paging information
+     */
+    public static Map<String, Object> outboundBrowse(DispatchContext dctx, Map<String, ? extends Object> context) {
+        Delegator delegator = dctx.getDelegator();
+        String search = MfgSupport.toText(context.get("search"));
+        String statusId = MfgSupport.toText(context.get("statusId"));
+        Map<String, Object> result = ServiceUtil.returnSuccess();
+        List<Map<String, Object>> rows = new ArrayList<>();
+        result.put("rows", rows);
+        try {
+            for (GenericValue head : EntityQuery.use(delegator).from("MfgOutbound")
+                    .orderBy("-outboundDate", "-createdStamp").queryList()) {
+                String state = MfgSupport.toText(head.getString("statusId"));
+                // a document written before the states existed carries no status: it is a draft
+                boolean issued = MfgConstants.OUT_ISSUED.equals(state);
+                boolean cancelled = MfgConstants.OUT_CANCELLED.equals(state);
+                if (MfgConstants.OUT_ISSUED.equals(statusId) && !issued) {
+                    continue;
+                }
+                if (MfgConstants.OUT_CANCELLED.equals(statusId) && !cancelled) {
+                    continue;
+                }
+                if (MfgConstants.OUT_DRAFT.equals(statusId) && (issued || cancelled)) {
+                    continue;
+                }
+                if (!MfgStockServices.ledgerMatches(search, head.getString("outboundId"),
+                        head.getString("projectCode"), head.getString("bomVersion"),
+                        head.getString("operatorName"), head.getString("receiverName"),
+                        head.getString("note"))) {
+                    continue;
+                }
+                rows.add(outboundHeadRow(head));
+            }
+            MfgPaging.putPage(result, "rows", rows, MfgPaging.pageOf(context), MfgPaging.pageSizeOf(context), search);
+            result.put("statusId", statusId);
+            return result;
+        } catch (GenericEntityException e) {
+            return ServiceUtil.returnError("读取出库单失败：" + e.getMessage());
+        }
     }
 
     /**

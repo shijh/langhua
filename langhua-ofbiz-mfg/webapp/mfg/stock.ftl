@@ -30,6 +30,7 @@
     <label><input type="checkbox" name="belowOnly" value="Y"<#if (parameters.belowOnly!'') == 'Y'> checked="checked"</#if>/> 只看低于安全库存</label>
     <input type="submit" value="查询"/>
     <a href="/mfg/control/stockMoves">出入库流水</a>
+    <a href="/mfg/control/outbounds">出库单</a>
     <a href="/mfg/control/stockCount">盘点</a>
 </form>
 
