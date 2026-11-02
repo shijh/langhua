@@ -151,13 +151,13 @@ C0402-100N,100nF 0402 电容,立创商城,DC2409B,500,2026-10-19</textarea>
                     <#if (lot.partDocSeq!'')?has_content>
                         <a data-part-docs="${(lot.componentCode)!}" data-part-doc-view="${lot.partDocSeq}"
                            target="_blank" title="${(lot.partDocName)!'资料'}"
-                           href="/mfg/control/attachment?ownerTypeId=MFG_ATT_PART&amp;ownerId=${((lot.componentCode)!'')?url}&amp;seq=${lot.partDocSeq}">看资料</a>
+                           href="/mfg/control/attachment?ownerTypeId=MFG_ATT_PART&amp;ownerId=${(lot.componentCodeUrl)!''}&amp;seq=${lot.partDocSeq}">看资料</a>
                         <a class="hint" data-part-docs-open="${(lot.componentCode)!}"
-                           href="/mfg/control/partDocs?componentCode=${((lot.componentCode)!'')?url}"
+                           href="/mfg/control/partDocs?componentCode=${(lot.componentCodeUrl)!''}"
                            title="上传新版 / 删除传错的资料">维护<#if ((lot.partDocCount)!0) gt 1>（${lot.partDocCount}）</#if></a>
                     <#else>
                         <a class="hint" data-part-docs="${(lot.componentCode)!}"
-                           href="/mfg/control/partDocs?componentCode=${((lot.componentCode)!'')?url}"
+                           href="/mfg/control/partDocs?componentCode=${(lot.componentCodeUrl)!''}"
                            title="这个料号的资料（PDF / 图片）">资料</a>
                     </#if>
                 </td>

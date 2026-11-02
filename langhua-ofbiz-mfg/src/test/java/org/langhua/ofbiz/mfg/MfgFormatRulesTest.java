@@ -427,4 +427,18 @@ public class MfgFormatRulesTest {
         assertEquals("12.5", MfgSupport.formatQty(12.5));
         assertEquals("1.234", MfgSupport.formatQty(1.23449));
     }
+
+    @Test
+    public void encodesAPartNumberForALink() {
+        // what the link needs: the real characters, percent-encoded once. The template's ?url would
+        // encode the escaped form (&#x84dd;…) and ask the next page for a part that does not exist
+        assertEquals("%E8%93%9D%E8%89%B2WCH-LINKE%E4%B8%8B%E8%BD%BD%E5%99%A8",
+                MfgSupport.urlPart("蓝色WCH-LINKE下载器"));
+        // spaces become %20 and not +, which a path segment would show as a plus sign
+        assertEquals("104%200.1UF", MfgSupport.urlPart("104 0.1UF"));
+        // a part number with an ampersand would otherwise split the query
+        assertEquals("R-1%264W", MfgSupport.urlPart("R-1&4W"));
+        assertEquals("", MfgSupport.urlPart(null));
+        assertEquals("", MfgSupport.urlPart("   "));
+    }
 }

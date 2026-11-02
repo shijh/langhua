@@ -16,6 +16,8 @@
 
 package org.langhua.ofbiz.mfg;
 
+import java.io.UnsupportedEncodingException;
+import java.net.URLEncoder;
 import java.sql.Timestamp;
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
@@ -324,6 +326,32 @@ public final class MfgSupport {
         }
         String text = value.toString().trim();
         return text.isEmpty() ? null : text;
+    }
+
+    /**
+     * Percent-encodes a value for a link, from the raw value.
+     *
+     * <p>A string that a service put in its result reaches FreeMarker wrapped, and {@code ?url} then
+     * encodes the <em>escaped</em> form: a Chinese part number becomes
+     * {@code %26%23x84dd%3B...}, which asks the next page for a record that does not exist (reported
+     * as "the PDF link gives an error page"). Encoding here, where the raw value is still at hand,
+     * keeps the link honest - and unlike printing the bare value it also survives a part number with
+     * an ampersand in it.
+     *
+     * @param value the value to put after {@code name=}
+     * @return the encoded text, empty for null
+     */
+    public static String urlPart(Object value) {
+        String text = toText(value);
+        if (text == null) {
+            return "";
+        }
+        try {
+            return URLEncoder.encode(text, "UTF-8").replace("+", "%20");
+        } catch (UnsupportedEncodingException e) {
+            // every JVM has UTF-8
+            return text;
+        }
     }
 
     /**

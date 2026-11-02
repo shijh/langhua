@@ -35,7 +35,7 @@
     <#include "attachmentBlock.ftl">
     <#-- the owner of the files is the part number, so the page can be reached from any batch of it -->
     <#assign attOwner = code>
-    <#assign attBack = '/mfg/control/partDocs?componentCode=' + (code?url)>
+    <#assign attBack = '/mfg/control/partDocs?componentCode=' + ((part.componentCodeUrl)!'')>
     <h2>资料（${docs?size} 个）</h2>
     <@attachmentBlock 'MFG_ATT_PART' attOwner attBack '规格书 / 图纸 / 数据手册（PDF 可以直接在浏览器里打开）' docs/>
 

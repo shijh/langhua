@@ -366,6 +366,9 @@ public final class MfgDevBomServices {
                     Map<String, Object> row = new LinkedHashMap<>();
                     row.put("lineSeq", item.get("lineSeq"));
                     row.put("componentCode", code);
+                    // already percent-encoded, so the links to the part page and to its files keep a
+                    // Chinese part number intact (template ?url would encode the escaped form)
+                    row.put("componentCodeUrl", MfgSupport.urlPart(code));
                     row.put("componentName", item.getString("componentName"));
                     // the photo the shop printed for this part, when it came in from a screenshot
                     row.put("scanShotId", MfgStockServices.pictureOf(shots, code));

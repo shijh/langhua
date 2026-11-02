@@ -63,19 +63,19 @@
                 <td class="num"><#if (row.value!0) gt 0>${row.value?string("0.00")}<#else><span class="hint">—</span></#if></td>
                 <td>${row.supplierName!}</td>
                 <td>
-                    <a href="/mfg/control/stockMoves?componentCode=${row.componentCode?url}">流水</a>
-                    <a href="/mfg/control/materials?componentCode=${row.componentCode?url}">批次</a>
+                    <a href="/mfg/control/stockMoves?componentCode=${row.componentCodeUrl}">流水</a>
+                    <a href="/mfg/control/materials?componentCode=${row.componentCodeUrl}">批次</a>
                     <#-- datasheets and drawings hang on the part number, not on one batch of it: with a
                          file the row opens the file, without one it opens the upload page -->
                     <#if (row.partDocSeq!'')?has_content>
                         <a data-part-docs="${row.componentCode}" data-part-doc-view="${row.partDocSeq}"
                            target="_blank" title="${(row.partDocName)!'资料'}"
-                           href="/mfg/control/attachment?ownerTypeId=MFG_ATT_PART&amp;ownerId=${row.componentCode?url}&amp;seq=${row.partDocSeq}">看资料</a>
+                           href="/mfg/control/attachment?ownerTypeId=MFG_ATT_PART&amp;ownerId=${row.componentCodeUrl}&amp;seq=${row.partDocSeq}">看资料</a>
                         <a class="hint" data-part-docs-open="${row.componentCode}"
-                           href="/mfg/control/partDocs?componentCode=${row.componentCode?url}"
+                           href="/mfg/control/partDocs?componentCode=${row.componentCodeUrl}"
                            title="上传新版 / 删除传错的资料">维护<#if ((row.partDocCount)!0) gt 1>（${row.partDocCount}）</#if></a>
                     <#else>
-                        <a data-part-docs="${row.componentCode}" href="/mfg/control/partDocs?componentCode=${row.componentCode?url}">资料</a>
+                        <a data-part-docs="${row.componentCode}" href="/mfg/control/partDocs?componentCode=${row.componentCodeUrl}">资料</a>
                     </#if>
                 </td>
             </tr>

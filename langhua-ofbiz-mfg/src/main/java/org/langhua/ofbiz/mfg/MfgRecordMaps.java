@@ -46,6 +46,9 @@ public final class MfgRecordMaps {
         map.put("lotKindId", MfgStockLedger.lotKindOf(lot));
         map.put("workOrderId", lot.getString("workOrderId"));
         map.put("componentCode", lot.getString("componentCode"));
+        // ready to be put after "componentCode=": a part number may be Chinese, and ?url in the
+        // template would encode its escaped form (see MfgSupport.urlPart)
+        map.put("componentCodeUrl", MfgSupport.urlPart(lot.getString("componentCode")));
         map.put("componentName", lot.getString("componentName"));
         map.put("supplierName", lot.getString("supplierName"));
         map.put("supplierLot", lot.getString("supplierLot"));

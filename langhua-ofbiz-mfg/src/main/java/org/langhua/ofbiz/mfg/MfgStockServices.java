@@ -354,6 +354,7 @@ public final class MfgStockServices {
         List<Map<String, Object>> lots = new ArrayList<>();
         result.put("lots", lots);
         result.put("componentCode", code);
+        result.put("componentCodeUrl", MfgSupport.urlPart(code));
         result.put("componentName", null);
         result.put("onHandQty", Double.valueOf(0.0));
         result.put("reservedQty", Double.valueOf(0.0));
@@ -1897,6 +1898,7 @@ public final class MfgStockServices {
                 if (row == null) {
                     row = new LinkedHashMap<>();
                     row.put("componentCode", componentCode);
+                    row.put("componentCodeUrl", MfgSupport.urlPart(componentCode));
                     row.put("componentName", lot.getString("componentName"));
                     row.put("onHandQty", Double.valueOf(0.0));
                     row.put("reservedQty", Double.valueOf(0.0));

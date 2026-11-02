@@ -1365,7 +1365,7 @@
             <#list lines as l>
                 <tr data-line-seq="${l.lineSeq}">
                     <td class="num">${(l.lineSeq)?string("0")}</td>
-                    <td><a href="/mfg/control/materials?componentCode=${((l.componentCode)!'')?url}">${l.lotId!}</a></td>
+                    <td><a href="/mfg/control/materials?componentCode=${(l.componentCodeUrl)!''}">${l.lotId!}</a></td>
                     <td>${l.componentCode!}</td>
                     <td>${l.componentName!}<#if (l.scanShotId)?has_content>
                         <img class="shot" data-line-shot="${l.scanShotId}" alt="订单截图里的商品图"

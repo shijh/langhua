@@ -417,13 +417,13 @@
                         <#if (r.partDocSeq!'')?has_content>
                             <a data-part-docs="${r.componentCode}" data-part-doc-view="${r.partDocSeq}"
                                target="_blank" title="${(r.partDocName)!'资料'}"
-                               href="/mfg/control/attachment?ownerTypeId=MFG_ATT_PART&amp;ownerId=${r.componentCode?url}&amp;seq=${r.partDocSeq}">看资料</a>
+                               href="/mfg/control/attachment?ownerTypeId=MFG_ATT_PART&amp;ownerId=${r.componentCodeUrl}&amp;seq=${r.partDocSeq}">看资料</a>
                             <a class="hint" data-part-docs-open="${r.componentCode}"
-                               href="/mfg/control/partDocs?componentCode=${r.componentCode?url}"
+                               href="/mfg/control/partDocs?componentCode=${r.componentCodeUrl}"
                                title="上传新版 / 删除传错的资料">维护<#if ((r.partDocCount)!0) gt 1>（${r.partDocCount}）</#if></a>
                         <#else>
                             <a class="hint" data-part-docs="${r.componentCode}"
-                               href="/mfg/control/partDocs?componentCode=${r.componentCode?url}"
+                               href="/mfg/control/partDocs?componentCode=${r.componentCodeUrl}"
                                title="这个料号的资料（PDF / 图片）">资料</a>
                         </#if></td>
                     <td>${r.componentName!}<#if (r.sourceId!'') == 'MFG_BOM_MANUAL'> <span class="hint">（手工添加）</span></#if><#if r.properties??><br/><span class="hint">${r.properties}</span></#if></td>

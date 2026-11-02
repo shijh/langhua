@@ -1540,6 +1540,7 @@ public final class MfgPurchaseServices {
         map.put("lineSeq", line.getLong("lineSeq"));
         map.put("lotId", line.getString("lotId"));
         map.put("componentCode", line.getString("componentCode"));
+        map.put("componentCodeUrl", MfgSupport.urlPart(line.getString("componentCode")));
         map.put("componentName", line.getString("componentName"));
         map.put("qty", line.get("qty"));
         map.put("unitPrice", line.get("unitPrice"));
