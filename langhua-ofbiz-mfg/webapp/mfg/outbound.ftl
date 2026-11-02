@@ -24,10 +24,13 @@
 
     <table id="outboundHead" data-outbound="${outbound.outboundId!''}"
            data-outbound-by="${outbound.operatorName!}"
-           data-outbound-note="${(outbound.note)!}" data-outbound-reason="${(outbound.cancelReason)!}">
+           data-outbound-note="${(outbound.note)!}" data-outbound-reason="${(outbound.cancelReason)!}"
+           data-outbound-receiver="${(outbound.receiverName)!}"
+           data-outbound-issued-at="<#if outbound.issuedAt??>${outbound.issuedAt?string("yyyy-MM-dd HH:mm")}</#if>"
+           data-outbound-issued-by="${(outbound.issuedBy)!}">
         <tr>
             <th>日期</th><th>BOM 版本</th><th class="num">行数</th><th class="num">合计</th>
-            <th class="num">已出</th><th>状态</th><th>制作</th><th>备注</th>
+            <th class="num">已出</th><th>状态</th><th>制作</th><th>领料人</th><th>备注</th>
         </tr>
         <tr>
             <td><#if outbound.outboundDate??>${outbound.outboundDate?string("yyyy-MM-dd")}</#if></td>
@@ -37,9 +40,25 @@
             <td class="num">${(outbound.issuedQty!0)?string("0.##")}</td>
             <td><#if outbound.issued><span class="ok">已出库</span><#elseif outbound.cancelled><span class="hint"<#if ((outbound.cancelReason)!'')?has_content> title="作废原因：${outbound.cancelReason}"</#if>>已作废</span><#else><span class="warn">待出库</span></#if></td>
             <td>${outbound.operatorName!}</td>
+            <td>${(outbound.receiverName)!}</td>
             <td>${(outbound.note)!}</td>
         </tr>
     </table>
+
+    <#if parameters.saved??>
+        <p class="ok">领料人已保存。</p>
+    </#if>
+
+    <form method="post" action="/mfg/control/outboundReceiverSave" class="inline">
+        <input type="hidden" name="outboundId" value="${outbound.outboundId}"/>
+        领料人 <input type="text" name="receiverName" size="12" value="${(outbound.receiverName)!}" placeholder="谁把料拿走"/>
+        <input type="submit" value="保存领料人" class="secondary"/>
+    </form>
+    <span class="hint">领料人就是来拿料的那个人，不是系统账号也能写；库管员是点「按这张单出库」的那个账号，记在库存流水的操作人上。</span>
+
+    <#if outbound.issued && outbound.issuedAt??>
+        <p class="hint" id="outboundHanded">出库：${outbound.issuedAt?string("yyyy-MM-dd HH:mm")}<#if ((outbound.issuedBy)!'')?has_content>，经办 ${outbound.issuedBy}</#if><#if (outbound.movementCount!0) gt 0>（${outbound.movementCount} 条库存流水）</#if>。</p>
+    </#if>
 
     <#if outbound.cancelled && ((outbound.cancelReason)!'')?has_content>
         <p class="hint">作废原因：${outbound.cancelReason}<#if outbound.cancelDate??>（${outbound.cancelDate?string("yyyy-MM-dd HH:mm")}<#if ((outbound.cancelByUserLoginId)!'')?has_content>，${outbound.cancelByUserLoginId}</#if>）</#if></p>

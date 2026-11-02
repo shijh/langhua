@@ -503,7 +503,7 @@
                            onclick="return confirm('作废 ${o.outboundId}？库存一点不动，只是这张单不再用。');"/>
                 </form>
                 <span class="hint">单号 <a href="/mfg/control/outbound?outboundId=${o.outboundId}">${o.outboundId}</a>：${(o.lineCount)!0} 行 / 合计 ${(o.totalQty!0)?string("0.##")} 件，
-                    ${(o.operatorName)!''} 制作。只要有一个料号不够，整张单都不出库，会告诉你是哪个料号缺多少。</span>
+                    ${(o.operatorName)!''} 制作<#if ((o.receiverName)!'')?has_content>，领料人 ${o.receiverName}</#if>。只要有一个料号不够，整张单都不出库，会告诉你是哪个料号缺多少。</span>
             </#if>
         </#list>
         <#if !hasDraft>
@@ -517,11 +517,12 @@
             <table id="devOutboundHistory">
                 <tr>
                     <th>单号</th><th>日期</th><th>BOM 版本</th><th class="num">行数</th>
-                    <th class="num">合计</th><th class="num">已出</th><th>状态</th><th>制作</th><th>备注</th>
+                    <th class="num">合计</th><th class="num">已出</th><th>状态</th><th>制作</th><th>领料人</th><th>备注</th>
                 </tr>
                 <#list outbounds as o>
                     <tr data-outbound-history="${o.outboundId}" data-outbound-by="${o.operatorName!}"
-                        data-outbound-note="${(o.note)!}" data-outbound-reason="${(o.cancelReason)!}">
+                        data-outbound-note="${(o.note)!}" data-outbound-reason="${(o.cancelReason)!}"
+                        data-outbound-receiver="${(o.receiverName)!}">
                         <td><a href="/mfg/control/outbound?outboundId=${o.outboundId}">${o.outboundId}</a></td>
                         <td><#if o.outboundDate??>${o.outboundDate?string("yyyy-MM-dd")}</#if></td>
                         <td>${o.bomVersion!}</td>
@@ -530,6 +531,7 @@
                         <td class="num">${(o.issuedQty!0)?string("0.##")}</td>
                         <td><#if o.issued><span class="ok">已出库</span><#elseif o.cancelled><span class="hint"<#if ((o.cancelReason)!'')?has_content> title="作废原因：${o.cancelReason}"</#if>>已作废</span><#else><span class="warn">待出库</span></#if></td>
                         <td>${o.operatorName!}</td>
+                        <td>${(o.receiverName)!}</td>
                         <td>${(o.note)!}</td>
                     </tr>
                 </#list>

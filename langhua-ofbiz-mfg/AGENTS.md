@@ -2452,6 +2452,25 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   - `verify-outbound-page.ps1` 现在 **17 项**（dev；多两条“已出库的单有流水链接”“流水页认得出单号”）、
     test 12 项；`check-ledger-search.ps1` 7 项、`smoke-dev-pages.ps1` 27 项仍全过。三套实例已发版。
 
+- **出库单记下库管员、领料人、日期、明细（Step 245）**：用户问“没有出库单记录库管员、领料人这些吗”。
+  单据本来就有日期 / BOM 版本 / 行数 / 合计 / 已出 / 状态 / 制作 / 备注 + 明细（每行 这一版要 / 之前已出 /
+  本次领 / 这张单已出 / 位号），缺的是**领料人**，以及“谁经手把料交出去”：
+  - **领料人** `MfgOutbound.receiverName`（自由文本，≤100 字，`receiverProblem` 给中文提示）；
+    单据页一张小表单 POST `outboundReceiverSave`（`mfgOutboundReceiverSave`），**任何状态都能改**——
+    纸面上的名字经常是事后补登的。项目页历史多一列「领料人」，草稿提示里也写出来。
+  - **库管员** = 点「按这张单出库」的那个账号：`outboundIssue` 写 `issuedDate` + `issuedByUserLoginId`；
+    `outboundDetail` 优先用存下的，**老单**回落到流水的 `effectiveDate` / `operatorName`
+    （`OUT-261101-01` 只显示时间、经办为空，因为它的流水是 Step 237 第一版写的、没带 operatorName）。
+  - 页面：单据页三个属性给巡检断言 `data-outbound-issued-at` / `data-outbound-issued-by` /
+    `data-outbound-receiver`，出库后表格下面一行「出库：时间，经办 谁（N 条库存流水）」（`id="outboundHanded"`）。
+  - **顺手堵的洞**：`outboundIssue` 以前只看“已出库”，**作废的单还能再出库** → 现在拒绝
+    「已经作废了，不能再出库；要料就重新生成一张」。
+  - 验法（都打测试实例）：`check-outbound-stamp.ps1`（5 项：已出库的单有时间、有领料人表单）、
+    `check-outbound-stamp2.ps1`（9 项：把一行 BOM 数量 +1 → 出 1 行单 → 写领料人 → 出库成功 →
+    断言 `issued-by=admin` / `issued-at` / 领料人，最后把那一行数量改回去）、
+    `check-outbound-cancel.ps1`（8 项：作废原因与备注分开、作废的单不能再出库）、
+    `verify-outbound-page.ps1` **21 项**（dev 与 test 都过）、`verify-m60b.ps1` 7~19 项。
+
 - **测试数据把开发库灌满了：清一次，并让 IT 打测试实例（Step 239）**：几个月下来开发库里
   **383 个开发项目**、268 个型号、728 个工单、3959 个批次、13192 条流水、1152 张到货单，几乎全是
   `mfg-it.bat` 与 `verify-m*.ps1` 造出来的（IT 每跑一次就建 4 个项目 + 2 个型号 + 一堆单据）。

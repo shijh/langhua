@@ -1030,6 +1030,17 @@
         <response name="error" type="view" value="outbound"/>
     </request-map>
 
+    <!-- who takes the parts away, written on the document itself -->
+    <request-map uri="outboundReceiverSave">
+        <security https="true" auth="true"/>
+        <event type="service" invoke="mfgOutboundReceiverSave"/>
+        <response name="success" type="request-redirect" value="outbound">
+            <redirect-parameter name="outboundId"/>
+            <redirect-parameter name="saved"/>
+        </response>
+        <response name="error" type="view" value="outbound"/>
+    </request-map>
+
     <request-map uri="devBomCsv">
         <security https="true" auth="true"/>
         <event type="java" path="org.langhua.ofbiz.mfg.MfgDevBomEvents" invoke="shortageCsv"/>

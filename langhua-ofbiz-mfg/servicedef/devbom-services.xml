@@ -156,9 +156,18 @@
     <service name="mfgOutboundDetail" engine="java"
             location="org.langhua.ofbiz.mfg.MfgDevBomServices" invoke="outboundDetail"
             auth="false" use-transaction="false">
-        <description>One outbound order with its lines, for the page that shows a single document. An unknown number is not an error: the page says so on its own</description>
+        <description>One outbound order with its lines, for the page that shows a single document. An unknown number is not an error: the page says so on its own. A document that has been booked also says who handed the parts over and when, read from the movements it made</description>
         <attribute name="outboundId" type="String" mode="IN" optional="true"/>
         <attribute name="outbound" type="java.util.Map" mode="OUT" optional="true"/>
+    </service>
+
+    <service name="mfgOutboundReceiverSave" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgDevBomServices" invoke="outboundReceiverSave"
+            auth="false" use-transaction="true">
+        <description>Write who takes the parts away (领料人) on an outbound document. The account that books the document is the warehouse keeper and ends on the stock movements; the person carrying the parts is usually not a system user, so this is a name on the paper and not a login</description>
+        <attribute name="outboundId" type="String" mode="IN" optional="true"/>
+        <attribute name="receiverName" type="String" mode="IN" optional="true"/>
+        <attribute name="saved" type="String" mode="OUT" optional="true"/>
     </service>
 
 </services>

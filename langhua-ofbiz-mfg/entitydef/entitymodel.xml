@@ -391,10 +391,13 @@
         <field name="totalQty" type="floating-point"><description>Units the document asks for</description></field>
         <field name="issuedQty" type="floating-point"><description>Units that actually left the shelf</description></field>
         <field name="operatorName" type="name"><description>Who wrote the document</description></field>
+        <field name="receiverName" type="name"><description>Who takes the parts away (领料人), written on the paper when the warehouse hands them over; empty when nobody signed for them</description></field>
         <field name="note" type="description"/>
         <field name="cancelReason" type="description"><description>Why the draft was dropped, when the caller says so. Kept apart from the note: the state column already reads 已作废, repeating it there was noise</description></field>
         <field name="cancelDate" type="date-time"><description>When the draft was dropped</description></field>
         <field name="cancelByUserLoginId" type="name"><description>Account that dropped the draft</description></field>
+        <field name="issuedDate" type="date-time"><description>When the parts actually left the shelf, written when the document is booked</description></field>
+        <field name="issuedByUserLoginId" type="name"><description>The warehouse keeper who booked the document: the account that pressed the issue button</description></field>
         <field name="createdStamp" type="date-time"/>
         <field name="createdTxStamp" type="date-time"/>
         <field name="lastUpdatedStamp" type="date-time"/>

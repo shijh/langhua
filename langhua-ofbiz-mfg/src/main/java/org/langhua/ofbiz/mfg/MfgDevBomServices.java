@@ -57,6 +57,9 @@ public final class MfgDevBomServices {
     /** How many in-stock part numbers the page offers while a BOM row's code is corrected. */
     static final int MAX_STOCK_OPTIONS = 300;
 
+    /** How many characters the name of the person taking the parts may have ({@code MfgOutbound.receiverName}). */
+    static final int MAX_RECEIVER_LENGTH = 100;
+
     /**
      * The columns of an import that the pages and the row saves read. The file bytes are not among
      * them: {@code sourceData} is only read when somebody downloads the file, and pulling it on every
@@ -978,6 +981,9 @@ public final class MfgDevBomServices {
             if (MfgConstants.OUT_ISSUED.equals(head.getString("statusId"))) {
                 return ServiceUtil.returnError("出库单 " + outboundId + " 已经出过库了");
             }
+            if (MfgConstants.OUT_CANCELLED.equals(head.getString("statusId"))) {
+                return ServiceUtil.returnError("出库单 " + outboundId + " 已经作废了，不能再出库；要料就重新生成一张");
+            }
             String projectCode = head.getString("projectCode");
             java.sql.Timestamp when = new java.sql.Timestamp(System.currentTimeMillis());
             double issuedTotal = 0.0;
@@ -1029,6 +1035,10 @@ public final class MfgDevBomServices {
             }
             head.set("issuedQty", Double.valueOf(MfgSupport.round2(issuedTotal)));
             head.set("statusId", MfgConstants.OUT_ISSUED);
+            // who handed the parts over and when: the account that pressed the button is the warehouse
+            // keeper, the moment is the one the movements below carry
+            head.set("issuedDate", when);
+            head.set("issuedByUserLoginId", operatorName);
             head.set("note", (MfgSupport.toText(head.get("note")) == null ? "" : head.get("note") + "；")
                     + "已于 " + MfgSupport.formatQty(issuedTotal) + " 件出库");
             delegator.store(head);
@@ -1140,12 +1150,97 @@ public final class MfgDevBomServices {
             GenericValue head = EntityQuery.use(delegator).from("MfgOutbound")
                     .where("outboundId", outboundId).queryOne();
             if (head != null) {
-                result.put("outbound", outboundRow(delegator, head));
+                Map<String, Object> row = outboundRow(delegator, head);
+                if (Boolean.TRUE.equals(row.get("issued"))) {
+                    // who handed the parts over and when: stored when the document was booked; a
+                    // document booked before that field existed falls back on its movements
+                    Timestamp storedAt = head.getTimestamp("issuedDate");
+                    String handedBy = head.getString("issuedByUserLoginId");
+                    Timestamp earliest = null;
+                    int movements = 0;
+                    for (GenericValue movement : EntityQuery.use(delegator).from("MfgInventoryDetail")
+                            .where("referenceNo", outboundId).queryList()) {
+                        movements++;
+                        Timestamp stamp = movement.getTimestamp("effectiveDate");
+                        if (stamp != null && (earliest == null || stamp.before(earliest))) {
+                            earliest = stamp;
+                        }
+                        String name = movement.getString("operatorName");
+                        if (handedBy == null && name != null && !name.trim().isEmpty()) {
+                            handedBy = name;
+                        }
+                    }
+                    row.put("issuedAt", storedAt != null ? storedAt : earliest);
+                    row.put("issuedBy", handedBy);
+                    row.put("movementCount", Integer.valueOf(movements));
+                }
+                result.put("outbound", row);
             }
             return result;
         } catch (GenericEntityException e) {
             return ServiceUtil.returnError("读取出库单失败：" + e.getMessage());
         }
+    }
+
+    /**
+     * Writes who takes the parts away on an outbound document (领料人).
+     *
+     * <p>The account that clicks the issue button is the warehouse keeper and ends up on the stock
+     * movements; the person who walks away with the bag is often not a system user (an engineer, a
+     * fitter), so this is a name written on the paper, not a login. It can be corrected at any time:
+     * a document that was handed over still has to say who has the parts.
+     *
+     * @param dctx the dispatch context
+     * @param context service context, see {@code servicedef/devbom-services.xml#mfgOutboundReceiverSave}
+     * @return the service result with {@code outboundId}, {@code receiverName} and {@code saved}
+     */
+    public static Map<String, Object> outboundReceiverSave(DispatchContext dctx, Map<String, ? extends Object> context) {
+        String denied = MfgSecurity.permissionProblem(dctx, context, MfgConstants.PERM_STOCK);
+        if (denied != null) {
+            return ServiceUtil.returnError(denied);
+        }
+        Delegator delegator = dctx.getDelegator();
+        String outboundId = MfgSupport.toText(context.get("outboundId"));
+        if (outboundId == null) {
+            return ServiceUtil.returnError("outboundId is required");
+        }
+        String receiver = MfgSupport.toText(context.get("receiverName"));
+        String problem = receiverProblem(receiver);
+        if (problem != null) {
+            return ServiceUtil.returnError(problem);
+        }
+        try {
+            GenericValue head = EntityQuery.use(delegator).from("MfgOutbound")
+                    .where("outboundId", outboundId).queryOne();
+            if (head == null) {
+                return ServiceUtil.returnError("Unknown outbound order [" + outboundId + "]");
+            }
+            head.set("receiverName", receiver);
+            delegator.store(head);
+            Map<String, Object> result = ServiceUtil.returnSuccess();
+            result.put("outboundId", outboundId);
+            result.put("receiverName", receiver == null ? "" : receiver);
+            result.put("saved", "Y");
+            return result;
+        } catch (GenericEntityException e) {
+            return ServiceUtil.returnError("保存领料人失败：" + e.getMessage());
+        }
+    }
+
+    /**
+     * Whether a name written on an outbound document fits the column it is stored in.
+     *
+     * @param receiver the name typed in, {@code null} or blank to clear it
+     * @return a message for the page, {@code null} when the name can be stored
+     */
+    static String receiverProblem(String receiver) {
+        if (receiver == null) {
+            return null;
+        }
+        if (receiver.length() > MAX_RECEIVER_LENGTH) {
+            return "领料人最多 " + MAX_RECEIVER_LENGTH + " 个字，现在写了 " + receiver.length() + " 个";
+        }
+        return null;
     }
 
     /**
@@ -1168,6 +1263,7 @@ public final class MfgDevBomServices {
         row.put("totalQty", head.get("totalQty"));
         row.put("issuedQty", head.get("issuedQty"));
         row.put("operatorName", head.getString("operatorName"));
+        row.put("receiverName", head.getString("receiverName"));
         row.put("note", noteWithoutCancellation(head.getString("note")));
         row.put("cancelReason", head.getString("cancelReason"));
         row.put("cancelDate", head.get("cancelDate"));

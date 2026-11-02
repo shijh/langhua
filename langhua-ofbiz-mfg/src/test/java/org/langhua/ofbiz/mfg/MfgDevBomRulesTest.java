@@ -17,6 +17,7 @@
 package org.langhua.ofbiz.mfg;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
@@ -487,6 +488,21 @@ public class MfgDevBomRulesTest {
         assertNull(MfgDevBomServices.noteWithoutCancellation("已作废：verify"));
         assertNull(MfgDevBomServices.noteWithoutCancellation(null));
         assertEquals("", MfgDevBomServices.noteWithoutCancellation(""));
+    }
+
+    @Test
+    public void keepsTheReceiverNameInsideItsColumn() {
+        // the name of whoever carries the parts away is free text (an engineer, a fitter), stored in
+        // a 100 character column: a longer one has to be refused with a sentence, not with an SQL error
+        assertNull(MfgDevBomServices.receiverProblem(null));
+        assertNull(MfgDevBomServices.receiverProblem("李四"));
+        StringBuilder name = new StringBuilder();
+        for (int i = 0; i < 100; i++) {
+            name.append('x');
+        }
+        assertNull(MfgDevBomServices.receiverProblem(name.toString()));
+        name.append('x');
+        assertNotNull(MfgDevBomServices.receiverProblem(name.toString()));
     }
 
     private static Map<String, Object> bomRow(String code, String name, double qty, String designators,
