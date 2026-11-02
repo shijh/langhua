@@ -2134,6 +2134,10 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   **2 个 ASF 头**（`MfgAudit` / `MfgLoginEvents`）、**24 个没有头**（Step 164~174 拆出来的服务类与 `tools/oir-anchors`）。
   脚本 `%TEMP%\jup\licence-to-apache.ps1`（`-Apply` 才写盘，默认 dry run，按“第一个 `/* … */` 块”判断该替换还是该前置）。
   **以后新建文件照抄这个头**，别再粘 LGPL 或 ASF 模板；那两个 ASF 头若将来确认派生自 OFBiz 源码，要单独补出处。
+  **第三方组件的清单在 `THIRD-PARTY-NOTICES.md`（两个组件各一份，Step 264 新增）**：按“是否随本组件分发”分节，
+  别把平台带的东西（OFBiz、ZXing、JDK）写成“我们的第三方库”。本组件 `build.gradle` 的 `dependencies {}` 是空的；
+  学习曲线那份唯一的一行是 JAMA（NIST，公共领域，`pluginLibsCompile`）。**新增任何内嵌/复制进来的第三方代码时，
+  同一提交里改那份清单**（加行 + 留版权声明 + 确认不是 GPL/AGPL/SSPL）。
 - **识别有超时：服务端 120 秒，页面 135 秒（Step 179f）**：`OirScan.SCAN_TIMEOUT_SECONDS = 120`，从拿图起算，
   每波 `future.get(min(SLICE_WAIT_SECONDS, secondsLeft(deadline)))`，到点就把还没回来的分段**丢掉**并取消线程池；
   已经有单就照常返回 + 消息里写“识别超时：一次最多等 120 秒，只读了 N 张单”，一张都没有就回 `code=TIMEOUT`。
@@ -2347,6 +2351,26 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   **颜色**：路径属性是 `fill="#e0bc9c"`，但 Inkscape 留下的 `style="fill:#d45500"`（CSS 优先）让实际渲染
   变成**深橙 `#d45500`**——Step 232 起这些 fill 都被洗掉、改用渐变（见下一条），SVG 里不再有颜色。
   版本：图 `?v=10`、`mfg.css?v=31` / `lc.css?v=27`。
+  **来源与重画（Step 264，两次更正都记下来）**：这两张图**不是自绘的**——是 iconfont.cn 下载后在 Inkscape 里改的
+  （文件里每个 `<path>` 都留着 iconfont 的 `p-id` 属性，原色 `#d45500` / `#e0bc9c`）。iconfont **没有统一许可证**，
+  版权归上传者、按图标库页面标明的授权条件用，我们又是把它**切碎、镜像、加渐变遮罩后随产品分发**（改编 + 再分发），
+  没法确认授权就是风险。所以 Step 264 **换成自己画的**：`tools/make-cloud-tiles.js`（Node，无依赖）生成
+  四张 `cloud-*.svg`，路径由程序算出、版权归本公司，`THIRD-PARTY-NOTICES.md` 第 6 节现在写“自有”。
+  原来的 `Pictures\长云纹.svg` / `圆角.svg` 与 `%TEMP%\jup` 里那两个 `make-*-tiles.ps1` **都不再参与构建**，
+  留着只是历史。**别再在文档里写“用户自己画的”（Step 229 那句也不对）**。
+  **Step 264 重画的口径**：一条带子 = 平缓正弦（周期 8.4mm、振幅 0.27mm、粗细 0.22mm）+ 浪峰/浪谷上各一个云头
+  （半径 0.42→0.10、0.92 圈的螺旋，粗细收到 0.05）。**两个坑都踩过**：① 遮罩里的路径**必须写 `fill="#ffffff"`**
+  （不写默认黑色，整块遮罩什么都不露，页面就是白框）；② `d` 必须包进 `<path>`，直接当 `<g>` 的文字内容写什么都不会画。
+  **角花（`corner-*.svg`）整个撤掉了**：1.8mm 见方时那个卷云读成一块糊点，而带子又被 `clip-path: inset(… 1.8mm)`
+  切出断头；现在四条带子直接铺到角上、靠卡片自己的 10px 圆角收边（`.signin-card::after` 与两处 `clip-path` 都删了，
+  `corner-*.svg` 也从两个组件里删掉，请求它们现在 404）。
+  版本：图 `?v=11`、`mfg.css?v=38` / `lc.css?v=34`（五处 `<link>` 一起改）。
+  验法：`node tools/make-cloud-tiles.js` 顺手写 `%TEMP%\jup\cloud-preview.html`（放大 100 倍看曲线与接缝、
+  真实 1.8mm 看粗细）；`check-signin-logo.ps1` 现在断言 `cloud band` / `four runs` / `no corners` / `runs to end` /
+  `drawn tile`（`viewBox="0 0 8.4 1.8"` 且**没有** `p-id`）/ `no corner`（404）。
+  截图：`shot-login-cloud.bat`（1×）与 `shot-login-cloud3x.bat` + `crop-login-cloud.ps1`（3× 裁角）。
+  左/右两条是同一张 1.8×8.4 的图转 90°——`cloud-compare.html`（`make-compare.js` 生成）把它与 top 旋转版并排放，
+  证明两者只差相位，不是画错。
 
 - **出库单（Step 237）**：锁料只是把料替项目留着，**真正从货架拿走要有一张单**。开发页的
   `#devoutbound`（在「释放本项目的锁料」下面）把这一版还要用的料写成清单，仓库照单捡料，回来一次扣库存。

@@ -394,9 +394,10 @@ body.signin {
     pointer-events: none;
     animation: signin-breathe 6s ease-in-out infinite;
 }
-/* the 云纹 band: 1.8mm thick. The four runs are cut 1.8mm short of every corner and a corner
-   ornament (Step 235) sits in each of the four squares, so nothing is painted twice and the corners
-   read as the band turning instead of two runs crossing. */
+/* the 云纹 band: 1.8mm thick, drawn by tools/make-cloud-tiles.js. The four runs go all the way into
+   the corners; the card's own 10px radius clips them, so the two directions meet instead of
+   stopping short of an ornament (the corner tile of Step 235 was dropped: at 1.8mm it read as a
+   blob, and the run ends showed as cut stubs either side of it). */
 .signin-frame {
     position: absolute;
     inset: 0;
@@ -411,44 +412,23 @@ body.signin {
     inset: 0;
     animation: signin-breathe 6s ease-in-out infinite;
 }
-/* the top and bottom runs, stopped where the corner ornaments begin */
+/* the top and bottom runs */
 .signin-frame::before {
     background-image:
-        url(../images/cloud-top.svg?v=10),
-        url(../images/cloud-bottom.svg?v=10);
+        url(../images/cloud-top.svg?v=11),
+        url(../images/cloud-bottom.svg?v=11);
     background-repeat: repeat-x, repeat-x;
     background-position: left top, left bottom;
     background-size: auto 1.8mm, auto 1.8mm;
-    clip-path: inset(0 1.8mm);
 }
-/* the left and right runs, likewise. Clipping the element (not scaling the image) keeps the pattern
-   at its own size and phase. */
+/* the left and right runs */
 .signin-frame::after {
     background-image:
-        url(../images/cloud-left.svg?v=10),
-        url(../images/cloud-right.svg?v=10);
+        url(../images/cloud-left.svg?v=11),
+        url(../images/cloud-right.svg?v=11);
     background-repeat: repeat-y, repeat-y;
     background-position: left top, right top;
     background-size: 1.8mm auto, 1.8mm auto;
-    clip-path: inset(1.8mm 0);
-}
-/* the four corner ornaments, one 1.8mm square each, drawn from the user's 圆角.svg and carrying the
-   same outer -> inner gradient as the runs */
-.signin-card::after {
-    content: "";
-    position: absolute;
-    inset: 0;
-    border-radius: 9px;
-    pointer-events: none;
-    background-image:
-        url(../images/corner-tl.svg?v=2),
-        url(../images/corner-tr.svg?v=2),
-        url(../images/corner-bl.svg?v=2),
-        url(../images/corner-br.svg?v=2);
-    background-repeat: no-repeat;
-    background-position: left top, right top, left bottom, right bottom;
-    background-size: 1.8mm 1.8mm, 1.8mm 1.8mm, 1.8mm 1.8mm, 1.8mm 1.8mm;
-    animation: signin-breathe 6s ease-in-out infinite;
 }
 @keyframes signin-breathe {
     0%, 100% { opacity: .62; }
@@ -456,7 +436,7 @@ body.signin {
 }
 /* whoever asked the system not to animate things gets the frame still */
 @media (prefers-reduced-motion: reduce) {
-    .signin-card::before, .signin-card::after,
+    .signin-card::before,
     .signin-frame::before, .signin-frame::after { animation: none; }
 }
 /* the password page and the error page hold a form or a stack trace: they need the room */
