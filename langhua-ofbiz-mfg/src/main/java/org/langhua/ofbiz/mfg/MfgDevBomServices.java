@@ -63,6 +63,12 @@ public final class MfgDevBomServices {
     static final int MAX_RECEIVER_LENGTH = 100;
 
     /**
+     * How many bytes of text the QR code of a label may carry: the code is printed 38 mm wide, and a
+     * longer text makes the modules too small for a phone camera to read.
+     */
+    static final int MAX_LABEL_BYTES = 900;
+
+    /**
      * The columns of an import that the pages and the row saves read. The file bytes are not among
      * them: {@code sourceData} is only read when somebody downloads the file, and pulling it on every
      * page view would make the whole import table heavy.
@@ -1271,6 +1277,8 @@ public final class MfgDevBomServices {
             lines.add(item);
         }
         row.put("lines", lines);
+        row.put("labelText", labelTextOf(head.getString("outboundId"), head.getString("projectCode"),
+                head.getString("bomVersion"), lines));
         return row;
     }
 
@@ -1330,6 +1338,91 @@ public final class MfgDevBomServices {
         } catch (NoSuchAlgorithmException e) {
             return "";
         }
+    }
+
+    /**
+     * What the QR code of a label carries: the list itself, not an address.
+     *
+     * <p>A sticker is read in a workshop where the network may not reach the server, so the code is
+     * self contained - the number of the document, its version and, line by line, what the box holds:
+     * the name of the part and how many of it. Scanning with any phone camera shows the list without
+     * opening anything, which is what the keeper compares the box against.
+     *
+     * <p>Names are cut short to keep the code readable when it is printed 38 mm wide; when even that
+     * is too long for one code, the part numbers stand in for the names, and as a last resort the tail
+     * of the list is summed up.
+     *
+     * @param outboundId the number of the document
+     * @param projectCode the development project, may be {@code null}
+     * @param bomVersion the version the list was written from, may be {@code null}
+     * @param lines the rows as {@code outboundRow} builds them ({@code componentName} / {@code componentCode} / {@code qty})
+     * @return the text to encode, never {@code null}
+     */
+    static String labelTextOf(String outboundId, String projectCode, String bomVersion,
+            List<Map<String, Object>> lines) {
+        String head = (outboundId == null ? "" : outboundId)
+                + (projectCode == null ? "" : "\n" + projectCode)
+                + (bomVersion == null ? "" : " " + bomVersion);
+        double total = 0.0;
+        for (Map<String, Object> line : lines) {
+            total += MfgSupport.numberOrZero(line.get("qty"));
+        }
+        String summary = "\n" + lines.size() + " 行 / 共 " + MfgSupport.formatQty(total) + " 件";
+        for (int width : new int[] {24, 16, 10}) {
+            String text = listOf(head, lines, width, true) + summary;
+            if (bytesOf(text) <= MAX_LABEL_BYTES) {
+                return text;
+            }
+        }
+        // the part numbers are shorter than the names: try them before giving up on the detail
+        for (int width : new int[] {24, 16}) {
+            String text = listOf(head, lines, width, false) + summary;
+            if (bytesOf(text) <= MAX_LABEL_BYTES) {
+                return text;
+            }
+        }
+        StringBuilder kept = new StringBuilder(head);
+        int shown = 0;
+        for (Map<String, Object> line : lines) {
+            String one = "\n" + shortName(line, 16, false) + " x" + MfgSupport.formatQty(qtyOf(line));
+            if (bytesOf(kept.toString() + one) + bytesOf(summary) > MAX_LABEL_BYTES) {
+                break;
+            }
+            kept.append(one);
+            shown++;
+        }
+        return kept + "\n…另有 " + (lines.size() - shown) + " 行" + summary;
+    }
+
+    /** One line per part: {@code name x qty}, numbered so the keeper can tick them off. */
+    private static String listOf(String head, List<Map<String, Object>> lines, int width, boolean byName) {
+        StringBuilder text = new StringBuilder(head);
+        int index = 1;
+        for (Map<String, Object> line : lines) {
+            text.append('\n').append(index++).append(". ").append(shortName(line, width, byName))
+                    .append(" x").append(MfgSupport.formatQty(qtyOf(line)));
+        }
+        return text.toString();
+    }
+
+    private static String shortName(Map<String, Object> line, int width, boolean byName) {
+        String name = byName ? MfgSupport.toText(line.get("componentName")) : null;
+        if (name == null) {
+            name = MfgSupport.toText(line.get("componentCode"));
+        }
+        if (name == null) {
+            name = "";
+        }
+        name = name.trim();
+        return name.length() <= width ? name : name.substring(0, width) + "…";
+    }
+
+    private static double qtyOf(Map<String, Object> line) {
+        return MfgSupport.numberOrZero(line.get("qty"));
+    }
+
+    private static int bytesOf(String text) {
+        return text.getBytes(java.nio.charset.StandardCharsets.UTF_8).length;
     }
 
     /**

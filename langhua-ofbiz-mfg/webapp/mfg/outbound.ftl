@@ -72,7 +72,7 @@
     <#if outbound.packed || outbound.issued>
         <p>
             <a href="/mfg/control/outboundLabel?outboundId=${outbound.outboundId?url}" target="_blank">打印标签（80×50mm）</a>
-            ｜ <a href="/mfg/control/outboundCheck?outboundId=${outbound.outboundId?url}&amp;key=${outbound.checkKey!''}" target="_blank">核对页（扫码看到的就是它）</a>
+            ｜ <a href="/mfg/control/outboundCheck?outboundId=${outbound.outboundId?url}&amp;key=${outbound.checkKey!''}" target="_blank">核对页（浏览器打开）</a>
             <#if outbound.packedDate??>｜ <span class="hint">包装：${(outbound.packageCount!0)?string("0.##")} 盒<#if ((outbound.packingNote)!'')?has_content>（${outbound.packingNote}）</#if>，${outbound.packedDate?string("yyyy-MM-dd HH:mm")}<#if ((outbound.packedByUserLoginId)!'')?has_content>，${outbound.packedByUserLoginId}</#if></span></#if>
         </p>
     </#if>

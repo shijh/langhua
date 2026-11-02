@@ -189,8 +189,11 @@ public final class MfgDevBomEvents {
     }
 
     /**
-     * Draws the QR code of one outbound document for its label: the code carries the address of the
-     * check page, so a phone that scans the sticker shows the picking list to count the box against.
+     * Draws the QR code of one outbound document for its label.
+     *
+     * <p>The code carries the picking list itself - the part names and their quantities - and not an
+     * address: the sticker is read in a workshop, possibly without a network, and the phone shows the
+     * list the moment it is scanned. The same text is printed on the label page for the checks.
      *
      * <p>The image comes from the QR service OFBiz already ships ({@code generateQRCodeImage}, which
      * uses zxing), so this component needs no barcode library of its own.
@@ -201,14 +204,27 @@ public final class MfgDevBomEvents {
      */
     public static String labelQr(HttpServletRequest request, HttpServletResponse response) {
         LocalDispatcher dispatcher = (LocalDispatcher) request.getAttribute("dispatcher");
+        org.apache.ofbiz.entity.Delegator delegator =
+                (org.apache.ofbiz.entity.Delegator) request.getAttribute("delegator");
         String outboundId = text(request.getParameter("outboundId"));
-        if (dispatcher == null || outboundId == null) {
+        if (dispatcher == null || delegator == null || outboundId == null) {
+            return notFound(response);
+        }
+        String message;
+        try {
+            message = labelTextOf(delegator, outboundId);
+        } catch (org.apache.ofbiz.entity.GenericEntityException e) {
+            Debug.logError(e, "Could not read the picking list of " + outboundId, MODULE);
+            return notFound(response);
+        }
+        if (message == null) {
             return notFound(response);
         }
         Map<String, Object> context = new java.util.HashMap<>();
-        context.put("message", checkUrlOf(request, outboundId));
-        context.put("width", Integer.valueOf(400));
-        context.put("height", Integer.valueOf(400));
+        context.put("message", message);
+        // OFBiz's QR service takes at most 500 pixels; 500 is also enough for a list of a dozen lines
+        context.put("width", Integer.valueOf(500));
+        context.put("height", Integer.valueOf(500));
         context.put("format", "png");
         context.put("encoding", "UTF-8");
         context.put("verifyOutput", Boolean.TRUE);
@@ -238,21 +254,32 @@ public final class MfgDevBomEvents {
     }
 
     /**
-     * The address the label points at: the check page of the document, built from the request so it
-     * works whatever name and port the instance is reached under.
+     * The text the QR code of one document carries, read the same way the label page reads it, so the
+     * code and the page can never say different things.
      *
-     * @param request the request the image was asked for
+     * @param delegator the delegator
      * @param outboundId the number of the document
-     * @return the absolute address, with the key that lets a phone open the page
+     * @return the text, {@code null} when there is no such document
+     * @throws org.apache.ofbiz.entity.GenericEntityException when it cannot be read
      */
-    static String checkUrlOf(HttpServletRequest request, String outboundId) {
-        String scheme = request.getScheme();
-        int port = request.getServerPort();
-        boolean plain = ("https".equals(scheme) && port == 443) || ("http".equals(scheme) && port == 80);
-        return scheme + "://" + request.getServerName() + (plain ? "" : ":" + port)
-                + "/mfg/control/outboundCheck?outboundId="
-                + java.net.URLEncoder.encode(outboundId, StandardCharsets.UTF_8)
-                + "&key=" + MfgDevBomServices.checkKeyOf(outboundId);
+    static String labelTextOf(org.apache.ofbiz.entity.Delegator delegator, String outboundId)
+            throws org.apache.ofbiz.entity.GenericEntityException {
+        GenericValue head = org.apache.ofbiz.entity.util.EntityQuery.use(delegator).from("MfgOutbound")
+                .where("outboundId", outboundId).queryOne();
+        if (head == null) {
+            return null;
+        }
+        List<Map<String, Object>> lines = new ArrayList<>();
+        for (GenericValue item : org.apache.ofbiz.entity.util.EntityQuery.use(delegator)
+                .from("MfgOutboundItem").where("outboundId", outboundId).orderBy("lineSeq").queryList()) {
+            Map<String, Object> line = new java.util.HashMap<>();
+            line.put("componentCode", item.getString("componentCode"));
+            line.put("componentName", item.getString("componentName"));
+            line.put("qty", item.get("qty"));
+            lines.add(line);
+        }
+        return MfgDevBomServices.labelTextOf(outboundId, head.getString("projectCode"),
+                head.getString("bomVersion"), lines);
     }
 
     private static String notFound(HttpServletResponse response) {

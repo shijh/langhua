@@ -2529,12 +2529,36 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
     这里要跟着改**，否则手机扫出来是“出错了”的页面。
   - 单据页多一列「包装」（N 盒）、状态显示「已包装」，草稿/已包装时显示「装 N 盒 + 包装说明」表单，
     已包装或已出库时给「打印标签」「核对页」两个链接；`outbounds.ftl` 列表与开发页历史的三种状态也带上「已包装」。
-  - 验法：`check-outbound-pack.ps1`（**20 项**，test）：给一个料号建批次 → 把一行 BOM 的料号临时换成它
-    （这样单据只有 1 行、库存够）→ 转出库单 → 登记包装 2 盒 → 断言状态/箱数/说明 → 标签页有二维码 →
-    `outboundQr` 回 `image/png`（PNG magic + 14 KB）→ **不带 cookie** 打开核对页能看到料号、key 写错则看不到
-    → 出库成功且箱数还在 → 标签还能重印 → 最后把那一行的料号与数量改回去。
-    回归：单测 **249**、`verify-outbound-page.ps1` 21、`verify-outbounds.ps1` 13、`smoke-dev-pages.ps1` 28、
+  - 验法：`check-outbound-pack.ps1`（**26 项**，test）：给一个料号建批次 → 把一行 BOM 的料号临时换成它
+    （这样单据只有 1 行、库存够）→ 转出库单 → 登记包装 2 盒 → 断言状态/箱数/说明 →
+    标签页有二维码、**码里是编号+名称+数量且不含 http** → `outboundQr` 回 `image/png`
+    （PNG magic + 18 KB）→ **不带 cookie** 打开核对页能看到料号、key 写错则看不到
+    → 出库成功且箱数还在 → 标签还能重印 → 最后把那一行的料号与数量改回去；
+    草稿/已包装/已出库/标签四个页面各自扫一遍 `FTL stack trace`（半页 + 错误页也能抓到）。
+    回归：单测 **251**、`verify-outbound-page.ps1` **22**、`verify-outbounds.ps1` 13、`smoke-dev-pages.ps1` 28、
     `check-prod-237.ps1` **24**（多比两个新模板、`javap` 确认 `outboundPack` / `labelQr`）。三套实例已发版。
+
+- **二维码里放的是清单，不是网址（Step 249）**：用户要求“二维码放名称和数量”。`labelQr` 现在编码
+  `MfgDevBomServices.labelTextOf(...)` 的结果：
+  ```
+  OUT-261101-01
+  DEV-261031-04 v94
+  1. Capacitor 0603 x2
+  2. NFC Coil x1
+  …
+  13 行 / 共 16 件
+  ```
+  **不自造编码器**：仍调 OFBiz 的 `generateQRCodeImage`（zxing），并且 `verifyOutput=true` 让它生成后
+  **把图解码回文本与原文比对**——所以“服务回了 PNG”就等于“码里确实是这段文字”。
+  - **长度有上限**：`MAX_LABEL_BYTES = 900`（码印 37mm 宽，再长模块就太小吃不住）。名字依次按
+    24 / 16 / 10 字截断（截断带 `…`）→ 还超就**改用料号** → 再超就只列前几行并写 `…另有 N 行`。
+    单测 `writesThePickingListIntoTheLabelCode` / `keepsTheLabelCodeSmallEnoughToScan`。
+  - **尺寸坑**：`generateQRCodeImage` 只接受 **20..500 px**（`MAX_SIZE`），传 600 直接回
+    `SizeOutOfBorderError`，事件于是 404，页面上就是一个坏图 —— 第一版写了 600 就踩了。现在 500×500。
+  - 标签页把码里的文字原样放在隐藏的 `<pre id="qrText" data-qr-text="…">`，巡检断言的
+    “有编号行+数量”“没有 http”就是读它；**手机核对页还在**（单据页上的「核对页」链接），
+    只是不再由二维码进入。
+  - 手机扫出来的就是这段文字，**不需要网络**，也不需要登录——这也是它比放网址更可靠的地方。
 
 - **测试数据把开发库灌满了：清一次，并让 IT 打测试实例（Step 239）**：几个月下来开发库里
   **383 个开发项目**、268 个型号、728 个工单、3959 个批次、13192 条流水、1152 张到货单，几乎全是

@@ -518,13 +518,53 @@ public class MfgDevBomRulesTest {
 
     @Test
     public void givesEveryDocumentItsOwnCheckKey() {
-        // the label lets a phone open the check page without a login, so the address carries a key:
+        // the check page lets a phone open a document without a login, so the address carries a key:
         // one document always gets the same twelve characters, two documents never share one
         String one = MfgDevBomServices.checkKeyOf("OUT-261101-01");
         assertEquals(12, one.length());
         assertEquals(one, MfgDevBomServices.checkKeyOf("OUT-261101-01"));
         assertFalse(one.equals(MfgDevBomServices.checkKeyOf("OUT-261101-02")));
         assertEquals("", MfgDevBomServices.checkKeyOf(null));
+    }
+
+    @Test
+    public void writesThePickingListIntoTheLabelCode() {
+        // the QR code carries what is in the box - the names and the quantities - not a web address:
+        // the sticker is read in a workshop where the phone may have no way back to the server
+        List<Map<String, Object>> lines = new ArrayList<>();
+        lines.add(line("NFC COIL", "C-1", 1.0));
+        lines.add(line("Capacitor 0603", "C-2", 4.0));
+
+        String text = MfgDevBomServices.labelTextOf("OUT-261101-01", "DEV-261031-04", "v94", lines);
+        assertTrue(text.contains("OUT-261101-01"));
+        assertTrue(text.contains("DEV-261031-04 v94"));
+        assertTrue(text.contains("NFC COIL x1"));
+        assertTrue(text.contains("Capacitor 0603 x4"));
+        assertTrue(text.contains("2 行 / 共 5 件"));
+        assertFalse(text.contains("http"));
+    }
+
+    @Test
+    public void keepsTheLabelCodeSmallEnoughToScan() {
+        // a long picking list still has to fit one code that prints 38 mm wide: names are cut short,
+        // and when even that is not enough the part numbers stand in for them
+        List<Map<String, Object>> lines = new ArrayList<>();
+        for (int i = 0; i < 40; i++) {
+            lines.add(line("QFN16 0.65MM/QFN20 0.4MM间距转 2.54MM孔距 转接板转直插 测试板 " + i, "P-" + i, 2.0));
+        }
+        String text = MfgDevBomServices.labelTextOf("OUT-261101-01", "DEV-261031-04", "v94", lines);
+        assertTrue(text.length() > 0);
+        assertTrue(text.getBytes(java.nio.charset.StandardCharsets.UTF_8).length <= 1400);
+        // the summary always says how many lines and how many parts, even when the detail is cut
+        assertTrue(text.contains("40 行 / 共 80 件"));
+    }
+
+    private static Map<String, Object> line(String name, String code, double qty) {
+        Map<String, Object> row = new LinkedHashMap<>();
+        row.put("componentName", name);
+        row.put("componentCode", code);
+        row.put("qty", Double.valueOf(qty));
+        return row;
     }
 
     private static Map<String, Object> bomRow(String code, String name, double qty, String designators,
