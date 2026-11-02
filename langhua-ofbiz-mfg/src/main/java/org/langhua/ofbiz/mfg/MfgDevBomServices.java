@@ -337,6 +337,9 @@ public final class MfgDevBomServices {
             Map<String, String> shots = MfgStockServices.shotByComponent(delegator);
             Map<String, Map<String, Object>> docs = MfgStockServices.partDocsByComponent(delegator);
             Map<String, Double> lockedByComponent = MfgStockLedger.lockedByProjectComponent(delegator, projectCode);
+            // what this project has already carried off the shelf: an outbound document takes the parts
+            // and releases the lock, so counting only the lock called a picked part missing again
+            Map<String, Double> pickedByComponent = issuedForProject(delegator, projectCode);
             GenericValue latest = lastImport(delegator, projectCode);
             List<GenericValue> versionItems = latest == null ? new ArrayList<GenericValue>()
                     : itemsOf(delegator, projectCode, latest.getLong("importSeq").longValue());
@@ -357,10 +360,11 @@ public final class MfgDevBomServices {
                     String key = upperCode(code);
                     double qty = MfgSupport.numberOrZero(item.get("qty"));
                     double locked = MfgSupport.numberOrZero(lockedByComponent.get(key));
+                    double picked = MfgSupport.numberOrZero(pickedByComponent.get(key));
                     double[] sums = stock.get(key);
                     double onHand = sums == null ? 0.0 : sums[0];
                     double available = sums == null ? 0.0 : sums[2];
-                    double shortQty = Math.max(0.0, qty - locked);
+                    double shortQty = shortQtyOf(qty, locked, picked);
                     Map<String, Object> row = new LinkedHashMap<>();
                     row.put("lineSeq", item.get("lineSeq"));
                     row.put("componentCode", code);
@@ -377,6 +381,7 @@ public final class MfgDevBomServices {
                     row.put("sourceId", item.getString("sourceId"));
                     row.put("previousQty", item.get("previousQty"));
                     row.put("lockedQty", Double.valueOf(MfgSupport.round2(locked)));
+                    row.put("pickedQty", Double.valueOf(MfgSupport.round2(picked)));
                     row.put("onHandQty", Double.valueOf(MfgSupport.round2(onHand)));
                     row.put("availableQty", Double.valueOf(MfgSupport.round2(available)));
                     row.put("shortQty", Double.valueOf(MfgSupport.round2(shortQty)));
@@ -552,7 +557,8 @@ public final class MfgDevBomServices {
                 held += MfgStockLedger.reserveForProject(delegator, projectCode, code, gap, operatorName,
                         "锁料：手工添加的元件 " + name);
             }
-            double shortQty = Math.max(0.0, qty - held);
+            double picked = MfgSupport.numberOrZero(issuedForProject(delegator, projectCode).get(code));
+            double shortQty = shortQtyOf(qty, held, picked);
             long lineSeq = maxLine + 10L;
             GenericValue item = delegator.makeValue("MfgDevBomItem");
             item.set("projectCode", projectCode);
@@ -788,6 +794,24 @@ public final class MfgDevBomServices {
     }
 
     /**
+     * What a part is still missing: the requirement less what the project has locked and less what it
+     * has already carried off the shelf.
+     *
+     * <p>The picked quantity has to come off as well as the lock: an outbound document gives the parts
+     * to the project and releases the lock, so a row that counted only the lock asked for a part that
+     * was already in the engineer's drawer (reported as "the document says it went out, the BOM says it
+     * is missing").
+     *
+     * @param qty the quantity this version needs
+     * @param locked what the project has locked on the shelf
+     * @param picked what it has already picked through outbound documents
+     * @return the missing quantity, never negative
+     */
+    static double shortQtyOf(double qty, double locked, double picked) {
+        return Math.max(0.0, MfgSupport.round2(qty - locked - picked));
+    }
+
+    /**
      * Applies one correction to a part of the latest import: the code moves the lock from the old
      * part number to the new one (that is the whole point - the sketch and the shop name the same
      * part differently), then the lock is topped up to the quantity and the row is written.
@@ -812,7 +836,8 @@ public final class MfgDevBomServices {
             held += MfgStockLedger.reserveForProject(delegator, projectCode, newCode, gap, operatorName,
                     "锁料：" + note);
         }
-        double shortQty = Math.max(0.0, qty - held);
+        double picked = MfgSupport.numberOrZero(issuedForProject(delegator, projectCode).get(newCode));
+        double shortQty = shortQtyOf(qty, held, picked);
         item.set("componentCode", newCode);
         item.set("qty", Double.valueOf(MfgSupport.round2(qty)));
         item.set("lockedQty", Double.valueOf(MfgSupport.round2(Math.min(held, qty))));

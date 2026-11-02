@@ -619,6 +619,19 @@ public class MfgDevBomRulesTest {
         assertTrue(MfgDevBomServices.compactLabelTextOf("OUT-1", 1, 2.5).contains("1行/2.5件"));
     }
 
+    @Test
+    public void takesBothTheLockAndThePickedQuantityOffTheRequirement() {
+        // one downloader is needed, none is locked (the outbound document released the lock) and one
+        // was already picked: nothing is missing, the part is in the engineer's drawer
+        assertEquals(0.0, MfgDevBomServices.shortQtyOf(1.0, 0.0, 1.0), 1e-9);
+        // part locked, nothing picked yet: one still to buy
+        assertEquals(1.0, MfgDevBomServices.shortQtyOf(2.0, 1.0, 0.0), 1e-9);
+        // both count, a half part keeps its half
+        assertEquals(0.5, MfgDevBomServices.shortQtyOf(3.0, 1.5, 1.0), 1e-9);
+        // never below zero, even when more was picked than this version needs
+        assertEquals(0.0, MfgDevBomServices.shortQtyOf(1.0, 2.0, 3.0), 1e-9);
+    }
+
     private static Map<String, Object> line(String name, String code, double qty) {
         Map<String, Object> row = new LinkedHashMap<>();
         row.put("componentName", name);

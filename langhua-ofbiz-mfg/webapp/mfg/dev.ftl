@@ -337,6 +337,7 @@
         <table id="devShortageTable">
             <tr>
                 <th>料号</th><th>名称</th><th class="num">需求</th><th class="num">已锁</th>
+                <th class="num" title="本项目已经通过出库单领走的数量（料在工程师手上，不在货架上）">已领</th>
                 <th class="num">在库</th><th class="num">缺口</th><th class="num">建议采购</th><th>位号</th>
             </tr>
             <#list bomShortages as r>
@@ -345,6 +346,7 @@
                     <td>${r.componentName!}<#if r.properties??><br/><span class="hint">${r.properties}</span></#if></td>
                     <td class="num">${r.qty?string("0.##")}</td>
                     <td class="num">${(r.lockedQty)?string("0.##")}</td>
+                    <td class="num">${((r.pickedQty)!0)?string("0.##")}</td>
                     <td class="num">${(r.onHandQty)?string("0.##")}</td>
                     <td class="num"><span class="warn">${(r.shortQty)?string("0.##")}</span></td>
                     <td class="num">${(r.suggestQty)?string("0.####")}</td>
@@ -392,7 +394,9 @@
         <table id="devBomTable">
             <tr>
                 <th class="num">#</th><th>料号</th><th>名称</th><th class="num">数量</th>
-                <th>位号</th><th>相对上一版</th><th class="num">已锁</th><th class="num">在库</th><th>操作</th>
+                <th>位号</th><th>相对上一版</th><th class="num">已锁</th>
+                <th class="num" title="本项目已经通过出库单领走的数量">已领</th>
+                <th class="num">在库</th><th>操作</th>
             </tr>
             <#list bomItems as r>
                 <tr data-bom-line="${r.lineSeq}" data-bom-change="${r.changeId}" id="bomLine${r.lineSeq}">
@@ -425,6 +429,7 @@
                     <td>${r.designators!}</td>
                     <td><#if r.changeId == 'MFG_BOM_NEW'><span class="ok">${bomChangeLabel(r.changeId)}</span><#elseif r.changeId == 'MFG_BOM_CHANGED'><span class="warn">${bomChangeLabel(r.changeId)}<#if r.previousQty??>（原 ${(r.previousQty)?string("0.##")}）</#if></span><#else>${bomChangeLabel(r.changeId)}</#if></td>
                     <td class="num">${(r.lockedQty)?string("0.##")}</td>
+                    <td class="num">${((r.pickedQty)!0)?string("0.##")}</td>
                     <td class="num">${(r.onHandQty)?string("0.##")}</td>
                     <td>
                         <input type="submit" form="bomRow${r.lineSeq}" value="保存"/>
@@ -759,7 +764,8 @@
     </script>
     <p class="hint">每次导入都会存一份快照并按上一版比对：新出现的元件进缺货清单；数量变大的补锁；
         不再使用的元件<b>不退回库存</b>，按研发消耗（样品）记一笔——面包板和连线阶段的东西已经用掉了。
-        锁料是预留，不影响在库数量，但工单就抢不走这几颗料；缺货清单里的「建议采购」= 需求 − 已锁。</p>
+        锁料是预留，不影响在库数量，但工单就抢不走这几颗料；缺货清单里的「建议采购」= 需求 − 已锁 − 已领
+        （已领是出库单已经从这个项目领走的，料在工程师手上、不在货架上）。</p>
 
     <h3 id="issues">问题清单（未结 ${issueOpen} 个<#if issueHigh gt 0>，其中严重 ${issueHigh} 个</#if> / 共 ${issues?size} 条）</h3>
     <#if issues?has_content>

@@ -473,7 +473,7 @@ public final class MfgDevBomEvents {
             }
             List<Map<String, Object>> shortages = UtilGenerics.cast(result.get("shortages"));
             List<String> lines = new ArrayList<>();
-            lines.add(MfgCsv.csvLine(Arrays.asList("料号", "名称", "需求", "已锁", "在库",
+            lines.add(MfgCsv.csvLine(Arrays.asList("料号", "名称", "需求", "已锁", "已领", "在库",
                     "缺口", "建议采购", "位号", "说明")));
             for (Map<String, Object> row : shortages == null ? new ArrayList<Map<String, Object>>() : shortages) {
                 lines.add(MfgCsv.csvLine(Arrays.asList(
@@ -481,6 +481,7 @@ public final class MfgDevBomEvents {
                         value(row.get("componentName")),
                         value(row.get("qty")),
                         value(row.get("lockedQty")),
+                        value(row.get("pickedQty")),
                         value(row.get("onHandQty")),
                         value(row.get("shortQty")),
                         value(row.get("suggestQty")),
