@@ -63,11 +63,12 @@ public final class MfgDevBomServices {
     static final int MAX_RECEIVER_LENGTH = 100;
 
     /**
-     * How many bytes of text the QR code of a label may carry: the code is printed 28 mm wide on the
-     * big sticker, and zxing picks the version from this - 300 bytes needs a version 11 code
-     * (61 modules plus a 4 module quiet zone on each side), so one module is 0.41 mm.
+     * How many bytes of text the QR code of a label may carry: the code is printed 32 mm wide on the
+     * big sticker, and zxing picks the version from this. A version 13 code holds 425 bytes in byte
+     * mode, so the whole of that version is used (69 modules plus a 4 module quiet zone each side, so
+     * one module is 0.42 mm). Going past it would jump to version 14 - 73 modules, denser.
      */
-    static final int MAX_LABEL_BYTES = 300;
+    static final int MAX_LABEL_BYTES = 420;
 
     /**
      * The same for the middle sticker (QR printed 18 mm): the code says which document it is and how
@@ -1429,7 +1430,7 @@ public final class MfgDevBomServices {
             }
         }
         // the part numbers are shorter than the names: try them before giving up on the detail
-        for (int width : new int[] {24, 16}) {
+        for (int width : new int[] {24, 16, 10}) {
             String text = listOf(head, lines, width, false) + summary;
             if (bytesOf(text) <= maxBytes) {
                 return text;

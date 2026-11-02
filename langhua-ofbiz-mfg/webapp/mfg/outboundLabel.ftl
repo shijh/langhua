@@ -7,7 +7,7 @@
 
     big    60 × 30 mm  二维码 28mm（码里是整份清单，上限 300 字节）
     mid    30 × 20 mm  二维码 18mm（码里是 单号 + 项目名 + N行/M件）
-    small  15 × 20 mm  二维码 12mm（码里只有 单号 + N行/M件）—— 15mm 宽的蓝牙标签机（精臣 D11 一类）
+    small  15 × 20 mm  二维码 12mm（码里只有 单号 + N行/M件）—— 15mm 宽的标签打印机（蓝牙 / Wi-Fi 都一样）
 
   **不是随便缩的**：zxing 按字数挑版本，模块数 = 4×版本 + 17 + 两边各 4 个模块的静区（OFBiz 的
   generateQRCodeImage 用的是默认的纠错等级 L 和 4 模块边距）。所以一个字也不能少的 25 字节是
@@ -32,7 +32,7 @@
         qrSrc = '/mfg/control/outboundQr?outboundId=' + o.outboundId?url + '&amp;size=mid'
         qrText = (o.labelTextMid)!''>
 <#else>
-    <#assign pageW = '32mm' pageH = '38mm' qrMm = '28mm'
+    <#assign pageW = '32mm' pageH = '42mm' qrMm = '32mm'
         qrSrc = '/mfg/control/outboundQr?outboundId=' + o.outboundId?url
         qrText = (o.labelText)!''>
 </#if>
@@ -96,7 +96,7 @@
         <a href="/mfg/control/outboundCheck?outboundId=${o.outboundId?url}&amp;key=${o.checkKey!''}" target="_blank">核对页（浏览器打开）</a>
         <span class="hint">
             尺寸：
-            <#if labelSize == 'big'><span class="current">大 32×38（码 28mm）</span><#else><a href="?outboundId=${o.outboundId?url}&amp;label=big">大 32×38（码 28mm）</a></#if> ｜
+            <#if labelSize == 'big'><span class="current">大 32×42（码 32mm）</span><#else><a href="?outboundId=${o.outboundId?url}&amp;label=big">大 32×42（码 32mm）</a></#if> ｜
             <#if labelSize == 'mid'><span class="current">中 20×26（码 16mm）</span><#else><a href="?outboundId=${o.outboundId?url}&amp;label=mid">中 20×26（码 16mm）</a></#if> ｜
             <#if labelSize == 'small'><span class="current">小 15×20（码 12mm）</span><#else><a href="?outboundId=${o.outboundId?url}&amp;label=small">小 15×20（码 12mm）</a></#if>
             <br/>三种尺寸都只印二维码 + 项目名（项目名在码下面居中，小号字，可以换几行）。码越小能装的字越少：
@@ -105,10 +105,10 @@
             胶带比 15mm 更窄就改 `@page` 的尺寸（现在是 ${pageW} × ${pageH}，二维码 ${qrMm}）。
         </span>
     </div>
-    <#-- 蓝牙标签机（精臣 D11 这类）大多只能用它自己的 App 打印，所以把码里的文字也显示出来：
+    <#-- 标签机（蓝牙或 Wi-Fi）大多只能用它自己的 App 打印，所以把码里的文字也显示出来：
          在 App 里新建同尺寸的标签 → 插入二维码 → 把这段粘进去，码里就是同样的内容 -->
     <div class="copybox">
-        <p>码里的文字（在精臣 App 里：新建 ${pageW} × ${pageH} 标签 → 插入二维码 → 粘贴这段）：</p>
+        <p>码里的文字（在标签机 App 里：新建 ${pageW} × ${pageH} 标签 → 插入二维码 → 粘贴这段）：</p>
         <pre id="qrTextCopy" onclick="selectAll(this)">${qrText}</pre>
         <p class="hint">点一下上面的文字就全选，Ctrl+C 复制。</p>
     </div>
