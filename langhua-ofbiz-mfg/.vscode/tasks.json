@@ -197,6 +197,288 @@
 			"type": "shell",
 			"command": "cmd /c \"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\mfg-it.bat\"",
 			"group": "none"
+		},
+		{
+			"label": "check-250",
+			"type": "shell",
+			"command": "powershell -NoProfile -Command \"& { Get-Item 'F:/build-ofbiz/apache-ofbiz-24.09.07/build/libs/ofbiz.jar' | ForEach-Object { 'jar ' + $_.LastWriteTime }; 'port8443 ' + (Test-NetConnection -ComputerName localhost -Port 8443 -InformationLevel Quiet) }\"",
+			"group": "none"
+		},
+		{
+			"label": "state-250",
+			"type": "shell",
+			"command": "powershell -NoProfile -ExecutionPolicy Bypass -File F:\\build-ofbiz\\state250.ps1",
+			"group": "none"
+		},
+		{
+			"label": "deploy-test-250",
+			"type": "shell",
+			"command": "cmd /c \"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\deploy-test.bat\"",
+			"group": "none"
+		},
+		{
+			"label": "deploy-prod-250",
+			"type": "shell",
+			"command": "cmd /c \"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\deploy-prod.bat\"",
+			"group": "none"
+		},
+		{
+			"label": "pack-250",
+			"type": "shell",
+			"command": "powershell -NoProfile -ExecutionPolicy Bypass -File C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\check-outbound-pack.ps1 -base http://localhost:8095",
+			"group": "none"
+		},
+		{
+			"label": "label-250",
+			"type": "shell",
+			"command": "powershell -NoProfile -ExecutionPolicy Bypass -File F:\\build-ofbiz\\labelcheck250.ps1",
+			"group": "none"
+		},
+		{
+			"label": "labeldump-250",
+			"type": "shell",
+			"command": "powershell -NoProfile -ExecutionPolicy Bypass -File F:\\build-ofbiz\\labeldump250.ps1",
+			"group": "none"
+		},
+		{
+			"label": "labelread-250",
+			"type": "shell",
+			"command": "powershell -NoProfile -ExecutionPolicy Bypass -File F:\\build-ofbiz\\labelread250.ps1",
+			"group": "none"
+		},
+		{
+			"label": "labeldebug-250",
+			"type": "shell",
+			"command": "powershell -NoProfile -ExecutionPolicy Bypass -File F:\\build-ofbiz\\labeldebug250.ps1",
+			"group": "none"
+		},
+		{
+			"label": "deploy-dev-250b",
+			"type": "shell",
+			"command": "cmd /c \"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\deploy-mfg.bat\"",
+			"group": "none"
+		},
+		{
+			"label": "deploy-test-250b",
+			"type": "shell",
+			"command": "cmd /c \"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\deploy-test.bat\"",
+			"group": "none"
+		},
+		{
+			"label": "pack-250b",
+			"type": "shell",
+			"command": "powershell -NoProfile -ExecutionPolicy Bypass -File C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\check-outbound-pack.ps1 -base http://localhost:8095",
+			"group": "none"
+		},
+		{
+			"label": "ftlcheck-250",
+			"type": "shell",
+			"command": "powershell -NoProfile -ExecutionPolicy Bypass -File F:\\build-ofbiz\\ftlcheck250.ps1",
+			"group": "none"
+		},
+		{
+			"label": "javas-250",
+			"type": "shell",
+			"command": "powershell -NoProfile -ExecutionPolicy Bypass -File F:\\build-ofbiz\\javas250.ps1",
+			"group": "none"
+		},
+		{
+			"label": "deploy-prod-250b",
+			"type": "shell",
+			"command": "cmd /c \"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\deploy-prod.bat\"",
+			"group": "none"
+		},
+		{
+			"label": "pack-250c",
+			"type": "shell",
+			"command": "powershell -NoProfile -ExecutionPolicy Bypass -File C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\check-outbound-pack.ps1 -base http://localhost:8095",
+			"group": "none"
+		},
+		{
+			"label": "labeldebug-250b",
+			"type": "shell",
+			"command": "powershell -NoProfile -ExecutionPolicy Bypass -File F:\\build-ofbiz\\labeldebug250b.ps1",
+			"group": "none"
+		},
+		{
+			"label": "deploy-dev-250c",
+			"type": "shell",
+			"command": "cmd /c \"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\deploy-mfg.bat\"",
+			"group": "none"
+		},
+		{
+			"label": "probe-250",
+			"type": "shell",
+			"command": "powershell -NoProfile -ExecutionPolicy Bypass -File F:\\build-ofbiz\\probe250.ps1",
+			"group": "none"
+		},
+		{
+			"label": "probe-250b",
+			"type": "shell",
+			"command": "powershell -NoProfile -ExecutionPolicy Bypass -File F:\\build-ofbiz\\probe250b.ps1",
+			"group": "none"
+		},
+		{
+			"label": "patchcheck-250",
+			"type": "shell",
+			"command": "powershell -NoProfile -ExecutionPolicy Bypass -File F:\\build-ofbiz\\patchcheck250.ps1",
+			"group": "none"
+		},
+		{
+			"label": "deploy-dev-250d",
+			"type": "shell",
+			"command": "cmd /c \"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\deploy-mfg.bat\"",
+			"group": "none"
+		},
+		{
+			"label": "deploy-test-250d",
+			"type": "shell",
+			"command": "cmd /c \"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\deploy-test.bat\"",
+			"group": "none"
+		},
+		{
+			"label": "waits-250",
+			"type": "shell",
+			"command": "powershell -NoProfile -ExecutionPolicy Bypass -File F:\\build-ofbiz\\waits250.ps1",
+			"group": "none"
+		},
+		{
+			"label": "deploy-prod-250d",
+			"type": "shell",
+			"command": "cmd /c \"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\deploy-prod.bat\"",
+			"group": "none"
+		},
+		{
+			"label": "pack-250d",
+			"type": "shell",
+			"command": "powershell -NoProfile -ExecutionPolicy Bypass -File C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\check-outbound-pack.ps1 -base http://localhost:8095",
+			"group": "none"
+		},
+		{
+			"label": "patchcheck-250b",
+			"type": "shell",
+			"command": "powershell -NoProfile -ExecutionPolicy Bypass -File F:\\build-ofbiz\\patchcheck250b.ps1",
+			"group": "none"
+		},
+		{
+			"label": "pack-250e",
+			"type": "shell",
+			"command": "powershell -NoProfile -ExecutionPolicy Bypass -File C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\check-outbound-pack.ps1 -base http://localhost:8095",
+			"group": "none"
+		},
+		{
+			"label": "probe-250c",
+			"type": "shell",
+			"command": "powershell -NoProfile -ExecutionPolicy Bypass -File F:\\build-ofbiz\\probe250c.ps1",
+			"group": "none"
+		},
+		{
+			"label": "tests-250",
+			"type": "shell",
+			"command": "cmd /c \"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\mfg-tests-all.bat\"",
+			"group": "none"
+		},
+		{
+			"label": "deploy-dev-250f",
+			"type": "shell",
+			"command": "cmd /c \"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\deploy-mfg.bat\"",
+			"group": "none"
+		},
+		{
+			"label": "probe-250d",
+			"type": "shell",
+			"command": "powershell -NoProfile -ExecutionPolicy Bypass -File F:\\build-ofbiz\\probe250c.ps1",
+			"group": "none"
+		},
+		{
+			"label": "deploy-test-250f",
+			"type": "shell",
+			"command": "cmd /c \"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\deploy-test.bat\"",
+			"group": "none"
+		},
+		{
+			"label": "deploy-prod-250f",
+			"type": "shell",
+			"command": "cmd /c \"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\deploy-prod.bat\"",
+			"group": "none"
+		},
+		{
+			"label": "waits-250b",
+			"type": "shell",
+			"command": "powershell -NoProfile -ExecutionPolicy Bypass -File F:\\build-ofbiz\\waits250.ps1",
+			"group": "none"
+		},
+		{
+			"label": "pack-250f",
+			"type": "shell",
+			"command": "powershell -NoProfile -ExecutionPolicy Bypass -File C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\check-outbound-pack.ps1 -base http://localhost:8095",
+			"group": "none"
+		},
+		{
+			"label": "outpage-250",
+			"type": "shell",
+			"command": "powershell -NoProfile -ExecutionPolicy Bypass -File C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\verify-outbound-page.ps1 -base https://localhost:8443",
+			"group": "none"
+		},
+		{
+			"label": "smoke-250",
+			"type": "shell",
+			"command": "powershell -NoProfile -ExecutionPolicy Bypass -File C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\smoke-dev-pages.ps1",
+			"group": "none"
+		},
+		{
+			"label": "prod-250",
+			"type": "shell",
+			"command": "powershell -NoProfile -ExecutionPolicy Bypass -File C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\check-prod-237.ps1",
+			"group": "none"
+		},
+		{
+			"label": "deploy-dev-250g",
+			"type": "shell",
+			"command": "cmd /c \"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\deploy-mfg.bat\"",
+			"group": "none"
+		},
+		{
+			"label": "probe-250e",
+			"type": "shell",
+			"command": "powershell -NoProfile -ExecutionPolicy Bypass -File F:\\build-ofbiz\\probe250d.ps1",
+			"group": "none"
+		},
+		{
+			"label": "deploy-test-250g",
+			"type": "shell",
+			"command": "cmd /c \"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\deploy-test.bat\"",
+			"group": "none"
+		},
+		{
+			"label": "deploy-prod-250g",
+			"type": "shell",
+			"command": "cmd /c \"C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\deploy-prod.bat\"",
+			"group": "none"
+		},
+		{
+			"label": "waits-250c",
+			"type": "shell",
+			"command": "powershell -NoProfile -ExecutionPolicy Bypass -File F:\\build-ofbiz\\waits250.ps1",
+			"group": "none"
+		},
+		{
+			"label": "pack-250g",
+			"type": "shell",
+			"command": "powershell -NoProfile -ExecutionPolicy Bypass -File C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\check-outbound-pack.ps1 -base http://localhost:8095",
+			"group": "none"
+		},
+		{
+			"label": "prod-250b",
+			"type": "shell",
+			"command": "powershell -NoProfile -ExecutionPolicy Bypass -File C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\check-prod-237.ps1",
+			"group": "none"
+		},
+		{
+			"label": "outlist-250",
+			"type": "shell",
+			"command": "powershell -NoProfile -ExecutionPolicy Bypass -File C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\verify-outbounds.ps1 -base https://localhost:8443",
+			"group": "none"
 		}
 	]
 }

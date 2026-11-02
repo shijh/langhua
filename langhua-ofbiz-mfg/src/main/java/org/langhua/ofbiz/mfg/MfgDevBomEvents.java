@@ -195,10 +195,14 @@ public final class MfgDevBomEvents {
      * address: the sticker is read in a workshop, possibly without a network, and the phone shows the
      * list the moment it is scanned. The same text is printed on the label page for the checks.
      *
+     * <p>The text shrinks with the sticker ({@code size} = {@code big} / {@code mid} / {@code small}):
+     * a 13 mm code printed on 15 mm tape cannot hold thirteen lines and still be readable, so the
+     * small label only says which document it is and how many parts are in the box.
+     *
      * <p>The image comes from the QR service OFBiz already ships ({@code generateQRCodeImage}, which
      * uses zxing), so this component needs no barcode library of its own.
      *
-     * @param request the request, holding {@code outboundId}
+     * @param request the request, holding {@code outboundId} and optionally {@code size}
      * @param response the response, receives the PNG
      * @return {@code success} when the image was written
      */
@@ -207,12 +211,13 @@ public final class MfgDevBomEvents {
         org.apache.ofbiz.entity.Delegator delegator =
                 (org.apache.ofbiz.entity.Delegator) request.getAttribute("delegator");
         String outboundId = text(request.getParameter("outboundId"));
+        String size = text(request.getParameter("size"));
         if (dispatcher == null || delegator == null || outboundId == null) {
             return notFound(response);
         }
         String message;
         try {
-            message = labelTextOf(delegator, outboundId);
+            message = labelTextOf(delegator, outboundId, size);
         } catch (org.apache.ofbiz.entity.GenericEntityException e) {
             Debug.logError(e, "Could not read the picking list of " + outboundId, MODULE);
             return notFound(response);
@@ -220,11 +225,12 @@ public final class MfgDevBomEvents {
         if (message == null) {
             return notFound(response);
         }
+        int pixels = "small".equals(size) ? 300 : ("mid".equals(size) ? 400 : 500);
         Map<String, Object> context = new java.util.HashMap<>();
         context.put("message", message);
-        // OFBiz's QR service takes at most 500 pixels; 500 is also enough for a list of a dozen lines
-        context.put("width", Integer.valueOf(500));
-        context.put("height", Integer.valueOf(500));
+        // OFBiz's QR service takes at most 500 pixels; a smaller sticker gets a smaller image
+        context.put("width", Integer.valueOf(pixels));
+        context.put("height", Integer.valueOf(pixels));
         context.put("format", "png");
         context.put("encoding", "UTF-8");
         context.put("verifyOutput", Boolean.TRUE);
@@ -259,10 +265,11 @@ public final class MfgDevBomEvents {
      *
      * @param delegator the delegator
      * @param outboundId the number of the document
+     * @param size {@code small} for the number and the counts only, anything else for the list
      * @return the text, {@code null} when there is no such document
      * @throws org.apache.ofbiz.entity.GenericEntityException when it cannot be read
      */
-    static String labelTextOf(org.apache.ofbiz.entity.Delegator delegator, String outboundId)
+    static String labelTextOf(org.apache.ofbiz.entity.Delegator delegator, String outboundId, String size)
             throws org.apache.ofbiz.entity.GenericEntityException {
         GenericValue head = org.apache.ofbiz.entity.util.EntityQuery.use(delegator).from("MfgOutbound")
                 .where("outboundId", outboundId).queryOne();
@@ -270,6 +277,7 @@ public final class MfgDevBomEvents {
             return null;
         }
         List<Map<String, Object>> lines = new ArrayList<>();
+        double totalQty = 0.0;
         for (GenericValue item : org.apache.ofbiz.entity.util.EntityQuery.use(delegator)
                 .from("MfgOutboundItem").where("outboundId", outboundId).orderBy("lineSeq").queryList()) {
             Map<String, Object> line = new java.util.HashMap<>();
@@ -277,9 +285,14 @@ public final class MfgDevBomEvents {
             line.put("componentName", item.getString("componentName"));
             line.put("qty", item.get("qty"));
             lines.add(line);
+            totalQty += MfgSupport.numberOrZero(item.get("qty"));
         }
+        if ("small".equals(size)) {
+            return MfgDevBomServices.compactLabelTextOf(outboundId, lines.size(), totalQty);
+        }
+        int maxBytes = "mid".equals(size) ? MfgDevBomServices.LABEL_BYTES_MID : MfgDevBomServices.MAX_LABEL_BYTES;
         return MfgDevBomServices.labelTextOf(outboundId, head.getString("projectCode"),
-                head.getString("bomVersion"), lines);
+                head.getString("bomVersion"), lines, maxBytes);
     }
 
     private static String notFound(HttpServletResponse response) {

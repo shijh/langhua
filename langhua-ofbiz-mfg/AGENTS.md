@@ -2560,6 +2560,33 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
     只是不再由二维码进入。
   - 手机扫出来的就是这段文字，**不需要网络**，也不需要登录——这也是它比放网址更可靠的地方。
 
+- **标签有三种尺寸：二维码跟着胶带一起变小（Step 250）**：用户问“二维码尺寸是多少？有办法做小一些吗？我的标签打印机
+  是蓝牙的精臣 D11，大标签打不了”。原来的标签是 **80×50mm、二维码印 37mm**（图 500×500 px）——照片纸能打，
+  15mm 宽的胶带不行。现在 `outboundLabel.ftl` 按 **`label`** 参数出三种：
+
+  | 尺寸 | `@page` | 二维码 | 码里的内容 |
+  | --- | --- | --- | --- |
+  | `big`（默认） | 80×50mm | 37mm | 整份清单（`labelTextOf`，上限 900 字节） |
+  | `mid` | 50×30mm | 22mm | 短清单（上限 `LABEL_BYTES_MID` = 300 字节，13 行时改用料号） |
+  | `small` | 15×30mm | 13mm | 只有 `OUT-…` + `N行/M件`（`compactLabelTextOf`，25 字节） |
+
+  **码越大越密**：37mm 的码放 900 字节还是能扫（v20 左右、模块 0.38mm）；22mm 只剩 300 字节的余地；
+  13mm 放十几行就成一片灰，所以小标签只写单号与件数——清单在单据页和「核对页」上，扫码看清料号靠大标签。
+  **参数名不能叫 `size`**：FreeMarker 里 `parameters['size']` / `parameters.size` 取到的是 **Map 自己的
+  `size()` 方法**，一比较就报 `Left hand operand is a method+sequence`，页面整片 `FREE MARKER ERROR`
+  （踩了两次部署才发现；`parameters['label']` 才是参数）。QR 图的 `?size=` 是给 **Java** 读的，没这个问题。
+  三个入口：单据页三个链接（大 / 中 / 小）、标签页右上角的尺寸切换、`outboundQr?size=small|mid`。
+  `outboundRow` 一次算好 `labelText` / `labelTextMid` / `labelTextSmall` 三个键，模板与 QR 事件共用，
+  不会两边说法不一致；`MfgDevBomEvents.labelTextOf(delegator, id, size)` 按 size 挑上限与图尺寸（500/400/300 px）。
+  **顺手修的**：清单刚好全放下时原来会写「…另有 0 行」，现在 `shown >= lines.size()` 直接返回不再加这句。
+  蓝牙标签机（精臣 D11）大多只能用它自己的 App 打印，所以标签页下面多了一块「码里的文字」（屏幕上显示、打印时隐藏）：
+  点一下全选、复制，在 App 里新建同尺寸标签 → 插入二维码 → 粘进去，码里就是同样的内容。
+  **胶带不是 15mm 就改 `@page`**（12mm 胶带的话把小标签写成 12×30、二维码 10mm，仍放得下 `OUT-…\n13行/16件`）。
+  验法：`check-outbound-pack.ps1`（测试实例，**38 项**）断言三种标签都渲染完整、中/小标签要的是对的码、
+  小码只有两行、小码 PNG 比大码小；`verify-outbound-page.ps1` 22 项、`smoke-dev-pages.ps1` 28 项、
+  `check-prod-237.ps1` 24 项、单测 **253**（新增 `cutsTheListShorterWhenTheStickerGetsSmaller` /
+  `writesOnlyTheNumberAndTheCountsOnAVerySmallSticker`）。
+
 - **测试数据把开发库灌满了：清一次，并让 IT 打测试实例（Step 239）**：几个月下来开发库里
   **383 个开发项目**、268 个型号、728 个工单、3959 个批次、13192 条流水、1152 张到货单，几乎全是
   `mfg-it.bat` 与 `verify-m*.ps1` 造出来的（IT 每跑一次就建 4 个项目 + 2 个型号 + 一堆单据）。

@@ -559,6 +559,42 @@ public class MfgDevBomRulesTest {
         assertTrue(text.contains("40 行 / 共 80 件"));
     }
 
+    @Test
+    public void cutsTheListShorterWhenTheStickerGetsSmaller() {
+        // a middle sticker prints the code 22 mm wide instead of 37 mm: the same list has to shrink
+        // with it, otherwise the modules get too small for a phone camera to read
+        List<Map<String, Object>> lines = new ArrayList<>();
+        for (int i = 0; i < 12; i++) {
+            lines.add(line("Capacitor 0603 100NF 50V X7R", "C-" + i, 2.0));
+        }
+        String big = MfgDevBomServices.labelTextOf("OUT-261101-01", "DEV-261031-04", "v94", lines,
+                MfgDevBomServices.MAX_LABEL_BYTES);
+        String mid = MfgDevBomServices.labelTextOf("OUT-261101-01", "DEV-261031-04", "v94", lines,
+                MfgDevBomServices.LABEL_BYTES_MID);
+        assertTrue(mid.getBytes(java.nio.charset.StandardCharsets.UTF_8).length
+                <= MfgDevBomServices.LABEL_BYTES_MID);
+        assertTrue(mid.getBytes(java.nio.charset.StandardCharsets.UTF_8).length
+                < big.getBytes(java.nio.charset.StandardCharsets.UTF_8).length);
+        // whatever gets cut, the number of the document and the summary stay
+        assertTrue(mid.contains("OUT-261101-01"));
+        assertTrue(mid.contains("12 行 / 共 24 件"));
+        // and a list that fits is not announced as cut ("另有 0 行" would be a lie)
+        assertFalse(mid.contains("另有 0 行"));
+    }
+
+    @Test
+    public void writesOnlyTheNumberAndTheCountsOnAVerySmallSticker() {
+        // 15 mm of tape holds a 13 mm code, and thirteen lines would not be readable in it: the small
+        // label says which document it is and how much is in the box, no more
+        String text = MfgDevBomServices.compactLabelTextOf("OUT-261101-01", 13, 16.0);
+        assertTrue(text.startsWith("OUT-261101-01"));
+        assertTrue(text.contains("13行/16件"));
+        assertFalse(text.contains("http"));
+        assertTrue(text.getBytes(java.nio.charset.StandardCharsets.UTF_8).length <= 40);
+        // whole numbers stay whole, a half part keeps its half
+        assertTrue(MfgDevBomServices.compactLabelTextOf("OUT-1", 1, 2.5).contains("1行/2.5件"));
+    }
+
     private static Map<String, Object> line(String name, String code, double qty) {
         Map<String, Object> row = new LinkedHashMap<>();
         row.put("componentName", name);

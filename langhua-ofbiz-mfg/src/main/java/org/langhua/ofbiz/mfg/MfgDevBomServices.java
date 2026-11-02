@@ -63,10 +63,16 @@ public final class MfgDevBomServices {
     static final int MAX_RECEIVER_LENGTH = 100;
 
     /**
-     * How many bytes of text the QR code of a label may carry: the code is printed 38 mm wide, and a
-     * longer text makes the modules too small for a phone camera to read.
+     * How many bytes of text the QR code of a label may carry: the code is printed 37 mm wide on the
+     * big sticker, and a longer text makes the modules too small for a phone camera to read.
      */
     static final int MAX_LABEL_BYTES = 900;
+
+    /**
+     * The same for the middle sticker (QR printed 22 mm): fewer parts fit, so the list is cut shorter
+     * before the modules become unreadable.
+     */
+    static final int LABEL_BYTES_MID = 300;
 
     /**
      * The columns of an import that the pages and the row saves read. The file bytes are not among
@@ -1279,6 +1285,13 @@ public final class MfgDevBomServices {
         row.put("lines", lines);
         row.put("labelText", labelTextOf(head.getString("outboundId"), head.getString("projectCode"),
                 head.getString("bomVersion"), lines));
+        row.put("labelTextMid", labelTextOf(head.getString("outboundId"), head.getString("projectCode"),
+                head.getString("bomVersion"), lines, LABEL_BYTES_MID));
+        double totalQty = 0.0;
+        for (Map<String, Object> line : lines) {
+            totalQty += MfgSupport.numberOrZero(line.get("qty"));
+        }
+        row.put("labelTextSmall", compactLabelTextOf(head.getString("outboundId"), lines.size(), totalQty));
         return row;
     }
 
@@ -1360,6 +1373,22 @@ public final class MfgDevBomServices {
      */
     static String labelTextOf(String outboundId, String projectCode, String bomVersion,
             List<Map<String, Object>> lines) {
+        return labelTextOf(outboundId, projectCode, bomVersion, lines, MAX_LABEL_BYTES);
+    }
+
+    /**
+     * The same, with the code's capacity given: a smaller sticker needs a shorter text, otherwise the
+     * modules get too small for a phone to read.
+     *
+     * @param outboundId the number of the document
+     * @param projectCode the development project, may be {@code null}
+     * @param bomVersion the version the list was written from, may be {@code null}
+     * @param lines the rows as {@code outboundRow} builds them
+     * @param maxBytes how many UTF-8 bytes the code may carry
+     * @return the text to encode, never {@code null}
+     */
+    static String labelTextOf(String outboundId, String projectCode, String bomVersion,
+            List<Map<String, Object>> lines, int maxBytes) {
         String head = (outboundId == null ? "" : outboundId)
                 + (projectCode == null ? "" : "\n" + projectCode)
                 + (bomVersion == null ? "" : " " + bomVersion);
@@ -1370,14 +1399,14 @@ public final class MfgDevBomServices {
         String summary = "\n" + lines.size() + " 行 / 共 " + MfgSupport.formatQty(total) + " 件";
         for (int width : new int[] {24, 16, 10}) {
             String text = listOf(head, lines, width, true) + summary;
-            if (bytesOf(text) <= MAX_LABEL_BYTES) {
+            if (bytesOf(text) <= maxBytes) {
                 return text;
             }
         }
         // the part numbers are shorter than the names: try them before giving up on the detail
         for (int width : new int[] {24, 16}) {
             String text = listOf(head, lines, width, false) + summary;
-            if (bytesOf(text) <= MAX_LABEL_BYTES) {
+            if (bytesOf(text) <= maxBytes) {
                 return text;
             }
         }
@@ -1385,13 +1414,34 @@ public final class MfgDevBomServices {
         int shown = 0;
         for (Map<String, Object> line : lines) {
             String one = "\n" + shortName(line, 16, false) + " x" + MfgSupport.formatQty(qtyOf(line));
-            if (bytesOf(kept.toString() + one) + bytesOf(summary) > MAX_LABEL_BYTES) {
+            if (bytesOf(kept.toString() + one) + bytesOf(summary) > maxBytes) {
                 break;
             }
             kept.append(one);
             shown++;
         }
+        if (shown >= lines.size()) {
+            // every row fits after all, so there is nothing to say about the ones left out
+            return kept + summary;
+        }
         return kept + "\n…另有 " + (lines.size() - shown) + " 行" + summary;
+    }
+
+    /**
+     * What a very small sticker carries: the number of the document and how much is in it.
+     *
+     * <p>A 13 mm code cannot hold thirteen lines and still be readable, so the small label says which
+     * document it is and how many parts went into the box; the whole list is one scan away on the big
+     * label (or on the check page).
+     *
+     * @param outboundId the number of the document
+     * @param lineCount how many part numbers the document lists
+     * @param totalQty how many units it asks for
+     * @return the text to encode, never {@code null}
+     */
+    static String compactLabelTextOf(String outboundId, int lineCount, double totalQty) {
+        return (outboundId == null ? "" : outboundId) + "\n" + lineCount + "行/"
+                + MfgSupport.formatQty(totalQty) + "件";
     }
 
     /** One line per part: {@code name x qty}, numbered so the keeper can tick them off. */

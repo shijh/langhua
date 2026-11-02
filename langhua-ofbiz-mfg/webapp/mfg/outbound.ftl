@@ -71,10 +71,13 @@
     </#if>
     <#if outbound.packed || outbound.issued>
         <p>
-            <a href="/mfg/control/outboundLabel?outboundId=${outbound.outboundId?url}" target="_blank">打印标签（80×50mm）</a>
+            <a href="/mfg/control/outboundLabel?outboundId=${outbound.outboundId?url}" target="_blank">打印标签（大 80×50mm）</a>
+            ｜ <a href="/mfg/control/outboundLabel?outboundId=${outbound.outboundId?url}&amp;label=mid" target="_blank">中 50×30mm</a>
+            ｜ <a href="/mfg/control/outboundLabel?outboundId=${outbound.outboundId?url}&amp;label=small" target="_blank">小 15×30mm（蓝牙标签机）</a>
             ｜ <a href="/mfg/control/outboundCheck?outboundId=${outbound.outboundId?url}&amp;key=${outbound.checkKey!''}" target="_blank">核对页（浏览器打开）</a>
             <#if outbound.packedDate??>｜ <span class="hint">包装：${(outbound.packageCount!0)?string("0.##")} 盒<#if ((outbound.packingNote)!'')?has_content>（${outbound.packingNote}）</#if>，${outbound.packedDate?string("yyyy-MM-dd HH:mm")}<#if ((outbound.packedByUserLoginId)!'')?has_content>，${outbound.packedByUserLoginId}</#if></span></#if>
         </p>
+        <span class="hint">标签有三种尺寸：大标签的二维码里有整份清单（名称 + 数量），中标签截短清单，小标签只放单号与「N 行 / M 件」（15mm 宽的胶带放不下十几行还能扫清的字）；尺寸在标签页右上角可以切换。</span>
     </#if>
 
     <form method="post" action="/mfg/control/outboundReceiverSave" class="inline">
