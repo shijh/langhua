@@ -73,11 +73,12 @@
         <p>
             <a href="/mfg/control/outboundLabel?outboundId=${outbound.outboundId?url}" target="_blank">打印标签（大 32×42mm）</a>
             ｜ <a href="/mfg/control/outboundLabel?outboundId=${outbound.outboundId?url}&amp;label=mid" target="_blank">中 20×26mm</a>
-            ｜ <a href="/mfg/control/outboundLabel?outboundId=${outbound.outboundId?url}&amp;label=small" target="_blank">小 15×20mm（15mm 胶带）</a>
+            ｜ <a href="/mfg/control/outboundLabel?outboundId=${outbound.outboundId?url}&amp;label=small" target="_blank">小 15×20mm（竖贴）</a>
+            ｜ <a href="/mfg/control/outboundLabel?outboundId=${outbound.outboundId?url}&amp;label=strip" target="_blank">长条 50×15mm（横贴）</a>
             ｜ <a href="/mfg/control/outboundCheck?outboundId=${outbound.outboundId?url}&amp;key=${outbound.checkKey!''}" target="_blank">核对页（浏览器打开）</a>
             <#if outbound.packedDate??>｜ <span class="hint">包装：${(outbound.packageCount!0)?string("0.##")} 盒<#if ((outbound.packingNote)!'')?has_content>（${outbound.packingNote}）</#if>，${outbound.packedDate?string("yyyy-MM-dd HH:mm")}<#if ((outbound.packedByUserLoginId)!'')?has_content>，${outbound.packedByUserLoginId}</#if></span></#if>
         </p>
-        <span class="hint">标签只印二维码 + 项目名（项目名在码下面居中，小号字、可换行），三种尺寸都能用：大 32×42 的码里是整份清单（名称 + 数量），中 20×26 的码里是单号 + 项目 + 件数，小 15×20 的码里只有单号 + 件数（15mm 胶带的标签机用）；尺寸在标签页上可以切换。</span>
+        <span class="hint">标签只印二维码 + 项目名（项目名在码下面居中，小号字、可换行），尺寸都能用：大 32×42 的码里是整份清单（名称 + 数量），中 20×26 的码里是单号 + 项目 + 件数，小 15×20 和长条 50×15 的码里只有单号 + 件数（15mm 胶带的标签机用，长条是二维码在左、项目名在右）；尺寸在标签页上可以切换。</span>
     </#if>
 
     <form method="post" action="/mfg/control/outboundReceiverSave" class="inline">

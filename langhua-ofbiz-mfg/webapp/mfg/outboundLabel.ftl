@@ -22,9 +22,14 @@
   size() 方法（比较时会报 “Left hand operand is a method+sequence”），所以页面参数叫 label。
 -->
 <#assign labelSize = (parameters['label'])!'big'>
-<#if labelSize != 'mid' && labelSize != 'small'><#assign labelSize = 'big'></#if>
+<#if labelSize != 'mid' && labelSize != 'small' && labelSize != 'strip'><#assign labelSize = 'big'></#if>
 <#if labelSize == 'small'>
     <#assign pageW = '15mm' pageH = '20mm' qrMm = '12mm'
+        qrSrc = '/mfg/control/outboundQr?outboundId=' + o.outboundId?url + '&amp;size=small'
+        qrText = (o.labelTextSmall)!''>
+<#elseif labelSize == 'strip'>
+    <#-- 长条（家用标签机常见的 15mm 胶带）：二维码在左，项目名在右，竖着排两行 -->
+    <#assign pageW = '50mm' pageH = '15mm' qrMm = '12mm'
         qrSrc = '/mfg/control/outboundQr?outboundId=' + o.outboundId?url + '&amp;size=small'
         qrText = (o.labelTextSmall)!''>
 <#elseif labelSize == 'mid'>
@@ -63,6 +68,13 @@
         .label.mid .name { font-size: 5pt; }
         /* 15 mm of tape leaves almost no width: a long word may break, the lines are shorter anyway */
         .label.small .name { font-size: 4.2pt; line-height: 1.15; overflow-wrap: anywhere; }
+        /* the strip a home label printer makes: code on the left, the name beside it */
+        .label.strip { flex-direction: row; align-items: center; gap: 1.2mm; padding: .6mm; }
+        .label.strip .qr { width: 12mm; height: 12mm; }
+        .label.strip .name {
+            width: auto; flex: 1 1 auto; text-align: left; font-size: 5pt; line-height: 1.25;
+            overflow-wrap: anywhere;
+        }
         .tools { text-align: center; margin: 4mm 0 8mm; font-size: 9pt; }
         .tools a, .tools button { font-size: 10pt; padding: 4px 10px; }
         .tools .current { font-weight: 700; color: #000; }
@@ -98,7 +110,8 @@
             尺寸：
             <#if labelSize == 'big'><span class="current">大 32×42（码 32mm）</span><#else><a href="?outboundId=${o.outboundId?url}&amp;label=big">大 32×42（码 32mm）</a></#if> ｜
             <#if labelSize == 'mid'><span class="current">中 20×26（码 16mm）</span><#else><a href="?outboundId=${o.outboundId?url}&amp;label=mid">中 20×26（码 16mm）</a></#if> ｜
-            <#if labelSize == 'small'><span class="current">小 15×20（码 12mm）</span><#else><a href="?outboundId=${o.outboundId?url}&amp;label=small">小 15×20（码 12mm）</a></#if>
+            <#if labelSize == 'small'><span class="current">小 15×20（码 12mm）</span><#else><a href="?outboundId=${o.outboundId?url}&amp;label=small">小 15×20（码 12mm）</a></#if> ｜
+            <#if labelSize == 'strip'><span class="current">长条 50×15（码 12mm）</span><#else><a href="?outboundId=${o.outboundId?url}&amp;label=strip">长条 50×15（码 12mm）</a></#if>
             <br/>三种尺寸都只印二维码 + 项目名（项目名在码下面居中，小号字，可以换几行）。码越小能装的字越少：
             大标签里是整份清单（名称 + 数量），中标签是单号 + 项目名 + 件数，小标签只有单号 + 件数；
             模块小于 0.3mm 手机就对不上，所以 12mm 已经到底了。
