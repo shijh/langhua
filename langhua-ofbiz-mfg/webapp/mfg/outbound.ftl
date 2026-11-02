@@ -86,8 +86,10 @@
         </#if>
         <#if outbound.issued>
             ｜ <a href="/mfg/control/stockMoves?search=${outbound.outboundId}">在库存流水里看这张单</a>
+        <#elseif outbound.cancelled>
+            ｜ <span class="hint">这张单已作废，从没动过货架，所以库存流水里没有它。</span>
         <#else>
-            ｜ <span class="hint">这张单还没出过库，流水里还没有它。</span>
+            ｜ <span class="hint">这张单还没出库，库存流水里还没有它；按这张单出库之后，这里会出现「在库存流水里看这张单」。</span>
         </#if>
     </p>
 </#if>

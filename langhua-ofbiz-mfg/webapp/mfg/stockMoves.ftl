@@ -81,6 +81,14 @@
     <a href="/mfg/control/stock">返回结存</a>
 </form>
 
+<#-- a keyword that is a document number: say what it is and how to open the document itself, so the
+     two pages point at each other instead of one bouncing into the other (Step 244) -->
+<#if ((lr.search)!'')?starts_with("OUT-")>
+    <p class="hint" id="ledgerDocument">搜的是出库单号：<a href="/mfg/control/outbound?outboundId=${lr.search?url}">打开出库单 ${lr.search}</a>（看这张单本身），下面才是它记的流水。</p>
+<#elseif ((lr.search)!'')?starts_with("PR-")>
+    <p class="hint" id="ledgerDocument">搜的是到货单号：<a href="/mfg/control/receipts?receiptId=${lr.search?url}">打开到货单 ${lr.search}</a>（看这张单本身），下面才是它记的流水。</p>
+</#if>
+
 <#if rows?has_content>
     <table id="ledgerTable">
         <tr>
@@ -112,9 +120,8 @@
     <@pg.pager action="/mfg/control/stockMoves" query=('search=' + ((lr.search)!'')?url + '&' + 'componentCode=' + ((lr.componentCode)!'')?url + '&' + 'lotId=' + ((lr.lotId)!'')?url + '&' + 'movementTypeId=' + typeId?url + '&' + 'reasonEnumId=' + reasonId?url)
     page=(lr.page)!1 pageCount=(lr.pageCount)!1 total=(lr.totalCount)!0 unit="条" pageSize=(lr.pageSize)!20/>
 <#else>
-    <p class="hint"><#if ((lr.search)!'') != ''>没有匹配「${lr.search}」的流水：换一个单号、料号或批次试试。<#if ((lr.search)!'')?starts_with("OUT-")>
-        这张出库单可能还没出库（草稿里还没有流水），<a href="/mfg/control/outbound?outboundId=${lr.search?url}">打开出库单 ${lr.search}</a> 看它要出哪些料。</#if><#if ((lr.search)!'')?starts_with("PR-")>
-        <a href="/mfg/control/receipts?receiptId=${lr.search?url}">打开到货单 ${lr.search}</a> 看它买了什么。</#if>
+    <p class="hint"><#if ((lr.search)!'') != ''>没有匹配「${lr.search}」的流水：换一个单号、料号或批次试试。
+        <#if ((lr.search)!'')?starts_with("OUT-") || ((lr.search)!'')?starts_with("PR-")>草稿、已作废的单本来就没有流水（单上的料从没动过货架）。</#if>
         <#else>没有符合条件的流水。入库（建批次）会自动记一笔到货；发料、退料、报废、盘点各记一笔，结存等于这些数之和。</#if></p>
 </#if>
 
