@@ -225,7 +225,7 @@ public final class MfgDevBomEvents {
         if (message == null) {
             return notFound(response);
         }
-        int pixels = "small".equals(size) ? 300 : ("mid".equals(size) ? 400 : 500);
+        int pixels = "small".equals(size) ? 250 : ("mid".equals(size) ? 300 : 400);
         Map<String, Object> context = new java.util.HashMap<>();
         context.put("message", message);
         // OFBiz's QR service takes at most 500 pixels; a smaller sticker gets a smaller image
@@ -290,9 +290,13 @@ public final class MfgDevBomEvents {
         if ("small".equals(size)) {
             return MfgDevBomServices.compactLabelTextOf(outboundId, lines.size(), totalQty);
         }
-        int maxBytes = "mid".equals(size) ? MfgDevBomServices.LABEL_BYTES_MID : MfgDevBomServices.MAX_LABEL_BYTES;
+        if ("mid".equals(size)) {
+            return MfgDevBomServices.shortLabelTextOf(outboundId,
+                    MfgDevBomServices.projectNameOf(delegator, head.getString("projectCode")),
+                    lines.size(), totalQty);
+        }
         return MfgDevBomServices.labelTextOf(outboundId, head.getString("projectCode"),
-                head.getString("bomVersion"), lines, maxBytes);
+                head.getString("bomVersion"), lines, MfgDevBomServices.MAX_LABEL_BYTES);
     }
 
     private static String notFound(HttpServletResponse response) {

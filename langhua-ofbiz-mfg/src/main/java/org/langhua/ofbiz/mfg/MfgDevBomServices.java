@@ -63,16 +63,17 @@ public final class MfgDevBomServices {
     static final int MAX_RECEIVER_LENGTH = 100;
 
     /**
-     * How many bytes of text the QR code of a label may carry: the code is printed 37 mm wide on the
-     * big sticker, and a longer text makes the modules too small for a phone camera to read.
+     * How many bytes of text the QR code of a label may carry: the code is printed 28 mm wide on the
+     * big sticker, and zxing picks the version from this - 300 bytes needs a version 11 code
+     * (61 modules plus a 4 module quiet zone on each side), so one module is 0.41 mm.
      */
-    static final int MAX_LABEL_BYTES = 900;
+    static final int MAX_LABEL_BYTES = 300;
 
     /**
-     * The same for the middle sticker (QR printed 22 mm): fewer parts fit, so the list is cut shorter
-     * before the modules become unreadable.
+     * The same for the middle sticker (QR printed 18 mm): the code says which document it is and how
+     * much is in the box, plus the name of the project - 100 bytes stay at 0.37 mm per module.
      */
-    static final int LABEL_BYTES_MID = 300;
+    static final int LABEL_BYTES_MID = 100;
 
     /**
      * The columns of an import that the pages and the row saves read. The file bytes are not among
@@ -1283,16 +1284,40 @@ public final class MfgDevBomServices {
             lines.add(item);
         }
         row.put("lines", lines);
+        row.put("projectName", projectNameOf(delegator, head.getString("projectCode")));
         row.put("labelText", labelTextOf(head.getString("outboundId"), head.getString("projectCode"),
                 head.getString("bomVersion"), lines));
-        row.put("labelTextMid", labelTextOf(head.getString("outboundId"), head.getString("projectCode"),
-                head.getString("bomVersion"), lines, LABEL_BYTES_MID));
         double totalQty = 0.0;
         for (Map<String, Object> line : lines) {
             totalQty += MfgSupport.numberOrZero(line.get("qty"));
         }
+        row.put("labelTextMid", shortLabelTextOf(head.getString("outboundId"),
+                MfgSupport.toText(row.get("projectName")), lines.size(), totalQty));
         row.put("labelTextSmall", compactLabelTextOf(head.getString("outboundId"), lines.size(), totalQty));
         return row;
+    }
+
+    /**
+     * What the development project of an outbound order is called, which is the one thing a sticker
+     * has room for besides the code.
+     *
+     * @param delegator the delegator
+     * @param projectCode the project the document was written for, may be {@code null}
+     * @return the name, the code when the project has none, empty when there is no project
+     */
+    static String projectNameOf(Delegator delegator, String projectCode) {
+        String code = MfgSupport.toText(projectCode);
+        if (code == null) {
+            return "";
+        }
+        try {
+            GenericValue project = EntityQuery.use(delegator).from("MfgDevProject")
+                    .where("projectCode", code).queryOne();
+            String name = project == null ? null : MfgSupport.toText(project.getString("projectName"));
+            return name == null ? code : name;
+        } catch (GenericEntityException e) {
+            return code;
+        }
     }
 
     /**
@@ -1412,9 +1437,11 @@ public final class MfgDevBomServices {
         }
         StringBuilder kept = new StringBuilder(head);
         int shown = 0;
+        // the line that sums up the rest has to be paid for as well, or the code grows past its cap
+        int budget = maxBytes - bytesOf(summary) - bytesOf("\n…另有 " + lines.size() + " 行");
         for (Map<String, Object> line : lines) {
             String one = "\n" + shortName(line, 16, false) + " x" + MfgSupport.formatQty(qtyOf(line));
-            if (bytesOf(kept.toString() + one) + bytesOf(summary) > maxBytes) {
+            if (bytesOf(kept.toString() + one) > budget) {
                 break;
             }
             kept.append(one);
@@ -1443,6 +1470,32 @@ public final class MfgDevBomServices {
         return (outboundId == null ? "" : outboundId) + "\n" + lineCount + "行/"
                 + MfgSupport.formatQty(totalQty) + "件";
     }
+
+    /**
+     * What the middle sticker carries: which document it is, the name of the project and how much is
+     * in the box - enough for a box lying on a workbench, short enough for an 18 mm code.
+     *
+     * @param outboundId the number of the document
+     * @param projectName the name of the development project, may be {@code null}
+     * @param lineCount how many part numbers the document lists
+     * @param totalQty how many units it asks for
+     * @return the text to encode, never {@code null}
+     */
+    static String shortLabelTextOf(String outboundId, String projectName, int lineCount, double totalQty) {
+        String name = MfgSupport.toText(projectName);
+        StringBuilder text = new StringBuilder(outboundId == null ? "" : outboundId);
+        if (name != null) {
+            String trimmed = name.trim();
+            // the name is the readable part of the sticker, so keep as much of it as the code allows
+            text.append('\n').append(trimmed.length() <= MAX_LABEL_NAME ? trimmed
+                    : trimmed.substring(0, MAX_LABEL_NAME) + "…");
+        }
+        return text.append('\n').append(lineCount).append("行/")
+                .append(MfgSupport.formatQty(totalQty)).append("件").toString();
+    }
+
+    /** How many characters of the project name fit a middle sticker. */
+    static final int MAX_LABEL_NAME = 20;
 
     /** One line per part: {@code name x qty}, numbered so the keeper can tick them off. */
     private static String listOf(String head, List<Map<String, Object>> lines, int width, boolean byName) {

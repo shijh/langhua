@@ -554,32 +554,56 @@ public class MfgDevBomRulesTest {
         }
         String text = MfgDevBomServices.labelTextOf("OUT-261101-01", "DEV-261031-04", "v94", lines);
         assertTrue(text.length() > 0);
-        assertTrue(text.getBytes(java.nio.charset.StandardCharsets.UTF_8).length <= 1400);
+        assertTrue(text.getBytes(java.nio.charset.StandardCharsets.UTF_8).length
+                <= MfgDevBomServices.MAX_LABEL_BYTES);
         // the summary always says how many lines and how many parts, even when the detail is cut
         assertTrue(text.contains("40 行 / 共 80 件"));
     }
 
     @Test
     public void cutsTheListShorterWhenTheStickerGetsSmaller() {
-        // a middle sticker prints the code 22 mm wide instead of 37 mm: the same list has to shrink
-        // with it, otherwise the modules get too small for a phone camera to read
+        // 300 bytes needs a version 11 code (61 modules plus the quiet zone), which prints 28 mm wide
+        // at 0.41 mm per module - a sticker that carries less text can be much smaller
         List<Map<String, Object>> lines = new ArrayList<>();
         for (int i = 0; i < 12; i++) {
             lines.add(line("Capacitor 0603 100NF 50V X7R", "C-" + i, 2.0));
         }
         String big = MfgDevBomServices.labelTextOf("OUT-261101-01", "DEV-261031-04", "v94", lines,
                 MfgDevBomServices.MAX_LABEL_BYTES);
-        String mid = MfgDevBomServices.labelTextOf("OUT-261101-01", "DEV-261031-04", "v94", lines,
+        String smaller = MfgDevBomServices.labelTextOf("OUT-261101-01", "DEV-261031-04", "v94", lines,
                 MfgDevBomServices.LABEL_BYTES_MID);
-        assertTrue(mid.getBytes(java.nio.charset.StandardCharsets.UTF_8).length
+        assertTrue(big.getBytes(java.nio.charset.StandardCharsets.UTF_8).length
+                <= MfgDevBomServices.MAX_LABEL_BYTES);
+        assertTrue(smaller.getBytes(java.nio.charset.StandardCharsets.UTF_8).length
                 <= MfgDevBomServices.LABEL_BYTES_MID);
-        assertTrue(mid.getBytes(java.nio.charset.StandardCharsets.UTF_8).length
+        assertTrue(smaller.getBytes(java.nio.charset.StandardCharsets.UTF_8).length
                 < big.getBytes(java.nio.charset.StandardCharsets.UTF_8).length);
         // whatever gets cut, the number of the document and the summary stay
-        assertTrue(mid.contains("OUT-261101-01"));
-        assertTrue(mid.contains("12 行 / 共 24 件"));
+        assertTrue(smaller.contains("OUT-261101-01"));
+        assertTrue(smaller.contains("12 行 / 共 24 件"));
         // and a list that fits is not announced as cut ("另有 0 行" would be a lie)
-        assertFalse(mid.contains("另有 0 行"));
+        assertFalse(smaller.contains("另有 0 行"));
+    }
+
+    @Test
+    public void addsTheProjectNameToTheMiddleSticker() {
+        // every sticker prints the same two things - the code and the project - so the middle code
+        // carries the number, the project and the counts, and nothing else
+        String text = MfgDevBomServices.shortLabelTextOf("OUT-261101-01", "NFC 门锁控制板", 13, 16.0);
+        assertTrue(text.startsWith("OUT-261101-01"));
+        assertTrue(text.contains("NFC 门锁控制板"));
+        assertTrue(text.contains("13行/16件"));
+        assertFalse(text.contains("http"));
+        assertTrue(text.getBytes(java.nio.charset.StandardCharsets.UTF_8).length
+                <= MfgDevBomServices.LABEL_BYTES_MID);
+        // a name longer than the code can hold is cut, not dropped
+        String longName = MfgDevBomServices.shortLabelTextOf("OUT-1",
+                "一个名字特别特别长的开发项目名称用来测试截断", 2, 3.0);
+        assertTrue(longName.contains("…"));
+        assertTrue(longName.getBytes(java.nio.charset.StandardCharsets.UTF_8).length
+                <= MfgDevBomServices.LABEL_BYTES_MID);
+        // a project without a name still gives a code that says which document it is
+        assertTrue(MfgDevBomServices.shortLabelTextOf("OUT-1", null, 1, 1.0).contains("OUT-1"));
     }
 
     @Test

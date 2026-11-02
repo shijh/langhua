@@ -2587,6 +2587,30 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   `check-prod-237.ps1` 24 项、单测 **253**（新增 `cutsTheListShorterWhenTheStickerGetsSmaller` /
   `writesOnlyTheNumberAndTheCountsOnAVerySmallSticker`）。
 
+- **标签只印「二维码 + 项目名」，尺寸再往下压一档（Step 251）**：用户要“大中小的打印内容都改为二维码+项目名，
+  看看尺寸能到多少”。所以标签上的单号、BOM 版本、行数、件数、盒数、状态**全部撤掉**，只剩左边二维码、
+  右边项目名（`MfgDevProject.projectName`，`projectNameOf` 取；没有就用项目号）。纸于是缩到：
+
+  | 尺寸 | 纸 | 二维码 | 码里的内容（跟着变小） | 每模块 |
+  | --- | --- | --- | --- | --- |
+  | `big`（默认） | 60×30mm | 28mm | 整份清单（名称 + 数量，上限 `MAX_LABEL_BYTES` = 300 字节 → v11，69 模块） | 0.41mm |
+  | `mid` | 30×20mm | 16mm | 单号 + 项目名 + `N行/M件`（`shortLabelTextOf`，43 字节 → v3，37 模块） | 0.43mm |
+  | `small` | 15×18mm | 12mm | 只有 `OUT-…` + `N行/M件`（`compactLabelTextOf`，25 字节 → v2，33 模块） | 0.36mm |
+
+  **下限定在哪由模块尺度决定**：OFBiz 的 `generateQRCodeImage` 调 zxing，不传纠错等级（默认 **L**）、
+  静区 **4 个模块**，所以 模块总数 = (4×版本+17) + 8；手机相机大约到 **0.3mm/模块** 就是极限
+  （0.4mm 很稳）。所以 25 字节的小码 12mm 还能扫、10mm 已是底线；900 字节的清单要 38mm 才不糊
+  （这就是 Step 250 那张大标签为什么缩不下去）。**要更小只能减字数**，减纸是不可能的。
+  模板里 `data-label-qr-mm` 把二维码的毫米数写出来给巡检断言；`label=big|mid|small` 是页面参数
+  （`size` 在 FreeMarker 里撞 Map 的 `size()`，见 Step 250）。
+  **顺手修的**：清单截断时原来只给「…另有 N 行」留了半格预算，实际会把码撑过上限（300 字节的码写成
+  313 → 版本跳到 v14、印出来更密）；现在 `budget = maxBytes − summary − 最长的「另有」行`，
+  单测按 `MAX_LABEL_BYTES` 断言而不再是写死的 1400。
+  验法：单测 **254**（`addsTheProjectNameToTheMiddleSticker` 覆盖项目名、超长截断、没有项目名三种）、
+  `check-outbound-pack.ps1` **40 项**（三种纸的尺寸与二维码毫米数、中码里有项目名、小码只有单号与件数）、
+  `verify-outbound-page.ps1` 22、`smoke-dev-pages.ps1` 28、`check-prod-237.ps1` 24 全过。
+  量二维码模块数的脚本在 `F:\build-ofbiz\probe251\measure3.ps1`（打开发实例，解 PNG 算模块宽度）。
+
 - **测试数据把开发库灌满了：清一次，并让 IT 打测试实例（Step 239）**：几个月下来开发库里
   **383 个开发项目**、268 个型号、728 个工单、3959 个批次、13192 条流水、1152 张到货单，几乎全是
   `mfg-it.bat` 与 `verify-m*.ps1` 造出来的（IT 每跑一次就建 4 个项目 + 2 个型号 + 一堆单据）。
