@@ -12,16 +12,27 @@ patch sketch.
 
 Line numbers are from 24.09.07 and may drift; the code excerpts are the authority.
 
-| # | Severity | Where | Effect |
-| --- | --- | --- | --- |
-| QR-1 | high | `services_qrcode.xml:36` vs `QRCodeServices.java:82,126` | the `logoImage` input cannot be used at all |
-| QR-2 | high | `QRCodeServices.java:186–197` | `verifyOutput` returns **success** for an image that no decoder can read |
-| QR-3 | medium | `QRCodeServices.java:118–120` | error-correction level is fixed at L, so a logo can make a code unscannable with no way out |
-| QR-4 | medium | `QRCodeServices.java:151–171` | the logo is drawn at its native pixel size; a big default logo can eat a small code |
-| QR-5 | low | `qrcode.properties:26` vs `QRCodeServices.java:107` | the configured format list is ignored (key typo, works only thanks to the default) |
-| QR-6 | low | `QRCodeServices.java:91,98` | `width` and `height` default independently, so one of them silently gives a 200 px side |
-| QR-7 | low | `QRCodeServices.java:166–169` | a transparent logo is drawn straight onto the modules (no white matte) |
-| QR-8 | nit | `QRCodeServices.java:167` | `AffineTransformOp` is misused as the `drawImage` op, shifting the logo by one pixel |
+## Where this code came from
+
+The service is the descendant of the standalone **`langhua-ofbiz-zxing`** component (package
+`org.ofbiz.zxing`, zxing 1.7 in `lib/`, `servicedef/services.xml` with five attributes: `message`,
+`format`, `height`, `width`, `bufferedImage`). When it went into the framework it kept the service name
+`generateQRCodeImage` and the same `ZXingUiLabels`, moved to `org.apache.ofbiz.common.qrcode`, and later
+gained `encoding`, `verifyOutput` and the logo handling.
+
+That matters for a pull request: **QR-5 and QR-6 are inherited from the original component**, the other six
+were introduced when the logo and `verifyOutput` were added to the framework copy.
+
+| # | Severity | Origin | Where | Effect |
+| --- | --- | --- | --- | --- |
+| QR-1 | high | framework | `services_qrcode.xml:36` vs `QRCodeServices.java:82,126` | the `logoImage` input cannot be used at all |
+| QR-2 | high | framework | `QRCodeServices.java:186–197` | `verifyOutput` returns **success** for an image that no decoder can read |
+| QR-3 | medium | both | `QRCodeServices.java:118–120` | error-correction level is fixed at L, so a logo can make a code unscannable with no way out |
+| QR-4 | medium | framework | `QRCodeServices.java:151–171` | the logo is drawn at its native pixel size; a big default logo can eat a small code |
+| QR-5 | low | both | `qrcode.properties:26` vs `QRCodeServices.java:107` | the configured format list is ignored (key typo, works only thanks to the default) |
+| QR-6 | low | both | `QRCodeServices.java:91,98` | `width` and `height` default independently, so one of them silently gives a 200 px side |
+| QR-7 | low | framework | `QRCodeServices.java:166–169` | a transparent logo is drawn straight onto the modules (no white matte) |
+| QR-8 | nit | framework | `QRCodeServices.java:167` | `AffineTransformOp` is misused as the `drawImage` op, shifting the logo by one pixel |
 
 ---
 
@@ -205,6 +216,10 @@ String qrCodeFormatSupported = EntityUtilProperties.getPropertyValue("qrcode", "
 default is the same string, but an operator who edits the property gets no effect (and would file a bug
 like this one).
 
+**Inherited**: the original component has the same slip - `config/zxing.properties` declares
+`zxing.services.qrcode.**formats**.supported = jpg|png` while the class reads
+`zxing.services.qrcode.format.supported`.
+
 **Patch**: pick one spelling — renaming the property to `qrcode.format.supported` is the smaller change,
 since the code already uses it in three places.
 
@@ -221,6 +236,8 @@ A caller that asks for `width=300` and nothing else does not get a 300 px code: 
 zxing fits it into the 300 × 200 canvas and the image comes back with white bars down the sides. The code
 itself is 200 px, i.e. what the caller did *not* ask for. **Expected**: the missing side follows the given
 one.
+
+**Inherited**: the original component defaults the two sides the same way.
 
 ---
 
