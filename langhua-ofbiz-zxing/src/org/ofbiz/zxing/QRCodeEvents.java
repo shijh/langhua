@@ -94,6 +94,15 @@ public class QRCodeEvents {
                 	context.put("width", Integer.parseInt(height));
             	}
             }
+            // optional: the text encoding and the error correction level (L / M / Q / H)
+            String encoding = (String) parameters.get("encoding");
+            if (UtilValidate.isNotEmpty(encoding)) {
+            	context.put("encoding", encoding);
+            }
+            String errorCorrectionLevel = (String) parameters.get("errorCorrectionLevel");
+            if (UtilValidate.isNotEmpty(errorCorrectionLevel)) {
+            	context.put("errorCorrectionLevel", errorCorrectionLevel);
+            }
             Map<String, Object> results = dispatcher.runSync("generateQRCodeImage", context);
             if (!ServiceUtil.isError(results)) {
                 BufferedImage bufferedImage = (BufferedImage) results.get("bufferedImage");

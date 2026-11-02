@@ -13,6 +13,8 @@
         <attribute name="format" type="String" mode="IN" optional="true"/>
         <attribute name="height" type="Integer" mode="IN" optional="true"/>
         <attribute name="width" type="Integer" mode="IN" optional="true"/>
+        <attribute name="encoding" type="String" mode="IN" optional="true"/>
+        <attribute name="errorCorrectionLevel" type="String" mode="IN" optional="true"/>
         <attribute name="bufferedImage" type="java.awt.image.BufferedImage" mode="OUT" optional="true"/>
 	</service>
 </services>

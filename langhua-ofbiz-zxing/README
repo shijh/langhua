@@ -35,3 +35,21 @@ Usage:
 5. Note: when deploying, all the formats must be tested.
 
 6. Note: when deploying, you should consider whether to disable the /zxing/control/qrcode request (i.e. use the image files output to disk instead).
+
+Optional inputs of generateQRCodeImage (and of the /qrcode request):
+
+* encoding - the text encoding used to encode the message. Defaults to
+  zxing.services.qrcode.default.encoding (UTF-8). Without it zxing encodes as ISO-8859-1,
+  which turns a Chinese message into question marks.
+* errorCorrectionLevel - L (default), M, Q or H. The level decides how much of the code may be
+  damaged and still read: L about 7%, H about 30%. Ask for H when you draw a logo on top of the
+  code; the default is set by zxing.services.qrcode.error.correction.level.
+
+Width and height are the size of the **image**, not of the symbol. A QR code's module matrix is always
+square and zxing centres it in the image, so 300 x 100 gives a 75 x 75 code with white bars down the
+sides; a rectangular size is fine for a label strip, and both sides default to the values in
+config/zxing.properties.
+
+Settings live in config/zxing.properties; the supported formats are read from
+zxing.services.qrcode.formats.supported (the key used to be spelled "format" in the code, so the
+configured list had no effect).

@@ -20,6 +20,7 @@ package org.ofbiz.zxing;
 
 import java.awt.image.BufferedImage;
 import java.util.Arrays;
+import java.util.Hashtable;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -31,9 +32,11 @@ import org.ofbiz.service.DispatchContext;
 import org.ofbiz.service.ServiceUtil;
 
 import com.google.zxing.BarcodeFormat;
+import com.google.zxing.EncodeHintType;
 import com.google.zxing.MultiFormatWriter;
 import com.google.zxing.WriterException;
 import com.google.zxing.common.BitMatrix;
+import com.google.zxing.qrcode.decoder.ErrorCorrectionLevel;
 
 import freemarker.template.utility.StringUtil;
 
@@ -63,9 +66,22 @@ public class QRCodeServices {
 			.getPropertyValue("zxing.properties",
 					"zxing.services.qrcode.default.format", "jpg");
 
+	// the key is "formats" in zxing.properties: reading "format" silently ignored the configured list
 	public static final String ZXING_SERVICES_QRCODE_FORMAT_SUPPORTED = UtilProperties
 			.getPropertyValue("zxing.properties",
-					"zxing.services.qrcode.format.supported", "jpg|png");
+					"zxing.services.qrcode.formats.supported", UtilProperties
+							.getPropertyValue("zxing.properties",
+									"zxing.services.qrcode.format.supported", "jpg|png"));
+
+	/** L (about 7% of the code may be damaged) unless the caller asks for M, Q or H. */
+	public static final String ZXING_SERVICES_QRCODE_ERROR_CORRECTION_LEVEL = UtilProperties
+			.getPropertyValue("zxing.properties",
+					"zxing.services.qrcode.error.correction.level", "L");
+
+	/** Without this zxing encodes the message as ISO-8859-1, which mangles Chinese labels. */
+	public static final String ZXING_SERVICES_QRCODE_DEFAULT_ENCODING = UtilProperties
+			.getPropertyValue("zxing.properties",
+					"zxing.services.qrcode.default.encoding", "UTF-8");
 	
 	public static final String[] FORMAT_NAMES = StringUtil.split(ZXING_SERVICES_QRCODE_FORMAT_SUPPORTED, '|');
 	
@@ -87,6 +103,9 @@ public class QRCodeServices {
 		Integer width = (Integer) context.get("width");
 		Integer height = (Integer) context.get("height");
 		String format = (String) context.get("format");
+		String encoding = (String) context.get("encoding");
+		String errorCorrectionLevel = (String) context
+				.get("errorCorrectionLevel");
 
 		if (UtilValidate.isEmpty(message)) {
 			if (ZXING_SERVICES_TEST_STATUS.equalsIgnoreCase("true")) {
@@ -97,6 +116,8 @@ public class QRCodeServices {
 						new Object[] { "message" }, locale));
 			}
 		}
+		// width and height size the *image*, not the symbol: a QR code's module matrix is always
+		// square, and zxing centres it, so 300 x 100 gives a 75 x 75 code with white bars at the sides.
 		if (width == null) {
 			width = Integer.parseInt(ZXING_SERVICES_QRCODE_DEFAULT_WIDTH);
 		}
@@ -132,9 +153,25 @@ public class QRCodeServices {
 							new Object[] { format }, locale));
 		}
 
+		ErrorCorrectionLevel level;
 		try {
+			level = errorCorrectionLevelOf(errorCorrectionLevel);
+		} catch (IllegalArgumentException e) {
+			return ServiceUtil.returnError("Unknown error correction level ["
+					+ errorCorrectionLevel + "]: use L, M, Q or H");
+		}
+
+		try {
+			// zxing 1.x takes a Hashtable of EncodeHintType here, not a Map
+			Hashtable<EncodeHintType, Object> hints = new Hashtable<EncodeHintType, Object>();
+			hints.put(EncodeHintType.ERROR_CORRECTION, level);
+			String charset = UtilValidate.isEmpty(encoding) ? ZXING_SERVICES_QRCODE_DEFAULT_ENCODING
+					: encoding;
+			if (UtilValidate.isNotEmpty(charset)) {
+				hints.put(EncodeHintType.CHARACTER_SET, charset);
+			}
 			BitMatrix bitMatrix = new MultiFormatWriter().encode(message,
-					BarcodeFormat.QR_CODE, width, height);
+					BarcodeFormat.QR_CODE, width, height, hints);
 			BufferedImage bufferedImage = toBufferedImage(bitMatrix, format);
 			Map<String, Object> result = ServiceUtil.returnSuccess();
 			result.put("bufferedImage", bufferedImage);
@@ -144,6 +181,32 @@ public class QRCodeServices {
 					"ZXingUiLabels", "ErrorGenerateQRCode",
 					new Object[] { e.getMessage() }, locale));
 		}
+	}
+
+	/**
+	 * Turns L / M / Q / H (any case) into the zxing level. An empty value takes the configured
+	 * default; anything else is refused, so a typo is not silently corrected to L.
+	 *
+	 * @param name the level asked for, may be {@code null} or empty
+	 * @return the level to encode with
+	 * @throws IllegalArgumentException when the name is not one of the four levels
+	 */
+	private static ErrorCorrectionLevel errorCorrectionLevelOf(String name) {
+		String wanted = UtilValidate.isEmpty(name) ? ZXING_SERVICES_QRCODE_ERROR_CORRECTION_LEVEL
+				: name.trim();
+		if ("L".equalsIgnoreCase(wanted)) {
+			return ErrorCorrectionLevel.L;
+		}
+		if ("M".equalsIgnoreCase(wanted)) {
+			return ErrorCorrectionLevel.M;
+		}
+		if ("Q".equalsIgnoreCase(wanted)) {
+			return ErrorCorrectionLevel.Q;
+		}
+		if ("H".equalsIgnoreCase(wanted)) {
+			return ErrorCorrectionLevel.H;
+		}
+		throw new IllegalArgumentException(wanted);
 	}
 
 	/**
