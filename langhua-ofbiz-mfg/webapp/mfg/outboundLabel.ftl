@@ -22,7 +22,7 @@
   size() 方法（比较时会报 “Left hand operand is a method+sequence”），所以页面参数叫 label。
 -->
 <#assign labelSize = (parameters['label'])!'big'>
-<#if labelSize != 'mid' && labelSize != 'small' && labelSize != 'strip'><#assign labelSize = 'big'></#if>
+<#if labelSize != 'mid' && labelSize != 'small' && labelSize != 'strip' && labelSize != 'strip417'><#assign labelSize = 'big'></#if>
 <#if labelSize == 'small'>
     <#assign pageW = '15mm' pageH = '20mm' qrMm = '12mm'
         qrSrc = '/mfg/control/outboundQr?outboundId=' + o.outboundId?url + '&amp;size=small'
@@ -32,6 +32,12 @@
     <#assign pageW = '50mm' pageH = '15mm' qrMm = '12mm'
         qrSrc = '/mfg/control/outboundQr?outboundId=' + o.outboundId?url + '&amp;size=small'
         qrText = (o.labelTextSmall)!''>
+<#elseif labelSize == 'strip417'>
+    <#-- 同一条 15mm 胶带，但码换成 PDF417：堆叠行天生适合长条，能多装好几倍的文字。
+         码占 58×13mm（60mm 长的纸），项目名小字压在码下面。 -->
+    <#assign pageW = '60mm' pageH = '15mm' qrMm = '58mm'
+        qrSrc = '/mfg/control/outboundPdf417?outboundId=' + o.outboundId?url
+        qrText = (o.labelTextSheet)!''>
 <#elseif labelSize == 'mid'>
     <#assign pageW = '20mm' pageH = '26mm' qrMm = '16mm'
         qrSrc = '/mfg/control/outboundQr?outboundId=' + o.outboundId?url + '&amp;size=mid'
@@ -75,6 +81,15 @@
             width: auto; flex: 1 1 auto; text-align: left; font-size: 5pt; line-height: 1.25;
             overflow-wrap: anywhere;
         }
+        /* the same tape with a PDF417: a stacked code holds several times the text, so it takes
+           58 x 13 mm of a 60 mm long label - two dots per module on a 203 dpi label printer */
+        .label.strip417 { flex-direction: column; align-items: center; gap: .4mm; padding: .4mm; }
+        .label.strip417 .qr { width: 58mm; height: 13mm; }
+        .label.strip417 .qr img { width: 58mm; height: 13mm; }
+        .label.strip417 .name {
+            width: 58mm; font-size: 3pt; line-height: 1.1; text-align: center;
+            overflow-wrap: anywhere;
+        }
         .tools { text-align: center; margin: 4mm 0 8mm; font-size: 9pt; }
         .tools a, .tools button { font-size: 10pt; padding: 4px 10px; }
         .tools .current { font-weight: 700; color: #000; }
@@ -111,7 +126,8 @@
             <#if labelSize == 'big'><span class="current">大 32×42（码 32mm）</span><#else><a href="?outboundId=${o.outboundId?url}&amp;label=big">大 32×42（码 32mm）</a></#if> ｜
             <#if labelSize == 'mid'><span class="current">中 20×26（码 16mm）</span><#else><a href="?outboundId=${o.outboundId?url}&amp;label=mid">中 20×26（码 16mm）</a></#if> ｜
             <#if labelSize == 'small'><span class="current">小 15×20（码 12mm）</span><#else><a href="?outboundId=${o.outboundId?url}&amp;label=small">小 15×20（码 12mm）</a></#if> ｜
-            <#if labelSize == 'strip'><span class="current">长条 50×15（码 12mm）</span><#else><a href="?outboundId=${o.outboundId?url}&amp;label=strip">长条 50×15（码 12mm）</a></#if>
+            <#if labelSize == 'strip'><span class="current">长条 50×15（码 12mm）</span><#else><a href="?outboundId=${o.outboundId?url}&amp;label=strip">长条 50×15（码 12mm）</a></#if> ｜
+            <#if labelSize == 'strip417'><span class="current">长条 60×15（PDF417）</span><#else><a href="?outboundId=${o.outboundId?url}&amp;label=strip417">长条 60×15（PDF417）</a></#if>
             <br/>三种尺寸都只印二维码 + 项目名（项目名在码下面居中，小号字，可以换几行）。码越小能装的字越少：
             大标签里是整份清单（名称 + 数量），中标签是单号 + 项目名 + 件数，小标签只有单号 + 件数；
             模块小于 0.3mm 手机就对不上，所以 12mm 已经到底了。

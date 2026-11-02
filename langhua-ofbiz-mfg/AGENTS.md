@@ -2597,6 +2597,7 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   | `mid` | 20×26mm | 16mm（名字 5pt） | 单号 + 项目名 + `N行/M件`（`shortLabelTextOf`，43 字节 → v3，37 模块） | 0.43mm |
   | `small` | 15×20mm | 12mm（名字 4.2pt） | 只有 `OUT-…` + `N行/M件`（`compactLabelTextOf`，25 字节 → v2，33 模块） | 0.36mm |
   | `strip` | 50×15mm | 12mm（名字 5pt，在码右边） | 同上（项目名已经印在纸上，码里不重复） | 0.36mm |
+  | `strip417` | 60×15mm | PDF417 58×13mm（名字 3pt 在码下面） | 清单的**前几行**（`LABEL_BYTES_SHEET` = 200 字节，13 行那张单印出 6 行 + 合计，见 Step 259） | 0.22×0.19mm |
 
   **`strip` 是“横排长条”**（家用标签机 15mm 胶带的常见形状）：二维码在左、项目名在右。
   **它不是长方形码**：QR 的模块矩阵永远是正方形（21×21…177×177，长方的是另一种标准 rMQR，手机系统相机与
@@ -2659,6 +2660,40 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
     **`width`/`height` 那条不是 bug**：二维码符号永远是正方形（21×21…177×177，长方的是另一种标准 rMQR），
     zxing 把它居中画进给定画布——实测 300×100 得到 75×75 的码 + 两侧白边（`F:\build-ofbiz\qrshape\QrShape.java`），
     值得提的只是“服务说明里没写清楚”。**这份文档里逐条写了 file:line、复现、期望和 patch 草稿**，改这块前先看它。
+
+- **长条那一档换成 PDF417（Step 259）**：用户问“家用精臣的标签打印机打的就是长条标签，这个能用 zxing 实现吗”“PDF417
+  能放大段文字吗”——15mm 胶带上是 50×15 的横条，而 QR 的模块矩阵**永远是正方形**，所以方码只能占 12mm 见方
+  （43 字节）；PDF417 是**堆叠条码**（一排排窄条摞起来），天生就是长条形状。于是 `label=strip417` 那一档：
+  **纸 60×15mm、码 58×13mm、项目名 3pt 压在码下面**，码里的文字是 `labelTextSheet`
+  （`LABEL_BYTES_SHEET = 200` 字节：单号 + 项目 + 版本 + 若干明细行 + `N 行 / 共 M 件`）。
+  - **能装多少由模块尺度定，不由“PDF417 号称 1850 字符”定**：一个码字要 **17 个模块宽 + 3 个模块高的行**，
+    203 dpi 的家用热敏机一个点 0.125mm，**两个点 = 0.25mm** 才算干净（一个点印不出来）。所以 58×13mm 的纸上
+    最多 ~240×52 个模块。实测（`F:\build-ofbiz\probe259\Sheet259c.java`，把 `width/height` 传 1×1 就得到
+    zxing 的**原始模块数**，传大画布它只会整数放大）：
+    66 字节 → 175 列×48 高；94 → 209×48；164 → 243×64；206 → 260×68；262 → 294×72。
+    折到 58×13mm 上就是 0.22×0.19mm（200 字节档，约 1.8 个点）。**再长就挤到两个点以下**，所以别把
+    `LABEL_BYTES_SHEET` 往大写；也不要指望它装下 13 行整清单——那张单实际印出 **6 行明细 + 合计**
+    （120 字节那版只有 2 行），整份清单仍要看 32×42 的大二维码。
+  - **zxing 就在 `ofbiz.jar` 里**（OFBiz 把 `com.google.zxing.core` shade 进了 jar），所以 `MfgDevBomEvents`
+    直接 `import com.google.zxing.*` 能编能跑，**插件 `build.gradle` 依旧没有第三方依赖**。
+    **坑：这个版本的常量叫 `BarcodeFormat.PDF_417`**（不是 `PDF417`），写成后者报“找不到符号 PDF417”。
+    也没有 `EncodeHintType.ASPECT_RATIO`，`PDF417_DIMENSIONS` 基本不生效——形状由文字长度和请求的画布比决定。
+  - `pdf417Of(message, wide, high)` 用 `PDF417Writer`（EC 等级 3、`MARGIN` 2、UTF-8），把 `BitMatrix`
+    画成**纯黑纯白**的 `TYPE_INT_RGB`（灰像素印出来是糊的），画布 **1040×272**（≈4 px/模块）。
+    事件是 `MfgDevBomEvents.pdf417`（`/mfg/control/outboundPdf417`，`controller.xml` 里 `auth="true"`），
+    和其它码一样 `Cache-Control: no-store`。
+  - **单测会把它解回来**：`drawsAStackedCodeThatFitsALongStrip` 画完用 `PDF417Reader` + `RGBLuminanceSource`
+    解码，断言拿到的文字与原文一字不差——所以“服务回了 PNG”就等于“码里是这段文字”，
+    不必像 QR 那条只能靠日志数 `ChecksumException`。
+  - **微信扫一扫不一定认 PDF417**，手机自带相机 / 专门的扫码 App / ML Kit 能读；页面上就这么写，别写打印机品牌。
+  - 量尺寸的脚本：`F:\build-ofbiz\measure-sheet.ps1`（拉 dev 上 13 行那单的码 + 读 `data-qr-text`）、
+    `measure-runs.ps1`（数像素跑长求模块宽度——**别忘了它是按你说的毫米数换算的**，第一版把 58mm 写成 32mm，
+    得出“0.062mm”吓了一跳）。肉眼看版面：`F:\build-ofbiz\label259\preview.html` 用 Edge headless
+    `--force-device-scale-factor=8` 拍一张 `preview.png`。
+  - 验法：单测 **256**、`check-outbound-pack.ps1` **55 项**（多了 12 项：60×15 的纸、58mm 的码、
+    `outboundPdf417` 的来源、码里比小长条多、有编号明细、PNG 魔数 + 宽大于高）、
+    `verify-outbound-page.ps1` 22、`verify-outbounds.ps1` 13、`smoke-dev-pages.ps1` 28、
+    `check-prod-237.ps1` **25**（多一条 `javap` 确认 jar 里有 `pdf417`）。三套实例已发版。
 
 - **测试数据把开发库灌满了：清一次，并让 IT 打测试实例（Step 239）**：几个月下来开发库里
   **383 个开发项目**、268 个型号、728 个工单、3959 个批次、13192 条流水、1152 张到货单，几乎全是

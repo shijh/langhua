@@ -59,6 +59,16 @@ public final class MfgDevBomEvents {
      */
     static final String QR_LOGO = "component://mfg/webapp/mfg/images/logo-qr.png";
 
+    /**
+     * The PDF417 of the long strip is drawn four times the module size the strip prints at: 200
+     * bytes come out as about 260 columns by 68 module heights, so 1040 by 272 pixels keeps four
+     * pixels to a module and the label page scales it back down to 58 x 13 mm.
+     */
+    static final int PDF417_PIXELS_WIDE = 1040;
+
+    /** The same barcode's height in pixels: a stacked code needs rows, not a square. */
+    static final int PDF417_PIXELS_HIGH = 272;
+
     /** The setting is corrected once per JVM; asking again on every sticker would cost a query. */
     private static final java.util.concurrent.atomic.AtomicBoolean QR_LOGO_READY =
             new java.util.concurrent.atomic.AtomicBoolean(false);
@@ -302,6 +312,84 @@ public final class MfgDevBomEvents {
     }
 
     /**
+     * Draws the PDF417 of one outbound document for its long strip.
+     *
+     * <p>A QR code is square, so on a 50 x 15 mm label it either has to be tiny or leaves the tape
+     * half empty. PDF417 is a stacked barcode: it is made of rows, so it fits that shape and holds
+     * more text (about 150-200 characters at 0.3 mm modules) than the 12 mm code of the small sticker.
+     * Phone apps read it - ML Kit and the iOS Vision framework both list PDF417 - but not every
+     * scanner in a chat app does, which is why the QR stickers stay as they are.
+     *
+     * <p>The barcode is drawn here rather than by {@code generateQRCodeImage}: that service only makes
+     * QR codes. zxing comes with OFBiz (3.5.x), so nothing new is shipped for it.
+     *
+     * @param request the request, holding {@code outboundId}
+     * @param response the response, receives the PNG
+     * @return {@code success} when the image was written
+     */
+    public static String pdf417(HttpServletRequest request, HttpServletResponse response) {
+        org.apache.ofbiz.entity.Delegator delegator =
+                (org.apache.ofbiz.entity.Delegator) request.getAttribute("delegator");
+        String outboundId = text(request.getParameter("outboundId"));
+        if (delegator == null || outboundId == null) {
+            return notFound(response);
+        }
+        String message;
+        try {
+            message = labelTextOf(delegator, outboundId, "sheet");
+        } catch (org.apache.ofbiz.entity.GenericEntityException e) {
+            Debug.logError(e, "Could not read the picking list of " + outboundId, MODULE);
+            return notFound(response);
+        }
+        if (message == null) {
+            return notFound(response);
+        }
+        try {
+            java.awt.image.BufferedImage image = pdf417Of(message, PDF417_PIXELS_WIDE, PDF417_PIXELS_HIGH);
+            java.io.ByteArrayOutputStream bytes = new java.io.ByteArrayOutputStream();
+            javax.imageio.ImageIO.write(image, "png", bytes);
+            response.setContentType("image/png");
+            response.setContentLength(bytes.size());
+            response.setHeader("Cache-Control", "no-store");
+            OutputStream out = response.getOutputStream();
+            out.write(bytes.toByteArray());
+            out.flush();
+            return "success";
+        } catch (com.google.zxing.WriterException | IOException e) {
+            Debug.logError(e, "Could not draw the PDF417 of " + outboundId, MODULE);
+            return notFound(response);
+        }
+    }
+
+    /**
+     * Encodes the text as a PDF417 and paints it black on white.
+     *
+     * @param message the text to encode
+     * @param wide the image width in pixels
+     * @param high the image height in pixels
+     * @return the image
+     * @throws com.google.zxing.WriterException when zxing cannot fit the text in that shape
+     */
+    static java.awt.image.BufferedImage pdf417Of(String message, int wide, int high)
+            throws com.google.zxing.WriterException {
+        Map<com.google.zxing.EncodeHintType, Object> hints = new java.util.HashMap<>();
+        hints.put(com.google.zxing.EncodeHintType.CHARACTER_SET, "UTF-8");
+        // level 3 of 0..8: about a quarter of the codewords may be damaged, which suits a paper sticker
+        hints.put(com.google.zxing.EncodeHintType.ERROR_CORRECTION, Integer.valueOf(3));
+        hints.put(com.google.zxing.EncodeHintType.MARGIN, Integer.valueOf(2));
+        com.google.zxing.common.BitMatrix matrix = new com.google.zxing.pdf417.PDF417Writer()
+                .encode(message, com.google.zxing.BarcodeFormat.PDF_417, wide, high, hints);
+        java.awt.image.BufferedImage image = new java.awt.image.BufferedImage(matrix.getWidth(),
+                matrix.getHeight(), java.awt.image.BufferedImage.TYPE_INT_RGB);
+        for (int y = 0; y < matrix.getHeight(); y++) {
+            for (int x = 0; x < matrix.getWidth(); x++) {
+                image.setRGB(x, y, matrix.get(x, y) ? 0xFF000000 : 0xFFFFFFFF);
+            }
+        }
+        return image;
+    }
+
+    /**
      * The text the QR code of one document carries, read the same way the label page reads it, so the
      * code and the page can never say different things.
      *
@@ -331,6 +419,11 @@ public final class MfgDevBomEvents {
         }
         if ("small".equals(size)) {
             return MfgDevBomServices.compactLabelTextOf(outboundId, lines.size(), totalQty);
+        }
+        if ("sheet".equals(size)) {
+            // the long strip carries a PDF417, which holds more than any of the QR stickers
+            return MfgDevBomServices.labelTextOf(outboundId, head.getString("projectCode"),
+                    head.getString("bomVersion"), lines, MfgDevBomServices.LABEL_BYTES_SHEET);
         }
         if ("mid".equals(size)) {
             return MfgDevBomServices.shortLabelTextOf(outboundId,

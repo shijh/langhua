@@ -1041,6 +1041,15 @@
         <response name="error" type="none"/>
     </request-map>
 
+    <!-- the PDF417 on the long strip: a stacked barcode fits a 50 x 15 mm label and holds a few
+         lines of text, which a square QR cannot do on that shape -->
+    <request-map uri="outboundPdf417">
+        <security https="true" auth="true"/>
+        <event type="java" path="org.langhua.ofbiz.mfg.MfgDevBomEvents" invoke="pdf417"/>
+        <response name="success" type="none"/>
+        <response name="error" type="none"/>
+    </request-map>
+
     <!-- what the phone sees when it scans the sticker: no login, the key in the address is the
          guard, so counting the numbers up does not open other boxes -->
     <request-map uri="outboundCheck">

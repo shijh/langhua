@@ -619,6 +619,76 @@ public class MfgDevBomRulesTest {
         assertTrue(MfgDevBomServices.compactLabelTextOf("OUT-1", 1, 2.5).contains("1行/2.5件"));
     }
 
+    @Test
+    public void writesMoreOfTheListIntoTheSheetBarcode() throws Exception {
+        // A PDF417 holds far more than a QR of the same width, so the strip carries the list with the
+        // names of the parts, not just the counts the small code is limited to.
+        List<Map<String, Object>> lines = new ArrayList<>();
+        for (int i = 1; i <= 5; i++) {
+            lines.add(line("电阻 0603 10K 1%", "R-10K", 4.0));
+        }
+        String text = MfgDevBomServices.labelTextOf("OUT-261101-01", "DEV-261031-04", "v94", lines,
+                MfgDevBomServices.LABEL_BYTES_SHEET);
+        assertTrue(text.startsWith("OUT-261101-01"));
+        assertTrue(text.contains("DEV-261031-04 v94"));
+        assertTrue(text.contains("5 行 / 共 20 件"));
+        // the whole list fits, each row numbered whatever the encoder chose to print (name or code)
+        for (int i = 1; i <= 5; i++) {
+            assertTrue(text, text.contains("\n" + i + ". "));
+        }
+        assertFalse(text, text.contains("另有"));
+        assertTrue(text.getBytes(java.nio.charset.StandardCharsets.UTF_8).length
+                <= MfgDevBomServices.LABEL_BYTES_SHEET);
+        // thirteen long names do not fit: the part numbers stand in, and what is left over is summed up
+        List<Map<String, Object>> many = new ArrayList<>();
+        for (int i = 1; i <= 13; i++) {
+            many.add(line("电阻 0603 10K 1% 高精度薄膜贴片", "R-10K-0603", 4.0));
+        }
+        String crowded = MfgDevBomServices.labelTextOf("OUT-261101-01", "DEV-261031-04", "v94", many,
+                MfgDevBomServices.LABEL_BYTES_SHEET);
+        assertTrue(crowded, crowded.contains("R-10K-0603"));
+        assertTrue(crowded, crowded.contains("另有"));
+        assertTrue(crowded.getBytes(java.nio.charset.StandardCharsets.UTF_8).length
+                <= MfgDevBomServices.LABEL_BYTES_SHEET);
+        // the strip says more than the small round code does: thirteen rows would never fit there
+        assertTrue(MfgDevBomServices.LABEL_BYTES_SHEET > MfgDevBomServices.LABEL_BYTES_MID);
+    }
+
+    @Test
+    public void drawsAStackedCodeThatFitsALongStrip() throws Exception {
+        // the strip is 50 x 15 mm with the code 48 x 12 mm, so the drawing has to come out wider than
+        // tall and in two colours only - a grey or coloured pixel would print as a smudge
+        String message = "OUT-261101-01\nDEV-261031-04 v94\n1. R-10K x4\n5 行 / 共 20 件";
+        java.awt.image.BufferedImage image = MfgDevBomEvents.pdf417Of(message,
+                MfgDevBomEvents.PDF417_PIXELS_WIDE, MfgDevBomEvents.PDF417_PIXELS_HIGH);
+        assertTrue(image.getWidth() + "x" + image.getHeight(),
+                image.getWidth() > image.getHeight());
+        assertTrue(image.getWidth() + "x" + image.getHeight(),
+                image.getWidth() >= 200 && image.getHeight() >= 40);
+        int black = 0;
+        int white = 0;
+        for (int y = 0; y < image.getHeight(); y++) {
+            for (int x = 0; x < image.getWidth(); x++) {
+                int rgb = image.getRGB(x, y) & 0xFFFFFF;
+                assertTrue("pixel " + x + "," + y, rgb == 0x000000 || rgb == 0xFFFFFF);
+                if (rgb == 0) {
+                    black++;
+                } else {
+                    white++;
+                }
+            }
+        }
+        assertTrue(black > 0 && white > 0);
+        // and the code really carries that text: zxing reads back what was drawn
+        int[] pixels = image.getRGB(0, 0, image.getWidth(), image.getHeight(), null, 0,
+                image.getWidth());
+        com.google.zxing.Result read = new com.google.zxing.pdf417.PDF417Reader().decode(
+                new com.google.zxing.BinaryBitmap(new com.google.zxing.common.HybridBinarizer(
+                        new com.google.zxing.RGBLuminanceSource(image.getWidth(),
+                                image.getHeight(), pixels))));
+        assertTrue(read.getText(), message.equals(read.getText()));
+    }
+
     private static Map<String, Object> line(String name, String code, double qty) {
         Map<String, Object> row = new LinkedHashMap<>();
         row.put("componentName", name);

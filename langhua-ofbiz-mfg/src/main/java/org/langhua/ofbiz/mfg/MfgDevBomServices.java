@@ -77,6 +77,18 @@ public final class MfgDevBomServices {
     static final int LABEL_BYTES_MID = 100;
 
     /**
+     * The long strip carries a PDF417 instead of a QR code: a stacked barcode fits the 15 mm tape,
+     * which a square symbol cannot.
+     *
+     * <p>The code is printed 58 x 13 mm, and a home label printer prints 203 dots per inch - two dots
+     * are 0.25 mm, so a module smaller than that comes out ragged. At 200 bytes zxing lays the code
+     * out as about 260 columns by 68 module heights, which is 0.22 mm by 0.19 mm on the strip; a
+     * longer text squeezes the modules below two dots. For comparison the 12 mm QR code of the same
+     * 50 mm sticker holds 43 bytes, so this is several times the text for 10 mm more tape.
+     */
+    static final int LABEL_BYTES_SHEET = 200;
+
+    /**
      * The columns of an import that the pages and the row saves read. The file bytes are not among
      * them: {@code sourceData} is only read when somebody downloads the file, and pulling it on every
      * page view would make the whole import table heavy.
@@ -1295,6 +1307,8 @@ public final class MfgDevBomServices {
         row.put("labelTextMid", shortLabelTextOf(head.getString("outboundId"),
                 MfgSupport.toText(row.get("projectName")), lines.size(), totalQty));
         row.put("labelTextSmall", compactLabelTextOf(head.getString("outboundId"), lines.size(), totalQty));
+        row.put("labelTextSheet", labelTextOf(head.getString("outboundId"), head.getString("projectCode"),
+                head.getString("bomVersion"), lines, LABEL_BYTES_SHEET));
         return row;
     }
 
