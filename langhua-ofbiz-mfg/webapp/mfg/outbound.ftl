@@ -67,7 +67,7 @@
             包装说明 <input type="text" name="packingNote" size="20" value="${(outbound.packingNote)!}" placeholder="塑料盒 / 防静电袋"/>
             <input type="submit" value="<#if outbound.packed>改包装<#else>登记包装</#if>" class="secondary"/>
         </form>
-        <span class="hint">可选的一步：料捡完装进塑料盒（电子产品防静电），登记后打印标签贴到盒子上；只有一件小东西也可以不包，直接出库。</span>
+        <p class="hint">可选的一步：料捡完装进塑料盒（电子产品防静电），登记后打印标签贴到盒子上；只有一件小东西也可以不包，直接出库。</p>
     </#if>
     <#if outbound.packed || outbound.issued>
         <p>
@@ -78,7 +78,7 @@
             ｜ <a href="/mfg/control/outboundCheck?outboundId=${outbound.outboundId?url}&amp;key=${outbound.checkKey!''}" target="_blank">核对页（浏览器打开）</a>
             <#if outbound.packedDate??>｜ <span class="hint">包装：${(outbound.packageCount!0)?string("0.##")} 盒<#if ((outbound.packingNote)!'')?has_content>（${outbound.packingNote}）</#if>，${outbound.packedDate?string("yyyy-MM-dd HH:mm")}<#if ((outbound.packedByUserLoginId)!'')?has_content>，${outbound.packedByUserLoginId}</#if></span></#if>
         </p>
-        <span class="hint">标签只印二维码 + 项目名（项目名在码下面居中，小号字、可换行），尺寸都能用：大 32×42 的码里是整份清单（名称 + 数量），中 20×26 的码里是单号 + 项目 + 件数，小 15×20 和长条 50×15 的码里只有单号 + 件数。尺寸在标签页上可以切换。</span>
+        <p class="hint">标签只印二维码 + 项目名（项目名在码下面居中，小号字、可换行），尺寸都能用：大 32×42 的码里是整份清单（名称 + 数量），中 20×26 的码里是单号 + 项目 + 件数，小 15×20 和长条 50×15 的码里只有单号 + 件数。尺寸在标签页上可以切换。</p>
     </#if>
 
     <form method="post" action="/mfg/control/outboundReceiverSave" class="inline">
@@ -86,7 +86,7 @@
         领料人 <input type="text" name="receiverName" size="12" value="${(outbound.receiverName)!}" placeholder="谁把料拿走"/>
         <input type="submit" value="保存领料人" class="secondary"/>
     </form>
-    <span class="hint">领料人就是来拿料的那个人，不是系统账号也能写；库管员是点「按这张单出库」的那个账号，记在库存流水的操作人上。</span>
+    <p class="hint">领料人就是来拿料的那个人，不是系统账号也能写；库管员是点「按这张单出库」的那个账号，记在库存流水的操作人上。</p>
 
     <#if outbound.issued && outbound.issuedAt??>
         <p class="hint" id="outboundHanded">出库：${outbound.issuedAt?string("yyyy-MM-dd HH:mm")}<#if ((outbound.issuedBy)!'')?has_content>，经办 ${outbound.issuedBy}</#if><#if (outbound.movementCount!0) gt 0>（${outbound.movementCount} 条库存流水）</#if>。</p>
