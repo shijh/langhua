@@ -153,4 +153,12 @@
         <attribute name="outbounds" type="java.util.List" mode="OUT" optional="true"/>
     </service>
 
+    <service name="mfgOutboundDetail" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgDevBomServices" invoke="outboundDetail"
+            auth="false" use-transaction="false">
+        <description>One outbound order with its lines, for the page that shows a single document. An unknown number is not an error: the page says so on its own</description>
+        <attribute name="outboundId" type="String" mode="IN" optional="true"/>
+        <attribute name="outbound" type="java.util.Map" mode="OUT" optional="true"/>
+    </service>
+
 </services>

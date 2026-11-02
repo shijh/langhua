@@ -117,6 +117,32 @@
         </section>
     </screen>
 
+    <!-- One outbound order on its own: the picking list of a single document, reached from its
+         number on the development page (Step 241) -->
+    <screen name="outbound">
+        <section>
+            <actions>
+                <set field="title" value="Outbound Order"/>
+                <set field="pageTitle" value="出库单"/>
+                <set field="activeMenu" value="dev"/>
+                <service service-name="mfgOutboundDetail" result-map="outboundResult" auto-field-map="false">
+                    <field-map field-name="outboundId" from-field="parameters.outboundId"/>
+                </service>
+            </actions>
+            <widgets>
+                <decorator-screen name="mfg-decorator" location="component://mfg/widget/MfgCommonScreens.xml">
+                    <decorator-section name="body">
+                        <platform-specific>
+                            <html>
+                                <html-template location="component://mfg/webapp/mfg/outbound.ftl"/>
+                            </html>
+                        </platform-specific>
+                    </decorator-section>
+                </decorator-screen>
+            </widgets>
+        </section>
+    </screen>
+
     <!-- Purchase receipts: what one purchase brought in and the freight that belongs to it -->
     <screen name="receipts">
         <section>

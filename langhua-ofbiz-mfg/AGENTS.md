@@ -2371,6 +2371,15 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   - **巡检** `verify-m60b.ps1`（14 项，`-base` 指哪套实例都行，`-readOnly` 只读）：写单 → 行数与两个按钮 →
     同一版不会再开第二张 → 出库（成功时查 `stockMoves?search=<单号>` 至少两条流水；被拒时页面红字点名缺料、
     草稿保留）→ 作废 → 历史里还留着。**断言只用 ASCII 与 data 属性**，别碰中文。
+  - **单号是链接，点开是这张单自己的页面（Step 241）**：`/mfg/control/outbound?outboundId=OUT-…`
+    （屏幕 `outbound` + 模板 `webapp/mfg/outbound.ftl`，服务 `mfgOutboundDetail` —— 单头 + 每行
+    「这一版要 / 之前已出 / 本次领 / 这张单已出」）。开发页的**历史表单号**和草稿那行提示里的单号都指向它。
+    页面上的「按这张单出库」/「撤掉这张单」走**另一对 request-map**（`outboundIssueHere` / `outboundCancelHere`），
+    因为它们要 302 回**这张单**而不是回项目页；项目页那两个（`outboundIssue` / `outboundCancel`）照旧回 `dev`。
+    单头与每行的映射只在 `MfgDevBomServices.outboundRow(...)` 一份，列表页与单据页共用，别写第二份。
+    未知单号**不报错**：页面写「没有这张出库单」并给回项目页的链接（服务对空 id / 查不到都返回成功）。
+    页脚有两个链接：回项目页的 `#devoutbound` 一段、`stockMoves?search=<单号>` 看这张单的流水。
+    `verify-outbound-page.ps1`（11 项）盯的就是这些，三套实例都能跑。
   - **两个 PowerShell 坑（这次踩的）**：① `@('a=' + $x, 'b=' + $y)` 里**逗号比 `+` 先算**，
     拼出来是 `@('a=',$x,'b=',$y)`，到了服务里就是“缺参数”，看着像服务坏了——拼 `--data-urlencode`
     要一条一条 `$list.Add(...)`；② 服务失败时的红字在 **POST 的那份响应**里，重新 GET 一次页面是看不到的

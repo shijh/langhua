@@ -1002,6 +1002,34 @@
         <response name="error" type="view" value="dev"/>
     </request-map>
 
+    <!-- one outbound order on its own, reached from its number on the development page -->
+    <request-map uri="outbound">
+        <security https="true" auth="true"/>
+        <response name="success" type="view" value="outbound"/>
+        <response name="error" type="view" value="outbound"/>
+    </request-map>
+
+    <!-- the same two actions, taken from the document page: they come back to the document -->
+    <request-map uri="outboundIssueHere">
+        <security https="true" auth="true"/>
+        <event type="service" invoke="mfgOutboundIssue"/>
+        <response name="success" type="request-redirect" value="outbound">
+            <redirect-parameter name="outboundId"/>
+            <redirect-parameter name="issuedQty"/>
+        </response>
+        <response name="error" type="view" value="outbound"/>
+    </request-map>
+
+    <request-map uri="outboundCancelHere">
+        <security https="true" auth="true"/>
+        <event type="service" invoke="mfgOutboundCancel"/>
+        <response name="success" type="request-redirect" value="outbound">
+            <redirect-parameter name="outboundId"/>
+            <redirect-parameter name="cancelled"/>
+        </response>
+        <response name="error" type="view" value="outbound"/>
+    </request-map>
+
     <request-map uri="devBomCsv">
         <security https="true" auth="true"/>
         <event type="java" path="org.langhua.ofbiz.mfg.MfgDevBomEvents" invoke="shortageCsv"/>
@@ -1151,6 +1179,7 @@
     <view-map name="buyers" type="screen" page="component://mfg/widget/MfgScreens.xml#buyers"/>
     <view-map name="quality" type="screen" page="component://mfg/widget/MfgScreens.xml#quality"/>
     <view-map name="dev" type="screen" page="component://mfg/widget/MfgScreens.xml#dev"/>
+    <view-map name="outbound" type="screen" page="component://mfg/widget/MfgScreens.xml#outbound"/>
     <view-map name="eco" type="screen" page="component://mfg/widget/MfgScreens.xml#eco"/>
     <view-map name="software" type="screen" page="component://mfg/widget/MfgScreens.xml#software"/>
     <view-map name="reports" type="screen" page="component://mfg/widget/MfgScreens.xml#reports"/>

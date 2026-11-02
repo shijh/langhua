@@ -503,7 +503,7 @@
                     <input type="submit" value="撤掉这张单" class="secondary"
                            onclick="return confirm('作废 ${o.outboundId}？库存一点不动，只是这张单不再用。');"/>
                 </form>
-                <span class="hint">单号 ${o.outboundId}：${(o.lineCount)!0} 行 / 合计 ${(o.totalQty!0)?string("0.##")} 件，
+                <span class="hint">单号 <a href="/mfg/control/outbound?outboundId=${o.outboundId}">${o.outboundId}</a>：${(o.lineCount)!0} 行 / 合计 ${(o.totalQty!0)?string("0.##")} 件，
                     ${(o.operatorName)!''} 制作。只要有一个料号不够，整张单都不出库，会告诉你是哪个料号缺多少。</span>
             </#if>
         </#list>
@@ -522,7 +522,7 @@
                 </tr>
                 <#list outbounds as o>
                     <tr data-outbound-history="${o.outboundId}" data-outbound-by="${o.operatorName!}">
-                        <td>${o.outboundId}</td>
+                        <td><a href="/mfg/control/outbound?outboundId=${o.outboundId}">${o.outboundId}</a></td>
                         <td><#if o.outboundDate??>${o.outboundDate?string("yyyy-MM-dd")}</#if></td>
                         <td>${o.bomVersion!}</td>
                         <td class="num">${(o.lineCount)!0}</td>

@@ -1109,39 +1109,82 @@ public final class MfgDevBomServices {
         try {
             for (GenericValue head : EntityQuery.use(delegator).from("MfgOutbound")
                     .where("projectCode", projectCode).orderBy("-createdStamp").queryList()) {
-                Map<String, Object> row = new LinkedHashMap<>();
-                row.put("outboundId", head.getString("outboundId"));
-                row.put("bomVersion", head.getString("bomVersion"));
-                row.put("outboundDate", head.get("outboundDate"));
-                row.put("statusId", head.getString("statusId"));
-                row.put("lineCount", head.get("lineCount"));
-                row.put("totalQty", head.get("totalQty"));
-                row.put("issuedQty", head.get("issuedQty"));
-                row.put("operatorName", head.getString("operatorName"));
-                row.put("note", head.getString("note"));
-                row.put("issued", Boolean.valueOf(MfgConstants.OUT_ISSUED.equals(head.getString("statusId"))));
-                row.put("cancelled", Boolean.valueOf(MfgConstants.OUT_CANCELLED.equals(head.getString("statusId"))));
-                List<Map<String, Object>> lines = new ArrayList<>();
-                for (GenericValue line : EntityQuery.use(delegator).from("MfgOutboundItem")
-                        .where("outboundId", head.getString("outboundId")).orderBy("lineSeq").queryList()) {
-                    Map<String, Object> item = new LinkedHashMap<>();
-                    item.put("lineSeq", line.get("lineSeq"));
-                    item.put("componentCode", line.getString("componentCode"));
-                    item.put("componentName", line.getString("componentName"));
-                    item.put("designators", line.getString("designators"));
-                    item.put("qty", line.get("qty"));
-                    item.put("neededQty", line.get("neededQty"));
-                    item.put("alreadyQty", line.get("alreadyQty"));
-                    item.put("issuedQty", line.get("issuedQty"));
-                    lines.add(item);
-                }
-                row.put("lines", lines);
-                outbounds.add(row);
+                outbounds.add(outboundRow(delegator, head));
             }
             return result;
         } catch (GenericEntityException e) {
             return ServiceUtil.returnError("读取出库单失败：" + e.getMessage());
         }
+    }
+
+    /**
+     * One outbound order with its lines, for the page that shows a single document on its own.
+     *
+     * <p>An unknown number is not an error: the page says so instead, the same way the development
+     * page does when somebody opens it without a project.
+     *
+     * @param dctx the dispatch context
+     * @param context service context, see {@code servicedef/devbom-services.xml#mfgOutboundDetail}
+     * @return the service result containing {@code outbound} (empty when there is no such document)
+     */
+    public static Map<String, Object> outboundDetail(DispatchContext dctx, Map<String, ? extends Object> context) {
+        Delegator delegator = dctx.getDelegator();
+        String outboundId = MfgSupport.toText(context.get("outboundId"));
+        Map<String, Object> result = ServiceUtil.returnSuccess();
+        if (outboundId == null) {
+            return result;
+        }
+        try {
+            GenericValue head = EntityQuery.use(delegator).from("MfgOutbound")
+                    .where("outboundId", outboundId).queryOne();
+            if (head != null) {
+                result.put("outbound", outboundRow(delegator, head));
+            }
+            return result;
+        } catch (GenericEntityException e) {
+            return ServiceUtil.returnError("读取出库单失败：" + e.getMessage());
+        }
+    }
+
+    /**
+     * The head of one outbound order as the pages read it: the numbers of the document, its state as
+     * two flags rather than a status id (the template compares booleans) and its lines.
+     *
+     * @param delegator the delegator
+     * @param head the row of {@code MfgOutbound}
+     * @return the map both the development page and the document page use
+     * @throws GenericEntityException when the lines cannot be read
+     */
+    static Map<String, Object> outboundRow(Delegator delegator, GenericValue head) throws GenericEntityException {
+        Map<String, Object> row = new LinkedHashMap<>();
+        row.put("outboundId", head.getString("outboundId"));
+        row.put("projectCode", head.getString("projectCode"));
+        row.put("bomVersion", head.getString("bomVersion"));
+        row.put("outboundDate", head.get("outboundDate"));
+        row.put("statusId", head.getString("statusId"));
+        row.put("lineCount", head.get("lineCount"));
+        row.put("totalQty", head.get("totalQty"));
+        row.put("issuedQty", head.get("issuedQty"));
+        row.put("operatorName", head.getString("operatorName"));
+        row.put("note", head.getString("note"));
+        row.put("issued", Boolean.valueOf(MfgConstants.OUT_ISSUED.equals(head.getString("statusId"))));
+        row.put("cancelled", Boolean.valueOf(MfgConstants.OUT_CANCELLED.equals(head.getString("statusId"))));
+        List<Map<String, Object>> lines = new ArrayList<>();
+        for (GenericValue line : EntityQuery.use(delegator).from("MfgOutboundItem")
+                .where("outboundId", head.getString("outboundId")).orderBy("lineSeq").queryList()) {
+            Map<String, Object> item = new LinkedHashMap<>();
+            item.put("lineSeq", line.get("lineSeq"));
+            item.put("componentCode", line.getString("componentCode"));
+            item.put("componentName", line.getString("componentName"));
+            item.put("designators", line.getString("designators"));
+            item.put("qty", line.get("qty"));
+            item.put("neededQty", line.get("neededQty"));
+            item.put("alreadyQty", line.get("alreadyQty"));
+            item.put("issuedQty", line.get("issuedQty"));
+            lines.add(item);
+        }
+        row.put("lines", lines);
+        return row;
     }
 
     /**
