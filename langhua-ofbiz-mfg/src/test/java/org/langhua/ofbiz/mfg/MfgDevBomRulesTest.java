@@ -632,6 +632,19 @@ public class MfgDevBomRulesTest {
         assertEquals(0.0, MfgDevBomServices.shortQtyOf(1.0, 2.0, 3.0), 1e-9);
     }
 
+    @Test
+    public void keepsALockOnlyOnWhatIsStillToBePicked() {
+        // nothing picked yet: the whole requirement stays locked
+        assertEquals(2.0, MfgDevBomServices.lockTargetOf(2.0, 0.0), 1e-9);
+        // the document took both: nothing left to lock, otherwise the page says wanted 2 / locked 2 /
+        // picked 2 and earmarks a second lot for a board that is already fed
+        assertEquals(0.0, MfgDevBomServices.lockTargetOf(2.0, 2.0), 1e-9);
+        // more was picked than this version needs (the version shrank): still nothing to lock
+        assertEquals(0.0, MfgDevBomServices.lockTargetOf(2.0, 3.0), 1e-9);
+        // half picked: the rest stays locked, a half part keeps its half
+        assertEquals(1.5, MfgDevBomServices.lockTargetOf(3.0, 1.5), 1e-9);
+    }
+
     private static Map<String, Object> line(String name, String code, double qty) {
         Map<String, Object> row = new LinkedHashMap<>();
         row.put("componentName", name);

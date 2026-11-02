@@ -162,6 +162,8 @@ public final class MfgDevBomServices {
             String version = versionOf(MfgSupport.toText(context.get("bomVersion")), fileName, importSeq);
 
             Map<String, Double> lockedByComponent = MfgStockLedger.lockedByProjectComponent(delegator, projectCode);
+            // what the project already carried off the shelf needs no lock any more
+            Map<String, Double> pickedByComponent = issuedForProject(delegator, projectCode);
             int newCount = 0;
             int sameCount = 0;
             int changedCount = 0;
@@ -200,6 +202,7 @@ public final class MfgDevBomServices {
             delegator.create(head);
             for (DevBomRow row : rows) {
                 double held = MfgSupport.numberOrZero(lockedByComponent.get(row.componentCode));
+                double picked = MfgSupport.numberOrZero(pickedByComponent.get(row.componentCode));
                 double qty = row.qty;
                 double lockedQty = 0.0;
                 double shortQty = 0.0;
@@ -233,16 +236,11 @@ public final class MfgDevBomServices {
                     } else {
                         sameCount++;
                     }
-                    if (lock) {
-                        double gap = qty - held;
-                        if (gap > 0.0001) {
-                            held += MfgStockLedger.reserveForProject(delegator, projectCode,
-                                    row.componentCode, gap, operatorName, "锁料：" + version);
-                            lockedByComponent.put(row.componentCode, Double.valueOf(held));
-                        }
-                    }
+                    held = topUpTheLock(delegator, projectCode, row.componentCode, qty, picked, held, lock,
+                            operatorName, "锁料：" + version);
+                    lockedByComponent.put(row.componentCode, Double.valueOf(held));
                     lockedQty = Math.min(held, qty);
-                    shortQty = Math.max(0.0, qty - held);
+                    shortQty = shortQtyOf(qty, held, picked);
                     if (shortQty > 0.0001) {
                         shortCount++;
                         shortTotal += shortQty;
@@ -552,12 +550,9 @@ public final class MfgDevBomServices {
             // lock first, so the row says what really stands on the shelf and what has to be bought
             double held = MfgSupport.numberOrZero(
                     MfgStockLedger.lockedByProjectComponent(delegator, projectCode).get(code));
-            double gap = qty - held;
-            if (lock && gap > 0.0001) {
-                held += MfgStockLedger.reserveForProject(delegator, projectCode, code, gap, operatorName,
-                        "锁料：手工添加的元件 " + name);
-            }
             double picked = MfgSupport.numberOrZero(issuedForProject(delegator, projectCode).get(code));
+            held = topUpTheLock(delegator, projectCode, code, qty, picked, held, lock, operatorName,
+                    "锁料：手工添加的元件 " + name);
             double shortQty = shortQtyOf(qty, held, picked);
             long lineSeq = maxLine + 10L;
             GenericValue item = delegator.makeValue("MfgDevBomItem");
@@ -812,6 +807,56 @@ public final class MfgDevBomServices {
     }
 
     /**
+     * How much of a part the project should keep locked: what this version needs less what it has
+     * already carried off the shelf.
+     *
+     * <p>Picking empties the shelf but leaves the lock behind, so a lock that is topped up to the
+     * full quantity earmarks a second lot for a board that is already fed: the page then shows
+     * "wanted 2 / locked 2 / picked 2", which is one part too many.
+     *
+     * @param qty the quantity this version needs
+     * @param picked what the project has already picked through outbound documents
+     * @return the quantity to keep locked, never negative
+     */
+    static double lockTargetOf(double qty, double picked) {
+        return Math.max(0.0, MfgSupport.round2(qty - picked));
+    }
+
+    /**
+     * Brings the lock the project holds on one part to {@link #lockTargetOf}: takes more when the
+     * shelf has some left, gives the surplus back when the parts have already been picked.
+     *
+     * @param delegator the delegator
+     * @param projectCode the development project
+     * @param componentCode the part number
+     * @param qty the quantity this version needs
+     * @param picked what the project has already picked
+     * @param held what the project holds locked right now
+     * @param lock whether the caller wants the lock maintained at all
+     * @param operatorName who did it
+     * @param note a remark for the ledger
+     * @return the quantity locked afterwards
+     * @throws GenericEntityException when the ledger cannot be written
+     */
+    static double topUpTheLock(Delegator delegator, String projectCode, String componentCode, double qty,
+            double picked, double held, boolean lock, String operatorName, String note)
+            throws GenericEntityException {
+        if (!lock) {
+            return held;
+        }
+        double gap = lockTargetOf(qty, picked) - held;
+        if (gap > 0.0001) {
+            return held + MfgStockLedger.reserveForProject(delegator, projectCode, componentCode, gap,
+                    operatorName, note);
+        }
+        if (gap < -0.0001) {
+            return held - MfgStockLedger.releaseProjectReservation(delegator, projectCode, componentCode,
+                    -gap, operatorName, note + "，已领够，放掉多锁的");
+        }
+        return held;
+    }
+
+    /**
      * Applies one correction to a part of the latest import: the code moves the lock from the old
      * part number to the new one (that is the whole point - the sketch and the shop name the same
      * part differently), then the lock is topped up to the quantity and the row is written.
@@ -831,12 +876,9 @@ public final class MfgDevBomServices {
         }
         double held = MfgSupport.numberOrZero(
                 MfgStockLedger.lockedByProjectComponent(delegator, projectCode).get(newCode));
-        double gap = qty - held;
-        if (lock && gap > 0.0001) {
-            held += MfgStockLedger.reserveForProject(delegator, projectCode, newCode, gap, operatorName,
-                    "锁料：" + note);
-        }
         double picked = MfgSupport.numberOrZero(issuedForProject(delegator, projectCode).get(newCode));
+        held = topUpTheLock(delegator, projectCode, newCode, qty, picked, held, lock, operatorName,
+                "锁料：" + note);
         double shortQty = shortQtyOf(qty, held, picked);
         item.set("componentCode", newCode);
         item.set("qty", Double.valueOf(MfgSupport.round2(qty)));

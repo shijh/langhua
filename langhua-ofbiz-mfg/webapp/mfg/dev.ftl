@@ -336,7 +336,8 @@
             <a href="/mfg/control/devBomCsv?projectCode=${project.projectCode}">下载 CSV</a></h4>
         <table id="devShortageTable">
             <tr>
-                <th>料号</th><th>名称</th><th class="num">需求</th><th class="num">已锁</th>
+                <th>料号</th><th>名称</th><th class="num">需求</th>
+                <th class="num" title="锁在货架上、还没领走的部分">已锁</th>
                 <th class="num" title="本项目已经通过出库单领走的数量（料在工程师手上，不在货架上）">已领</th>
                 <th class="num">在库</th><th class="num">缺口</th><th class="num">建议采购</th><th>位号</th>
             </tr>
@@ -394,7 +395,8 @@
         <table id="devBomTable">
             <tr>
                 <th class="num">#</th><th>料号</th><th>名称</th><th class="num">数量</th>
-                <th>位号</th><th>相对上一版</th><th class="num">已锁</th>
+                <th>位号</th><th>相对上一版</th>
+                <th class="num" title="锁在货架上、还没领走的部分">已锁</th>
                 <th class="num" title="本项目已经通过出库单领走的数量">已领</th>
                 <th class="num">在库</th><th>操作</th>
             </tr>
