@@ -24,15 +24,15 @@
 <#assign labelSize = (parameters['label'])!'big'>
 <#if labelSize != 'mid' && labelSize != 'small'><#assign labelSize = 'big'></#if>
 <#if labelSize == 'small'>
-    <#assign pageW = '15mm' pageH = '18mm' qrMm = '12mm'
+    <#assign pageW = '15mm' pageH = '20mm' qrMm = '12mm'
         qrSrc = '/mfg/control/outboundQr?outboundId=' + o.outboundId?url + '&amp;size=small'
         qrText = (o.labelTextSmall)!''>
 <#elseif labelSize == 'mid'>
-    <#assign pageW = '30mm' pageH = '20mm' qrMm = '16mm'
+    <#assign pageW = '20mm' pageH = '26mm' qrMm = '16mm'
         qrSrc = '/mfg/control/outboundQr?outboundId=' + o.outboundId?url + '&amp;size=mid'
         qrText = (o.labelTextMid)!''>
 <#else>
-    <#assign pageW = '60mm' pageH = '30mm' qrMm = '28mm'
+    <#assign pageW = '32mm' pageH = '38mm' qrMm = '28mm'
         qrSrc = '/mfg/control/outboundQr?outboundId=' + o.outboundId?url
         qrText = (o.labelText)!''>
 </#if>
@@ -48,18 +48,21 @@
         body { background: #f2f2f2; font-family: "Segoe UI", "Microsoft YaHei", sans-serif; color: #000; }
         .label {
             width: ${pageW}; height: ${pageH}; box-sizing: border-box;
-            background: #fff; display: flex; align-items: center; gap: 1.5mm; padding: 0.5mm;
+            background: #fff; display: flex; flex-direction: column; justify-content: center;
+            align-items: center; gap: .8mm; padding: 0.5mm;
             margin: 6mm auto; border: 1px solid #bbb; overflow: hidden;
         }
         .qr { flex: 0 0 auto; width: ${qrMm}; height: ${qrMm}; }
         .qr img { width: ${qrMm}; height: ${qrMm}; image-rendering: pixelated; display: block; }
-        .name { flex: 1 1 auto; min-width: 0; font-weight: 700; line-height: 1.2; word-break: break-all; }
-        .label.big .name { font-size: 14pt; }
-        .label.mid .name { font-size: 6pt; }
-        /* the small sticker stacks the code over the name: 15 mm of tape has no room beside it */
-        .label.small { flex-direction: column; justify-content: center; gap: .8mm; }
-        .label.small .qr { margin: 0 auto; }
-        .label.small .name { width: 100%; text-align: center; font-size: 4.6pt; line-height: 1.15; }
+        /* the name sits under the code, centred, small enough to take two or three lines */
+        .name {
+            width: 100%; max-width: 100%; text-align: center; font-weight: 700; line-height: 1.2;
+            overflow-wrap: break-word; word-break: normal;
+        }
+        .label.big .name { font-size: 7pt; }
+        .label.mid .name { font-size: 5pt; }
+        /* 15 mm of tape leaves almost no width: a long word may break, the lines are shorter anyway */
+        .label.small .name { font-size: 4.2pt; line-height: 1.15; overflow-wrap: anywhere; }
         .tools { text-align: center; margin: 4mm 0 8mm; font-size: 9pt; }
         .tools a, .tools button { font-size: 10pt; padding: 4px 10px; }
         .tools .current { font-weight: 700; color: #000; }
@@ -93,11 +96,12 @@
         <a href="/mfg/control/outboundCheck?outboundId=${o.outboundId?url}&amp;key=${o.checkKey!''}" target="_blank">核对页（浏览器打开）</a>
         <span class="hint">
             尺寸：
-            <#if labelSize == 'big'><span class="current">大 60×30（码 28mm）</span><#else><a href="?outboundId=${o.outboundId?url}&amp;label=big">大 60×30（码 28mm）</a></#if> ｜
-            <#if labelSize == 'mid'><span class="current">中 30×20（码 16mm）</span><#else><a href="?outboundId=${o.outboundId?url}&amp;label=mid">中 30×20（码 16mm）</a></#if> ｜
-            <#if labelSize == 'small'><span class="current">小 15×18（码 12mm）</span><#else><a href="?outboundId=${o.outboundId?url}&amp;label=small">小 15×18（码 12mm）</a></#if>
-            <br/>三种尺寸都只印二维码 + 项目名。码越小能装的字越少：大标签里是整份清单（名称 + 数量），
-            中标签是单号 + 项目名 + 件数，小标签只有单号 + 件数；模块小于 0.3mm 手机就对不上，所以 12mm 已经到底了。
+            <#if labelSize == 'big'><span class="current">大 32×38（码 28mm）</span><#else><a href="?outboundId=${o.outboundId?url}&amp;label=big">大 32×38（码 28mm）</a></#if> ｜
+            <#if labelSize == 'mid'><span class="current">中 20×26（码 16mm）</span><#else><a href="?outboundId=${o.outboundId?url}&amp;label=mid">中 20×26（码 16mm）</a></#if> ｜
+            <#if labelSize == 'small'><span class="current">小 15×20（码 12mm）</span><#else><a href="?outboundId=${o.outboundId?url}&amp;label=small">小 15×20（码 12mm）</a></#if>
+            <br/>三种尺寸都只印二维码 + 项目名（项目名在码下面居中，小号字，可以换几行）。码越小能装的字越少：
+            大标签里是整份清单（名称 + 数量），中标签是单号 + 项目名 + 件数，小标签只有单号 + 件数；
+            模块小于 0.3mm 手机就对不上，所以 12mm 已经到底了。
             胶带比 15mm 更窄就改 `@page` 的尺寸（现在是 ${pageW} × ${pageH}，二维码 ${qrMm}）。
         </span>
     </div>

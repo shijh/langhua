@@ -2593,9 +2593,14 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
 
   | 尺寸 | 纸 | 二维码 | 码里的内容（跟着变小） | 每模块 |
   | --- | --- | --- | --- | --- |
-  | `big`（默认） | 60×30mm | 28mm | 整份清单（名称 + 数量，上限 `MAX_LABEL_BYTES` = 300 字节 → v11，69 模块） | 0.41mm |
-  | `mid` | 30×20mm | 16mm | 单号 + 项目名 + `N行/M件`（`shortLabelTextOf`，43 字节 → v3，37 模块） | 0.43mm |
-  | `small` | 15×18mm | 12mm | 只有 `OUT-…` + `N行/M件`（`compactLabelTextOf`，25 字节 → v2，33 模块） | 0.36mm |
+  | `big`（默认） | 32×38mm | 28mm（名字 7pt） | 整份清单（名称 + 数量，上限 `MAX_LABEL_BYTES` = 300 字节 → v11，69 模块） | 0.41mm |
+  | `mid` | 20×26mm | 16mm（名字 5pt） | 单号 + 项目名 + `N行/M件`（`shortLabelTextOf`，43 字节 → v3，37 模块） | 0.43mm |
+  | `small` | 15×20mm | 12mm（名字 4.2pt） | 只有 `OUT-…` + `N行/M件`（`compactLabelTextOf`，25 字节 → v2，33 模块） | 0.36mm |
+
+  **项目名在码下面居中、小号字、可以换几行**（用户提的：一开始写在码右边，`word-break: break-all` 把
+  “Cost test project” 从中间拆成了「Cost test pr / oject」）。现在 `.label` 是 `flex-direction: column`，
+  `.name` 是 `width: 100%; text-align: center; overflow-wrap: break-word`（**小标签用 `anywhere`**：15mm
+  宽的胶带实在太窄，一个长英文单词必须能断开）；纸的宽度就是二维码宽度加几个毫米，所以标签是竖长的。
 
   **下限定在哪由模块尺度决定**：OFBiz 的 `generateQRCodeImage` 调 zxing，不传纠错等级（默认 **L**）、
   静区 **4 个模块**，所以 模块总数 = (4×版本+17) + 8；手机相机大约到 **0.3mm/模块** 就是极限
