@@ -1944,6 +1944,7 @@ public final class MfgStockServices {
         Delegator delegator = dctx.getDelegator();
         String lotId = MfgSupport.toText(context.get("lotId"));
         String componentCode = MfgSupport.toText(context.get("componentCode"));
+        String search = MfgSupport.toText(context.get("search"));
         String movementTypeId = MfgSupport.toText(context.get("movementTypeId"));
         String reasonEnumId = MfgSupport.toText(context.get("reasonEnumId"));
         String kind = MfgSupport.toText(context.get("kind"));
@@ -1976,6 +1977,14 @@ public final class MfgStockServices {
                     continue;
                 }
                 GenericValue lot = lots.get(movementLot);
+                if (!ledgerMatches(search, movementLot,
+                        lot == null ? null : lot.getString("componentCode"),
+                        lot == null ? null : lot.getString("componentName"),
+                        movement.getString("referenceNo"), movement.getString("note"),
+                        movement.getString("operatorName"), movement.getString("workOrderId"),
+                        movement.getString("physicalInventoryId"), movement.getString("locationId"))) {
+                    continue;
+                }
                 if (componentCode != null
                         && (lot == null || !componentCode.equals(lot.getString("componentCode")))) {
                     continue;
@@ -2023,6 +2032,7 @@ public final class MfgStockServices {
             MfgPaging.putPage(result, "rows", rows, MfgPaging.pageOf(context), MfgPaging.pageSizeOf(context), null);
             result.put("lotId", lotId);
             result.put("componentCode", componentCode);
+            result.put("search", search);
             result.put("movementTypeId", movementTypeId);
             result.put("reasonEnumId", reasonEnumId);
             result.put("kind", kind);
@@ -2032,6 +2042,32 @@ public final class MfgStockServices {
         } catch (GenericEntityException e) {
             return ServiceUtil.returnError("Could not read the ledger: " + e.getMessage());
         }
+    }
+
+    /**
+     * Whether one movement answers a free-text search. The term is looked for, case aside, in the
+     * batch, the part number and its name, the voucher that caused the movement (an outbound or
+     * delivery number, a transfer, a count sheet), the work order, the shelf, who did it and the
+     * note - so typing the number of a document shows exactly what it booked.
+     *
+     * @param term the text typed in, {@code null} or blank to keep everything
+     * @param values the fields of the movement to look in
+     * @return {@code true} when the movement belongs to the search
+     */
+    static boolean ledgerMatches(String term, String... values) {
+        if (term == null || term.trim().isEmpty()) {
+            return true;
+        }
+        String needle = term.trim().toLowerCase(java.util.Locale.ROOT);
+        if (values == null) {
+            return false;
+        }
+        for (String value : values) {
+            if (value != null && value.toLowerCase(java.util.Locale.ROOT).contains(needle)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**

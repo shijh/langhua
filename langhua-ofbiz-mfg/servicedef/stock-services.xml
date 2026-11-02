@@ -250,6 +250,7 @@
         <description>The inventory movements, newest first, with the balance of their lot</description>
         <attribute name="lotId" type="String" mode="IN" optional="true"/>
         <attribute name="componentCode" type="String" mode="IN" optional="true"/>
+        <attribute name="search" type="String" mode="IN" optional="true"/>
         <attribute name="movementTypeId" type="String" mode="IN" optional="true"/>
         <attribute name="reasonEnumId" type="String" mode="IN" optional="true"/>
         <attribute name="kind" type="String" mode="IN" optional="true"/>
@@ -259,6 +260,7 @@
         <attribute name="rows" type="java.util.List" mode="OUT" optional="true"/>
         <attribute name="lotId" type="String" mode="OUT" optional="true"/>
         <attribute name="componentCode" type="String" mode="OUT" optional="true"/>
+        <attribute name="search" type="String" mode="OUT" optional="true"/>
         <attribute name="movementTypeId" type="String" mode="OUT" optional="true"/>
         <attribute name="reasonEnumId" type="String" mode="OUT" optional="true"/>
         <attribute name="kind" type="String" mode="OUT" optional="true"/>

@@ -211,6 +211,27 @@ public class MfgDomainRulesTest {
     }
 
     @Test
+    public void findsTheMovementsOfOneDocument() {
+        // the outbound page links to the ledger with the number of the document: typing it must show
+        // exactly what that document booked, and nothing of the neighbours
+        assertTrue(MfgStockServices.ledgerMatches("OUT-261101-01", "LOT-261031-05", "NFC COIL",
+                "OUT-261101-01", "\u6309\u51fa\u5e93\u5355 OUT-261101-01 \u51fa\u5e93"));
+        assertFalse(MfgStockServices.ledgerMatches("OUT-261101-01", "LOT-261031-05", "NFC COIL",
+                "OUT-261101-02", "another document"));
+        // case and spaces do not matter
+        assertTrue(MfgStockServices.ledgerMatches(" out-261101-01 ", "LOT-261031-05", "NFC COIL", "OUT-261101-01"));
+        // the batch, the part, the work order and who did it are searched too
+        assertTrue(MfgStockServices.ledgerMatches("lot-261031", "LOT-261031-05", "NFC COIL", "OUT-261101-01"));
+        assertTrue(MfgStockServices.ledgerMatches("nfc", "LOT-261031-05", "NFC COIL", "OUT-261101-01"));
+        assertTrue(MfgStockServices.ledgerMatches("WO-261101-001", "LOT-261031-05", "NFC COIL", null, null,
+                null, null, "WO-261101-001"));
+        // an empty term keeps every movement
+        assertTrue(MfgStockServices.ledgerMatches(null, (String[]) null));
+        assertTrue(MfgStockServices.ledgerMatches("   ", "LOT-261031-05"));
+        assertFalse(MfgStockServices.ledgerMatches("nothing like this", "LOT-261031-05", "NFC COIL", null));
+    }
+
+    @Test
     public void namesTheInventoryReasonsOfOfbiz() {
         // the ids are OFBiz's own IID_REASON list, so an export lines up with a standard install
         assertEquals(8, MfgConstants.MOVE_REASONS.length);

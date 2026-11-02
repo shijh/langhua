@@ -2404,6 +2404,24 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   验法：dev 上 `DEV-261031-04` 那一版已全部出库，再点「转出库单」→ 正确拒绝且不留空单（`verify-m60b.ps1` 7 项分支）；
   test 上 `DEV-261029-02` 什么都没出过 → 仍是整版 12 行（16 项）。三套实例已发版。
 
+- **出入库流水认关键词 `search`（Step 242）**：出库单页脚那个 `stockMoves?search=<单号>` 以前**不管用**——
+  `mfgInventoryLedger` 的 IN 里**没有 `search`**、屏幕也没把 `parameters.search` 传进去，OFBiz 于是把它静默丢掉，
+  页面永远显示同一张列表（用户报“search 后面随意改，都仍是同一个列表页”）。**跟 Step 179s 的
+  `mfgLotSave.amount` 是同一个坑**：服务里读的参数一定要在描述符里声明，否则代码看着对、值永远是空的。
+  现在：IN/OUT 都加了 `search`（`servicedef/stock-services.xml`），屏幕 `stockMoves` 加
+  `<field-map field-name="search" from-field="parameters.search"/>`，服务里
+  `MfgStockServices.ledgerMatches(term, lotId, 料号, 名称, referenceNo, note, operatorName, workOrderId,
+  physicalInventoryId, locationId)` **不分大小写、包含即命中**，空串放行。
+  `stockMoves.ftl` 多一个「关键词」输入框（回填 `lr.search`）、翻页串以 `search=` 开头、空结果时点名搜的词，
+  并且 **`OUT-…` / `PR-…` 直接给那张单据的链接**（草稿还没出库时流水是 0 条，正好指过去看它要出哪些料）。
+  **`verify-m60b.ps1` 里那条“流水里至少两条带单号”原来是假通过**：列表没过滤，随便什么词都能过——
+  凡是“按关键词查”的断言都要先确认**总数比全表少**（`data-total`），再看每行都带这个词。
+  验法：`check-ledger-search.ps1`（7 项：批次号收窄、每行都带它、胡写的词 0 条、空词等于全表、翻页不变；
+  dev 2676 条 / test 7178 条都过）、`verify-outbound-page.ps1` 现在 15 项（dev，已出库的单
+  `OUT-261101-01` 有 26 条流水 = 13 条发料 + 13 条释放预留）与 11 项（test，没有已出库的单时自动跳过那三条）、
+  `check-prod-237.ps1` 16 项（多比 `stockMoves.ftl` / `stock-services.xml`，并用 `javap` 确认 jar 里有
+  `ledgerMatches`）。单测 `findsTheMovementsOfOneDocument` 钉住匹配规则。
+
 - **测试数据把开发库灌满了：清一次，并让 IT 打测试实例（Step 239）**：几个月下来开发库里
   **383 个开发项目**、268 个型号、728 个工单、3959 个批次、13192 条流水、1152 张到货单，几乎全是
   `mfg-it.bat` 与 `verify-m*.ps1` 造出来的（IT 每跑一次就建 4 个项目 + 2 个型号 + 一堆单据）。

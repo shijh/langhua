@@ -41,6 +41,7 @@
 </#if>
 
 <form method="get" action="/mfg/control/stockMoves">
+    关键词 <input type="text" name="search" size="18" value="${(lr.search)!''}" placeholder="单号 / 料号 / 批次 / 备注"/>
     料号 <input type="text" name="componentCode" size="14" value="${(lr.componentCode)!''}"/>
     批次 <input type="text" name="lotId" size="16" value="${(lr.lotId)!''}"/>
     类别
@@ -108,10 +109,13 @@
             </tr>
         </#list>
     </table>
-    <@pg.pager action="/mfg/control/stockMoves" query=('componentCode=' + ((lr.componentCode)!'')?url + '&' + 'lotId=' + ((lr.lotId)!'')?url + '&' + 'movementTypeId=' + typeId?url + '&' + 'reasonEnumId=' + reasonId?url)
+    <@pg.pager action="/mfg/control/stockMoves" query=('search=' + ((lr.search)!'')?url + '&' + 'componentCode=' + ((lr.componentCode)!'')?url + '&' + 'lotId=' + ((lr.lotId)!'')?url + '&' + 'movementTypeId=' + typeId?url + '&' + 'reasonEnumId=' + reasonId?url)
     page=(lr.page)!1 pageCount=(lr.pageCount)!1 total=(lr.totalCount)!0 unit="条" pageSize=(lr.pageSize)!20/>
 <#else>
-    <p class="hint">没有符合条件的流水。入库（建批次）会自动记一笔到货；发料、退料、报废、盘点各记一笔，结存等于这些数之和。</p>
+    <p class="hint"><#if ((lr.search)!'') != ''>没有匹配「${lr.search}」的流水：换一个单号、料号或批次试试。<#if ((lr.search)!'')?starts_with("OUT-")>
+        这张出库单可能还没出库（草稿里还没有流水），<a href="/mfg/control/outbound?outboundId=${lr.search?url}">打开出库单 ${lr.search}</a> 看它要出哪些料。</#if><#if ((lr.search)!'')?starts_with("PR-")>
+        <a href="/mfg/control/receipts?receiptId=${lr.search?url}">打开到货单 ${lr.search}</a> 看它买了什么。</#if>
+        <#else>没有符合条件的流水。入库（建批次）会自动记一笔到货；发料、退料、报废、盘点各记一笔，结存等于这些数之和。</#if></p>
 </#if>
 
 <#if (lr.componentCode!'') != '' || (lr.lotId!'') != ''>
