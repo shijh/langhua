@@ -2645,6 +2645,11 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
     （只打一行 `ChecksumException`）。所以“HTTP 200”不等于能扫——验法看日志：
     `F:\build-ofbiz\label254\sweep.ps1`（挨个尺寸生成贴图 → 复制到部署目录 → 拉三张码 → 数日志里的
     `ChecksumException`），改贴图尺寸后跑一遍。
+  - **给 OFBiz 的 PR 材料在 `docs/ofbiz-qrcode-upstream.md`**（用户自己贡献过那个 qrcode 模块，要单独
+    提 issue/PR）：`logoImage` 入参类型与实现不一致（完全用不了）、`verifyOutput` 对“带 logo 后解不开的图”
+    返回成功、纠错等级写死 L、logo 按原始像素画、`qrcode.formats.supported` 与代码里的
+    `qrcode.format.supported` 拼写不一致、`width`/`height` 各默认 200、透明 logo 没有白底、
+    `AffineTransformOp` 误用。**这份文档里逐条写了 file:line、复现、期望和 patch 草稿**，改这块前先看它。
 
 - **测试数据把开发库灌满了：清一次，并让 IT 打测试实例（Step 239）**：几个月下来开发库里
   **383 个开发项目**、268 个型号、728 个工单、3959 个批次、13192 条流水、1152 张到货单，几乎全是
