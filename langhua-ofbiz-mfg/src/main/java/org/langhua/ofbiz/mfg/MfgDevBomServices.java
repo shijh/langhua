@@ -1473,6 +1473,56 @@ public final class MfgDevBomServices {
     }
 
     /**
+     * Points the QR service's logo at the house mark.
+     *
+     * <p>OFBiz draws {@code qrcode.default.logoimage} in the middle of every code it generates, and
+     * that default is the OFBiz logo - somebody else's brand on our sticker. The service also has a
+     * {@code logoImage} input, but it is declared as {@code java.awt.image.BufferedImage} while the
+     * implementation reads it as a path, so the input cannot be used at all; the system property is
+     * the way that works.
+     *
+     * <p>This runs as a service with a transaction of its own, called from the label request with
+     * {@code requireNewTransaction}: written from the request thread the row stayed uncommitted and
+     * the QR service then waited 60 seconds for its lock and gave up with an empty sticker.
+     *
+     * @param dctx the dispatch context
+     * @param context service context, see {@code servicedef/devbom-services.xml#mfgQrLogoEnsure}
+     * @return the service result with {@code changed} = {@code Y} when the setting was written
+     */
+    public static Map<String, Object> qrLogoEnsure(DispatchContext dctx, Map<String, ? extends Object> context) {
+        Delegator delegator = dctx.getDelegator();
+        String path = MfgSupport.toText(context.get("logoPath"));
+        Map<String, Object> result = ServiceUtil.returnSuccess();
+        if (path == null) {
+            return result;
+        }
+        try {
+            GenericValue property = EntityQuery.use(delegator).from("SystemProperty")
+                    .where("systemResourceId", "qrcode", "systemPropertyId", "qrcode.default.logoimage")
+                    .queryOne();
+            if (property != null && path.equals(property.getString("systemPropertyValue"))) {
+                result.put("changed", "N");
+                return result;
+            }
+            if (property == null) {
+                GenericValue created = delegator.makeValue("SystemProperty");
+                created.set("systemResourceId", "qrcode");
+                created.set("systemPropertyId", "qrcode.default.logoimage");
+                created.set("systemPropertyValue", path);
+                created.set("description", "Label QR codes carry the house mark");
+                delegator.create(created);
+            } else {
+                property.set("systemPropertyValue", path);
+                delegator.store(property);
+            }
+            result.put("changed", "Y");
+            return result;
+        } catch (GenericEntityException e) {
+            return ServiceUtil.returnError("设置二维码 logo 失败：" + e.getMessage());
+        }
+    }
+
+    /**
      * What the middle sticker carries: which document it is, the name of the project and how much is
      * in the box - enough for a box lying on a workbench, short enough for an 18 mm code.
      *

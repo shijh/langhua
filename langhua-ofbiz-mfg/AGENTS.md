@@ -2623,6 +2623,29 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   `verify-outbound-page.ps1` 22、`smoke-dev-pages.ps1` 28、`check-prod-237.ps1` 24 全过。
   量二维码模块数的脚本在 `F:\build-ofbiz\probe251\measure3.ps1`（打开发实例，解 PNG 算模块宽度）。
 
+- **二维码中间换成我们自己的 logo（Step 253）**：用户问“二维码中间的 logo 能换成咱们自己的 logo 吗”——
+  原来中间那个是 **OFBiz 的**：`generateQRCodeImage` 会把它自己的 `qrcode.default.logoimage`
+  （`component://common-theme/webapp/images/ofbiz.png`）盖在每个码的正中间，我们一直没管。
+  - **服务的 `logoImage` IN 用不了**：`services_qrcode.xml` 里声明成 `java.awt.image.BufferedImage`，
+    而实现是 `(String) context.get("logoImage")` + `FileUtil.getFile(...)`——传 String 报
+    `Type check failed for field [logoImage]`，传 BufferedImage 会 ClassCast。只能改**系统属性**：
+    `SystemProperty`（`systemResourceId=qrcode` / `qrcode.default.logoimage`），
+    `EntityUtilProperties` 先读库再退回 properties 文件（查询带 `.cache()`，所以写进去立刻生效）。
+  - **写这个属性必须另开事务**：`mfgQrLogoEnsure` 服务（`devbom-services.xml`，`use-transaction="true"`），
+    事件里 `dispatcher.runSync("mfgQrLogoEnsure", ctx, -1, true)`（`requireNewTransaction`）。
+    试过在请求线程里直接 `delegator.create`：外层已有事务时 `TransactionUtil.begin()` 返回 false、
+    `commit(false)` 是空操作，行一直没提交，QR 服务的新事务**等锁等到 60 秒超时**，贴纸 404。
+    每次请求先查一遍也没必要——`MfgDevBomEvents` 里有 `AtomicBoolean QR_LOGO_READY` 只做一次（失败会重置）。
+  - 贴图 `webapp/mfg/images/logo-qr.png` 由 `tools/make-qr-logo.ps1` 生成（**白底**方块：页面用的
+    `logo-*.png` 是透明底，直接盖会把模块透出来），**36×36 px**。
+  - **为什么只有 36px**：纠错等级是 **L**（zxing 默认，服务不暴露这个参数），居中的白块最多吃掉约 7% 面积。
+    实测 36px 时三种尺寸都能被 zxing 解码，40px 起 mid/small 就报 `ChecksumException`。**别再往大调**：
+    要更大的 logo 只能自己用 zxing 编成 Q/H（需要新增编译期依赖，目前没有），或者把 logo 放到项目名旁边。
+  - **`verifyOutput` 不能当保险**：带 logo 的图解码失败时 `result` 是 null，服务**照样返回成功**
+    （只打一行 `ChecksumException`）。所以“HTTP 200”不等于能扫——验法看日志：
+    `F:\build-ofbiz\label254\sweep.ps1`（挨个尺寸生成贴图 → 复制到部署目录 → 拉三张码 → 数日志里的
+    `ChecksumException`），改贴图尺寸后跑一遍。
+
 - **测试数据把开发库灌满了：清一次，并让 IT 打测试实例（Step 239）**：几个月下来开发库里
   **383 个开发项目**、268 个型号、728 个工单、3959 个批次、13192 条流水、1152 张到货单，几乎全是
   `mfg-it.bat` 与 `verify-m*.ps1` 造出来的（IT 每跑一次就建 4 个项目 + 2 个型号 + 一堆单据）。

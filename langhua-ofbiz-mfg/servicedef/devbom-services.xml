@@ -199,4 +199,12 @@
         <attribute name="saved" type="String" mode="OUT" optional="true"/>
     </service>
 
+    <service name="mfgQrLogoEnsure" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgDevBomServices" invoke="qrLogoEnsure"
+            auth="false" use-transaction="true">
+        <description>Point the QR service's logo at the house mark: it draws qrcode.default.logoimage in the middle of every code, and that setting is a system property. Called with a new transaction, because it runs while a page is being rendered</description>
+        <attribute name="logoPath" type="String" mode="IN" optional="true"/>
+        <attribute name="changed" type="String" mode="OUT" optional="true"/>
+    </service>
+
 </services>

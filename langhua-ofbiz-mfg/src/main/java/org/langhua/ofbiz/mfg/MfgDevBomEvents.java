@@ -51,6 +51,46 @@ public final class MfgDevBomEvents {
     /** Largest BOM file accepted: a Fritzing report of a big board is a few hundred kilobytes. */
     static final int MAX_BOM_BYTES = 4 * 1024 * 1024;
 
+    /**
+     * The mark printed in the middle of a label's QR code. It sits on a white tile (the icons used by
+     * the pages have a transparent background, which would let modules show through the logo), and it
+     * is 36 pixels wide because OFBiz draws the default logo at its native size - one tile has to
+     * serve a 400 px code and a 250 px one, and zxing still decodes all three at that size.
+     */
+    static final String QR_LOGO = "component://mfg/webapp/mfg/images/logo-qr.png";
+
+    /** The setting is corrected once per JVM; asking again on every sticker would cost a query. */
+    private static final java.util.concurrent.atomic.AtomicBoolean QR_LOGO_READY =
+            new java.util.concurrent.atomic.AtomicBoolean(false);
+
+    /**
+     * Makes the QR service stamp our mark instead of the OFBiz one (see
+     * {@link MfgDevBomServices#qrLogoEnsure}).
+     *
+     * <p>It goes through a service started with {@code requireNewTransaction}: written straight from
+     * the request thread the row stayed uncommitted, and the QR service then waited 60 seconds for the
+     * lock and came back empty.
+     *
+     * @param dispatcher the dispatcher
+     */
+    static void ensureOurQrLogo(LocalDispatcher dispatcher) {
+        if (!QR_LOGO_READY.compareAndSet(false, true)) {
+            return;
+        }
+        Map<String, Object> context = new java.util.HashMap<>();
+        context.put("logoPath", QR_LOGO);
+        try {
+            Map<String, Object> result = dispatcher.runSync("mfgQrLogoEnsure", context, -1, true);
+            if (ServiceUtil.isError(result)) {
+                QR_LOGO_READY.set(false);
+                Debug.logError(ServiceUtil.getErrorMessage(result), MODULE);
+            }
+        } catch (GenericServiceException e) {
+            QR_LOGO_READY.set(false);
+            Debug.logError(e, "Could not point the QR logo at " + QR_LOGO, MODULE);
+        }
+    }
+
     private MfgDevBomEvents() {
     }
 
@@ -234,6 +274,8 @@ public final class MfgDevBomEvents {
         context.put("format", "png");
         context.put("encoding", "UTF-8");
         context.put("verifyOutput", Boolean.TRUE);
+        // the code carries our mark in the middle; left alone the service would stamp the OFBiz logo
+        ensureOurQrLogo(dispatcher);
         try {
             Map<String, Object> result = dispatcher.runSync("generateQRCodeImage", context, -1, true);
             if (ServiceUtil.isError(result)) {
