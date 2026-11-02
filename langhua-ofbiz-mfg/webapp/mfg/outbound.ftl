@@ -1,4 +1,7 @@
 <#ftl encoding="UTF-8">
+<#-- ?url needs the charset in this very template, otherwise rendering stops with
+     "To do URL encoding, the framework that encloses FreeMarker must specify the output_encoding setting ..." -->
+<#setting url_escaping_charset="UTF-8">
 <#assign outbound = (outboundResult.outbound)!{}>
 <#assign errList = (errorMessageList)![]>
 <#if errList?has_content>

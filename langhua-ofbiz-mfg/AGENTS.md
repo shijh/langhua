@@ -113,7 +113,14 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
 - **`${x?url}` 要求同一模板里有 `<#setting url_escaping_charset="UTF-8">`**，否则渲染抛
   `To do URL encoding, the framework that encloses FreeMarker must specify the "output_encoding" setting ...`；
   `workOrderDetail.ftl` 没有这个 setting，所以在那里用 `?url` 会让整页报错，而且 POST 后的 302 目标页报错时
-  巡检看到的是「200 + template error」；批次号这类安全字符直接拼，不要 `?url`
+  巡检看到的是「200 + template error」；批次号这类安全字符直接拼，不要 `?url`。
+  **`outbound.ftl` 又踩了一次（Step 248）**：新加的「打印标签 / 核对页」两个链接用了
+  `${outbound.outboundId?url}`，而那个模板只有 `<#ftl>` 没有 `<#setting>`，于是已出库的单据页渲染到第 71 行
+  就断了。**这个错还特别难发现**：`html-template` 是边渲染边往响应里写，所以报表头那段（含
+  `data-outbound-*` 断言要的属性）已经发出去了，末尾才附上错误页——**巡检只查属性就全过**。
+  所以：**凡是取回来的页面都要扫 `FTL stack trace` / `FreeMarker template error`**（m53 的教训只对
+  “整页是错误页”有效，对“半页 + 错误”无效）。找这类模板的办法：
+  `%TEMP%\jup\find-url-templates.ps1` 列出“用了 `?url` 却没有 setting”的模板。
 - **服务参数里有 `<` / `>` 要给 `allow-html="any"`（Step 175 踩的）**：OFBiz 的 `ModelService` 校验 IN 参数，
   默认 `allow-html="none"`，于是「一段 HTML」进不了服务——`mfgDevBomImport` 第一次跑就回
   `In field [bomText] less-than (<) and greater-than (>) symbols are not allowed.`，日志里只看到
