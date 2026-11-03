@@ -30,6 +30,28 @@
         <prim-key field="productCode"/>
     </entity>
 
+    <entity entity-name="MfgProductStageReview"
+            package-name="org.langhua.ofbiz.mfg"
+            title="Product stage review">
+        <description>Gate review of one development stage of a product model. The five stages belong to the model and not to a development project: the PCB, firmware and enclosure projects of one product share the same gates. Passing a gate moves MfgProduct.devStageId to the next stage</description>
+        <field name="productCode" type="id"><description>Parent model</description></field>
+        <field name="stageId" type="id"><description>Stage being reviewed</description></field>
+        <field name="plannedDate" type="date"><description>Date the review should happen</description></field>
+        <field name="doneDate" type="date"><description>Date the review really happened, empty while the gate is still open</description></field>
+        <field name="resultId" type="id"><description>MFG_REVIEW_PASS, MFG_REVIEW_CONDITIONAL or MFG_REVIEW_FAIL</description></field>
+        <field name="reviewer" type="name"><description>Who signed the gate off</description></field>
+        <field name="note" type="description"/>
+        <field name="createdStamp" type="date-time"/>
+        <field name="createdTxStamp" type="date-time"/>
+        <field name="lastUpdatedStamp" type="date-time"/>
+        <field name="lastUpdatedTxStamp" type="date-time"/>
+        <prim-key field="productCode"/>
+        <prim-key field="stageId"/>
+        <relation type="one" fk-name="MFG_PSTG_PRODUCT" rel-entity-name="MfgProduct">
+            <key-map field-name="productCode"/>
+        </relation>
+    </entity>
+
     <entity entity-name="MfgBomItem"
             package-name="org.langhua.ofbiz.mfg"
             title="BOM line">

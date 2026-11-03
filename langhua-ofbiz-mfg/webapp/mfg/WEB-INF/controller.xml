@@ -185,6 +185,17 @@
         <response name="error" type="view" value="products"/>
     </request-map>
 
+    <!-- the five stage gates belong to the model: signing one off comes back to that same block -->
+    <request-map uri="productStageSave">
+        <security https="true" auth="true"/>
+        <event type="service" invoke="mfgProductStageSave"/>
+        <response name="success" type="request-redirect" value="products">
+            <redirect-parameter name="productCode"/>
+            <redirect-parameter name="stageId"/>
+        </response>
+        <response name="error" type="view" value="products"/>
+    </request-map>
+
     <!-- "forgot my password": the stock map sends the found hint to the start page (LoginEvents
          answers "auth" when it has a hint, with the text in _EVENT_MESSAGE_); keep the person on
          our own page instead, where signIn.groovy turns that text into Chinese -->

@@ -581,33 +581,22 @@ public final class MfgDevServices {
             if (project == null) {
                 return ServiceUtil.returnError("Unknown development project [" + projectCode + "]");
             }
-            List<GenericValue> stored = EntityQuery.use(delegator).from("MfgDevStageReview")
-                    .where("projectCode", projectCode).queryList();
-            Map<String, GenericValue> byStage = new LinkedHashMap<>();
-            for (GenericValue review : stored) {
-                byStage.put(review.getString("stageId"), review);
-            }
-            List<Map<String, Object>> reviews = new ArrayList<>(MfgConstants.DEV_STAGES.length);
-            for (String stage : MfgConstants.DEV_STAGES) {
-                GenericValue review = byStage.get(stage);
-                Map<String, Object> map = new LinkedHashMap<>();
-                map.put("stageId", stage);
-                map.put("stageIndex", Integer.valueOf(devStageIndex(stage)));
-                map.put("plannedDate", review == null ? null : review.get("plannedDate"));
-                map.put("doneDate", review == null ? null : review.get("doneDate"));
-                map.put("resultId", review == null ? null : review.getString("resultId"));
-                map.put("reviewer", review == null ? null : review.getString("reviewer"));
-                map.put("note", review == null ? null : review.getString("note"));
-                reviews.add(map);
-            }
             List<Map<String, Object>> ecos = new ArrayList<>();
             for (GenericValue eco : EntityQuery.use(delegator).from("MfgDevEco")
                     .where("projectCode", projectCode).orderBy("-createdStamp").queryList()) {
                 ecos.add(toEcoMap(eco));
             }
-            String stageId = project.getString("stageId");
+            // the five stages belong to the product model: a project of a model shows the model's
+            // stage (read only), a project without a model has none of its own
+            String productCode = project.getString("productCode");
+            GenericValue model = productCode == null ? null
+                    : EntityQuery.use(delegator).from("MfgProduct")
+                            .where("productCode", productCode).queryOne();
+            String productStageId = model == null ? null : model.getString("devStageId");
             Map<String, Object> projectMap = toDevProjectMap(delegator, project);
-            projectMap.put("nextStageId", nextDevStage(stageId));
+            projectMap.put("productStageId", productStageId);
+            projectMap.put("productStageIndex", Integer.valueOf(devStageIndex(productStageId)));
+            projectMap.put("nextStageId", nextDevStage(productStageId));
 
             // the steps of the track, with the stored state merged in, in catalog order
             String trackId = project.getString("trackId");
@@ -660,12 +649,12 @@ public final class MfgDevServices {
 
             Map<String, Object> result = ServiceUtil.returnSuccess();
             result.put("project", projectMap);
-            result.put("reviews", reviews);
             result.put("ecos", ecos);
             result.put("steps", steps);
             result.put("trackId", trackId);
-            result.put("stageIndex", Integer.valueOf(devStageIndex(stageId)));
-            return result;        } catch (GenericEntityException e) {
+            result.put("stageIndex", Integer.valueOf(devStageIndex(productStageId)));
+            return result;
+        } catch (GenericEntityException e) {
             return ServiceUtil.returnError("Could not read the development project: " + e.getMessage());
         }
     }

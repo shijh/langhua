@@ -30,8 +30,14 @@
     <#else><#return '未设置'>
     </#if>
 </#function>
-<#function versionLabel statusId>
-    <#if (statusId!'') == 'MFG_BOM_RELEASED'><#return '使用中'>
+<#function reviewLabel resultId>
+    <#if (resultId!'') == 'MFG_REVIEW_PASS'><#return '通过'>
+    <#elseif (resultId!'') == 'MFG_REVIEW_CONDITIONAL'><#return '有条件通过'>
+    <#elseif (resultId!'') == 'MFG_REVIEW_FAIL'><#return '不通过'>
+    <#else><#return '未评审'>
+    </#if>
+</#function>
+<#function versionLabel statusId>    <#if (statusId!'') == 'MFG_BOM_RELEASED'><#return '使用中'>
     <#elseif (statusId!'') == 'MFG_BOM_DRAFT'><#return '草稿'>
     <#elseif (statusId!'') == 'MFG_BOM_OBSOLETE'><#return '已废止'>
     <#else><#return '${statusId!}'>
@@ -48,6 +54,10 @@
 </#if>
 <#if parameters.lineSeq??>
     <p class="ok">已保存 BOM 行 ${parameters.lineSeq}。</p>
+</#if>
+<#if parameters.stageId??>
+    <p class="ok">已登记 ${stageLabel(parameters.stageId)} 阶段的关卡评审：当前阶段 ${stageLabel((product.devStageId)!'')}。
+        往下那段「阶段关卡」里能看到每一关的结论。</p>
 </#if>
 
 <fieldset>
@@ -86,6 +96,7 @@
             <th>名称</th>
             <th>SN 前缀</th>
             <th>阶段</th>
+            <th class="num">关卡</th>
             <th>当前 BOM</th>
             <th class="num">BOM 行</th>
             <th class="num">版本数</th>
@@ -101,6 +112,7 @@
                 <td>${p.productName!}</td>
                 <td>${p.snPrefix!}</td>
                 <td>${stageLabel(p.devStageId!'')}</td>
+                <td class="num">${(p.passedCount)!0} / ${(p.reviewCount)!0}</td>
                 <td><#if (p.currentBomVersionId!'') != ''>${p.currentBomVersionId}<#else><span class="hint">未建 BOM</span></#if></td>
                 <td class="num"><#if bomLines?has_content><a href="#" data-toggle-lines="pc-${p.productCode}" data-open="N">${bomLines?size} <span>▸</span></a><#else>0</#if></td>
                 <td class="num">${p.versionCount}</td>
@@ -109,7 +121,7 @@
                 <td>${p.statusId!}</td>
             </tr>
             <#if bomLines?has_content>
-                <tr data-lines="pc-${p.productCode}"><td colspan="11" class="lines">
+                <tr data-lines="pc-${p.productCode}"><td colspan="12" class="lines">
                     <table class="inner" data-product-bom="${p.productCode}">
                         <tr><th>行</th><th>料号</th><th>名称</th><th class="num">用量</th>
                             <th class="num">单价</th><th class="num">金额</th><th>位号</th><th>关键件</th></tr>
@@ -138,6 +150,52 @@
     page=(lr.page)!1 pageCount=(lr.pageCount)!1 total=(lr.totalCount)!0 unit="条" pageSize=(lr.pageSize)!20/>
 
 <#if product.productCode??>
+    <h2 id="stages" data-stage="${(product.devStageId)!''}">阶段关卡（${(d.passedCount)!0} / ${(d.reviewCount)!0}）</h2>
+    <#assign stageRows = (d.reviews)![]>
+    <table id="stageGates">
+        <tr><th>阶段</th><th>计划评审</th><th>实际评审</th><th>结论</th><th>评审人</th><th>说明</th></tr>
+        <#list stageRows as r>
+            <tr data-stage="${r.stageId}">
+                <td><#if (product.devStageId!'') == r.stageId><b>${stageLabel(r.stageId)}</b><#else>${stageLabel(r.stageId)}</#if></td>
+                <td><#if r.plannedDate??>${r.plannedDate?string("yyyy-MM-dd")}</#if></td>
+                <td><#if r.doneDate??>${r.doneDate?string("yyyy-MM-dd")}</#if></td>
+                <td><#if r.resultId??>${reviewLabel(r.resultId)}<#else><span class="hint">未评审</span></#if></td>
+                <td>${r.reviewer!}</td>
+                <td>${r.note!}</td>
+            </tr>
+        </#list>
+    </table>
+
+    <fieldset>
+        <legend>登记关卡评审（通过则进入下一阶段）</legend>
+        <form method="post" action="/mfg/control/productStageSave">
+            <input type="hidden" name="productCode" value="${product.productCode}"/>
+            <p>
+                阶段
+                <select name="stageId">
+                    <#list stageRows as r>
+                        <option value="${r.stageId}"<#if (product.devStageId!'') == r.stageId> selected="selected"</#if>>${stageLabel(r.stageId)}</option>
+                    </#list>
+                </select>
+                结论
+                <select name="resultId">
+                    <option value="MFG_REVIEW_PASS">通过</option>
+                    <option value="MFG_REVIEW_CONDITIONAL">有条件通过</option>
+                    <option value="MFG_REVIEW_FAIL">不通过</option>
+                </select>
+                计划评审 <input type="text" name="plannedDate" size="10" placeholder="yyyy-mm-dd"/>
+                评审日 <input type="text" name="doneDate" size="10" placeholder="yyyy-mm-dd（留空=今天）"/>
+                评审人 <input type="text" name="reviewer" size="10"/>
+            </p>
+            <p>
+                说明 <input type="text" name="note" size="46"/>
+                <input type="submit" value="保存评审"/>
+            </p>
+        </form>
+    </fieldset>
+    <p class="hint">五个阶段挂在型号上：同一个型号的 PCB、固件、外壳三个项目共用这套关卡，评审通过才进入下一阶段；
+        项目那边只管路线图的步骤，不再单独记阶段。</p>
+
     <h2>产品照片（${images?size} 个）</h2>
     <#include "attachmentBlock.ftl">
     <#assign attOwner = product.productCode>

@@ -84,7 +84,11 @@ public final class MfgProductServices {
             return ServiceUtil.returnError("productCode is required");
         }
         try {
-            GenericValue product = delegator.makeValue("MfgProduct");
+            // an existing model keeps everything this form does not carry (the current BOM
+            // version, the source of the standard hours, the stage it has reached)
+            GenericValue existing = EntityQuery.use(delegator).from("MfgProduct")
+                    .where("productCode", productCode).queryOne();
+            GenericValue product = existing == null ? delegator.makeValue("MfgProduct") : existing;
             product.set("productCode", productCode);
             product.set("productName", MfgSupport.toText(context.get("productName")));
             String snPrefix = MfgSupport.toText(context.get("snPrefix"));
@@ -103,8 +107,6 @@ public final class MfgProductServices {
             // hours changed by hand come from the shop floor again, not from a learning curve;
             // the base quantity and the estimate reference are left as they are, the page only
             // shows them while the source still says LEARNING_CURVE
-            GenericValue existing = EntityQuery.use(delegator).from("MfgProduct")
-                    .where("productCode", productCode).queryOne();
             double storedHours = existing == null ? 0.0 : MfgSupport.toDouble(existing.get("standardHours"), 0.0);
             if (existing == null || Math.abs(storedHours - newHours) > 0.000001) {
                 product.set("standardHoursSource", MfgConstants.HOURS_SOURCE_MANUAL);
@@ -118,6 +120,9 @@ public final class MfgProductServices {
             String devStageId = MfgSupport.toText(context.get("devStageId"));
             if (devStageId != null) {
                 product.set("devStageId", devStageId);
+            } else if (existing == null) {
+                // a new model starts at the first gate of the ladder
+                product.set("devStageId", MfgConstants.DEV_STAGES[0]);
             }
             product.set("note", MfgSupport.toText(context.get("note")));
             delegator.createOrStore(product);
@@ -900,6 +905,19 @@ public final class MfgProductServices {
         Delegator delegator = dctx.getDelegator();
         try {
             List<GenericValue> products = EntityQuery.use(delegator).from("MfgProduct").orderBy("productCode").queryList();
+            // the gate counts of every model in one query, so a page of twenty rows is not twenty lookups
+            Map<String, int[]> gates = new LinkedHashMap<>();
+            for (GenericValue review : EntityQuery.use(delegator).from("MfgProductStageReview").queryList()) {
+                int[] counts = gates.get(review.getString("productCode"));
+                if (counts == null) {
+                    counts = new int[2];
+                    gates.put(review.getString("productCode"), counts);
+                }
+                counts[1]++;
+                if (MfgDevServices.stageAdvancesOn(review.getString("resultId"))) {
+                    counts[0]++;
+                }
+            }
             List<Map<String, Object>> list = new ArrayList<>(products.size());
             for (GenericValue product : products) {
                 String productCode = product.getString("productCode");
@@ -912,6 +930,9 @@ public final class MfgProductServices {
                 map.put("salePrice", product.getDouble("salePrice"));
                 map.put("statusId", product.getString("statusId"));
                 map.put("devStageId", product.getString("devStageId"));
+                int[] gate = gates.get(productCode);
+                map.put("passedCount", Integer.valueOf(gate == null ? 0 : gate[0]));
+                map.put("reviewCount", Integer.valueOf(gate == null ? 0 : gate[1]));
                 String currentVersion = currentBomVersionId(delegator, productCode);
                 map.put("currentBomVersionId", currentVersion);
                 map.put("bomCount", Integer.valueOf(currentVersion == null ? 0
@@ -951,6 +972,124 @@ public final class MfgProductServices {
     }
 
     /**
+     * The five stage gates of a product model, with what has been filled in for each.
+     *
+     * <p>The stages belong to the model, not to a development project: the PCB, firmware and
+     * enclosure projects of one product all walk the same five gates, and a model without any
+     * project still has them. This is why the gate reviews moved off the project page.
+     *
+     * @param delegator the delegator
+     * @param productCode the model
+     * @return one entry per stage in ladder order, each with {@code stageId}, {@code stageIndex} and
+     *         {@code recorded}
+     * @throws GenericEntityException when the reviews cannot be read
+     */
+    static List<Map<String, Object>> stageReviewsOf(Delegator delegator, String productCode)
+            throws GenericEntityException {
+        Map<String, GenericValue> stored = new LinkedHashMap<>();
+        for (GenericValue review : EntityQuery.use(delegator).from("MfgProductStageReview")
+                .where("productCode", productCode).queryList()) {
+            stored.put(review.getString("stageId"), review);
+        }
+        List<Map<String, Object>> rows = new ArrayList<>(MfgConstants.DEV_STAGES.length);
+        for (String stage : MfgConstants.DEV_STAGES) {
+            GenericValue review = stored.get(stage);
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("stageId", stage);
+            row.put("stageIndex", Integer.valueOf(MfgDevServices.devStageIndex(stage)));
+            row.put("recorded", Boolean.valueOf(review != null));
+            row.put("plannedDate", review == null ? null : review.get("plannedDate"));
+            row.put("doneDate", review == null ? null : review.get("doneDate"));
+            row.put("resultId", review == null ? null : review.getString("resultId"));
+            row.put("reviewer", review == null ? null : review.getString("reviewer"));
+            row.put("note", review == null ? null : review.getString("note"));
+            rows.add(row);
+        }
+        return rows;
+    }
+
+    /** How many gates of a product were signed off, of how many were written down at all. */
+    static Map<String, Object> stageCounts(List<Map<String, Object>> reviews) {
+        int passed = 0;
+        int recorded = 0;
+        for (Map<String, Object> row : reviews) {
+            if (Boolean.TRUE.equals(row.get("recorded"))) {
+                recorded++;
+            }
+            if (MfgDevServices.stageAdvancesOn((String) row.get("resultId"))) {
+                passed++;
+            }
+        }
+        Map<String, Object> counts = new LinkedHashMap<>();
+        counts.put("passedCount", Integer.valueOf(passed));
+        counts.put("reviewCount", Integer.valueOf(recorded));
+        return counts;
+    }
+
+    /**
+     * Signs one stage gate of a product model off, advancing the model when the gate passed.
+     *
+     * <p>A gate can only move the model forward: signing an old stage off again after the model went
+     * further does not pull it back, the same rule the project gates followed before they moved here.
+     *
+     * @param dctx the dispatch context
+     * @param context service context, see {@code servicedef/product-services.xml#mfgProductStageSave}
+     * @return the service result containing {@code productCode}, {@code stageId} and
+     *         {@code productStageId}
+     */
+    public static Map<String, Object> productStageSave(DispatchContext dctx, Map<String, ? extends Object> context) {
+        String denied = MfgSecurity.permissionProblem(dctx, context, MfgConstants.PERM_ENG);
+        if (denied != null) {
+            return ServiceUtil.returnError(denied);
+        }
+        Delegator delegator = dctx.getDelegator();
+        String productCode = MfgSupport.toText(context.get("productCode"));
+        String stageId = MfgSupport.toText(context.get("stageId"));
+        String resultId = MfgSupport.toText(context.get("resultId"));
+        if (productCode == null) {
+            return ServiceUtil.returnError("productCode is required");
+        }
+        if (stageId == null || !MfgDevServices.isKnownDevStage(stageId)) {
+            return ServiceUtil.returnError("Unknown development stage [" + stageId + "]");
+        }
+        if (resultId != null && !MfgDevServices.isKnownReviewResult(resultId)) {
+            return ServiceUtil.returnError("Unknown review result [" + resultId + "]");
+        }
+        try {
+            GenericValue product = EntityQuery.use(delegator).from("MfgProduct")
+                    .where("productCode", productCode).queryOne();
+            if (product == null) {
+                return ServiceUtil.returnError("Unknown product model [" + productCode + "]");
+            }
+            GenericValue review = delegator.makeValue("MfgProductStageReview");
+            review.set("productCode", productCode);
+            review.set("stageId", stageId);
+            review.set("plannedDate", MfgSupport.parseDate(context.get("plannedDate")));
+            review.set("doneDate", MfgSupport.parseDate(context.get("doneDate")));
+            review.set("resultId", resultId);
+            review.set("reviewer", MfgSupport.toText(context.get("reviewer")));
+            review.set("note", MfgSupport.toText(context.get("note")));
+            delegator.createOrStore(review);
+
+            String productStageId = product.getString("devStageId");
+            String next = MfgDevServices.nextDevStage(stageId);
+            if (MfgDevServices.stageAdvancesOn(resultId) && next != null
+                    && MfgDevServices.devStageIndex(next) > MfgDevServices.devStageIndex(productStageId)) {
+                productStageId = next;
+                product.set("devStageId", next);
+                product.store();
+            }
+            Map<String, Object> result = ServiceUtil.returnSuccess();
+            result.put("productCode", productCode);
+            result.put("stageId", stageId);
+            result.put("productStageId", productStageId);
+            return result;
+        } catch (GenericEntityException e) {
+            return ServiceUtil.returnError("Could not save the stage review: " + e.getMessage());
+        }
+    }
+
+    /**
      * Returns the BOM and routing of one product model, used by the product page.
      *
      * @param dctx the dispatch context
@@ -965,6 +1104,7 @@ public final class MfgProductServices {
                 Map<String, Object> result = ServiceUtil.returnSuccess();
                 result.put("bomItems", new ArrayList<Map<String, Object>>());
                 result.put("routings", new ArrayList<Map<String, Object>>());
+                result.put("reviews", new ArrayList<Map<String, Object>>());
                 return result;
             }
             GenericValue product = EntityQuery.use(delegator).from("MfgProduct")
@@ -991,6 +1131,10 @@ public final class MfgProductServices {
             result.put("bomVersionId", currentVersion);
             result.put("bomItems", bomItemMaps(bomItems, MfgStockServices.shotByComponent(delegator)));
             result.put("routings", routingMaps);
+            // the five stage gates: they belong to the model, so they are shown here and not on the project
+            List<Map<String, Object>> reviews = stageReviewsOf(delegator, productCode);
+            result.put("reviews", reviews);
+            result.putAll(stageCounts(reviews));
             return result;
         } catch (GenericEntityException e) {
             return ServiceUtil.returnError("Could not read the product model: " + e.getMessage());

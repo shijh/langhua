@@ -193,7 +193,7 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
 | `MfgServiceIT` | 全链路服务调用（含 BOM 版本、Fritzing BOM 导入、三条开发线、ECO、附件、来料检验、成本、告警、软件报价与台账、成本细化与外协费明细、步骤问题清单、良率/工时趋势、库存流水与盘点、工单预留/发料释放、完工入库与出货扣减、销售订单两级预留与核销、库位与移库、用户账号） | 398 |
 | `verify-m11.ps1` | 列表页搜索/过滤/翻页/编码 | 55 |
 | `verify-m12.ps1` | 装饰器布局（1 个 html、1 条导航、1 个高亮、样式表、无内联 style、无 FTL 报错） | 102 |
-| `verify-m13.ps1` | 产品开发 + BOM 版本 + 三条线路 | 49 |
+| `verify-m13.ps1` | 项目开发 + 阶段关卡（在产品页）+ BOM 版本 + 三条路线图 | 53 |
 | `verify-m28b.ps1` | 通用附件（上传/列表/原图/缩略图/错误码/删除/PDF，覆盖产品/开发项目/工单/售后单/出货单） | 59 |
 | `verify-m29b.ps1` | 网站图标与导航标志（favicon、brand 图、四个尺寸、全站渲染，两个 webapp 各登一次） | 43 |
 | `verify-m31.ps1` | 来料检验：四个状态、建批次 → 判不合格 → 发料被拒 → 让步接收 → 放行 | 21 |
@@ -858,8 +858,28 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   `MfgProduct.currentBomVersionId` 指向在用版本；启用新版本会把上一个 RELEASED 转 OBSOLETE；
   工单创建时把版本冻结到 `MfgWorkOrder.bomVersionId`，齐套/发料按工单的版本算。
   旧单表 `MfgBomItem` 行在首次读取时冻结为 `-V1`（幂等），表保留但不再使用
-- **软件开发阶段阶梯**：`MFG_STAGE_CONCEPT → DESIGN → PROTOTYPE → TRIAL → MASS`；`MfgProduct.devStageId` 与
-  `MfgDevProject.stageId` 相互独立（项目可以先不关联型号）；关卡 PASS/CONDITIONAL 才推进阶段，到 MASS 时写 `actualLaunchDate` 并置 `MFG_DEV_DONE`
+- **软件开发阶段阶梯挂在型号上（Step 267 改的口径）**：`MFG_STAGE_CONCEPT → DESIGN → PROTOTYPE → TRIAL → MASS`，
+  数据在 `MfgProduct.devStageId` + `MfgProductStageReview`（主键 `productCode` + `stageId`，五个阶段的结论/评审人/日期）；
+  服务 `mfgProductStageSave`（页面「产品与 BOM」的 `id="stages"`，表单 POST `/mfg/control/productStageSave`），
+  PASS/CONDITIONAL **只前进不后退**，到 MASS 时写 `actualLaunchDate` 并置 `MFG_DEV_DONE`。
+  **项目不再有自己的阶段**：`MfgDevProject.stageId` 只剩历史值，页面不显示也不写；项目只管 `trackId` + 路线图步骤，
+  详情页的「阶段」一行读的是所关联型号的 `devStageId`（`data-product-stage`），没关联型号就写「未关联型号，阶段在产品上维护」。
+  `mfgDevStageSave` / `MfgDevStageReview` 保留为兼容入口，页面已不再调用。
+  **为什么搬**（用户原话：“产品有概念 / 设计 / 打样 / 试产 / 量产这些步骤，所以去掉『仅阶段管理』，
+  产品就是仅阶段管理的；产品管理的内容和功能应挪到『产品与 BOM』页”）：三个月前把关卡放在项目上，
+  于是同一个板子的 PCB / 固件 / 外壳三个项目各有一套关卡、互相打架，“这个产品到哪一步了”没有唯一答案。
+  现在**产品是那一件东西走到哪一步，项目是这件事怎么做的**；项目只挑路线图（PCB / 固件 / 外壳）。
+  **连带改的几处别漏**：① `dev.ftl` 立项表单里删掉「阶段」下拉（`stageId` 不提交，服务端保留默认/历史值）、
+  「线路」改叫「路线图」且空值不再显示「仅阶段管理」（`trackLabel('')` = 未选路线图）；
+  ② 项目列表删掉「阶段」「关卡」两列，路线图格子链到 `#steps`；③ 项目详情「阶段」只读，
+  型号是链接，点进去就是产品页的 `#stages`；④ 产品页多一列「关卡」（`已过 N / 已评审 M`）
+  与 `id="stages"` 的关卡表 + 登记表单；⑤ **新建型号默认 `devStageId = DEV_STAGES[0]`（概念）**，
+  否则新产品的关卡表既没有高亮行、标题也不显示当前阶段；
+  ⑥ **`productSave` 现在以库里那一行为底再写**（原来每次都 `makeValue` 新建再 `store`，
+  会把 `currentBomVersionId` / `standardHoursSource` / `devStageId` 一起写成 null——保存一次产品表单就丢当前 BOM 版本）。
+  `MfgProductStageReview` 由 OFBiz 启动时自己建表，不用跑手工 SQL；老的**项目级** `MfgDevStageReview` 行没有搬过来
+  （产品当前阶段从 `MfgProduct.devStageId` 起算，历史关卡在产品页显示「未评审」）。
+  巡检：`verify-m13.ps1` 改成 53 项（产品页五道关卡 + 登记表单、项目页只读阶段、列表没有阶段筛选）。
 - **步骤问题清单**：`MfgDevStepIssue`（`issueId` = `ISSUE-yyMMdd-NN`，`projectCode` + 可选 `stepId`），
   三态 `MFG_ISSUE_OPEN/DOING/CLOSED`、三档严重度 `LOW/MEDIUM/HIGH`；服务 `mfgDevStepIssueSave/List/Status`，
   页面在开发项目页（`id="issueTable"`，锚点 `#issues`），项目列表与步骤表各显示一个未结数（`openIssueCount`）；

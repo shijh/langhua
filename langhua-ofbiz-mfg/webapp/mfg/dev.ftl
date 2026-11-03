@@ -2,20 +2,28 @@
 <#import "pager.ftl" as pg>
 <#setting url_escaping_charset="UTF-8">
 <#--
-  Product development: project list, the track steps, the issue list, the stage ladder and the
-  gate reviews.
-  Data: listResult.projects / stages / stageId / statusId, productList.products,
-        detail.project / detail.reviews / detail.ecos / detail.steps / detail.trackId,
+  Project development: the project list, the route map steps, the issue list and the changes. The
+  five stage gates belong to the product model and are maintained on the product page.
+  Data: listResult.projects / statusId, productList.products,
+        detail.project / detail.ecos / detail.steps / detail.trackId,
         issueResult.issues / issueResult.openCount / issueResult.highOpenCount
 -->
 <#assign lr = (listResult)!{}>
 <#assign projects = (lr.projects)![]>
-<#assign stages = (lr.stages)![]>
+<#-- the five stages live on the product model, the project only reads the model's current one -->
+<#function stageLabel stageId>
+    <#if (stageId!'') == 'MFG_STAGE_CONCEPT'><#return '概念'>
+    <#elseif (stageId!'') == 'MFG_STAGE_DESIGN'><#return '设计'>
+    <#elseif (stageId!'') == 'MFG_STAGE_PROTOTYPE'><#return '打样'>
+    <#elseif (stageId!'') == 'MFG_STAGE_TRIAL'><#return '试产'>
+    <#elseif (stageId!'') == 'MFG_STAGE_MASS'><#return '量产'>
+    <#else><#return stageId!'未设置'>
+    </#if>
+</#function>
 <#assign pl = (productList)!{}>
 <#assign products = (pl.products)![]>
 <#assign d = (detail)!{}>
 <#assign project = (d.project)!{}>
-<#assign reviews = (d.reviews)![]>
 <#assign ecos = (d.ecos)![]>
 <#assign steps = (d.steps)![]>
 <#assign trackId = (d.trackId)!''>
@@ -63,7 +71,7 @@
     <#if (trackId!'') == 'MFG_TRACK_PCB'><#return 'PCB 开发'>
     <#elseif (trackId!'') == 'MFG_TRACK_FIRMWARE'><#return '固件开发'>
     <#elseif (trackId!'') == 'MFG_TRACK_ENCLOSURE'><#return '外壳开发'>
-    <#else><#return '仅阶段管理'>
+    <#else><#return '未选路线图'>
     </#if>
 </#function>
 <#function stepLabel stepId>
@@ -127,7 +135,9 @@
             项目名称 <input type="text" name="projectName" size="22" value="${project.projectName!''}"/>
             路线图
             <select name="trackId">
-                <option value=""<#if (project.trackId!'') == ''> selected="selected"</#if>>仅阶段管理</option>
+                <#-- a project made before the routes were mandatory keeps its empty value visible, so it
+                     is not silently given the first route on the next save -->
+                <#if (project.trackId!'') == ''><option value="" selected="selected">（未选路线图）</option></#if>
                 <option value="MFG_TRACK_PCB"<#if (project.trackId!'') == 'MFG_TRACK_PCB'> selected="selected"</#if>>PCB 开发</option>
                 <option value="MFG_TRACK_FIRMWARE"<#if (project.trackId!'') == 'MFG_TRACK_FIRMWARE'> selected="selected"</#if>>固件开发</option>
                 <option value="MFG_TRACK_ENCLOSURE"<#if (project.trackId!'') == 'MFG_TRACK_ENCLOSURE'> selected="selected"</#if>>外壳开发</option>
@@ -142,14 +152,7 @@
             </select>
         </p>
         <p>
-            阶段
-            <select name="stageId">
-                <#list stages as s>
-                    <option value="${s.stageId}"<#if (project.stageId!'') == s.stageId> selected="selected"</#if>>${stageLabel(s.stageId)}</option>
-                </#list>
-            </select>
-            责任人 <input type="text" name="ownerName" size="9" value="${project.ownerName!''}"/>
-            目标成本 <input type="text" name="targetCost" size="8" value="${project.targetCost!0}"/>
+            责任人 <input type="text" name="ownerName" size="9" value="${project.ownerName!''}"/>            目标成本 <input type="text" name="targetCost" size="8" value="${project.targetCost!0}"/>
             目标售价 <input type="text" name="targetPrice" size="8" value="${project.targetPrice!0}"/>
             计划上市 <input type="text" name="plannedLaunchDate" size="10" placeholder="yyyy-mm-dd" value="<#if project.plannedLaunchDate??>${project.plannedLaunchDate?string("yyyy-MM-dd")}</#if>"/>
         </p>
@@ -163,18 +166,12 @@
 <p class="hint">路线图三张：<b>PCB 开发</b>（面包板验证 → 原理图 → PCB 布线 → 样板打样 → 手焊测试，5 步）、
     <b>固件开发</b>（固件开发 → 烧录 → 功能测试，3 步）、
     <b>外壳开发</b>（Gerber/PNP 导入 Blender 设计 → 3D 打印与装配确认 → 注塑厂家签合同 → 付款 → 生产外壳 → 外壳入库 → 产品组装，7 步）。
-    选「仅阶段管理」就没有步骤清单，只走阶段关卡。点下面项目列表里的路线图名字，可以看这个项目走完了哪几步。</p>
+    点下面项目列表里的路线图名字，可以看这个项目走完了哪几步。
+    产品的五个阶段（概念 → 设计 → 打样 → 试产 → 量产）在「产品与 BOM」里按型号维护，与项目的路线图互不影响。</p>
 
 <h2>项目列表</h2>
 <form method="get" action="/mfg/control/dev">
     搜索 <input type="text" name="search" size="20" value="${(lr.search)!''}" placeholder="项目号 / 名称 / 型号 / 责任人"/>
-    阶段
-    <select name="stageId">
-        <option value="">全部</option>
-        <#list stages as s>
-            <option value="${s.stageId}"<#if (lr.stageId!'') == s.stageId> selected="selected"</#if>>${stageLabel(s.stageId)}</option>
-        </#list>
-    </select>
     状态
     <select name="statusId">
         <option value="">全部</option>
@@ -191,20 +188,18 @@
     <table>
         <tr>
             <th>项目号</th><th>名称</th><th>路线图</th><th>料号</th><th>型号</th>
-            <th>步骤</th><th>当前步骤</th><th>阶段</th>
-            <th class="num">关卡</th><th class="num">未结变更</th><th class="num">未结问题</th><th>状态</th>
+            <th>步骤</th><th>当前步骤</th>
+            <th class="num">未结变更</th><th class="num">未结问题</th><th>状态</th>
         </tr>
         <#list projects as p>
             <tr>
                 <td><a href="/mfg/control/dev?projectCode=${p.projectCode}#project">${p.projectCode}</a></td>
                 <td>${p.projectName!}</td>
-                <td><#if (p.stepTotal!0) gt 0><a href="/mfg/control/dev?projectCode=${p.projectCode}#steps" title="看这张路线图的全部步骤">${trackLabel(p.trackId!'')}</a><#else><span class="hint">仅阶段管理</span></#if></td>
+                <td><#if (p.stepTotal!0) gt 0><a href="/mfg/control/dev?projectCode=${p.projectCode}#steps" title="看这张路线图的全部步骤">${trackLabel(p.trackId!'')}</a><#else><span class="hint">未选路线图</span></#if></td>
                 <td>${p.partCode!}</td>
                 <td>${p.productCode!}</td>
                 <td class="num"><#if (p.stepTotal!0) gt 0>${p.stepDone} / ${p.stepTotal}<#else>-</#if></td>
                 <td><#if p.currentStepId??>${stepLabel(p.currentStepId)}<#else><span class="ok">已走完</span></#if></td>
-                <td>${stageLabel(p.stageId!'')}</td>
-                <td class="num">${p.passedCount} / ${p.reviewCount}</td>
                 <td class="num"><#if (p.openEcoCount!0) gt 0><span class="warn">${p.openEcoCount}</span><#else>0</#if></td>
                 <td class="num"><#if (p.openIssueCount!0) gt 0><a class="warn" href="/mfg/control/dev?projectCode=${p.projectCode}#issues">${p.openIssueCount}</a><#else>0</#if></td>
                 <td>${statusLabel(p.statusId!'')}</td>
@@ -221,8 +216,9 @@
     <h2 id="project">${project.projectCode} ${project.projectName!}</h2>
     <ul>
         <li>路线图：<b>${trackLabel(project.trackId!'')}</b><#if (project.partCode!'') != ''>，料号 ${project.partCode}</#if><#if (project.stepTotal!0) gt 0>，步骤 ${project.stepDone} / ${project.stepTotal}</#if></li>
-        <li>型号：<#if (project.productCode!'') != ''>${project.productCode}<#else><span class="hint">未关联</span></#if></li>
-        <li>当前阶段：<b>${stageLabel(project.stageId!'')}</b><#if project.nextStageId??> → 下一关：${stageLabel(project.nextStageId)}</#if></li>
+        <li>型号：<#if (project.productCode!'') != ''><a href="/mfg/control/products?productCode=${project.productCode}#stages">${project.productCode}</a><#else><span class="hint">未关联</span></#if></li>
+        <#-- the five stages belong to the model: this project has none of its own -->
+        <li data-product-stage="${(project.productStageId)!''}">阶段：<#if project.productStageId??><b>${stageLabel(project.productStageId)}</b><span class="hint">（在产品页按关卡评审推进）</span><#else><span class="hint">未关联型号，阶段在产品上维护</span></#if></li>
         <li>目标成本 / 售价：${project.targetCost!0} / ${project.targetPrice!0}
             <#if (project.targetCost!0) gt 0><span class="hint">毛利 ${((project.targetPrice!0) - (project.targetCost!0))?string("0.00")}</span></#if>
         </li>
@@ -847,47 +843,11 @@
         </form>
     </fieldset>
 
+    <#-- the five stage gates moved to the product model: this page only keeps the route map, the
+         changes and the attachments of the project -->
     <h3>阶段关卡</h3>
-    <table>
-        <tr><th>阶段</th><th>计划评审</th><th>实际评审</th><th>结论</th><th>评审人</th><th>说明</th></tr>
-        <#list reviews as r>
-            <tr>
-                <td><#if (project.stageId!'') == r.stageId><b>${stageLabel(r.stageId)}</b><#else>${stageLabel(r.stageId)}</#if></td>
-                <td><#if r.plannedDate??>${r.plannedDate?string("yyyy-MM-dd")}</#if></td>
-                <td><#if r.doneDate??>${r.doneDate?string("yyyy-MM-dd")}</#if></td>
-                <td><#if r.resultId??>${reviewLabel(r.resultId)}<#else><span class="hint">未评审</span></#if></td>
-                <td>${r.reviewer!}</td>
-                <td>${r.note!}</td>
-            </tr>
-        </#list>
-    </table>
-
-    <fieldset>
-        <legend>登记关卡评审（通过则进入下一阶段）</legend>
-        <form method="post" action="/mfg/control/devStageSave">
-            <input type="hidden" name="projectCode" value="${project.projectCode}"/>
-            <p>
-                阶段
-                <select name="stageId">
-                    <#list reviews as r>
-                        <option value="${r.stageId}"<#if (project.stageId!'') == r.stageId> selected="selected"</#if>>${stageLabel(r.stageId)}</option>
-                    </#list>
-                </select>
-                结论
-                <select name="resultId">
-                    <option value="MFG_REVIEW_PASS">通过</option>
-                    <option value="MFG_REVIEW_CONDITIONAL">有条件通过</option>
-                    <option value="MFG_REVIEW_FAIL">不通过</option>
-                </select>
-                评审日 <input type="text" name="doneDate" size="10" placeholder="yyyy-mm-dd"/>
-                评审人 <input type="text" name="reviewer" size="10"/>
-            </p>
-            <p>
-                说明 <input type="text" name="note" size="46"/>
-                <input type="submit" value="保存评审"/>
-            </p>
-        </form>
-    </fieldset>
+    <p class="hint">五个阶段（概念 → 设计 → 打样 → 试产 → 量产）挂在这个项目的<#if (project.productCode!'') != ''>型号 <a href="/mfg/control/products?productCode=${project.productCode}#stages">${project.productCode}</a><#else>型号</#if>上：
+        <#if (project.productCode!'') == ''>这个项目还没有关联型号，先在上面把型号选上，再到「产品与 BOM」里登记关卡评审。<#else>到「产品与 BOM」那一页登记评审，通过后型号自动进入下一阶段。</#if></p>
 
     <h3>项目资料</h3>
     <#include "attachmentBlock.ftl">

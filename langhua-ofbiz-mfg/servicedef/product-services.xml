@@ -43,12 +43,32 @@
     <service name="mfgProductDetail" engine="java"
             location="org.langhua.ofbiz.mfg.MfgProductServices" invoke="productDetail"
             auth="false" use-transaction="false">
-        <description>Return one product model with its BOM and routing</description>
+        <description>Return one product model with its BOM, routing and stage gates</description>
         <attribute name="productCode" type="String" mode="IN" optional="true"/>
         <attribute name="product" type="java.util.Map" mode="OUT" optional="true"/>
         <attribute name="bomVersionId" type="String" mode="OUT" optional="true"/>
         <attribute name="bomItems" type="java.util.List" mode="OUT" optional="true"/>
         <attribute name="routings" type="java.util.List" mode="OUT" optional="true"/>
+        <attribute name="reviews" type="java.util.List" mode="OUT" optional="true"/>
+        <attribute name="passedCount" type="Integer" mode="OUT" optional="true"/>
+        <attribute name="reviewCount" type="Integer" mode="OUT" optional="true"/>
+    </service>
+
+
+    <service name="mfgProductStageSave" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgProductServices" invoke="productStageSave"
+            auth="false" use-transaction="false">
+        <description>Sign one stage gate of a product model off; a passed gate moves the model to the next stage</description>
+        <attribute name="productCode" type="String" mode="IN" optional="false"/>
+        <attribute name="stageId" type="String" mode="IN" optional="false"/>
+        <attribute name="resultId" type="String" mode="IN" optional="true"/>
+        <attribute name="plannedDate" type="String" mode="IN" optional="true"/>
+        <attribute name="doneDate" type="String" mode="IN" optional="true"/>
+        <attribute name="reviewer" type="String" mode="IN" optional="true"/>
+        <attribute name="note" type="String" mode="IN" optional="true"/>
+        <attribute name="productCode" type="String" mode="OUT" optional="true"/>
+        <attribute name="stageId" type="String" mode="OUT" optional="true"/>
+        <attribute name="productStageId" type="String" mode="OUT" optional="true"/>
     </service>
 
 
