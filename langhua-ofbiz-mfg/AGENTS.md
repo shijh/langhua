@@ -898,8 +898,8 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   写成 `12,5`，样式就废了。`empty` 为真（一条日期都没有）时模板给一句提示，不画空轴。
   条的**日期文字写在条外**（`.gantt-tag`），因为轨道宽度是窗口的百分比、算不出像素；
   条够宽（≥ 22%）才写进条里（`labelInside`）；靠右边缘时标签翻到条的左边（`tagSide = before`），
-  否则会跑出窗口。颜色（用户定的）：`done` 评审通过=绿、`conditional` 有条件通过=**红**、
-  `fail` 不通过=**黄**、`plan` 待评审=灰、`none` 未排期=灰字、`live` 进行中项目=主色蓝、`off` 已量产/已取消=深灰；
+  否则会跑出窗口。颜色（用户定的，按红黄牌 / 交通灯那套）：`done` 评审通过=绿、`conditional` 有条件通过=**黄**、
+  `fail` 不通过=**红**、`plan` 待评审=灰、`none` 未排期=灰字、`live` 进行中项目=主色蓝、`off` 已量产/已取消=深灰；
   图下面有一条图例（`.gantt-legend` 的 chip），换颜色时两处一起改；
   单测 `drawsTheGatesAndTheProjectsOnOneMonthAxis` / `keepsAProjectWithoutDatesAndSaysSo` /
   `groupsTheProjectsByTheStageTheyWorkOn` 钉住窗囗取整到月、条的位置、标签内外与分组顺序。

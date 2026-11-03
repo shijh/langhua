@@ -689,19 +689,20 @@ tr.saved-row td {
     overflow: hidden;
     background: var(--accent);
 }
-/* the colours the shop asked for: a passed review is green, a conditional pass red (it is not a
-   clean pass and needs follow up), a failed review yellow, anything not reviewed yet grey */
+/* the colours the shop asked for, the way a referee's cards and a traffic light read: a passed
+   review is green, a conditional pass is yellow (go on with care), a failed review is red (stop),
+   anything not reviewed yet is grey */
 .gantt-bar.done {
     background: var(--ok);
     color: #101010;
 }
 .gantt-bar.conditional {
-    background: var(--error);
-    color: #ffffff;
-}
-.gantt-bar.fail {
     background: var(--warn);
     color: #101010;
+}
+.gantt-bar.fail {
+    background: var(--error);
+    color: #ffffff;
 }
 .gantt-bar.plan {
     background: #5a5a5a;
@@ -733,10 +734,10 @@ tr.saved-row td {
     background: var(--ok);
 }
 .gantt-legend .chip.conditional {
-    background: var(--error);
+    background: var(--warn);
 }
 .gantt-legend .chip.fail {
-    background: var(--warn);
+    background: var(--error);
 }
 .gantt-legend .chip.plan {
     background: #5a5a5a;
