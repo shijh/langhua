@@ -11,7 +11,7 @@
 <#if !outbound?has_content>
     <h1>出库单</h1>
     <p class="error">没有这张出库单：单号可能写错了，或者这张单已经不在库里。</p>
-    <p><a href="/mfg/control/dev">回到产品开发</a></p>
+    <p><a href="/mfg/control/dev">回到项目开发</a></p>
 <#else>
     <h1>出库单 ${outbound.outboundId!''}</h1>
 
@@ -133,7 +133,7 @@
         <#if outbound.projectCode??>
             <a href="/mfg/control/dev?projectCode=${outbound.projectCode}#devoutbound">回到项目 ${outbound.projectCode} 的出库单一段</a>
         <#else>
-            <a href="/mfg/control/dev">回到产品开发</a>
+            <a href="/mfg/control/dev">回到项目开发</a>
         </#if>
         ｜ <a href="/mfg/control/outbounds">全部出库单</a>
         <#if outbound.issued>

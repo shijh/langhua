@@ -2,7 +2,7 @@
 <#import "pager.ftl" as pg>
 <#setting url_escaping_charset="UTF-8">
 <#--
-  出库单一览：库管员干活的那一页。单子是「产品开发 → 研发 BOM」按某一版写出来的领料清单，
+  出库单一览：库管员干活的那一页。单子是「项目开发 → 研发 BOM」按某一版写出来的领料清单，
   但料是在货架上捡的，所以这张表挂在「库存」下面（Step 246）。
   数据：outboundResult.rows（outboundId / projectCode / bomVersion / outboundDate / lineCount /
         totalQty / issuedQty / operatorName / receiverName / note / cancelReason / issued / cancelled）
@@ -18,7 +18,7 @@
     <p class="error"><#list errList as msg>${msg}<#if msg_has_next><br/></#if></#list></p>
 </#if>
 
-<p class="hint">单子是在「产品开发 → 研发 BOM」的「出库单」那一段生成的：按当前那一版写清单，只写还没领过的差额。
+<p class="hint">单子是在「项目开发 → 研发 BOM」的「出库单」那一段生成的：按当前那一版写清单，只写还没领过的差额。
     捡完料回到这张单上点「按这张单出库」，库存按先进先出扣减，同时把本项目的锁料放掉同样数量。</p>
 
 <form method="get" action="/mfg/control/outbounds">
@@ -66,5 +66,5 @@
         <#elseif statusId == 'MFG_OUT_DRAFT'>现在没有待出库的单。到研发 BOM 里点「转出库单」就会生成一张。
         <#elseif statusId == 'MFG_OUT_ISSUED'>还没有出过库的单。
         <#elseif statusId == 'MFG_OUT_CANCELLED'>没有作废的单。
-        <#else>还没有出库单：到「产品开发 → 研发 BOM」点「转出库单」。</#if></p>
+        <#else>还没有出库单：到「项目开发 → 研发 BOM」点「转出库单」。</#if></p>
 </#if>

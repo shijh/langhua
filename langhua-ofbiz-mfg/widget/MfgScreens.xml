@@ -77,7 +77,7 @@
         <section>
             <actions>
                 <set field="title" value="Product Development"/>
-                <set field="pageTitle" value="产品开发"/>
+                <set field="pageTitle" value="项目开发"/>
                 <set field="activeMenu" value="dev"/>
                 <service service-name="mfgDevProjectList" result-map="listResult" auto-field-map="false">
                     <field-map field-name="search" from-field="parameters.search"/>
