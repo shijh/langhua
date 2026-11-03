@@ -901,6 +901,9 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   否则会跑出窗口。颜色（用户定的，按红黄牌 / 交通灯那套）：`done` 评审通过=绿、`conditional` 有条件通过=**黄**、
   `fail` 不通过=**红**、`plan` 待评审=灰、`none` 未排期=灰字、`live` 进行中项目=主色蓝、`off` 已量产/已取消=深灰；
   图下面有一条图例（`.gantt-legend` 的 chip），换颜色时两处一起改；
+  **每行左边那个「评审」标签（`.gantt-kind`）也带上同一行的 `tone` 类**，颜色跟该行条的结论一致；
+  标题上方一行 `p.gantt-product`（`data-gantt-product`）写明这张图是哪个产品，
+  行上还有 `data-gantt-tone` 给巡检断言；
   单测 `drawsTheGatesAndTheProjectsOnOneMonthAxis` / `keepsAProjectWithoutDatesAndSaysSo` /
   `groupsTheProjectsByTheStageTheyWorkOn` 钉住窗囗取整到月、条的位置、标签内外与分组顺序。
   **顺手修的真 bug**：`resultId` 原来是 `id`（VARCHAR(20)），而 `MFG_REVIEW_CONDITIONAL` 有 22 个字符——

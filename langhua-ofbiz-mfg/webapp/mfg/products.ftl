@@ -215,6 +215,10 @@
     <p class="hint">五个阶段挂在型号上：同一个型号的 PCB、固件、外壳三个项目共用这套阶段评审，评审通过才进入下一阶段；
         项目自己在立项时选「在做哪一步」，只是指向这里的某一个评审节点，不再有自己的评审表。</p>
 
+    <#-- the chart is about one product, so the product is named right above its title -->
+    <p class="gantt-product" data-gantt-product="${product.productCode}">
+        <span class="hint">产品</span> <b>${product.productCode}</b><#if (product.productName!'') != ''> ${product.productName}</#if>
+    </p>
     <h2 id="projects">项目与阶段（甘特图）</h2>
     <#if stageGroups?has_content>
         <#if ganttRows?has_content>
@@ -229,10 +233,10 @@
                     </div>
                 </div>
                 <#list ganttRows as r>
-                    <div class="gantt-row<#if r.kind == 'gate'> gantt-gate<#else> gantt-project</#if>" data-gantt-row="${r.kind}"<#if (r.stageId!'') != ''> data-gantt-stage="${r.stageId}"</#if>>
+                    <div class="gantt-row<#if r.kind == 'gate'> gantt-gate<#else> gantt-project</#if>" data-gantt-row="${r.kind}" data-gantt-tone="${r.tone}"<#if (r.stageId!'') != ''> data-gantt-stage="${r.stageId}"</#if>>
                         <div class="gantt-name">
                             <#if r.kind == 'gate'>
-                                <span class="gantt-kind">评审</span>${stageLabel(r.stageId!'')}
+                                <span class="gantt-kind ${r.tone}">评审</span>${stageLabel(r.stageId!'')}
                             <#else>
                                 <a href="/mfg/control/dev?projectCode=${r.projectCode}#project">${r.projectName!r.projectCode}</a>
                                 <span class="hint">${trackLabel(r.trackId!'')}<#if (r.stageId!'') != ''> · ${stageLabel(r.stageId)}</#if></span>

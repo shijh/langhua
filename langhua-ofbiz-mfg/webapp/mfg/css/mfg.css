@@ -637,6 +637,33 @@ tr.saved-row td {
     color: var(--ok);
     font-size: .82em;
 }
+/* the badge carries the colour of that row's review result, the same colour as its bar, so the
+   status is read once and the badge is not decoration */
+.gantt-kind.done {
+    background: var(--ok);
+    color: #101010;
+}
+.gantt-kind.conditional {
+    background: var(--warn);
+    color: #101010;
+}
+.gantt-kind.fail {
+    background: var(--error);
+    color: #ffffff;
+}
+.gantt-kind.plan,
+.gantt-kind.none {
+    background: #5a5a5a;
+    color: #e6e6e6;
+}
+/* the product the chart belongs to, named above its title */
+.gantt-product {
+    margin: 1.3em 0 -.3em;
+    font-size: .95em;
+}
+.gantt-product b {
+    letter-spacing: .02em;
+}
 .gantt-track {
     position: relative;
     flex: 1 1 auto;
