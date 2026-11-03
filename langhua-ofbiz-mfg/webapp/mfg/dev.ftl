@@ -690,7 +690,7 @@
             </p>
             <p>
                 版本号 <input type="text" name="bomVersion" size="8" placeholder="v94"/>
-                <span class="hint">留空就从文件名里取 vNN</span>
+                <span class="hint">留空就从文件名里取版本号（v1 / v2 / v151 都行，大小写不限）</span>
                 <label><input type="checkbox" name="lock" value="Y" checked="checked"/> 锁库存</label>
                 <label><input type="checkbox" name="consumeDropped" value="Y" checked="checked"/> 不再使用的元件记研发消耗</label>
             </p>

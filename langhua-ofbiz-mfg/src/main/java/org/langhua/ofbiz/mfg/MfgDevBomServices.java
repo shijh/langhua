@@ -85,6 +85,14 @@ public final class MfgDevBomServices {
         "importedStamp", "itemCount", "newCount", "changedCount", "droppedCount", "shortCount",
         "lockedQty", "sourceSize", "sourceContentType", "note"};
 
+    /**
+     * The version written in the name of an uploaded file: {@code v} then one or more digits, so
+     * {@code v1}, {@code v2} and {@code v151} all work, and a dotted {@code v1.2} keeps its minor
+     * number. Case does not matter; the label is lower cased when it is taken.
+     */
+    static final java.util.regex.Pattern VERSION_IN_FILE =
+            java.util.regex.Pattern.compile("(?i)v[0-9]+(?:\\.[0-9]+)?");
+
     private MfgDevBomServices() {
     }
 
@@ -2453,8 +2461,12 @@ public final class MfgDevBomServices {
     }
 
     /**
-     * The label of a version: what the person typed, otherwise the {@code vNN} of the file name,
+     * The label of a version: what the person typed, otherwise the {@code v…} of the file name,
      * otherwise the import number.
+     *
+     * <p>The number after the {@code v} is one or more digits, so {@code v1}, {@code v2} and
+     * {@code v151} all come back as written, and a dotted {@code v1.2} keeps its minor number. Anything
+     * before it is ignored, which is what makes {@code pixel-flash-v94_bom.html} give {@code v94}.
      *
      * @param typed the version typed in, may be {@code null}
      * @param fileName the name of the uploaded file, may be {@code null}
@@ -2466,8 +2478,7 @@ public final class MfgDevBomServices {
             return typed.length() > 100 ? typed.substring(0, 100) : typed;
         }
         if (fileName != null) {
-            java.util.regex.Matcher matcher = java.util.regex.Pattern
-                    .compile("(?i)v[0-9]+").matcher(fileName);
+            java.util.regex.Matcher matcher = VERSION_IN_FILE.matcher(fileName);
             if (matcher.find()) {
                 return matcher.group().toLowerCase(Locale.ROOT);
             }

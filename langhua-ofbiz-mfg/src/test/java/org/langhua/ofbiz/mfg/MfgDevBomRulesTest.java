@@ -190,6 +190,19 @@ public class MfgDevBomRulesTest {
     }
 
     @Test
+    public void readsAVersionOfOneDigitOrOfSeveral() {
+        // the version is whatever number follows the v, so the person does not have to count digits
+        assertEquals("v1", MfgDevBomServices.versionOf(null, "board-v1_bom.html", 1L));
+        assertEquals("v2", MfgDevBomServices.versionOf(null, "board-v2_bom.html", 2L));
+        assertEquals("v151", MfgDevBomServices.versionOf(null, "board-v151_bom.html", 3L));
+        assertEquals("v7", MfgDevBomServices.versionOf(null, "V7_bom.csv", 4L));
+        assertEquals("v1.2", MfgDevBomServices.versionOf(null, "board-v1.2_bom.html", 5L));
+        assertEquals("v151", MfgDevBomServices.versionOf(null, "C:/tmp/面板-V151-BOM.html", 6L));
+        // a name that carries no number falls back to the import number rather than an empty label
+        assertEquals("import-7", MfgDevBomServices.versionOf(null, "bom_v.html", 7L));
+    }
+
+    @Test
     public void readsThePropertiesOfAPart() {
         assertEquals("10kΩ", MfgCsv.propertyValue("电阻 10kΩ; 公差 ±5%", "电阻"));
         assertEquals("[SMD] 0603", MfgCsv.propertyValue("包 [SMD] 0603; 公差 ±5%", "包"));
