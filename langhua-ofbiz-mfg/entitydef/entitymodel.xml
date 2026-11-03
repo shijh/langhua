@@ -20,6 +20,7 @@
         <field name="warrantyMonths" type="numeric"><description>Warranty in months from the delivery date, 12 when empty</description></field>
         <field name="salePrice" type="currency-amount"><description>Typical selling price, used to turn the after sales cost into a percentage</description></field>
         <field name="statusId" type="id"><description>MFG_ACTIVE or MFG_INACTIVE</description></field>
+        <field name="previousProductCode" type="id"><description>The model this one replaces (the previous generation); the models that replace this one are the rows of the same table pointing here, so both directions are read from one field</description></field>
         <field name="devStageId" type="id"><description>MFG_STAGE_CONCEPT, DESIGN, PROTOTYPE, TRIAL or MASS, kept independent from the development projects</description></field>
         <field name="currentBomVersionId" type="id"><description>BOM version in use, set when a version is activated</description></field>
         <field name="note" type="description"/>

@@ -24,6 +24,8 @@
 <#assign ganttMonths = (gantt.months)![]>
 <#assign ganttRows = (gantt.rows)![]>
 <#assign stageGroups = (d.stageGroups)![]>
+<#assign previousProduct = (d.previousProduct)!{}>
+<#assign successors = (d.successors)![]>
 
 <#function stageLabel stageId>
     <#if (stageId!'') == 'MFG_STAGE_CONCEPT'><#return '概念'>
@@ -57,6 +59,7 @@
 </#function>
 <#function projectStatusLabel statusId>
     <#if (statusId!'') == 'MFG_DEV_ACTIVE'><#return '进行中'>
+    <#elseif (statusId!'') == 'MFG_DEV_ONHOLD'><#return '暂停'>
     <#elseif (statusId!'') == 'MFG_DEV_DONE'><#return '已量产'>
     <#elseif (statusId!'') == 'MFG_DEV_CANCELLED'><#return '已取消'>
     <#else><#return '进行中'>
@@ -90,6 +93,7 @@
             工时费率 <input type="text" name="laborRate" size="6" value="<#if product.laborRate??>${product.laborRate?string("0.##")}</#if>" title="元/小时，用于成本核算"/>
             保修月数 <input type="text" name="warrantyMonths" size="4" value="${product.warrantyMonths!12}"/>
             售价 <input type="text" name="salePrice" size="7" value="${product.salePrice!0}"/>
+            上代产品 <input type="text" name="previousProductCode" size="10" value="${(product.previousProductCode)!''}" placeholder="被它替代的型号"/>
             开发阶段
             <select name="devStageId">
                 <#list ['MFG_STAGE_CONCEPT','MFG_STAGE_DESIGN','MFG_STAGE_PROTOTYPE','MFG_STAGE_TRIAL','MFG_STAGE_MASS'] as stage>
@@ -215,9 +219,18 @@
     <p class="hint">五个阶段挂在型号上：同一个型号的 PCB、固件、外壳三个项目共用这套阶段评审，评审通过才进入下一阶段；
         项目自己在立项时选「在做哪一步」，只是指向这里的某一个评审节点，不再有自己的评审表。</p>
 
-    <#-- the chart is about one product, so the product is named right above its title -->
+    <#-- the chart is about one product, so the product is named right above its title, in the same
+         size as that title and resting on its rule; the generation links sit on the same line -->
     <p class="gantt-product" data-gantt-product="${product.productCode}">
         <span class="hint">产品</span> <b>${product.productCode}</b><#if (product.productName!'') != ''> ${product.productName}</#if>
+        <#if previousProduct?has_content>
+            <span class="gantt-generation" data-gantt-previous="${previousProduct.productCode}">上代产品
+                <a href="/mfg/control/products?productCode=${previousProduct.productCode}#projects">${previousProduct.productCode}</a> ${previousProduct.productName!''}</span>
+        </#if>
+        <#if successors?has_content>
+            <span class="gantt-generation" data-gantt-successors="${successors?size}">升级替代
+                <#list successors as n><a href="/mfg/control/products?productCode=${n.productCode}#projects">${n.productCode}</a> ${n.productName!''}<#if n_has_next>、</#if></#list></span>
+        </#if>
     </p>
     <h2 id="projects">项目与阶段（甘特图）</h2>
     <#if stageGroups?has_content>
@@ -238,6 +251,7 @@
                             <#if r.kind == 'gate'>
                                 <span class="gantt-kind ${r.tone}">评审</span>${stageLabel(r.stageId!'')}
                             <#else>
+                                <#if r.tone == 'cancelled'><span class="gantt-cross" title="项目已取消">✕</span></#if>
                                 <a href="/mfg/control/dev?projectCode=${r.projectCode}#project">${r.projectName!r.projectCode}</a>
                                 <span class="hint">${trackLabel(r.trackId!'')}<#if (r.stageId!'') != ''> · ${stageLabel(r.stageId)}</#if></span>
                             </#if>
@@ -259,13 +273,19 @@
                 </#list>
             </div>
             <p class="gantt-legend">
+                <span class="legend-label">评审结论</span>
                 <span><span class="chip done"></span>评审通过</span>
                 <span><span class="chip conditional"></span>有条件通过</span>
                 <span><span class="chip fail"></span>不通过</span>
                 <span><span class="chip plan"></span>待评审</span>
                 <span><span class="chip none"></span>未排期</span>
-                <span><span class="chip live"></span>项目进行中</span>
-                <span><span class="chip off"></span>已量产 / 已取消</span>
+            </p>
+            <p class="gantt-legend">
+                <span class="legend-label">项目状态</span>
+                <span><span class="chip live"></span>进行中</span>
+                <span><span class="chip launched"></span>已量产</span>
+                <span><span class="chip cancelled"></span><span class="gantt-cross">✕</span>已取消</span>
+                <span><span class="chip hold"></span>暂停</span>
             </p>
             <p class="hint">阶段评审那条从「计划评审日」画到「实际评审日」（还没评审的画到今天）；项目那条从「立项」画到
                 「实际上市日」，没填实际上市就看计划上市日。竖线是今天。</p>

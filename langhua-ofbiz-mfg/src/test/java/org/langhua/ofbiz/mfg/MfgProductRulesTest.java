@@ -86,10 +86,13 @@ public class MfgProductRulesTest {
                 review("MFG_STAGE_TRIAL", LocalDate.of(2026, 10, 1), null, null)));
         assertEquals("live", MfgProductServices.toneOf("project",
                 project("DEV-261003-08", "MFG_STAGE_DESIGN", null, null, null, "MFG_DEV_ACTIVE")));
-        assertEquals("off", MfgProductServices.toneOf("project",
-                project("DEV-261003-09", "MFG_STAGE_DESIGN", null, null, null, "MFG_DEV_CANCELLED")));
-        assertEquals("off", MfgProductServices.toneOf("project",
+        // a launched and a cancelled project are not the same thing any more
+        assertEquals("launched", MfgProductServices.toneOf("project",
                 project("DEV-261003-10", "MFG_STAGE_MASS", null, null, null, "MFG_DEV_DONE")));
+        assertEquals("cancelled", MfgProductServices.toneOf("project",
+                project("DEV-261003-09", "MFG_STAGE_DESIGN", null, null, null, "MFG_DEV_CANCELLED")));
+        assertEquals("hold", MfgProductServices.toneOf("project",
+                project("DEV-261003-11", "MFG_STAGE_DESIGN", null, null, null, "MFG_DEV_ONHOLD")));
     }
 
     @Test
@@ -126,8 +129,8 @@ public class MfgProductRulesTest {
         java.util.Map<?, ?> cancelled = (java.util.Map<?, ?>) rows.get(1);
         assertEquals("project", cancelled.get("kind"));
         assertEquals("MFG_STAGE_CONCEPT", cancelled.get("stageId"));
-        // a cancelled project is greyed out
-        assertEquals("off", cancelled.get("tone"));
+        // a cancelled project has a colour of its own (red), not the grey of an unreviewed gate
+        assertEquals("cancelled", cancelled.get("tone"));
 
         java.util.Map<?, ?> designGate = (java.util.Map<?, ?>) rows.get(2);
         assertEquals("gate", designGate.get("kind"));

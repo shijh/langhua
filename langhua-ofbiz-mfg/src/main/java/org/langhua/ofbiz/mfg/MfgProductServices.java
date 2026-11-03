@@ -124,6 +124,13 @@ public final class MfgProductServices {
                 // a new model starts at the first gate of the ladder
                 product.set("devStageId", MfgConstants.DEV_STAGES[0]);
             }
+            if (context.containsKey("previousProductCode")) {
+                String previous = MfgSupport.toText(context.get("previousProductCode"));
+                if (previous != null && previous.equalsIgnoreCase(productCode)) {
+                    return ServiceUtil.returnError("上代产品不能是型号自己");
+                }
+                product.set("previousProductCode", previous);
+            }
             product.set("note", MfgSupport.toText(context.get("note")));
             delegator.createOrStore(product);
 
@@ -1222,8 +1229,8 @@ public final class MfgProductServices {
      *
      * <p>A gate is coloured by its result, so a conditional pass is not read as a clean one and a
      * failed review stands out: passed is green, conditional pass amber, a failed review red, a gate
-     * with a date but no result yet is only planned (blue). A project is off the road when it was
-     * closed or cancelled and running otherwise.
+     * with a date but no result yet is only planned (blue). A project has four states of its own:
+     * running, launched, cancelled and on hold, and each gets its own colour as well.
      *
      * @param kind {@code gate} or {@code project}
      * @param source the row the bar stands for
@@ -1244,8 +1251,14 @@ public final class MfgProductServices {
             return "plan";
         }
         String status = (String) source.get("statusId");
-        if (MfgConstants.DEV_DONE.equals(status) || MfgConstants.DEV_CANCELLED.equals(status)) {
-            return "off";
+        if (MfgConstants.DEV_DONE.equals(status)) {
+            return "launched";
+        }
+        if (MfgConstants.DEV_CANCELLED.equals(status)) {
+            return "cancelled";
+        }
+        if (MfgConstants.DEV_ONHOLD.equals(status)) {
+            return "hold";
         }
         return "live";
     }
@@ -1253,6 +1266,50 @@ public final class MfgProductServices {
     static String percent(double value) {
         return String.format(Locale.ROOT, "%.2f", Double.valueOf(Math.max(0.0, Math.min(100.0, value))));
     }
+    /**
+     * A model named by code, as the page links it: the code and the name, or {@code null}.
+     *
+     * @param delegator the delegator
+     * @param productCode the code, may be {@code null}
+     * @return the small map, or {@code null} when there is no such model
+     * @throws GenericEntityException when the model cannot be read
+     */
+    static Map<String, Object> productLink(Delegator delegator, String productCode) throws GenericEntityException {
+        if (productCode == null) {
+            return null;
+        }
+        GenericValue product = EntityQuery.use(delegator).from("MfgProduct")
+                .where("productCode", productCode).queryOne();
+        if (product == null) {
+            return null;
+        }
+        Map<String, Object> link = new LinkedHashMap<>();
+        link.put("productCode", product.getString("productCode"));
+        link.put("productName", product.getString("productName"));
+        return link;
+    }
+
+    /**
+     * The models that replace the given one (the next generation), in code order.
+     *
+     * @param delegator the delegator
+     * @param productCode the model
+     * @return one small map per successor, empty when nothing replaces this model
+     * @throws GenericEntityException when they cannot be read
+     */
+    static List<Map<String, Object>> successorsOf(Delegator delegator, String productCode)
+            throws GenericEntityException {
+        List<Map<String, Object>> rows = new ArrayList<>();
+        for (GenericValue next : EntityQuery.use(delegator).from("MfgProduct")
+                .where("previousProductCode", productCode).orderBy("productCode").queryList()) {
+            Map<String, Object> link = new LinkedHashMap<>();
+            link.put("productCode", next.getString("productCode"));
+            link.put("productName", next.getString("productName"));
+            rows.add(link);
+        }
+        return rows;
+    }
+
     /**
      * The five stage gates of a product model, with what has been filled in for each.
      *
@@ -1413,6 +1470,9 @@ public final class MfgProductServices {
             Map<String, Object> result = ServiceUtil.returnSuccess();
             if (product != null) {
                 result.put("product", newMapWithProduct(product));
+                // the generation chain: what this model replaces, and what replaces it
+                result.put("previousProduct", productLink(delegator, product.getString("previousProductCode")));
+                result.put("successors", successorsOf(delegator, productCode));
             }
             result.put("bomVersionId", currentVersion);
             result.put("bomItems", bomItemMaps(bomItems, MfgStockServices.shotByComponent(delegator)));

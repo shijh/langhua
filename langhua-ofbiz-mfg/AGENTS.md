@@ -898,12 +898,17 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   写成 `12,5`，样式就废了。`empty` 为真（一条日期都没有）时模板给一句提示，不画空轴。
   条的**日期文字写在条外**（`.gantt-tag`），因为轨道宽度是窗口的百分比、算不出像素；
   条够宽（≥ 22%）才写进条里（`labelInside`）；靠右边缘时标签翻到条的左边（`tagSide = before`），
-  否则会跑出窗口。颜色（用户定的，按红黄牌 / 交通灯那套）：`done` 评审通过=绿、`conditional` 有条件通过=**黄**、
-  `fail` 不通过=**红**、`plan` 待评审=灰、`none` 未排期=灰字、`live` 进行中项目=主色蓝、`off` 已量产/已取消=深灰；
-  图下面有一条图例（`.gantt-legend` 的 chip），换颜色时两处一起改；
+  否则会跑出窗口。颜色（用户定的，按红黄牌 / 交通灯那套）：评审 `done` 通过=绿、`conditional` 有条件通过=黄、
+  `fail` 不通过=红、`plan` 待评审=灰、`none` 未排期=**空心灰框**（`.gantt-kind.none` 只描边不填色）；
+  项目 `live` 进行中=蓝、`launched` 已量产=紫（`#c586c0`）、`cancelled` 已取消=红 + 名字前一个红叉（`.gantt-cross`）、
+  `hold` 暂停=灰；图下面是**两条**图例（评审结论一行、项目状态一行，各带 `legend-label`），换颜色时这几处一起改；
   **每行左边那个「评审」标签（`.gantt-kind`）也带上同一行的 `tone` 类**，颜色跟该行条的结论一致；
-  标题上方一行 `p.gantt-product`（`data-gantt-product`）写明这张图是哪个产品，
+  标题上方一行 `p.gantt-product`（`data-gantt-product`）写明这张图是哪个产品，**与 h2 同字号且 `margin-top: 0`
+  坐在那条分隔线上**；同一行里还有上代产品（`data-gantt-previous`）与升级替代（`data-gantt-successors`）的链接；
   行上还有 `data-gantt-tone` 给巡检断言；
+  **前代/替代只存一个字段** `MfgProduct.previousProductCode`（旧库不需要手工加列，启动时自动补），
+  反过来“谁替代了我”用 `successorsOf(delegator, productCode)` 查同表里指向自己的行；
+  `productSave` 把 `previousProductCode` 为空串当成“清掉”，等于自己时报错；
   单测 `drawsTheGatesAndTheProjectsOnOneMonthAxis` / `keepsAProjectWithoutDatesAndSaysSo` /
   `groupsTheProjectsByTheStageTheyWorkOn` 钉住窗囗取整到月、条的位置、标签内外与分组顺序。
   **顺手修的真 bug**：`resultId` 原来是 `id`（VARCHAR(20)），而 `MFG_REVIEW_CONDITIONAL` 有 22 个字符——
@@ -911,8 +916,13 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   （老的 `MfgDevStageReview` 同字段也一样，只是以前只试过 PASS）。现在两张表都是 `name`（100），
   旧库要跑 `tools/product-stage-review-result.sql`（停实例 → ij → 起，三套都跑过了；
   脚本 `%TEMP%\jup\apply-gate-result.ps1 -instance … -stopScript … -deployScript …`）。
-  验法：`%TEMP%\jup\check-gantt.ps1`（dev/https 与 test/http 都能跑：自建型号 + 两个阶段的评审 + 两个项目 →
-  查 5 个评审行、2 个项目行、月标签、今天线、条位置、表格 2 行、项目页「在做哪一步/型号当前阶段」）。
+  验法：`%TEMP%\jup\check-gantt4.ps1` （dev/https 与 test/http 都能跑：自建两个型号、前代指向后一个 →
+  查 9 行（5 个评审 + 4 个项目）、四个项目状态各一行（`live` / `hold` / `launched` / `cancelled`）、
+  红叉只有 cancelled 那一行、五个未排期阶段是**空心**标签（`class="gantt-kind none"` 且不填色）、
+  两条图例（含「项目状态」）、父型号页的 `data-gantt-successors` 链接、css 里的 `.gantt-kind.none{background: transparent}`）；
+  旧的 `check-gantt.ps1` 只管基本几何（5 个评审行、2 个项目行、月标签、今天线、条位置、项目页两行阶段）。
+  `check-prod-237.ps1` 现在 **26 项**（多比 `products.ftl` 与 `css/mfg.css`），`verify-m13.ps1` **54 项**、
+  `smoke-dev-pages.ps1` **28 项**、单测 **264**。
 - **步骤问题清单**：`MfgDevStepIssue`（`issueId` = `ISSUE-yyMMdd-NN`，`projectCode` + 可选 `stepId`），
   三态 `MFG_ISSUE_OPEN/DOING/CLOSED`、三档严重度 `LOW/MEDIUM/HIGH`；服务 `mfgDevStepIssueSave/List/Status`，
   页面在开发项目页（`id="issueTable"`，锚点 `#issues`），项目列表与步骤表各显示一个未结数（`openIssueCount`）；

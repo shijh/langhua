@@ -651,18 +651,39 @@ tr.saved-row td {
     background: var(--error);
     color: #ffffff;
 }
-.gantt-kind.plan,
-.gantt-kind.none {
+.gantt-kind.plan {
     background: #5a5a5a;
     color: #e6e6e6;
 }
-/* the product the chart belongs to, named above its title */
+/* nothing is scheduled yet: an empty outline says "to be planned", a filled grey block would read
+   as a state that was decided */
+.gantt-kind.none {
+    background: transparent;
+    border: 1px solid var(--fg-muted);
+    color: var(--fg-muted);
+}
+/* the product the chart belongs to: same size as the section title, and it rests on that title's
+   rule, so the two read as one block */
 .gantt-product {
-    margin: 1.3em 0 -.3em;
-    font-size: .95em;
+    margin: 1.8em 0 0;
+    font-size: 1.05em;
+    color: var(--fg-muted);
 }
 .gantt-product b {
+    color: var(--fg-strong);
     letter-spacing: .02em;
+}
+.gantt-product + h2 {
+    margin-top: 0;
+}
+/* previous generation / replacement models, on the same line as the product name */
+.gantt-generation {
+    margin-left: 1.4em;
+    font-size: .82em;
+    color: var(--fg-muted);
+}
+.gantt-generation a {
+    margin-right: .15em;
 }
 .gantt-track {
     position: relative;
@@ -735,11 +756,32 @@ tr.saved-row td {
     background: #5a5a5a;
     color: #e6e6e6;
 }
-.gantt-bar.off {
-    background: #4b4b4b;
-    color: var(--fg-muted);
+/* the four project states have a colour each: running blue, launched (量产) violet, cancelled red,
+   on hold grey */
+.gantt-bar.live {
+    background: var(--accent);
 }
-/* the legend under the chart: one chip per colour, so the reader does not have to guess */
+.gantt-bar.launched {
+    background: #c586c0;
+    color: #101010;
+}
+.gantt-bar.cancelled {
+    background: var(--error);
+    color: #ffffff;
+}
+.gantt-bar.hold {
+    background: #7a7a7a;
+    color: #101010;
+}
+/* a cancelled project is marked with a red cross beside its name: the colour alone is easy to miss
+   on a greyed row */
+.gantt-cross {
+    margin-right: .35em;
+    color: var(--error);
+    font-weight: 700;
+}
+/* the legend under the chart: one chip per colour, so the reader does not have to guess.
+   Two lines - the review results and the project states - because four statuses each do not fit one */
 .gantt-legend {
     display: flex;
     flex-wrap: wrap;
@@ -748,6 +790,13 @@ tr.saved-row td {
     margin: .35em 0 .2em;
     font-size: .82em;
     color: var(--fg-muted);
+}
+.gantt-legend + .gantt-legend {
+    margin-top: .15em;
+}
+.gantt-legend .legend-label {
+    min-width: 4.6em;
+    color: var(--fg);
 }
 .gantt-legend .chip {
     display: inline-block;
@@ -776,8 +825,17 @@ tr.saved-row td {
 .gantt-legend .chip.live {
     background: var(--accent);
 }
-.gantt-legend .chip.off {
-    background: #4b4b4b;
+.gantt-legend .chip.launched {
+    background: #c586c0;
+}
+.gantt-legend .chip.cancelled {
+    background: var(--error);
+}
+.gantt-legend .chip.hold {
+    background: #7a7a7a;
+}
+.gantt-legend .gantt-cross {
+    margin-right: .25em;
 }
 .gantt-none {
     position: absolute;
