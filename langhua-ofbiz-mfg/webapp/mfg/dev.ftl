@@ -178,7 +178,7 @@
     <b>固件开发</b>（固件开发 → 烧录 → 功能测试，3 步）、
     <b>外壳开发</b>（Gerber/PNP 导入 Blender 设计 → 3D 打印与装配确认 → 注塑厂家签合同 → 付款 → 生产外壳 → 外壳入库 → 产品组装，7 步）。
     点下面项目列表里的路线图名字，可以看这个项目走完了哪几步。
-    产品的五个关卡（概念 → 设计 → 打样 → 试产 → 量产）在「产品与 BOM」里按型号维护；
+    产品的五个阶段评审（概念 → 设计 → 打样 → 试产 → 量产）在「产品与 BOM」里按型号维护；
     项目只用「型号 + 在做哪一步」挂到那个型号上。</p>
 
 <h2>项目列表</h2>
@@ -234,7 +234,7 @@
              ladder it is working on, so the reviews are shown and signed on the product page -->
         <li data-project-stage="${(project.stageId)!''}">在做哪一步：<#if (project.stageId!'') != ''><b>${stageLabel(project.stageId)}</b><#else><span class="hint">未定</span></#if>
             <span class="hint">（在上面立项表单里改）</span></li>
-        <li data-product-stage="${(project.productStageId)!''}">型号当前阶段：<#if project.productStageId??><b>${stageLabel(project.productStageId)}</b><span class="hint">（在产品页按关卡评审推进）</span><#else><span class="hint">未关联型号，阶段在产品上维护</span></#if></li>
+        <li data-product-stage="${(project.productStageId)!''}">型号当前阶段：<#if project.productStageId??><b>${stageLabel(project.productStageId)}</b><span class="hint">（在产品页按阶段评审推进）</span><#else><span class="hint">未关联型号，阶段在产品上维护</span></#if></li>
         <li>目标成本 / 售价：${project.targetCost!0} / ${project.targetPrice!0}
             <#if (project.targetCost!0) gt 0><span class="hint">毛利 ${((project.targetPrice!0) - (project.targetCost!0))?string("0.00")}</span></#if>
         </li>
@@ -861,9 +861,9 @@
 
     <#-- the five stage gates moved to the product model: this page only keeps the route map, the
          changes and the attachments of the project -->
-    <h3>阶段关卡</h3>
-    <p class="hint">五个阶段（概念 → 设计 → 打样 → 试产 → 量产）挂在这个项目的<#if (project.productCode!'') != ''>型号 <a href="/mfg/control/products?productCode=${project.productCode}#stages">${project.productCode}</a><#else>型号</#if>上：
-        <#if (project.productCode!'') == ''>这个项目还没有关联型号，先在上面把型号选上，再到「产品与 BOM」里登记关卡评审。<#else>到「产品与 BOM」那一页登记评审，通过后型号自动进入下一阶段。</#if></p>
+    <h3>阶段评审</h3>
+    <p class="hint">五个阶段（概念 → 设计 → 打样 → 试产 → 量产）挂在这个项目的型号 <#if (project.productCode!'') != ''><a href="/mfg/control/products?productCode=${project.productCode}#stages">${project.productCode}</a><#else>（未关联）</#if> 上：
+        <#if (project.productCode!'') == ''>这个项目还没有关联型号，先在上面把型号选上，再到「产品与 BOM」里登记阶段评审。<#else>到「产品与 BOM」那一页登记评审，通过后型号自动进入下一阶段。</#if></p>
 
     <h3>项目资料</h3>
     <#include "attachmentBlock.ftl">

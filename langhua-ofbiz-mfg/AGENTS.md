@@ -193,7 +193,7 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
 | `MfgServiceIT` | 全链路服务调用（含 BOM 版本、Fritzing BOM 导入、三条开发线、ECO、附件、来料检验、成本、告警、软件报价与台账、成本细化与外协费明细、步骤问题清单、良率/工时趋势、库存流水与盘点、工单预留/发料释放、完工入库与出货扣减、销售订单两级预留与核销、库位与移库、用户账号） | 398 |
 | `verify-m11.ps1` | 列表页搜索/过滤/翻页/编码 | 55 |
 | `verify-m12.ps1` | 装饰器布局（1 个 html、1 条导航、1 个高亮、样式表、无内联 style、无 FTL 报错） | 102 |
-| `verify-m13.ps1` | 项目开发 + 阶段关卡（在产品页）+ BOM 版本 + 三条路线图 | 54 |
+| `verify-m13.ps1` | 项目开发 + 阶段评审（在产品页）+ BOM 版本 + 三条路线图 | 54 |
 | `verify-m28b.ps1` | 通用附件（上传/列表/原图/缩略图/错误码/删除/PDF，覆盖产品/开发项目/工单/售后单/出货单） | 59 |
 | `verify-m29b.ps1` | 网站图标与导航标志（favicon、brand 图、四个尺寸、全站渲染，两个 webapp 各登一次） | 43 |
 | `verify-m31.ps1` | 来料检验：四个状态、建批次 → 判不合格 → 发料被拒 → 让步接收 → 放行 | 21 |
@@ -866,27 +866,27 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   详情页的「阶段」一行读的是所关联型号的 `devStageId`（`data-product-stage`），没关联型号就写「未关联型号，阶段在产品上维护」。
   `mfgDevStageSave` / `MfgDevStageReview` 保留为兼容入口，页面已不再调用。
   **项目怎么挂到型号上（Step 268）**：两个字段——`productCode`（哪个型号）与 `stageId`（在做产品的哪一步）。
-  `MfgDevProject.stageId` 不是自己的一套关卡，而是**指向型号那道关卡的指针**：立项表单里叫「在做哪一步」，
+  `MfgDevProject.stageId` 不是自己的一套评审，而是**指向型号那道阶段评审的指针**：立项表单里叫「在做哪一步」，
   取值为 `MFG_STAGE_*`，新建项目不给就取型号当前的 `devStageId`（`MfgDevServices.stageOfModel`），再没有就概念。
   项目列表多一列「在做哪一步」，详情页两行：`data-project-stage`（本项目在做哪一步，可以改）与
   `data-product-stage`（型号当前阶段，只读，点进产品页）。
   **为什么搬**（用户原话：“产品有概念 / 设计 / 打样 / 试产 / 量产这些步骤，所以去掉『仅阶段管理』，
-  产品就是仅阶段管理的；产品管理的内容和功能应挪到『产品与 BOM』页”）：三个月前把关卡放在项目上，
-  于是同一个板子的 PCB / 固件 / 外壳三个项目各有一套关卡、互相打架，“这个产品到哪一步了”没有唯一答案。
+  产品就是仅阶段管理的；产品管理的内容和功能应挪到『产品与 BOM』页”）：三个月前把阶段评审放在项目上，
+  于是同一个板子的 PCB / 固件 / 外壳三个项目各有一套评审、互相打架，“这个产品到哪一步了”没有唯一答案。
   现在**产品是那一件东西走到哪一步，项目是这件事怎么做的**；项目只挑路线图（PCB / 固件 / 外壳）。
   **连带改的几处别漏**：① `dev.ftl` 立项表单里删掉「阶段」下拉（`stageId` 不提交，服务端保留默认/历史值）、
   「线路」改叫「路线图」且空值不再显示「仅阶段管理」（`trackLabel('')` = 未选路线图）；
-  ② 项目列表删掉「阶段」「关卡」两列，路线图格子链到 `#steps`；③ 项目详情「阶段」只读，
-  型号是链接，点进去就是产品页的 `#stages`；④ 产品页多一列「关卡」（`已过 N / 已评审 M`）
-  与 `id="stages"` 的关卡表 + 登记表单；⑤ **新建型号默认 `devStageId = DEV_STAGES[0]`（概念）**，
-  否则新产品的关卡表既没有高亮行、标题也不显示当前阶段；
+  ② 项目列表删掉「阶段」「评审」两列，路线图格子链到 `#steps`；③ 项目详情「阶段」只读，
+  型号是链接，点进去就是产品页的 `#stages`；④ 产品页多一列「阶段评审」（`已通过 N / 已评审 M`）
+  与 `id="stages"` 的评审表 + 登记表单；⑤ **新建型号默认 `devStageId = DEV_STAGES[0]`（概念）**，
+  否则新产品的评审表既没有高亮行、标题也不显示当前阶段；
   ⑥ **`productSave` 现在以库里那一行为底再写**（原来每次都 `makeValue` 新建再 `store`，
   会把 `currentBomVersionId` / `standardHoursSource` / `devStageId` 一起写成 null——保存一次产品表单就丢当前 BOM 版本）。
   `MfgProductStageReview` 由 OFBiz 启动时自己建表，不用跑手工 SQL；老的**项目级** `MfgDevStageReview` 行没有搬过来
-  （产品当前阶段从 `MfgProduct.devStageId` 起算，历史关卡在产品页显示「未评审」）。
-  巡检：`verify-m13.ps1` 改成 54 项（产品页五道关卡 + 登记表单、项目页只读阶段与「在做哪一步」、列表有阶段列）。
+  （产品当前阶段从 `MfgProduct.devStageId` 起算，历史评审在产品页显示「未评审」）。
+  巡检：`verify-m13.ps1` 改成 54 项（产品页五个阶段的评审 + 登记表单、项目页只读阶段与「在做哪一步」、列表有阶段列）。
 - **产品页的甘特图（Step 268）**：用户要“产品中能列表展示产品与项目的关系，最好是甘特图”。产品页新增
-  `id="projects"` 一块：**行 = 五道关卡（计划评审日 → 实际评审日，没评审的画到今天）+ 行 = 每个项目
+  `id="projects"` 一块：**行 = 五个阶段的评审（计划评审日 → 实际评审日，没评审的画到今天）+ 行 = 每个项目
   （`createdStamp` → 实际上市日，否则计划上市日，否则今天）**，共用一条按月的时间轴，黄竖线是今天；
   下面是 `id="productProjects"` 表，**按阶段分组**（概念→量产，没有阶段的最后一组）。
   数据在 `mfgProductDetail` 的 `projects` / `stageGroups` / `gantt` 三个 OUT 里：
@@ -904,8 +904,8 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   （老的 `MfgDevStageReview` 同字段也一样，只是以前只试过 PASS）。现在两张表都是 `name`（100），
   旧库要跑 `tools/product-stage-review-result.sql`（停实例 → ij → 起，三套都跑过了；
   脚本 `%TEMP%\jup\apply-gate-result.ps1 -instance … -stopScript … -deployScript …`）。
-  验法：`%TEMP%\jup\check-gantt.ps1`（dev/https 与 test/http 都能跑：自建型号 + 两道关卡 + 两个项目 →
-  查 5 个关卡行、2 个项目行、月标签、今天线、条位置、表格 2 行、项目页「在做哪一步/型号当前阶段」）。
+  验法：`%TEMP%\jup\check-gantt.ps1`（dev/https 与 test/http 都能跑：自建型号 + 两个阶段的评审 + 两个项目 →
+  查 5 个评审行、2 个项目行、月标签、今天线、条位置、表格 2 行、项目页「在做哪一步/型号当前阶段」）。
 - **步骤问题清单**：`MfgDevStepIssue`（`issueId` = `ISSUE-yyMMdd-NN`，`projectCode` + 可选 `stepId`），
   三态 `MFG_ISSUE_OPEN/DOING/CLOSED`、三档严重度 `LOW/MEDIUM/HIGH`；服务 `mfgDevStepIssueSave/List/Status`，
   页面在开发项目页（`id="issueTable"`，锚点 `#issues`），项目列表与步骤表各显示一个未结数（`openIssueCount`）；

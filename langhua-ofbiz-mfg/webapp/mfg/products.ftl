@@ -75,8 +75,8 @@
     <p class="ok">已保存 BOM 行 ${parameters.lineSeq}。</p>
 </#if>
 <#if parameters.stageId??>
-    <p class="ok">已登记 ${stageLabel(parameters.stageId)} 阶段的关卡评审：当前阶段 ${stageLabel((product.devStageId)!'')}。
-        往下那段「阶段关卡」里能看到每一关的结论。</p>
+    <p class="ok">已登记 ${stageLabel(parameters.stageId)} 阶段的评审：当前阶段 ${stageLabel((product.devStageId)!'')}。
+        往下那段「阶段评审」里能看到每个阶段的结论。</p>
 </#if>
 
 <fieldset>
@@ -115,7 +115,7 @@
             <th>名称</th>
             <th>SN 前缀</th>
             <th>阶段</th>
-            <th class="num">关卡</th>
+            <th class="num">阶段评审</th>
             <th>当前 BOM</th>
             <th class="num">BOM 行</th>
             <th class="num">版本数</th>
@@ -169,7 +169,7 @@
     page=(lr.page)!1 pageCount=(lr.pageCount)!1 total=(lr.totalCount)!0 unit="条" pageSize=(lr.pageSize)!20/>
 
 <#if product.productCode??>
-    <h2 id="stages" data-stage="${(product.devStageId)!''}">阶段关卡（${(d.passedCount)!0} / ${(d.reviewCount)!0}）</h2>
+    <h2 id="stages" data-stage="${(product.devStageId)!''}">阶段评审（已通过 ${(d.passedCount)!0} / 已评审 ${(d.reviewCount)!0}）</h2>
     <#assign stageRows = (d.reviews)![]>
     <table id="stageGates">
         <tr><th>阶段</th><th>计划评审</th><th>实际评审</th><th>结论</th><th>评审人</th><th>说明</th></tr>
@@ -186,7 +186,7 @@
     </table>
 
     <fieldset>
-        <legend>登记关卡评审（通过则进入下一阶段）</legend>
+        <legend>登记阶段评审（通过则进入下一阶段）</legend>
         <form method="post" action="/mfg/control/productStageSave">
             <input type="hidden" name="productCode" value="${product.productCode}"/>
             <p>
@@ -212,8 +212,8 @@
             </p>
         </form>
     </fieldset>
-    <p class="hint">五个阶段挂在型号上：同一个型号的 PCB、固件、外壳三个项目共用这套关卡，评审通过才进入下一阶段；
-        项目自己在立项时选「在做哪一步」，只是指向这里的某一道关卡，不再有自己的关卡表。</p>
+    <p class="hint">五个阶段挂在型号上：同一个型号的 PCB、固件、外壳三个项目共用这套阶段评审，评审通过才进入下一阶段；
+        项目自己在立项时选「在做哪一步」，只是指向这里的某一个评审节点，不再有自己的评审表。</p>
 
     <h2 id="projects">项目与阶段（甘特图）</h2>
     <#if stageGroups?has_content>
@@ -232,7 +232,7 @@
                     <div class="gantt-row<#if r.kind == 'gate'> gantt-gate</#if>" data-gantt-row="${r.kind}">
                         <div class="gantt-name">
                             <#if r.kind == 'gate'>
-                                <span class="gantt-kind">关卡</span>${stageLabel(r.stageId!'')}
+                                <span class="gantt-kind">评审</span>${stageLabel(r.stageId!'')}
                             <#else>
                                 <a href="/mfg/control/dev?projectCode=${r.projectCode}#project">${r.projectName!r.projectCode}</a>
                                 <span class="hint">${trackLabel(r.trackId!'')}<#if (r.stageId!'') != ''> · ${stageLabel(r.stageId)}</#if></span>
@@ -254,10 +254,10 @@
                     </div>
                 </#list>
             </div>
-            <p class="hint">关卡那条从「计划评审日」画到「实际评审日」（还没评审的画到今天）；项目那条从「立项」画到
+            <p class="hint">阶段评审那条从「计划评审日」画到「实际评审日」（还没评审的画到今天）；项目那条从「立项」画到
                 「实际上市日」，没填实际上市就看计划上市日。竖线是今天。</p>
         <#else>
-            <p class="hint">这个型号的关卡和项目都还没有日期，排不出甘特图。先在产品上面登记关卡的评审日期，
+            <p class="hint">这个型号的阶段评审和项目都还没有日期，排不出甘特图。先在产品上面登记阶段评审的日期，
                 或者在项目里填计划上市日。</p>
         </#if>
 
