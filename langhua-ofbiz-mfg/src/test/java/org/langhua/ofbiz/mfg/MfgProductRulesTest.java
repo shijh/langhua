@@ -49,6 +49,62 @@ public class MfgProductRulesTest {
     }
 
     @Test
+    public void countsWhatTheProductBoardShows() {
+        // three models: one in mass production with a BOM, one in design with a BOM but nobody on it,
+        // one in concept with neither
+        List<java.util.Map<String, Object>> models = new java.util.ArrayList<>();
+        models.add(model("M1", "MFG_STAGE_MASS", "M1-V1", 5, 5));
+        models.add(model("M2", "MFG_STAGE_DESIGN", "M2-V1", 2, 3));
+        models.add(model("M3", "MFG_STAGE_CONCEPT", null, 0, 0));
+        java.util.Set<String> withProjects = new java.util.HashSet<>(java.util.Arrays.asList("M1"));
+        java.util.Map<String, Object> summary = MfgProductServices.productSummary(models, withProjects);
+        assertEquals(3, summary.get("modelCount"));
+        assertEquals(1, summary.get("massCount"));
+        assertEquals(1, summary.get("noBomCount"));
+        assertEquals(2, summary.get("noProjectCount"));
+        assertEquals(7, summary.get("gatePassed"));
+        assertEquals(8, summary.get("gateReviewed"));
+        // five gates per model, less the eight already written down
+        assertEquals(7, summary.get("gatePending"));
+        // nothing at all is not an error
+        assertEquals(0, MfgProductServices.productSummary(new java.util.ArrayList<>(), withProjects)
+                .get("gatePending"));
+    }
+
+    @Test
+    public void countsWhatTheDevelopmentBoardShows() {
+        List<String> statuses = java.util.Arrays.asList("MFG_DEV_ACTIVE", null, "MFG_DEV_ACTIVE",
+                "MFG_DEV_ONHOLD", "MFG_DEV_DONE", "MFG_DEV_CANCELLED");
+        List<String> models = java.util.Arrays.asList("M1", "M2", null, "M3", "M4", "M5");
+        java.util.Map<String, Integer> issues = new java.util.HashMap<>();
+        issues.put("DEV-1", Integer.valueOf(2));
+        issues.put("DEV-2", Integer.valueOf(1));
+        java.util.Map<String, Integer> ecos = new java.util.HashMap<>();
+        ecos.put("DEV-3", Integer.valueOf(1));
+        java.util.Map<String, Object> summary = MfgDevServices.projectSummary(statuses, models, issues, ecos);
+        assertEquals(6, summary.get("projectCount"));
+        // an empty status reads as running, the same way the list reads it
+        assertEquals(3, summary.get("activeCount"));
+        assertEquals(1, summary.get("holdCount"));
+        assertEquals(1, summary.get("doneCount"));
+        assertEquals(1, summary.get("cancelledCount"));
+        assertEquals(1, summary.get("noModelCount"));
+        assertEquals(3, summary.get("openIssueTotal"));
+        assertEquals(1, summary.get("openEcoTotal"));
+    }
+
+    private static java.util.Map<String, Object> model(String code, String stage, String bomVersion,
+            int passed, int reviewed) {
+        java.util.Map<String, Object> map = new java.util.LinkedHashMap<>();
+        map.put("productCode", code);
+        map.put("devStageId", stage);
+        map.put("currentBomVersionId", bomVersion);
+        map.put("passedCount", Integer.valueOf(passed));
+        map.put("reviewCount", Integer.valueOf(reviewed));
+        return map;
+    }
+
+    @Test
     public void walksTheDevelopmentStageLadder() {
         assertEquals("MFG_STAGE_DESIGN", MfgDevServices.nextDevStage("MFG_STAGE_CONCEPT"));
         assertEquals("MFG_STAGE_PROTOTYPE", MfgDevServices.nextDevStage("MFG_STAGE_DESIGN"));

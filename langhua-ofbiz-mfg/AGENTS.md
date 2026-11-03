@@ -922,7 +922,19 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   两条图例（含「项目状态」）、父型号页的 `data-gantt-successors` 链接、css 里的 `.gantt-kind.none{background: transparent}`）；
   旧的 `check-gantt.ps1` 只管基本几何（5 个评审行、2 个项目行、月标签、今天线、条位置、项目页两行阶段）。
   `check-prod-237.ps1` 现在 **26 项**（多比 `products.ftl` 与 `css/mfg.css`），`verify-m13.ps1` **54 项**、
-  `smoke-dev-pages.ps1` **28 项**、单测 **264**。
+  `smoke-dev-pages.ps1` **28 项**、单测 **267**。
+- **产品页与项目页顶部的看板（Step 272）**：两个列表页顶上各一排 `.cards`（与软件项目 / 库存看板同一套样式，
+  没有新增 CSS），数字由服务端算：`MfgProductServices.productSummary(models, productsWithProjects)`、
+  `MfgDevServices.projectSummary(statusIds, productCodes, openIssues, openEcos)`，两个都是**纯函数**（单测钉住）。
+  **口径**：产品页 = 型号数 / 已量产（`devStageId` 是 `DEV_STAGES` 的最后一个）/ 还没有 BOM
+  （`currentBomVersionId` 为空）/ 没有开发项目 / 阶段评审通过·已评审 / 还待评审（型号数 × 5 − 已评审）；
+  项目页 = 项目数 / 进行中 / 暂停 / 已量产 / 已取消（**`statusId` 为空按进行中算**，列表也是这么读的）/
+  未关联型号 / 未结问题·未结变更。
+  **卡片统计的是全部记录**，不跟翻页、搜索、状态筛走（回答“现在有多少活、哪里卡住”）；
+  计数用批量查询：产品页一条 `MfgDevProject.select("productCode")` 拿到“哪些型号有项目”，
+  项目页 `openIssuesByProject` / `openEcosByProject` 各**一条**查询按项目归组（别在行循环里查）。
+  巡检照 `data-summary="products|dev"` 与每张卡片的 `data-card="modelCount|…"` 断言，不碰中文。
+  服务描述符要为 `summary` 加 `java.util.Map` 的 OUT，否则框架把它静默丢掉（老问题）。
 - **步骤问题清单**：`MfgDevStepIssue`（`issueId` = `ISSUE-yyMMdd-NN`，`projectCode` + 可选 `stepId`），
   三态 `MFG_ISSUE_OPEN/DOING/CLOSED`、三档严重度 `LOW/MEDIUM/HIGH`；服务 `mfgDevStepIssueSave/List/Status`，
   页面在开发项目页（`id="issueTable"`，锚点 `#issues`），项目列表与步骤表各显示一个未结数（`openIssueCount`）；

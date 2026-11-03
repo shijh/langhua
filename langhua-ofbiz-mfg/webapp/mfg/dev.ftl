@@ -127,6 +127,44 @@
     <p class="error"><#list errList as msg>${msg}<#if msg_has_next><br/></#if></#list></p>
 </#if>
 
+<#--
+  The board over the list: how many projects there are, how they are spread over the four states,
+  and what is stuck. Counted over every project, so turning a page or narrowing the search does not
+  move the numbers (mfgDevProjectList.summary).
+-->
+<#assign sum = (lr.summary)!{}>
+<div class="cards" data-summary="dev">
+    <div class="card" data-card="projectCount">
+        <div class="label">项目数</div>
+        <div class="value">${((sum.projectCount)!0)?string("0")}</div>
+    </div>
+    <div class="card" data-card="activeCount">
+        <div class="label">进行中</div>
+        <div class="value">${((sum.activeCount)!0)?string("0")}</div>
+    </div>
+    <div class="card" data-card="holdCount">
+        <div class="label">暂停</div>
+        <div class="value">${((sum.holdCount)!0)?string("0")}</div>
+    </div>
+    <div class="card" data-card="doneCount">
+        <div class="label">已量产</div>
+        <div class="value">${((sum.doneCount)!0)?string("0")}</div>
+    </div>
+    <div class="card" data-card="cancelledCount">
+        <div class="label">已取消</div>
+        <div class="value">${((sum.cancelledCount)!0)?string("0")}</div>
+    </div>
+    <div class="card" data-card="noModelCount">
+        <div class="label">未关联型号</div>
+        <div class="value"><#if ((sum.noModelCount)!0) gt 0><span class="warn">${(sum.noModelCount)?string("0")}</span><#else>0</#if></div>
+    </div>
+    <div class="card" data-card="openWork">
+        <div class="label">未结问题 / 未结变更</div>
+        <div class="value">${((sum.openIssueTotal)!0)?string("0")} / ${((sum.openEcoTotal)!0)?string("0")}</div>
+    </div>
+</div>
+<p class="hint">项目按「型号 + 在做哪一步」挂到型号上；五个阶段的评审在产品页登记，项目这边只看它在做哪一步。</p>
+
 <fieldset>
     <legend>立项 / 修改项目</legend>
     <form method="post" action="/mfg/control/devProjectSave">

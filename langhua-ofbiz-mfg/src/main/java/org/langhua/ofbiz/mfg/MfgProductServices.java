@@ -18,10 +18,12 @@ package org.langhua.ofbiz.mfg;
 
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 
 import org.apache.ofbiz.entity.Delegator;
 import org.apache.ofbiz.entity.GenericEntityException;
@@ -954,6 +956,17 @@ public final class MfgProductServices {
                 list.add(map);
             }
             Map<String, Object> result = ServiceUtil.returnSuccess();
+            // which models have a development project at all, in one query: a model nobody is
+            // working on stands still, so the page counts those separately
+            Set<String> withProjects = new HashSet<>();
+            for (GenericValue project : EntityQuery.use(delegator).from("MfgDevProject")
+                    .select("productCode").queryList()) {
+                String code = project.getString("productCode");
+                if (code != null) {
+                    withProjects.add(code);
+                }
+            }
+            result.put("summary", productSummary(list, withProjects));
             MfgPaging.putPage(result, "products",
                     MfgPaging.filterByKeyword(list, MfgSupport.toText(context.get("search")), "productCode", "productName",
                             "snPrefix", "statusId"),
@@ -976,6 +989,57 @@ public final class MfgProductServices {
         } catch (GenericEntityException e) {
             return 0;
         }
+    }
+
+    /**
+     * The numbers the product page puts above the model list.
+     *
+     * <p>Four things decide whether a model can go into production: which stage it stands on, whether
+     * it has a BOM at all, whether anybody is working on it, and how far its gate reviews have got.
+     * The cards say exactly those four, counted over every model rather than over the page, so the
+     * numbers do not move when the reader turns a page or types in the search box.
+     *
+     * @param models every model, as {@link #productList} builds them
+     * @param productsWithProjects the models that have at least one development project
+     * @return the counters, in the order the cards show them
+     */
+    static Map<String, Object> productSummary(List<Map<String, Object>> models, Set<String> productsWithProjects) {
+        String massStage = MfgConstants.DEV_STAGES[MfgConstants.DEV_STAGES.length - 1];
+        int mass = 0;
+        int noBom = 0;
+        int noProject = 0;
+        int passed = 0;
+        int reviewed = 0;
+        for (Map<String, Object> model : models) {
+            String code = MfgSupport.toText(model.get("productCode"));
+            if (massStage.equals(model.get("devStageId"))) {
+                mass++;
+            }
+            if (model.get("currentBomVersionId") == null) {
+                noBom++;
+            }
+            if (code != null && (productsWithProjects == null || !productsWithProjects.contains(code))) {
+                noProject++;
+            }
+            passed += numberOf(model.get("passedCount"));
+            reviewed += numberOf(model.get("reviewCount"));
+        }
+        int stages = models.size() * MfgConstants.DEV_STAGES.length;
+        Map<String, Object> summary = new LinkedHashMap<>();
+        summary.put("modelCount", Integer.valueOf(models.size()));
+        summary.put("massCount", Integer.valueOf(mass));
+        summary.put("noBomCount", Integer.valueOf(noBom));
+        summary.put("noProjectCount", Integer.valueOf(noProject));
+        summary.put("gatePassed", Integer.valueOf(passed));
+        summary.put("gateReviewed", Integer.valueOf(reviewed));
+        // how many reviews are still waiting: five per model, less the ones already written down
+        summary.put("gatePending", Integer.valueOf(Math.max(0, stages - reviewed)));
+        return summary;
+    }
+
+    /** The integer inside a counted field, zero when it was never filled in. */
+    static int numberOf(Object value) {
+        return value instanceof Number ? ((Number) value).intValue() : 0;
     }
 
     /**

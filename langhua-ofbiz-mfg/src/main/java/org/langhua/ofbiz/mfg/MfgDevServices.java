@@ -572,6 +572,16 @@ public final class MfgDevServices {
                 stages.add(map);
             }
             Map<String, Object> result = ServiceUtil.returnSuccess();
+            // the cards count every project, whatever the filters say: they answer "how much is
+            // running and what is stuck", not "what does this page show"
+            List<String> statuses = new ArrayList<>(projects.size());
+            List<String> models = new ArrayList<>(projects.size());
+            for (GenericValue project : projects) {
+                statuses.add(project.getString("statusId"));
+                models.add(project.getString("productCode"));
+            }
+            result.put("summary", projectSummary(statuses, models,
+                    openIssuesByProject(delegator), openEcosByProject(delegator)));
             result.put("stages", stages);
             result.put("stageId", stageId);
             result.put("statusId", statusId);
@@ -583,6 +593,104 @@ public final class MfgDevServices {
         } catch (GenericEntityException e) {
             return ServiceUtil.returnError("Could not read the development projects: " + e.getMessage());
         }
+    }
+
+    /**
+     * The numbers the development page puts above the project list.
+     *
+     * <p>They answer the two questions the page is opened with: how much is running, and what is
+     * stuck. A project whose status is empty counts as running, the same way the list reads it, and a
+     * project that names no model is counted apart because its stage can never advance (the reviews
+     * live on the model).
+     *
+     * @param statusIds the state of every project, one entry per project, may hold {@code null}
+     * @param productCodes the model each project works on, {@code null} when it has none
+     * @param openIssues open problems per project, keyed by project number
+     * @param openEcos open change orders per project, keyed by project number
+     * @return the counters, in the order the cards show them
+     */
+    static Map<String, Object> projectSummary(List<String> statusIds, List<String> productCodes,
+            Map<String, Integer> openIssues, Map<String, Integer> openEcos) {
+        int active = 0;
+        int hold = 0;
+        int done = 0;
+        int cancelled = 0;
+        for (String status : statusIds) {
+            if (MfgConstants.DEV_ONHOLD.equals(status)) {
+                hold++;
+            } else if (MfgConstants.DEV_DONE.equals(status)) {
+                done++;
+            } else if (MfgConstants.DEV_CANCELLED.equals(status)) {
+                cancelled++;
+            } else {
+                active++;
+            }
+        }
+        int noModel = 0;
+        for (String productCode : productCodes) {
+            if (productCode == null || productCode.isEmpty()) {
+                noModel++;
+            }
+        }
+        Map<String, Object> summary = new LinkedHashMap<>();
+        summary.put("projectCount", Integer.valueOf(statusIds.size()));
+        summary.put("activeCount", Integer.valueOf(active));
+        summary.put("holdCount", Integer.valueOf(hold));
+        summary.put("doneCount", Integer.valueOf(done));
+        summary.put("cancelledCount", Integer.valueOf(cancelled));
+        summary.put("noModelCount", Integer.valueOf(noModel));
+        summary.put("openIssueTotal", Integer.valueOf(totalOf(openIssues)));
+        summary.put("openEcoTotal", Integer.valueOf(totalOf(openEcos)));
+        return summary;
+    }
+
+    /** The sum of a count per project, zero when there is none. */
+    static int totalOf(Map<String, Integer> counts) {
+        int total = 0;
+        if (counts != null) {
+            for (Integer each : counts.values()) {
+                total += each == null ? 0 : each.intValue();
+            }
+        }
+        return total;
+    }
+
+    /**
+     * Open problems and open change orders of every project, counted in one query each rather than
+     * one per project: the page shows these as two numbers, and a hundred projects would otherwise
+     * mean two hundred looks at the database.
+     *
+     * @param delegator the delegator
+     * @return the open problems per project number
+     * @throws GenericEntityException when the issues cannot be read
+     */
+    static Map<String, Integer> openIssuesByProject(Delegator delegator) throws GenericEntityException {
+        Map<String, Integer> counts = new LinkedHashMap<>();
+        for (GenericValue issue : EntityQuery.use(delegator).from("MfgDevStepIssue").queryList()) {
+            if (isOpenIssue(issue.getString("statusId"))) {
+                String projectCode = issue.getString("projectCode");
+                counts.merge(projectCode, Integer.valueOf(1), Integer::sum);
+            }
+        }
+        return counts;
+    }
+
+    /**
+     * The same for the change orders still waiting to be applied or dropped.
+     *
+     * @param delegator the delegator
+     * @return the open change orders per project number
+     * @throws GenericEntityException when the change orders cannot be read
+     */
+    static Map<String, Integer> openEcosByProject(Delegator delegator) throws GenericEntityException {
+        Map<String, Integer> counts = new LinkedHashMap<>();
+        for (GenericValue eco : EntityQuery.use(delegator).from("MfgDevEco").queryList()) {
+            String status = eco.getString("statusId");
+            if (MfgConstants.ECO_DRAFT.equals(status) || MfgConstants.ECO_APPROVED.equals(status)) {
+                counts.merge(eco.getString("projectCode"), Integer.valueOf(1), Integer::sum);
+            }
+        }
+        return counts;
     }
 
     /**

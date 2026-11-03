@@ -39,6 +39,7 @@
         <attribute name="pageSize" type="Long" mode="IN" optional="true"/>
         <attribute name="projects" type="java.util.List" mode="OUT" optional="true"/>
         <attribute name="stages" type="java.util.List" mode="OUT" optional="true"/>
+        <attribute name="summary" type="java.util.Map" mode="OUT" optional="true"/>
         <attribute name="stageId" type="String" mode="OUT" optional="true"/>
         <attribute name="statusId" type="String" mode="OUT" optional="true"/>
         <attribute name="totalCount" type="Integer" mode="OUT" optional="true"/>

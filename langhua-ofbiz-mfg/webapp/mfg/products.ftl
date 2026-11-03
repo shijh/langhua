@@ -82,6 +82,39 @@
         往下那段「阶段评审」里能看到每个阶段的结论。</p>
 </#if>
 
+<#--
+  The board over the model list: how many models there are, how many reached 量产, and what stands in
+  the way of the rest (no BOM, nobody working on it, reviews still open). Counted over every model, so
+  turning a page or narrowing the search does not move the numbers (mfgProductList.summary).
+-->
+<#assign sum = (lr.summary)!{}>
+<div class="cards" data-summary="products">
+    <div class="card" data-card="modelCount">
+        <div class="label">型号数</div>
+        <div class="value">${((sum.modelCount)!0)?string("0")}</div>
+    </div>
+    <div class="card" data-card="massCount">
+        <div class="label">已量产</div>
+        <div class="value">${((sum.massCount)!0)?string("0")}</div>
+    </div>
+    <div class="card" data-card="noBomCount">
+        <div class="label">还没有 BOM</div>
+        <div class="value"><#if ((sum.noBomCount)!0) gt 0><span class="warn">${(sum.noBomCount)?string("0")}</span><#else>0</#if></div>
+    </div>
+    <div class="card" data-card="noProjectCount">
+        <div class="label">没有开发项目</div>
+        <div class="value"><#if ((sum.noProjectCount)!0) gt 0><span class="warn">${(sum.noProjectCount)?string("0")}</span><#else>0</#if></div>
+    </div>
+    <div class="card" data-card="gatePassed">
+        <div class="label">阶段评审通过 / 已评审</div>
+        <div class="value">${((sum.gatePassed)!0)?string("0")} / ${((sum.gateReviewed)!0)?string("0")}</div>
+    </div>
+    <div class="card" data-card="gatePending">
+        <div class="label">还待评审的阶段</div>
+        <div class="value">${((sum.gatePending)!0)?string("0")}<span class="hint">（每个型号 5 道）</span></div>
+    </div>
+</div>
+
 <fieldset>
     <legend>新建 / 更新型号</legend>
     <form method="post" action="/mfg/control/productSave">
