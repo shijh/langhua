@@ -985,6 +985,23 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   - 验法（测试实例，Playwright）：详情页读四个选项 → 选「已量产」保存 → `实际上市：<今天>` +
     `data-stage-gap="status-ahead"`；再选回「进行中」保存 → `实际上市：-`、提示消失。
     `gate-ahead` 用「新建一个 `devStageId=量产` 的型号 + 给它立个项目」验（`DEV-261103-38` 就是这样建的）。
+- **工期预估样本不够时改用每一步的中位数（Step 278）**：以前同类完工项目 < `MIN_ESTIMATE_SAMPLES`(3)
+  就只显示「还差几个」，开发库上几乎天天是这句。现在 `durationOf` 多了一个 `byMedians` 兜底：
+  `medianByStep(catalog, partial)` 按**走过这一歩的项目**取每步实际天数的中位数（`estimateOf` 新收集的
+  `partial` 只要求项目完成过**至少一步**，不再要求走完整条路线图），一步都没人做过的步按“各步中位数的中位数”
+  （典型步长）算，下限 1 天；答案带 `mode=MEDIAN` + 一句黄条 note，**不编学习率**（这种模式没有 `rate` / `slope`，
+  模板用 `<#if est.rate??>` 把学习率卡片整个省掉）。走满 3 个整路线图项目的仍是 `mode=CURVE`，行为不变。
+  **旧的 5 参 `durationOf(catalog, history, doneHere, today, planned)` 保留了**（内部按空 `partial` 转发），
+  所以单测不用重写；`saysSoWhenThereIsNothingToFitYet` 的断言从“消息里有 2”改成 `assertNotNull(message)`
+  （现在这句话只在一条同类项目都没有时才出）。
+  验法（测试实例，Playwright）：建 3 个固件路线图项目、只做前两步（8/28、12/22、10/25 天）→ 被测项目显示
+  `mode=MEDIAN`、每步 10 / 15 / 12.5（第三步没人做过，按典型步长 12.5）、总工期 38 天、完工 2026-12-11；
+  把那三个项目的第三步也置为已完成 → 变成 `mode=CURVE`（学习率 117.9%、斜率 0.237）；再把第三步改回进行中 →
+  回到 `MEDIAN`。**要造“有天数”的样例数据只能把完成日填到今天之后**：`stepDays` 从 `createdStamp` 算起，
+  填过去的日期会被 `max(0, …)` 夹成 0 天（页面于是整块都是“每步按下限 1 天算”）。
+  回归：单测 **274**（新增 `fallsBackToTheMedianOfEachStepWhenTheCurveCannotBeFitted` /
+  `chargesAStepNobodyWalkedAtTheTypicalStepOfTheRoute`）、`verify-m13` 54/54、`smoke-dev-pages` 28/28、
+  `check-prod-237` 27/27。
 - **步骤问题清单**：`MfgDevStepIssue`（`issueId` = `ISSUE-yyMMdd-NN`，`projectCode` + 可选 `stepId`），
   三态 `MFG_ISSUE_OPEN/DOING/CLOSED`、三档严重度 `LOW/MEDIUM/HIGH`；服务 `mfgDevStepIssueSave/List/Status`，
   页面在开发项目页（`id="issueTable"`，锚点 `#issues`），项目列表与步骤表各显示一个未结数（`openIssueCount`）；

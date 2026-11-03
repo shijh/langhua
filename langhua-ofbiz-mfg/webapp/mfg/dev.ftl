@@ -325,21 +325,28 @@
       share each step took in that history (mfgDevProjectDetail.estimate).
     -->
     <#assign est = (d.estimate)!{}>
+    <#assign medianMode = (((est.mode)!'') == 'MEDIAN')>
     <h3 id="estimate">工期预估（学习曲线）</h3>
     <#if (est.message)??>
         <p class="hint" data-estimate-none="Y">${est.message}。同一个路线图走完 <b>${(est.requiredSamples)!3}</b> 个项目之后这里会给出预计完工日。</p>
     <#else>
-        <p class="hint">按同一个路线图已完工项目的实际天数拟合 Wright 学习曲线：第 k 个项目用时 = 第一个 × k<sup>b</sup>，
-            斜率 b 换算成学习率 2<sup>b</sup>；再把预计总工期按历史上各步占的比例摊到每一步。</p>
+        <p class="hint" data-estimate-mode="${(est.mode)!''}">
+            <#if medianMode>同类路线图完工的项目还不够拟合学习曲线，所以按同类项目<b>每一步实际天数的中位数</b>估，只作参考。
+            <#else>按同一个路线图已完工项目的实际天数拟合 Wright 学习曲线：第 k 个项目用时 = 第一个 × k<sup>b</sup>，
+            斜率 b 换算成学习率 2<sup>b</sup>；再把预计总工期按历史上各步占的比例摊到每一步。</#if>
+        </p>
+        <#if medianMode><p class="warn" data-estimate-note="Y">${(est.note)!}</p></#if>
         <div class="cards" data-estimate="dev">
             <div class="card" data-card="samples">
-                <div class="label">同类完工项目</div>
-                <div class="value">${(est.samples)!0}<span class="hint">个样本</span></div>
+                <div class="label"><#if medianMode>参考项目<#else>同类完工项目</#if></div>
+                <div class="value"><#if medianMode>${(est.knownProjects)!0}<span class="hint">个走过步骤</span><#else>${(est.samples)!0}<span class="hint">个样本</span></#if></div>
             </div>
+            <#if est.rate??>
             <div class="card" data-card="rate">
                 <div class="label">学习率</div>
                 <div class="value">${((est.rate)!0)?string("0.0")}<span class="hint">%（斜率 ${((est.slope)!0)?string("0.000")}）</span></div>
             </div>
+            </#if>
             <div class="card" data-card="totalDays">
                 <div class="label">预计总工期</div>
                 <div class="value">${((est.totalDays)!0)?string("0")}<span class="hint">天</span></div>
@@ -365,7 +372,7 @@
             <span class="hint">——预计完工日 = 今天 + 剩余各步预计天数；已完成的那几步按实际天数计。</span>
         </p>
         <table id="estimateSteps" data-estimate-steps="${(est.steps)?size}">
-            <tr><th class="num">#</th><th>步骤</th><th class="num">历史占比</th><th class="num">预计天数</th><th>本项目</th></tr>
+            <tr><th class="num">#</th><th>步骤</th><th class="num"><#if medianMode>占预计<#else>历史占比</#if></th><th class="num">预计天数</th><th>本项目</th></tr>
             <#list (est.steps)![] as s>
                 <tr data-estimate-step="${s.stepId}" data-estimate-days="${(s.plannedDays)?string("0.#")}">
                     <td class="num">${s_index + 1}</td>

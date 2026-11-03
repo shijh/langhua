@@ -17,6 +17,7 @@
 package org.langhua.ofbiz.mfg;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
@@ -164,10 +165,59 @@ public class MfgProductRulesTest {
                 java.util.Arrays.asList("A", "B"), history, new java.util.LinkedHashMap<String, Double>(),
                 LocalDate.of(2026, 11, 3), null);
         assertEquals(2, estimate.get("samples"));
-        assertTrue(String.valueOf(estimate.get("message")).contains("2"));
-        // no curve, no dates: the page shows the counts and asks for one more finished project
+        assertNotNull(estimate.get("message"));
+        // no curve and nothing to fall back on, no dates: the page shows the counts and says why
         assertNull(estimate.get("finishDate"));
         assertNull(estimate.get("steps"));
+    }
+
+    @Test
+    public void fallsBackToTheMedianOfEachStepWhenTheCurveCannotBeFitted() {
+        // only one finished project: no curve, but three projects walked the steps, so the medians
+        // of what they took still say how long a step lasts
+        List<java.util.Map<String, Double>> history = new java.util.ArrayList<>();
+        history.add(twoSteps(60, 40));
+        List<java.util.Map<String, Double>> partial = new java.util.ArrayList<>();
+        partial.add(twoSteps(40, 20));
+        partial.add(twoSteps(60, 40));
+        partial.add(twoSteps(50, 30));
+        java.util.Map<String, Object> estimate = MfgDevServices.durationOf(
+                java.util.Arrays.asList("A", "B"), history, partial,
+                new java.util.LinkedHashMap<String, Double>(), LocalDate.of(2026, 11, 3), null);
+        assertEquals("MEDIAN", estimate.get("mode"));
+        assertNull(estimate.get("message"));
+        // no learning rate is invented when there is no curve to fit
+        assertNull(estimate.get("rate"));
+        assertNull(estimate.get("slope"));
+        assertTrue(String.valueOf(estimate.get("note")).contains("3"));
+        // step A: median of 40 / 60 / 50 = 50, step B: median of 20 / 40 / 30 = 30
+        List<java.util.Map<String, Object>> steps = stepsOf(estimate);
+        assertEquals(50.0, ((Double) steps.get(0).get("plannedDays")).doubleValue(), 0.001);
+        assertEquals(30.0, ((Double) steps.get(1).get("plannedDays")).doubleValue(), 0.001);
+        assertEquals(80.0, ((Double) estimate.get("totalDays")).doubleValue(), 0.001);
+        assertEquals(80L, estimate.get("remainingDays"));
+        assertEquals(java.sql.Date.valueOf(LocalDate.of(2027, 1, 22)), estimate.get("finishDate"));
+    }
+
+    @Test
+    public void chargesAStepNobodyWalkedAtTheTypicalStepOfTheRoute() {
+        // three projects, all stopped after the first step: the second step still gets a number
+        List<java.util.Map<String, Double>> partial = new java.util.ArrayList<>();
+        java.util.Map<String, Double> first = new java.util.LinkedHashMap<>();
+        first.put("A", Double.valueOf(12.0));
+        partial.add(first);
+        java.util.Map<String, Double> second = new java.util.LinkedHashMap<>();
+        second.put("A", Double.valueOf(8.0));
+        partial.add(second);
+        java.util.Map<String, Object> estimate = MfgDevServices.durationOf(
+                java.util.Arrays.asList("A", "B"), new java.util.ArrayList<java.util.Map<String, Double>>(),
+                partial, new java.util.LinkedHashMap<String, Double>(), LocalDate.of(2026, 11, 3), null);
+        assertEquals("MEDIAN", estimate.get("mode"));
+        List<java.util.Map<String, Object>> steps = stepsOf(estimate);
+        assertEquals(10.0, ((Double) steps.get(0).get("plannedDays")).doubleValue(), 0.001);
+        // nobody walked B, so it is charged at the median of the steps that were walked
+        assertEquals(10.0, ((Double) steps.get(1).get("plannedDays")).doubleValue(), 0.001);
+        assertEquals(20.0, ((Double) estimate.get("totalDays")).doubleValue(), 0.001);
     }
 
     @Test

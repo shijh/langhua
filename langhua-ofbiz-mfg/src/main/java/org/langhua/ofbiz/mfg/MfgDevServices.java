@@ -498,6 +498,38 @@ public final class MfgDevServices {
     }
 
     /**
+     * How long each step took, median over the projects that finished it.
+     *
+     * <p>Steps a project never reached are simply absent, so a route whose projects all stopped at
+     * the same place still yields medians for the steps somebody did walk. Used when there are too
+     * few finished projects to fit a curve: it gives the reader a number without pretending there is
+     * a learning curve behind it.
+     *
+     * @param catalog the steps of the route, in order
+     * @param projects the projects of the route, one map of step days each
+     * @return the median days of each step somebody finished, keyed by step
+     */
+    static Map<String, Double> medianByStep(List<String> catalog, List<Map<String, Double>> projects) {
+        Map<String, Double> medians = new LinkedHashMap<>();
+        if (catalog == null || projects == null) {
+            return medians;
+        }
+        for (String stepId : catalog) {
+            List<Double> each = new ArrayList<>();
+            for (Map<String, Double> project : projects) {
+                Double days = project == null ? null : project.get(stepId);
+                if (days != null) {
+                    each.add(days);
+                }
+            }
+            if (!each.isEmpty()) {
+                medians.put(stepId, Double.valueOf(MfgSupport.median(each)));
+            }
+        }
+        return medians;
+    }
+
+    /**
      * Fits a Wright learning curve to the durations of the projects of one route and says how long
      * the next one will take, step by step.
      *
@@ -513,13 +545,15 @@ public final class MfgDevServices {
      *
      * @param catalog the steps of the route, in order
      * @param history the finished projects of the route, oldest finish first, one map of step days each
+     * @param partial the other projects of the route, finished or not, one map of step days each
      * @param doneHere the steps of this project that are already finished, with the days they took
      * @param today the day the estimate is made
      * @param plannedLaunch the date the model was promised, may be {@code null}
      * @return the curve, the estimate and, when there are too few samples, why there is none
      */
     static Map<String, Object> durationOf(List<String> catalog, List<Map<String, Double>> history,
-            Map<String, Double> doneHere, LocalDate today, LocalDate plannedLaunch) {
+            List<Map<String, Double>> partial, Map<String, Double> doneHere, LocalDate today,
+            LocalDate plannedLaunch) {
         Map<String, Object> answer = new LinkedHashMap<>();
         Map<String, Double> done = doneHere == null ? new LinkedHashMap<String, Double>() : doneHere;
         double spent = 0.0;
@@ -535,9 +569,9 @@ public final class MfgDevServices {
         answer.put("requiredSamples", Integer.valueOf(MfgConstants.MIN_ESTIMATE_SAMPLES));
         answer.put("spentDays", Double.valueOf(spent));
         if (samples < MfgConstants.MIN_ESTIMATE_SAMPLES) {
-            answer.put("message", "同类路线图完工的项目只有 " + samples + " 个，至少 "
-                    + MfgConstants.MIN_ESTIMATE_SAMPLES + " 个才能拟合学习曲线");
-            return answer;
+            // not enough finished projects to fit a curve, but the steps somebody did walk still
+            // say how long a step takes: estimate with those medians and say so
+            return byMedians(catalog, partial, done, spent, today, plannedLaunch, answer);
         }
         double sx = 0.0;
         double sy = 0.0;
@@ -562,9 +596,7 @@ public final class MfgDevServices {
             used++;
         }
         if (used < MfgConstants.MIN_ESTIMATE_SAMPLES) {
-            answer.put("message", "同类路线图完工的项目有 " + samples + " 个，但带天数的只有 " + used
-                    + " 个，至少 " + MfgConstants.MIN_ESTIMATE_SAMPLES + " 个才能拟合学习曲线");
-            return answer;
+            return byMedians(catalog, partial, done, spent, today, plannedLaunch, answer);
         }
         double denominator = used * sxx - sx * sx;
         double slope = Math.abs(denominator) < 1e-9 ? 0.0 : (used * sxy - sx * sy) / denominator;
@@ -609,6 +641,7 @@ public final class MfgDevServices {
             rows.add(row);
         }
         long remainingDays = Math.max(0L, Math.round(remaining));
+        answer.put("mode", "CURVE");
         answer.put("slope", Double.valueOf(slope));
         answer.put("rate", Double.valueOf(Math.pow(2.0, slope) * 100.0));
         answer.put("totalDays", Double.valueOf(predicted));
@@ -622,6 +655,109 @@ public final class MfgDevServices {
         }
         answer.put("steps", rows);
         return answer;
+    }
+
+    /**
+     * The estimate when the curve cannot be fitted: the medians of the steps the other projects of
+     * the route did finish.
+     *
+     * <p>This is the answer to "the sample is always too small": the page used to say how many more
+     * finished projects it needed and give nothing at all. A route whose projects only ever walked
+     * three of five steps still says how long those three took, and a step nobody ever did is
+     * charged at the median of the steps somebody did. No learning rate is invented: the answer
+     * carries {@code mode=MEDIAN} and a note saying where the numbers come from.
+     *
+     * @param catalog the steps of the route, in order
+     * @param partial the other projects of the route, finished or not, one map of step days each
+     * @param done the steps of this project that are already finished, with the days they took
+     * @param spent the days this project already used up
+     * @param today the day the estimate is made
+     * @param plannedLaunch the date the model was promised, may be {@code null}
+     * @param answer what is known so far (samples, spent days), filled in further
+     * @return the estimate, or the reason there is none
+     */
+    private static Map<String, Object> byMedians(List<String> catalog, List<Map<String, Double>> partial,
+            Map<String, Double> done, double spent, LocalDate today, LocalDate plannedLaunch,
+            Map<String, Object> answer) {
+        Map<String, Double> medians = medianByStep(catalog, partial);
+        int known = 0;
+        if (partial != null) {
+            for (Map<String, Double> project : partial) {
+                if (project != null && !project.isEmpty()) {
+                    known++;
+                }
+            }
+        }
+        answer.put("knownProjects", Integer.valueOf(known));
+        if (medians.isEmpty()) {
+            answer.put("message", "同类路线图的项目还没有任何一步有完成日，没有天数可以参考");
+            return answer;
+        }
+        // a step nobody ever did is charged at the typical step of this route
+        double typical = MfgSupport.median(new ArrayList<>(medians.values()));
+        boolean sameDay = typical <= 0.0;
+        if (sameDay) {
+            typical = 1.0;
+        }
+        double total = 0.0;
+        for (String stepId : catalog) {
+            total += plannedOf(medians, typical, stepId);
+        }
+        total = Math.max(1.0, Math.min(MfgConstants.MAX_ESTIMATE_DAYS, total));
+        List<Map<String, Object>> rows = new ArrayList<>(catalog.size());
+        double remaining = 0.0;
+        for (String stepId : catalog) {
+            double planned = plannedOf(medians, typical, stepId);
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("stepId", stepId);
+            row.put("share", Double.valueOf(planned / total));
+            row.put("plannedDays", Double.valueOf(planned));
+            Double actual = done.get(stepId);
+            row.put("done", Boolean.valueOf(actual != null));
+            row.put("doneDays", actual);
+            if (actual == null) {
+                remaining += planned;
+            }
+            rows.add(row);
+        }
+        long remainingDays = Math.max(0L, Math.round(remaining));
+        answer.put("mode", "MEDIAN");
+        answer.put("note", "同类路线图完工的项目只有 " + answer.get("samples") + " 个（不足 "
+                + MfgConstants.MIN_ESTIMATE_SAMPLES + " 个，拟合不出学习曲线）；下面按 " + known
+                + " 个走过步骤的同类项目、每一步实际天数的中位数估，只作参考"
+                + (sameDay ? "。同类项目每一步都是当天完成，所以每步按下限 1 天算" : "") + "。");
+        answer.put("totalDays", Double.valueOf(total));
+        answer.put("remainingDays", Long.valueOf(remainingDays));
+        answer.put("finishDate", java.sql.Date.valueOf(today.plusDays(remainingDays)));
+        if (plannedLaunch != null) {
+            answer.put("plannedLaunch", java.sql.Date.valueOf(plannedLaunch));
+            answer.put("deltaDays", Long.valueOf(java.time.temporal.ChronoUnit.DAYS.between(plannedLaunch,
+                    today.plusDays(remainingDays))));
+        }
+        answer.put("steps", rows);
+        return answer;
+    }
+
+    /** The days a step is charged at: its own median, or the typical step when nobody did it yet. */
+    private static double plannedOf(Map<String, Double> medians, double typical, String stepId) {
+        Double median = medians.get(stepId);
+        return Math.max(1.0, median == null ? typical : median.doubleValue());
+    }
+
+    /**
+     * The duration estimate of one project with only its finished projects as history.
+     *
+     * @param catalog the steps of the route, in order
+     * @param history the finished projects of the route, oldest finish first
+     * @param doneHere the steps of this project that are already finished, with the days they took
+     * @param today the day the estimate is made
+     * @param plannedLaunch the date the model was promised, may be {@code null}
+     * @return the curve, the estimate and, when there are too few samples, why there is none
+     */
+    static Map<String, Object> durationOf(List<String> catalog, List<Map<String, Double>> history,
+            Map<String, Double> doneHere, LocalDate today, LocalDate plannedLaunch) {
+        return durationOf(catalog, history, new ArrayList<Map<String, Double>>(), doneHere, today,
+                plannedLaunch);
     }
 
     /**
@@ -671,6 +807,7 @@ public final class MfgDevServices {
             rows.add(step);
         }
         List<Object[]> finished = new ArrayList<>();
+        List<Map<String, Double>> partial = new ArrayList<>();
         String projectCode = project.getString("projectCode");
         for (GenericValue other : EntityQuery.use(delegator).from("MfgDevProject")
                 .where("trackId", trackId).queryList()) {
@@ -691,12 +828,18 @@ public final class MfgDevServices {
                     finishedOn = finishedOn == null || done.isAfter(finishedOn) ? done : finishedOn;
                 }
             }
-            // only a project that walked the whole route says anything about how long a route takes
-            if (otherDone.size() < route.size()) {
+            if (otherDone.isEmpty()) {
                 continue;
             }
             Map<String, Double> days = stepDays(route, MfgSupport.asLocalDate(other.get("createdStamp")), otherDone);
             if (days.isEmpty()) {
+                continue;
+            }
+            // every project that walked a step feeds the per-step medians, the ones that walked the
+            // whole route also feed the curve
+            partial.add(days);
+            // only a project that walked the whole route says anything about how long a route takes
+            if (otherDone.size() < route.size()) {
                 continue;
             }
             finished.add(new Object[] {finishedOn, days});
@@ -718,7 +861,7 @@ public final class MfgDevServices {
             Map<String, Double> days = (Map<String, Double>) each[1];
             history.add(days);
         }
-        return durationOf(route, history, stepDays(route, start, doneDates), LocalDate.now(),
+        return durationOf(route, history, partial, stepDays(route, start, doneDates), LocalDate.now(),
                 MfgSupport.asLocalDate(project.get("plannedLaunchDate")));
     }
 
