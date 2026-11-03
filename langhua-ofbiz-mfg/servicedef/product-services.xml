@@ -30,6 +30,8 @@
             auth="false" use-transaction="false">
         <description>List product models with BOM and routing counts</description>
         <attribute name="search" type="String" mode="IN" optional="true"/>
+        <attribute name="bom" type="String" mode="IN" optional="true"/>
+        <attribute name="project" type="String" mode="IN" optional="true"/>
         <attribute name="page" type="Long" mode="IN" optional="true"/>
         <attribute name="pageSize" type="Long" mode="IN" optional="true"/>
         <attribute name="products" type="java.util.List" mode="OUT" optional="true"/>
@@ -39,6 +41,8 @@
         <attribute name="pageCount" type="Long" mode="OUT" optional="true"/>
         <attribute name="pageSize" type="Long" mode="OUT" optional="true"/>
         <attribute name="search" type="String" mode="OUT" optional="true"/>
+        <attribute name="bom" type="String" mode="OUT" optional="true"/>
+        <attribute name="project" type="String" mode="OUT" optional="true"/>
     </service>
 
 

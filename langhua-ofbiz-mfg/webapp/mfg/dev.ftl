@@ -156,11 +156,11 @@
     </div>
     <div class="card" data-card="noModelCount">
         <div class="label">未关联型号</div>
-        <div class="value"><#if ((sum.noModelCount)!0) gt 0><span class="warn">${(sum.noModelCount)?string("0")}</span><#else>0</#if></div>
+        <div class="value"><#if ((sum.noModelCount)!0) gt 0><a class="warn" href="/mfg/control/dev?noModel=Y" data-card-link="noModelCount" title="列出还没关联型号的项目">${(sum.noModelCount)?string("0")}</a><#else>0</#if></div>
     </div>
     <div class="card" data-card="openWork">
         <div class="label">未结问题 / 未结变更</div>
-        <div class="value">${((sum.openIssueTotal)!0)?string("0")} / ${((sum.openEcoTotal)!0)?string("0")}</div>
+        <div class="value"><#if ((sum.openIssueTotal)!0) gt 0><a class="warn" href="/mfg/control/dev?openIssue=Y" data-card-link="openIssueTotal" title="列出还有未结问题的项目">${(sum.openIssueTotal)?string("0")}</a><#else>0</#if> / <#if ((sum.openEcoTotal)!0) gt 0><a class="warn" href="/mfg/control/eco?statusId=OPEN" data-card-link="openEcoTotal" title="列出还没生效的变更单">${(sum.openEcoTotal)?string("0")}</a><#else>0</#if></div>
     </div>
 </div>
 <p class="hint">项目按「型号 + 在做哪一步」挂到型号上；五个阶段的评审在产品页登记，项目这边只看它在做哪一步。</p>
@@ -230,6 +230,14 @@
         <option value="MFG_DEV_DONE"<#if (lr.statusId!'') == 'MFG_DEV_DONE'> selected="selected"</#if>>已量产</option>
         <option value="MFG_DEV_CANCELLED"<#if (lr.statusId!'') == 'MFG_DEV_CANCELLED'> selected="selected"</#if>>已取消</option>
     </select>
+    型号 <select name="noModel" data-filter="noModel">
+        <option value="">全部</option>
+        <option value="Y"<#if (lr.noModel!'') == 'Y'> selected="selected"</#if>>未关联型号</option>
+    </select>
+    问题 <select name="openIssue" data-filter="openIssue">
+        <option value="">全部</option>
+        <option value="Y"<#if (lr.openIssue!'') == 'Y'> selected="selected"</#if>>有未结问题</option>
+    </select>
     <input type="submit" value="查询"/>
     <span class="hint">共 ${(lr.totalCount)!0} 条</span>
 </form>
@@ -260,7 +268,7 @@
 <#else>
     <p class="hint">还没有开发项目，先在上面立项。三张路线图（PCB / 固件 / 外壳）各建一个项目，步骤清单由路线图决定。</p>
 </#if>
-<@pg.pager action="/mfg/control/dev" query=('search=' + ((lr.search)!'')?url + '&' + 'stageId=' + ((lr.stageId)!'')?url + '&' + 'statusId=' + ((lr.statusId)!'')?url)
+<@pg.pager action="/mfg/control/dev" query=('search=' + ((lr.search)!'')?url + '&' + 'stageId=' + ((lr.stageId)!'')?url + '&' + 'statusId=' + ((lr.statusId)!'')?url + '&' + 'noModel=' + ((lr.noModel)!'')?url + '&' + 'openIssue=' + ((lr.openIssue)!'')?url)
     page=(lr.page)!1 pageCount=(lr.pageCount)!1 total=(lr.totalCount)!0 unit="条" pageSize=(lr.pageSize)!20/>
 
 <#if project.projectCode??>

@@ -40,7 +40,10 @@
                 <set field="activeMenu" value="products"/>
                 <service service-name="mfgProductList" result-map="listResult" auto-field-map="false">
                     <field-map field-name="search" from-field="parameters.search"/>
+                    <field-map field-name="bom" from-field="parameters.bom"/>
+                    <field-map field-name="project" from-field="parameters.project"/>
                     <field-map field-name="page" from-field="parameters.page"/>
+                    <field-map field-name="pageSize" from-field="parameters.pageSize"/>
                 </service>
                 <service service-name="mfgProductDetail" result-map="detail" auto-field-map="false">
                     <field-map field-name="productCode" from-field="parameters.productCode"/>
@@ -83,7 +86,10 @@
                     <field-map field-name="search" from-field="parameters.search"/>
                     <field-map field-name="stageId" from-field="parameters.stageId"/>
                     <field-map field-name="statusId" from-field="parameters.statusId"/>
+                    <field-map field-name="noModel" from-field="parameters.noModel"/>
+                    <field-map field-name="openIssue" from-field="parameters.openIssue"/>
                     <field-map field-name="page" from-field="parameters.page"/>
+                    <field-map field-name="pageSize" from-field="parameters.pageSize"/>
                 </service>
                 <service service-name="mfgProductList" result-map="productList" auto-field-map="false"/>
                 <service service-name="mfgDevProjectDetail" result-map="detail" auto-field-map="false">

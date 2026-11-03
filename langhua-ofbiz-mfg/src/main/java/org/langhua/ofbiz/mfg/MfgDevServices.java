@@ -44,6 +44,13 @@ import org.apache.ofbiz.service.ServiceUtil;
  */
 public final class MfgDevServices {
 
+    /**
+     * The value the change order page accepts in place of a status when only the ones still waiting
+     * are wanted: a change order is open while it is a draft or approved, and closed once applied or
+     * dropped. It is not a status stored anywhere.
+     */
+    static final String OPEN_STATUS = "OPEN";
+
     private MfgDevServices() {
     }
 
@@ -551,6 +558,10 @@ public final class MfgDevServices {
         Delegator delegator = dctx.getDelegator();
         String stageId = MfgSupport.toText(context.get("stageId"));
         String statusId = MfgSupport.toText(context.get("statusId"));
+        // the board links here: projects nobody hung on a model, and projects with a problem still
+        // open - those two lists are what the cards point at
+        String noModel = MfgSupport.toText(context.get("noModel"));
+        String openIssue = MfgSupport.toText(context.get("openIssue"));
         try {
             List<GenericValue> projects = EntityQuery.use(delegator).from("MfgDevProject")
                     .orderBy("-createdStamp").queryList();
@@ -562,7 +573,15 @@ public final class MfgDevServices {
                 if (statusId != null && !statusId.equals(project.getString("statusId"))) {
                     continue;
                 }
-                list.add(toDevProjectMap(delegator, project));
+                if ("Y".equalsIgnoreCase(noModel) && project.getString("productCode") != null) {
+                    continue;
+                }
+                Map<String, Object> map = toDevProjectMap(delegator, project);
+                // the open counts come with the row, so this filter costs nothing extra
+                if ("Y".equalsIgnoreCase(openIssue) && MfgProductServices.numberOf(map.get("openIssueCount")) == 0) {
+                    continue;
+                }
+                list.add(map);
             }
             List<Map<String, Object>> stages = new ArrayList<>(MfgConstants.DEV_STAGES.length);
             for (String stage : MfgConstants.DEV_STAGES) {
@@ -585,6 +604,8 @@ public final class MfgDevServices {
             result.put("stages", stages);
             result.put("stageId", stageId);
             result.put("statusId", statusId);
+            result.put("noModel", noModel);
+            result.put("openIssue", openIssue);
             MfgPaging.putPage(result, "projects",
                     MfgPaging.filterByKeyword(list, MfgSupport.toText(context.get("search")), "projectCode", "projectName",
                             "productCode", "ownerName", "stageId", "statusId"),
@@ -1366,12 +1387,20 @@ public final class MfgDevServices {
                     .orderBy("-createdStamp").queryList();
             List<Map<String, Object>> list = new ArrayList<>(ecos.size());
             long open = 0;
+            boolean openOnly = OPEN_STATUS.equalsIgnoreCase(statusId);
             for (GenericValue eco : ecos) {
                 String status = eco.getString("statusId");
-                if (MfgConstants.ECO_DRAFT.equals(status) || MfgConstants.ECO_APPROVED.equals(status)) {
+                boolean stillOpen = MfgConstants.ECO_DRAFT.equals(status) || MfgConstants.ECO_APPROVED.equals(status);
+                if (stillOpen) {
                     open++;
                 }
-                if (statusId != null && !statusId.equals(status)) {
+                if (openOnly) {
+                    // "open" is not a status of its own: it means draft or approved, the two states a
+                    // change order sits in before it is applied or dropped
+                    if (!stillOpen) {
+                        continue;
+                    }
+                } else if (statusId != null && !statusId.equals(status)) {
                     continue;
                 }
                 if (productCode != null && !productCode.equals(eco.getString("productCode"))) {

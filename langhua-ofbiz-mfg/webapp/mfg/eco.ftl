@@ -84,13 +84,14 @@
     状态
     <select name="statusId">
         <option value="">全部</option>
+        <option value="OPEN"<#if (lr.statusId!'') == 'OPEN'> selected="selected"</#if>>未结（草稿 + 已批准）</option>
         <option value="MFG_ECO_DRAFT"<#if (lr.statusId!'') == 'MFG_ECO_DRAFT'> selected="selected"</#if>>草稿</option>
         <option value="MFG_ECO_APPROVED"<#if (lr.statusId!'') == 'MFG_ECO_APPROVED'> selected="selected"</#if>>已批准</option>
         <option value="MFG_ECO_APPLIED"<#if (lr.statusId!'') == 'MFG_ECO_APPLIED'> selected="selected"</#if>>已生效</option>
         <option value="MFG_ECO_CANCELLED"<#if (lr.statusId!'') == 'MFG_ECO_CANCELLED'> selected="selected"</#if>>已取消</option>
     </select>
     <input type="submit" value="查询"/>
-    <span class="hint">共 ${(lr.totalCount)!0} 条，未结 ${(lr.openCount)!0} 条</span>
+    <span class="hint">共 ${(lr.totalCount)!0} 条，<a href="/mfg/control/eco?statusId=OPEN" title="只看还没生效的变更单">未结 ${(lr.openCount)!0} 条</a></span>
 </form>
 
 <#if ecos?has_content>

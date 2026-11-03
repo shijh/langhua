@@ -99,11 +99,11 @@
     </div>
     <div class="card" data-card="noBomCount">
         <div class="label">还没有 BOM</div>
-        <div class="value"><#if ((sum.noBomCount)!0) gt 0><span class="warn">${(sum.noBomCount)?string("0")}</span><#else>0</#if></div>
+        <div class="value"><#if ((sum.noBomCount)!0) gt 0><a class="warn" href="/mfg/control/products?bom=N" data-card-link="noBomCount" title="列出还没有 BOM 的型号">${(sum.noBomCount)?string("0")}</a><#else>0</#if></div>
     </div>
     <div class="card" data-card="noProjectCount">
         <div class="label">没有开发项目</div>
-        <div class="value"><#if ((sum.noProjectCount)!0) gt 0><span class="warn">${(sum.noProjectCount)?string("0")}</span><#else>0</#if></div>
+        <div class="value"><#if ((sum.noProjectCount)!0) gt 0><a class="warn" href="/mfg/control/products?project=N" data-card-link="noProjectCount" title="列出没有任何开发项目的型号">${(sum.noProjectCount)?string("0")}</a><#else>0</#if></div>
     </div>
     <div class="card" data-card="gatePassed">
         <div class="label">阶段评审通过 / 已评审</div>
@@ -141,6 +141,16 @@
 <h2>型号列表</h2>
 <form method="get" action="/mfg/control/products">
     搜索 <input type="text" name="search" size="24" value="${(lr.search)!''}" placeholder="型号 / 名称 / SN 前缀"/>
+    BOM <select name="bom" data-filter="bom">
+        <option value="">全部</option>
+        <option value="Y"<#if (lr.bom!'') == 'Y'> selected="selected"</#if>>已有</option>
+        <option value="N"<#if (lr.bom!'') == 'N'> selected="selected"</#if>>还没有</option>
+    </select>
+    开发项目 <select name="project" data-filter="project">
+        <option value="">全部</option>
+        <option value="Y"<#if (lr.project!'') == 'Y'> selected="selected"</#if>>有</option>
+        <option value="N"<#if (lr.project!'') == 'N'> selected="selected"</#if>>没有</option>
+    </select>
     <input type="submit" value="查询"/>
     <span class="hint">共 ${(lr.totalCount)!0} 条</span>
 </form>
@@ -202,7 +212,7 @@
 <#else>
     <p class="hint">还没有产品型号，先在上面的表单里创建一个（例如 <code>BT5</code>）。</p>
 </#if>
-<@pg.pager action="/mfg/control/products" query=('search=' + ((lr.search)!'')?url)
+<@pg.pager action="/mfg/control/products" query=('search=' + ((lr.search)!'')?url + '&' + 'bom=' + ((lr.bom)!'')?url + '&' + 'project=' + ((lr.project)!'')?url)
     page=(lr.page)!1 pageCount=(lr.pageCount)!1 total=(lr.totalCount)!0 unit="条" pageSize=(lr.pageSize)!20/>
 
 <#if product.productCode??>

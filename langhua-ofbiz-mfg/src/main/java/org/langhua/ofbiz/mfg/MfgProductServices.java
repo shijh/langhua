@@ -967,8 +967,33 @@ public final class MfgProductServices {
                 }
             }
             result.put("summary", productSummary(list, withProjects));
+            // the board links here: "no BOM yet" and "nobody is working on it" are the two lists a
+            // person wants to open from the cards, so both can be asked for
+            String bom = MfgSupport.toText(context.get("bom"));
+            String project = MfgSupport.toText(context.get("project"));
+            List<Map<String, Object>> wanted = new ArrayList<>(list.size());
+            for (Map<String, Object> row : list) {
+                boolean hasBom = row.get("currentBomVersionId") != null;
+                if ("N".equalsIgnoreCase(bom) && hasBom) {
+                    continue;
+                }
+                if ("Y".equalsIgnoreCase(bom) && !hasBom) {
+                    continue;
+                }
+                String code = MfgSupport.toText(row.get("productCode"));
+                boolean hasProject = code != null && withProjects.contains(code);
+                if ("N".equalsIgnoreCase(project) && hasProject) {
+                    continue;
+                }
+                if ("Y".equalsIgnoreCase(project) && !hasProject) {
+                    continue;
+                }
+                wanted.add(row);
+            }
+            result.put("bom", bom);
+            result.put("project", project);
             MfgPaging.putPage(result, "products",
-                    MfgPaging.filterByKeyword(list, MfgSupport.toText(context.get("search")), "productCode", "productName",
+                    MfgPaging.filterByKeyword(wanted, MfgSupport.toText(context.get("search")), "productCode", "productName",
                             "snPrefix", "statusId"),
                     MfgPaging.pageOf(context), MfgPaging.pageSizeOf(context), MfgSupport.toText(context.get("search")));
             // the list unfolds its rows in place, so the BOM lines of the visible page come along

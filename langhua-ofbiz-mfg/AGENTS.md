@@ -935,6 +935,13 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   项目页 `openIssuesByProject` / `openEcosByProject` 各**一条**查询按项目归组（别在行循环里查）。
   巡检照 `data-summary="products|dev"` 与每张卡片的 `data-card="modelCount|…"` 断言，不碰中文。
   服务描述符要为 `summary` 加 `java.util.Map` 的 OUT，否则框架把它静默丢掉（老问题）。
+  **卡片上的几个数字是到列表的链接**（`data-card-link`）：还没有 BOM → `products?bom=N`、
+  没有开发项目 → `products?project=N`、未关联型号 → `dev?noModel=Y`、未结问题 → `dev?openIssue=Y`、
+  未结变更 → `eco?statusId=OPEN`。为此三张列表加了筛选：`mfgProductList` 的 `bom` / `project`、
+  `mfgDevProjectList` 的 `noModel` / `openIssue`、`mfgDevEcoList` 把 `statusId=OPEN` 当成“草稿 + 已批准”
+  （`MfgDevServices.OPEN_STATUS`，不是存下来的状态）；两个列表页的 `<@pg.pager>` query 也要拼上这些参数。
+  **新参数三处都要加：服务里读、描述符声明 IN/OUT、屏幕 `<field-map>` 传**——这次漏了 OUT 与 field-map 各一次，
+  表现是“筛不动 / 筛选框不回显”，但**页面不报错**（跟前几条同一个坑，别再踩）。
 - **步骤问题清单**：`MfgDevStepIssue`（`issueId` = `ISSUE-yyMMdd-NN`，`projectCode` + 可选 `stepId`），
   三态 `MFG_ISSUE_OPEN/DOING/CLOSED`、三档严重度 `LOW/MEDIUM/HIGH`；服务 `mfgDevStepIssueSave/List/Status`，
   页面在开发项目页（`id="issueTable"`，锚点 `#issues`），项目列表与步骤表各显示一个未结数（`openIssueCount`）；
