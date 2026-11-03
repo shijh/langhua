@@ -9,7 +9,7 @@
             package-name="org.langhua.ofbiz.mfg"
             title="Product model">
         <description>A hardware model that is assembled, tested and packed in house</description>
-        <field name="productCode" type="id"><description>Model code, e.g. BT5</description></field>
+        <field name="productCode" type="id-long"><description>Model code, e.g. BT5</description></field>
         <field name="productName" type="name"><description>Display name</description></field>
         <field name="snPrefix" type="very-short"><description>Prefix used when serial numbers are generated</description></field>
         <field name="standardHours" type="floating-point"><description>Standard assembly hours per unit</description></field>
@@ -20,7 +20,7 @@
         <field name="warrantyMonths" type="numeric"><description>Warranty in months from the delivery date, 12 when empty</description></field>
         <field name="salePrice" type="currency-amount"><description>Typical selling price, used to turn the after sales cost into a percentage</description></field>
         <field name="statusId" type="id"><description>MFG_ACTIVE or MFG_INACTIVE</description></field>
-        <field name="previousProductCode" type="id"><description>The model this one replaces (the previous generation); the models that replace this one are the rows of the same table pointing here, so both directions are read from one field</description></field>
+        <field name="previousProductCode" type="id-long"><description>The model this one replaces (the previous generation); the models that replace this one are the rows of the same table pointing here, so both directions are read from one field</description></field>
         <field name="devStageId" type="id"><description>MFG_STAGE_CONCEPT, DESIGN, PROTOTYPE, TRIAL or MASS, kept independent from the development projects</description></field>
         <field name="currentBomVersionId" type="id"><description>BOM version in use, set when a version is activated</description></field>
         <field name="note" type="description"/>
@@ -35,7 +35,7 @@
             package-name="org.langhua.ofbiz.mfg"
             title="Product stage review">
         <description>Gate review of one development stage of a product model. The five stages belong to the model and not to a development project: the PCB, firmware and enclosure projects of one product share the same gates. Passing a gate moves MfgProduct.devStageId to the next stage</description>
-        <field name="productCode" type="id"><description>Parent model</description></field>
+        <field name="productCode" type="id-long"><description>Parent model</description></field>
         <field name="stageId" type="id"><description>Stage being reviewed</description></field>
         <field name="plannedDate" type="date"><description>Date the review should happen</description></field>
         <field name="doneDate" type="date"><description>Date the review really happened, empty while the gate is still open</description></field>
@@ -57,7 +57,7 @@
             package-name="org.langhua.ofbiz.mfg"
             title="BOM line">
         <description>One component of a product model, including its reference designators</description>
-        <field name="productCode" type="id"><description>Parent model</description></field>
+        <field name="productCode" type="id-long"><description>Parent model</description></field>
         <field name="lineSeq" type="numeric"><description>Line number inside the BOM</description></field>
         <field name="componentCode" type="name"><description>Component part number, up to 100 characters</description></field>
         <field name="componentName" type="name"><description>Component description</description></field>
@@ -81,7 +81,7 @@
             title="BOM version">
         <description>One BOM version of a product model; the product points to the version in use and change orders point to the versions they introduce</description>
         <field name="bomVersionId" type="id"><description>Model code plus version number, e.g. BT5-V2</description></field>
-        <field name="productCode" type="id"><description>Parent model</description></field>
+        <field name="productCode" type="id-long"><description>Parent model</description></field>
         <field name="versionNo" type="numeric"><description>Version number, 1 for the first BOM of the model</description></field>
         <field name="statusId" type="id"><description>MFG_BOM_DRAFT, MFG_BOM_RELEASED or MFG_BOM_OBSOLETE</description></field>
         <field name="effectiveDate" type="date"><description>Date the version was released, empty while it is a draft</description></field>
@@ -129,7 +129,7 @@
             package-name="org.langhua.ofbiz.mfg"
             title="Product photo">
         <description>Old single table of product photos. Deprecated: the rows are copied into MfgAttachment on first read</description>
-        <field name="productCode" type="id"><description>Parent model</description></field>
+        <field name="productCode" type="id-long"><description>Parent model</description></field>
         <field name="seq" type="numeric"><description>Running number inside the model, 1 is the oldest photo</description></field>
         <field name="fileName" type="short-varchar"><description>Original file name, cleaned of any path</description></field>
         <field name="contentType" type="short-varchar"><description>image/jpeg, image/png or image/gif</description></field>
@@ -175,7 +175,7 @@
             package-name="org.langhua.ofbiz.mfg"
             title="Routing operation template">
         <description>Operation template of a product model: assembly, ageing, test, packing</description>
-        <field name="productCode" type="id"><description>Parent model</description></field>
+        <field name="productCode" type="id-long"><description>Parent model</description></field>
         <field name="opSeq" type="numeric"><description>Operation sequence, 10, 20, 30 ...</description></field>
         <field name="opName" type="name"><description>Operation name</description></field>
         <field name="workCenter" type="short-varchar"><description>Work center / station</description></field>
@@ -197,7 +197,7 @@
             title="Work order">
         <description>Production order for a quantity of one product model</description>
         <field name="workOrderId" type="id"><description>Work order number</description></field>
-        <field name="productCode" type="id"><description>Model to build</description></field>
+        <field name="productCode" type="id-long"><description>Model to build</description></field>
         <field name="plannedQty" type="numeric"><description>Planned quantity</description></field>
         <field name="statusId" type="id"><description>MFG_CREATED, MFG_IN_PROGRESS, MFG_COMPLETED, MFG_CLOSED</description></field>
         <field name="dueDate" type="date"><description>Requested finish date</description></field>
@@ -227,7 +227,7 @@
         <description>One physical unit of a work order, traced from assembly to shipment</description>
         <field name="sn" type="id"><description>Serial number, e.g. BT5-261020-0001</description></field>
         <field name="workOrderId" type="id"><description>Owning work order</description></field>
-        <field name="productCode" type="id"><description>Model</description></field>
+        <field name="productCode" type="id-long"><description>Model</description></field>
         <field name="statusId" type="id"><description>MFG_IN_PROGRESS, MFG_COMPLETED, MFG_SCRAPPED</description></field>
         <field name="note" type="description"/>
         <field name="createdStamp" type="date-time"/>
@@ -706,7 +706,7 @@
         <description>One new product under development, followed from the concept stage to mass production</description>
         <field name="projectCode" type="id"><description>Project number, e.g. DEV-261021-01</description></field>
         <field name="projectName" type="name"><description>What is being developed</description></field>
-        <field name="productCode" type="id"><description>Model this project belongs to, empty while the project is only an idea</description></field>
+        <field name="productCode" type="id-long"><description>Model this project belongs to, empty while the project is only an idea</description></field>
         <field name="trackId" type="id"><description>MFG_TRACK_PCB, MFG_TRACK_FIRMWARE or MFG_TRACK_ENCLOSURE; empty for a project that only uses the stage ladder</description></field>
         <field name="partCode" type="id"><description>Board code, firmware code or enclosure part number this track works on</description></field>
         <field name="stageId" type="id"><description>MFG_STAGE_CONCEPT, DESIGN, PROTOTYPE, TRIAL or MASS</description></field>
@@ -876,7 +876,7 @@
             title="Engineering change order">
         <description>Engineering change of a model under development or in production; applying it can switch the model to a new BOM version</description>
         <field name="ecoId" type="id"><description>Change order number, e.g. ECO-261021-01</description></field>
-        <field name="productCode" type="id"><description>Affected model</description></field>
+        <field name="productCode" type="id-long"><description>Affected model</description></field>
         <field name="projectCode" type="id"><description>Development project the change belongs to, empty for a change in production</description></field>
         <field name="ecoTypeId" type="id"><description>MFG_ECO_BOM, MFG_ECO_PROCESS, MFG_ECO_DESIGN or MFG_ECO_MATERIAL</description></field>
         <field name="reason" type="description"><description>Why the change is needed</description></field>
@@ -909,7 +909,7 @@
         <field name="projectCode" type="id"><description>Project number, e.g. SW-261021-01</description></field>
         <field name="projectName" type="name"><description>What is being built</description></field>
         <field name="categoryId" type="id"><description>MFG_SW_FIRMWARE, MFG_SW_ENCLOSURE, MFG_SW_HOST, MFG_SW_PLATFORM or MFG_SW_OTHER</description></field>
-        <field name="productCode" type="id"><description>Model this work belongs to, may be empty</description></field>
+        <field name="productCode" type="id-long"><description>Model this work belongs to, may be empty</description></field>
         <field name="devProjectCode" type="id"><description>Development project of this component, may be empty</description></field>
         <field name="ownerName" type="name"><description>Who does the work</description></field>
         <field name="statusId" type="id"><description>MFG_SW_PLANNED, MFG_SW_DOING, MFG_SW_DONE or MFG_SW_CANCELLED</description></field>
@@ -1132,7 +1132,7 @@
         <description>One model on a sales order, with what was reserved from stock, what went into production and what was shipped</description>
         <field name="salesOrderId" type="id"><description>Order number</description></field>
         <field name="lineSeq" type="numeric"><description>Line number, starting at 1</description></field>
-        <field name="productCode" type="id"><description>Model ordered</description></field>
+        <field name="productCode" type="id-long"><description>Model ordered</description></field>
         <field name="qty" type="floating-point"><description>Ordered quantity</description></field>
         <field name="shippedQty" type="floating-point"><description>Quantity already shipped</description></field>
         <field name="workOrderId" type="id"><description>Work order that makes the units missing from stock, empty until the line is planned</description></field>

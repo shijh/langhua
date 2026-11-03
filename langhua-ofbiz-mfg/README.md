@@ -404,7 +404,7 @@ https://localhost:8443/mfg/control/main
 
 | 实体 | 说明 |
 | --- | --- |
-| `MfgProduct` | 产品型号：`productCode`（主键）、`snPrefix`（**≤ 10 字符**，空时取型号编码）、`standardHours`、`standardHoursSource`（`MANUAL` / `LEARNING_CURVE`）、`standardHoursBaseQty`、`standardHoursEstimateRef`、`laborRate`（工时费率，成本核算用）、`warrantyMonths`（保修月数，默认 12）、`devStageId`（开发阶段）、`currentBomVersionId`（当前 BOM 版本）、状态 |
+| `MfgProduct` | 产品型号：`productCode`（主键，**≤ 40 个字符**，库里是 `VARCHAR(60)`）、`snPrefix`（**≤ 10 字符**，空时取型号编码）、`standardHours`、`standardHoursSource`（`MANUAL` / `LEARNING_CURVE`）、`standardHoursBaseQty`、`standardHoursEstimateRef`、`laborRate`（工时费率，成本核算用）、`warrantyMonths`（保修月数，默认 12）、`devStageId`（开发阶段）、`currentBomVersionId`（当前 BOM 版本）、状态 |
 | `MfgBomItem` | 旧版单表 BOM 行（`productCode` + `lineSeq`）。**已停用**，首次读取时自动冻结为 `型号-V1` 版本，新代码只用版���表 |
 | `MfgBomVersion` | BOM 版本：`bomVersionId`（主键，`型号-Vn`，**长型号编码会被截短到 20 个字符**）、`versionNo`、`statusId`（DRAFT/RELEASED/OBSOLETE）、`effectiveDate`、`basisVersionId`（从哪版复制）、`ecoId`（哪张变更单引入） |
 | `MfgBomVersionItem` | 版本内 BOM 行：`bomVersionId` + `lineSeq`（联合主键）、`componentCode`、`qty`、`designators`、`isKeyPart`、`unitPrice`（单价，成本核算用，可空） |
@@ -720,7 +720,7 @@ csv         = R0402-10K,10K 0402 resistor,4,R1-R4,N,0.05
 - 被拒时控制器回到同一个视图（`productSave` 的 error → view `products`），请求参数还在，模板据此**回填**；
 - 违反规则的那一项加 `class="bad"` + `aria-invalid="true"`（红框，`.bad` 规则在 `mfg.css`），
   后面跟一句红字说明（缺什么、超了几个字符），并把光标放到它上面；
-- 校验用**和服务一样的限制**（型号编码 ≤ 20、SN 前缀 ≤ 10、上代产品不能是自己），
+- 校验用**和服务一样的限制**（型号编码 ≤ 40、SN 前缀 ≤ 10、上代产品不能是自己），
   服务端也补了型号编码的长度检查，不再让 Derby 的截断错误冒出来；
 - **不给输入框加 `maxlength`**：浏览器会静默截断，人不知道自己打的东西被吃掉了；宁可让他点保存、看到红框。
 - 判据是「这次提交里带了这张表单的字段」（`parameters.snPrefix` 与 `parameters.standardHours` 都在），
@@ -1036,8 +1036,9 @@ SMT 为外协，且对方**不提供上料 / 换料记录**，因此追溯精度
 **BOM 版本**
 
 - 版本号从 1 开始，版本主键是 `型号-Vn`（如 `BT5-V2`），一个型号可以有多个版本；
-  **主键是 `id` 类型（20 个字符）**，而型号编码本身最多也 20 个字符，所以型号编码长到放不下版本号时
-  会截短型号部分（`orpah-client-demo-bb` 的 V1 是 `orpah-client-demo-V1`，仍是 20 位）；
+  **主键是 `id` 类型（20 个字符）**，而型号编码最多 40 个字符，所以型号编码长到放不下版本号时
+  会截短型号部分（`orpah-client-demo-bb` 的 V1 是 `orpah-client-demo-V1`，仍是 20 位；
+  40 个字符的型号得到 `AuroraTessellatio-V1`）；
   两个长编码截短后撞到一起时，后一个会在版本号前加序号（`…-de-1-V1`），不会写库失败；
 - 新建版本默认**复制当前版本的行**，再在页面上改（改完可以一直保持草稿，不影响生产）；
 - 「启用此版本」会把该版本设为 `MFG_BOM_RELEASED` 并把型号的 `currentBomVersionId` 指过去，

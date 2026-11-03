@@ -63,9 +63,9 @@
     <#assign fStage = (parameters.devStageId)!((product.devStageId)!'MFG_STAGE_CONCEPT')>
     <#assign badCode = !fCode?has_content>
     <#if badCode><#assign badCodeNote = '必填'></#if>
-    <#if !badCode && ((fCode?length) gt 20)>
+    <#if !badCode && ((fCode?length) gt 40)>
         <#assign badCode = true>
-        <#assign badCodeNote = '最长 20 个字符（现在 ' + (fCode?length)?c + ' 个）'>
+        <#assign badCodeNote = '最长 40 个字符（现在 ' + (fCode?length)?c + ' 个）'>
     </#if>
     <#assign badPrefix = (fPrefix?length) gt 10>
     <#assign badPrevious = fPrevious?has_content && ((fPrevious?lower_case) == (fCode?lower_case))>

@@ -564,8 +564,13 @@ public final class MfgConstants {
     /** The {@code componentCode} fields are of type {@code name}, so 100 characters are the limit. */
     static final int MAX_COMPONENT_CODE = 100;
 
-    /** A model code is an {@code id} column, so 20 characters are the limit. */
-    static final int MAX_PRODUCT_CODE = 20;
+    /**
+     * A model code is stored in an {@code id-long} column (60 characters), but the page and the
+     * services accept 40: long enough for a part number such as
+     * {@code AuroraTessellation-NFC}, short enough to stay readable in a list and in the identifiers
+     * built from it.
+     */
+    static final int MAX_PRODUCT_CODE = 40;
 
     /** The SN prefix is a {@code very-short} column, so 10 characters are the limit. */
     static final int MAX_SN_PREFIX = 10;

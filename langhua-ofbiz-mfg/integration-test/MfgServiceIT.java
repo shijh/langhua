@@ -2131,8 +2131,14 @@ public final class MfgServiceIT {
         detailForm.put("projectCode", devProjectCode == null ? "" : devProjectCode);
         Response detail = invoke("mfgDevProjectDetail", detailForm);
         check("dev project: detail returns HTTP 200", detail.status == 200, "HTTP " + detail.status);
-        check("dev project: five gates are listed", detail.body.contains("MFG_STAGE_TRIAL")
-                && detail.body.contains("MFG_STAGE_MASS"), "gate list incomplete");
+        // the five gates belong to the model, not to the project (Step 267/268): the project detail
+        // only carries the stage it is working on, the ladder is read from the product
+        Map<String, String> gateForm = new LinkedHashMap<>();
+        gateForm.put("productCode", PRODUCT_CODE);
+        Response gates = invoke("mfgProductDetail", gateForm);
+        check("dev project: the five gates are listed on the model", gates.status == 200
+                && gates.body.contains("MFG_STAGE_TRIAL") && gates.body.contains("MFG_STAGE_MASS"),
+                "gate list incomplete on the product, HTTP " + gates.status);
         check("dev project: starts at the concept stage", detail.body.contains("MFG_STAGE_CONCEPT"),
                 "no concept stage");
 

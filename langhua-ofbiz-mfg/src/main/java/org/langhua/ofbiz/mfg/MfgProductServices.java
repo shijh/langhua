@@ -1654,7 +1654,8 @@ public final class MfgProductServices {
      * @param productCode the model code
      * @param versionNo the version number, starting at 1
      * @return the version identifier, e.g. {@code BT5-V2}, or {@code orpah-client-demo-V1} for a
-     *         model code that is 20 characters long
+     *         model code that uses the whole column (model codes may be up to 40 characters, so the
+     *         model part is shortened here)
      */
     static String formatBomVersionId(String productCode, long versionNo) {
         String suffix = MfgConstants.BOM_VERSION_SEPARATOR + versionNo;

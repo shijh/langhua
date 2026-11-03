@@ -171,7 +171,6 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
 - 新的行内表单照这三条挑一个：`backTo` 最省事，`narrowToTheLot` 适合“排序会把行挤走”的列表。
 
 ## UI 规则：保存被拒时不清空表单（Step 279）
-
 **表单被服务拒绝时，刚填的内容要留在页面上，并把出错的那一项标出来**（用户报的：产品页保存型号时报
 「SN 前缀最长 10 个字符」，回来型号编码 / 名称 / 工时 / 售价全没了，只能重打一遍）。
 
@@ -196,6 +195,37 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   所以真机验证只能用 `"`、`&` 这类字符；顺手确认了回填值**不会双重转义**（`天遥"终端 & 演示` 原样回来）。
 - 值直接 `${fPrefix}` 输出，**不要 `?html`**：上下文里的字符串已经是 `StringHtmlWrapperForFtl`
   （`login.ftl` 的 `${typed}` 同理），再 `?html` 会显示成字面的 `&#34;`。
+
+## 型号编码放宽到 40 个字符（Step 280）
+
+用户要「型号编码最长 40 个字符」（原来的 20 位装不下 `AuroraTessellation-NFC` 这类型号）。改了三块：
+
+- **实体模型**：`MfgProduct.previousProductCode` 与**全部 12 个 `productCode` 字段**从 `id`（VARCHAR(20)）
+  改成 **`id-long`（VARCHAR(60)）**；页面与服务只放行 40（`MfgConstants.MAX_PRODUCT_CODE = 40`，
+  `MAX_SN_PREFIX = 10` 也在那里）。`products.ftl` 的红字提示与 `productSave` 的报错都用这个常量。
+  **别只改 `MfgProduct`**：`MfgProductStageReview` / `MfgBomItem` / `MfgBomVersion` / `MfgProductImage` /
+  `MfgRouting` / `MfgWorkOrder` / `MfgSn` / `MfgDevProject` / `MfgDevEco` / `MfgSoftwareProject` /
+  `MfgSalesOrderItem` 都存型号编码，漏一个就是写不进（外键类型对不上、或 Derby 截断）。
+- **旧库要跑 `tools/product-code-40.sql`**（停实例 → ij → 起实例，三套都跑过）。脚本
+  `%TEMP%\jup\apply-product-code-40.ps1 -instance … -stopScript stop-*.bat -deployScript deploy-*.bat`
+  会自动替换连接串、跑 DDL、再部署重启。**两个 Derby 事实**：
+  ① `ALTER TABLE … ALTER COLUMN … SET DATA TYPE` 改**被外键引用**的列会被拒
+  （`ERROR 42Z19`），必须先 `DROP CONSTRAINT`，改父列与子列，再 `ADD CONSTRAINT` 回去；
+  ② 库里 `MFG_ROUTING` 上那条外键实际叫 **`MFG_ROUTING_PRODUCT`**，而实体模型里写的是
+  `MFG_ROUTE_PRODUCT`——第一次跑漏掉了它，父列没改成、后面 6 个 `ADD CONSTRAINT` 全报 `X0Y44`
+  （父列 20、子列 60 配不上）。脚本现在**两个名字都 drop**，所以可以安全地重跑一次把半途的库修回来。
+- **没动 `bomVersionId`**（仍是 `id` 20 位）：40 个字符的型号建 BOM 时版本号截短成
+  `AuroraTessellatio-V1`，撞名时 `freeBomVersionId` 加序号；真要完整名字得再宽 7 列（`MfgBomVersion.bomVersionId`
+  与所有引用它的列），这次没做。
+
+验法（测试实例，Playwright）：41 个字符 → 拒，`productCode` 标红「最长 40 个字符（现在 41 个）」且值还在；
+40 个字符（`AuroraTessellation-NFC-2026-Pro-EditionX`）→ 保存成功、页面回显完整编码、
+给它导 BOM 得到 `AuroraTessellatio-V1`、开工单 `WO-261104-001` 标题里是完整型号。
+回归：单测 **274**、`mfg-it.bat`（打测试实例）全过、`verify-m13` 54 项 0 失败、`smoke-dev-pages` 28/28、
+`check-prod-237` 27/27；三套实例的 `SYS.SYSCOLUMNS` 里 14 个 `PRODUCT_CODE` 全是 `VARCHAR(60)`。
+**顺手修的老检查**：集成测试里「dev project: five gates are listed」查的是**项目**详情里的五道阶段，
+而 Step 267/268 把阶段搬到型号上了，所以它一直红着；现在改成查 `mfgProductDetail` 的 `reviews`
+（「the five gates are listed on the model」）。
 
 
 ## 测试与巡检
