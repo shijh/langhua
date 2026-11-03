@@ -37,6 +37,7 @@
         <attribute name="statusId" type="String" mode="IN" optional="true"/>
         <attribute name="noModel" type="String" mode="IN" optional="true"/>
         <attribute name="openIssue" type="String" mode="IN" optional="true"/>
+        <attribute name="overdue" type="String" mode="IN" optional="true"/>
         <attribute name="page" type="Long" mode="IN" optional="true"/>
         <attribute name="pageSize" type="Long" mode="IN" optional="true"/>
         <attribute name="projects" type="java.util.List" mode="OUT" optional="true"/>
@@ -46,6 +47,7 @@
         <attribute name="statusId" type="String" mode="OUT" optional="true"/>
         <attribute name="noModel" type="String" mode="OUT" optional="true"/>
         <attribute name="openIssue" type="String" mode="OUT" optional="true"/>
+        <attribute name="overdue" type="String" mode="OUT" optional="true"/>
         <attribute name="totalCount" type="Integer" mode="OUT" optional="true"/>
         <attribute name="page" type="Long" mode="OUT" optional="true"/>
         <attribute name="pageCount" type="Long" mode="OUT" optional="true"/>

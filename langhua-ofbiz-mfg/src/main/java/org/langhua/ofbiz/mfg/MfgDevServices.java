@@ -396,16 +396,75 @@ public final class MfgDevServices {
         map.put("partCode", project.getString("partCode"));
         String[] catalog = stepsOfTrack(trackId);
         List<String> finished = new ArrayList<>();
+        Map<String, java.sql.Date> plannedByStep = new LinkedHashMap<>();
         for (GenericValue step : EntityQuery.use(delegator).from("MfgDevTrackStep")
                 .where("projectCode", projectCode).queryList()) {
+            plannedByStep.put(step.getString("stepId"), step.getDate("plannedDate"));
             if (stepFinished(step.getString("statusId"))) {
                 finished.add(step.getString("stepId"));
             }
         }
         map.put("stepTotal", Integer.valueOf(catalog.length));
         map.put("stepDone", Integer.valueOf(finished.size()));
-        map.put("currentStepId", firstOpenStep(trackId, finished));
+        String currentStepId = firstOpenStep(trackId, finished);
+        map.put("currentStepId", currentStepId);
+        java.sql.Date currentStepPlanned = currentStepId == null ? null : plannedByStep.get(currentStepId);
+        map.put("currentStepPlannedDate", currentStepPlanned);
+        Map<String, Object> overdue = overdueOf(LocalDate.now(),
+                MfgSupport.asLocalDate(project.get("plannedLaunchDate")),
+                MfgSupport.asLocalDate(project.get("actualLaunchDate")),
+                project.getString("statusId"), currentStepId,
+                MfgSupport.asLocalDate(currentStepPlanned));
+        map.put("overdueDays", overdue.get("days"));
+        map.put("overdueReason", overdue.get("reason"));
         return map;
+    }
+
+    /**
+     * How late a project is, and why.
+     *
+     * <p>Two dates decide it: the planned launch date (the model was promised, it is not on sale) and
+     * the planned date of the step the project is standing on. A project that was launched has no
+     * deadline to miss any more, and a cancelled one is not late on purpose - both answer zero.
+     *
+     * @param today the day the page is looked at
+     * @param plannedLaunch the date the model was promised, may be {@code null}
+     * @param actualLaunch the date it went into production, {@code null} while it has not
+     * @param statusId the state of the project
+     * @param currentStepId the step it stands on, {@code null} when the route is finished
+     * @param currentStepPlanned the date that step was planned for, may be {@code null}
+     * @return {@code days} (0 when not late) and the {@code reason} it is late, in words
+     */
+    static Map<String, Object> overdueOf(LocalDate today, LocalDate plannedLaunch, LocalDate actualLaunch,
+            String statusId, String currentStepId, LocalDate currentStepPlanned) {
+        int days = 0;
+        String reason = null;
+        if (MfgConstants.DEV_CANCELLED.equals(statusId) || actualLaunch != null) {
+            return overdueAnswer(0, null);
+        }
+        if (plannedLaunch != null) {
+            long late = java.time.temporal.ChronoUnit.DAYS.between(plannedLaunch, today);
+            if (late > 0L) {
+                days = (int) late;
+                reason = "计划上市日已过 " + late + " 天";
+            }
+        }
+        if (currentStepId != null && currentStepPlanned != null) {
+            long late = java.time.temporal.ChronoUnit.DAYS.between(currentStepPlanned, today);
+            // the later of the two is what the reader has to act on, so it sets the number
+            if (late > days) {
+                days = (int) late;
+                reason = "当前步骤的计划日已过 " + late + " 天";
+            }
+        }
+        return overdueAnswer(days, reason);
+    }
+
+    private static Map<String, Object> overdueAnswer(int days, String reason) {
+        Map<String, Object> answer = new LinkedHashMap<>();
+        answer.put("days", Integer.valueOf(days));
+        answer.put("reason", reason);
+        return answer;
     }
 
     static Map<String, Object> toTrackStepMap(GenericValue step) {
@@ -558,30 +617,41 @@ public final class MfgDevServices {
         Delegator delegator = dctx.getDelegator();
         String stageId = MfgSupport.toText(context.get("stageId"));
         String statusId = MfgSupport.toText(context.get("statusId"));
-        // the board links here: projects nobody hung on a model, and projects with a problem still
-        // open - those two lists are what the cards point at
+        // the board links here: projects nobody hung on a model, projects with a problem still open
+        // and projects that are late - those are the lists the cards point at
         String noModel = MfgSupport.toText(context.get("noModel"));
         String openIssue = MfgSupport.toText(context.get("openIssue"));
+        String overdue = MfgSupport.toText(context.get("overdue"));
         try {
             List<GenericValue> projects = EntityQuery.use(delegator).from("MfgDevProject")
                     .orderBy("-createdStamp").queryList();
-            List<Map<String, Object>> list = new ArrayList<>(projects.size());
+            // every project is read once: the cards count all of them, and the filters decide
+            // afterwards which ones the page lists
+            List<Map<String, Object>> all = new ArrayList<>(projects.size());
             for (GenericValue project : projects) {
-                if (stageId != null && !stageId.equals(project.getString("stageId"))) {
+                all.add(toDevProjectMap(delegator, project));
+            }
+            List<Map<String, Object>> list = new ArrayList<>(all.size());
+            for (Map<String, Object> row : all) {
+                if (stageId != null && !stageId.equals(row.get("stageId"))) {
                     continue;
                 }
-                if (statusId != null && !statusId.equals(project.getString("statusId"))) {
+                if (statusId != null && !statusId.equals(row.get("statusId"))) {
                     continue;
                 }
-                if ("Y".equalsIgnoreCase(noModel) && project.getString("productCode") != null) {
+                boolean hasModel = MfgSupport.toText(row.get("productCode")) != null;
+                if ("Y".equalsIgnoreCase(noModel) && hasModel) {
                     continue;
                 }
-                Map<String, Object> map = toDevProjectMap(delegator, project);
-                // the open counts come with the row, so this filter costs nothing extra
-                if ("Y".equalsIgnoreCase(openIssue) && MfgProductServices.numberOf(map.get("openIssueCount")) == 0) {
+                if ("Y".equalsIgnoreCase(openIssue)
+                        && MfgProductServices.numberOf(row.get("openIssueCount")) == 0) {
                     continue;
                 }
-                list.add(map);
+                if ("Y".equalsIgnoreCase(overdue)
+                        && MfgProductServices.numberOf(row.get("overdueDays")) == 0) {
+                    continue;
+                }
+                list.add(row);
             }
             List<Map<String, Object>> stages = new ArrayList<>(MfgConstants.DEV_STAGES.length);
             for (String stage : MfgConstants.DEV_STAGES) {
@@ -591,21 +661,13 @@ public final class MfgDevServices {
                 stages.add(map);
             }
             Map<String, Object> result = ServiceUtil.returnSuccess();
-            // the cards count every project, whatever the filters say: they answer "how much is
-            // running and what is stuck", not "what does this page show"
-            List<String> statuses = new ArrayList<>(projects.size());
-            List<String> models = new ArrayList<>(projects.size());
-            for (GenericValue project : projects) {
-                statuses.add(project.getString("statusId"));
-                models.add(project.getString("productCode"));
-            }
-            result.put("summary", projectSummary(statuses, models,
-                    openIssuesByProject(delegator), openEcosByProject(delegator)));
+            result.put("summary", projectSummary(all));
             result.put("stages", stages);
             result.put("stageId", stageId);
             result.put("statusId", statusId);
             result.put("noModel", noModel);
             result.put("openIssue", openIssue);
+            result.put("overdue", overdue);
             MfgPaging.putPage(result, "projects",
                     MfgPaging.filterByKeyword(list, MfgSupport.toText(context.get("search")), "projectCode", "projectName",
                             "productCode", "ownerName", "stageId", "statusId"),
@@ -620,23 +682,24 @@ public final class MfgDevServices {
      * The numbers the development page puts above the project list.
      *
      * <p>They answer the two questions the page is opened with: how much is running, and what is
-     * stuck. A project whose status is empty counts as running, the same way the list reads it, and a
+     * stuck. A project whose status is empty counts as running, the same way the list reads it, a
      * project that names no model is counted apart because its stage can never advance (the reviews
-     * live on the model).
+     * live on the model), and a late one is counted twice - once in the state it is in, once as late.
      *
-     * @param statusIds the state of every project, one entry per project, may hold {@code null}
-     * @param productCodes the model each project works on, {@code null} when it has none
-     * @param openIssues open problems per project, keyed by project number
-     * @param openEcos open change orders per project, keyed by project number
+     * @param rows every project, as {@link #toDevProjectMap} builds them
      * @return the counters, in the order the cards show them
      */
-    static Map<String, Object> projectSummary(List<String> statusIds, List<String> productCodes,
-            Map<String, Integer> openIssues, Map<String, Integer> openEcos) {
+    static Map<String, Object> projectSummary(List<Map<String, Object>> rows) {
         int active = 0;
         int hold = 0;
         int done = 0;
         int cancelled = 0;
-        for (String status : statusIds) {
+        int noModel = 0;
+        int late = 0;
+        int issues = 0;
+        int ecos = 0;
+        for (Map<String, Object> row : rows) {
+            String status = MfgSupport.toText(row.get("statusId"));
             if (MfgConstants.DEV_ONHOLD.equals(status)) {
                 hold++;
             } else if (MfgConstants.DEV_DONE.equals(status)) {
@@ -646,72 +709,26 @@ public final class MfgDevServices {
             } else {
                 active++;
             }
-        }
-        int noModel = 0;
-        for (String productCode : productCodes) {
-            if (productCode == null || productCode.isEmpty()) {
+            if (MfgSupport.toText(row.get("productCode")) == null) {
                 noModel++;
             }
+            if (MfgProductServices.numberOf(row.get("overdueDays")) > 0) {
+                late++;
+            }
+            issues += MfgProductServices.numberOf(row.get("openIssueCount"));
+            ecos += MfgProductServices.numberOf(row.get("openEcoCount"));
         }
         Map<String, Object> summary = new LinkedHashMap<>();
-        summary.put("projectCount", Integer.valueOf(statusIds.size()));
+        summary.put("projectCount", Integer.valueOf(rows.size()));
         summary.put("activeCount", Integer.valueOf(active));
         summary.put("holdCount", Integer.valueOf(hold));
         summary.put("doneCount", Integer.valueOf(done));
         summary.put("cancelledCount", Integer.valueOf(cancelled));
         summary.put("noModelCount", Integer.valueOf(noModel));
-        summary.put("openIssueTotal", Integer.valueOf(totalOf(openIssues)));
-        summary.put("openEcoTotal", Integer.valueOf(totalOf(openEcos)));
+        summary.put("overdueCount", Integer.valueOf(late));
+        summary.put("openIssueTotal", Integer.valueOf(issues));
+        summary.put("openEcoTotal", Integer.valueOf(ecos));
         return summary;
-    }
-
-    /** The sum of a count per project, zero when there is none. */
-    static int totalOf(Map<String, Integer> counts) {
-        int total = 0;
-        if (counts != null) {
-            for (Integer each : counts.values()) {
-                total += each == null ? 0 : each.intValue();
-            }
-        }
-        return total;
-    }
-
-    /**
-     * Open problems and open change orders of every project, counted in one query each rather than
-     * one per project: the page shows these as two numbers, and a hundred projects would otherwise
-     * mean two hundred looks at the database.
-     *
-     * @param delegator the delegator
-     * @return the open problems per project number
-     * @throws GenericEntityException when the issues cannot be read
-     */
-    static Map<String, Integer> openIssuesByProject(Delegator delegator) throws GenericEntityException {
-        Map<String, Integer> counts = new LinkedHashMap<>();
-        for (GenericValue issue : EntityQuery.use(delegator).from("MfgDevStepIssue").queryList()) {
-            if (isOpenIssue(issue.getString("statusId"))) {
-                String projectCode = issue.getString("projectCode");
-                counts.merge(projectCode, Integer.valueOf(1), Integer::sum);
-            }
-        }
-        return counts;
-    }
-
-    /**
-     * The same for the change orders still waiting to be applied or dropped.
-     *
-     * @param delegator the delegator
-     * @return the open change orders per project number
-     * @throws GenericEntityException when the change orders cannot be read
-     */
-    static Map<String, Integer> openEcosByProject(Delegator delegator) throws GenericEntityException {
-        Map<String, Integer> counts = new LinkedHashMap<>();
-        for (GenericValue eco : EntityQuery.use(delegator).from("MfgDevEco").queryList()) {
-            String status = eco.getString("statusId");
-            if (MfgConstants.ECO_DRAFT.equals(status) || MfgConstants.ECO_APPROVED.equals(status)) {
-                counts.merge(eco.getString("projectCode"), Integer.valueOf(1), Integer::sum);
-            }
-        }
-        return counts;
     }
 
     /**

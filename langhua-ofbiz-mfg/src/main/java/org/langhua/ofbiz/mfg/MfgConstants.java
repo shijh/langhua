@@ -190,6 +190,11 @@ public final class MfgConstants {
 
     public static final String ALERT_STOCK = "MFG_ALERT_STOCK";
 
+    public static final String ALERT_DEV = "MFG_ALERT_DEV";
+
+    /** How many days a project may stand still before the dashboard asks about it. */
+    public static final long DEV_STALL_DAYS = 30L;
+
     /** A warning that is worth a look. */
     public static final String ALERT_WARN = "WARN";
 

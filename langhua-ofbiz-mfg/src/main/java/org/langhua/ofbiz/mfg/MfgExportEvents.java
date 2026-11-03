@@ -359,6 +359,15 @@ public final class MfgExportEvents {
         if (MfgConstants.ALERT_CLAIM_AFTERSALE.equals(typeId)) {
             return "15 天窗口";
         }
+        if (MfgConstants.ALERT_DEV.equals(typeId)) {
+            return "项目超期";
+        }
+        if (MfgConstants.ALERT_SOFTWARE.equals(typeId)) {
+            return "软件超人天";
+        }
+        if (MfgConstants.ALERT_STOCK.equals(typeId)) {
+            return "库存不足";
+        }
         return typeId;
     }
 

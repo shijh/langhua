@@ -518,12 +518,19 @@ public final class MfgReportServices {
             List<Map<String, Object>> alerts = buildAlerts(delegator);
             int errors = 0;
             int shortages = 0;
+            int devs = 0;
+            int claims = 0;
             for (Map<String, Object> alert : alerts) {
                 if (MfgConstants.ALERT_ERROR.equals(alert.get("level"))) {
                     errors++;
                 }
                 if (MfgConstants.ALERT_SHORTAGE.equals(alert.get("typeId"))) {
                     shortages++;
+                } else if (MfgConstants.ALERT_DEV.equals(alert.get("typeId"))) {
+                    devs++;
+                } else if (MfgConstants.ALERT_CLAIM_7DAY.equals(alert.get("typeId"))
+                        || MfgConstants.ALERT_CLAIM_AFTERSALE.equals(alert.get("typeId"))) {
+                    claims++;
                 }
             }
             Map<String, Object> result = ServiceUtil.returnSuccess();
@@ -531,7 +538,8 @@ public final class MfgReportServices {
             result.put("alertCount", Integer.valueOf(alerts.size()));
             result.put("errorCount", Integer.valueOf(errors));
             result.put("shortageCount", Integer.valueOf(shortages));
-            result.put("claimCount", Integer.valueOf(alerts.size() - shortages));
+            result.put("devCount", Integer.valueOf(devs));
+            result.put("claimCount", Integer.valueOf(claims));
             return result;
         } catch (GenericEntityException e) {
             return ServiceUtil.returnError("Could not compute the alerts: " + e.getMessage());
@@ -595,6 +603,7 @@ public final class MfgReportServices {
         }
 
         addSoftwareAlerts(alerts, delegator);
+        addDevAlerts(alerts, delegator);
         addStockAlerts(alerts, delegator);
 
         alerts.sort(new Comparator<Map<String, Object>>() {
@@ -701,6 +710,121 @@ public final class MfgReportServices {
                     : Long.valueOf(daysLeft.longValue() * 24L));
             alert.put("detail", detail.toString());
             alerts.add(alert);
+        }
+    }
+
+    /**
+     * Adds the alerts of the late development projects and of the ones that stand still.
+     *
+     * <p>Two deadlines are watched: the planned launch date (the model was promised, it is not on
+     * sale) and the planned date of the step the project is standing on. A project that nobody has
+     * touched for {@link MfgConstants#DEV_STALL_DAYS} days - no step finished since it was created -
+     * is reported as well, because nothing will make it late until somebody notices it never started.
+     *
+     * <p>The steps of every project are read in one query: a hundred projects would otherwise mean a
+     * hundred looks at the database, and the dashboard refreshes itself every minute.
+     *
+     * @param alerts the list to add to
+     * @param delegator the delegator
+     * @throws GenericEntityException when the projects cannot be read
+     */
+    static void addDevAlerts(List<Map<String, Object>> alerts, Delegator delegator)
+            throws GenericEntityException {
+        Map<String, List<GenericValue>> stepsByProject = new LinkedHashMap<>();
+        for (GenericValue step : EntityQuery.use(delegator).from("MfgDevTrackStep").queryList()) {
+            String projectCode = step.getString("projectCode");
+            List<GenericValue> steps = stepsByProject.get(projectCode);
+            if (steps == null) {
+                steps = new ArrayList<>();
+                stepsByProject.put(projectCode, steps);
+            }
+            steps.add(step);
+        }
+        LocalDate today = LocalDate.now();
+        for (GenericValue project : EntityQuery.use(delegator).from("MfgDevProject").queryList()) {
+            String statusId = project.getString("statusId");
+            if (MfgConstants.DEV_CANCELLED.equals(statusId) || project.get("actualLaunchDate") != null) {
+                continue;
+            }
+            String projectCode = project.getString("projectCode");
+            List<GenericValue> steps = stepsByProject.get(projectCode);
+            if (steps == null) {
+                steps = new ArrayList<>();
+            }
+            Map<String, java.sql.Date> plannedByStep = new LinkedHashMap<>();
+            List<String> finished = new ArrayList<>();
+            for (GenericValue step : steps) {
+                plannedByStep.put(step.getString("stepId"), step.getDate("plannedDate"));
+                if (MfgDevServices.stepFinished(step.getString("statusId"))) {
+                    finished.add(step.getString("stepId"));
+                }
+            }
+            String currentStepId = MfgDevServices.firstOpenStep(project.getString("trackId"), finished);
+            Map<String, Object> overdue = MfgDevServices.overdueOf(today,
+                    MfgSupport.asLocalDate(project.get("plannedLaunchDate")), null, statusId,
+                    currentStepId, MfgSupport.asLocalDate(plannedByStep.get(currentStepId)));
+
+            int days = MfgProductServices.numberOf(overdue.get("days"));
+            if (days > 0) {
+                Map<String, Object> alert = new LinkedHashMap<>();
+                alert.put("typeId", MfgConstants.ALERT_DEV);
+                alert.put("level", days > 3 ? MfgConstants.ALERT_ERROR : MfgConstants.ALERT_WARN);
+                alert.put("refId", projectCode);
+                alert.put("subject", project.getString("projectName"));
+                alert.put("dueDate", null);
+                alert.put("hoursLeft", Long.valueOf(-days * 24L));
+                alert.put("detail", overdue.get("reason") + "（当前步骤 " + stepNameOf(currentStepId) + "）");
+                alerts.add(alert);
+                continue;
+            }
+            // nothing finished since it was created: either it never started or nobody said so
+            LocalDate created = MfgSupport.asLocalDate(project.get("createdStamp"));
+            if (finished.isEmpty() && created != null) {
+                long age = java.time.temporal.ChronoUnit.DAYS.between(created, today);
+                if (age <= MfgConstants.DEV_STALL_DAYS) {
+                    continue;
+                }
+                Map<String, Object> alert = new LinkedHashMap<>();
+                alert.put("typeId", MfgConstants.ALERT_DEV);
+                alert.put("level", MfgConstants.ALERT_WARN);
+                alert.put("refId", projectCode);
+                alert.put("subject", project.getString("projectName"));
+                alert.put("dueDate", null);
+                alert.put("hoursLeft", Long.valueOf(0L));
+                alert.put("detail", "立项 " + age + " 天，一步都没完成（当前步骤 " + stepNameOf(currentStepId) + "）");
+                alerts.add(alert);
+            }
+        }
+    }
+
+    /**
+     * The number of a track step in words, for the detail line of an alert. The pages keep their own
+     * copy of these labels; a step that is unknown is written as its identifier.
+     *
+     * @param stepId the step identifier, may be {@code null}
+     * @return the label
+     */
+    static String stepNameOf(String stepId) {
+        if (stepId == null) {
+            return "已走完";
+        }
+        switch (stepId) {
+            case "MFG_PCB_BREADBOARD": return "面包板验证";
+            case "MFG_PCB_SCHEMATIC": return "原理图";
+            case "MFG_PCB_LAYOUT": return "PCB 布线";
+            case "MFG_PCB_SAMPLE": return "样板打样";
+            case "MFG_PCB_HAND_SOLDER": return "手焊测试";
+            case "MFG_FW_DEVELOP": return "固件开发";
+            case "MFG_FW_FLASH": return "烧录";
+            case "MFG_FW_FUNCTION_TEST": return "功能测试";
+            case "MFG_ENC_BLENDER": return "Gerber/PNP 导入 Blender 设计";
+            case "MFG_ENC_PRINT_CHECK": return "3D 打印与装配确认";
+            case "MFG_ENC_CONTRACT": return "注塑厂家签合同";
+            case "MFG_ENC_PAY": return "付款";
+            case "MFG_ENC_PRODUCTION": return "生产外壳";
+            case "MFG_ENC_STOCK_IN": return "外壳入库";
+            case "MFG_ENC_ASSEMBLY": return "产品组装";
+            default: return stepId;
         }
     }
 

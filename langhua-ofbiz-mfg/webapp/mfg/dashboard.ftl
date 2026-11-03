@@ -26,6 +26,9 @@
     <#if (typeId!'') == 'MFG_ALERT_SHORTAGE'>欠料
     <#elseif (typeId!'') == 'MFG_ALERT_CLAIM_7DAY'>7 天窗口
     <#elseif (typeId!'') == 'MFG_ALERT_CLAIM_AFTERSALE'>15 天窗口
+    <#elseif (typeId!'') == 'MFG_ALERT_DEV'>项目超期
+    <#elseif (typeId!'') == 'MFG_ALERT_SOFTWARE'>软件超人天
+    <#elseif (typeId!'') == 'MFG_ALERT_STOCK'>库存不足
     <#else>${(typeId!'')}</#if>
 </#macro>
 
@@ -66,7 +69,8 @@
 
 <h2>告警（${(ar.alertCount)?string("0")}）</h2>
 <#if alerts?has_content>
-    <p class="hint">欠料 ${(ar.shortageCount)?string("0")} 项、售后窗口 ${(ar.claimCount)?string("0")} 项；
+    <p class="hint">欠料 ${(ar.shortageCount)?string("0")} 项、售后窗口 ${(ar.claimCount)?string("0")} 项、
+        超期项目 ${(ar.devCount)?string("0")} 个；
         红色是已经欠料或过期，黄色是 24 小时内到期。<#if alerts?size gt 20>只列最紧急的 20 条，其余看「导出告警 CSV」。</#if></p>
     <table id="alerts">
         <tr><th>级别</th><th>类型</th><th>编号</th><th>对象</th><th>截止</th><th class="num">剩余(h)</th><th>说明</th></tr>
@@ -77,6 +81,8 @@
                 <td><@alertLabel (a.typeId)!''/></td>
                 <td><#if (a.typeId!'') == 'MFG_ALERT_SHORTAGE'>
                         <a href="/mfg/control/workOrder?workOrderId=${(a.refId)!}">${(a.refId)!}</a>
+                    <#elseif (a.typeId!'') == 'MFG_ALERT_DEV'>
+                        <a href="/mfg/control/dev?projectCode=${(a.refId)!}#project">${(a.refId)!}</a>
                     <#else>
                         <a href="/mfg/control/claims?claimId=${(a.refId)!}">${(a.refId)!}</a>
                     </#if></td>
@@ -88,7 +94,7 @@
         </#list>
     </table>
 <#else>
-    <p class="hint" id="alerts-none">没有欠料，也没有快到期的售后窗口。</p>
+    <p class="hint" id="alerts-none">没有欠料，也没有快到期的售后窗口或超期项目。</p>
 </#if>
 
 <h2>售后（近 30 天）</h2>

@@ -88,6 +88,7 @@
                     <field-map field-name="statusId" from-field="parameters.statusId"/>
                     <field-map field-name="noModel" from-field="parameters.noModel"/>
                     <field-map field-name="openIssue" from-field="parameters.openIssue"/>
+                    <field-map field-name="overdue" from-field="parameters.overdue"/>
                     <field-map field-name="page" from-field="parameters.page"/>
                     <field-map field-name="pageSize" from-field="parameters.pageSize"/>
                 </service>

@@ -942,6 +942,21 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   （`MfgDevServices.OPEN_STATUS`，不是存下来的状态）；两个列表页的 `<@pg.pager>` query 也要拼上这些参数。
   **新参数三处都要加：服务里读、描述符声明 IN/OUT、屏幕 `<field-map>` 传**——这次漏了 OUT 与 field-map 各一次，
   表现是“筛不动 / 筛选框不回显”，但**页面不报错**（跟前几条同一个坑，别再踩）。
+- **项目超期报警（Step 274）**：判定只有一份，`MfgDevServices.overdueOf(today, 计划上市日, 实际上市日, 状态, 当前步骤, 当前步骤计划日)`
+  ——取两个日子里过得比较久的那个（计划上市日已过 / 当前步骤计划日已过），**已上市与已取消回答 0**；
+  结果挂在每行项目上（`overdueDays` / `overdueReason`），所以卡片、列表列、详情行、告警用的是同一个数。
+  `devProjectList` 因此改成**先把每个项目都映射一遍再筛**（`projectSummary(rows)` 也从行的 `overdueDays` 数，
+  不再用那两条按项目归组的批量查询——那两个方法已删）。列表新增「超期」列（`data-project-overdue`）、
+  卡片「超期」→ `dev?overdue=Y`、筛选下拉「进度 = 已超期」。
+  **看板告警**：`mfgAlerts` 多一种 `MFG_ALERT_DEV`（>3 天 ERROR、1~3 天 WARN），外加一条
+  「立项 `DEV_STALL_DAYS`(30) 天一步没完成」的 WARN；`buildAlerts` 里 `addDevAlerts` 用**一条**
+  `MfgDevTrackStep` 查询把步骤按项目归组（看板 60 秒自刷新，别按项目循环查）。
+  告警里的步骤名是 `MfgReportServices.stepNameOf`（Java 里一份，模板里一份 `stepLabel`）——**加新步骤两处都要改**。
+  `alerts()` 的 `claimCount` 原来是“总数 − 欠料”，加了项目告警后会算错，已改成按 typeId 分类计数并补 `devCount`。
+  验法：`%TEMP%\jup\check-overdue2.ps1`（12 项，打测试实例：建一个计划上市日在过去的项目 → 卡片 +1、
+  列表显示 `33 天` 且 `title` 带原因、`dev?overdue=Y` 只剩它、看板出现「项目超期」并链到该项目 →
+  最后把它改成未来日期，确认不再算超期）。**脚本必须只写 ASCII 并注意两点**：PS 5.1 按 ANSI 读无 BOM 的 `.ps1`，
+  中文断言会直接把脚本解析坏；从服务来的中文在页面上是**小写**十六进制实体（`&#x8ba1;`），模板里的字面量不是。
 - **步骤问题清单**：`MfgDevStepIssue`（`issueId` = `ISSUE-yyMMdd-NN`，`projectCode` + 可选 `stepId`），
   三态 `MFG_ISSUE_OPEN/DOING/CLOSED`、三档严重度 `LOW/MEDIUM/HIGH`；服务 `mfgDevStepIssueSave/List/Status`，
   页面在开发项目页（`id="issueTable"`，锚点 `#issues`），项目列表与步骤表各显示一个未结数（`openIssueCount`）；

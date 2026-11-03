@@ -73,15 +73,14 @@ public class MfgProductRulesTest {
 
     @Test
     public void countsWhatTheDevelopmentBoardShows() {
-        List<String> statuses = java.util.Arrays.asList("MFG_DEV_ACTIVE", null, "MFG_DEV_ACTIVE",
-                "MFG_DEV_ONHOLD", "MFG_DEV_DONE", "MFG_DEV_CANCELLED");
-        List<String> models = java.util.Arrays.asList("M1", "M2", null, "M3", "M4", "M5");
-        java.util.Map<String, Integer> issues = new java.util.HashMap<>();
-        issues.put("DEV-1", Integer.valueOf(2));
-        issues.put("DEV-2", Integer.valueOf(1));
-        java.util.Map<String, Integer> ecos = new java.util.HashMap<>();
-        ecos.put("DEV-3", Integer.valueOf(1));
-        java.util.Map<String, Object> summary = MfgDevServices.projectSummary(statuses, models, issues, ecos);
+        List<java.util.Map<String, Object>> rows = new java.util.ArrayList<>();
+        rows.add(devRow("MFG_DEV_ACTIVE", "M1", 2, 0, 0));
+        rows.add(devRow(null, "M2", 1, 0, 0));
+        rows.add(devRow("MFG_DEV_ACTIVE", null, 0, 0, 12));
+        rows.add(devRow("MFG_DEV_ONHOLD", "M3", 0, 0, 0));
+        rows.add(devRow("MFG_DEV_DONE", "M4", 0, 1, 0));
+        rows.add(devRow("MFG_DEV_CANCELLED", "M5", 0, 0, 0));
+        java.util.Map<String, Object> summary = MfgDevServices.projectSummary(rows);
         assertEquals(6, summary.get("projectCount"));
         // an empty status reads as running, the same way the list reads it
         assertEquals(3, summary.get("activeCount"));
@@ -89,8 +88,45 @@ public class MfgProductRulesTest {
         assertEquals(1, summary.get("doneCount"));
         assertEquals(1, summary.get("cancelledCount"));
         assertEquals(1, summary.get("noModelCount"));
+        // a late project is counted where it stands and again as late
+        assertEquals(1, summary.get("overdueCount"));
         assertEquals(3, summary.get("openIssueTotal"));
         assertEquals(1, summary.get("openEcoTotal"));
+    }
+
+    @Test
+    public void saysHowLateAProjectIs() {
+        LocalDate today = LocalDate.of(2026, 11, 3);
+        // a step planned ten days ago and not finished
+        java.util.Map<String, Object> late = MfgDevServices.overdueOf(today,
+                LocalDate.of(2026, 12, 31), null, "MFG_DEV_ACTIVE",
+                "MFG_PCB_LAYOUT", LocalDate.of(2026, 10, 24));
+        assertEquals(10, late.get("days"));
+        assertTrue(String.valueOf(late.get("reason")).contains("10"));
+        // the launch date is what slipped, the step is still on schedule
+        java.util.Map<String, Object> launch = MfgDevServices.overdueOf(today,
+                LocalDate.of(2026, 10, 20), null, "MFG_DEV_ACTIVE",
+                "MFG_PCB_LAYOUT", LocalDate.of(2026, 11, 20));
+        assertEquals(14, launch.get("days"));
+        // nothing is late yet
+        assertEquals(0, MfgDevServices.overdueOf(today, LocalDate.of(2026, 12, 31), null,
+                "MFG_DEV_ACTIVE", "MFG_PCB_LAYOUT", LocalDate.of(2026, 11, 20)).get("days"));
+        // launched or cancelled projects have no deadline left to miss
+        assertEquals(0, MfgDevServices.overdueOf(today, LocalDate.of(2026, 10, 20), LocalDate.of(2026, 10, 25),
+                "MFG_DEV_DONE", "MFG_PCB_LAYOUT", LocalDate.of(2026, 10, 24)).get("days"));
+        assertEquals(0, MfgDevServices.overdueOf(today, LocalDate.of(2026, 10, 20), null,
+                "MFG_DEV_CANCELLED", "MFG_PCB_LAYOUT", LocalDate.of(2026, 10, 24)).get("days"));
+    }
+
+    private static java.util.Map<String, Object> devRow(String statusId, String productCode,
+            int openIssues, int openEcos, int overdueDays) {
+        java.util.Map<String, Object> map = new java.util.LinkedHashMap<>();
+        map.put("statusId", statusId);
+        map.put("productCode", productCode);
+        map.put("openIssueCount", Integer.valueOf(openIssues));
+        map.put("openEcoCount", Integer.valueOf(openEcos));
+        map.put("overdueDays", Integer.valueOf(overdueDays));
+        return map;
     }
 
     private static java.util.Map<String, Object> model(String code, String stage, String bomVersion,

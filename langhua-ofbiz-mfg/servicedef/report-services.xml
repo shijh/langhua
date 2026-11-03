@@ -117,6 +117,7 @@
         <attribute name="alertCount" type="Integer" mode="OUT" optional="true"/>
         <attribute name="errorCount" type="Integer" mode="OUT" optional="true"/>
         <attribute name="shortageCount" type="Integer" mode="OUT" optional="true"/>
+        <attribute name="devCount" type="Integer" mode="OUT" optional="true"/>
         <attribute name="claimCount" type="Integer" mode="OUT" optional="true"/>
     </service>
 </services>

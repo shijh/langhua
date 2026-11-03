@@ -158,6 +158,10 @@
         <div class="label">未关联型号</div>
         <div class="value"><#if ((sum.noModelCount)!0) gt 0><a class="warn" href="/mfg/control/dev?noModel=Y" data-card-link="noModelCount" title="列出还没关联型号的项目">${(sum.noModelCount)?string("0")}</a><#else>0</#if></div>
     </div>
+    <div class="card" data-card="overdueCount">
+        <div class="label">超期</div>
+        <div class="value"><#if ((sum.overdueCount)!0) gt 0><a class="warn" href="/mfg/control/dev?overdue=Y" data-card-link="overdueCount" title="列出计划日已过的项目">${(sum.overdueCount)?string("0")}</a><#else>0</#if></div>
+    </div>
     <div class="card" data-card="openWork">
         <div class="label">未结问题 / 未结变更</div>
         <div class="value"><#if ((sum.openIssueTotal)!0) gt 0><a class="warn" href="/mfg/control/dev?openIssue=Y" data-card-link="openIssueTotal" title="列出还有未结问题的项目">${(sum.openIssueTotal)?string("0")}</a><#else>0</#if> / <#if ((sum.openEcoTotal)!0) gt 0><a class="warn" href="/mfg/control/eco?statusId=OPEN" data-card-link="openEcoTotal" title="列出还没生效的变更单">${(sum.openEcoTotal)?string("0")}</a><#else>0</#if></div>
@@ -238,6 +242,10 @@
         <option value="">全部</option>
         <option value="Y"<#if (lr.openIssue!'') == 'Y'> selected="selected"</#if>>有未结问题</option>
     </select>
+    进度 <select name="overdue" data-filter="overdue">
+        <option value="">全部</option>
+        <option value="Y"<#if (lr.overdue!'') == 'Y'> selected="selected"</#if>>已超期</option>
+    </select>
     <input type="submit" value="查询"/>
     <span class="hint">共 ${(lr.totalCount)!0} 条</span>
 </form>
@@ -246,7 +254,7 @@
     <table>
         <tr>
             <th>项目号</th><th>名称</th><th>路线图</th><th>料号</th><th>型号</th><th>在做哪一步</th>
-            <th>步骤</th><th>当前步骤</th>
+            <th>步骤</th><th>当前步骤</th><th>超期</th>
             <th class="num">未结变更</th><th class="num">未结问题</th><th>状态</th>
         </tr>
         <#list projects as p>
@@ -259,6 +267,7 @@
                 <td data-project-stage="${(p.stageId)!''}"><#if (p.stageId!'') != ''>${stageLabel(p.stageId)}<#else><span class="hint">未定</span></#if></td>
                 <td class="num"><#if (p.stepTotal!0) gt 0>${p.stepDone} / ${p.stepTotal}<#else>-</#if></td>
                 <td><#if p.currentStepId??>${stepLabel(p.currentStepId)}<#else><span class="ok">已走完</span></#if></td>
+                <td data-project-overdue="${(p.overdueDays)!0}"><#if ((p.overdueDays)!0) gt 0><span class="error" title="${(p.overdueReason)!''}">${p.overdueDays} 天</span><#else><span class="hint">-</span></#if></td>
                 <td class="num"><#if (p.openEcoCount!0) gt 0><span class="warn">${p.openEcoCount}</span><#else>0</#if></td>
                 <td class="num"><#if (p.openIssueCount!0) gt 0><a class="warn" href="/mfg/control/dev?projectCode=${p.projectCode}#issues">${p.openIssueCount}</a><#else>0</#if></td>
                 <td>${statusLabel(p.statusId!'')}</td>
@@ -268,7 +277,7 @@
 <#else>
     <p class="hint">还没有开发项目，先在上面立项。三张路线图（PCB / 固件 / 外壳）各建一个项目，步骤清单由路线图决定。</p>
 </#if>
-<@pg.pager action="/mfg/control/dev" query=('search=' + ((lr.search)!'')?url + '&' + 'stageId=' + ((lr.stageId)!'')?url + '&' + 'statusId=' + ((lr.statusId)!'')?url + '&' + 'noModel=' + ((lr.noModel)!'')?url + '&' + 'openIssue=' + ((lr.openIssue)!'')?url)
+<@pg.pager action="/mfg/control/dev" query=('search=' + ((lr.search)!'')?url + '&' + 'stageId=' + ((lr.stageId)!'')?url + '&' + 'statusId=' + ((lr.statusId)!'')?url + '&' + 'noModel=' + ((lr.noModel)!'')?url + '&' + 'openIssue=' + ((lr.openIssue)!'')?url + '&' + 'overdue=' + ((lr.overdue)!'')?url)
     page=(lr.page)!1 pageCount=(lr.pageCount)!1 total=(lr.totalCount)!0 unit="条" pageSize=(lr.pageSize)!20/>
 
 <#if project.projectCode??>
@@ -281,6 +290,9 @@
         <li data-project-stage="${(project.stageId)!''}">在做哪一步：<#if (project.stageId!'') != ''><b>${stageLabel(project.stageId)}</b><#else><span class="hint">未定</span></#if>
             <span class="hint">（在上面立项表单里改）</span></li>
         <li data-product-stage="${(project.productStageId)!''}">型号当前阶段：<#if project.productStageId??><b>${stageLabel(project.productStageId)}</b><span class="hint">（在产品页按阶段评审推进）</span><#else><span class="hint">未关联型号，阶段在产品上维护</span></#if></li>
+        <#-- late is measured against two dates: the planned launch date, and the planned date of the
+             step the project stands on, whichever is later past -->
+        <li data-project-overdue="${(project.overdueDays)!0}">进度：<#if ((project.overdueDays)!0) gt 0><span class="error">超期 ${project.overdueDays} 天</span><span class="hint">（${(project.overdueReason)!''}；到上面立项表单里改计划上市日，或在步骤里改计划日）</span><#elseif project.currentStepPlannedDate??><span class="ok">按计划</span><span class="hint">（当前步骤计划 ${project.currentStepPlannedDate?string("yyyy-MM-dd")}）</span><#else><span class="hint">当前步骤还没排期</span></#if></li>
         <li>目标成本 / 售价：${project.targetCost!0} / ${project.targetPrice!0}
             <#if (project.targetCost!0) gt 0><span class="hint">毛利 ${((project.targetPrice!0) - (project.targetCost!0))?string("0.00")}</span></#if>
         </li>
