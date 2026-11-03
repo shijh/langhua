@@ -232,7 +232,7 @@
                 <#list successors as n><a href="/mfg/control/products?productCode=${n.productCode}#projects">${n.productCode}</a> ${n.productName!''}<#if n_has_next>、</#if></#list></span>
         </#if>
     </p>
-    <h2 id="projects">项目与阶段（甘特图）</h2>
+    <h2 id="projects">阶段与项目（甘特图）</h2>
     <#if stageGroups?has_content>
         <#if ganttRows?has_content>
             <div class="gantt" data-gantt="product" data-gantt-rows="${ganttRows?size}">
