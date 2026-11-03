@@ -150,6 +150,17 @@
                     <option value="${p.productCode}"<#if (project.productCode!'') == p.productCode> selected="selected"</#if>>${p.productCode}</option>
                 </#list>
             </select>
+            <#-- the stage a project works on is one of the model's five gates: the project points at
+                 the ladder, the reviews themselves stay on the model page -->
+            <#assign servingStage = (project.stageId)!''>
+            <#if servingStage == ''><#assign servingStage = (project.productStageId)!''></#if>
+            <#if servingStage == ''><#assign servingStage = 'MFG_STAGE_CONCEPT'></#if>
+            在做哪一步
+            <select name="stageId">
+                <#list ['MFG_STAGE_CONCEPT', 'MFG_STAGE_DESIGN', 'MFG_STAGE_PROTOTYPE', 'MFG_STAGE_TRIAL', 'MFG_STAGE_MASS'] as st>
+                    <option value="${st}"<#if servingStage == st> selected="selected"</#if>>${stageLabel(st)}</option>
+                </#list>
+            </select>
         </p>
         <p>
             责任人 <input type="text" name="ownerName" size="9" value="${project.ownerName!''}"/>            目标成本 <input type="text" name="targetCost" size="8" value="${project.targetCost!0}"/>
@@ -167,7 +178,8 @@
     <b>固件开发</b>（固件开发 → 烧录 → 功能测试，3 步）、
     <b>外壳开发</b>（Gerber/PNP 导入 Blender 设计 → 3D 打印与装配确认 → 注塑厂家签合同 → 付款 → 生产外壳 → 外壳入库 → 产品组装，7 步）。
     点下面项目列表里的路线图名字，可以看这个项目走完了哪几步。
-    产品的五个阶段（概念 → 设计 → 打样 → 试产 → 量产）在「产品与 BOM」里按型号维护，与项目的路线图互不影响。</p>
+    产品的五个关卡（概念 → 设计 → 打样 → 试产 → 量产）在「产品与 BOM」里按型号维护；
+    项目只用「型号 + 在做哪一步」挂到那个型号上。</p>
 
 <h2>项目列表</h2>
 <form method="get" action="/mfg/control/dev">
@@ -187,7 +199,7 @@
 <#if projects?has_content>
     <table>
         <tr>
-            <th>项目号</th><th>名称</th><th>路线图</th><th>料号</th><th>型号</th>
+            <th>项目号</th><th>名称</th><th>路线图</th><th>料号</th><th>型号</th><th>在做哪一步</th>
             <th>步骤</th><th>当前步骤</th>
             <th class="num">未结变更</th><th class="num">未结问题</th><th>状态</th>
         </tr>
@@ -198,6 +210,7 @@
                 <td><#if (p.stepTotal!0) gt 0><a href="/mfg/control/dev?projectCode=${p.projectCode}#steps" title="看这张路线图的全部步骤">${trackLabel(p.trackId!'')}</a><#else><span class="hint">未选路线图</span></#if></td>
                 <td>${p.partCode!}</td>
                 <td>${p.productCode!}</td>
+                <td data-project-stage="${(p.stageId)!''}"><#if (p.stageId!'') != ''>${stageLabel(p.stageId)}<#else><span class="hint">未定</span></#if></td>
                 <td class="num"><#if (p.stepTotal!0) gt 0>${p.stepDone} / ${p.stepTotal}<#else>-</#if></td>
                 <td><#if p.currentStepId??>${stepLabel(p.currentStepId)}<#else><span class="ok">已走完</span></#if></td>
                 <td class="num"><#if (p.openEcoCount!0) gt 0><span class="warn">${p.openEcoCount}</span><#else>0</#if></td>
@@ -217,8 +230,11 @@
     <ul>
         <li>路线图：<b>${trackLabel(project.trackId!'')}</b><#if (project.partCode!'') != ''>，料号 ${project.partCode}</#if><#if (project.stepTotal!0) gt 0>，步骤 ${project.stepDone} / ${project.stepTotal}</#if></li>
         <li>型号：<#if (project.productCode!'') != ''><a href="/mfg/control/products?productCode=${project.productCode}#stages">${project.productCode}</a><#else><span class="hint">未关联</span></#if></li>
-        <#-- the five stages belong to the model: this project has none of its own -->
-        <li data-product-stage="${(project.productStageId)!''}">阶段：<#if project.productStageId??><b>${stageLabel(project.productStageId)}</b><span class="hint">（在产品页按关卡评审推进）</span><#else><span class="hint">未关联型号，阶段在产品上维护</span></#if></li>
+        <#-- the stage gate ladder belongs to the model; a project only says which step of that
+             ladder it is working on, so the reviews are shown and signed on the product page -->
+        <li data-project-stage="${(project.stageId)!''}">在做哪一步：<#if (project.stageId!'') != ''><b>${stageLabel(project.stageId)}</b><#else><span class="hint">未定</span></#if>
+            <span class="hint">（在上面立项表单里改）</span></li>
+        <li data-product-stage="${(project.productStageId)!''}">型号当前阶段：<#if project.productStageId??><b>${stageLabel(project.productStageId)}</b><span class="hint">（在产品页按关卡评审推进）</span><#else><span class="hint">未关联型号，阶段在产品上维护</span></#if></li>
         <li>目标成本 / 售价：${project.targetCost!0} / ${project.targetPrice!0}
             <#if (project.targetCost!0) gt 0><span class="hint">毛利 ${((project.targetPrice!0) - (project.targetCost!0))?string("0.00")}</span></#if>
         </li>

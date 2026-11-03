@@ -575,3 +575,134 @@ a.gone {
 tr.saved-row td {
     background: rgba(137, 209, 133, 0.14);
 }
+/* product page: the five gates and the projects of one model on a shared month axis.
+   The bars are placed by percentages the service has already formatted, so the stylesheet only
+   has to give every row the same track width and keep the bar from spilling over it. */
+.gantt {
+    margin: .8em 0 1.2em;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+}
+.gantt-row, .gantt-head {
+    display: flex;
+    align-items: center;
+    gap: .6em;
+    padding: .18em .6em;
+}
+.gantt-head {
+    background: var(--bg-bar);
+    border-bottom: 1px solid var(--border);
+    font-size: .86em;
+    color: var(--fg-muted);
+}
+.gantt-row + .gantt-row {
+    border-top: 1px solid rgba(58, 58, 58, 0.5);
+}
+.gantt-row.gantt-gate {
+    background: rgba(78, 201, 176, 0.05);
+}
+.gantt-name {
+    flex: 0 0 15em;
+    min-width: 0;
+    font-size: .9em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.gantt-name .hint {
+    margin-left: .4em;
+}
+.gantt-kind {
+    display: inline-block;
+    margin-right: .45em;
+    padding: 0 .35em;
+    border-radius: 3px;
+    background: rgba(78, 201, 176, 0.18);
+    color: var(--ok);
+    font-size: .82em;
+}
+.gantt-track {
+    position: relative;
+    flex: 1 1 auto;
+    height: 22px;
+    min-width: 0;
+}
+.gantt-month {
+    position: absolute;
+    top: -2px;
+    height: 14px;
+    padding-left: .25em;
+    border-left: 1px solid var(--border);
+    font-size: .78em;
+    color: var(--fg-muted);
+    white-space: nowrap;
+    overflow: hidden;
+}
+.gantt-grid {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 1px;
+    background: rgba(58, 58, 58, 0.5);
+}
+.gantt-today {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 1px;
+    background: var(--warn);
+    opacity: .75;
+}
+.gantt-bar {
+    position: absolute;
+    top: 4px;
+    height: 14px;
+    box-sizing: border-box;
+    border-radius: 3px;
+    padding: 0 .3em;
+    font-size: .74em;
+    line-height: 14px;
+    color: #ffffff;
+    white-space: nowrap;
+    overflow: hidden;
+    background: var(--accent);
+}
+.gantt-bar.done {
+    background: var(--ok);
+    color: #101010;
+}
+.gantt-bar.plan {
+    background: #4e6f8e;
+    color: #e6e6e6;
+}
+.gantt-bar.off {
+    background: #4b4b4b;
+    color: var(--fg-muted);
+}
+.gantt-none {
+    position: absolute;
+    top: 3px;
+    left: 0;
+    font-size: .78em;
+    color: var(--fg-muted);
+}
+/* a bar of a few days is too narrow to hold its dates, so they sit just outside it; near the right
+   edge of the track the caption goes to the left of the bar so it never runs off the window */
+.gantt-tag {
+    position: absolute;
+    top: 3px;
+    padding-left: .2em;
+    font-size: .74em;
+    color: var(--fg-muted);
+    white-space: nowrap;
+}
+.gantt-tag.before {
+    transform: translateX(-100%);
+    padding-left: 0;
+    padding-right: .2em;
+}
+/* the stage/project table of the product page: dates and status must not wrap mid value */
+#productProjects th, #productProjects td {
+    white-space: nowrap;
+}

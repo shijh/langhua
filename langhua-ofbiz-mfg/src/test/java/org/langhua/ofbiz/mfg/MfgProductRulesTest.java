@@ -73,6 +73,132 @@ public class MfgProductRulesTest {
     }
 
     @Test
+    public void drawsTheGatesAndTheProjectsOnOneMonthAxis() {
+        List<java.util.Map<String, Object>> reviews = new java.util.ArrayList<>();
+        reviews.add(review("MFG_STAGE_CONCEPT", LocalDate.of(2026, 9, 3), LocalDate.of(2026, 9, 10), "MFG_REVIEW_PASS"));
+        reviews.add(review("MFG_STAGE_DESIGN", LocalDate.of(2026, 10, 1), null, null));
+        List<java.util.Map<String, Object>> projects = new java.util.ArrayList<>();
+        projects.add(project("DEV-261003-01", "MFG_STAGE_DESIGN", LocalDate.of(2026, 9, 15),
+                LocalDate.of(2026, 11, 30), null, "MFG_DEV_ACTIVE"));
+        projects.add(project("DEV-261003-02", "MFG_STAGE_CONCEPT", LocalDate.of(2026, 9, 20),
+                null, null, "MFG_DEV_CANCELLED"));
+
+        java.util.Map<String, Object> gantt = MfgProductServices.ganttOf(reviews, projects, LocalDate.of(2026, 10, 5));
+        List<?> months = (List<?>) gantt.get("months");
+        // the window is rounded out to whole months: September through November
+        assertEquals(3, months.size());
+        assertEquals("2026-09", ((java.util.Map<?, ?>) months.get(0)).get("label"));
+        assertEquals("2026-11", ((java.util.Map<?, ?>) months.get(2)).get("label"));
+        assertEquals(Boolean.FALSE, gantt.get("empty"));
+
+        List<?> rows = (List<?>) gantt.get("rows");
+        assertEquals(4, rows.size());
+        java.util.Map<?, ?> firstGate = (java.util.Map<?, ?>) rows.get(0);
+        assertEquals("gate", firstGate.get("kind"));
+        // a signed gate is green, the open one is only planned
+        assertEquals("done", firstGate.get("tone"));
+        assertEquals("2026-09-03", firstGate.get("startText"));
+        assertEquals("09-03", firstGate.get("startShort"));
+        assertEquals("plan", ((java.util.Map<?, ?>) rows.get(1)).get("tone"));
+
+        java.util.Map<?, ?> live = (java.util.Map<?, ?>) rows.get(2);
+        assertEquals("project", live.get("kind"));
+        assertEquals("live", live.get("tone"));
+        assertEquals(Boolean.FALSE, live.get("noDates"));
+        // the dates of a bar are written inside it only when it is wide enough, else just outside
+        assertEquals("09-15 → 11-30", live.get("caption"));
+        assertEquals(Boolean.TRUE, live.get("labelInside"));
+        assertEquals(Boolean.FALSE, firstGate.get("labelInside"));
+        assertEquals("09-03 → 09-10", firstGate.get("caption"));
+        assertEquals("after", firstGate.get("tagSide"));
+        // a cancelled project is greyed out
+        assertEquals("off", ((java.util.Map<?, ?>) rows.get(3)).get("tone"));
+
+        // the bars are percentages the stylesheet can use as they are, never locale formatted
+        String left = (String) live.get("left");
+        assertTrue(left.matches("\\d+\\.\\d\\d"));
+        assertTrue(Double.parseDouble(left) > 0.0);
+        assertTrue(Double.parseDouble(left) < 100.0);
+        // the window starts on the first day of September, so the gate three days in is near the left edge
+        assertEquals("2.20", firstGate.get("left"));
+    }
+
+    @Test
+    public void keepsAProjectWithoutDatesAndSaysSo() {
+        List<java.util.Map<String, Object>> projects = new java.util.ArrayList<>();
+        projects.add(project("DEV-261003-03", "MFG_STAGE_CONCEPT", null, null, null, "MFG_DEV_ACTIVE"));
+
+        java.util.Map<String, Object> gantt = MfgProductServices.ganttOf(new java.util.ArrayList<>(), projects,
+                LocalDate.of(2026, 10, 5));
+        // nothing has a date, so there is no axis to draw
+        assertEquals(Boolean.TRUE, gantt.get("empty"));
+        assertEquals(0, ((List<?>) gantt.get("rows")).size());
+
+        // with one dated gate the project is kept and marked as not scheduled
+        List<java.util.Map<String, Object>> reviews = new java.util.ArrayList<>();
+        reviews.add(review("MFG_STAGE_CONCEPT", LocalDate.of(2026, 10, 1), LocalDate.of(2026, 10, 1),
+                "MFG_REVIEW_PASS"));
+        gantt = MfgProductServices.ganttOf(reviews, projects, LocalDate.of(2026, 10, 5));
+        List<?> rows = (List<?>) gantt.get("rows");
+        assertEquals(2, rows.size());
+        java.util.Map<?, ?> loose = (java.util.Map<?, ?>) rows.get(1);
+        assertEquals(Boolean.TRUE, loose.get("noDates"));
+        assertEquals("none", loose.get("tone"));
+        assertEquals("", loose.get("startText"));
+
+        // a one day gate is 3% of a one month window: the date goes just outside the bar
+        java.util.Map<?, ?> gate = (java.util.Map<?, ?>) rows.get(0);
+        assertEquals(Boolean.FALSE, gate.get("labelInside"));
+        assertEquals("10-01", gate.get("caption"));
+        assertEquals("after", gate.get("tagSide"));
+        assertTrue(Double.parseDouble((String) gate.get("tagLeft")) > Double.parseDouble((String) gate.get("left")));
+    }
+
+    @Test
+    public void groupsTheProjectsByTheStageTheyWorkOn() {
+        List<java.util.Map<String, Object>> projects = new java.util.ArrayList<>();
+        projects.add(project("DEV-261003-04", "MFG_STAGE_MASS", LocalDate.of(2026, 9, 1), null, null, null));
+        projects.add(project("DEV-261003-05", "MFG_STAGE_DESIGN", LocalDate.of(2026, 9, 1), null, null, null));
+        projects.add(project("DEV-261003-06", "MFG_STAGE_DESIGN", LocalDate.of(2026, 9, 2), null, null, null));
+        projects.add(project("DEV-261003-07", null, LocalDate.of(2026, 9, 3), null, null, null));
+
+        List<java.util.Map<String, Object>> groups = MfgProductServices.projectsByStage(projects);
+        // ladder order, the project without a stage comes last and is not dropped
+        assertEquals(3, groups.size());
+        assertEquals("MFG_STAGE_DESIGN", groups.get(0).get("stageId"));
+        assertEquals(2, ((List<?>) groups.get(0).get("projects")).size());
+        assertEquals("MFG_STAGE_MASS", groups.get(1).get("stageId"));
+        assertEquals("", groups.get(2).get("stageId"));
+        assertEquals(1, ((List<?>) groups.get(2).get("projects")).size());
+    }
+
+    static java.util.Map<String, Object> review(String stageId, LocalDate planned, LocalDate done, String resultId) {
+        java.util.Map<String, Object> row = new java.util.LinkedHashMap<>();
+        row.put("stageId", stageId);
+        row.put("plannedDate", planned == null ? null : java.sql.Date.valueOf(planned));
+        row.put("doneDate", done == null ? null : java.sql.Date.valueOf(done));
+        row.put("resultId", resultId);
+        row.put("reviewer", null);
+        row.put("note", null);
+        return row;
+    }
+
+    static java.util.Map<String, Object> project(String code, String stageId, LocalDate started,
+            LocalDate plannedLaunch, LocalDate actualLaunch, String statusId) {
+        java.util.Map<String, Object> row = new java.util.LinkedHashMap<>();
+        row.put("projectCode", code);
+        row.put("projectName", code);
+        row.put("trackId", "MFG_TRACK_PCB");
+        row.put("stageId", stageId);
+        row.put("statusId", statusId);
+        row.put("ownerName", null);
+        row.put("startDate", started == null ? null : java.sql.Timestamp.valueOf(started.atStartOfDay()));
+        row.put("plannedLaunchDate", plannedLaunch == null ? null : java.sql.Date.valueOf(plannedLaunch));
+        row.put("actualLaunchDate", actualLaunch == null ? null : java.sql.Date.valueOf(actualLaunch));
+        return row;
+    }
+
+    @Test
     public void knowsTheDevelopmentAndChangeOrderCodes() {
         assertTrue(MfgDevServices.isKnownDevStage("MFG_STAGE_TRIAL"));
         assertTrue(!MfgDevServices.isKnownDevStage("MFG_STAGE_SOMETHING"));

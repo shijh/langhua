@@ -20,6 +20,10 @@
 <#assign c = (costResult)!{}>
 <#assign costDenied = ((c.denied)!'N') == 'Y'>
 <#assign errList = (errorMessageList)![]>
+<#assign gantt = (d.gantt)!{}>
+<#assign ganttMonths = (gantt.months)![]>
+<#assign ganttRows = (gantt.rows)![]>
+<#assign stageGroups = (d.stageGroups)![]>
 
 <#function stageLabel stageId>
     <#if (stageId!'') == 'MFG_STAGE_CONCEPT'><#return '概念'>
@@ -37,10 +41,25 @@
     <#else><#return '未评审'>
     </#if>
 </#function>
-<#function versionLabel statusId>    <#if (statusId!'') == 'MFG_BOM_RELEASED'><#return '使用中'>
+<#function versionLabel statusId>
+    <#if (statusId!'') == 'MFG_BOM_RELEASED'><#return '使用中'>
     <#elseif (statusId!'') == 'MFG_BOM_DRAFT'><#return '草稿'>
     <#elseif (statusId!'') == 'MFG_BOM_OBSOLETE'><#return '已废止'>
     <#else><#return '${statusId!}'>
+    </#if>
+</#function>
+<#function trackLabel trackId>
+    <#if (trackId!'') == 'MFG_TRACK_PCB'><#return 'PCB 开发'>
+    <#elseif (trackId!'') == 'MFG_TRACK_FIRMWARE'><#return '固件开发'>
+    <#elseif (trackId!'') == 'MFG_TRACK_ENCLOSURE'><#return '外壳开发'>
+    <#else><#return '未选路线图'>
+    </#if>
+</#function>
+<#function projectStatusLabel statusId>
+    <#if (statusId!'') == 'MFG_DEV_ACTIVE'><#return '进行中'>
+    <#elseif (statusId!'') == 'MFG_DEV_DONE'><#return '已量产'>
+    <#elseif (statusId!'') == 'MFG_DEV_CANCELLED'><#return '已取消'>
+    <#else><#return '进行中'>
     </#if>
 </#function>
 
@@ -194,7 +213,81 @@
         </form>
     </fieldset>
     <p class="hint">五个阶段挂在型号上：同一个型号的 PCB、固件、外壳三个项目共用这套关卡，评审通过才进入下一阶段；
-        项目那边只管路线图的步骤，不再单独记阶段。</p>
+        项目自己在立项时选「在做哪一步」，只是指向这里的某一道关卡，不再有自己的关卡表。</p>
+
+    <h2 id="projects">项目与阶段（甘特图）</h2>
+    <#if stageGroups?has_content>
+        <#if ganttRows?has_content>
+            <div class="gantt" data-gantt="product" data-gantt-rows="${ganttRows?size}">
+                <div class="gantt-head">
+                    <div class="gantt-name">阶段 / 项目</div>
+                    <div class="gantt-track">
+                        <#list ganttMonths as m>
+                            <span class="gantt-month" style="left:${m.left}%; width:${m.width}%">${m.label}</span>
+                        </#list>
+                        <i class="gantt-today" style="left:${gantt.todayLeft}%" title="今天 ${gantt.todayText}"></i>
+                    </div>
+                </div>
+                <#list ganttRows as r>
+                    <div class="gantt-row<#if r.kind == 'gate'> gantt-gate</#if>" data-gantt-row="${r.kind}">
+                        <div class="gantt-name">
+                            <#if r.kind == 'gate'>
+                                <span class="gantt-kind">关卡</span>${stageLabel(r.stageId!'')}
+                            <#else>
+                                <a href="/mfg/control/dev?projectCode=${r.projectCode}#project">${r.projectName!r.projectCode}</a>
+                                <span class="hint">${trackLabel(r.trackId!'')}<#if (r.stageId!'') != ''> · ${stageLabel(r.stageId)}</#if></span>
+                            </#if>
+                        </div>
+                        <div class="gantt-track">
+                            <#list ganttMonths as m><i class="gantt-grid" style="left:${m.left}%"></i></#list>
+                            <i class="gantt-today" style="left:${gantt.todayLeft}%"></i>
+                            <#if r.noDates>
+                                <span class="gantt-none">未排期</span>
+                            <#else>
+                                <span class="gantt-bar ${r.tone}" style="left:${r.left}%; width:${r.width}%"
+                                      title="${r.startText} → ${r.endText}"><#if r.labelInside>${r.caption}</#if></span>
+                                <#if !r.labelInside>
+                                    <span class="gantt-tag ${r.tagSide}" style="left:${r.tagLeft}%">${r.caption}</span>
+                                </#if>
+                            </#if>
+                        </div>
+                    </div>
+                </#list>
+            </div>
+            <p class="hint">关卡那条从「计划评审日」画到「实际评审日」（还没评审的画到今天）；项目那条从「立项」画到
+                「实际上市日」，没填实际上市就看计划上市日。竖线是今天。</p>
+        <#else>
+            <p class="hint">这个型号的关卡和项目都还没有日期，排不出甘特图。先在产品上面登记关卡的评审日期，
+                或者在项目里填计划上市日。</p>
+        </#if>
+
+        <table id="productProjects">
+            <tr>
+                <th>阶段</th><th>项目</th><th>路线图</th><th>负责人</th>
+                <th>立项</th><th>计划上市</th><th>实际上市</th><th>状态</th>
+            </tr>
+            <#list stageGroups as grp>
+                <#list grp.projects as p>
+                    <tr data-project-stage="${grp.stageId}" data-project-code="${p.projectCode}">
+                        <td><#if ((grp.stageId)!'') == ''><span class="hint">未定阶段</span><#else>${stageLabel(grp.stageId)}</#if></td>
+                        <td><a href="/mfg/control/dev?projectCode=${p.projectCode}#project">${p.projectName!p.projectCode}</a>
+                            <span class="hint">${p.projectCode}</span></td>
+                        <td>${trackLabel(p.trackId!'')}</td>
+                        <td>${p.ownerName!}</td>
+                        <td><#if p.startDate??>${p.startDate?string("yyyy-MM-dd")}</#if></td>
+                        <td><#if p.plannedLaunchDate??>${p.plannedLaunchDate?string("yyyy-MM-dd")}</#if></td>
+                        <td><#if p.actualLaunchDate??>${p.actualLaunchDate?string("yyyy-MM-dd")}</#if></td>
+                        <td>${projectStatusLabel(p.statusId!'')}</td>
+                    </tr>
+                </#list>
+            </#list>
+        </table>
+        <p class="hint">一个项目通过两个字段挂到这个型号上：<b>型号</b>（哪个产品）与<b>阶段</b>（在做产品的哪一步）。
+            改阶段在「项目开发」页的立项表单里。</p>
+    <#else>
+        <p class="hint">还没有项目挂到这个型号上。在「项目开发」页立项时把「型号」选成 ${product.productCode}，
+            它就会出现在这里。</p>
+    </#if>
 
     <h2>产品照片（${images?size} 个）</h2>
     <#include "attachmentBlock.ftl">

@@ -186,14 +186,14 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
 | `MfgFormatRulesTest` | CSV / BOM 解析、编号格式、翻页算术、到货单汇总、订单行文本（27 个用例） | 27 |
 | `MfgOrderReadRulesTest` | 识图规则：答案解析、切段、重叠合并、取整与金额、按钮与块数（69） | 69 |
 | `MfgClaimRulesTest` | 保修与淘宝窗口、买家键与风险、百分比、账龄、售后成本、坐标轴标签（20） | 20 |
-| `MfgProductRulesTest` | BOM 版本编号、开发三线与阶段阶梯、ECO、附件类型、BOM 格式（18） | 18 |
+| `MfgProductRulesTest` | BOM 版本编号、开发三线与阶段阶梯、ECO、附件类型、BOM 格式、型号甘特图与按阶段分组（21） | 21 |
 | `MfgAuditRulesTest` | 登录跳回、审计动作中文名、单据请求名、行号与保留期（6） | 6 |
 | `MfgDomainRulesTest` | 来料检验、单台成本、软件报价、趋势、库存流水与原因、销售单算术、库位、外协费、账号名与导入失败话术（37） | 37 |
 | `MfgDevBomRulesTest` | Fritzing `bom.html` 解析（两表合并、表头认列、位号合并、数量取 Amount）、HTML 实体与标签清理、料号取法（MPN / MN / 元件号 / 单词型号 / 型号+参数拼 / 哈希兑底）、版本间的 新增/变化/不变/停用、同料行合并、版本号从文件名取（9） | 9 |
 | `MfgServiceIT` | 全链路服务调用（含 BOM 版本、Fritzing BOM 导入、三条开发线、ECO、附件、来料检验、成本、告警、软件报价与台账、成本细化与外协费明细、步骤问题清单、良率/工时趋势、库存流水与盘点、工单预留/发料释放、完工入库与出货扣减、销售订单两级预留与核销、库位与移库、用户账号） | 398 |
 | `verify-m11.ps1` | 列表页搜索/过滤/翻页/编码 | 55 |
 | `verify-m12.ps1` | 装饰器布局（1 个 html、1 条导航、1 个高亮、样式表、无内联 style、无 FTL 报错） | 102 |
-| `verify-m13.ps1` | 项目开发 + 阶段关卡（在产品页）+ BOM 版本 + 三条路线图 | 53 |
+| `verify-m13.ps1` | 项目开发 + 阶段关卡（在产品页）+ BOM 版本 + 三条路线图 | 54 |
 | `verify-m28b.ps1` | 通用附件（上传/列表/原图/缩略图/错误码/删除/PDF，覆盖产品/开发项目/工单/售后单/出货单） | 59 |
 | `verify-m29b.ps1` | 网站图标与导航标志（favicon、brand 图、四个尺寸、全站渲染，两个 webapp 各登一次） | 43 |
 | `verify-m31.ps1` | 来料检验：四个状态、建批次 → 判不合格 → 发料被拒 → 让步接收 → 放行 | 21 |
@@ -865,6 +865,11 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   **项目不再有自己的阶段**：`MfgDevProject.stageId` 只剩历史值，页面不显示也不写；项目只管 `trackId` + 路线图步骤，
   详情页的「阶段」一行读的是所关联型号的 `devStageId`（`data-product-stage`），没关联型号就写「未关联型号，阶段在产品上维护」。
   `mfgDevStageSave` / `MfgDevStageReview` 保留为兼容入口，页面已不再调用。
+  **项目怎么挂到型号上（Step 268）**：两个字段——`productCode`（哪个型号）与 `stageId`（在做产品的哪一步）。
+  `MfgDevProject.stageId` 不是自己的一套关卡，而是**指向型号那道关卡的指针**：立项表单里叫「在做哪一步」，
+  取值为 `MFG_STAGE_*`，新建项目不给就取型号当前的 `devStageId`（`MfgDevServices.stageOfModel`），再没有就概念。
+  项目列表多一列「在做哪一步」，详情页两行：`data-project-stage`（本项目在做哪一步，可以改）与
+  `data-product-stage`（型号当前阶段，只读，点进产品页）。
   **为什么搬**（用户原话：“产品有概念 / 设计 / 打样 / 试产 / 量产这些步骤，所以去掉『仅阶段管理』，
   产品就是仅阶段管理的；产品管理的内容和功能应挪到『产品与 BOM』页”）：三个月前把关卡放在项目上，
   于是同一个板子的 PCB / 固件 / 外壳三个项目各有一套关卡、互相打架，“这个产品到哪一步了”没有唯一答案。
@@ -879,7 +884,28 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   会把 `currentBomVersionId` / `standardHoursSource` / `devStageId` 一起写成 null——保存一次产品表单就丢当前 BOM 版本）。
   `MfgProductStageReview` 由 OFBiz 启动时自己建表，不用跑手工 SQL；老的**项目级** `MfgDevStageReview` 行没有搬过来
   （产品当前阶段从 `MfgProduct.devStageId` 起算，历史关卡在产品页显示「未评审」）。
-  巡检：`verify-m13.ps1` 改成 53 项（产品页五道关卡 + 登记表单、项目页只读阶段、列表没有阶段筛选）。
+  巡检：`verify-m13.ps1` 改成 54 项（产品页五道关卡 + 登记表单、项目页只读阶段与「在做哪一步」、列表有阶段列）。
+- **产品页的甘特图（Step 268）**：用户要“产品中能列表展示产品与项目的关系，最好是甘特图”。产品页新增
+  `id="projects"` 一块：**行 = 五道关卡（计划评审日 → 实际评审日，没评审的画到今天）+ 行 = 每个项目
+  （`createdStamp` → 实际上市日，否则计划上市日，否则今天）**，共用一条按月的时间轴，黄竖线是今天；
+  下面是 `id="productProjects"` 表，**按阶段分组**（概念→量产，没有阶段的最后一组）。
+  数据在 `mfgProductDetail` 的 `projects` / `stageGroups` / `gantt` 三个 OUT 里：
+  `projectsOf`（projectsOf 只读单表，不做闭包查询）、`projectsByStage`、`ganttOf(reviews, projects, today)`。
+  **位置、宽高全部由 Java 算成百分比字符串**（`percent()` 用 `Locale.ROOT`）：模板里再算会被页面 locale
+  写成 `12,5`，样式就废了。`empty` 为真（一条日期都没有）时模板给一句提示，不画空轴。
+  条的**日期文字写在条外**（`.gantt-tag`），因为轨道宽度是窗口的百分比、算不出像素；
+  条够宽（≥ 22%）才写进条里（`labelInside`）；靠右边缘时标签翻到条的左边（`tagSide = before`），
+  否则会跑出窗口。颜色：`done`（通过/有条件通过，绿）、`plan`（还没评审，深蓝）、`live`（进行中，主色）、
+  `off`（已量产/已取消，灰）；没有日期的行标「未排期」而不是从图上删掉。
+  单测 `drawsTheGatesAndTheProjectsOnOneMonthAxis` / `keepsAProjectWithoutDatesAndSaysSo` /
+  `groupsTheProjectsByTheStageTheyWorkOn` 钉住窗囗取整到月、条的位置、标签内外与分组顺序。
+  **顺手修的真 bug**：`resultId` 原来是 `id`（VARCHAR(20)），而 `MFG_REVIEW_CONDITIONAL` 有 22 个字符——
+  选「有条件通过」一律报 `A truncation error ... shrink VARCHAR 'MFG_REVIEW_CONDITIONAL' to length 20`
+  （老的 `MfgDevStageReview` 同字段也一样，只是以前只试过 PASS）。现在两张表都是 `name`（100），
+  旧库要跑 `tools/product-stage-review-result.sql`（停实例 → ij → 起，三套都跑过了；
+  脚本 `%TEMP%\jup\apply-gate-result.ps1 -instance … -stopScript … -deployScript …`）。
+  验法：`%TEMP%\jup\check-gantt.ps1`（dev/https 与 test/http 都能跑：自建型号 + 两道关卡 + 两个项目 →
+  查 5 个关卡行、2 个项目行、月标签、今天线、条位置、表格 2 行、项目页「在做哪一步/型号当前阶段」）。
 - **步骤问题清单**：`MfgDevStepIssue`（`issueId` = `ISSUE-yyMMdd-NN`，`projectCode` + 可选 `stepId`），
   三态 `MFG_ISSUE_OPEN/DOING/CLOSED`、三档严重度 `LOW/MEDIUM/HIGH`；服务 `mfgDevStepIssueSave/List/Status`，
   页面在开发项目页（`id="issueTable"`，锚点 `#issues`），项目列表与步骤表各显示一个未结数（`openIssueCount`）；

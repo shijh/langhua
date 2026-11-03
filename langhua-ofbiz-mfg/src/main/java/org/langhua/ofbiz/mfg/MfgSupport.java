@@ -290,6 +290,64 @@ public final class MfgSupport {
         }
     }
 
+    /**
+     * Reads a day out of whatever the entity gave us: a {@code java.sql.Date}, a timestamp from a
+     * {@code createdStamp} column, a {@code LocalDate} or a {@code yyyy-MM-dd} string.
+     *
+     * <p>The Gantt chart mixes dates of all these kinds (a gate stores a day, a project stores the day
+     * it was created), so every bar is measured from the same kind of value.
+     *
+     * @param value the raw value, may be {@code null}
+     * @return the day, {@code null} when there is none or it cannot be read
+     */
+    static LocalDate asLocalDate(Object value) {
+        if (value == null) {
+            return null;
+        }
+        if (value instanceof LocalDate) {
+            return (LocalDate) value;
+        }
+        if (value instanceof java.sql.Date) {
+            return ((java.sql.Date) value).toLocalDate();
+        }
+        if (value instanceof Timestamp) {
+            return ((Timestamp) value).toLocalDateTime().toLocalDate();
+        }
+        if (value instanceof java.util.Date) {
+            return new Timestamp(((java.util.Date) value).getTime()).toLocalDateTime().toLocalDate();
+        }
+        String text = toText(value);
+        if (text == null) {
+            return null;
+        }
+        try {
+            return LocalDate.parse(text.length() > 10 ? text.substring(0, 10) : text);
+        } catch (RuntimeException e) {
+            return null;
+        }
+    }
+
+    /**
+     * Formats a day the way the pages write dates.
+     *
+     * @param day the day, may be {@code null}
+     * @return {@code yyyy-MM-dd}, or an empty string when there is no day
+     */
+    static String dayText(LocalDate day) {
+        return day == null ? "" : day.toString();
+    }
+
+    /**
+     * Formats a day as {@code MM-dd}, for the inside of a bar where the year is on the axis.
+     *
+     * @param day the day, may be {@code null}
+     * @return {@code MM-dd}, or an empty string when there is no day
+     */
+    static String shortDayText(LocalDate day) {
+        return day == null ? "" : String.format(Locale.ROOT, "%02d-%02d", Integer.valueOf(day.getMonthValue()),
+                Integer.valueOf(day.getDayOfMonth()));
+    }
+
     static long toLong(Object value, long defaultValue) {
         if (value instanceof Number) {
             return ((Number) value).longValue();

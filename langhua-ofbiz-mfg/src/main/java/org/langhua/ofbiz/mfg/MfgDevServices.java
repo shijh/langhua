@@ -317,6 +317,27 @@ public final class MfgDevServices {
         return statusId != null && !MfgConstants.ISSUE_CLOSED.equals(statusId);
     }
 
+    /**
+     * The stage a model has reached, used as the default for a new project of that model.
+     *
+     * @param delegator the delegator
+     * @param productCode the model, may be {@code null}
+     * @return the stage id, {@code null} when there is no model or it has no stage on the ladder
+     */
+    static String stageOfModel(Delegator delegator, String productCode) {
+        if (productCode == null) {
+            return null;
+        }
+        try {
+            GenericValue model = EntityQuery.use(delegator).from("MfgProduct")
+                    .where("productCode", productCode).queryOne();
+            String stage = model == null ? null : model.getString("devStageId");
+            return isKnownDevStage(stage) ? stage : null;
+        } catch (GenericEntityException e) {
+            return null;
+        }
+    }
+
     static Map<String, Object> toDevProjectMap(Delegator delegator, GenericValue project)
             throws GenericEntityException {
         String projectCode = project.getString("projectCode");
@@ -433,6 +454,11 @@ public final class MfgDevServices {
         String stageId = MfgSupport.toText(context.get("stageId"));
         String statusId = MfgSupport.toText(context.get("statusId"));
         String trackId = MfgSupport.toText(context.get("trackId"));
+        // the stage a project works on points at the model's gate ladder, so a project of a model
+        // that is already at 打样 starts there instead of at 概念
+        if (stageId == null) {
+            stageId = stageOfModel(dctx.getDelegator(), MfgSupport.toText(context.get("productCode")));
+        }
         if (stageId != null && !isKnownDevStage(stageId)) {
             return ServiceUtil.returnError("Unknown development stage [" + stageId + "]");
         }

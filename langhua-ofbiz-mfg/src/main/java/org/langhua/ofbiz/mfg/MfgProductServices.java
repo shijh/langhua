@@ -972,6 +972,245 @@ public final class MfgProductServices {
     }
 
     /**
+     * The projects of one model, as the product page lists them.
+     *
+     * <p>A project belongs to a model through two fields: {@code productCode} (which model) and
+     * {@code stageId} (which of the model's five stages that project is working on). The stage is a
+     * pointer at the model's ladder, not a ladder of its own: the gate reviews stay on the model.
+     *
+     * @param delegator the delegator
+     * @param productCode the model
+     * @return one entry per project, oldest first
+     * @throws GenericEntityException when the projects cannot be read
+     */
+    static List<Map<String, Object>> projectsOf(Delegator delegator, String productCode)
+            throws GenericEntityException {
+        List<Map<String, Object>> rows = new ArrayList<>();
+        for (GenericValue project : EntityQuery.use(delegator).from("MfgDevProject")
+                .where("productCode", productCode).orderBy("createdStamp").queryList()) {
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("projectCode", project.getString("projectCode"));
+            row.put("projectName", project.getString("projectName"));
+            row.put("trackId", project.getString("trackId"));
+            row.put("stageId", project.getString("stageId"));
+            row.put("stageIndex", Integer.valueOf(MfgDevServices.devStageIndex(project.getString("stageId"))));
+            row.put("statusId", project.getString("statusId"));
+            row.put("ownerName", project.getString("ownerName"));
+            row.put("partCode", project.getString("partCode"));
+            row.put("startDate", project.get("createdStamp"));
+            row.put("plannedLaunchDate", project.get("plannedLaunchDate"));
+            row.put("actualLaunchDate", project.get("actualLaunchDate"));
+            rows.add(row);
+        }
+        return rows;
+    }
+
+    /**
+     * Groups the projects of a model by the stage they work on, in ladder order.
+     *
+     * <p>A project whose stage is empty or not on the ladder goes into a last group under the empty
+     * stage id, so no project is dropped from the page.
+     *
+     * @param projects the rows of {@link #projectsOf(Delegator, String)}
+     * @return one entry per stage that has projects, each with {@code stageId} and {@code projects}
+     */
+    static List<Map<String, Object>> projectsByStage(List<Map<String, Object>> projects) {
+        List<Map<String, Object>> groups = new ArrayList<>();
+        List<Map<String, Object>> loose = new ArrayList<>();
+        for (String stage : MfgConstants.DEV_STAGES) {
+            List<Map<String, Object>> mine = new ArrayList<>();
+            for (Map<String, Object> project : projects) {
+                if (stage.equals(project.get("stageId"))) {
+                    mine.add(project);
+                }
+            }
+            if (!mine.isEmpty()) {
+                Map<String, Object> group = new LinkedHashMap<>();
+                group.put("stageId", stage);
+                group.put("projects", mine);
+                groups.add(group);
+            }
+        }
+        for (Map<String, Object> project : projects) {
+            if (!MfgDevServices.isKnownDevStage((String) project.get("stageId"))) {
+                loose.add(project);
+            }
+        }
+        if (!loose.isEmpty()) {
+            Map<String, Object> group = new LinkedHashMap<>();
+            group.put("stageId", "");
+            group.put("projects", loose);
+            groups.add(group);
+        }
+        return groups;
+    }
+
+    /**
+     * Draws the five gates and the projects of one model on a shared month axis.
+     *
+     * <p>Gate rows run from the planned review date to the review date (still open: to today).
+     * Project rows run from the day the project was created to its actual launch date, else its
+     * planned launch date, else today. The window is rounded out to whole months; a row without any
+     * date is kept and marked {@code noDates}, so the page can show it as "not scheduled" instead of
+     * leaving a project out.
+     *
+     * <p>Positions come back as percent strings already formatted, because a number written from the
+     * template would follow the page locale (a comma decimal separator in some locales).
+     *
+     * @param reviews the rows of {@link #stageReviewsOf(Delegator, String)}
+     * @param projects the rows of {@link #projectsOf(Delegator, String)}
+     * @param today the day an open-ended bar reaches
+     * @return {@code months}, {@code rows}, {@code todayLeft}, {@code todayText} and {@code empty}
+     */
+    static Map<String, Object> ganttOf(List<Map<String, Object>> reviews, List<Map<String, Object>> projects,
+            LocalDate today) {
+        List<Object[]> spans = new ArrayList<>();
+        for (Map<String, Object> review : reviews) {
+            LocalDate planned = MfgSupport.asLocalDate(review.get("plannedDate"));
+            LocalDate done = MfgSupport.asLocalDate(review.get("doneDate"));
+            LocalDate start = planned != null ? planned : done;
+            LocalDate end = done != null ? done : (start == null ? null : today);
+            spans.add(new Object[] {"gate", review, start, end});
+        }
+        for (Map<String, Object> project : projects) {
+            LocalDate start = MfgSupport.asLocalDate(project.get("startDate"));
+            LocalDate end = MfgSupport.asLocalDate(project.get("actualLaunchDate"));
+            if (end == null) {
+                end = MfgSupport.asLocalDate(project.get("plannedLaunchDate"));
+            }
+            if (end == null) {
+                end = start == null ? null : today;
+            }
+            if (start == null) {
+                start = end;
+            }
+            if (start != null && end != null && end.isBefore(start)) {
+                end = start;
+            }
+            spans.add(new Object[] {"project", project, start, end});
+        }
+
+        LocalDate first = null;
+        LocalDate last = null;
+        for (Object[] span : spans) {
+            LocalDate start = (LocalDate) span[2];
+            LocalDate end = (LocalDate) span[3];
+            if (start != null && (first == null || start.isBefore(first))) {
+                first = start;
+            }
+            if (end != null && (last == null || end.isAfter(last))) {
+                last = end;
+            }
+        }
+        Map<String, Object> gantt = new LinkedHashMap<>();
+        if (first == null || last == null) {
+            gantt.put("months", new ArrayList<Map<String, Object>>());
+            gantt.put("rows", new ArrayList<Map<String, Object>>());
+            gantt.put("todayLeft", percent(0.0));
+            gantt.put("todayText", "");
+            gantt.put("empty", Boolean.TRUE);
+            return gantt;
+        }
+        LocalDate windowStart = first.withDayOfMonth(1);
+        LocalDate windowEnd = last.withDayOfMonth(last.lengthOfMonth());
+        double total = windowEnd.toEpochDay() - windowStart.toEpochDay() + 1.0;
+
+        List<Map<String, Object>> months = new ArrayList<>();
+        LocalDate cursor = windowStart;
+        while (!cursor.isAfter(windowEnd)) {
+            LocalDate monthEnd = cursor.withDayOfMonth(cursor.lengthOfMonth());
+            Map<String, Object> month = new LinkedHashMap<>();
+            month.put("label", String.format(Locale.ROOT, "%04d-%02d", Integer.valueOf(cursor.getYear()),
+                    Integer.valueOf(cursor.getMonthValue())));
+            month.put("left", percent((cursor.toEpochDay() - windowStart.toEpochDay()) / total * 100.0));
+            month.put("width", percent(((monthEnd.toEpochDay() - cursor.toEpochDay()) + 1.0) / total * 100.0));
+            months.add(month);
+            cursor = monthEnd.plusDays(1);
+        }
+
+        List<Map<String, Object>> rows = new ArrayList<>(spans.size());
+        for (Object[] span : spans) {
+            String kind = (String) span[0];
+            Map<?, ?> source = (Map<?, ?>) span[1];
+            LocalDate start = (LocalDate) span[2];
+            LocalDate end = (LocalDate) span[3];
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("kind", kind);
+            row.put("stageId", source.get("stageId"));
+            row.put("projectCode", source.get("projectCode"));
+            row.put("projectName", source.get("projectName"));
+            row.put("trackId", source.get("trackId"));
+            row.put("statusId", source.get("statusId"));
+            row.put("reviewer", source.get("reviewer"));
+            row.put("resultId", source.get("resultId"));
+            row.put("noDates", Boolean.valueOf(start == null || end == null));
+            if (start == null || end == null) {
+                row.put("left", percent(0.0));
+                row.put("width", percent(0.0));
+                row.put("tagLeft", percent(0.0));
+                row.put("tagSide", "after");
+                row.put("labelInside", Boolean.FALSE);
+                row.put("caption", "");
+                row.put("startText", "");
+                row.put("endText", "");
+                row.put("startShort", "");
+                row.put("endShort", "");
+                row.put("tone", "none");
+            } else {
+                double left = (start.toEpochDay() - windowStart.toEpochDay()) / total * 100.0;
+                double width = ((end.toEpochDay() - start.toEpochDay()) + 1.0) / total * 100.0;
+                double barWidth = Math.max(width, 1.2);
+                row.put("left", percent(left));
+                row.put("width", percent(barWidth));
+                // a bar narrower than this cannot hold its dates, and the track is a percentage of
+                // whatever width the window has, so the caption sits outside the bar as a rule;
+                // near the right edge it goes to the left of the bar instead of running off
+                row.put("labelInside", Boolean.valueOf(width >= 22.0));
+                boolean before = left + barWidth > 74.0;
+                row.put("tagSide", before ? "before" : "after");
+                row.put("tagLeft", percent(before ? Math.max(0.0, left - 0.4) : Math.min(99.0, left + barWidth + 0.4)));
+                row.put("caption", start.equals(end) ? MfgSupport.shortDayText(start)
+                        : MfgSupport.shortDayText(start) + " → " + MfgSupport.shortDayText(end));
+                row.put("startText", MfgSupport.dayText(start));
+                row.put("endText", MfgSupport.dayText(end));
+                row.put("startShort", MfgSupport.shortDayText(start));
+                row.put("endShort", MfgSupport.shortDayText(end));
+                row.put("tone", toneOf(kind, source));
+            }
+            rows.add(row);
+        }
+        gantt.put("months", months);
+        gantt.put("rows", rows);
+        double todayLeft = (today.toEpochDay() - windowStart.toEpochDay()) / total * 100.0;
+        gantt.put("todayLeft", percent(todayLeft));
+        gantt.put("todayText", MfgSupport.dayText(today));
+        gantt.put("empty", Boolean.FALSE);
+        return gantt;
+    }
+
+    /**
+     * Which colour a bar gets: a signed gate is done, an open one is planned, a closed or cancelled
+     * project is off the road, anything else is running.
+     *
+     * @param kind {@code gate} or {@code project}
+     * @param source the row the bar stands for
+     * @return a tone name the stylesheet knows
+     */
+    static String toneOf(String kind, Map<?, ?> source) {
+        if ("gate".equals(kind)) {
+            return MfgDevServices.stageAdvancesOn((String) source.get("resultId")) ? "done" : "plan";
+        }
+        String status = (String) source.get("statusId");
+        if (MfgConstants.DEV_DONE.equals(status) || MfgConstants.DEV_CANCELLED.equals(status)) {
+            return "off";
+        }
+        return "live";
+    }
+
+    static String percent(double value) {
+        return String.format(Locale.ROOT, "%.2f", Double.valueOf(Math.max(0.0, Math.min(100.0, value))));
+    }
+    /**
      * The five stage gates of a product model, with what has been filled in for each.
      *
      * <p>The stages belong to the model, not to a development project: the PCB, firmware and
@@ -1105,6 +1344,10 @@ public final class MfgProductServices {
                 result.put("bomItems", new ArrayList<Map<String, Object>>());
                 result.put("routings", new ArrayList<Map<String, Object>>());
                 result.put("reviews", new ArrayList<Map<String, Object>>());
+                result.put("projects", new ArrayList<Map<String, Object>>());
+                result.put("stageGroups", new ArrayList<Map<String, Object>>());
+                result.put("gantt", ganttOf(new ArrayList<Map<String, Object>>(),
+                        new ArrayList<Map<String, Object>>(), LocalDate.now()));
                 return result;
             }
             GenericValue product = EntityQuery.use(delegator).from("MfgProduct")
@@ -1135,6 +1378,12 @@ public final class MfgProductServices {
             List<Map<String, Object>> reviews = stageReviewsOf(delegator, productCode);
             result.put("reviews", reviews);
             result.putAll(stageCounts(reviews));
+            // ... and so are the projects of the model: a project points at the model with its
+            // productCode and at one of the five stages with its stageId
+            List<Map<String, Object>> projects = projectsOf(delegator, productCode);
+            result.put("projects", projects);
+            result.put("stageGroups", projectsByStage(projects));
+            result.put("gantt", ganttOf(reviews, projects, LocalDate.now()));
             return result;
         } catch (GenericEntityException e) {
             return ServiceUtil.returnError("Could not read the product model: " + e.getMessage());

@@ -38,7 +38,7 @@
         <field name="stageId" type="id"><description>Stage being reviewed</description></field>
         <field name="plannedDate" type="date"><description>Date the review should happen</description></field>
         <field name="doneDate" type="date"><description>Date the review really happened, empty while the gate is still open</description></field>
-        <field name="resultId" type="id"><description>MFG_REVIEW_PASS, MFG_REVIEW_CONDITIONAL or MFG_REVIEW_FAIL</description></field>
+        <field name="resultId" type="name"><description>MFG_REVIEW_PASS, MFG_REVIEW_CONDITIONAL or MFG_REVIEW_FAIL; a name and not an id, because MFG_REVIEW_CONDITIONAL does not fit the twenty characters of an id</description></field>
         <field name="reviewer" type="name"><description>Who signed the gate off</description></field>
         <field name="note" type="description"/>
         <field name="createdStamp" type="date-time"/>
@@ -737,7 +737,7 @@
         <field name="stageId" type="id"><description>Stage being reviewed</description></field>
         <field name="plannedDate" type="date"><description>Date the review should happen</description></field>
         <field name="doneDate" type="date"><description>Date the review really happened, empty while the gate is still open</description></field>
-        <field name="resultId" type="id"><description>MFG_REVIEW_PASS, MFG_REVIEW_CONDITIONAL or MFG_REVIEW_FAIL</description></field>
+        <field name="resultId" type="name"><description>MFG_REVIEW_PASS, MFG_REVIEW_CONDITIONAL or MFG_REVIEW_FAIL; a name and not an id, because MFG_REVIEW_CONDITIONAL does not fit the twenty characters of an id</description></field>
         <field name="reviewer" type="name"><description>Who signed the gate off</description></field>
         <field name="note" type="description"/>
         <field name="createdStamp" type="date-time"/>

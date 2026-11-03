@@ -52,6 +52,9 @@
         <attribute name="reviews" type="java.util.List" mode="OUT" optional="true"/>
         <attribute name="passedCount" type="Integer" mode="OUT" optional="true"/>
         <attribute name="reviewCount" type="Integer" mode="OUT" optional="true"/>
+        <attribute name="projects" type="java.util.List" mode="OUT" optional="true"/>
+        <attribute name="stageGroups" type="java.util.List" mode="OUT" optional="true"/>
+        <attribute name="gantt" type="java.util.Map" mode="OUT" optional="true"/>
     </service>
 
 
