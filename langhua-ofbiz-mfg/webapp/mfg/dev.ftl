@@ -125,7 +125,7 @@
         <input type="hidden" name="projectCode" value="${project.projectCode!''}"/>
         <p>
             项目名称 <input type="text" name="projectName" size="22" value="${project.projectName!''}"/>
-            线路
+            路线图
             <select name="trackId">
                 <option value=""<#if (project.trackId!'') == ''> selected="selected"</#if>>仅阶段管理</option>
                 <option value="MFG_TRACK_PCB"<#if (project.trackId!'') == 'MFG_TRACK_PCB'> selected="selected"</#if>>PCB 开发</option>
@@ -160,6 +160,11 @@
     </form>
 </fieldset>
 
+<p class="hint">路线图三张：<b>PCB 开发</b>（面包板验证 → 原理图 → PCB 布线 → 样板打样 → 手焊测试，5 步）、
+    <b>固件开发</b>（固件开发 → 烧录 → 功能测试，3 步）、
+    <b>外壳开发</b>（Gerber/PNP 导入 Blender 设计 → 3D 打印与装配确认 → 注塑厂家签合同 → 付款 → 生产外壳 → 外壳入库 → 产品组装，7 步）。
+    选「仅阶段管理」就没有步骤清单，只走阶段关卡。点下面项目列表里的路线图名字，可以看这个项目走完了哪几步。</p>
+
 <h2>项目列表</h2>
 <form method="get" action="/mfg/control/dev">
     搜索 <input type="text" name="search" size="20" value="${(lr.search)!''}" placeholder="项目号 / 名称 / 型号 / 责任人"/>
@@ -185,15 +190,15 @@
 <#if projects?has_content>
     <table>
         <tr>
-            <th>项目号</th><th>线路</th><th>名称</th><th>料号</th><th>型号</th>
+            <th>项目号</th><th>名称</th><th>路线图</th><th>料号</th><th>型号</th>
             <th>步骤</th><th>当前步骤</th><th>阶段</th>
             <th class="num">关卡</th><th class="num">未结变更</th><th class="num">未结问题</th><th>状态</th>
         </tr>
         <#list projects as p>
             <tr>
                 <td><a href="/mfg/control/dev?projectCode=${p.projectCode}#project">${p.projectCode}</a></td>
-                <td>${trackLabel(p.trackId!'')}</td>
                 <td>${p.projectName!}</td>
+                <td><#if (p.stepTotal!0) gt 0><a href="/mfg/control/dev?projectCode=${p.projectCode}#steps" title="看这张路线图的全部步骤">${trackLabel(p.trackId!'')}</a><#else><span class="hint">仅阶段管理</span></#if></td>
                 <td>${p.partCode!}</td>
                 <td>${p.productCode!}</td>
                 <td class="num"><#if (p.stepTotal!0) gt 0>${p.stepDone} / ${p.stepTotal}<#else>-</#if></td>
@@ -207,7 +212,7 @@
         </#list>
     </table>
 <#else>
-    <p class="hint">还没有开发项目，先在上面立项。三条线（PCB / 固件 / 外壳）各建一个项目，步骤清单由线路决定。</p>
+    <p class="hint">还没有开发项目，先在上面立项。三张路线图（PCB / 固件 / 外壳）各建一个项目，步骤清单由路线图决定。</p>
 </#if>
 <@pg.pager action="/mfg/control/dev" query=('search=' + ((lr.search)!'')?url + '&' + 'stageId=' + ((lr.stageId)!'')?url + '&' + 'statusId=' + ((lr.statusId)!'')?url)
     page=(lr.page)!1 pageCount=(lr.pageCount)!1 total=(lr.totalCount)!0 unit="条" pageSize=(lr.pageSize)!20/>
@@ -215,7 +220,7 @@
 <#if project.projectCode??>
     <h2 id="project">${project.projectCode} ${project.projectName!}</h2>
     <ul>
-        <li>线路：<b>${trackLabel(project.trackId!'')}</b><#if (project.partCode!'') != ''>，料号 ${project.partCode}</#if><#if (project.stepTotal!0) gt 0>，步骤 ${project.stepDone} / ${project.stepTotal}</#if></li>
+        <li>路线图：<b>${trackLabel(project.trackId!'')}</b><#if (project.partCode!'') != ''>，料号 ${project.partCode}</#if><#if (project.stepTotal!0) gt 0>，步骤 ${project.stepDone} / ${project.stepTotal}</#if></li>
         <li>型号：<#if (project.productCode!'') != ''>${project.productCode}<#else><span class="hint">未关联</span></#if></li>
         <li>当前阶段：<b>${stageLabel(project.stageId!'')}</b><#if project.nextStageId??> → 下一关：${stageLabel(project.nextStageId)}</#if></li>
         <li>目标成本 / 售价：${project.targetCost!0} / ${project.targetPrice!0}
@@ -226,7 +231,7 @@
     </ul>
 
     <#if steps?has_content>
-        <h3>${trackLabel(trackId)} 步骤</h3>
+        <h3 id="steps">${trackLabel(trackId)} 路线图（${steps?size} 步）</h3>
         <table>
             <tr>
                 <th class="num">#</th><th>步骤</th><th>状态</th><th>计划</th><th>完成</th>
@@ -942,6 +947,13 @@
         if (!block) { return; }
         if (block.tagName === 'TR') { block.className = block.className + ' saved-row'; }
         if (window.jumpUnderNav) { window.jumpUnderNav(block); }
+    }
+    <#-- a link from the project list names the block it wants (#steps): honour it, unless the page
+         is answering a form and already knows where the reader was working -->
+    var named = (window.location.hash || '').replace('#', '');
+    var answered = <#if parameters.lineSeq?? || parameters.addedLine?? || parameters.savedLines?? || parameters.releasedQty?? || parameters.addedCode?? || parameters.outboundId?? || parameters.issuedQty??>true<#else>false</#if>;
+    if (!answered && named && document.getElementById(named)) {
+        targetId = named;
     }
     if (document.readyState === 'complete') {
         jump();
