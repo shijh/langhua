@@ -971,6 +971,20 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   验法：`%TEMP%\jup\check-estimate.ps1`（10 项：建 3 个走完的 PCB 项目 + 1 个被测项目 → 卡片 3 个样本、
   学习率、总工期、预计完工日、5 行分摊表、与计划上市日的差值；`-keep` 留数据好看页面，最后把 4 个项目都取消，
   再确认页面回到「样本不足」）。
+- **项目状态在立项表单里可改，和型号阶段互不代签（Step 277）**：详情页的「立项 / 修改项目」表单多了
+  `<select name="statusId" data-project-status>`（进行中 / 暂停 / 已量产 / 已取消），`mfgDevProjectSave` 一直支持
+  `statusId`，这次补的是**实际上市日的连带**：
+  - 改成 `MFG_DEV_DONE` 而表单没带 `actualLaunchDate` 时写今天；改成其它状态时清掉（不写 `null` 的话超期判断与
+    甘特图会一直当它已完工）；
+  - **标已量产不推动型号的 `devStageId`**：阶段只能由产品页的阶段评审推进（评审是板子过没过关的签字，
+    项目状态是这件事做完了没有）。两边不一致时详情页进度行下面给一条黄色提示：
+    `[data-stage-gap="status-ahead"]`（项目已量产、型号没到量产 → 链到 `products?productCode=…#stages`）与
+    `[data-stage-gap="gate-ahead"]`（型号在量产、项目还不是已量产 → 让人去改状态）。
+  - **FreeMarker 的 `!` 优先级**：`project.statusId!'' == 'MFG_DEV_DONE'` 会解析成 `project.statusId!('' == '…')`，
+    整段选项文字变成 FTL 栈（页面上一排红的模板报错），必须写 `((project.statusId)!'') == '…'`。
+  - 验法（测试实例，Playwright）：详情页读四个选项 → 选「已量产」保存 → `实际上市：<今天>` +
+    `data-stage-gap="status-ahead"`；再选回「进行中」保存 → `实际上市：-`、提示消失。
+    `gate-ahead` 用「新建一个 `devStageId=量产` 的型号 + 给它立个项目」验（`DEV-261103-38` 就是这样建的）。
 - **步骤问题清单**：`MfgDevStepIssue`（`issueId` = `ISSUE-yyMMdd-NN`，`projectCode` + 可选 `stepId`），
   三态 `MFG_ISSUE_OPEN/DOING/CLOSED`、三档严重度 `LOW/MEDIUM/HIGH`；服务 `mfgDevStepIssueSave/List/Status`，
   页面在开发项目页（`id="issueTable"`，锚点 `#issues`），项目列表与步骤表各显示一个未结数（`openIssueCount`）；

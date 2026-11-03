@@ -208,6 +208,14 @@
             责任人 <input type="text" name="ownerName" size="9" value="${project.ownerName!''}"/>            目标成本 <input type="text" name="targetCost" size="8" value="${project.targetCost!0}"/>
             目标售价 <input type="text" name="targetPrice" size="8" value="${project.targetPrice!0}"/>
             计划上市 <input type="text" name="plannedLaunchDate" size="10" placeholder="yyyy-mm-dd" value="<#if project.plannedLaunchDate??>${project.plannedLaunchDate?string("yyyy-MM-dd")}</#if>"/>
+            <#-- the state of the project: 已量产 also writes the launch day, 其它三种清掉它 -->
+            状态
+            <select name="statusId" data-project-status="<#if (project.statusId!'') != ''>${project.statusId}<#else>MFG_DEV_ACTIVE</#if>">
+                <option value="MFG_DEV_ACTIVE"<#if ((project.statusId)!'') == '' || ((project.statusId)!'') == 'MFG_DEV_ACTIVE'> selected="selected"</#if>>进行中</option>
+                <option value="MFG_DEV_ONHOLD"<#if ((project.statusId)!'') == 'MFG_DEV_ONHOLD'> selected="selected"</#if>>暂停</option>
+                <option value="MFG_DEV_DONE"<#if ((project.statusId)!'') == 'MFG_DEV_DONE'> selected="selected"</#if>>已量产</option>
+                <option value="MFG_DEV_CANCELLED"<#if ((project.statusId)!'') == 'MFG_DEV_CANCELLED'> selected="selected"</#if>>已取消</option>
+            </select>
         </p>
         <p>
             备注 <input type="text" name="note" size="46" value="${project.note!''}"/>
@@ -293,6 +301,17 @@
         <#-- late is measured against two dates: the planned launch date, and the planned date of the
              step the project stands on, whichever is later past -->
         <li data-project-overdue="${(project.overdueDays)!0}">进度：<#if ((project.overdueDays)!0) gt 0><span class="error">超期 ${project.overdueDays} 天</span><span class="hint">（${(project.overdueReason)!''}；到上面立项表单里改计划上市日，或在步骤里改计划日）</span><#elseif project.currentStepPlannedDate??><span class="ok">按计划</span><span class="hint">（当前步骤计划 ${project.currentStepPlannedDate?string("yyyy-MM-dd")}）</span><#else><span class="hint">当前步骤还没排期</span></#if></li>
+        <#-- the project state and the model stage are two records of the same thing: the state says how
+             this piece of work ended, the gate review says how far the model got. Neither writes the
+             other, so when they disagree the page says so instead of picking one -->
+        <#if (project.statusId!'') == 'MFG_DEV_DONE' && (project.productStageId!'') != 'MFG_STAGE_MASS'>
+            <li data-stage-gap="status-ahead"><span class="warn">项目已标为「已量产」，但型号阶段还停在「${stageLabel((project.productStageId)!'')}」</span>：
+                <a href="/mfg/control/products?productCode=${project.productCode}#stages">到产品页登记阶段评审</a>，型号才会真正走到量产
+                <span class="hint">（项目状态不会替评审签字，反过来也一样）</span></li>
+        <#elseif project.productStageId?? && project.productStageId == 'MFG_STAGE_MASS' && (project.statusId!'') != 'MFG_DEV_DONE'>
+            <li data-stage-gap="gate-ahead"><span class="warn">型号已经走到「量产」，但项目状态还是「${statusLabel(project.statusId!'')}」</span>：
+                这个项目做完了就到上面把状态改成「已量产」<span class="hint">（改状态会写实际上市日，也把它从超期里拿掉）</span></li>
+        </#if>
         <li>目标成本 / 售价：${project.targetCost!0} / ${project.targetPrice!0}
             <#if (project.targetCost!0) gt 0><span class="hint">毛利 ${((project.targetPrice!0) - (project.targetCost!0))?string("0.00")}</span></#if>
         </li>

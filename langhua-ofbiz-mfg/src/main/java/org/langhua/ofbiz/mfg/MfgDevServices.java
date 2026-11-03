@@ -849,6 +849,18 @@ public final class MfgDevServices {
             if (context.containsKey("note")) {
                 project.set("note", MfgSupport.toText(context.get("note")));
             }
+            // the state carries the day: marked as in production today, the project is on sale from
+            // today; moved out of production again, there is no launch day any more (the date would
+            // otherwise keep a project that is back in development out of the overdue list)
+            if (statusId != null && !context.containsKey("actualLaunchDate")) {
+                if (MfgConstants.DEV_DONE.equals(project.getString("statusId"))) {
+                    if (project.get("actualLaunchDate") == null) {
+                        project.set("actualLaunchDate", java.sql.Date.valueOf(LocalDate.now()));
+                    }
+                } else {
+                    project.set("actualLaunchDate", null);
+                }
+            }
             delegator.createOrStore(project);
 
             Map<String, Object> result = ServiceUtil.returnSuccess();
