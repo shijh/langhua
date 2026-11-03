@@ -689,17 +689,67 @@ tr.saved-row td {
     overflow: hidden;
     background: var(--accent);
 }
+/* the colours the shop asked for: a passed review is green, a conditional pass red (it is not a
+   clean pass and needs follow up), a failed review yellow, anything not reviewed yet grey */
 .gantt-bar.done {
     background: var(--ok);
     color: #101010;
 }
+.gantt-bar.conditional {
+    background: var(--error);
+    color: #ffffff;
+}
+.gantt-bar.fail {
+    background: var(--warn);
+    color: #101010;
+}
 .gantt-bar.plan {
-    background: #4e6f8e;
+    background: #5a5a5a;
     color: #e6e6e6;
 }
 .gantt-bar.off {
     background: #4b4b4b;
     color: var(--fg-muted);
+}
+/* the legend under the chart: one chip per colour, so the reader does not have to guess */
+.gantt-legend {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: .2em 1.1em;
+    margin: .35em 0 .2em;
+    font-size: .82em;
+    color: var(--fg-muted);
+}
+.gantt-legend .chip {
+    display: inline-block;
+    width: 16px;
+    height: 9px;
+    margin-right: .35em;
+    border-radius: 2px;
+    vertical-align: middle;
+}
+.gantt-legend .chip.done {
+    background: var(--ok);
+}
+.gantt-legend .chip.conditional {
+    background: var(--error);
+}
+.gantt-legend .chip.fail {
+    background: var(--warn);
+}
+.gantt-legend .chip.plan {
+    background: #5a5a5a;
+}
+.gantt-legend .chip.none {
+    background: transparent;
+    border: 1px solid var(--fg-muted);
+}
+.gantt-legend .chip.live {
+    background: var(--accent);
+}
+.gantt-legend .chip.off {
+    background: #4b4b4b;
 }
 .gantt-none {
     position: absolute;

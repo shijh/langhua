@@ -254,6 +254,15 @@
                     </div>
                 </#list>
             </div>
+            <p class="gantt-legend">
+                <span><span class="chip done"></span>评审通过</span>
+                <span><span class="chip conditional"></span>有条件通过</span>
+                <span><span class="chip fail"></span>不通过</span>
+                <span><span class="chip plan"></span>待评审</span>
+                <span><span class="chip none"></span>未排期</span>
+                <span><span class="chip live"></span>项目进行中</span>
+                <span><span class="chip off"></span>已量产 / 已取消</span>
+            </p>
             <p class="hint">阶段评审那条从「计划评审日」画到「实际评审日」（还没评审的画到今天）；项目那条从「立项」画到
                 「实际上市日」，没填实际上市就看计划上市日。竖线是今天。</p>
         <#else>

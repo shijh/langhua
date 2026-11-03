@@ -73,6 +73,26 @@ public class MfgProductRulesTest {
     }
 
     @Test
+    public void coloursTheGatesByTheirResult() {
+        // a conditional pass is not the same as a clean one, and a failed review has to stand out
+        assertEquals("done", MfgProductServices.toneOf("gate",
+                review("MFG_STAGE_CONCEPT", null, null, "MFG_REVIEW_PASS")));
+        assertEquals("conditional", MfgProductServices.toneOf("gate",
+                review("MFG_STAGE_DESIGN", null, null, "MFG_REVIEW_CONDITIONAL")));
+        assertEquals("fail", MfgProductServices.toneOf("gate",
+                review("MFG_STAGE_PROTOTYPE", null, null, "MFG_REVIEW_FAIL")));
+        // a gate with dates but without a result is still to be reviewed
+        assertEquals("plan", MfgProductServices.toneOf("gate",
+                review("MFG_STAGE_TRIAL", LocalDate.of(2026, 10, 1), null, null)));
+        assertEquals("live", MfgProductServices.toneOf("project",
+                project("DEV-261003-08", "MFG_STAGE_DESIGN", null, null, null, "MFG_DEV_ACTIVE")));
+        assertEquals("off", MfgProductServices.toneOf("project",
+                project("DEV-261003-09", "MFG_STAGE_DESIGN", null, null, null, "MFG_DEV_CANCELLED")));
+        assertEquals("off", MfgProductServices.toneOf("project",
+                project("DEV-261003-10", "MFG_STAGE_MASS", null, null, null, "MFG_DEV_DONE")));
+    }
+
+    @Test
     public void drawsTheGatesAndTheProjectsOnOneMonthAxis() {
         List<java.util.Map<String, Object>> reviews = new java.util.ArrayList<>();
         reviews.add(review("MFG_STAGE_CONCEPT", LocalDate.of(2026, 9, 3), LocalDate.of(2026, 9, 10), "MFG_REVIEW_PASS"));

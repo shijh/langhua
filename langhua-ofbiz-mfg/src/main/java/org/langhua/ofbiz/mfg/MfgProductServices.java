@@ -1218,8 +1218,12 @@ public final class MfgProductServices {
     }
 
     /**
-     * Which colour a bar gets: a signed gate is done, an open one is planned, a closed or cancelled
-     * project is off the road, anything else is running.
+     * Which colour a bar gets.
+     *
+     * <p>A gate is coloured by its result, so a conditional pass is not read as a clean one and a
+     * failed review stands out: passed is green, conditional pass amber, a failed review red, a gate
+     * with a date but no result yet is only planned (blue). A project is off the road when it was
+     * closed or cancelled and running otherwise.
      *
      * @param kind {@code gate} or {@code project}
      * @param source the row the bar stands for
@@ -1227,7 +1231,17 @@ public final class MfgProductServices {
      */
     static String toneOf(String kind, Map<?, ?> source) {
         if ("gate".equals(kind)) {
-            return MfgDevServices.stageAdvancesOn((String) source.get("resultId")) ? "done" : "plan";
+            String result = (String) source.get("resultId");
+            if (MfgConstants.REVIEW_PASS.equals(result)) {
+                return "done";
+            }
+            if (MfgConstants.REVIEW_CONDITIONAL.equals(result)) {
+                return "conditional";
+            }
+            if (MfgConstants.REVIEW_FAIL.equals(result)) {
+                return "fail";
+            }
+            return "plan";
         }
         String status = (String) source.get("statusId");
         if (MfgConstants.DEV_DONE.equals(status) || MfgConstants.DEV_CANCELLED.equals(status)) {
