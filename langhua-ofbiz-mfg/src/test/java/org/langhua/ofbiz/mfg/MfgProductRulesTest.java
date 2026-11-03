@@ -118,6 +118,99 @@ public class MfgProductRulesTest {
                 "MFG_DEV_CANCELLED", "MFG_PCB_LAYOUT", LocalDate.of(2026, 10, 24)).get("days"));
     }
 
+    @Test
+    public void measuresEachStepFromTheEndOfTheOneBefore() {
+        // the first step counts from the day the project was created, so the waiting time is in it
+        List<String> catalog = java.util.Arrays.asList("MFG_PCB_BREADBOARD", "MFG_PCB_SCHEMATIC", "MFG_PCB_LAYOUT");
+        java.util.Map<String, LocalDate> done = new java.util.LinkedHashMap<>();
+        done.put("MFG_PCB_BREADBOARD", LocalDate.of(2026, 10, 5));
+        done.put("MFG_PCB_SCHEMATIC", LocalDate.of(2026, 10, 12));
+        java.util.Map<String, Double> days = MfgDevServices.stepDays(catalog, LocalDate.of(2026, 10, 1), done);
+        assertEquals(4.0, days.get("MFG_PCB_BREADBOARD").doubleValue(), 0.001);
+        assertEquals(7.0, days.get("MFG_PCB_SCHEMATIC").doubleValue(), 0.001);
+        // a step nobody finished has no duration
+        assertEquals(2, days.size());
+    }
+
+    @Test
+    public void fitsALearningCurveOverTheFinishedProjects() {
+        // three projects of one route on an exact 90% Wright curve: T(k) = 100 * 0.9^(log2 k)
+        double b = Math.log(0.9) / Math.log(2.0);
+        List<java.util.Map<String, Double>> history = curveHistory(b);
+        java.util.Map<String, Object> estimate = MfgDevServices.durationOf(
+                java.util.Arrays.asList("A", "B"), history, new java.util.LinkedHashMap<String, Double>(),
+                LocalDate.of(2026, 11, 3), LocalDate.of(2026, 12, 31));
+        assertEquals(3, estimate.get("samples"));
+        assertEquals(b, ((Double) estimate.get("slope")).doubleValue(), 0.01);
+        assertEquals(90.0, ((Double) estimate.get("rate")).doubleValue(), 0.5);
+        // the next project of the curve: 100 * 4^b = 81 days
+        assertEquals(81.0, ((Double) estimate.get("totalDays")).doubleValue(), 1.0);
+        // the split follows the history: 60 / 40
+        List<java.util.Map<String, Object>> steps = stepsOf(estimate);
+        assertEquals(48.6, ((Double) steps.get(0).get("plannedDays")).doubleValue(), 1.0);
+        assertEquals(32.4, ((Double) steps.get(1).get("plannedDays")).doubleValue(), 1.0);
+        assertEquals(81L, estimate.get("remainingDays"));
+        assertEquals(java.sql.Date.valueOf(LocalDate.of(2027, 1, 23)), estimate.get("finishDate"));
+        // 81 days from 11-03 lands on 01-23, which is 23 days after the promised 12-31
+        assertEquals(23L, estimate.get("deltaDays"));
+    }
+
+    @Test
+    public void saysSoWhenThereIsNothingToFitYet() {
+        List<java.util.Map<String, Double>> history = new java.util.ArrayList<>();
+        history.add(twoSteps(60, 40));
+        history.add(twoSteps(54, 36));
+        java.util.Map<String, Object> estimate = MfgDevServices.durationOf(
+                java.util.Arrays.asList("A", "B"), history, new java.util.LinkedHashMap<String, Double>(),
+                LocalDate.of(2026, 11, 3), null);
+        assertEquals(2, estimate.get("samples"));
+        assertTrue(String.valueOf(estimate.get("message")).contains("2"));
+        // no curve, no dates: the page shows the counts and asks for one more finished project
+        assertNull(estimate.get("finishDate"));
+        assertNull(estimate.get("steps"));
+    }
+
+    @Test
+    public void countsOnlyTheStepsStillToComeAsRemaining() {
+        double b = Math.log(0.9) / Math.log(2.0);
+        List<java.util.Map<String, Double>> history = curveHistory(b);
+        java.util.Map<String, Double> done = new java.util.LinkedHashMap<>();
+        done.put("A", Double.valueOf(5.0));
+        java.util.Map<String, Object> estimate = MfgDevServices.durationOf(
+                java.util.Arrays.asList("A", "B"), history, done, LocalDate.of(2026, 11, 3), null);
+        // step A is behind us, only step B is still to come (40% of 81 days)
+        assertEquals(5.0, ((Double) estimate.get("spentDays")).doubleValue(), 0.001);
+        assertEquals(32L, estimate.get("remainingDays"));
+        List<java.util.Map<String, Object>> steps = stepsOf(estimate);
+        assertEquals(Boolean.TRUE, steps.get(0).get("done"));
+        assertEquals(Boolean.FALSE, steps.get(1).get("done"));
+        // without a planned launch date there is nothing to compare the finish date with
+        assertNull(estimate.get("deltaDays"));
+        assertNull(estimate.get("plannedLaunch"));
+    }
+
+    /** Three finished projects of one route, on an exact Wright curve, split 60/40 over two steps. */
+    private static List<java.util.Map<String, Double>> curveHistory(double b) {
+        List<java.util.Map<String, Double>> history = new java.util.ArrayList<>();
+        for (int k = 1; k <= 3; k++) {
+            double total = 100.0 * Math.pow(k, b);
+            history.add(twoSteps(total * 0.6, total * 0.4));
+        }
+        return history;
+    }
+
+    private static java.util.Map<String, Double> twoSteps(double first, double second) {
+        java.util.Map<String, Double> map = new java.util.LinkedHashMap<>();
+        map.put("A", Double.valueOf(first));
+        map.put("B", Double.valueOf(second));
+        return map;
+    }
+
+    @SuppressWarnings("unchecked")
+    private static List<java.util.Map<String, Object>> stepsOf(java.util.Map<String, Object> estimate) {
+        return (List<java.util.Map<String, Object>>) estimate.get("steps");
+    }
+
     private static java.util.Map<String, Object> devRow(String statusId, String productCode,
             int openIssues, int openEcos, int overdueDays) {
         java.util.Map<String, Object> map = new java.util.LinkedHashMap<>();

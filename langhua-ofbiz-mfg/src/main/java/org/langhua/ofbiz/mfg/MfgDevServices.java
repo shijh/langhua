@@ -467,8 +467,262 @@ public final class MfgDevServices {
         return answer;
     }
 
-    static Map<String, Object> toTrackStepMap(GenericValue step) {
-        Map<String, Object> map = new LinkedHashMap<>();
+    /**
+     * How long each step of a route took, for one project.
+     *
+     * <p>A step lasts from the finish of the one before it, and the first one from the day the
+     * project was created: the gaps between the steps are part of the work, and measuring each step
+     * from the same starting point would count the waiting time twice.
+     *
+     * @param catalog the steps of the route, in order
+     * @param start the day the project was created
+     * @param doneDates the day each step was finished, steps that are not finished are absent
+     * @return the days each finished step took, keyed by step
+     */
+    static Map<String, Double> stepDays(List<String> catalog, LocalDate start, Map<String, LocalDate> doneDates) {
+        Map<String, Double> days = new LinkedHashMap<>();
+        if (start == null || doneDates == null) {
+            return days;
+        }
+        LocalDate previous = start;
+        for (String stepId : catalog) {
+            LocalDate done = doneDates.get(stepId);
+            if (done == null) {
+                continue;
+            }
+            long took = java.time.temporal.ChronoUnit.DAYS.between(previous, done);
+            days.put(stepId, Double.valueOf(Math.max(0L, took)));
+            previous = done;
+        }
+        return days;
+    }
+
+    /**
+     * Fits a Wright learning curve to the durations of the projects of one route and says how long
+     * the next one will take, step by step.
+     *
+     * <p>The model is {@code T(k) = T1 * k^b}: the k-th project of a route takes {@code k^b} times
+     * what the first one took, which is the same curve the learning curve component fits for
+     * production batches, with the slope read as a learning rate ({@code 2^b}). The curve is fitted
+     * on the total duration of each finished project, and that duration is then spread over the
+     * steps by how much of the total each step took in the history (median share).
+     *
+     * <p>Nothing is made up: fewer than {@link MfgConstants#MIN_ESTIMATE_SAMPLES} finished projects
+     * means no curve at all, and the answer says how many more are needed. The slope is kept inside
+     * {@code -2..1} so one odd project cannot turn the prediction into a number nobody believes.
+     *
+     * @param catalog the steps of the route, in order
+     * @param history the finished projects of the route, oldest finish first, one map of step days each
+     * @param doneHere the steps of this project that are already finished, with the days they took
+     * @param today the day the estimate is made
+     * @param plannedLaunch the date the model was promised, may be {@code null}
+     * @return the curve, the estimate and, when there are too few samples, why there is none
+     */
+    static Map<String, Object> durationOf(List<String> catalog, List<Map<String, Double>> history,
+            Map<String, Double> doneHere, LocalDate today, LocalDate plannedLaunch) {
+        Map<String, Object> answer = new LinkedHashMap<>();
+        Map<String, Double> done = doneHere == null ? new LinkedHashMap<String, Double>() : doneHere;
+        double spent = 0.0;
+        double shareDone = 0.0;
+        for (String stepId : catalog) {
+            Double days = done.get(stepId);
+            if (days != null) {
+                spent += days.doubleValue();
+            }
+        }
+        int samples = history == null ? 0 : history.size();
+        answer.put("samples", Integer.valueOf(samples));
+        answer.put("requiredSamples", Integer.valueOf(MfgConstants.MIN_ESTIMATE_SAMPLES));
+        answer.put("spentDays", Double.valueOf(spent));
+        if (samples < MfgConstants.MIN_ESTIMATE_SAMPLES) {
+            answer.put("message", "同类路线图完工的项目只有 " + samples + " 个，至少 "
+                    + MfgConstants.MIN_ESTIMATE_SAMPLES + " 个才能拟合学习曲线");
+            return answer;
+        }
+        double sx = 0.0;
+        double sy = 0.0;
+        double sxx = 0.0;
+        double sxy = 0.0;
+        int used = 0;
+        for (int i = 0; i < samples; i++) {
+            double total = 0.0;
+            for (Double each : history.get(i).values()) {
+                total += each == null ? 0.0 : each.doubleValue();
+            }
+            if (total <= 0.0) {
+                // a project that finished the same day it started says nothing about the curve
+                continue;
+            }
+            double x = Math.log(i + 1.0);
+            double y = Math.log(total);
+            sx += x;
+            sy += y;
+            sxx += x * x;
+            sxy += x * y;
+            used++;
+        }
+        if (used < MfgConstants.MIN_ESTIMATE_SAMPLES) {
+            answer.put("message", "同类路线图完工的项目有 " + samples + " 个，但带天数的只有 " + used
+                    + " 个，至少 " + MfgConstants.MIN_ESTIMATE_SAMPLES + " 个才能拟合学习曲线");
+            return answer;
+        }
+        double denominator = used * sxx - sx * sx;
+        double slope = Math.abs(denominator) < 1e-9 ? 0.0 : (used * sxy - sx * sy) / denominator;
+        slope = Math.max(-2.0, Math.min(1.0, slope));
+        double intercept = (sy - slope * sx) / used;
+        double predicted = Math.exp(intercept + slope * Math.log(used + 1.0));
+        predicted = Math.max(1.0, Math.min(MfgConstants.MAX_ESTIMATE_DAYS, predicted));
+
+        // how much of the total each step took, median over the history, so one odd project does
+        // not move the split
+        Map<String, Double> shares = new LinkedHashMap<>();
+        for (String stepId : catalog) {
+            List<Double> each = new ArrayList<>();
+            for (Map<String, Double> project : history) {
+                double total = 0.0;
+                for (Double value : project.values()) {
+                    total += value == null ? 0.0 : value.doubleValue();
+                }
+                Double days = project.get(stepId);
+                if (total > 0.0 && days != null) {
+                    each.add(Double.valueOf(days.doubleValue() / total));
+                }
+            }
+            shares.put(stepId, Double.valueOf(MfgSupport.median(each)));
+        }
+
+        List<Map<String, Object>> rows = new ArrayList<>(catalog.size());
+        double remaining = 0.0;
+        for (String stepId : catalog) {
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("stepId", stepId);
+            row.put("share", shares.get(stepId));
+            row.put("plannedDays", Double.valueOf(predicted * shares.get(stepId).doubleValue()));
+            Double actual = done.get(stepId);
+            row.put("done", Boolean.valueOf(actual != null));
+            row.put("doneDays", actual);
+            if (actual == null) {
+                remaining += predicted * shares.get(stepId).doubleValue();
+            } else {
+                shareDone += shares.get(stepId).doubleValue();
+            }
+            rows.add(row);
+        }
+        long remainingDays = Math.max(0L, Math.round(remaining));
+        answer.put("slope", Double.valueOf(slope));
+        answer.put("rate", Double.valueOf(Math.pow(2.0, slope) * 100.0));
+        answer.put("totalDays", Double.valueOf(predicted));
+        answer.put("remainingDays", Long.valueOf(remainingDays));
+        answer.put("finishDate", java.sql.Date.valueOf(today.plusDays(remainingDays)));
+        if (plannedLaunch != null) {
+            // only filled in when the reader gave the project a date to compare the estimate with
+            answer.put("plannedLaunch", java.sql.Date.valueOf(plannedLaunch));
+            answer.put("deltaDays", Long.valueOf(java.time.temporal.ChronoUnit.DAYS.between(plannedLaunch,
+                    today.plusDays(remainingDays))));
+        }
+        answer.put("steps", rows);
+        return answer;
+    }
+
+    /**
+     * The duration estimate of one project: its route's learning curve, fed by the finished projects
+     * of the same route.
+     *
+     * @param delegator the delegator
+     * @param project the project
+     * @param catalog the steps of its route, in order
+     * @param steps the steps of this project, as the page lists them
+     * @return the estimate, or why there is none
+     * @throws GenericEntityException when the other projects cannot be read
+     */
+    static Map<String, Object> estimateOf(Delegator delegator, GenericValue project, String[] catalog,
+            List<Map<String, Object>> steps) throws GenericEntityException {
+        List<String> route = new ArrayList<>();
+        for (String stepId : catalog) {
+            route.add(stepId);
+        }
+        String trackId = project.getString("trackId");
+        if (route.isEmpty() || trackId == null) {
+            Map<String, Object> none = new LinkedHashMap<>();
+            none.put("samples", Integer.valueOf(0));
+            none.put("requiredSamples", Integer.valueOf(MfgConstants.MIN_ESTIMATE_SAMPLES));
+            none.put("message", "这个项目还没有选路线图，没有步骤可以估");
+            return none;
+        }
+        LocalDate start = MfgSupport.asLocalDate(project.get("createdStamp"));
+        Map<String, LocalDate> doneDates = new LinkedHashMap<>();
+        for (Map<String, Object> step : steps) {
+            LocalDate done = MfgSupport.asLocalDate(step.get("doneDate"));
+            if (done != null) {
+                doneDates.put(String.valueOf(step.get("stepId")), done);
+            }
+        }
+
+        // the steps of every project in one query: the route's history is read on every visit to
+        // this page, and a query per project would make it heavy
+        Map<String, List<GenericValue>> stepsByProject = new LinkedHashMap<>();
+        for (GenericValue step : EntityQuery.use(delegator).from("MfgDevTrackStep").queryList()) {
+            String code = step.getString("projectCode");
+            List<GenericValue> rows = stepsByProject.get(code);
+            if (rows == null) {
+                rows = new ArrayList<>();
+                stepsByProject.put(code, rows);
+            }
+            rows.add(step);
+        }
+        List<Object[]> finished = new ArrayList<>();
+        String projectCode = project.getString("projectCode");
+        for (GenericValue other : EntityQuery.use(delegator).from("MfgDevProject")
+                .where("trackId", trackId).queryList()) {
+            String code = other.getString("projectCode");
+            if (code.equals(projectCode) || MfgConstants.DEV_CANCELLED.equals(other.getString("statusId"))) {
+                continue;
+            }
+            List<GenericValue> rows = stepsByProject.get(code);
+            if (rows == null) {
+                continue;
+            }
+            Map<String, LocalDate> otherDone = new LinkedHashMap<>();
+            LocalDate finishedOn = null;
+            for (GenericValue step : rows) {
+                LocalDate done = MfgSupport.asLocalDate(step.get("doneDate"));
+                if (done != null) {
+                    otherDone.put(step.getString("stepId"), done);
+                    finishedOn = finishedOn == null || done.isAfter(finishedOn) ? done : finishedOn;
+                }
+            }
+            // only a project that walked the whole route says anything about how long a route takes
+            if (otherDone.size() < route.size()) {
+                continue;
+            }
+            Map<String, Double> days = stepDays(route, MfgSupport.asLocalDate(other.get("createdStamp")), otherDone);
+            if (days.isEmpty()) {
+                continue;
+            }
+            finished.add(new Object[] {finishedOn, days});
+        }
+        finished.sort(new java.util.Comparator<Object[]>() {
+            @Override
+            public int compare(Object[] left, Object[] right) {
+                LocalDate one = (LocalDate) left[0];
+                LocalDate two = (LocalDate) right[0];
+                if (one == null || two == null) {
+                    return one == null ? -1 : 1;
+                }
+                return one.compareTo(two);
+            }
+        });
+        List<Map<String, Double>> history = new ArrayList<>(finished.size());
+        for (Object[] each : finished) {
+            @SuppressWarnings("unchecked")
+            Map<String, Double> days = (Map<String, Double>) each[1];
+            history.add(days);
+        }
+        return durationOf(route, history, stepDays(route, start, doneDates), LocalDate.now(),
+                MfgSupport.asLocalDate(project.get("plannedLaunchDate")));
+    }
+
+    static Map<String, Object> toTrackStepMap(GenericValue step) {        Map<String, Object> map = new LinkedHashMap<>();
         map.put("stepId", step.getString("stepId"));
         map.put("statusId", step.getString("statusId"));
         map.put("plannedDate", step.get("plannedDate"));
@@ -825,6 +1079,7 @@ public final class MfgDevServices {
             result.put("steps", steps);
             result.put("trackId", trackId);
             result.put("stageIndex", Integer.valueOf(devStageIndex(productStageId)));
+            result.put("estimate", estimateOf(delegator, project, catalog, steps));
             return result;
         } catch (GenericEntityException e) {
             return ServiceUtil.returnError("Could not read the development project: " + e.getMessage());

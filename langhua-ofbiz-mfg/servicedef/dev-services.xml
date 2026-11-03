@@ -67,6 +67,7 @@
         <attribute name="steps" type="java.util.List" mode="OUT" optional="true"/>
         <attribute name="trackId" type="String" mode="OUT" optional="true"/>
         <attribute name="stageIndex" type="Long" mode="OUT" optional="true"/>
+        <attribute name="estimate" type="java.util.Map" mode="OUT" optional="true"/>
     </service>
 
 

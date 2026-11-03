@@ -957,6 +957,20 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   列表显示 `33 天` 且 `title` 带原因、`dev?overdue=Y` 只剩它、看板出现「项目超期」并链到该项目 →
   最后把它改成未来日期，确认不再算超期）。**脚本必须只写 ASCII 并注意两点**：PS 5.1 按 ANSI 读无 BOM 的 `.ps1`，
   中文断言会直接把脚本解析坏；从服务来的中文在页面上是**小写**十六进制实体（`&#x8ba1;`），模板里的字面量不是。
+- **工期预估（Step 276）**：项目详情里一块「工期预估（学习曲线）」，数据在 `mfgDevProjectDetail` 的 OUT `estimate`。
+  三个纯函数：`stepDays(catalog, 立项日, Map<stepId, 完成日>)`（上一步完成日 → 这一步，第一步从立项日）、
+  `durationOf(catalog, history, doneHere, today, 计划上市日)`（Wright 拟合 + 按中位占比摊到各步 + 剩余天数与完工日）、
+  `estimateOf(delegator, project, catalog, steps)`（挑样本：**同路线图、走完全部步骤、未取消**，按最后一步完成日排队）。
+  **样本 < `MIN_ESTIMATE_SAMPLES`(3) 就不出数**，只回一句“还差几个”；斜率夹在 −2..1、总工期夹在 1..`MAX_ESTIMATE_DAYS`(3650)。
+  两件容易踩的：
+  ① **测试数据必须落在曲线上**：`T(k)=T1·k^b` 是 k 的幂函数，不是指数函数——用过 100/90/81 那种等比数列去断言，
+  最小二乘会给出 −0.1875 而不是 log2(0.9) 的 −0.152（单测里现在用 `100·k^b` 生成数据）；
+  ② **模板里别放空键**：`answer.put("message", null)` 之后 `est.message??` 是 **true**（键存在、值为 null），
+  页面会走错分支——所以成功时不放 `message`、没计划上市日时不放 `deltaDays`；
+  日期从 Java 出去时转成 `java.sql.Date`（`LocalDate` 给 FreeMarker 的 `?string("yyyy-MM-dd")` 不一定好使）。
+  验法：`%TEMP%\jup\check-estimate.ps1`（10 项：建 3 个走完的 PCB 项目 + 1 个被测项目 → 卡片 3 个样本、
+  学习率、总工期、预计完工日、5 行分摊表、与计划上市日的差值；`-keep` 留数据好看页面，最后把 4 个项目都取消，
+  再确认页面回到「样本不足」）。
 - **步骤问题清单**：`MfgDevStepIssue`（`issueId` = `ISSUE-yyMMdd-NN`，`projectCode` + 可选 `stepId`），
   三态 `MFG_ISSUE_OPEN/DOING/CLOSED`、三档严重度 `LOW/MEDIUM/HIGH`；服务 `mfgDevStepIssueSave/List/Status`，
   页面在开发项目页（`id="issueTable"`，锚点 `#issues`），项目列表与步骤表各显示一个未结数（`openIssueCount`）；

@@ -195,6 +195,12 @@ public final class MfgConstants {
     /** How many days a project may stand still before the dashboard asks about it. */
     public static final long DEV_STALL_DAYS = 10L;
 
+    /** How many finished projects of one route map a duration estimate needs before it is made. */
+    public static final int MIN_ESTIMATE_SAMPLES = 3;
+
+    /** The longest duration a learning curve may predict, so a bad fit cannot promise years. */
+    public static final int MAX_ESTIMATE_DAYS = 3650;
+
     /** A warning that is worth a look. */
     public static final String ALERT_WARN = "WARN";
 

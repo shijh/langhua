@@ -300,6 +300,65 @@
             实际上市：<#if project.actualLaunchDate??>${project.actualLaunchDate?string("yyyy-MM-dd")}<#else>-</#if></li>
     </ul>
 
+    <#--
+      The duration estimate rests on the projects of the same route map that were finished before this
+      one: a Wright curve over their total durations, then the total is spread over the steps by the
+      share each step took in that history (mfgDevProjectDetail.estimate).
+    -->
+    <#assign est = (d.estimate)!{}>
+    <h3 id="estimate">工期预估（学习曲线）</h3>
+    <#if (est.message)??>
+        <p class="hint" data-estimate-none="Y">${est.message}。同一个路线图走完 <b>${(est.requiredSamples)!3}</b> 个项目之后这里会给出预计完工日。</p>
+    <#else>
+        <p class="hint">按同一个路线图已完工项目的实际天数拟合 Wright 学习曲线：第 k 个项目用时 = 第一个 × k<sup>b</sup>，
+            斜率 b 换算成学习率 2<sup>b</sup>；再把预计总工期按历史上各步占的比例摊到每一步。</p>
+        <div class="cards" data-estimate="dev">
+            <div class="card" data-card="samples">
+                <div class="label">同类完工项目</div>
+                <div class="value">${(est.samples)!0}<span class="hint">个样本</span></div>
+            </div>
+            <div class="card" data-card="rate">
+                <div class="label">学习率</div>
+                <div class="value">${((est.rate)!0)?string("0.0")}<span class="hint">%（斜率 ${((est.slope)!0)?string("0.000")}）</span></div>
+            </div>
+            <div class="card" data-card="totalDays">
+                <div class="label">预计总工期</div>
+                <div class="value">${((est.totalDays)!0)?string("0")}<span class="hint">天</span></div>
+            </div>
+            <div class="card" data-card="spentDays">
+                <div class="label">已完成用了</div>
+                <div class="value">${((est.spentDays)!0)?string("0")}<span class="hint">天</span></div>
+            </div>
+            <div class="card" data-card="remainingDays">
+                <div class="label">剩余预计</div>
+                <div class="value">${(est.remainingDays)!0}<span class="hint">天</span></div>
+            </div>
+            <div class="card" data-card="finishDate">
+                <div class="label">预计完工</div>
+                <div class="value">${(est.finishDate)?string("yyyy-MM-dd")}</div>
+            </div>
+        </div>
+        <p data-estimate-delta="<#if est.deltaDays??>${est.deltaDays}<#else></#if>">
+            <#if !est.deltaDays??><span class="hint">没有填计划上市日，只给出预计完工日。</span>
+            <#elseif (est.deltaDays) gt 0><span class="error">比计划上市日（${est.plannedLaunch?string("yyyy-MM-dd")}）晚 ${est.deltaDays} 天</span>
+            <#elseif (est.deltaDays) lt 0><span class="ok">比计划上市日（${est.plannedLaunch?string("yyyy-MM-dd")}）早 ${(est.deltaDays)?abs} 天</span>
+            <#else><span class="ok">正好是计划上市日（${est.plannedLaunch?string("yyyy-MM-dd")}）</span></#if>
+            <span class="hint">——预计完工日 = 今天 + 剩余各步预计天数；已完成的那几步按实际天数计。</span>
+        </p>
+        <table id="estimateSteps" data-estimate-steps="${(est.steps)?size}">
+            <tr><th class="num">#</th><th>步骤</th><th class="num">历史占比</th><th class="num">预计天数</th><th>本项目</th></tr>
+            <#list (est.steps)![] as s>
+                <tr data-estimate-step="${s.stepId}" data-estimate-days="${(s.plannedDays)?string("0.#")}">
+                    <td class="num">${s_index + 1}</td>
+                    <td>${stepLabel(s.stepId)}</td>
+                    <td class="num">${((s.share) * 100)?string("0")}%</td>
+                    <td class="num"><#if s.done><span class="hint">${(s.plannedDays)?string("0.#")}</span><#else>${(s.plannedDays)?string("0.#")}</#if></td>
+                    <td><#if s.done><span class="ok">已完成 ${((s.doneDays)!0)?string("0.#")} 天</span><#else><span class="hint">待做</span></#if></td>
+                </tr>
+            </#list>
+        </table>
+    </#if>
+
     <#if steps?has_content>
         <h3 id="steps">${trackLabel(trackId)} 路线图（${steps?size} 步）</h3>
         <table>
