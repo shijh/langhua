@@ -209,7 +209,7 @@
                 <td>${p.projectName!}</td>
                 <td><#if (p.stepTotal!0) gt 0><a href="/mfg/control/dev?projectCode=${p.projectCode}#steps" title="看这张路线图的全部步骤">${trackLabel(p.trackId!'')}</a><#else><span class="hint">未选路线图</span></#if></td>
                 <td>${p.partCode!}</td>
-                <td>${p.productCode!}</td>
+                <td data-project-product="<#if (p.productCode!'') != ''>${p.productCode}</#if>"><#if (p.productCode!'') != ''><a href="/mfg/control/products?productCode=${p.productCode}#stages" title="到这个型号的产品页看阶段评审与 BOM">${p.productCode}</a><#else><span class="hint">未关联</span></#if></td>
                 <td data-project-stage="${(p.stageId)!''}"><#if (p.stageId!'') != ''>${stageLabel(p.stageId)}<#else><span class="hint">未定</span></#if></td>
                 <td class="num"><#if (p.stepTotal!0) gt 0>${p.stepDone} / ${p.stepTotal}<#else>-</#if></td>
                 <td><#if p.currentStepId??>${stepLabel(p.currentStepId)}<#else><span class="ok">已走完</span></#if></td>
