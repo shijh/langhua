@@ -170,6 +170,33 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   要改就得先把行表单的字段改名，别只加 `<redirect-parameter>`。
 - 新的行内表单照这三条挑一个：`backTo` 最省事，`narrowToTheLot` 适合“排序会把行挤走”的列表。
 
+## UI 规则：保存被拒时不清空表单（Step 279）
+
+**表单被服务拒绝时，刚填的内容要留在页面上，并把出错的那一项标出来**（用户报的：产品页保存型号时报
+「SN 前缀最长 10 个字符」，回来型号编码 / 名称 / 工时 / 售价全没了，只能重打一遍）。
+
+控件在 `controller.xml`：`productSave` 的 `error` 是 **view**（不是 redirect），所以请求参数还在，
+模板里能读到。`products.ftl` 顶部据此算出一组 `f*` 变量：
+
+```ftl
+<#assign submitted = (parameters.snPrefix)?? && (parameters.standardHours)??>
+... 正常走 model（product.xxx），<#if submitted> 时改用 (parameters.xxx)!'' ...
+<#assign badPrefix = (fPrefix?length) gt 10>
+```
+
+- **判据用“这张表单自己的字段”**（`snPrefix` + `standardHours` 都在），别用 `errList?has_content`：
+  BOM 导入、版本启用这些表单报错时也会回到 `products` 视图，用 `errList` 会把型号表单误填成空。
+- 标红用 `class="bad"` + `aria-invalid="true"`（`mfg.css` 里 `input.bad / select.bad / textarea.bad`：
+  红边框 + 浅红底），旁边一句 `<span class="error" data-field-error="字段名">`，并给它 `autofocus`。
+- 校验限制要**和服务一致**（`MfgConstants.MAX_PRODUCT_CODE` 20 / `MAX_SN_PREFIX` 10 / 上代产品不能是自己）；
+  `productSave` 也补了型号编码的长度检查，别再让 Derby 的 truncation 错误当提示。
+- **不要给输入框加 `maxlength`**：浏览器会静默截断（试过，Playwright `fill` 直接被截成 10 个字符、
+  保存居然成功），人不知道自己打的东西被吃掉了，比红框更糟。
+- **参数里带 `<` 会被 `ControlFilter` 直接 500**（`For security reason this URL is not accepted`），
+  所以真机验证只能用 `"`、`&` 这类字符；顺手确认了回填值**不会双重转义**（`天遥"终端 & 演示` 原样回来）。
+- 值直接 `${fPrefix}` 输出，**不要 `?html`**：上下文里的字符串已经是 `StringHtmlWrapperForFtl`
+  （`login.ftl` 的 `${typed}` 同理），再 `?html` 会显示成字面的 `&#34;`。
+
 
 ## 测试与巡检
 

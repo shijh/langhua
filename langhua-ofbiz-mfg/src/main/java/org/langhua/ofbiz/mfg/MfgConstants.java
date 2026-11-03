@@ -564,6 +564,12 @@ public final class MfgConstants {
     /** The {@code componentCode} fields are of type {@code name}, so 100 characters are the limit. */
     static final int MAX_COMPONENT_CODE = 100;
 
+    /** A model code is an {@code id} column, so 20 characters are the limit. */
+    static final int MAX_PRODUCT_CODE = 20;
+
+    /** The SN prefix is a {@code very-short} column, so 10 characters are the limit. */
+    static final int MAX_SN_PREFIX = 10;
+
     /** Biggest image accepted, in bytes. */
     public static final long IMAGE_MAX_BYTES = 4L * 1024L * 1024L;
 

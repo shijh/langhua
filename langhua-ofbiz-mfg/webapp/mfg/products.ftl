@@ -27,6 +27,50 @@
 <#assign previousProduct = (d.previousProduct)!{}>
 <#assign successors = (d.successors)![]>
 
+<#--
+  A refused save comes back to this same view (controller.xml: productSave error -> view products),
+  and the request parameters still hold what was typed. Show it again and point at the field the
+  service refused, instead of handing back an empty form the reader has to retype.
+  The limits below are the ones MfgProductServices.productSave checks.
+-->
+<#assign submitted = (parameters.snPrefix)?? && (parameters.standardHours)??>
+<#assign fCode = (product.productCode)!''>
+<#assign fName = (product.productName)!''>
+<#assign fPrefix = (product.snPrefix)!''>
+<#assign fHours = ''>
+<#if product.standardHours??><#assign fHours = product.standardHours?string("0.##")></#if>
+<#assign fRate = ''>
+<#if product.laborRate??><#assign fRate = product.laborRate?string("0.##")></#if>
+<#assign fWarranty = '12'>
+<#if product.warrantyMonths??><#assign fWarranty = product.warrantyMonths?string("0")></#if>
+<#assign fPrice = '0'>
+<#if product.salePrice??><#assign fPrice = product.salePrice?string("0.##")></#if>
+<#assign fPrevious = (product.previousProductCode)!''>
+<#assign fStage = (product.devStageId)!'MFG_STAGE_CONCEPT'>
+<#assign badCode = false>
+<#assign badPrefix = false>
+<#assign badPrevious = false>
+<#assign badCodeNote = ''>
+<#if submitted>
+    <#assign fCode = (parameters.productCode)!''>
+    <#assign fName = (parameters.productName)!''>
+    <#assign fPrefix = (parameters.snPrefix)!''>
+    <#assign fHours = (parameters.standardHours)!''>
+    <#assign fRate = (parameters.laborRate)!''>
+    <#assign fWarranty = (parameters.warrantyMonths)!'12'>
+    <#assign fPrice = (parameters.salePrice)!'0'>
+    <#assign fPrevious = (parameters.previousProductCode)!''>
+    <#assign fStage = (parameters.devStageId)!((product.devStageId)!'MFG_STAGE_CONCEPT')>
+    <#assign badCode = !fCode?has_content>
+    <#if badCode><#assign badCodeNote = '必填'></#if>
+    <#if !badCode && ((fCode?length) gt 20)>
+        <#assign badCode = true>
+        <#assign badCodeNote = '最长 20 个字符（现在 ' + (fCode?length)?c + ' 个）'>
+    </#if>
+    <#assign badPrefix = (fPrefix?length) gt 10>
+    <#assign badPrevious = fPrevious?has_content && ((fPrevious?lower_case) == (fCode?lower_case))>
+</#if>
+
 <#function stageLabel stageId>
     <#if (stageId!'') == 'MFG_STAGE_CONCEPT'><#return '概念'>
     <#elseif (stageId!'') == 'MFG_STAGE_DESIGN'><#return '设计'>
@@ -119,22 +163,25 @@
     <legend>新建 / 更新型号</legend>
     <form method="post" action="/mfg/control/productSave">
         <p>
-            型号编码 <input type="text" name="productCode" size="10" value="${product.productCode!''}"/>
-            名称 <input type="text" name="productName" size="22" value="${product.productName!''}"/>
-            SN 前缀 <input type="text" name="snPrefix" size="8" value="${product.snPrefix!''}"/>
-            标准工时/台 <input type="text" name="standardHours" size="6" value="<#if product.standardHours??>${product.standardHours?string("0.##")}</#if>" data-hours-source="${(product.standardHoursSource)!''}"/><#if (product.standardHoursSource!'') == 'LEARNING_CURVE'><span class="hint">（学习曲线回填，基准 ${((product.standardHoursBaseQty)!0)?string("0.##")} 台，估算 ${(product.standardHoursEstimateRef)!''}）</span><#else><span class="hint">（手工填写）</span></#if>
-            工时费率 <input type="text" name="laborRate" size="6" value="<#if product.laborRate??>${product.laborRate?string("0.##")}</#if>" title="元/小时，用于成本核算"/>
-            保修月数 <input type="text" name="warrantyMonths" size="4" value="${product.warrantyMonths!12}"/>
-            售价 <input type="text" name="salePrice" size="7" value="${product.salePrice!0}"/>
-            上代产品 <input type="text" name="previousProductCode" size="10" value="${(product.previousProductCode)!''}" placeholder="被它替代的型号"/>
+            型号编码 <input type="text" name="productCode" size="10" value="${fCode}" data-field="productCode"<#if badCode> class="bad" aria-invalid="true" autofocus="autofocus"</#if>/><#if badCode><span class="error" data-field-error="productCode">${badCodeNote}</span></#if>
+            名称 <input type="text" name="productName" size="22" value="${fName}" data-field="productName"/>
+            SN 前缀 <input type="text" name="snPrefix" size="8" value="${fPrefix}" data-field="snPrefix"<#if badPrefix> class="bad" aria-invalid="true"<#if !badCode> autofocus="autofocus"</#if></#if>/><#if badPrefix><span class="error" data-field-error="snPrefix">最长 10 个字符（现在 ${fPrefix?length} 个）：型号编码超过 10 位时，这里要给一个短前缀</span></#if>
+            标准工时/台 <input type="text" name="standardHours" size="6" value="${fHours}" data-hours-source="${(product.standardHoursSource)!''}"/><#if (product.standardHoursSource!'') == 'LEARNING_CURVE'><span class="hint">（学习曲线回填，基准 ${((product.standardHoursBaseQty)!0)?string("0.##")} 台，估算 ${(product.standardHoursEstimateRef)!''}）</span><#else><span class="hint">（手工填写）</span></#if>
+            工时费率 <input type="text" name="laborRate" size="6" value="${fRate}" title="元/小时，用于成本核算"/>
+            保修月数 <input type="text" name="warrantyMonths" size="4" value="${fWarranty}"/>
+            售价 <input type="text" name="salePrice" size="7" value="${fPrice}"/>
+            上代产品 <input type="text" name="previousProductCode" size="10" value="${fPrevious}" placeholder="被它替代的型号" data-field="previousProductCode"<#if badPrevious> class="bad" aria-invalid="true"</#if>/><#if badPrevious><span class="error" data-field-error="previousProductCode">不能是型号自己</span></#if>
             开发阶段
             <select name="devStageId">
                 <#list ['MFG_STAGE_CONCEPT','MFG_STAGE_DESIGN','MFG_STAGE_PROTOTYPE','MFG_STAGE_TRIAL','MFG_STAGE_MASS'] as stage>
-                    <option value="${stage}"<#if (product.devStageId!'') == stage> selected="selected"</#if>>${stageLabel(stage)}</option>
+                    <option value="${stage}"<#if fStage == stage> selected="selected"</#if>>${stageLabel(stage)}</option>
                 </#list>
             </select>
             <input type="submit" value="保存"/>
         </p>
+        <#if submitted && (badCode || badPrefix || badPrevious)>
+            <p class="hint" data-form-kept="Y">刚才填的都还在，红色的那几项改好再保存。</p>
+        </#if>
     </form>
 </fieldset>
 

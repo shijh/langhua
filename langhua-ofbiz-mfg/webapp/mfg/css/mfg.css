@@ -158,6 +158,16 @@ input:focus, select:focus, textarea:focus {
     outline-offset: -1px;
     border-color: var(--accent);
 }
+/* a field the service refused: the value stays, the field says which one is wrong (Step 279) */
+input.bad, select.bad, textarea.bad {
+    border-color: var(--error);
+    box-shadow: inset 0 0 0 1px var(--error);
+    background: rgba(241, 76, 76, 0.10);
+}
+input.bad:focus, select.bad:focus, textarea.bad:focus {
+    outline-color: var(--error);
+    border-color: var(--error);
+}
 /* a picker with long option texts (security groups) must not stretch the whole page */
 select.compact { max-width: 26em; }
 /* short, structured values (a state, a date) should never break into a vertical word */

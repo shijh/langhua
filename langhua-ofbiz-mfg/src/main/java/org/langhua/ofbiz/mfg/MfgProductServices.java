@@ -85,6 +85,12 @@ public final class MfgProductServices {
         if (productCode == null) {
             return ServiceUtil.returnError("productCode is required");
         }
+        // productCode is an id column (20 characters): without this guard Derby answers with a
+        // truncation error the page cannot explain
+        if (productCode.length() > MfgConstants.MAX_PRODUCT_CODE) {
+            return ServiceUtil.returnError("型号编码最长 " + MfgConstants.MAX_PRODUCT_CODE
+                    + " 个字符（现在是 \"" + productCode + "\"，" + productCode.length() + " 个）");
+        }
         try {
             // an existing model keeps everything this form does not carry (the current BOM
             // version, the source of the standard hours, the stage it has reached)
@@ -99,9 +105,10 @@ public final class MfgProductServices {
             }
             // snPrefix is a very-short field (10 characters): without this guard Derby refuses the
             // row and the page only shows a database error
-            if (snPrefix.length() > 10) {
-                return ServiceUtil.returnError("SN 前缀最长 10 个字符（现在是 \"" + snPrefix
-                        + "\"）：不带前缀时它默认取型号编码，型号编码超过 10 位就要自己给一个短前缀");
+            if (snPrefix.length() > MfgConstants.MAX_SN_PREFIX) {
+                return ServiceUtil.returnError("SN 前缀最长 " + MfgConstants.MAX_SN_PREFIX + " 个字符（现在是 \""
+                        + snPrefix + "\"）：不带前缀时它默认取型号编码，型号编码超过 " + MfgConstants.MAX_SN_PREFIX
+                        + " 位就要自己给一个短前缀");
             }
             product.set("snPrefix", snPrefix);
             double newHours = MfgSupport.toDouble(context.get("standardHours"), 0.0);
