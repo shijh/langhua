@@ -229,7 +229,7 @@
                     </div>
                 </div>
                 <#list ganttRows as r>
-                    <div class="gantt-row<#if r.kind == 'gate'> gantt-gate</#if>" data-gantt-row="${r.kind}">
+                    <div class="gantt-row<#if r.kind == 'gate'> gantt-gate<#else> gantt-project</#if>" data-gantt-row="${r.kind}"<#if (r.stageId!'') != ''> data-gantt-stage="${r.stageId}"</#if>>
                         <div class="gantt-name">
                             <#if r.kind == 'gate'>
                                 <span class="gantt-kind">评审</span>${stageLabel(r.stageId!'')}

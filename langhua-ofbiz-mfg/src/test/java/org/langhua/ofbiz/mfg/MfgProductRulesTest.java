@@ -92,17 +92,34 @@ public class MfgProductRulesTest {
         assertEquals(Boolean.FALSE, gantt.get("empty"));
 
         List<?> rows = (List<?>) gantt.get("rows");
+        // one stage at a time: the review of the stage, then the projects working on that stage,
+        // then the next stage - so a project is read under the stage it belongs to
         assertEquals(4, rows.size());
         java.util.Map<?, ?> firstGate = (java.util.Map<?, ?>) rows.get(0);
         assertEquals("gate", firstGate.get("kind"));
+        assertEquals("MFG_STAGE_CONCEPT", firstGate.get("stageId"));
         // a signed gate is green, the open one is only planned
         assertEquals("done", firstGate.get("tone"));
         assertEquals("2026-09-03", firstGate.get("startText"));
         assertEquals("09-03", firstGate.get("startShort"));
-        assertEquals("plan", ((java.util.Map<?, ?>) rows.get(1)).get("tone"));
 
-        java.util.Map<?, ?> live = (java.util.Map<?, ?>) rows.get(2);
+        java.util.Map<?, ?> cancelled = (java.util.Map<?, ?>) rows.get(1);
+        assertEquals("project", cancelled.get("kind"));
+        assertEquals("MFG_STAGE_CONCEPT", cancelled.get("stageId"));
+        // a cancelled project is greyed out
+        assertEquals("off", cancelled.get("tone"));
+
+        java.util.Map<?, ?> designGate = (java.util.Map<?, ?>) rows.get(2);
+        assertEquals("gate", designGate.get("kind"));
+        assertEquals("MFG_STAGE_DESIGN", designGate.get("stageId"));
+        assertEquals("plan", designGate.get("tone"));
+        // the gate is still open, so its bar reaches today
+        assertEquals(Boolean.FALSE, designGate.get("noDates"));
+        assertEquals("2026-10-05", designGate.get("endText"));
+
+        java.util.Map<?, ?> live = (java.util.Map<?, ?>) rows.get(3);
         assertEquals("project", live.get("kind"));
+        assertEquals("MFG_STAGE_DESIGN", live.get("stageId"));
         assertEquals("live", live.get("tone"));
         assertEquals(Boolean.FALSE, live.get("noDates"));
         // the dates of a bar are written inside it only when it is wide enough, else just outside
@@ -111,8 +128,6 @@ public class MfgProductRulesTest {
         assertEquals(Boolean.FALSE, firstGate.get("labelInside"));
         assertEquals("09-03 → 09-10", firstGate.get("caption"));
         assertEquals("after", firstGate.get("tagSide"));
-        // a cancelled project is greyed out
-        assertEquals("off", ((java.util.Map<?, ?>) rows.get(3)).get("tone"));
 
         // the bars are percentages the stylesheet can use as they are, never locale formatted
         String left = (String) live.get("left");

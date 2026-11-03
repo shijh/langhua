@@ -602,6 +602,13 @@ tr.saved-row td {
 .gantt-row.gantt-gate {
     background: rgba(78, 201, 176, 0.05);
 }
+/* a project row sits under the stage it works on, indented and with a short upright line, so the
+   stage it belongs to is read from the row above it and not from a column */
+.gantt-row.gantt-project .gantt-name {
+    padding-left: 1.5em;
+    border-left: 2px solid rgba(78, 201, 176, 0.35);
+    margin-left: 1.1em;
+}
 .gantt-name {
     flex: 0 0 15em;
     min-width: 0;

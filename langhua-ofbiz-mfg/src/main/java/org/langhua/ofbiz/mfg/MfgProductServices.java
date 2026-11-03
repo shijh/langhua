@@ -1064,30 +1064,24 @@ public final class MfgProductServices {
      */
     static Map<String, Object> ganttOf(List<Map<String, Object>> reviews, List<Map<String, Object>> projects,
             LocalDate today) {
+        // one stage at a time: its review, then the projects that work on that stage, so a project
+        // is read right under the stage it belongs to; the projects of a stage the ladder does not
+        // know come last instead of disappearing
         List<Object[]> spans = new ArrayList<>();
+        List<Map<String, Object>> loose = new ArrayList<>(projects);
         for (Map<String, Object> review : reviews) {
-            LocalDate planned = MfgSupport.asLocalDate(review.get("plannedDate"));
-            LocalDate done = MfgSupport.asLocalDate(review.get("doneDate"));
-            LocalDate start = planned != null ? planned : done;
-            LocalDate end = done != null ? done : (start == null ? null : today);
-            spans.add(new Object[] {"gate", review, start, end});
+            spans.add(spanOf("gate", review, today));
+            String stage = (String) review.get("stageId");
+            for (java.util.Iterator<Map<String, Object>> it = loose.iterator(); it.hasNext();) {
+                Map<String, Object> project = it.next();
+                if (stage != null && stage.equals(project.get("stageId"))) {
+                    spans.add(spanOf("project", project, today));
+                    it.remove();
+                }
+            }
         }
-        for (Map<String, Object> project : projects) {
-            LocalDate start = MfgSupport.asLocalDate(project.get("startDate"));
-            LocalDate end = MfgSupport.asLocalDate(project.get("actualLaunchDate"));
-            if (end == null) {
-                end = MfgSupport.asLocalDate(project.get("plannedLaunchDate"));
-            }
-            if (end == null) {
-                end = start == null ? null : today;
-            }
-            if (start == null) {
-                start = end;
-            }
-            if (start != null && end != null && end.isBefore(start)) {
-                end = start;
-            }
-            spans.add(new Object[] {"project", project, start, end});
+        for (Map<String, Object> project : loose) {
+            spans.add(spanOf("project", project, today));
         }
 
         LocalDate first = null;
@@ -1186,6 +1180,41 @@ public final class MfgProductServices {
         gantt.put("todayText", MfgSupport.dayText(today));
         gantt.put("empty", Boolean.FALSE);
         return gantt;
+    }
+
+    /**
+     * The span of one bar: a gate runs from its planned review to the review itself (still open: to
+     * today), a project from the day it was created to its launch day (planned launch if it has not
+     * launched; today if it has neither).
+     *
+     * @param kind {@code gate} or {@code project}
+     * @param source the review or the project
+     * @param today the day an open-ended span reaches
+     * @return {@code {kind, source, start, end}}, the dates may be {@code null}
+     */
+    static Object[] spanOf(String kind, Map<String, Object> source, LocalDate today) {
+        if ("gate".equals(kind)) {
+            LocalDate planned = MfgSupport.asLocalDate(source.get("plannedDate"));
+            LocalDate done = MfgSupport.asLocalDate(source.get("doneDate"));
+            LocalDate start = planned != null ? planned : done;
+            LocalDate end = done != null ? done : (start == null ? null : today);
+            return new Object[] {kind, source, start, end};
+        }
+        LocalDate start = MfgSupport.asLocalDate(source.get("startDate"));
+        LocalDate end = MfgSupport.asLocalDate(source.get("actualLaunchDate"));
+        if (end == null) {
+            end = MfgSupport.asLocalDate(source.get("plannedLaunchDate"));
+        }
+        if (end == null) {
+            end = start == null ? null : today;
+        }
+        if (start == null) {
+            start = end;
+        }
+        if (start != null && end != null && end.isBefore(start)) {
+            end = start;
+        }
+        return new Object[] {kind, source, start, end};
     }
 
     /**

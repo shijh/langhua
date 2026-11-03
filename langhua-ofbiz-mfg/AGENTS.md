@@ -886,11 +886,14 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   （产品当前阶段从 `MfgProduct.devStageId` 起算，历史评审在产品页显示「未评审」）。
   巡检：`verify-m13.ps1` 改成 54 项（产品页五个阶段的评审 + 登记表单、项目页只读阶段与「在做哪一步」、列表有阶段列）。
 - **产品页的甘特图（Step 268）**：用户要“产品中能列表展示产品与项目的关系，最好是甘特图”。产品页新增
-  `id="projects"` 一块：**行 = 五个阶段的评审（计划评审日 → 实际评审日，没评审的画到今天）+ 行 = 每个项目
-  （`createdStamp` → 实际上市日，否则计划上市日，否则今天）**，共用一条按月的时间轴，黄竖线是今天；
+  `id="projects"` 一块：**按阶段分块**——每个阶段先它自己的评审行（计划评审日 → 实际评审日，没评审的画到今天），
+  紧跟**该阶段的项目行**（`createdStamp` → 实际上市日，否则计划上市日，否则今天），再下一个阶段；
+  阶段不在阶梯上的项目排在最末尾（不能丢）。整张图共用一条按月的时间轴，黄竖线是今天；
+  项目行的名字缩进一格、左边一道青色竖线，表示它从属于上面那个阶段（不再靠一列「阶段」说明）。
   下面是 `id="productProjects"` 表，**按阶段分组**（概念→量产，没有阶段的最后一组）。
   数据在 `mfgProductDetail` 的 `projects` / `stageGroups` / `gantt` 三个 OUT 里：
-  `projectsOf`（projectsOf 只读单表，不做闭包查询）、`projectsByStage`、`ganttOf(reviews, projects, today)`。
+  `projectsOf`（只读单表，不做闭包查询）、`projectsByStage`、`ganttOf(reviews, projects, today)`
+  （由 `spanOf(kind, source, today)` 算出每根条的起止）。
   **位置、宽高全部由 Java 算成百分比字符串**（`percent()` 用 `Locale.ROOT`）：模板里再算会被页面 locale
   写成 `12,5`，样式就废了。`empty` 为真（一条日期都没有）时模板给一句提示，不画空轴。
   条的**日期文字写在条外**（`.gantt-tag`），因为轨道宽度是窗口的百分比、算不出像素；
