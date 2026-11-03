@@ -949,7 +949,7 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   不再用那两条按项目归组的批量查询——那两个方法已删）。列表新增「超期」列（`data-project-overdue`）、
   卡片「超期」→ `dev?overdue=Y`、筛选下拉「进度 = 已超期」。
   **看板告警**：`mfgAlerts` 多一种 `MFG_ALERT_DEV`（>3 天 ERROR、1~3 天 WARN），外加一条
-  「立项 `DEV_STALL_DAYS`(30) 天一步没完成」的 WARN；`buildAlerts` 里 `addDevAlerts` 用**一条**
+  「立项 `DEV_STALL_DAYS`(10) 天一步没完成」的 WARN；`buildAlerts` 里 `addDevAlerts` 用**一条**
   `MfgDevTrackStep` 查询把步骤按项目归组（看板 60 秒自刷新，别按项目循环查）。
   告警里的步骤名是 `MfgReportServices.stepNameOf`（Java 里一份，模板里一份 `stepLabel`）——**加新步骤两处都要改**。
   `alerts()` 的 `claimCount` 原来是“总数 − 欠料”，加了项目告警后会算错，已改成按 typeId 分类计数并补 `devCount`。
