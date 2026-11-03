@@ -587,8 +587,10 @@ tr.saved-row td {
 .gantt-row, .gantt-head {
     display: flex;
     align-items: center;
-    gap: .6em;
-    padding: .18em .6em;
+    /* rem, not em: the head sets a smaller font size, and em padding/gap made its track start a few
+       pixels left of the rows' one, which put the month labels out of step with the bars */
+    gap: .6rem;
+    padding: .18rem .6rem;
 }
 .gantt-head {
     background: var(--bg-bar);
@@ -602,15 +604,21 @@ tr.saved-row td {
 .gantt-row.gantt-gate {
     background: rgba(78, 201, 176, 0.05);
 }
-/* a project row sits under the stage it works on, indented and with a short upright line, so the
-   stage it belongs to is read from the row above it and not from a column */
+/* a project row sits under the stage it works on: the name is indented and a short upright rail
+   marks the nesting. The rail is a background line and not a border or margin, because those would
+   widen this one cell and push its track (and so every bar of the row) to the right - the rows of a
+   picture like this have to share one column width to line up */
 .gantt-row.gantt-project .gantt-name {
-    padding-left: 1.5em;
-    border-left: 2px solid rgba(78, 201, 176, 0.35);
-    margin-left: 1.1em;
+    padding-left: 1.6em;
+    background-image: linear-gradient(to right, transparent 0.7em, rgba(78, 201, 176, 0.45) 0.7em,
+        rgba(78, 201, 176, 0.45) calc(0.7em + 2px), transparent calc(0.7em + 2px));
+    background-repeat: no-repeat;
 }
 .gantt-name {
-    flex: 0 0 15em;
+    /* rem and not em: the head sets a smaller font size, and an em basis made its column 15% narrower
+       than the rows' one, which shifted every month label against the bars */
+    flex: 0 0 14rem;
+    box-sizing: border-box;
     min-width: 0;
     font-size: .9em;
     white-space: nowrap;
@@ -645,6 +653,8 @@ tr.saved-row td {
     color: var(--fg-muted);
     white-space: nowrap;
     overflow: hidden;
+    /* the today line is drawn after the labels: keep it behind them, or it cuts the month in two */
+    z-index: 1;
 }
 .gantt-grid {
     position: absolute;
@@ -660,6 +670,10 @@ tr.saved-row td {
     width: 1px;
     background: var(--warn);
     opacity: .75;
+}
+/* the head carries the month labels only: a today line there would cut the month it falls in */
+.gantt-head .gantt-today {
+    display: none;
 }
 .gantt-bar {
     position: absolute;
