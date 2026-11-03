@@ -404,7 +404,7 @@ https://localhost:8443/mfg/control/main
 
 | 实体 | 说明 |
 | --- | --- |
-| `MfgProduct` | 产品型号：`productCode`（主键，**≤ 40 个字符**，库里是 `VARCHAR(60)`）、`snPrefix`（**≤ 10 字符**，空时取型号编码）、`standardHours`、`standardHoursSource`（`MANUAL` / `LEARNING_CURVE`）、`standardHoursBaseQty`、`standardHoursEstimateRef`、`laborRate`（工时费率，成本核算用）、`warrantyMonths`（保修月数，默认 12）、`devStageId`（开发阶段）、`currentBomVersionId`（当前 BOM 版本）、状态 |
+| `MfgProduct` | 产品型号：`productCode`（主键，**≤ 40 个字符**，库里是 `VARCHAR(60)`）、`snPrefix`（**≤ 10 字符**，空时取型号编码）、`standardHours`、`standardHoursSource`（`MANUAL` / `LEARNING_CURVE`）、`standardHoursBaseQty`、`standardHoursEstimateRef`、`laborRate`（工时费率，成本核算用）、`warrantyMonths`（保修月数，默认 12）、`devStageId`（开发阶段）、`currentBomVersionId`（当前 BOM 版本）、状态（`MFG_ACTIVE` **在用** / `MFG_INACTIVE` **停用**，空值按在用） |
 | `MfgBomItem` | 旧版单表 BOM 行（`productCode` + `lineSeq`）。**已停用**，首次读取时自动冻结为 `型号-V1` 版本，新代码只用版���表 |
 | `MfgBomVersion` | BOM 版本：`bomVersionId`（主键，`型号-Vn`，**长型号编码会被截短到 20 个字符**）、`versionNo`、`statusId`（DRAFT/RELEASED/OBSOLETE）、`effectiveDate`、`basisVersionId`（从哪版复制）、`ecoId`（哪张变更单引入） |
 | `MfgBomVersionItem` | 版本内 BOM 行：`bomVersionId` + `lineSeq`（联合主键）、`componentCode`、`qty`、`designators`、`isKeyPart`、`unitPrice`（单价，成本核算用，可空） |
@@ -455,7 +455,7 @@ https://localhost:8443/mfg/control/main
 | `mfgUserSave` | 建账号（`createPersonAndUserLogin` 建人与登录，再写安全组）或改姓名/组/状态；不改密码 |
 | `mfgUserResetPassword` | 把账号密码重置回 `ofbiz`（走 OFBiz 的 `updatePassword`），下次登录被门禁拦住要求改 |
 | `mfgPermissions` | 当前账号能进哪些区域（`canView` / `canProduce` / `canStock` / `canEng` / `canSales` / `canCost` / `isAdmin` / `manager`），装饰器用它隐藏菜单，页面用它隐藏成本块 |
-| `mfgProductSave` / `mfgProductList` / `mfgProductDetail` | 型号维护与查询（含当前 BOM 版本的行、工艺路线、版本数）；工时改了就把 `standardHoursSource` 退回 `MANUAL`；`snPrefix` 超 10 字符直接报错（不填时默认取型号编码） |
+| `mfgProductSave` / `mfgProductList` / `mfgProductDetail` | 型号维护与查询（含当前 BOM 版本的行、工艺路线、版本数）；工时改了就把 `standardHoursSource` 退回 `MANUAL`；`snPrefix` 超 10 字符直接报错（不填时默认取型号编码）；**状态**（在用 / 停用）也在表单里，没传状态时保留库里那一行原有的状态（不会因为存一次表单就把停用的型号改回在用） |
 | `mfgBomImport` | 从 CSV 导入 BOM 到指定版本（缺省为当前版本），`replace=N` 时追加而不清空；第 6 列单价可空；**型号还没有版本时，导入的这个版本直接成为当前版本**；`format` 可指定 `MFG` / `FRITZING`，留空自动识别（见下一节） |
 | `mfgBomItemSave` | 改一行 BOM：不给 `lineSeq` 新增（行号取下一个可用值，型号没版本时自动建一个），给 `lineSeq` 修改，`delete=Y` 删除；可改用量/位号/关键料/单价，用量必须 > 0，单价留空即清掉 |
 | `mfgBomVersionCreate` / `mfgBomVersionActivate` / `mfgBomVersionList` | 新建下一版（可复制当前行）、启用某版（旧版转废止、型号指向新版）、列出各版本 |

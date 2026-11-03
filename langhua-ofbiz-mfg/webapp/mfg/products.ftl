@@ -46,6 +46,8 @@
 <#assign fPrice = '0'>
 <#if product.salePrice??><#assign fPrice = product.salePrice?string("0.##")></#if>
 <#assign fPrevious = (product.previousProductCode)!''>
+<#assign fStatus = (product.statusId)!'MFG_ACTIVE'>
+<#if fStatus == ''><#assign fStatus = 'MFG_ACTIVE'></#if>
 <#assign fStage = (product.devStageId)!'MFG_STAGE_CONCEPT'>
 <#assign badCode = false>
 <#assign badPrefix = false>
@@ -60,6 +62,7 @@
     <#assign fWarranty = (parameters.warrantyMonths)!'12'>
     <#assign fPrice = (parameters.salePrice)!'0'>
     <#assign fPrevious = (parameters.previousProductCode)!''>
+    <#assign fStatus = (parameters.statusId)!((product.statusId)!'MFG_ACTIVE')>
     <#assign fStage = (parameters.devStageId)!((product.devStageId)!'MFG_STAGE_CONCEPT')>
     <#assign badCode = !fCode?has_content>
     <#if badCode><#assign badCodeNote = '必填'></#if>
@@ -107,6 +110,12 @@
     <#elseif (statusId!'') == 'MFG_DEV_DONE'><#return '已量产'>
     <#elseif (statusId!'') == 'MFG_DEV_CANCELLED'><#return '已取消'>
     <#else><#return '进行中'>
+    </#if>
+</#function>
+<#-- a model is either in use or put aside; empty means in use (productSave defaults to it) -->
+<#function productStatusLabel statusId>
+    <#if (statusId!'') == 'MFG_INACTIVE'><#return '停用'>
+    <#else><#return '在用'>
     </#if>
 </#function>
 
@@ -171,6 +180,11 @@
             保修月数 <input type="text" name="warrantyMonths" size="4" value="${fWarranty}"/>
             售价 <input type="text" name="salePrice" size="7" value="${fPrice}"/>
             上代产品 <input type="text" name="previousProductCode" size="10" value="${fPrevious}" placeholder="被它替代的型号" data-field="previousProductCode"<#if badPrevious> class="bad" aria-invalid="true"</#if>/><#if badPrevious><span class="error" data-field-error="previousProductCode">不能是型号自己</span></#if>
+            状态
+            <select name="statusId" data-field="statusId">
+                <option value="MFG_ACTIVE"<#if fStatus == 'MFG_ACTIVE'> selected="selected"</#if>>在用</option>
+                <option value="MFG_INACTIVE"<#if fStatus == 'MFG_INACTIVE'> selected="selected"</#if>>停用</option>
+            </select>
             开发阶段
             <select name="devStageId">
                 <#list ['MFG_STAGE_CONCEPT','MFG_STAGE_DESIGN','MFG_STAGE_PROTOTYPE','MFG_STAGE_TRIAL','MFG_STAGE_MASS'] as stage>
@@ -231,7 +245,7 @@
                 <td class="num">${p.versionCount}</td>
                 <td class="num">${p.imageCount}</td>
                 <td class="num">${p.routingCount}</td>
-                <td>${p.statusId!}</td>
+                <td data-product-status="${(p.statusId)!''}">${productStatusLabel(p.statusId!'')}</td>
             </tr>
             <#if bomLines?has_content>
                 <tr data-lines="pc-${p.productCode}"><td colspan="12" class="lines">

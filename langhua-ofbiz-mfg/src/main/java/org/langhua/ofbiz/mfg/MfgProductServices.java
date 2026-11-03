@@ -124,8 +124,19 @@ public final class MfgProductServices {
             long warrantyMonths = MfgSupport.toLong(context.get("warrantyMonths"), 12);
             product.set("warrantyMonths", Long.valueOf(warrantyMonths <= 0 ? 12 : warrantyMonths));
             product.set("salePrice", Double.valueOf(MfgSupport.toDouble(context.get("salePrice"), 0.0)));
+            // the status is on the form now: 在用 (MFG_ACTIVE) or 停用 (MFG_INACTIVE). A caller that
+            // does not send one keeps what the row already has, instead of flipping a model that was
+            // put aside back to 在用 just because the form was saved
             String statusId = MfgSupport.toText(context.get("statusId"));
-            product.set("statusId", statusId == null ? MfgConstants.STATUS_ACTIVE : statusId);
+            if (statusId != null && !MfgConstants.STATUS_ACTIVE.equals(statusId)
+                    && !MfgConstants.STATUS_INACTIVE.equals(statusId)) {
+                return ServiceUtil.returnError("未知的型号状态 [" + statusId + "]，只能是 在用 或 停用");
+            }
+            if (statusId != null) {
+                product.set("statusId", statusId);
+            } else if (existing == null) {
+                product.set("statusId", MfgConstants.STATUS_ACTIVE);
+            }
             String devStageId = MfgSupport.toText(context.get("devStageId"));
             if (devStageId != null) {
                 product.set("devStageId", devStageId);

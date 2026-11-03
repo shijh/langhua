@@ -227,6 +227,20 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
 而 Step 267/268 把阶段搬到型号上了，所以它一直红着；现在改成查 `mfgProductDetail` 的 `reviews`
 （「the five gates are listed on the model」）。
 
+## 型号状态：只有两个值，页面显示中文（Step 281）
+
+`MfgProduct.statusId` 只有 **`MFG_ACTIVE`（在用）/ `MFG_INACTIVE`（停用）**，空值一律按在用算。
+以前型号列表直接印 `${p.statusId}`，页面上是 `MFG_ACTIVE`；而且**表单里没有这个字段**，
+于是 `productSave` 里 `statusId == null ? STATUS_ACTIVE : statusId` 会把「停用」的型号在存一次表单之后改回在用。
+
+- 模板：`products.ftl` 加了 `productStatusLabel()`（在用 / 停用），列表那一列用 `data-product-status`
+  带上原值、显示中文；「新建 / 更新型号」表单多了 `<select name="statusId">`（在用 / 停用），
+  被拒时和其它字段一样从 `parameters` 回填（`fStatus`）。
+- 服务：`productSave` 现在**只认这两个值**（其它值报「未知的型号状态 […]」），
+  没传 `statusId` 时**保留库里那一行原有的状态**，只有新建才默认 `MFG_ACTIVE`。
+- 验法（测试实例，Playwright）：列表显示「在用」且页面里再没有 `MFG_ACTIVE` 字样；表单下拉是
+  在用 / 停用且选中当前值；选「停用」保存 → 列表显示「停用」、表单回显「停用」；再选回「在用」也正常。
+
 
 ## 测试与巡检
 
