@@ -100,19 +100,22 @@
      *
      * `bits` 是 `width * height` 个 0/1（1 = 打黑），行优先。位图里高位在左（0x80 是最左边那一点）。
      *
-     * 黑点数按 4 字节一段分三段报：四字节一格时一个段最多 32 个黑点，一字节就够；
-     * 打印头超过 96 点时（B1 是 384 点，一段能到 320 个黑点）一字节装不下，会溢出成 320 & 0xFF，
-     * 所以宽头一律用四个字节大端写。
+     * 黑点数是三段（这一行的前 / 中 / 后各三分之一）的个数，默认每段一个字节：
+     * 一行的三分之一最多 ceil(打印头 / 3) 个黑点，96 点是 32、384 点是 128、567 点是 189，
+     * 一个字节（255）装得下。四字节写法也留着（`countBytes=4`），真机上打不出东西时可以换着试。
      *
      * @param {Uint8Array} bits 0/1 位图
      * @param {number} width 宽（点）
      * @param {number} height 高（行）
-     * @param {number} countBytes 每个计数占几个字节（D11 是 1，B1 是 4）
+     * @param {number} countBytes 每个计数占几个字节（默认 1）
      * @return {Uint8Array[]} 每一行的整帧
      */
     function rowFrames(bits, width, height, countBytes) {
         var wide = (countBytes || 1) === 4;
         var stride = Math.ceil(width / 8);
+        /* 三段 = 这一行的前 / 中 / 后各三分之一（D11 的 12 字节刚好是三个 4 字节，
+           所以老实现看起来像"每 4 字节一段"；384 点的行是 48 字节，必须按三分之一切） */
+        var third = Math.ceil(stride / 3);
         var out = [];
         for (var y = 0; y < height; y++) {
             var row = new Uint8Array(stride);
@@ -126,9 +129,9 @@
             var count2 = 0;
             for (var i = 0; i < stride; i++) {
                 var n = blackBitsIn(row[i]);
-                if (i < 4) {
+                if (i < third) {
                     count0 += n;
-                } else if (i < 8) {
+                } else if (i < 2 * third) {
                     count1 += n;
                 } else {
                     count2 += n;
@@ -552,7 +555,8 @@
      * @param {number} width 宽（点）
      * @param {number} height 高（行）
      * @param {object} options density（1~3，默认 2）、copies（默认 1）、paceMs（每行之间的停顿，
-     *        默认 10）、family（`d11` 或 `v4`，默认 `d11`）
+     *        默认 10）、family（`d11` 或 `v4`，默认 `d11`）、countBytes（每个黑点数占几个字节，
+     *        默认宽头 4 / 窄头 1——真机打不出东西时这一项最可疑）
      * @return {Promise} 打完 resolve
      */
     Driver.prototype.print = function (bits, width, height, options) {
@@ -562,12 +566,14 @@
         var copies = options.copies || 1;
         var pace = options.paceMs == null ? 10 : options.paceMs;
         var v4 = options.family === 'v4';
-        // 宽头（B1 384 点）的黑点数一字节装不下，窄头（D11 96 点）仍按老格式发
-        var rows = rowFrames(bits, width, height, width > 96 ? 4 : 1);
+        // 三段黑点数默认一字节（三段各占一行的三分之一，最多 189 个点，装得下）；可以手动改成 4 字节
+        var countBytes = options.countBytes || 1;
+        var rows = rowFrames(bits, width, height, countBytes);
         var step = function (cmd, data, replies, label) {
             return self.soft(cmd, data, replies, label);
         };
-        self.log('打印流程：' + (v4 ? 'v4（B1 / B21，300 dpi）' : 'D11（203 dpi）'));
+        self.log('打印流程：' + (v4 ? 'v4（B1 Pro / M2，300 dpi）' : 'D11 那种（开始 1 字节）')
+            + '，行包黑点数 ' + countBytes + ' 字节，' + height + ' 行 × ' + width + ' 点');
         return Promise.resolve().then(function () {
             return step(CMD.SET_LABEL_TYPE, [0x01], [0x33], '标签类型（有间隙）');
         }).then(function () {

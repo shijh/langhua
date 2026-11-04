@@ -155,6 +155,7 @@
                 </select>
             </label>
             <button id="d11Test" data-d11-test="1">打印测试条</button>
+            <button id="d11Try" class="secondary" data-d11-try="1">试打四种组合</button>
             <button id="d11Probe" class="secondary" data-d11-probe="1">诊断（只问不打印）</button>
             <span id="d11State" class="d11-state" data-d11-state=""></span>
             <pre id="d11Log" class="d11-log" data-d11-log="1" hidden></pre>
@@ -214,6 +215,7 @@
             var logBox = document.getElementById('d11Log');
             var printButton = document.getElementById('d11Print');
             var testButton = document.getElementById('d11Test');
+            var tryButton = document.getElementById('d11Try');
             var probeButton = document.getElementById('d11Probe');
             var outboundId = (info && info.getAttribute('data-outbound')) || '';
             var driver = null;
@@ -235,6 +237,12 @@
                 logBox.hidden = false;
                 logBox.textContent += text + '\n';
                 logBox.scrollTop = logBox.scrollHeight;
+            }
+
+            function sleep(ms) {
+                return new Promise(function (resolve) {
+                    setTimeout(resolve, ms);
+                });
             }
 
             function loadQr(url) {
@@ -534,6 +542,54 @@
                 var height = Math.min(job.heightPx, Math.round(11 * job.dpi / 25.4));
                 return { bits: testBits(job.widthPx, height, job.scale), heightPx: height };
             });
+
+            /* 试打四种组合：真机上「所有命令都应答、纸上却什么都没有」时，问题在流程或行包格式。
+               一次打四张测试条，日志里写明每张是哪种组合，人看哪张印出来就知道该用哪套。 */
+            if (tryButton) {
+                tryButton.addEventListener('click', function () {
+                    if (busy) {
+                        return;
+                    }
+                    busy = true;
+                    tryButton.disabled = true;
+                    var job = settings();
+                    var variants = [
+                        { family: 'v1', countBytes: 1, name: '老流程 + 黑点数 1 字节' },
+                        { family: 'v1', countBytes: 4, name: '老流程 + 黑点数 4 字节' },
+                        { family: 'v4', countBytes: 4, name: 'v4（开始 9 字节）+ 黑点数 4 字节' },
+                        { family: 'v4', countBytes: 1, name: 'v4（开始 9 字节）+ 黑点数 1 字节' }
+                    ];
+                    var height = Math.min(job.heightPx, Math.round(11 * job.dpi / 25.4));
+                    var bits = testBits(job.widthPx, height, job.scale);
+                    say('试打：正在连接蓝牙…');
+                    connected().then(function () {
+                        var chain = Promise.resolve();
+                        variants.forEach(function (variant, index) {
+                            chain = chain.then(function () {
+                                say('试打第 ' + (index + 1) + ' / ' + variants.length + ' 张：' + variant.name);
+                                log('—— 第 ' + (index + 1) + ' 张：' + variant.name + ' ——');
+                                return driver.print(bits, job.widthPx, height, {
+                                    density: job.density,
+                                    copies: 1,
+                                    family: variant.family,
+                                    countBytes: variant.countBytes
+                                });
+                            }).then(function () {
+                                return sleep(2500);
+                            });
+                        });
+                        return chain;
+                    }).then(function () {
+                        say('试打结束：' + variants.length + ' 张里哪一张印出来了？把日志发我', 'ok');
+                    }).catch(function (error) {
+                        say('试打失败：' + (error && error.message ? error.message : error), 'error');
+                        log('× ' + (error && error.message ? error.message : error));
+                    }).then(function () {
+                        busy = false;
+                        tryButton.disabled = false;
+                    });
+                });
+            }
 
             /* 诊断：不打印，只把“打印机到底回什么”写进日志 */
             if (probeButton) {
