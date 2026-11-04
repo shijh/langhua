@@ -529,7 +529,7 @@
      * @param {number} width 宽（点）
      * @param {number} height 高（行）
      * @param {object} options density（1~3，默认 2）、copies（默认 1）、paceMs（每行之间的停顿，
-     *        默认 10）、family（`v1` = D11 那种开始包，`v4` = B1 Pro / M2 那种 9 字节开始包）
+     *        默认 10）、family（`d11` 缺省 = 老 D11 那一套；`b1` = B1 / B21；`v4` = B1 Pro / M2）
      * @return {Promise} 打完 resolve
      */
     Driver.prototype.print = function (bits, width, height, options) {
@@ -539,13 +539,19 @@
         var copies = options.copies || 1;
         var pace = options.paceMs == null ? 10 : options.paceMs;
         var v4 = options.family === 'v4';
+        /* b1 = B1 / B21（协议 3、203dpi）：开始打印 7 字节、尺寸 6 字节带份数、不发 0x20 / 0x15。
+           d11（`options.family` 缺省）= 老 D11 那一套 1 字节开始 + 4 字节尺寸，已经印对过，不要动。 */
+        var b1 = options.family === 'b1';
         /* 开页后先停一下、前几行慢发（避免最上面几行被吞）；真机排查时可以用 slowStart:false 关掉 */
         var slowStart = options.slowStart !== false;
         var rows = rowFrames(bits, width, height);
         var step = function (cmd, data, replies, label) {
             return self.soft(cmd, data, replies, label);
         };
-        self.log('打印流程：' + (v4 ? 'v4（B1 Pro / M2，300 dpi）' : 'D11 那种（开始 1 字节）')
+        self.log('打印流程：'
+            + (v4 ? 'v4（B1 Pro / M2，300 dpi，开始 9 字节）'
+                : b1 ? 'b1（B1 / B21，开始 7 字节 + 尺寸 6 字节）'
+                    : 'D11 那种（开始 1 字节）')
             + '，行包 total 模式，' + height + ' 行 × ' + width + ' 点');
         return Promise.resolve().then(function () {
             return step(CMD.SET_LABEL_TYPE, [0x01], [0x33], '标签类型（有间隙）');
@@ -553,13 +559,25 @@
             return step(CMD.SET_DENSITY, [density & 0xFF], [0x31], '浓度 ' + density);
         }).then(function () {
             if (v4) {
-                // v4（B1 / B21 那一代）的 PrintStart 要 9 个字节：第 1 个是页数，后面几个是这一代
-                // 固件要的保留位 / 速度。只发 1 个字节（D11 那样）它不认这条命令。
+                // v4（B1 Pro / M2）的 PrintStart 要 9 个字节：前面是页数，后面是这一代固件要的
+                // 保留位与速度。只发 1 个字节（D11 那样）它不认这条命令。
                 return step(CMD.START_PRINT,
                     [0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00], [0x02], '开始打印（v4 9 字节）');
             }
+            if (b1) {
+                // b1（B1 / B21，协议 3）的 PrintStart 是 **7 个字节**：`[页数高, 页数低, 0,0,0,0,0]`。
+                // 只发 1 个字节时这台 B1 照样应答，但页数读到的是垃圾值
+                // （真机 2026-11-04：发 1 字节 → 空跑了 5 张纸）。
+                return step(CMD.START_PRINT,
+                    [copies >> 8, copies & 0xFF, 0, 0, 0, 0, 0], [0x02],
+                    '开始打印（b1 7 字节，页数 ' + copies + '）');
+            }
             return step(CMD.START_PRINT, [0x01], [0x02], '开始打印');
         }).then(function () {
+            if (b1) {
+                // b1 的流程里没有「允许清除缓冲」这一步（协议文档的 b1 序列）
+                return null;
+            }
             return step(CMD.ALLOW_PRINT_CLEAR, [0x01], [0x30], '允许清除缓冲');
         }).then(function () {
             if (v4) {
@@ -568,11 +586,19 @@
             }
             return step(CMD.START_PAGE, [0x01], [0x04], '开页');
         }).then(function () {
-            // 尺寸是 行在前、列在后（协议里 SetPageSize 的第一个参数是 feed 方向）
-            return step(CMD.SET_DIMENSION,
-                [height >> 8, height & 0xFF, width >> 8, width & 0xFF], [0x14],
+            /* 尺寸是 行在前、列在后（协议里 SetPageSize 的第一个参数是 feed 方向）。
+               b1 那份是 **6 个字节**：`[H_hi, H_lo, W_hi, W_lo, 0x00, 份数]`——最后两位是份数，
+               所以 b1 不再单独发 `0x15`。 */
+            var data = [height >> 8, height & 0xFF, width >> 8, width & 0xFF];
+            if (b1) {
+                data.push(0x00, copies & 0xFF);
+            }
+            return step(CMD.SET_DIMENSION, data, [0x14],
                 '页面 ' + height + ' 行 × ' + width + ' 点');
         }).then(function () {
+            if (b1) {
+                return null;      // 份数已经在尺寸那一条里了
+            }
             return step(CMD.SET_QUANTITY, [copies >> 8, copies & 0xFF], [0x16], '份数 ' + copies);
         }).then(function () {
             self.log('发送位图：' + rows.length + ' 行（每行 ' + rows[0].length + ' 字节的包）…');

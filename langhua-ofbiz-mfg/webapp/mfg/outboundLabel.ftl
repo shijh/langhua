@@ -135,7 +135,8 @@
             <label>流程
                 <select id="d11Flow" data-d11-flow="1">
                     <option value="auto" selected>自动（按纸型）</option>
-                    <option value="v1">老流程（D11 那种）</option>
+                    <option value="b1">b1（开始 7 字节 + 尺寸 6 字节）</option>
+                    <option value="v1">老流程（开始 1 字节 + 尺寸 4 字节）</option>
                     <option value="v4">v4（开始 9 字节）</option>
                 </select>
             </label>
@@ -445,10 +446,12 @@
                `0x40[08]` 回 `48 1000` = 型号 0x1000（B1）、`0xDC[03]` 回 `…01 80…` = 打印头 384 点，
                所以 **B1 是 203dpi（8 点/mm）、打印头 48mm**，不是 300dpi（那是 B1 Pro）。
                纸 40mm 宽 = 320 点，位图按**整个打印头** 384 点宽画、内容居中，
-               这样打印机把位图靠左还是居中都对得上纸。 */
+               这样打印机把位图靠左还是居中都对得上纸。
+               B1 / B21 走协议里的 **b1** 任务（开始 7 字节、尺寸 6 字节带份数）；
+               D11 的老固件用 `v1` 那一套（已经印对过），别混。 */
             var PAPERS = {
-                '40x30': { w: 40, h: 30, dpi: 203, head: 384, family: 'v1' },
-                '50x30': { w: 50, h: 30, dpi: 203, head: 384, family: 'v1' },
+                '40x30': { w: 40, h: 30, dpi: 203, head: 384, family: 'b1' },
+                '50x30': { w: 50, h: 30, dpi: 203, head: 384, family: 'b1' },
                 '12x22': { w: 12, h: 22, dpi: 203, head: 96, family: 'v1' },
                 '12x30': { w: 12, h: 30, dpi: 203, head: 96, family: 'v1' },
                 '12x40': { w: 12, h: 40, dpi: 203, head: 96, family: 'v1' }
@@ -462,7 +465,8 @@
                 var copies = parseInt((document.getElementById('d11Copies') || {}).value, 10) || 1;
                 return {
                     key: key,
-                    /* 「流程」可以手动覆盖：自动 = 纸型说了算，v1 = D11 那种开始包，v4 = 9 字节开始包 */
+                    /* 「流程」可以手动覆盖：自动 = 纸型说了算（B1 → b1，D11 → v1），
+                       b1 = 开始 7 字节 + 尺寸 6 字节带份数，v1 = D11 那种，v4 = 9 字节开始包 */
                     family: flow === 'auto' ? paper.family : flow,
                     dpi: paper.dpi,
                     /* 位图按打印头的宽度画，内容限制在纸宽里居中 */
@@ -621,6 +625,7 @@
                     return driver.print(bits, job.widthPx, height, {
                         density: job.density,
                         copies: 1,
+                        family: job.family,
                         /* 四张都用快发：行包布局（total 模式）才是最可疑的那一项，先把发送节奏钉住 */
                         slowStart: false
                     });
