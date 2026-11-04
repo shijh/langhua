@@ -187,6 +187,13 @@ public final class MfgAttachmentEvents {
             }
             response.setContentType(contentType);
             response.setContentLength(data.length);
+            // a drawing is XML and can carry a script: served as its own document (someone may open
+            // the address directly) it must not run anything in our origin, so a sandbox header
+            // rides along. The <img> in the lists never runs scripts anyway.
+            if (MfgConstants.SVG_TYPE.equals(contentType)) {
+                response.setHeader("Content-Security-Policy", "sandbox");
+            }
+            response.setHeader("X-Content-Type-Options", "nosniff");
             // the named download keeps the original file name, which matters for the pdf files
             if (!thumb) {
                 String fileName = attachment.getString("fileName");

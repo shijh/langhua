@@ -101,7 +101,7 @@ flowchart LR
 | 模块 | 内容 |
 | --- | --- |
 | 产品型号 | 型号、SN 前缀、单台标准工时、**开发阶段**（概念/设计/打样/试产/量产） |
-| **附件（通用）** | 任意业务单据挂文件：产品照片、开发项目资料、工单照片、出货签收单、售后凭证；JPG/PNG/GIF（≤ 4 MB）与 PDF（≤ 8 MB），存数据库不丢；图片显示 200px 缩略图，点开看原图，可删除 |
+| **附件（通用）** | 任意业务单据挂文件：产品照片、开发项目资料、工单照片、出货签收单、售后凭证；JPG/PNG/GIF/**SVG**（≤ 4 MB，SVG 也算图片）与 PDF（≤ 8 MB），存数据库不丢；图片与 SVG 直接显示（位图显示 200px 缩略图），点开看原图，可删除 |
 | BOM | CSV 批量导入元件行：`料号,名称,用量,位号,是否关键件,单价`（单价可空） |
 | **BOM 版本** | 型号可保留多个 BOM 版本（`型号-V1`、`-V2`…），每个版本独立存行；型号指向“当前使用”的版本，启用新版本时旧版本自动废止；工单创建时冻结所用版本 |
 | **研发 BOM（Fritzing）** | 开发项目里直接导入 Fritzing 的 `bom.html`（面包板阶段）：认出每个元件、与上一版比对（新增 / 数量变化 / 不再使用）、把库里已有的料**锁给这个项目**、把缺的生成**缺货外购清单**（可导 CSV）；不再使用的元件**不退回库存**，按研发消耗（样品）记一笔 |
@@ -1034,13 +1034,16 @@ SMT 为外协，且对方**不提供上料 / 换料记录**，因此追溯精度
 - 页面上传表单是 `enctype="multipart/form-data"`，字段名 `file`，外加隐藏的 `ownerTypeId` / `ownerId` / `back`，
   由 `MfgAttachmentEvents.upload` 处理：OFBiz 的 `UtilHttp.getParameterMap` 已经把 multipart 解析好
   （文件字段是 `ByteBuffer`，另有 `_file_fileName` / `_file_contentType` / `_file_size` 三个伴生参数）；
-- 校验：只收 JPG / PNG / GIF / PDF（浏览器给了 `application/octet-stream` 时按扩展名猜），图片 ≤ 4 MB、PDF ≤ 8 MB，
+- 校验：只收 JPG / PNG / GIF / SVG / PDF（浏览器给了 `application/octet-stream` 时按扩展名猜），图片与 SVG ≤ 4 MB、PDF ≤ 8 MB，
   文件名只保留最后一段并把怪字符换成 `_`；出错时不报 500，而是 `302` 回原页面并带 `?err=` 码
   （`type` 类型不支持 / `size` 超过大小 / `nofile` 没选文件 / `owner` 记录还不存在），宏里再翻成人话；
 - 序号只增不减：删掉中间某件不会重排，最新一件 = 序号最大的一件；
 - 查看/下载走 `/mfg/control/attachment`，**经过 controller 的 `auth="true"`**，不是公开目录；
   图片带 `thumb=1` 时用 `ImageIO` 现场缩放成 JPEG（最长边 200px），并带 `Cache-Control: private, max-age=86400` 与 ETag，
   列表里 20 行缩略图不会反复传原图；PDF 不缩放（`thumb=1` 直接返回原文），并带 `Content-Disposition: inline; filename=...`；
+- **SVG 按图片显示，但不做缩略图**（矢量文件 `ImageIO` 读不了）：页面用同一个 `<img>` 显示，
+  取回时带 `Content-Security-Policy: sandbox`——单独打开这个地址时里面的脚本跑不起来（图纸是 XML，可以内嵌脚本），
+  页面里的 `<img>` 本来就不执行脚本。要改这条规则先看 `MfgAttachmentEvents.serve` 里的注释；
 - 旧表 `MfgProductImage` 已停用：第一次读产品时把旧照片复制进 `MfgAttachment`（`ownerTypeId=MFG_ATT_PRODUCT`），
   幂等；旧的 `/mfg/control/productImage*` 地址保留为兼容别名，指向同一套事件。
 

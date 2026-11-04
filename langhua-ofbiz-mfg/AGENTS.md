@@ -260,6 +260,31 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   → 1.2 s 后那一格出现 `img.shot`（`naturalWidth > 0`）；改成 `NOT-A-PART-9999` → 图消失；
   改回原值 → 又没有图。三套实例已发版。
 
+## 项目资料支持 SVG（Step 283）
+
+用户要求附件块能传 SVG（板子的矢量图、外壳图纸），现在六个附件块（产品 / 开发项目 / 工单 / 出货 / 售后 /
+元件资料）都收 `.svg`。**四件事一起改，少一件就废**：
+
+- `MfgConstants.SVG_TYPE = "image/svg+xml"`；`MfgAttachmentServices` 里**分成两个判断**：
+  `isAllowedImageType` 仍是 **jpg / png / gif 三种**（`thumbnail()` 走 ImageIO，**它读不了 SVG**），
+  新增 `isShownAsImage` = 位图 **或** SVG，`isAllowedAttachmentType` = `isShownAsImage` **或** PDF。
+  `imageTypeOfFileName` 多认 `.svg`。附件列表的「是图还是 PDF」用 `isShownAsImage`（`toAttachmentMap` 的 `isImage`），
+  别把 SVG 塞进 `IMAGE_TYPES` —— 那样缩略图会静默失败。
+- **SVG 的缩略图就是它自己**：`serve` 的 `thumb=1` 对 SVG 直接回原文（不缩放）。页面上 200 px 的格子按原比例收缩，
+  矢量图缩下来反而更清楚，是能接受的一种“缩略图”。
+- **安全上必须给画面加沙箱**：SVG 是 XML、能内嵌 `<script>`。列表里用 `<img>` 不会执行脚本，但**别人可以把地址
+  直接开在浏览器里**（那是同源文档），所以 `serve` 对 `image/svg+xml` 回 `Content-Security-Policy: sandbox`；
+  所有附件另外都带 `X-Content-Type-Options: nosniff`（防止浏览器把 SVG 当 HTML 猜）。
+- 大小限制仍是图片那档 **4 MB**（`IMAGE_MAX_BYTES`），文案改成「图片 / SVG ≤ 4 MB」；
+  `attachmentBlock.ftl` 的 `accept` 与粘贴过滤（`/\.(jpe?g|png|gif|svg|pdf)$/`）都要加 `svg`。
+- 顺手修的：文件大小原来 `?string("0")` 取整，155 字节的 SVG 在列表里显示 **0 KB**、像是空文件，
+  现在是 `?string("0.#")`（`0.2 KB`）。
+- 验法（测试实例，Playwright）：往 `MFG_ATT_DEV_PROJECT` / `DEV-261104-09` 传一张 155 字节的 `layout.svg` →
+  列表里出现 `img`（`naturalWidth > 0`）、取回来的 `Content-Type` 是 `image/svg+xml;charset=UTF-8` 且带
+  `content-security-policy: sandbox`。单测在 `MfgProductRulesTest` 的附件那组（`isAllowedImageType` 为 false、
+  `isShownAsImage` / `isAllowedAttachmentType` 为 true、`imageTypeOfFileName("board-layout.SVG")`）。
+  回归：单测 **274**、`verify-m13` 54、`smoke-dev-pages` 28、`check-prod-237` 27 全过，`mfg.css?v=51`。三套实例已发版。
+
 
 ## 测试与巡检
 

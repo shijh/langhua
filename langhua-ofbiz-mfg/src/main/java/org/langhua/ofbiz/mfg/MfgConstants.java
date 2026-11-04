@@ -581,8 +581,15 @@ public final class MfgConstants {
     /** Biggest pdf accepted, in bytes. */
     public static final long PDF_MAX_BYTES = 8L * 1024L * 1024L;
 
-    /** Content types accepted for an image attachment. */
+    /** Content types accepted for an image attachment; these three can also be scaled into a thumbnail. */
     public static final String[] IMAGE_TYPES = {"image/jpeg", "image/png", "image/gif"};
+
+    /**
+     * A drawing posted to a record (a Gerber preview, a 3D print screenshot, a layout export). Shown
+     * inline like a photo, kept as its own content type: it is a vector file, so it cannot be scaled
+     * into a JPEG thumbnail the way the three raster types are.
+     */
+    public static final String SVG_TYPE = "image/svg+xml";
 
     public static final String PDF_TYPE = "application/pdf";
 

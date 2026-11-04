@@ -565,6 +565,11 @@ public class MfgProductRulesTest {
         assertTrue(MfgAttachmentServices.isAllowedImageType("IMAGE/GIF"));
         assertTrue(MfgAttachmentServices.isAllowedImageType("  image/png  "));
         assertTrue(!MfgAttachmentServices.isAllowedImageType("image/webp"));
+        // a drawing is shown like a picture, but it is a vector file and cannot be scaled into a JPEG
+        assertTrue(!MfgAttachmentServices.isAllowedImageType("image/svg+xml"));
+        assertTrue(MfgAttachmentServices.isShownAsImage("image/svg+xml"));
+        assertTrue(MfgAttachmentServices.isShownAsImage("image/png"));
+        assertTrue(!MfgAttachmentServices.isShownAsImage("application/pdf"));
         assertTrue(!MfgAttachmentServices.isAllowedImageType("application/pdf"));
         assertTrue(!MfgAttachmentServices.isAllowedImageType(""));
         assertTrue(!MfgAttachmentServices.isAllowedImageType(null));
@@ -576,6 +581,7 @@ public class MfgProductRulesTest {
         assertEquals("image/jpeg", MfgAttachmentServices.imageTypeOfFileName("C:\\photos\\back.jpeg"));
         assertEquals("image/png", MfgAttachmentServices.imageTypeOfFileName("board.png"));
         assertEquals("image/gif", MfgAttachmentServices.imageTypeOfFileName("anim.Gif"));
+        assertEquals("image/svg+xml", MfgAttachmentServices.imageTypeOfFileName("board-layout.SVG"));
         assertEquals("application/pdf", MfgAttachmentServices.imageTypeOfFileName("report.pdf"));
         assertNull(MfgAttachmentServices.imageTypeOfFileName("notes.txt"));
         assertNull(MfgAttachmentServices.imageTypeOfFileName("noextension"));
@@ -587,6 +593,7 @@ public class MfgProductRulesTest {
         assertTrue(MfgAttachmentServices.isAllowedAttachmentType("image/png"));
         assertTrue(MfgAttachmentServices.isAllowedAttachmentType("application/pdf"));
         assertTrue(MfgAttachmentServices.isAllowedAttachmentType("APPLICATION/PDF"));
+        assertTrue(MfgAttachmentServices.isAllowedAttachmentType("image/svg+xml"));
         assertTrue(!MfgAttachmentServices.isAllowedAttachmentType("text/plain"));
         assertTrue(!MfgAttachmentServices.isAllowedAttachmentType("application/zip"));
         assertTrue(!MfgAttachmentServices.isAllowedAttachmentType(null));

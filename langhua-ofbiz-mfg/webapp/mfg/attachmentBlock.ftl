@@ -22,8 +22,8 @@
     <#assign hintId = 'attHint' + suffix>
     <#if (parameters.err!'') != ''>
         <p class="error">
-            <#if parameters.err == 'size'>文件太大：图片 ≤ 4 MB，PDF ≤ 8 MB
-            <#elseif parameters.err == 'type'>只支持 JPG / PNG / GIF / PDF
+            <#if parameters.err == 'size'>文件太大：图片 / SVG ≤ 4 MB，PDF ≤ 8 MB
+            <#elseif parameters.err == 'type'>只支持 JPG / PNG / GIF / SVG / PDF
             <#elseif parameters.err == 'nofile'>请先选择文件
             <#elseif parameters.err == 'owner'>这条记录还不存在，先保存记录再上传
             <#else>上传失败，请检查文件后重试</#if>
@@ -37,11 +37,11 @@
             <#-- come back to this block, not to the top of the page (UI rule: 改完停在原地) -->
             <input type="hidden" name="back" value="${back}#attachments"/>
             <p>
-                <input type="file" name="file" id="${fileId}" accept="image/jpeg,image/png,image/gif,application/pdf"/>
+                <input type="file" name="file" id="${fileId}" accept="image/jpeg,image/png,image/gif,image/svg+xml,application/pdf"/>
                 <input type="text" name="note" size="22" placeholder="备注：正面 / 破损 / 合同扫描件"/>
                 <input type="submit" value="上传" id="${buttonId}"/>
             </p>
-            <p class="hint" id="${hintId}">支持 JPG / PNG / GIF / PDF；图片 ≤ 4 MB，PDF ≤ 8 MB。
+            <p class="hint" id="${hintId}">支持 JPG / PNG / GIF / SVG / PDF；图片与 SVG ≤ 4 MB，PDF ≤ 8 MB。
                 也可以把文件复制过来，在这里按 <b>Ctrl+V</b> 粘进来，然后直接按 <b>回车</b>上传。</p>
         </form>
         <script>
@@ -56,11 +56,11 @@
                     hint.className = style || 'hint';
                     hint.textContent = text;
                 }
-                /* what this block takes: exactly the four types the upload endpoint stores */
+                /* what this block takes: exactly the types the upload endpoint stores */
                 function attachmentish(fileLike) {
                     var fileName = (fileLike && fileLike.name ? fileLike.name : '').toLowerCase();
                     var type = (fileLike && fileLike.type ? fileLike.type : '').toLowerCase();
-                    if (fileName.length) { return /\.(jpe?g|png|gif|pdf)$/.test(fileName); }
+                    if (fileName.length) { return /\.(jpe?g|png|gif|svg|pdf)$/.test(fileName); }
                     return type.indexOf('image/') === 0 || type.indexOf('pdf') >= 0;
                 }
                 function pastedFile(event) {
@@ -125,11 +125,10 @@
                             </a>
                         <#else>
                             <a href="/mfg/control/attachment?ownerTypeId=${ownerTypeId}&ownerId=${ownerId}&seq=${att.seq}" target="_blank">查看 PDF</a>
-                        </#if>
-                    </td>
+                        </#if>                    </td>
                     <td class="num">${att.seq}</td>
                     <td>${att.fileName!}</td>
-                    <td class="num">${((att.fileSize!0) / 1024)?string("0")} KB</td>
+                    <td class="num">${((att.fileSize!0) / 1024)?string("0.#")} KB</td>
                     <td>${att.note!}</td>
                     <td><#if att.createdStamp??>${att.createdStamp?string("yyyy-MM-dd HH:mm")}</#if></td>
                     <td>

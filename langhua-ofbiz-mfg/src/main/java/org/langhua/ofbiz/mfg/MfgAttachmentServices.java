@@ -53,7 +53,7 @@ public final class MfgAttachmentServices {
     }
 
     /**
-     * Tells whether a content type is an accepted image type.
+     * Tells whether a content type is a raster image, the kind that can be scaled into a thumbnail.
      *
      * @param contentType the content type sent by the browser, may be null
      * @return {@code true} for JPG, PNG and GIF
@@ -72,13 +72,27 @@ public final class MfgAttachmentServices {
     }
 
     /**
-     * Tells whether a content type may be attached: an image or a pdf.
+     * Tells whether a content type is shown as a picture on the pages.
+     *
+     * <p>The three raster types and SVG: a drawing is displayed the same way, it just cannot be turned
+     * into a JPEG thumbnail, so {@link #isAllowedImageType} (which guards the scaling) stays narrower.
+     *
+     * @param contentType the content type, may be null
+     * @return {@code true} for JPG, PNG, GIF and SVG
+     */
+    static boolean isShownAsImage(String contentType) {
+        return isAllowedImageType(contentType)
+                || (contentType != null && MfgConstants.SVG_TYPE.equals(contentType.trim().toLowerCase(Locale.ROOT)));
+    }
+
+    /**
+     * Tells whether a content type may be attached: an image, a drawing or a pdf.
      *
      * @param contentType the content type, may be null
      * @return {@code true} for an accepted type
      */
     static boolean isAllowedAttachmentType(String contentType) {
-        return isAllowedImageType(contentType)
+        return isShownAsImage(contentType)
                 || (contentType != null && MfgConstants.PDF_TYPE.equals(contentType.trim().toLowerCase(Locale.ROOT)));
     }
 
@@ -120,6 +134,9 @@ public final class MfgAttachmentServices {
         }
         if (name.endsWith(".gif")) {
             return "image/gif";
+        }
+        if (name.endsWith(".svg")) {
+            return MfgConstants.SVG_TYPE;
         }
         if (name.endsWith(".pdf")) {
             return MfgConstants.PDF_TYPE;
@@ -216,7 +233,7 @@ public final class MfgAttachmentServices {
         map.put("fileName", attachment.getString("fileName"));
         map.put("contentType", attachment.getString("contentType"));
         map.put("fileSize", attachment.getLong("fileSize"));
-        map.put("isImage", Boolean.valueOf(isAllowedImageType(attachment.getString("contentType"))));
+        map.put("isImage", Boolean.valueOf(isShownAsImage(attachment.getString("contentType"))));
         map.put("note", attachment.getString("note"));
         map.put("createdStamp", attachment.get("createdStamp"));
         return map;
@@ -282,7 +299,7 @@ public final class MfgAttachmentServices {
         String type = isAllowedAttachmentType(contentType)
                 ? contentType.trim().toLowerCase(Locale.ROOT) : imageTypeOfFileName(fileName);
         if (type == null) {
-            return attachmentError("type", "Only JPG, PNG, GIF and PDF files are supported");
+            return attachmentError("type", "Only JPG, PNG, GIF, SVG and PDF files are supported");
         }
         boolean pdf = MfgConstants.PDF_TYPE.equals(type);
         long limit = pdf ? MfgConstants.PDF_MAX_BYTES : MfgConstants.IMAGE_MAX_BYTES;
