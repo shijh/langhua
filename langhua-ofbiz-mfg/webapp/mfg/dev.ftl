@@ -230,9 +230,13 @@
             <#-- 2026-11-04 用户要求：项目上的那一行字叫「说明」，并且要能写几句话（原来是一行 46 字的「备注」）；
                  标签放在框的上面——贴着框的左下角看着像框自己的脚注 -->
             说明<br/>
-            <#-- textarea 的开始标签与值之间不能有换行，否则存回来的值开头会多一个换行 -->
-            <textarea name="note" rows="3" cols="56" data-project-note="Y">${project.note!''}</textarea>
-            <input type="submit" value="保存项目"/>
+            <#-- textarea 的基线是它最后一行的基线，直接跟按钮排一行时按钮会被顶高一截；
+                 外面套一层 .note-row（inline-flex + align-items: flex-end），两者底边就对齐了 -->
+            <span class="note-row">
+                <#-- textarea 的开始标签与值之间不能有换行，否则存回来的值开头会多一个换行 -->
+                <textarea name="note" rows="3" cols="56" data-project-note="Y">${project.note!''}</textarea>
+                <input type="submit" value="保存项目"/>
+            </span>
         </p>
     </form>
 </fieldset>

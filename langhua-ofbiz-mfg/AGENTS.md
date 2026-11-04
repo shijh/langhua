@@ -499,6 +499,11 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   - **验页面别用 `findstr /C:"中文"`**：`.bat` 里写中文时 cmd 按 ANSI 读，搜索串变乱码、永远匹配不上
     （这次两条断言都是这么“假不存在”的）。用 `data-project-note="Y">` 这种 ASCII 特征，
     或者用 `.ps1` 以 UTF-8 读进来过滤再写到 txt 看。
+- **Step 298：「保存项目」按钮跟 textarea 底边对齐**：`textarea` 的基线是它**最后一行**的基线，
+  和按钮排在同一行时按钮会被顶高一截（看着像浮在框的中间）。外面套一层 `span.note-row`
+  （`display: inline-flex; align-items: flex-end; gap: .8em`），两者底边就齐了——
+  在浏览器里量到的差是 **0 像素**（`textarea` 底 232.47 / 按钮底 232.47）；
+  用户把框拖高时按钮也一直跟着底边走。`mfg.css?v=54`。
 - 回归：单测 275、`verify-m13` **54/0**、`smoke-dev-pages` **28/28**、`check-prod-237` **26/27**
   ——少的 1 项是「jar 是刚编的」：这几轮**没改 Java**，生产 jar 的时间戳没变，属于预期。
 

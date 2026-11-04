@@ -245,6 +245,8 @@ textarea { font-family: Consolas, "Cascadia Mono", monospace; }
 textarea.bom { width: 46em; height: 7em; font-size: .85em; }
 /* 项目的「说明」是多行文字：换行要保留，浏览器默认会把它们压成空格 */
 .note-text { white-space: pre-line; }
+/* 说明的多行框与「保存项目」按钮底边对齐（textarea 的基线是它最后一行的基线，默认会把按钮顶高一截） */
+.note-row { display: inline-flex; align-items: flex-end; gap: .8em; }
 code { background: var(--bg-widget); color: var(--code); padding: 1px 4px; border-radius: 2px;
        font-family: Consolas, "Cascadia Mono", monospace; }
 
