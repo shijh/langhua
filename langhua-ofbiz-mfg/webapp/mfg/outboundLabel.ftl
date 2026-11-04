@@ -391,7 +391,23 @@
                 return bits;
             }
 
-            /** 测试条：整条黑带 + 一行字，用来确认打印头覆盖范围和浓度。 */
+            /** 把画好的位图往下挑 lead 行（顶上补白）：打印机开页会吞掉最上面十几行 */
+            function padTop(bits, widthPx, areaH, heightPx, lead) {
+                if (!lead) {
+                    return bits;
+                }
+                var rows = Math.max(0, Math.min(areaH, heightPx - lead));
+                var out = new Uint8Array(widthPx * heightPx);
+                out.set(bits.subarray(0, widthPx * rows), widthPx * lead);
+                return out;
+            }
+
+            /**
+             * 测试条：上下各一条黑带 + 刻度 + 一行字。
+             *
+             * 上下两条黑带是为了看**上下边界**：内容压到标签最上沿时，上面那条会印到间隙或上一张纸上；
+             * 下面那条能看出整页有没有印完。所以测试条要占满整张纸，不再只印 11mm。
+             */
             function testBits(widthPx, heightPx, scale) {
                 scale = scale || 1;
                 var canvas = document.createElement('canvas');
@@ -401,15 +417,18 @@
                 ctx.fillStyle = '#fff';
                 ctx.fillRect(0, 0, widthPx, heightPx);
                 ctx.fillStyle = '#000';
-                ctx.fillRect(0, 0, widthPx, Math.round(12 * scale));
+                var band = Math.round(10 * scale);
+                ctx.fillRect(0, 0, widthPx, band);
+                ctx.fillRect(0, heightPx - band, widthPx, band);
                 for (var x = 0; x < widthPx; x += Math.round(8 * scale)) {
-                    ctx.fillRect(x, Math.round(18 * scale), Math.round(4 * scale), Math.round(8 * scale));
+                    ctx.fillRect(x, band + Math.round(6 * scale), Math.round(4 * scale), Math.round(8 * scale));
                 }
                 ctx.textAlign = 'center';
                 ctx.font = font(Math.round(20 * scale), 'bold');
-                ctx.fillText('打印测试', widthPx / 2, Math.round(56 * scale));
-                ctx.font = font(Math.round(14 * scale), '');
-                ctx.fillText(widthPx + ' 点宽 / ' + heightPx + ' 行', widthPx / 2, Math.round(78 * scale));
+                ctx.fillText('打印测试', widthPx / 2, Math.round(heightPx / 2) - Math.round(6 * scale));
+                ctx.font = font(Math.round(13 * scale), '');
+                ctx.fillText(widthPx + ' 点宽 / ' + heightPx + ' 行', widthPx / 2,
+                    Math.round(heightPx / 2) + Math.round(14 * scale));
                 var pixels = ctx.getImageData(0, 0, widthPx, heightPx).data;
                 var bits = new Uint8Array(widthPx * heightPx);
                 for (var i = 0; i < bits.length; i++) {
@@ -446,6 +465,8 @@
                     widthPx: paper.head,
                     innerPx: Math.min(paper.head, Math.round(paper.w * paper.dpi / 25.4)),
                     heightPx: Math.round(paper.h * paper.dpi / 25.4),
+                    /* 打印机开页会把最上面十几行吞掉（真机实测），所以内容整体下移这么多行、顶上补白 */
+                    leadRows: paper.head > 96 ? 12 : 0,
                     scale: paper.dpi / 203,
                     mm: paper.h,
                     code: (document.getElementById('d11Code') || {}).value || 'mid',
@@ -530,17 +551,24 @@
                 return loadQr(qrUrl(job.code)).then(function (picture) {
                     /* 整份清单那张码密得多，占到整张纸才扫得开，所以那种情况下纸上只留项目名 */
                     var compact = job.code === 'big';
-                    return rasterise(picture, job.widthPx, job.heightPx, {
+                    var areaH = Math.max(20, job.heightPx - job.leadRows);
+                    var bits = rasterise(picture, job.widthPx, areaH, {
                         id: compact ? '' : (text[0] || '').trim(),
                         project: projectName,
                         counts: compact ? '' : (text[1] || '').trim()
                     }, job.scale, job.innerPx);
+                    return padTop(bits, job.widthPx, areaH, job.heightPx, job.leadRows);
                 });
             });
             wire(testButton, '测试条', function (job) {
-                /* 测试条只占 11mm，不用整张纸那么长 */
-                var height = Math.min(job.heightPx, Math.round(11 * job.dpi / 25.4));
-                return { bits: testBits(job.widthPx, height, job.scale), heightPx: height };
+                /* 测试条印满整张标签：上下两条黑带就是上下边界，能看出有没有压到边上 */
+                var height = job.heightPx;
+                var areaH = Math.max(20, height - job.leadRows);
+                return {
+                    bits: padTop(testBits(job.widthPx, areaH, job.scale),
+                        job.widthPx, areaH, height, job.leadRows),
+                    heightPx: height
+                };
             });
 
             /* 试打四种组合：真机上「所有命令都应答、纸上却什么都没有」时，问题在流程或行包格式。
@@ -554,13 +582,15 @@
                     tryButton.disabled = true;
                     var job = settings();
                     var variants = [
-                        { family: 'v1', countBytes: 1, name: '老流程 + 黑点数 1 字节' },
                         { family: 'v1', countBytes: 4, name: '老流程 + 黑点数 4 字节' },
                         { family: 'v4', countBytes: 4, name: 'v4（开始 9 字节）+ 黑点数 4 字节' },
+                        { family: 'v1', countBytes: 1, name: '老流程 + 黑点数 1 字节' },
                         { family: 'v4', countBytes: 1, name: 'v4（开始 9 字节）+ 黑点数 1 字节' }
                     ];
-                    var height = Math.min(job.heightPx, Math.round(11 * job.dpi / 25.4));
-                    var bits = testBits(job.widthPx, height, job.scale);
+                    var height = job.heightPx;
+                    var areaH = Math.max(20, height - job.leadRows);
+                    var bits = padTop(testBits(job.widthPx, areaH, job.scale),
+                        job.widthPx, areaH, height, job.leadRows);
                     say('试打：正在连接蓝牙…');
                     connected().then(function () {
                         var chain = Promise.resolve();

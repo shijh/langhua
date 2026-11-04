@@ -34,7 +34,9 @@
     var CHAR_UUID = 'bef8d6c9-9c21-4c9e-b632-bd58c1009f9f';
     /* 打印机的蓝牙名：D11 叫 D11_xxxx，D110 叫 D110-xxxx，B1/B2 同族，一起列上方便挑设备 */
     var NAMES = ['D1', 'D11', 'D110', 'B1', 'B2'];
-
+    /** 开页后的头几行慢一点发（打印机还没站好，一口气灌会把最上面几行吞掉） */
+    var WARM_UP_ROWS = 16;
+    var WARM_UP_PACE_MS = 30;
     var CMD = {
         START_PRINT: 0x01,
         START_PAGE: 0x03,
@@ -566,8 +568,9 @@
         var copies = options.copies || 1;
         var pace = options.paceMs == null ? 10 : options.paceMs;
         var v4 = options.family === 'v4';
-        // 三段黑点数默认一字节（三段各占一行的三分之一，最多 189 个点，装得下）；可以手动改成 4 字节
-        var countBytes = options.countBytes || 1;
+        /* 真机实测（B1-IA22170502，2026-11-04）：1 字节黑点数的行包印出来是**空白**，
+           4 字节的才印；所以宽头（>96 点）默认 4 字节，D11（96 点）仍是一字节。 */
+        var countBytes = options.countBytes || (width > 96 ? 4 : 1);
         var rows = rowFrames(bits, width, height, countBytes);
         var step = function (cmd, data, replies, label) {
             return self.soft(cmd, data, replies, label);
@@ -603,12 +606,20 @@
             return step(CMD.SET_QUANTITY, [copies >> 8, copies & 0xFF], [0x16], '份数 ' + copies);
         }).then(function () {
             self.log('发送位图：' + rows.length + ' 行（每行 ' + rows[0].length + ' 字节的包）…');
+            /* 刚开页的头几条行包容易被打印机吞掉（真机上最上面 12 行没印出来），
+               所以先等它站好，前十几行慢一点发 */
+            return sleep(150);
+        }).then(function () {
             var chain = Promise.resolve();
-            rows.forEach(function (one) {
+            rows.forEach(function (one, index) {
                 chain = chain.then(function () {
                     return self.write(one);
                 }).then(function () {
-                    return pace > 0 ? sleep(pace) : null;
+                    var wait = pace;
+                    if (index < WARM_UP_ROWS && pace < WARM_UP_PACE_MS) {
+                        wait = WARM_UP_PACE_MS;
+                    }
+                    return wait > 0 ? sleep(wait) : null;
                 });
             });
             return chain;
