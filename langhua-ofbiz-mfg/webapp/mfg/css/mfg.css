@@ -775,13 +775,17 @@ tr.saved-row td {
     background: #5a5a5a;
     color: #e6e6e6;
 }
-/* the four project states have a colour each: running blue, launched (量产) violet, cancelled red,
-   on hold grey */
+/* the five project states have a colour each: running blue, launched (量产) violet, closed (结项,
+   stopped at its own goal) teal, cancelled red, on hold grey */
 .gantt-bar.live {
     background: var(--accent);
 }
 .gantt-bar.launched {
     background: #c586c0;
+    color: #101010;
+}
+.gantt-bar.closed {
+    background: #4ec9b0;
     color: #101010;
 }
 .gantt-bar.cancelled {
@@ -846,6 +850,9 @@ tr.saved-row td {
 }
 .gantt-legend .chip.launched {
     background: #c586c0;
+}
+.gantt-legend .chip.closed {
+    background: #4ec9b0;
 }
 .gantt-legend .chip.cancelled {
     background: var(--error);

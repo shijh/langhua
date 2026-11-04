@@ -285,6 +285,38 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   `isShownAsImage` / `isAllowedAttachmentType` 为 true、`imageTypeOfFileName("board-layout.SVG")`）。
   回归：单测 **274**、`verify-m13` 54、`smoke-dev-pages` 28、`check-prod-237` 27 全过，`mfg.css?v=51`。三套实例已发版。
 
+## 项目可以在自己的目标上结项（Step 284）
+
+用户问「这是一个面包板验证项目，我如何在完整面包板步骤后，直接结束项目？」——原来的四个状态（进行中 / 暂停 /
+已量产 / 已取消）没有一个说得对：一个面包板验证项目的目标就是把面包板跑通，原理图 / PCB / 样板 / 手焊是另一件事、
+另一个项目，标「已量产」会写实际上市日并留下黄条「型号还停在概念」，标「已取消」又像是没做成。
+
+- 新增状态 **`MFG_DEV_CLOSED`「已结项」**（`MfgConstants.DEV_CLOSED`）：做完了自己的目标就停下、没到量产。
+  加到 `isKnownDevStatus`、两处状态下拉（立项表单 + 列表筛选）、`statusLabel`、项目页卡片（`closedCount` →
+  `dev?statusId=MFG_DEV_CLOSED`）、甘特图 `toneOf` 的**第五种颜色 `closed`（青 `#4ec9b0`）** + `mfg.css` 的
+  `.gantt-bar.closed` / `.gantt-legend .chip.closed` + `products.ftl` 图例。
+- 新服务 **`mfgDevProjectClose`**（`devProjectClose`，`use-transaction="true"`）+ 页面按钮
+  **「结项（跳过剩余 N 步）」**（`div[data-project-close]`，`confirm` 里写清跳过几步）：一次把
+  **还没完成、也没跳过**的步骤置为「跳过」（`openStepsOf(trackId, statusByStep)`，纯函数、单测钉住），
+  有完成日的步骤一个字不动；项目状态改「已结项」并**清掉 `actualLaunchDate`**（它没量产）。
+  已量产 / 已取消的项目**拒绝**（各一句中文），**重复结项不报错**、只回 `closedSteps=0`。
+- **`closedSteps` 是 String**：`controller.xml` 的 `<redirect-parameter>` 只吃 String（Step 125 那条老结论），
+  页面靠 `${parameters.closedSteps}` 显示绿条 `data-project-closed-note`。
+- **超期**：`overdueOf` 对「已结项」直接返回 0（和已取消一样），否则一个停在面包板上的项目会永远红着。
+  它**不写实际上市日**，所以「已上市」那条判据盖不到它，必须在状态上判。
+- **跳过的步骤不算工期样本**：`estimateOf` 的样本按 `doneDate` 判定，跳过的步骤没有完成日，
+  所以纯面包板项目只进「每步中位数」的 `partial`，不会被当成「走完整条路线图」的曲线样本。别再给它补完成日。
+- **进度那一行的老 bug 顺手修了**：五步都完成/跳过后 `currentStepId` 是 null，页面原来落到 else 分支写
+  「当前步骤还没排期」，现在显示 **「路线图已走完（N / N 步都已完成或跳过）」**（`li[data-project-overdue]`）。
+- **表单不能放在 `<p>` 里**：第一版写成 `<p data-project-close>`，浏览器一看到 `<form>` 就把段落关掉，
+  按钮被甩到段落外面、页面上根本不出现（服务端输出是对的，只有 DOM 里没有）——现在是 `div`。
+- 验法：`%TEMP%\jup\check-close.ps1`（**13 项**，ASCII，`-base` 指哪套实例都行）：建 PCB 项目（计划上市日已过）
+  → 完成面包板一步 → 页面有结项按钮且在超期 → 结项 → `closedSteps=4`、状态 `MFG_DEV_CLOSED`、
+  `data-project-closed` / `5 / 5` / `data-project-overdue="0"`、按钮消失 → 再结项一次 `closedSteps=0` →
+  已量产的项目被拒且状态不变。测试实例实测 13/13。
+- 回归：单测 **275**（新增 `closesOnlyTheStepsNobodyHasWalked`）、`verify-m13` **54/0**、
+  `smoke-dev-pages` **28/28**、`check-prod-237` **27/27**，`mfg.css?v=52`。三套实例已发版。
+
 
 ## 测试与巡检
 

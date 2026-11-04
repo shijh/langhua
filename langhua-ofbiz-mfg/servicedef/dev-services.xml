@@ -28,6 +28,19 @@
     </service>
 
 
+    <service name="mfgDevProjectClose" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgDevServices" invoke="devProjectClose"
+            auth="false" use-transaction="true">
+        <description>Close a project where it stands: the steps still open are marked as skipped and the
+            project is closed instead of launched (nothing was cancelled and nothing went into production)</description>
+        <attribute name="projectCode" type="String" mode="IN" optional="false"/>
+        <attribute name="projectCode" type="String" mode="OUT" optional="true"/>
+        <attribute name="statusId" type="String" mode="OUT" optional="true"/>
+        <!-- a redirect parameter only takes strings, so the count travels as text -->
+        <attribute name="closedSteps" type="String" mode="OUT" optional="true"/>
+    </service>
+
+
     <service name="mfgDevProjectList" engine="java"
             location="org.langhua.ofbiz.mfg.MfgDevServices" invoke="devProjectList"
             auth="false" use-transaction="false">

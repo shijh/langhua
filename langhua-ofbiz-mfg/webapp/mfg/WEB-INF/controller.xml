@@ -879,6 +879,16 @@
         <response name="error" type="view" value="dev"/>
     </request-map>
 
+    <request-map uri="devProjectClose">
+        <security https="true" auth="true"/>
+        <event type="service" invoke="mfgDevProjectClose"/>
+        <response name="success" type="request-redirect" value="dev">
+            <redirect-parameter name="projectCode"/>
+            <redirect-parameter name="closedSteps"/>
+        </response>
+        <response name="error" type="view" value="dev"/>
+    </request-map>
+
     <request-map uri="devStageSave">
         <security https="true" auth="true"/>
         <event type="service" invoke="mfgDevStageSave"/>

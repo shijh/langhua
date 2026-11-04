@@ -388,6 +388,7 @@
                 <span class="legend-label">项目状态</span>
                 <span><span class="chip live"></span>进行中</span>
                 <span><span class="chip launched"></span>已量产</span>
+                <span><span class="chip closed"></span>已结项</span>
                 <span><span class="chip cancelled"></span><span class="gantt-cross">✕</span>已取消</span>
                 <span><span class="chip hold"></span>暂停</span>
             </p>

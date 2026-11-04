@@ -421,6 +421,13 @@ public final class MfgConstants {
 
     public static final String DEV_DONE = "MFG_DEV_DONE";
 
+    /**
+     * A project that reached its own goal and stopped there, without walking the rest of its route:
+     * a breadboard verification is finished once the breadboard is proved, the schematic and the
+     * boards that would follow are another project. Nothing was cancelled and nothing was launched.
+     */
+    public static final String DEV_CLOSED = "MFG_DEV_CLOSED";
+
     public static final String DEV_CANCELLED = "MFG_DEV_CANCELLED";
 
     public static final String REVIEW_PASS = "MFG_REVIEW_PASS";

@@ -56,6 +56,7 @@
     <#if (statusId!'') == 'MFG_DEV_ACTIVE'><#return '进行中'>
     <#elseif (statusId!'') == 'MFG_DEV_ONHOLD'><#return '暂停'>
     <#elseif (statusId!'') == 'MFG_DEV_DONE'><#return '已量产'>
+    <#elseif (statusId!'') == 'MFG_DEV_CLOSED'><#return '已结项'>
     <#elseif (statusId!'') == 'MFG_DEV_CANCELLED'><#return '已取消'>
     <#else><#return '${statusId!}'>
     </#if>
@@ -126,6 +127,9 @@
 <#if errList?has_content>
     <p class="error"><#list errList as msg>${msg}<#if msg_has_next><br/></#if></#list></p>
 </#if>
+<#if parameters.closedSteps??>
+    <p class="ok" data-project-closed-note="${parameters.closedSteps}">已结项：${parameters.projectCode!''}，<#if parameters.closedSteps == '0'>这次没有要跳过的步骤（都已完成或跳过了）。<#else>${parameters.closedSteps} 个还没做的步骤置为「跳过」。</#if></p>
+</#if>
 
 <#--
   The board over the list: how many projects there are, how they are spread over the four states,
@@ -149,6 +153,10 @@
     <div class="card" data-card="doneCount">
         <div class="label">已量产</div>
         <div class="value">${((sum.doneCount)!0)?string("0")}</div>
+    </div>
+    <div class="card" data-card="closedCount">
+        <div class="label">已结项</div>
+        <div class="value"><#if ((sum.closedCount)!0) gt 0><a href="/mfg/control/dev?statusId=MFG_DEV_CLOSED" data-card-link="closedCount" title="列出做到自己的目标就停下的项目">${(sum.closedCount)?string("0")}</a><#else>0</#if></div>
     </div>
     <div class="card" data-card="cancelledCount">
         <div class="label">已取消</div>
@@ -208,12 +216,13 @@
             责任人 <input type="text" name="ownerName" size="9" value="${project.ownerName!''}"/>            目标成本 <input type="text" name="targetCost" size="8" value="${project.targetCost!0}"/>
             目标售价 <input type="text" name="targetPrice" size="8" value="${project.targetPrice!0}"/>
             计划上市 <input type="text" name="plannedLaunchDate" size="10" placeholder="yyyy-mm-dd" value="<#if project.plannedLaunchDate??>${project.plannedLaunchDate?string("yyyy-MM-dd")}</#if>"/>
-            <#-- the state of the project: 已量产 also writes the launch day, 其它三种清掉它 -->
+            <#-- the state of the project: 已量产 also writes the launch day, 其它四种清掉它 -->
             状态
             <select name="statusId" data-project-status="<#if (project.statusId!'') != ''>${project.statusId}<#else>MFG_DEV_ACTIVE</#if>">
                 <option value="MFG_DEV_ACTIVE"<#if ((project.statusId)!'') == '' || ((project.statusId)!'') == 'MFG_DEV_ACTIVE'> selected="selected"</#if>>进行中</option>
                 <option value="MFG_DEV_ONHOLD"<#if ((project.statusId)!'') == 'MFG_DEV_ONHOLD'> selected="selected"</#if>>暂停</option>
                 <option value="MFG_DEV_DONE"<#if ((project.statusId)!'') == 'MFG_DEV_DONE'> selected="selected"</#if>>已量产</option>
+                <option value="MFG_DEV_CLOSED"<#if ((project.statusId)!'') == 'MFG_DEV_CLOSED'> selected="selected"</#if>>已结项</option>
                 <option value="MFG_DEV_CANCELLED"<#if ((project.statusId)!'') == 'MFG_DEV_CANCELLED'> selected="selected"</#if>>已取消</option>
             </select>
         </p>
@@ -240,6 +249,7 @@
         <option value="MFG_DEV_ACTIVE"<#if (lr.statusId!'') == 'MFG_DEV_ACTIVE'> selected="selected"</#if>>进行中</option>
         <option value="MFG_DEV_ONHOLD"<#if (lr.statusId!'') == 'MFG_DEV_ONHOLD'> selected="selected"</#if>>暂停</option>
         <option value="MFG_DEV_DONE"<#if (lr.statusId!'') == 'MFG_DEV_DONE'> selected="selected"</#if>>已量产</option>
+        <option value="MFG_DEV_CLOSED"<#if (lr.statusId!'') == 'MFG_DEV_CLOSED'> selected="selected"</#if>>已结项</option>
         <option value="MFG_DEV_CANCELLED"<#if (lr.statusId!'') == 'MFG_DEV_CANCELLED'> selected="selected"</#if>>已取消</option>
     </select>
     型号 <select name="noModel" data-filter="noModel">
@@ -300,7 +310,7 @@
         <li data-product-stage="${(project.productStageId)!''}">型号当前阶段：<#if project.productStageId??><b>${stageLabel(project.productStageId)}</b><span class="hint">（在产品页按阶段评审推进）</span><#else><span class="hint">未关联型号，阶段在产品上维护</span></#if></li>
         <#-- late is measured against two dates: the planned launch date, and the planned date of the
              step the project stands on, whichever is later past -->
-        <li data-project-overdue="${(project.overdueDays)!0}">进度：<#if ((project.overdueDays)!0) gt 0><span class="error">超期 ${project.overdueDays} 天</span><span class="hint">（${(project.overdueReason)!''}；到上面立项表单里改计划上市日，或在步骤里改计划日）</span><#elseif project.currentStepPlannedDate??><span class="ok">按计划</span><span class="hint">（当前步骤计划 ${project.currentStepPlannedDate?string("yyyy-MM-dd")}）</span><#else><span class="hint">当前步骤还没排期</span></#if></li>
+        <li data-project-overdue="${(project.overdueDays)!0}">进度：<#if !project.currentStepId??><span class="ok">路线图已走完</span><span class="hint">（${project.stepDone} / ${project.stepTotal} 步都已完成或跳过）</span><#elseif ((project.overdueDays)!0) gt 0><span class="error">超期 ${project.overdueDays} 天</span><span class="hint">（${(project.overdueReason)!''}；到上面立项表单里改计划上市日，或在步骤里改计划日）</span><#elseif project.currentStepPlannedDate??><span class="ok">按计划</span><span class="hint">（当前步骤计划 ${project.currentStepPlannedDate?string("yyyy-MM-dd")}）</span><#else><span class="hint">当前步骤还没排期</span></#if></li>
         <#-- the project state and the model stage are two records of the same thing: the state says how
              this piece of work ended, the gate review says how far the model got. Neither writes the
              other, so when they disagree the page says so instead of picking one -->
@@ -317,7 +327,37 @@
         </li>
         <li>计划上市：<#if project.plannedLaunchDate??>${project.plannedLaunchDate?string("yyyy-MM-dd")}<#else>-</#if>
             实际上市：<#if project.actualLaunchDate??>${project.actualLaunchDate?string("yyyy-MM-dd")}<#else>-</#if></li>
+        <#-- a closed project stopped at its own goal: it was neither cancelled nor launched, and the
+             steps it never walked are marked as skipped so the route does not look abandoned -->
+        <#if (project.statusId!'') == 'MFG_DEV_CLOSED'>
+            <li data-project-closed="Y"><span class="ok">本项目已结项</span>：做完了自己的目标就停下，
+                没走的步骤已置为「跳过」（不算超期、不算已量产）。要接着做就在上面把状态改回「进行中」，
+                再到步骤表里把要做的步骤改回「未开始」。<span class="hint">（「不做这个项目」请选「已取消」）</span></li>
+        </#if>
     </ul>
+
+    <#--
+      A project may reach its own goal long before the route is walked to the end: a breadboard
+      verification is finished once the breadboard is proved, and the schematic, the boards and the
+      hand soldering that would follow are another project. The button does the two things a reader
+      would otherwise do by hand - mark every open step as skipped, then close the project.
+    -->
+    <#assign openSteps = []>
+    <#list steps as s><#if s.statusId != 'MFG_STEP_DONE' && s.statusId != 'MFG_STEP_SKIPPED'><#assign openSteps = openSteps + [s]></#if></#list>
+    <#if openSteps?has_content && (project.statusId!'') != 'MFG_DEV_DONE' && (project.statusId!'') != 'MFG_DEV_CANCELLED'>
+        <#-- a div, not a p: the browser closes a paragraph as soon as a form starts, which would
+             leave the button outside the block and drop it from the page -->
+        <div data-project-close="Y">
+            <form method="post" action="/mfg/control/devProjectClose" class="inline">
+                <input type="hidden" name="projectCode" value="${project.projectCode}"/>
+                <input type="submit" value="结项（跳过剩余 ${openSteps?size} 步）"
+                    onclick="return confirm('把还没做的 ${openSteps?size} 步置为「跳过」并结项？');"/>
+            </form>
+            <span class="hint">这个项目的目标已经达到了？结项会把还没做的
+                <#list openSteps as s>${stepLabel(s.stepId)}<#if s_has_next>、</#if></#list>
+                置为「跳过」，项目变成「已结项」：不算超期、也不算已量产，已完成的那几步照旧。</span>
+        </div>
+    </#if>
 
     <#--
       The duration estimate rests on the projects of the same route map that were finished before this

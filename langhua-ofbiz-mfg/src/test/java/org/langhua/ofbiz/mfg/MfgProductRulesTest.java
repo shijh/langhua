@@ -80,13 +80,16 @@ public class MfgProductRulesTest {
         rows.add(devRow("MFG_DEV_ACTIVE", null, 0, 0, 12));
         rows.add(devRow("MFG_DEV_ONHOLD", "M3", 0, 0, 0));
         rows.add(devRow("MFG_DEV_DONE", "M4", 0, 1, 0));
+        rows.add(devRow("MFG_DEV_CLOSED", "M6", 0, 0, 0));
         rows.add(devRow("MFG_DEV_CANCELLED", "M5", 0, 0, 0));
         java.util.Map<String, Object> summary = MfgDevServices.projectSummary(rows);
-        assertEquals(6, summary.get("projectCount"));
+        assertEquals(7, summary.get("projectCount"));
         // an empty status reads as running, the same way the list reads it
         assertEquals(3, summary.get("activeCount"));
         assertEquals(1, summary.get("holdCount"));
         assertEquals(1, summary.get("doneCount"));
+        // a project that stopped at its own goal is neither launched nor cancelled
+        assertEquals(1, summary.get("closedCount"));
         assertEquals(1, summary.get("cancelledCount"));
         assertEquals(1, summary.get("noModelCount"));
         // a late project is counted where it stands and again as late
@@ -117,6 +120,9 @@ public class MfgProductRulesTest {
                 "MFG_DEV_DONE", "MFG_PCB_LAYOUT", LocalDate.of(2026, 10, 24)).get("days"));
         assertEquals(0, MfgDevServices.overdueOf(today, LocalDate.of(2026, 10, 20), null,
                 "MFG_DEV_CANCELLED", "MFG_PCB_LAYOUT", LocalDate.of(2026, 10, 24)).get("days"));
+        // a project closed at its own goal has no deadline left either, even with no launch day
+        assertEquals(0, MfgDevServices.overdueOf(today, LocalDate.of(2026, 10, 20), null,
+                "MFG_DEV_CLOSED", "MFG_PCB_LAYOUT", LocalDate.of(2026, 10, 24)).get("days"));
     }
 
     @Test
@@ -326,6 +332,9 @@ public class MfgProductRulesTest {
                 project("DEV-261003-10", "MFG_STAGE_MASS", null, null, null, "MFG_DEV_DONE")));
         assertEquals("cancelled", MfgProductServices.toneOf("project",
                 project("DEV-261003-09", "MFG_STAGE_DESIGN", null, null, null, "MFG_DEV_CANCELLED")));
+        // stopped at its own goal is a fifth colour: not launched, and not given up either
+        assertEquals("closed", MfgProductServices.toneOf("project",
+                project("DEV-261003-12", "MFG_STAGE_CONCEPT", null, null, null, "MFG_DEV_CLOSED")));
         assertEquals("hold", MfgProductServices.toneOf("project",
                 project("DEV-261003-11", "MFG_STAGE_DESIGN", null, null, null, "MFG_DEV_ONHOLD")));
     }
@@ -480,6 +489,7 @@ public class MfgProductRulesTest {
         assertTrue(!MfgDevServices.isKnownReviewResult("PASS"));
 
         assertTrue(MfgDevServices.isKnownDevStatus("MFG_DEV_ONHOLD"));
+        assertTrue(MfgDevServices.isKnownDevStatus("MFG_DEV_CLOSED"));
         assertTrue(!MfgDevServices.isKnownDevStatus("MFG_DEV_BOGUS"));
 
         assertTrue(MfgDevServices.isKnownEcoStatus("MFG_ECO_APPLIED"));
@@ -496,6 +506,29 @@ public class MfgProductRulesTest {
         assertTrue(!MfgDevServices.ecoAppliable("MFG_ECO_APPLIED"));
         assertTrue(!MfgDevServices.ecoAppliable("MFG_ECO_CANCELLED"));
         assertTrue(!MfgDevServices.ecoAppliable(null));
+    }
+
+    @Test
+    public void closesOnlyTheStepsNobodyHasWalked() {
+        // a breadboard verification that is finished: the step it walked is kept, the skipped one
+        // stays skipped, and only the three after it are what closing has to mark
+        java.util.Map<String, String> status = new java.util.LinkedHashMap<>();
+        status.put("MFG_PCB_BREADBOARD", "MFG_STEP_DONE");
+        status.put("MFG_PCB_SCHEMATIC", "MFG_STEP_SKIPPED");
+        java.util.List<String> open = MfgDevServices.openStepsOf("MFG_TRACK_PCB", status);
+        assertEquals(3, open.size());
+        assertEquals("MFG_PCB_LAYOUT", open.get(0));
+        assertEquals("MFG_PCB_SAMPLE", open.get(1));
+        assertEquals("MFG_PCB_HAND_SOLDER", open.get(2));
+        // a project that walked nothing has the whole route to skip
+        assertEquals(5, MfgDevServices.openStepsOf("MFG_TRACK_PCB", null).size());
+        // nothing is left to skip once every step is finished, and a project without a route has none
+        java.util.Map<String, String> walked = new java.util.LinkedHashMap<>();
+        for (String stepId : MfgConstants.PCB_STEPS) {
+            walked.put(stepId, "MFG_STEP_DONE");
+        }
+        assertTrue(MfgDevServices.openStepsOf("MFG_TRACK_PCB", walked).isEmpty());
+        assertTrue(MfgDevServices.openStepsOf(null, null).isEmpty());
     }
 
     @Test

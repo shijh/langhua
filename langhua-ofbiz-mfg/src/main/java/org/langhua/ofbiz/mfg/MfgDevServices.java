@@ -105,7 +105,8 @@ public final class MfgDevServices {
 
     static boolean isKnownDevStatus(String statusId) {
         return MfgConstants.DEV_ACTIVE.equals(statusId) || MfgConstants.DEV_ONHOLD.equals(statusId)
-                || MfgConstants.DEV_DONE.equals(statusId) || MfgConstants.DEV_CANCELLED.equals(statusId);
+                || MfgConstants.DEV_DONE.equals(statusId) || MfgConstants.DEV_CLOSED.equals(statusId)
+                || MfgConstants.DEV_CANCELLED.equals(statusId);
     }
 
     static boolean isKnownEcoType(String ecoTypeId) {
@@ -176,6 +177,29 @@ public final class MfgDevServices {
      */
     static boolean stepFinished(String statusId) {
         return MfgConstants.STEP_DONE.equals(statusId) || MfgConstants.STEP_SKIPPED.equals(statusId);
+    }
+
+    /**
+     * The steps closing a project still has to mark as skipped: everything in the catalog that is
+     * neither done nor skipped yet, in route order.
+     *
+     * <p>A project that walked a step keeps it - closing does not erase work that was done, it only
+     * says the rest of the route is not going to be walked.
+     *
+     * @param trackId the track of the project, may be empty
+     * @param statusByStep the status each step already has, empty for a project that walked none
+     * @return the step identifiers that are still open, in route order
+     */
+    static List<String> openStepsOf(String trackId, Map<String, String> statusByStep) {
+        List<String> open = new ArrayList<>();
+        for (String stepId : stepsOfTrack(trackId)) {
+            String status = statusByStep == null ? null : statusByStep.get(stepId);
+            if (status != null && stepFinished(status)) {
+                continue;
+            }
+            open.add(stepId);
+        }
+        return open;
     }
 
     /**
@@ -439,7 +463,10 @@ public final class MfgDevServices {
             String statusId, String currentStepId, LocalDate currentStepPlanned) {
         int days = 0;
         String reason = null;
-        if (MfgConstants.DEV_CANCELLED.equals(statusId) || actualLaunch != null) {
+        // a cancelled project is not late on purpose and a closed one stopped at its own goal, so
+        // neither has a deadline left to miss
+        if (MfgConstants.DEV_CANCELLED.equals(statusId) || MfgConstants.DEV_CLOSED.equals(statusId)
+                || actualLaunch != null) {
             return overdueAnswer(0, null);
         }
         if (plannedLaunch != null) {
@@ -1016,6 +1043,84 @@ public final class MfgDevServices {
     }
 
     /**
+     * Ends a project where it stands: every step still open is marked as skipped, and the project is
+     * closed instead of launched.
+     *
+     * <p>A breadboard verification is finished once the breadboard is proved; the schematic, the
+     * boards and the hand soldering that would follow are another project. Closing says exactly that
+     * - it was not cancelled and it never went into production, so no launch day is written and the
+     * project drops out of the overdue list. Steps that already carry a completion date are left
+     * alone, so a project that walked two steps keeps saying it walked them.
+     *
+     * <p>A launched project has already ended and a cancelled one was given up, so both answer an
+     * error instead of being relabelled; closing an already closed project changes nothing and says
+     * so with {@code closedSteps} 0.
+     *
+     * @param dctx the dispatch context
+     * @param context service context, see {@code servicedef/dev-services.xml#mfgDevProjectClose}
+     * @return the service result containing {@code projectCode}, {@code statusId} and
+     *         {@code closedSteps}
+     */
+    public static Map<String, Object> devProjectClose(DispatchContext dctx, Map<String, ? extends Object> context) {
+        String denied = MfgSecurity.permissionProblem(dctx, context, MfgConstants.PERM_ENG);
+        if (denied != null) {
+            return ServiceUtil.returnError(denied);
+        }
+        Delegator delegator = dctx.getDelegator();
+        String projectCode = MfgSupport.toText(context.get("projectCode"));
+        if (projectCode == null) {
+            return ServiceUtil.returnError("projectCode is required");
+        }
+        try {
+            GenericValue project = EntityQuery.use(delegator).from("MfgDevProject")
+                    .where("projectCode", projectCode).queryOne();
+            if (project == null) {
+                return ServiceUtil.returnError("Unknown development project [" + projectCode + "]");
+            }
+            String statusId = project.getString("statusId");
+            if (MfgConstants.DEV_DONE.equals(statusId)) {
+                return ServiceUtil.returnError("这个项目已经标为「已量产」，本来就结束了，不用再结项");
+            }
+            if (MfgConstants.DEV_CANCELLED.equals(statusId)) {
+                return ServiceUtil.returnError("这个项目已经取消，要接着做就先把状态改回「进行中」");
+            }
+            Map<String, GenericValue> stored = new LinkedHashMap<>();
+            Map<String, String> statusByStep = new LinkedHashMap<>();
+            for (GenericValue step : EntityQuery.use(delegator).from("MfgDevTrackStep")
+                    .where("projectCode", projectCode).queryList()) {
+                stored.put(step.getString("stepId"), step);
+                statusByStep.put(step.getString("stepId"), step.getString("statusId"));
+            }
+            int skipped = 0;
+            for (String stepId : openStepsOf(project.getString("trackId"), statusByStep)) {
+                GenericValue step = stored.get(stepId);
+                if (step == null) {
+                    step = delegator.makeValue("MfgDevTrackStep");
+                    step.set("projectCode", projectCode);
+                    step.set("stepId", stepId);
+                }
+                // skipped, not done: nothing was made, so no completion date and no stock-in lot
+                step.set("statusId", MfgConstants.STEP_SKIPPED);
+                delegator.createOrStore(step);
+                skipped++;
+            }
+            project.set("statusId", MfgConstants.DEV_CLOSED);
+            // it never went into production, so there is no launch day to carry
+            project.set("actualLaunchDate", null);
+            delegator.store(project);
+
+            Map<String, Object> result = ServiceUtil.returnSuccess();
+            result.put("projectCode", projectCode);
+            result.put("statusId", MfgConstants.DEV_CLOSED);
+            // a redirect parameter has to be a string, so the count is handed over as text
+            result.put("closedSteps", String.valueOf(skipped));
+            return result;
+        } catch (GenericEntityException e) {
+            return ServiceUtil.returnError("Could not close the development project: " + e.getMessage());
+        }
+    }
+
+    /**
      * Lists development projects, newest first.
      *
      * @param dctx the dispatch context
@@ -1102,6 +1207,7 @@ public final class MfgDevServices {
         int active = 0;
         int hold = 0;
         int done = 0;
+        int closed = 0;
         int cancelled = 0;
         int noModel = 0;
         int late = 0;
@@ -1113,6 +1219,8 @@ public final class MfgDevServices {
                 hold++;
             } else if (MfgConstants.DEV_DONE.equals(status)) {
                 done++;
+            } else if (MfgConstants.DEV_CLOSED.equals(status)) {
+                closed++;
             } else if (MfgConstants.DEV_CANCELLED.equals(status)) {
                 cancelled++;
             } else {
@@ -1132,6 +1240,7 @@ public final class MfgDevServices {
         summary.put("activeCount", Integer.valueOf(active));
         summary.put("holdCount", Integer.valueOf(hold));
         summary.put("doneCount", Integer.valueOf(done));
+        summary.put("closedCount", Integer.valueOf(closed));
         summary.put("cancelledCount", Integer.valueOf(cancelled));
         summary.put("noModelCount", Integer.valueOf(noModel));
         summary.put("overdueCount", Integer.valueOf(late));

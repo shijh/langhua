@@ -1336,8 +1336,9 @@ public final class MfgProductServices {
      *
      * <p>A gate is coloured by its result, so a conditional pass is not read as a clean one and a
      * failed review stands out: passed is green, conditional pass amber, a failed review red, a gate
-     * with a date but no result yet is only planned (blue). A project has four states of its own:
-     * running, launched, cancelled and on hold, and each gets its own colour as well.
+     * with a date but no result yet is only planned (blue). A project has five states of its own:
+     * running, launched, closed (finished short of production), cancelled and on hold, and each gets
+     * its own colour as well.
      *
      * @param kind {@code gate} or {@code project}
      * @param source the row the bar stands for
@@ -1360,6 +1361,9 @@ public final class MfgProductServices {
         String status = (String) source.get("statusId");
         if (MfgConstants.DEV_DONE.equals(status)) {
             return "launched";
+        }
+        if (MfgConstants.DEV_CLOSED.equals(status)) {
+            return "closed";
         }
         if (MfgConstants.DEV_CANCELLED.equals(status)) {
             return "cancelled";
