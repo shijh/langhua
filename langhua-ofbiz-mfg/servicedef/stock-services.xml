@@ -388,4 +388,12 @@
         <attribute name="scanShotId" type="String" mode="OUT" optional="true"/>
         <attribute name="lots" type="java.util.List" mode="OUT" optional="true"/>
     </service>
+    <service name="mfgPartShotOf" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgStockServices" invoke="partShotOf"
+            auth="false" use-transaction="false">
+        <description>The shop photo of one part number, looked up while a BOM row is being retyped (empty when the part never came in with a screenshot)</description>
+        <attribute name="componentCode" type="String" mode="IN" optional="true"/>
+        <attribute name="componentCode" type="String" mode="OUT" optional="true"/>
+        <attribute name="scanShotId" type="String" mode="OUT" optional="true"/>
+    </service>
 </services>

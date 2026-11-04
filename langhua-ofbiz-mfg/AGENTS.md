@@ -228,7 +228,6 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
 （「the five gates are listed on the model」）。
 
 ## 型号状态：只有两个值，页面显示中文（Step 281）
-
 `MfgProduct.statusId` 只有 **`MFG_ACTIVE`（在用）/ `MFG_INACTIVE`（停用）**，空值一律按在用算。
 以前型号列表直接印 `${p.statusId}`，页面上是 `MFG_ACTIVE`；而且**表单里没有这个字段**，
 于是 `productSave` 里 `statusId == null ? STATUS_ACTIVE : statusId` 会把「停用」的型号在存一次表单之后改回在用。
@@ -240,6 +239,26 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   没传 `statusId` 时**保留库里那一行原有的状态**，只有新建才默认 `MFG_ACTIVE`。
 - 验法（测试实例，Playwright）：列表显示「在用」且页面里再没有 `MFG_ACTIVE` 字样；表单下拉是
   在用 / 停用且选中当前值；选「停用」保存 → 列表显示「停用」、表单回显「停用」；再选回「在用」也正常。
+
+## 改料号时商品图立刻跟上（Step 282）
+
+研发 BOM 表里，料号输入框下面那张商品图（订单截图裁下来的）以前只在**保存后**才会变，用户报
+「想改完先确认选对没选对」。现在输入框停 350 ms 就去查一次，图跟着换：
+
+- 新服务 `mfgPartShotOf`（`stock-services.xml` + `MfgStockServices.partShotOf`）：`componentCode` →
+  `scanShotId`，内部就是 `pictureOf(shotByComponent(delegator), code)`——**不分大小写、拆包继承父批次图、
+  指针没有附件的当没有**，三件事跟整页取图完全一致，别在这条路上另写一套匹配；
+- JSON 出口 `/mfg/control/partShot`（`MfgBomEvents.partShot`，`<response type="none"/>`），
+  回答 `{"ok":true,"componentCode":"…","scanShotId":"SCAN-…"}`，查不到就是 `null`；
+- 模板（`dev.ftl`）：料号那一格里有 `<span class="shot-slot" data-part-shot-slot="<料号>">`，
+  服务端首次渲染也填这一格，脚本只换这一格的 `innerHTML`；**槽上的 `data-part-shot-slot` 就是“这是哪个
+  料号的图”**，慢到的旧回答比对不上就直接丢掉（否则快速改号会被上一张图盖掉）；
+- 查询失败不报错、不清空（图片是锦上添花，不能因为它把表格搞得像坏了）；
+- `.shot-slot` 用 `display:block`（图要另起一行，原来是 `<br/>`），`:empty` 时不占位置。
+- 验法（测试实例，Playwright）：先建一个带 BOM 的项目（`devProjectSave` + `devBomImport` 发 `bomText`，
+  **`devBomItemAdd` 在没有导入过的版本时会插不进去**，表格也就不出现），把一行的料号改成 `NFC COIL`
+  → 1.2 s 后那一格出现 `img.shot`（`naturalWidth > 0`）；改成 `NOT-A-PART-9999` → 图消失；
+  改回原值 → 又没有图。三套实例已发版。
 
 
 ## 测试与巡检

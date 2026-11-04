@@ -50,6 +50,57 @@ public final class MfgBomEvents {
     }
 
     /**
+     * Answers the shop photo of one part number, so the picture under a BOM row can follow the part
+     * number while it is being retyped instead of waiting for a save.
+     *
+     * <p>The answer is {@code {"ok":true,"componentCode":"…","scanShotId":"SCAN-…"}}; when the part
+     * never came in with a screenshot of a shop order the {@code scanShotId} is {@code null} and the
+     * page simply shows no picture.
+     *
+     * @param request the request, carrying {@code componentCode}
+     * @param response the response, receives the JSON
+     * @return {@code success}, {@code error} when the answer could not be written
+     */
+    public static String partShot(HttpServletRequest request, HttpServletResponse response) {
+        Map<String, Object> parameters = UtilHttp.getParameterMap(request);
+        LocalDispatcher dispatcher = (LocalDispatcher) request.getAttribute("dispatcher");
+        GenericValue userLogin = (GenericValue) request.getSession().getAttribute("userLogin");
+        String code = parameters.get("componentCode") == null ? null
+                : String.valueOf(parameters.get("componentCode")).trim();
+        String shot = null;
+        String message = null;
+        if (dispatcher == null) {
+            message = "服务不可用，请刷新页面后重试";
+        } else if (code != null && !code.isEmpty()) {
+            Map<String, Object> context = new HashMap<>();
+            context.put("userLogin", userLogin);
+            context.put("componentCode", code);
+            try {
+                Map<String, Object> result = dispatcher.runSync("mfgPartShotOf", context, -1, true);
+                if (ServiceUtil.isError(result)) {
+                    message = ServiceUtil.getErrorMessage(result);
+                } else {
+                    shot = (String) result.get("scanShotId");
+                }
+            } catch (GenericServiceException e) {
+                Debug.logError(e, "Could not look the picture of a part up", MODULE);
+                message = "查不到这个料号的图片：" + e.getMessage();
+            }
+        }
+        try {
+            response.setContentType("application/json; charset=UTF-8");
+            response.setHeader("Cache-Control", "no-store");
+            response.getWriter().write("{\"ok\":" + (message == null) + ",\"componentCode\":" + jsonString(code)
+                    + ",\"scanShotId\":" + jsonString(shot) + ",\"message\":" + jsonString(message) + "}");
+            response.getWriter().flush();
+        } catch (IOException e) {
+            Debug.logError(e, "Could not write the answer of the part picture lookup", MODULE);
+            return "error";
+        }
+        return "success";
+    }
+
+    /**
      * Saves, appends or deletes one BOM line and answers with a small JSON document
      * ({@code {"ok":true,"message":"已保存 BOM 行 10"}}) instead of a redirect, so the page can
      * refresh just the BOM block.

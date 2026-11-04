@@ -554,8 +554,7 @@
         </script>
         <table id="devBomTable">
             <tr>
-                <th class="num">#</th><th>料号</th><th>名称</th><th class="num">数量</th>
-                <th>位号</th><th>相对上一版</th>
+                <th class="num">#</th><th>料号</th><th>名称</th><th class="num">数量</th>                <th>位号</th><th>相对上一版</th>
                 <th class="num" title="锁在货架上、还没领走的部分">已锁</th>
                 <th class="num" title="本项目已经通过出库单领走的数量">已领</th>
                 <th class="num">在库</th><th>操作</th>
@@ -565,11 +564,13 @@
                     <td class="num">${r_index + 1}</td>
                     <td><input type="text" name="componentCode" form="bomRow${r.lineSeq}" size="20" value="${r.componentCode}" list="stockCodes"/>
                         <#-- the photo the shop printed for this part: it is what tells one 0603 from another
-                             while the part numbers are still being lined up -->
-                        <#if (r.scanShotId!'')?has_content><br/><a
+                             while the part numbers are still being lined up. The slot is filled by the
+                             server on first render and refilled by the lookup below as soon as the part
+                             number in the field changes (Step 282) -->
+                        <span class="shot-slot" data-part-shot-slot="${r.componentCode}"><#if (r.scanShotId!'')?has_content><a
                             href="/mfg/control/attachment?ownerTypeId=MFG_ATT_ORDER_SCAN&amp;ownerId=${r.scanShotId?url}"
                             target="_blank"><img class="shot" data-part-shot="${r.scanShotId}" alt=""
-                            src="/mfg/control/attachment?ownerTypeId=MFG_ATT_ORDER_SCAN&amp;ownerId=${r.scanShotId?url}&amp;thumb=1"/></a></#if>
+                            src="/mfg/control/attachment?ownerTypeId=MFG_ATT_ORDER_SCAN&amp;ownerId=${r.scanShotId?url}&amp;thumb=1"/></a></#if></span>
                         <#-- the datasheet / drawing of this part number (Step 206): this is the page where the
                              part number is corrected, so it is also where the sheet has to be reachable.
                              Once there is a file, the row opens the file itself and keeps the upload page
@@ -606,9 +607,59 @@
                 <input type="hidden" name="lineSeq" value="${r.lineSeq}"/>
             </form>
         </#list>
+        <script>
+            (function () {
+                // the photo under a part number has to follow the number while it is being corrected:
+                // that is how the reader knows he picked the right 0603 (Step 282). One lookup per
+                // pause in the typing, and only the last answer is drawn - a slower earlier request
+                // must not overwrite the picture of the number that is in the field now.
+                function start() {
+                    var table = document.getElementById('devBomTable');
+                    if (!table || !window.fetch) { return; }
+                    var timers = {};
+                    function draw(slot, code, answer) {
+                        if (slot.getAttribute('data-part-shot-slot') !== code) { return; }
+                        if (!answer || !answer.scanShotId) { slot.innerHTML = ''; return; }
+                        var id = encodeURIComponent(answer.scanShotId);
+                        slot.innerHTML = '<a target="_blank" href="/mfg/control/attachment?ownerTypeId=MFG_ATT_ORDER_SCAN&ownerId='
+                            + id + '"><img class="shot" data-part-shot="' + answer.scanShotId
+                            + '" alt="" src="/mfg/control/attachment?ownerTypeId=MFG_ATT_ORDER_SCAN&ownerId='
+                            + id + '&thumb=1"/></a>';
+                    }
+                    function lookup(slot, code) {
+                        slot.setAttribute('data-part-shot-slot', code);
+                        if (!code) { slot.innerHTML = ''; return; }
+                        fetch('/mfg/control/partShot?componentCode=' + encodeURIComponent(code),
+                                { credentials: 'same-origin' })
+                            .then(function (answer) { return answer.json(); })
+                            .then(function (answer) { draw(slot, code, answer); })
+                            .catch(function () { /* a picture is a nicety: a failed lookup leaves the row as it was */ });
+                    }
+                    table.addEventListener('input', function (event) {
+                        var input = event.target;
+                        if (!input || input.name !== 'componentCode') { return; }
+                        var cell = input.parentNode;
+                        var slot = cell ? cell.querySelector('[data-part-shot-slot]') : null;
+                        if (!slot) { return; }
+                        var row = input.closest ? input.closest('tr[data-bom-line]') : null;
+                        var key = row ? row.getAttribute('data-bom-line') : 'row';
+                        clearTimeout(timers[key]);
+                        timers[key] = setTimeout(function () {
+                            lookup(slot, input.value.trim());
+                        }, 350);
+                    });
+                }
+                if (document.readyState === 'loading') {
+                    document.addEventListener('DOMContentLoaded', start);
+                } else {
+                    start();
+                }
+            }());
+        </script>
         <p class="hint">料号可以和库存对不上：Fritzing 用的是它自己的名字（例如 <code>C-100NF-16V-0603</code>），
             库存是按买回来的型号记的（例如 <code>100NF</code>）。
             <b>在这一行的料号框里点一下、输入几个字</b>（比如 <code>100</code>），浏览器会列出库里现有的料号和在库数量，
+            <b>下面的商品图也会立刻换成那个料号的图片</b>（照着图就能看出选对没选对），
             选中再「保存」（一行一行改）或全部改完后按上面的「保存全部料号与数量」（一次存完），
             就按那个料号重新锁料，缺多少立刻算出来。<#if bomStock?has_content>（库里现在有 ${bomStock?size} 个料号可选。）</#if>
             另一种做法是反过来：到「物料批次」页把这个批次的料号重命名成 BOM 里的名字（会一次改全）。</p>

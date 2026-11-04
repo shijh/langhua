@@ -254,6 +254,14 @@
         <response name="error" type="none"/>
     </request-map>
 
+    <!-- the picture of a part number, looked up while a BOM row is being retyped (Step 282) -->
+    <request-map uri="partShot">
+        <security https="true" auth="true"/>
+        <event type="java" path="org.langhua.ofbiz.mfg.MfgBomEvents" invoke="partShot"/>
+        <response name="success" type="none"/>
+        <response name="error" type="none"/>
+    </request-map>
+
     <request-map uri="attachmentUpload">
         <security https="true" auth="true"/>
         <event type="java" path="org.langhua.ofbiz.mfg.MfgAttachmentEvents" invoke="upload"/>

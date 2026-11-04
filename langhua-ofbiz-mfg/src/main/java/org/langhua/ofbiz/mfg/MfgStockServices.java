@@ -335,6 +335,38 @@ public final class MfgStockServices {
     }
 
     /**
+     * The shop photo of one part number, asked for while a BOM row is being retyped.
+     *
+     * <p>The design BOM page lets a part number be corrected in place; the photo under the field is
+     * what tells a 0603 capacitor from the next one, so it has to follow the field instead of waiting
+     * for a save. The lookup is the same one the pages do for a whole table
+     * ({@link #shotByComponent}, including the lower case rule and the parcel a part was split out
+     * of), just for one code.
+     *
+     * @param dctx the dispatch context
+     * @param context service context, see {@code servicedef/stock-services.xml#mfgPartShotOf}
+     * @return the service result with {@code componentCode} and {@code scanShotId}, empty when there is
+     *         no picture
+     */
+    public static Map<String, Object> partShotOf(DispatchContext dctx, Map<String, ? extends Object> context) {
+        String code = MfgSupport.toText(context.get("componentCode"));
+        Map<String, Object> result = ServiceUtil.returnSuccess();
+        result.put("componentCode", code);
+        if (code == null) {
+            return result;
+        }
+        try {
+            String shot = pictureOf(shotByComponent(dctx.getDelegator()), code);
+            if (shot != null) {
+                result.put("scanShotId", shot);
+            }
+            return result;
+        } catch (GenericEntityException e) {
+            return ServiceUtil.returnError("读取元件图片失败：" + e.getMessage());
+        }
+    }
+
+    /**
      * Everything the part page shows about one part number: the picture of the parcel it came in
      * with, how much of it is on the shelf and the batches that carry it.
      *
