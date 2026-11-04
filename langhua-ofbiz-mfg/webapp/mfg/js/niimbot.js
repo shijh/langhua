@@ -17,8 +17,13 @@
  *   行     0x85 数据 = 行号(2,大端) + 三段 4 字节的黑点数(3) + 重复次数(1) + 位图(stride 字节，
  *          高位在左，1 = 黑)。D11 打印头 96 点（12mm × 8 点/mm），所以 stride = 12。
  *
- * 这份只按 **D11 / D110 这一条（203 dpi、96 点）** 写：D11 的兄弟型号（D11_H、B1 Pro）是 300 dpi、
- * 144/567 点，用另一套（v4）流程，不在本文件范围内。
+ * 这份按两台机器写：**D11 / D110**（203 dpi、打印头 96 点 = 12mm 胶带）走老流程；
+ * **B1 / B21 / M2**（300 dpi、打印头 567 点 ≈ 48mm）走 v4 流程（`0x01` 开始打印是 9 个字节、
+ * 没有 `0x03` 开页）。机型由页面上的「纸型」决定（`options.family` 是 `d11` 还是 `v4`），
+ * 因为同一台电脑上两台机器都可能连着。
+ *
+ * **v4 那条路没有在这台 B1 上跑通过**（2026-11-04 用户刚拿到机器）：第一次点打印若没出纸，
+ * 先点「诊断」把日志发我——`←` 开头的是打印机的原话，照它改命令表。
  *
  * 没有第三方依赖，纯 ES5 + Promise；用 `node --check` 与假 BLE 设备单测（%TEMP%\jup\js-check）。
  */
@@ -93,15 +98,20 @@
     /**
      * 把位图切成一行一个 0x85 包。
      *
-     * `bits` 是 `width * height` 个 0/1（1 = 打黑），行优先。D11 一行 96 点 = 12 字节，
-     * 正好三段 4 字节，所以黑点数是 [c0, c1, c2]；位图里高位在左（0x80 是最左边那一点）。
+     * `bits` 是 `width * height` 个 0/1（1 = 打黑），行优先。位图里高位在左（0x80 是最左边那一点）。
+     *
+     * 黑点数按 4 字节一段分三段报：四字节一格时一个段最多 32 个黑点，一字节就够；
+     * 300dpi 那代纸宽 472 点，一段能到 400 多个黑点，一字节装不下（会溢出成 152），
+     * 所以 `countBytes` 给 4 —— 四个字节大端写。
      *
      * @param {Uint8Array} bits 0/1 位图
      * @param {number} width 宽（点）
      * @param {number} height 高（行）
+     * @param {number} countBytes 每个计数占几个字节（D11 是 1，B1 是 4）
      * @return {Uint8Array[]} 每一行的整帧
      */
-    function rowFrames(bits, width, height) {
+    function rowFrames(bits, width, height, countBytes) {
+        var wide = (countBytes || 1) === 4;
         var stride = Math.ceil(width / 8);
         var out = [];
         for (var y = 0; y < height; y++) {
@@ -124,7 +134,15 @@
                     count2 += n;
                 }
             }
-            var data = [y >> 8, y & 0xFF, count0, count1, count2, 1];
+            var data = [y >> 8, y & 0xFF];
+            [count0, count1, count2].forEach(function (n) {
+                if (wide) {
+                    data.push((n >>> 24) & 0xFF, (n >>> 16) & 0xFF, (n >>> 8) & 0xFF, n & 0xFF);
+                } else {
+                    data.push(n & 0xFF);
+                }
+            });
+            data.push(1);
             for (i = 0; i < stride; i++) {
                 data.push(row[i]);
             }
@@ -529,10 +547,12 @@
     /**
      * 打印一张位图。
      *
-     * @param {Uint8Array} bits 0/1 位图（1 = 黑），宽度必须等于打印头点数（D11 = 96）
+     * @param {Uint8Array} bits 0/1 位图（1 = 黑），宽度必须等于这张纸的横向点数
+     *        （D11 12mm = 96 点，B1 40mm = 472 点）
      * @param {number} width 宽（点）
      * @param {number} height 高（行）
-     * @param {object} options density（1~3，默认 2）、copies（默认 1）、paceMs（每行之间的停顿，默认 10）
+     * @param {object} options density（1~3，默认 2）、copies（默认 1）、paceMs（每行之间的停顿，
+     *        默认 10）、family（`d11` 或 `v4`，默认 `d11`）
      * @return {Promise} 打完 resolve
      */
     Driver.prototype.print = function (bits, width, height, options) {
@@ -541,19 +561,31 @@
         var density = options.density || 2;
         var copies = options.copies || 1;
         var pace = options.paceMs == null ? 10 : options.paceMs;
-        var rows = rowFrames(bits, width, height);
+        var v4 = options.family === 'v4';
+        var rows = rowFrames(bits, width, height, v4 ? 4 : 1);
         var step = function (cmd, data, replies, label) {
             return self.soft(cmd, data, replies, label);
         };
+        self.log('打印流程：' + (v4 ? 'v4（B1 / B21，300 dpi）' : 'D11（203 dpi）'));
         return Promise.resolve().then(function () {
             return step(CMD.SET_LABEL_TYPE, [0x01], [0x33], '标签类型（有间隙）');
         }).then(function () {
             return step(CMD.SET_DENSITY, [density & 0xFF], [0x31], '浓度 ' + density);
         }).then(function () {
+            if (v4) {
+                // v4（B1 / B21 那一代）的 PrintStart 要 9 个字节：第 1 个是页数，后面几个是这一代
+                // 固件要的保留位 / 速度。只发 1 个字节（D11 那样）它不认这条命令。
+                return step(CMD.START_PRINT,
+                    [0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00], [0x02], '开始打印（v4 9 字节）');
+            }
             return step(CMD.START_PRINT, [0x01], [0x02], '开始打印');
         }).then(function () {
             return step(CMD.ALLOW_PRINT_CLEAR, [0x01], [0x30], '允许清除缓冲');
         }).then(function () {
+            if (v4) {
+                // v4 没有「开页」这一步，页面尺寸就是这一张的全部
+                return null;
+            }
             return step(CMD.START_PAGE, [0x01], [0x04], '开页');
         }).then(function () {
             // 尺寸是 行在前、列在后（协议里 SetPageSize 的第一个参数是 feed 方向）

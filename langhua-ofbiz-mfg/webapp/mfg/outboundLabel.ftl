@@ -122,12 +122,21 @@
         <a href="/mfg/control/outbound?outboundId=${o.outboundId?url}">回单据</a>
         <a href="/mfg/control/outboundCheck?outboundId=${o.outboundId?url}&amp;key=${o.checkKey!''}" target="_blank">核对页（浏览器打开）</a>
         <span class="d11" data-d11="${o.outboundId}">
-            <button id="d11Print" data-d11-print="1" data-d11-qr-mm="12">蓝牙打印（D11 12mm）</button>
-            <label>纸长
-                <select id="d11Length">
-                    <option value="22">12×22mm</option>
-                    <option value="30" selected>12×30mm</option>
-                    <option value="40">12×40mm</option>
+            <button id="d11Print" data-d11-print="1" data-d11-qr-mm="26">蓝牙打印</button>
+            <label>纸型
+                <select id="d11Paper" data-d11-paper="1">
+                    <option value="40x30" selected>B1 40×30mm（300dpi）</option>
+                    <option value="50x30">B1 50×30mm（300dpi）</option>
+                    <option value="12x22">D11 12×22mm（203dpi）</option>
+                    <option value="12x30">D11 12×30mm（203dpi）</option>
+                    <option value="12x40">D11 12×40mm（203dpi）</option>
+                </select>
+            </label>
+            <label>码里
+                <select id="d11Code" data-d11-code="1">
+                    <option value="mid" selected>单号 + 项目名 + 件数</option>
+                    <option value="big">整份清单</option>
+                    <option value="small">只有单号</option>
                 </select>
             </label>
             <label>份数 <input id="d11Copies" type="number" min="1" max="20" value="1"/></label>
@@ -143,10 +152,11 @@
             <span id="d11State" class="d11-state" data-d11-state=""></span>
             <pre id="d11Log" class="d11-log" data-d11-log="1" hidden></pre>
             <span class="hint">
-                用本机蓝牙直连标签机：点一下会弹出系统的蓝牙设备列表，选 <code>D11_…</code> 那台就行。
+                用本机蓝牙直连标签机：点一下会弹出系统的蓝牙设备列表，选那台机器就行。
                 前提是这个页面用 <b>Chrome / Edge</b> 打开、地址是 <code>http://localhost:端口</code>
                 （自签证书的 https 被浏览器当成不安全，蓝牙会被拦）。
-                蓝牙打的是 12mm 宽的纸，码里是「单号 + 件数」，码下面印单号、项目名和件数。
+                纸型决定流程与点数：<b>B1 40×30</b> 是 300dpi（472 × 354 点）、<b>D11 12mm</b> 是 203dpi（96 点宽）。
+                纸上印二维码 + 单号 + 项目名 + 件数；「码里」选整份清单时只印码和项目名，码给得更大才扫得开。
             </span>
         </span>
         <span class="hint">
@@ -180,7 +190,7 @@
     <#-- 蓝牙打印（D11）：这一段只印二维码 + 单号 + 项目名 + 件数，纸 12mm 宽（96 点 / 203dpi）。
          文字放进元素里而不是属性里：服务返回的中文已经是数字实体（&#x884c;），再 ?html 一次
          会被当成字面量印到纸上。 -->
-    <div id="d11Info" data-d11-info="1" data-qr="${d11QrSrc}" hidden>
+    <div id="d11Info" data-d11-info="1" data-qr="${d11QrSrc}" data-outbound="${o.outboundId}" hidden>
         <span id="d11Text">${(o.labelTextSmall)!''}</span>
         <span id="d11Project">${(o.projectName)!''}</span>
         <#-- 小码先在这里加载一次（隐藏），打印时直接用它，不再多跑一次请求 -->
@@ -196,6 +206,7 @@
             var printButton = document.getElementById('d11Print');
             var testButton = document.getElementById('d11Test');
             var probeButton = document.getElementById('d11Probe');
+            var outboundId = (info && info.getAttribute('data-outbound')) || '';
             var driver = null;
             var busy = false;
 
@@ -219,20 +230,19 @@
 
             function loadQr(url) {
                 var ready = document.getElementById('d11Qr');
-                if (ready && ready.complete && ready.naturalWidth > 0) {
+                /* 页面上预加载的是「小」码；要别的尺寸就现取一张，别再拿旧图去画 */
+                if (ready && ready.getAttribute('src') === url && ready.complete && ready.naturalWidth > 0) {
                     return Promise.resolve(ready);
                 }
                 return new Promise(function (resolve, reject) {
-                    var picture = ready && ready.src ? ready : new Image();
+                    var picture = new Image();
                     picture.onload = function () {
                         resolve(picture);
                     };
                     picture.onerror = function () {
                         reject(new Error('二维码图片取不回来：' + url));
                     };
-                    if (picture.src !== url) {
-                        picture.src = url;
-                    }
+                    picture.src = url;
                 });
             }
 
@@ -294,10 +304,12 @@
              * 把标签画成 0/1 位图。打印机只有黑白，所以这里直接按亮度阈值取黑（不做抖动——
              * 抖动会生成一片灰麻点，热敏头印出来更糊）。
              *
-             * 12mm 的纸上就 96 点宽，所以单号会**先缩字号**直到放得下（20 → 12），项目名最多两行；
-             * 放不下的行整行不画，绝不把字挤出纸外。
+             * 点数跟着纸型走：D11 12mm 是 96 点宽（203dpi），B1 40mm 是 472 点宽（300dpi），
+             * 所以字号与留白都按 `scale`（dpi / 203）放大，剩下的高度全给二维码——
+             * 码的大小直接决定能不能扫开，宁肯字小一点。
              */
-            function rasterise(picture, widthPx, heightPx, lines) {
+            function rasterise(picture, widthPx, heightPx, lines, scale) {
+                scale = scale || 1;
                 var canvas = document.createElement('canvas');
                 canvas.width = widthPx;
                 canvas.height = heightPx;
@@ -306,28 +318,43 @@
                 ctx.fillRect(0, 0, widthPx, heightPx);
                 ctx.fillStyle = '#000';
                 ctx.textAlign = 'center';
-                var reserved = 74;
-                var side = Math.max(40, Math.min(widthPx, heightPx - reserved));
+                /* 先把文字排好，它占掉的高度才是二维码能用的高度 */
+                var items = [];
+                var bodySize = Math.round(13 * scale);
+                if (lines.id) {
+                    /* 单号是箱子上最要紧的字：先按 20px（×scale）试，放不下就一路缩 */
+                    var numberSize = shrinkTo(ctx, lines.id, widthPx - 4,
+                        Math.round(20 * scale), Math.round(10 * scale), 'bold');
+                    ctx.font = font(numberSize, 'bold');
+                    items.push({
+                        text: fit(ctx, lines.id, widthPx - 4),
+                        font: font(numberSize, 'bold'),
+                        size: numberSize,
+                        gap: Math.round(6 * scale)
+                    });
+                }
+                if (lines.project) {
+                    ctx.font = font(bodySize, '');
+                    wrapLines(ctx, lines.project, widthPx - 4, 2).forEach(function (one) {
+                        items.push({ text: one, font: font(bodySize, ''), size: bodySize,
+                            gap: Math.round(2 * scale) });
+                    });
+                }
+                if (lines.counts) {
+                    ctx.font = font(bodySize, '');
+                    items.push({ text: fit(ctx, lines.counts, widthPx - 4), font: font(bodySize, ''),
+                        size: bodySize, gap: Math.round(6 * scale) });
+                }
+                var reserved = Math.round(10 * scale);
+                items.forEach(function (item) {
+                    reserved += item.size + item.gap;
+                });
+                var side = Math.max(Math.round(40 * scale),
+                    Math.min(widthPx - 4, heightPx - reserved));
                 if (picture) {
                     ctx.drawImage(picture, Math.round((widthPx - side) / 2), 2, side, side);
                 }
-                var items = [];
-                /* 单号是箱子上最要紧的字：先按 20px 试，放不下就一路缩到 10px（1.25mm 高，还看得清） */
-                var numberSize = shrinkTo(ctx, lines.id, widthPx - 4, 20, 10, 'bold');
-                ctx.font = font(numberSize, 'bold');
-                items.push({
-                    text: fit(ctx, lines.id, widthPx - 4),
-                    font: font(numberSize, 'bold'),
-                    size: numberSize,
-                    gap: 6
-                });
-                ctx.font = font(13, '');
-                wrapLines(ctx, lines.project, widthPx - 4, 2).forEach(function (one) {
-                    items.push({ text: one, font: font(13, ''), size: 13, gap: 2 });
-                });
-                ctx.font = font(13, '');
-                items.push({ text: fit(ctx, lines.counts, widthPx - 4), font: font(13, ''), size: 13, gap: 6 });
-                var y = (picture ? 2 + side : 0) + 4;
+                var y = (picture ? 2 + side : 0) + Math.round(4 * scale);
                 items.forEach(function (item) {
                     var baseline = y + item.size + item.gap;
                     if (baseline > heightPx - 1) {
@@ -346,7 +373,8 @@
             }
 
             /** 测试条：整条黑带 + 一行字，用来确认打印头覆盖范围和浓度。 */
-            function testBits(widthPx, heightPx) {
+            function testBits(widthPx, heightPx, scale) {
+                scale = scale || 1;
                 var canvas = document.createElement('canvas');
                 canvas.width = widthPx;
                 canvas.height = heightPx;
@@ -354,15 +382,15 @@
                 ctx.fillStyle = '#fff';
                 ctx.fillRect(0, 0, widthPx, heightPx);
                 ctx.fillStyle = '#000';
-                ctx.fillRect(0, 0, widthPx, 12);
-                for (var x = 0; x < widthPx; x += 8) {
-                    ctx.fillRect(x, 18, 4, 8);
+                ctx.fillRect(0, 0, widthPx, Math.round(12 * scale));
+                for (var x = 0; x < widthPx; x += Math.round(8 * scale)) {
+                    ctx.fillRect(x, Math.round(18 * scale), Math.round(4 * scale), Math.round(8 * scale));
                 }
                 ctx.textAlign = 'center';
-                ctx.font = 'bold 20px "Microsoft YaHei", sans-serif';
-                ctx.fillText('打印测试', widthPx / 2, 56);
-                ctx.font = '14px "Microsoft YaHei", sans-serif';
-                ctx.fillText('203dpi / 96 点', widthPx / 2, 76);
+                ctx.font = font(Math.round(20 * scale), 'bold');
+                ctx.fillText('打印测试', widthPx / 2, Math.round(56 * scale));
+                ctx.font = font(Math.round(14 * scale), '');
+                ctx.fillText(widthPx + ' 点宽 / ' + heightPx + ' 行', widthPx / 2, Math.round(78 * scale));
                 var pixels = ctx.getImageData(0, 0, widthPx, heightPx).data;
                 var bits = new Uint8Array(widthPx * heightPx);
                 for (var i = 0; i < bits.length; i++) {
@@ -371,18 +399,39 @@
                 return bits;
             }
 
+            /* 纸型 → 点数与打印流程。B1 / B21 是 300dpi、打印头 567 点（≈48mm），所以 50mm 的纸
+               也只能用 567 点；D11 / D110 是 203dpi、96 点（12mm 胶带）。 */
+            var PAPERS = {
+                '40x30': { w: 40, h: 30, dpi: 300, family: 'v4', head: 567 },
+                '50x30': { w: 50, h: 30, dpi: 300, family: 'v4', head: 567 },
+                '12x22': { w: 12, h: 22, dpi: 203, family: 'd11', head: 96 },
+                '12x30': { w: 12, h: 30, dpi: 203, family: 'd11', head: 96 },
+                '12x40': { w: 12, h: 40, dpi: 203, family: 'd11', head: 96 }
+            };
+
             function settings() {
-                var mm = parseInt((document.getElementById('d11Length') || {}).value, 10) || 30;
+                var key = (document.getElementById('d11Paper') || {}).value || '40x30';
+                var paper = PAPERS[key] || PAPERS['40x30'];
                 var density = parseInt((document.getElementById('d11Density') || {}).value, 10) || 2;
                 var copies = parseInt((document.getElementById('d11Copies') || {}).value, 10) || 1;
                 return {
-                    widthPx: 96,
-                    /* 203 dpi = 8 点/mm */
-                    heightPx: Math.round(mm * 8),
+                    key: key,
+                    family: paper.family,
+                    dpi: paper.dpi,
+                    /* 横向点数 = 纸宽 × dpi / 25.4，不能超过打印头 */
+                    widthPx: Math.min(paper.head, Math.round(paper.w * paper.dpi / 25.4)),
+                    heightPx: Math.round(paper.h * paper.dpi / 25.4),
+                    scale: paper.dpi / 203,
+                    mm: paper.h,
+                    code: (document.getElementById('d11Code') || {}).value || 'mid',
                     density: Math.max(1, Math.min(3, density)),
-                    copies: Math.max(1, Math.min(20, copies)),
-                    mm: mm
+                    copies: Math.max(1, Math.min(20, copies))
                 };
+            }
+
+            function qrUrl(code) {
+                return '/mfg/control/outboundQr?outboundId=' + encodeURIComponent(outboundId)
+                    + '&size=' + code;
             }
 
             function connected() {
@@ -414,7 +463,8 @@
                             say(label + '：已连接 ' + driver.deviceName() + '，正在打印…');
                             return driver.print(bits, job.widthPx, heightPx, {
                                 density: job.density,
-                                copies: job.copies
+                                copies: job.copies,
+                                family: job.family
                             });
                         });
                     }).then(function (result) {
@@ -422,7 +472,7 @@
                             say(label + '：位图已全部发出，但打印机没有回报进度——看纸出没出来；'
                                 + '没出来的话点「诊断」把日志发我', 'error');
                         } else {
-                            say(label + '：已发送 ' + job.copies + ' 份（' + job.mm + 'mm）', 'ok');
+                            say(label + '：已发送 ' + job.copies + ' 份（' + job.key + '）', 'ok');
                         }
                     }).catch(function (error) {
                         say(label + '失败：' + (error && error.message ? error.message : error), 'error');
@@ -452,17 +502,20 @@
             var text = (document.getElementById('d11Text').textContent || '').split('\n');
             var projectName = (document.getElementById('d11Project').textContent || '').trim();
             wire(printButton, '蓝牙打印', function (job) {
-                return loadQr(info.getAttribute('data-qr')).then(function (picture) {
+                return loadQr(qrUrl(job.code)).then(function (picture) {
+                    /* 整份清单那张码密得多，占到整张纸才扫得开，所以那种情况下纸上只留项目名 */
+                    var compact = job.code === 'big';
                     return rasterise(picture, job.widthPx, job.heightPx, {
-                        id: (text[0] || '').trim(),
+                        id: compact ? '' : (text[0] || '').trim(),
                         project: projectName,
-                        counts: (text[1] || '').trim()
-                    });
+                        counts: compact ? '' : (text[1] || '').trim()
+                    }, job.scale);
                 });
             });
             wire(testButton, '测试条', function (job) {
                 /* 测试条只占 11mm，不用整张纸那么长 */
-                return { bits: testBits(job.widthPx, 88), heightPx: 88 };
+                var height = Math.min(job.heightPx, Math.round(11 * job.dpi / 25.4));
+                return { bits: testBits(job.widthPx, height, job.scale), heightPx: height };
             });
 
             /* 诊断：不打印，只把“打印机到底回什么”写进日志 */
