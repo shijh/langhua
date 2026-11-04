@@ -155,7 +155,10 @@
                 </select>
             </label>
             <button id="d11Test" data-d11-test="1">打印测试条</button>
-            <button id="d11Try" class="secondary" data-d11-try="1">试打四种组合</button>
+            <button id="d11Try1" class="secondary" data-d11-try="1">试打①</button>
+            <button id="d11Try2" class="secondary" data-d11-try="2">试打②</button>
+            <button id="d11Try3" class="secondary" data-d11-try="3">试打③</button>
+            <button id="d11Try4" class="secondary" data-d11-try="4">试打④</button>
             <button id="d11Probe" class="secondary" data-d11-probe="1">诊断（只问不打印）</button>
             <span id="d11State" class="d11-state" data-d11-state=""></span>
             <pre id="d11Log" class="d11-log" data-d11-log="1" hidden></pre>
@@ -166,7 +169,9 @@
                 纸型决定点数：<b>B1</b> 是 203dpi、打印头 384 点（48mm），40mm 的纸占中间 320 点；
                 <b>D11</b> 是 203dpi、96 点宽（12mm 胶带）。位图按整条打印头画、内容居中，纸窄也能对上。
                 纸上印二维码 + 单号 + 项目名 + 件数；「码里」选整份清单时只印码和项目名，码给得更大才扫得开。
-                流程一般留「自动」；打出来是空白条时换成另一个流程再试，并把日志发我。
+                流程一般留「自动」；打出来是空白条时，按顺序点 <b>试打①②③④</b>（一个按钮一张，只改一个变量：
+                ① 上次能打出来的 88 行 → ② 满页 → ③ 满页+顶上补白 → ④ 满页+补白+慢发），
+                哪一张有内容就告诉我，并把日志发我。
             </span>
         </span>
         <span class="hint">
@@ -215,7 +220,6 @@
             var logBox = document.getElementById('d11Log');
             var printButton = document.getElementById('d11Print');
             var testButton = document.getElementById('d11Test');
-            var tryButton = document.getElementById('d11Try');
             var probeButton = document.getElementById('d11Probe');
             var outboundId = (info && info.getAttribute('data-outbound')) || '';
             var driver = null;
@@ -571,55 +575,58 @@
                 };
             });
 
-            /* 试打四种组合：真机上「所有命令都应答、纸上却什么都没有」时，问题在流程或行包格式。
-               一次打四张测试条，日志里写明每张是哪种组合，人看哪张印出来就知道该用哪套。 */
-            if (tryButton) {
-                tryButton.addEventListener('click', function () {
+            /* 试打 ①②③④：一个按钮一张，一次只改一个变量，方便在真机上定位。
+               ④ 之后每次只动一项，别再一次改三样（Step 288 就是这么把能打的组合弄成空白的）。 */
+            var TRY_VARIANTS = [
+                { short: true, lead: 0, slow: false, name: '88 行（Step 287 能打出来的尺寸）、不补白、快发' },
+                { short: false, lead: 0, slow: false, name: '满页（整张标签）、不补白、快发' },
+                { short: false, lead: 12, slow: false, name: '满页、顶上补 12 行白、快发' },
+                { short: false, lead: 12, slow: true, name: '满页、顶上补 12 行白、慢发（前 16 行 30ms）' }
+            ];
+
+            function tryOne(index) {
+                var variant = TRY_VARIANTS[index];
+                var job = settings();
+                var height = variant.short ? Math.round(11 * job.dpi / 25.4) : job.heightPx;
+                var areaH = Math.max(20, height - variant.lead);
+                var bits = padTop(testBits(job.widthPx, areaH, job.scale),
+                    job.widthPx, areaH, height, variant.lead);
+                log('—— 试打' + (index + 1) + '：' + variant.name + '（' + height + ' 行 × '
+                    + job.widthPx + ' 点）——');
+                say('试打' + (index + 1) + '：' + variant.name);
+                return connected().then(function () {
+                    return driver.print(bits, job.widthPx, height, {
+                        density: job.density,
+                        copies: 1,
+                        countBytes: 4,
+                        slowStart: variant.slow
+                    });
+                }).then(function (result) {
+                    say('试打' + (index + 1) + ' 已发完（' + height + ' 行）：看这张纸有没有内容',
+                        result && result.printed === false ? 'error' : 'ok');
+                }).catch(function (error) {
+                    say('试打' + (index + 1) + ' 失败：' + (error && error.message ? error.message : error), 'error');
+                    log('× ' + (error && error.message ? error.message : error));
+                });
+            }
+
+            TRY_VARIANTS.forEach(function (variant, index) {
+                var button = document.getElementById('d11Try' + (index + 1));
+                if (!button) {
+                    return;
+                }
+                button.addEventListener('click', function () {
                     if (busy) {
                         return;
                     }
                     busy = true;
-                    tryButton.disabled = true;
-                    var job = settings();
-                    var variants = [
-                        { family: 'v1', countBytes: 4, name: '老流程 + 黑点数 4 字节' },
-                        { family: 'v4', countBytes: 4, name: 'v4（开始 9 字节）+ 黑点数 4 字节' },
-                        { family: 'v1', countBytes: 1, name: '老流程 + 黑点数 1 字节' },
-                        { family: 'v4', countBytes: 1, name: 'v4（开始 9 字节）+ 黑点数 1 字节' }
-                    ];
-                    var height = job.heightPx;
-                    var areaH = Math.max(20, height - job.leadRows);
-                    var bits = padTop(testBits(job.widthPx, areaH, job.scale),
-                        job.widthPx, areaH, height, job.leadRows);
-                    say('试打：正在连接蓝牙…');
-                    connected().then(function () {
-                        var chain = Promise.resolve();
-                        variants.forEach(function (variant, index) {
-                            chain = chain.then(function () {
-                                say('试打第 ' + (index + 1) + ' / ' + variants.length + ' 张：' + variant.name);
-                                log('—— 第 ' + (index + 1) + ' 张：' + variant.name + ' ——');
-                                return driver.print(bits, job.widthPx, height, {
-                                    density: job.density,
-                                    copies: 1,
-                                    family: variant.family,
-                                    countBytes: variant.countBytes
-                                });
-                            }).then(function () {
-                                return sleep(2500);
-                            });
-                        });
-                        return chain;
-                    }).then(function () {
-                        say('试打结束：' + variants.length + ' 张里哪一张印出来了？把日志发我', 'ok');
-                    }).catch(function (error) {
-                        say('试打失败：' + (error && error.message ? error.message : error), 'error');
-                        log('× ' + (error && error.message ? error.message : error));
-                    }).then(function () {
+                    button.disabled = true;
+                    tryOne(index).then(function () {
                         busy = false;
-                        tryButton.disabled = false;
+                        button.disabled = false;
                     });
                 });
-            }
+            });
 
             /* 诊断：不打印，只把“打印机到底回什么”写进日志 */
             if (probeButton) {

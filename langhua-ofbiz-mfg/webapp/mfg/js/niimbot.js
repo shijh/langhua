@@ -571,6 +571,8 @@
         /* 真机实测（B1-IA22170502，2026-11-04）：1 字节黑点数的行包印出来是**空白**，
            4 字节的才印；所以宽头（>96 点）默认 4 字节，D11（96 点）仍是一字节。 */
         var countBytes = options.countBytes || (width > 96 ? 4 : 1);
+        /* 开页后先停一下、前几行慢发（避免最上面几行被吞）；真机排查时可以用 slowStart:false 关掉 */
+        var slowStart = options.slowStart !== false;
         var rows = rowFrames(bits, width, height, countBytes);
         var step = function (cmd, data, replies, label) {
             return self.soft(cmd, data, replies, label);
@@ -608,7 +610,7 @@
             self.log('发送位图：' + rows.length + ' 行（每行 ' + rows[0].length + ' 字节的包）…');
             /* 刚开页的头几条行包容易被打印机吞掉（真机上最上面 12 行没印出来），
                所以先等它站好，前十几行慢一点发 */
-            return sleep(150);
+            return slowStart ? sleep(150) : null;
         }).then(function () {
             var chain = Promise.resolve();
             rows.forEach(function (one, index) {
@@ -616,7 +618,7 @@
                     return self.write(one);
                 }).then(function () {
                     var wait = pace;
-                    if (index < WARM_UP_ROWS && pace < WARM_UP_PACE_MS) {
+                    if (slowStart && index < WARM_UP_ROWS && pace < WARM_UP_PACE_MS) {
                         wait = WARM_UP_PACE_MS;
                     }
                     return wait > 0 ? sleep(wait) : null;
