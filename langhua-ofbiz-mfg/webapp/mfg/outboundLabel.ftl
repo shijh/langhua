@@ -132,18 +132,10 @@
                     <option value="12x40">D11 12×40mm（203dpi / 96 点）</option>
                 </select>
             </label>
-            <label>流程
-                <select id="d11Flow" data-d11-flow="1">
-                    <option value="auto" selected>自动（按纸型）</option>
-                    <option value="b1">b1（开始 7 字节 + 尺寸 6 字节）</option>
-                    <option value="v1">老流程（开始 1 字节 + 尺寸 4 字节）</option>
-                    <option value="v4">v4（开始 9 字节）</option>
-                </select>
-            </label>
             <label>码里
                 <select id="d11Code" data-d11-code="1">
-                    <option value="mid" selected>单号 + 项目名 + 件数</option>
-                    <option value="big">整份清单</option>
+                    <option value="big" selected>整份清单（扫出来是全部料）</option>
+                    <option value="mid">单号 + 项目名 + 件数</option>
                     <option value="small">只有单号</option>
                 </select>
             </label>
@@ -156,10 +148,6 @@
                 </select>
             </label>
             <button id="d11Test" data-d11-test="1">打印测试条</button>
-            <button id="d11Try1" class="secondary" data-d11-try="1">试打①</button>
-            <button id="d11Try2" class="secondary" data-d11-try="2">试打②</button>
-            <button id="d11Try3" class="secondary" data-d11-try="3">试打③</button>
-            <button id="d11Try4" class="secondary" data-d11-try="4">试打④</button>
             <button id="d11Probe" class="secondary" data-d11-probe="1">诊断（只问不打印）</button>
             <span id="d11State" class="d11-state" data-d11-state=""></span>
             <pre id="d11Log" class="d11-log" data-d11-log="1" hidden></pre>
@@ -169,10 +157,10 @@
                 （自签证书的 https 被浏览器当成不安全，蓝牙会被拦）。
                 纸型决定点数：<b>B1</b> 是 203dpi、打印头 384 点（48mm），40mm 的纸占中间 320 点；
                 <b>D11</b> 是 203dpi、96 点宽（12mm 胶带）。位图按整条打印头画、内容居中，纸窄也能对上。
-                纸上印二维码 + 单号 + 项目名 + 件数；「码里」选整份清单时只印码和项目名，码给得更大才扫得开。
-                流程一般留「自动」；打出来是空白条时，按顺序点 <b>试打①②③④</b>
-                （① 满页对照 → ② 顶上留白 + 一条 1 点的「点火线」 → ③ 顶上留白 + 6 行黑带 → ④ 顶上留白无点火对照），
-                哪一张有内容就告诉我，并把日志发我。
+                纸上印什么由「码里」决定：<b>整份清单</b>（默认）把这一盒要的料全写进二维码，纸上只留
+                二维码 + 项目名，码给到最大（约 25mm、每模块 0.35mm），扫码就能对着捡料；
+                另两档内容少、码小，适合只看单号。打出来是空白条时先点「打印测试条」，
+                再把「诊断」的日志发我（`←` 开头的是打印机原话）。
             </span>
         </span>
         <span class="hint">
@@ -376,7 +364,10 @@
                 var side = Math.max(Math.round(40 * scale),
                     Math.min(usable, heightPx - reserved));
                 if (picture) {
+                    /* 二维码缩小时关掉平滑：开了之后模块边缘全是灰的，阈值一判就会糊成一团（码越密越明显） */
+                    ctx.imageSmoothingEnabled = false;
                     ctx.drawImage(picture, Math.round((widthPx - side) / 2), 2, side, side);
+                    ctx.imageSmoothingEnabled = true;
                 }
                 var y = (picture ? 2 + side : 0) + Math.round(4 * scale);
                 items.forEach(function (item) {
@@ -460,14 +451,12 @@
             function settings() {
                 var key = (document.getElementById('d11Paper') || {}).value || '40x30';
                 var paper = PAPERS[key] || PAPERS['40x30'];
-                var flow = (document.getElementById('d11Flow') || {}).value || 'auto';
                 var density = parseInt((document.getElementById('d11Density') || {}).value, 10) || 2;
                 var copies = parseInt((document.getElementById('d11Copies') || {}).value, 10) || 1;
                 return {
                     key: key,
-                    /* 「流程」可以手动覆盖：自动 = 纸型说了算（B1 → b1，D11 → v1），
-                       b1 = 开始 7 字节 + 尺寸 6 字节带份数，v1 = D11 那种，v4 = 9 字节开始包 */
-                    family: flow === 'auto' ? paper.family : flow,
+                    /* 流程由纸型决定：B1 / B21 走 b1，D11 走 v1，不再给人手工选 */
+                    family: paper.family,
                     dpi: paper.dpi,
                     /* 位图按打印头的宽度画，内容限制在纸宽里居中 */
                     widthPx: paper.head,
@@ -585,19 +574,10 @@
                 };
             });
 
-            /* 试打 ①②③④：一个按钮一张，一次只改一个变量。
-               2026-11-04 真机结果：满页（240 行）从第 0 行开始 → 能打；88 行短页 → 空白；
-               满页但顶上留 12 行白 → 也空白，加 1 点点火线 → 又能打（② ③ 印出来一模一样，
-               因为测试条自己第 12 行就是满宽黑带，1 行和 6 行的点火线都被它盖住了）。
-               所以结论是：**整页高度 + 第 0 行有墨**，1 行点火线就够。
-               但那时真正的毛病在行包布局（三段计数 → 打印机把位图读错），
-               换成 total 模式之前的打印结果是「一条巨大黑块」，见 niimbot.js 的 rowFrames。 */
-            var TRY_VARIANTS = [
-                { lead: 0, primer: 0, name: '满页、内容从第 0 行开始（对照，上次能打的就是这个）' },
-                { lead: 12, primer: 1, name: '满页、顶上 12 行白 + 第 0 行一条 1 点高的“点火线”' },
-                { lead: 12, primer: 6, name: '满页、顶上 12 行白 + 顶上 6 行黑带（更强的点火）' },
-                { lead: 12, primer: 0, name: '满页、顶上 12 行白、无点火（对照，已知空白）' }
-            ];
+            /* 曾经有过「试打 ①②③④」四个按钮，一个按钮只改一个变量，用来定位 B1 打不出来的原因
+               （满页 / 点火线 / 慢发 / 行包布局 / 任务变体）。2026-11-04 定案后删掉了，
+               结论记在 AGENTS.md 的 Step 290~293；要再排查就把当时那四个变量一个一个加回来，
+               一次只改一项——别同时改两样，不然分不清是哪一样起的作用。 */
 
             /** 在顶上画 primer 行满宽黑线：第 0 行全白时打印机可能整页不印，先给它一点墨 */
             function withPrimer(bits, widthPx, heightPx, rows) {
@@ -608,53 +588,6 @@
                 }
                 return bits;
             }
-
-            function tryOne(index) {
-                var variant = TRY_VARIANTS[index];
-                var job = settings();
-                var height = job.heightPx;
-                var areaH = Math.max(20, height - variant.lead);
-                var bits = withPrimer(
-                    padTop(testBits(job.widthPx, areaH, job.scale),
-                        job.widthPx, areaH, height, variant.lead),
-                    job.widthPx, height, variant.primer);
-                log('—— 试打' + (index + 1) + '：' + variant.name + '（' + height + ' 行 × '
-                    + job.widthPx + ' 点）——');
-                say('试打' + (index + 1) + '：' + variant.name);
-                return connected().then(function () {
-                    return driver.print(bits, job.widthPx, height, {
-                        density: job.density,
-                        copies: 1,
-                        family: job.family,
-                        /* 四张都用快发：行包布局（total 模式）才是最可疑的那一项，先把发送节奏钉住 */
-                        slowStart: false
-                    });
-                }).then(function (result) {
-                    say('试打' + (index + 1) + ' 已发完（' + height + ' 行）：看这张纸有没有内容',
-                        result && result.printed === false ? 'error' : 'ok');
-                }).catch(function (error) {
-                    say('试打' + (index + 1) + ' 失败：' + (error && error.message ? error.message : error), 'error');
-                    log('× ' + (error && error.message ? error.message : error));
-                });
-            }
-
-            TRY_VARIANTS.forEach(function (variant, index) {
-                var button = document.getElementById('d11Try' + (index + 1));
-                if (!button) {
-                    return;
-                }
-                button.addEventListener('click', function () {
-                    if (busy) {
-                        return;
-                    }
-                    busy = true;
-                    button.disabled = true;
-                    tryOne(index).then(function () {
-                        busy = false;
-                        button.disabled = false;
-                    });
-                });
-            });
 
             /* 诊断：不打印，只把“打印机到底回什么”写进日志 */
             if (probeButton) {
