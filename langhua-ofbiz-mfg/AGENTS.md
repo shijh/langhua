@@ -483,6 +483,13 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   - 验法：`outboundQr?size=big` 取回来的 PNG 从 14 KB 降到 12.6 KB（没有 logo 了）；
     `d11-page-test.js` **30** 项（码 ≥ 205 点、正方形）；单测 **275**、`check-prod-237` **27/27**
     （这次动了 Java，jar 时间戳那一项也过了）。
+- **Step 296：项目上的「备注」改成「说明」，并且能给几句话**（`dev.ftl` 的立项表单）：
+  `<textarea name="note" rows="3" cols="56" data-project-note="Y">`——**字段名仍是 `note`**，
+  所以 `mfgDevProjectSave` 一个字都没改。换行能存能回显（textarea 里是 `&#xa;`）。
+  两个小注意：① `${project.note!''}` 已经是转义过的字符串，**不要再 `?html`**；
+  ② `<textarea ...>` 的 `>` 与值之间**不能有换行**，否则存回来的值开头会多一个换行。
+  验法（test 实例）：表单里是 textarea、旧的「备注 <input」不见了；POST 两行说明 → 回显两行；
+  `verify-m13` **54/0**、`smoke-dev-pages` **28/28**、`check-prod-237` **27/27**。
 - 回归：单测 275、`verify-m13` **54/0**、`smoke-dev-pages` **28/28**、`check-prod-237` **26/27**
   ——少的 1 项是「jar 是刚编的」：这几轮**没改 Java**，生产 jar 的时间戳没变，属于预期。
 

@@ -227,7 +227,8 @@
             </select>
         </p>
         <p>
-            备注 <input type="text" name="note" size="46" value="${project.note!''}"/>
+            <#-- 2026-11-04 用户要求：项目上的那一行字叫「说明」，并且要能写几句话（原来是一行 46 字的「备注」） -->
+            说明 <textarea name="note" rows="3" cols="56" data-project-note="Y">${project.note!''}</textarea>
             <input type="submit" value="保存项目"/>
         </p>
     </form>
