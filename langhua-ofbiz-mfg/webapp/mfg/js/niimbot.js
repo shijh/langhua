@@ -14,16 +14,15 @@
  *   打印   0x23 标签类型 → 0x21 浓度 → 0x01 开始 → 0x20 允许清除 → 0x03 开页 →
  *          0x13 页面尺寸(行,列) → 0x15 份数 → 每行一个 0x85 → 0xE3 关页 →
  *          0xA3 轮询进度到 page == 份数 → 0xF3 结束
- *   行     0x85 数据 = 行号(2,大端) + 三段 4 字节的黑点数(3) + 重复次数(1) + 位图(stride 字节，
- *          高位在左，1 = 黑)。D11 打印头 96 点（12mm × 8 点/mm），所以 stride = 12。
+ *   行     0x85 数据 = 行号(2,大端) + 0x00 + 总黑点数(2,大端) + 重复次数(1) + 位图(stride 字节，
+ *          高位在左，1 = 黑)。**这是 total 模式**（见 rowFrames 的注释），D11 打印头 96 点
+ *          （12mm × 8 点/mm）所以 stride = 12。
  *
- * 这份按两台机器写：**D11 / D110**（203 dpi、打印头 96 点 = 12mm 胶带）走老流程；
- * **B1 / B21 / M2**（300 dpi、打印头 567 点 ≈ 48mm）走 v4 流程（`0x01` 开始打印是 9 个字节、
- * 没有 `0x03` 开页）。机型由页面上的「纸型」决定（`options.family` 是 `d11` 还是 `v4`），
+ * 这份按两代机器写：**D11 / D110 / B1 / B21**（203 dpi、D11 打印头 96 点 = 12mm 胶带、
+ * B1 384 点 ≈ 48mm）走老流程（`0x01` 开始 1 字节 + `0x03` 开页）；
+ * **B1 Pro / M2-H**（300 dpi、打印头 567 点 ≈ 48mm）走 v4 流程（`0x01` 开始打印 9 个字节、
+ * 没有 `0x03` 开页）。机型由页面上的「纸型」决定（`options.family` 是 `v1` 还是 `v4`），
  * 因为同一台电脑上两台机器都可能连着。
- *
- * **v4 那条路没有在这台 B1 上跑通过**（2026-11-04 用户刚拿到机器）：第一次点打印若没出纸，
- * 先点「诊断」把日志发我——`←` 开头的是打印机的原话，照它改命令表。
  *
  * 没有第三方依赖，纯 ES5 + Promise；用 `node --check` 与假 BLE 设备单测（%TEMP%\jup\js-check）。
  */
@@ -86,69 +85,42 @@
         return out;
     }
 
-    /** 一个字节里几个 1（行包里要报"这一行印多少个黑点"，按 4 字节一段分三段报）。 */
-    function blackBitsIn(byte) {
-        var n = 0;
-        for (var i = 0; i < 8; i++) {
-            if ((byte >> i) & 1) {
-                n++;
-            }
-        }
-        return n;
-    }
-
     /**
      * 把位图切成一行一个 0x85 包。
      *
-     * `bits` 是 `width * height` 个 0/1（1 = 打黑），行优先。位图里高位在左（0x80 是最左边那一点）。
+     * `bits` 是 `width * height` 个 0/1（1 = 打黑），行优先；位图里高位在左（0x80 是最左边那一点）。
      *
-     * 黑点数是三段（这一行的前 / 中 / 后各三分之一）的个数，默认每段一个字节：
-     * 一行的三分之一最多 ceil(打印头 / 3) 个黑点，96 点是 32、384 点是 128、567 点是 189，
-     * 一个字节（255）装得下。四字节写法也留着（`countBytes=4`），真机上打不出东西时可以换着试。
+     * 行包的数据是 **6 个字节的头 + 位图**：
+     *
+     *   [行号高, 行号低, 0x00, 总黑点数(低), 总黑点数(高), 重复次数, ...stride 字节位图]
+     *
+     * 这是 `iscarelli/niimbot-web-bluetooth` 的 `docs/protocol-v4.md` 里写的 **total 模式**
+     * （原文：both tasks use total mode），也是 niim.blue 实际发出去的字节：
+     * 那一行到底多黑，只报**一个 16 位的总数**，不再是三段各报一个。
+     *
+     * **别改回“三段各一个计数”**：那种四字节写法看着也能印出东西，但打印机把多出来的 9 个字节
+     * 当成了位图的头 —— 每一行的像素都往左错 72 点，而且 `run`（重复次数）被读成黑点数，
+     * 同一行重复几十次。2026-11-04 的 B1 真机上印出来就是一条巨大的黑块。
      *
      * @param {Uint8Array} bits 0/1 位图
      * @param {number} width 宽（点）
      * @param {number} height 高（行）
-     * @param {number} countBytes 每个计数占几个字节（默认 1）
      * @return {Uint8Array[]} 每一行的整帧
      */
-    function rowFrames(bits, width, height, countBytes) {
-        var wide = (countBytes || 1) === 4;
+    function rowFrames(bits, width, height) {
         var stride = Math.ceil(width / 8);
-        /* 三段 = 这一行的前 / 中 / 后各三分之一（D11 的 12 字节刚好是三个 4 字节，
-           所以老实现看起来像"每 4 字节一段"；384 点的行是 48 字节，必须按三分之一切） */
-        var third = Math.ceil(stride / 3);
         var out = [];
         for (var y = 0; y < height; y++) {
             var row = new Uint8Array(stride);
+            var total = 0;
             for (var x = 0; x < width; x++) {
                 if (bits[y * width + x]) {
                     row[x >> 3] |= 0x80 >> (x & 7);
+                    total++;
                 }
             }
-            var count0 = 0;
-            var count1 = 0;
-            var count2 = 0;
+            var data = [y >> 8, y & 0xFF, 0x00, total & 0xFF, (total >> 8) & 0xFF, 1];
             for (var i = 0; i < stride; i++) {
-                var n = blackBitsIn(row[i]);
-                if (i < third) {
-                    count0 += n;
-                } else if (i < 2 * third) {
-                    count1 += n;
-                } else {
-                    count2 += n;
-                }
-            }
-            var data = [y >> 8, y & 0xFF];
-            [count0, count1, count2].forEach(function (n) {
-                if (wide) {
-                    data.push((n >>> 24) & 0xFF, (n >>> 16) & 0xFF, (n >>> 8) & 0xFF, n & 0xFF);
-                } else {
-                    data.push(n & 0xFF);
-                }
-            });
-            data.push(1);
-            for (i = 0; i < stride; i++) {
                 data.push(row[i]);
             }
             out.push(frame(CMD.PRINT_ROW, data));
@@ -557,8 +529,7 @@
      * @param {number} width 宽（点）
      * @param {number} height 高（行）
      * @param {object} options density（1~3，默认 2）、copies（默认 1）、paceMs（每行之间的停顿，
-     *        默认 10）、family（`d11` 或 `v4`，默认 `d11`）、countBytes（每个黑点数占几个字节，
-     *        默认宽头 4 / 窄头 1——真机打不出东西时这一项最可疑）
+     *        默认 10）、family（`v1` = D11 那种开始包，`v4` = B1 Pro / M2 那种 9 字节开始包）
      * @return {Promise} 打完 resolve
      */
     Driver.prototype.print = function (bits, width, height, options) {
@@ -568,17 +539,14 @@
         var copies = options.copies || 1;
         var pace = options.paceMs == null ? 10 : options.paceMs;
         var v4 = options.family === 'v4';
-        /* 真机实测（B1-IA22170502，2026-11-04）：1 字节黑点数的行包印出来是**空白**，
-           4 字节的才印；所以宽头（>96 点）默认 4 字节，D11（96 点）仍是一字节。 */
-        var countBytes = options.countBytes || (width > 96 ? 4 : 1);
         /* 开页后先停一下、前几行慢发（避免最上面几行被吞）；真机排查时可以用 slowStart:false 关掉 */
         var slowStart = options.slowStart !== false;
-        var rows = rowFrames(bits, width, height, countBytes);
+        var rows = rowFrames(bits, width, height);
         var step = function (cmd, data, replies, label) {
             return self.soft(cmd, data, replies, label);
         };
         self.log('打印流程：' + (v4 ? 'v4（B1 Pro / M2，300 dpi）' : 'D11 那种（开始 1 字节）')
-            + '，行包黑点数 ' + countBytes + ' 字节，' + height + ' 行 × ' + width + ' 点');
+            + '，行包 total 模式，' + height + ' 行 × ' + width + ' 点');
         return Promise.resolve().then(function () {
             return step(CMD.SET_LABEL_TYPE, [0x01], [0x33], '标签类型（有间隙）');
         }).then(function () {
