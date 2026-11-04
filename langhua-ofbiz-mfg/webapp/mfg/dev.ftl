@@ -227,8 +227,11 @@
             </select>
         </p>
         <p>
-            <#-- 2026-11-04 用户要求：项目上的那一行字叫「说明」，并且要能写几句话（原来是一行 46 字的「备注」） -->
-            说明 <textarea name="note" rows="3" cols="56" data-project-note="Y">${project.note!''}</textarea>
+            <#-- 2026-11-04 用户要求：项目上的那一行字叫「说明」，并且要能写几句话（原来是一行 46 字的「备注」）；
+                 标签放在框的上面——贴着框的左下角看着像框自己的脚注 -->
+            说明<br/>
+            <#-- textarea 的开始标签与值之间不能有换行，否则存回来的值开头会多一个换行 -->
+            <textarea name="note" rows="3" cols="56" data-project-note="Y">${project.note!''}</textarea>
             <input type="submit" value="保存项目"/>
         </p>
     </form>
@@ -335,6 +338,9 @@
                 没走的步骤已置为「跳过」（不算超期、不算已量产）。要接着做就在上面把状态改回「进行中」，
                 再到步骤表里把要做的步骤改回「未开始」。<span class="hint">（「不做这个项目」请选「已取消」）</span></li>
         </#if>
+        <#-- 立项表单里的「说明」全文放在这里：换行保留（`.note-text` 是 white-space: pre-line），
+             没写就写一个破折号，读的人才知道这一格是空的而不是页面漏了字 -->
+        <li data-project-note="Y">说明：<#if (project.note!'')?has_content><span class="note-text">${project.note}</span><#else><span class="hint">—</span></#if></li>
     </ul>
 
     <#--
