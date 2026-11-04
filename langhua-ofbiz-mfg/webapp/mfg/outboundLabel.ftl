@@ -125,11 +125,18 @@
             <button id="d11Print" data-d11-print="1" data-d11-qr-mm="26">蓝牙打印</button>
             <label>纸型
                 <select id="d11Paper" data-d11-paper="1">
-                    <option value="40x30" selected>B1 40×30mm（300dpi）</option>
-                    <option value="50x30">B1 50×30mm（300dpi）</option>
-                    <option value="12x22">D11 12×22mm（203dpi）</option>
-                    <option value="12x30">D11 12×30mm（203dpi）</option>
-                    <option value="12x40">D11 12×40mm（203dpi）</option>
+                    <option value="40x30" selected>B1 40×30mm（203dpi / 384 点）</option>
+                    <option value="50x30">B1 50×30mm（203dpi / 384 点）</option>
+                    <option value="12x22">D11 12×22mm（203dpi / 96 点）</option>
+                    <option value="12x30">D11 12×30mm（203dpi / 96 点）</option>
+                    <option value="12x40">D11 12×40mm（203dpi / 96 点）</option>
+                </select>
+            </label>
+            <label>流程
+                <select id="d11Flow" data-d11-flow="1">
+                    <option value="auto" selected>自动（按纸型）</option>
+                    <option value="v1">老流程（D11 那种）</option>
+                    <option value="v4">v4（开始 9 字节）</option>
                 </select>
             </label>
             <label>码里
@@ -155,8 +162,10 @@
                 用本机蓝牙直连标签机：点一下会弹出系统的蓝牙设备列表，选那台机器就行。
                 前提是这个页面用 <b>Chrome / Edge</b> 打开、地址是 <code>http://localhost:端口</code>
                 （自签证书的 https 被浏览器当成不安全，蓝牙会被拦）。
-                纸型决定流程与点数：<b>B1 40×30</b> 是 300dpi（472 × 354 点）、<b>D11 12mm</b> 是 203dpi（96 点宽）。
+                纸型决定点数：<b>B1</b> 是 203dpi、打印头 384 点（48mm），40mm 的纸占中间 320 点；
+                <b>D11</b> 是 203dpi、96 点宽（12mm 胶带）。位图按整条打印头画、内容居中，纸窄也能对上。
                 纸上印二维码 + 单号 + 项目名 + 件数；「码里」选整份清单时只印码和项目名，码给得更大才扫得开。
+                流程一般留「自动」；打出来是空白条时换成另一个流程再试，并把日志发我。
             </span>
         </span>
         <span class="hint">
@@ -308,8 +317,10 @@
              * 所以字号与留白都按 `scale`（dpi / 203）放大，剩下的高度全给二维码——
              * 码的大小直接决定能不能扫开，宁肯字小一点。
              */
-            function rasterise(picture, widthPx, heightPx, lines, scale) {
+            function rasterise(picture, widthPx, heightPx, lines, scale, innerPx) {
                 scale = scale || 1;
+                /* 画布是整条打印头，内容只占纸宽（innerPx）那一段，居中 —— 纸比打印头窄时两边各留白 */
+                var usable = Math.max(20, (innerPx || widthPx) - 4);
                 var canvas = document.createElement('canvas');
                 canvas.width = widthPx;
                 canvas.height = heightPx;
@@ -323,11 +334,11 @@
                 var bodySize = Math.round(13 * scale);
                 if (lines.id) {
                     /* 单号是箱子上最要紧的字：先按 20px（×scale）试，放不下就一路缩 */
-                    var numberSize = shrinkTo(ctx, lines.id, widthPx - 4,
+                    var numberSize = shrinkTo(ctx, lines.id, usable,
                         Math.round(20 * scale), Math.round(10 * scale), 'bold');
                     ctx.font = font(numberSize, 'bold');
                     items.push({
-                        text: fit(ctx, lines.id, widthPx - 4),
+                        text: fit(ctx, lines.id, usable),
                         font: font(numberSize, 'bold'),
                         size: numberSize,
                         gap: Math.round(6 * scale)
@@ -335,14 +346,14 @@
                 }
                 if (lines.project) {
                     ctx.font = font(bodySize, '');
-                    wrapLines(ctx, lines.project, widthPx - 4, 2).forEach(function (one) {
+                    wrapLines(ctx, lines.project, usable, 2).forEach(function (one) {
                         items.push({ text: one, font: font(bodySize, ''), size: bodySize,
                             gap: Math.round(2 * scale) });
                     });
                 }
                 if (lines.counts) {
                     ctx.font = font(bodySize, '');
-                    items.push({ text: fit(ctx, lines.counts, widthPx - 4), font: font(bodySize, ''),
+                    items.push({ text: fit(ctx, lines.counts, usable), font: font(bodySize, ''),
                         size: bodySize, gap: Math.round(6 * scale) });
                 }
                 var reserved = Math.round(10 * scale);
@@ -350,7 +361,7 @@
                     reserved += item.size + item.gap;
                 });
                 var side = Math.max(Math.round(40 * scale),
-                    Math.min(widthPx - 4, heightPx - reserved));
+                    Math.min(usable, heightPx - reserved));
                 if (picture) {
                     ctx.drawImage(picture, Math.round((widthPx - side) / 2), 2, side, side);
                 }
@@ -399,27 +410,33 @@
                 return bits;
             }
 
-            /* 纸型 → 点数与打印流程。B1 / B21 是 300dpi、打印头 567 点（≈48mm），所以 50mm 的纸
-               也只能用 567 点；D11 / D110 是 203dpi、96 点（12mm 胶带）。 */
+            /* 纸型 → 点数与打印流程。实测（2026-11-04 诊断日志，B1-IA22170502）：
+               `0x40[08]` 回 `48 1000` = 型号 0x1000（B1）、`0xDC[03]` 回 `…01 80…` = 打印头 384 点，
+               所以 **B1 是 203dpi（8 点/mm）、打印头 48mm**，不是 300dpi（那是 B1 Pro）。
+               纸 40mm 宽 = 320 点，位图按**整个打印头** 384 点宽画、内容居中，
+               这样打印机把位图靠左还是居中都对得上纸。 */
             var PAPERS = {
-                '40x30': { w: 40, h: 30, dpi: 300, family: 'v4', head: 567 },
-                '50x30': { w: 50, h: 30, dpi: 300, family: 'v4', head: 567 },
-                '12x22': { w: 12, h: 22, dpi: 203, family: 'd11', head: 96 },
-                '12x30': { w: 12, h: 30, dpi: 203, family: 'd11', head: 96 },
-                '12x40': { w: 12, h: 40, dpi: 203, family: 'd11', head: 96 }
+                '40x30': { w: 40, h: 30, dpi: 203, head: 384, family: 'v1' },
+                '50x30': { w: 50, h: 30, dpi: 203, head: 384, family: 'v1' },
+                '12x22': { w: 12, h: 22, dpi: 203, head: 96, family: 'v1' },
+                '12x30': { w: 12, h: 30, dpi: 203, head: 96, family: 'v1' },
+                '12x40': { w: 12, h: 40, dpi: 203, head: 96, family: 'v1' }
             };
 
             function settings() {
                 var key = (document.getElementById('d11Paper') || {}).value || '40x30';
                 var paper = PAPERS[key] || PAPERS['40x30'];
+                var flow = (document.getElementById('d11Flow') || {}).value || 'auto';
                 var density = parseInt((document.getElementById('d11Density') || {}).value, 10) || 2;
                 var copies = parseInt((document.getElementById('d11Copies') || {}).value, 10) || 1;
                 return {
                     key: key,
-                    family: paper.family,
+                    /* 「流程」可以手动覆盖：自动 = 纸型说了算，v1 = D11 那种开始包，v4 = 9 字节开始包 */
+                    family: flow === 'auto' ? paper.family : flow,
                     dpi: paper.dpi,
-                    /* 横向点数 = 纸宽 × dpi / 25.4，不能超过打印头 */
-                    widthPx: Math.min(paper.head, Math.round(paper.w * paper.dpi / 25.4)),
+                    /* 位图按打印头的宽度画，内容限制在纸宽里居中 */
+                    widthPx: paper.head,
+                    innerPx: Math.min(paper.head, Math.round(paper.w * paper.dpi / 25.4)),
                     heightPx: Math.round(paper.h * paper.dpi / 25.4),
                     scale: paper.dpi / 203,
                     mm: paper.h,
@@ -509,7 +526,7 @@
                         id: compact ? '' : (text[0] || '').trim(),
                         project: projectName,
                         counts: compact ? '' : (text[1] || '').trim()
-                    }, job.scale);
+                    }, job.scale, job.innerPx);
                 });
             });
             wire(testButton, '测试条', function (job) {

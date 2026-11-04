@@ -101,8 +101,8 @@
      * `bits` 是 `width * height` 个 0/1（1 = 打黑），行优先。位图里高位在左（0x80 是最左边那一点）。
      *
      * 黑点数按 4 字节一段分三段报：四字节一格时一个段最多 32 个黑点，一字节就够；
-     * 300dpi 那代纸宽 472 点，一段能到 400 多个黑点，一字节装不下（会溢出成 152），
-     * 所以 `countBytes` 给 4 —— 四个字节大端写。
+     * 打印头超过 96 点时（B1 是 384 点，一段能到 320 个黑点）一字节装不下，会溢出成 320 & 0xFF，
+     * 所以宽头一律用四个字节大端写。
      *
      * @param {Uint8Array} bits 0/1 位图
      * @param {number} width 宽（点）
@@ -562,7 +562,8 @@
         var copies = options.copies || 1;
         var pace = options.paceMs == null ? 10 : options.paceMs;
         var v4 = options.family === 'v4';
-        var rows = rowFrames(bits, width, height, v4 ? 4 : 1);
+        // 宽头（B1 384 点）的黑点数一字节装不下，窄头（D11 96 点）仍按老格式发
+        var rows = rowFrames(bits, width, height, width > 96 ? 4 : 1);
         var step = function (cmd, data, replies, label) {
             return self.soft(cmd, data, replies, label);
         };
