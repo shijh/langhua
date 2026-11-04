@@ -55,15 +55,19 @@
     <service name="mfgDevBomItemSave" engine="java"
             location="org.langhua.ofbiz.mfg.MfgDevBomServices" invoke="devBomItemSave"
             auth="false" use-transaction="true">
-        <description>Correct the part number or the quantity of one part of the latest import and move the lock with it</description>
+        <description>Correct the part number, the quantity or the designators of one part of the latest import, or delete a row that was typed in by hand; the lock moves with it</description>
         <attribute name="projectCode" type="String" mode="IN" optional="true"/>
         <attribute name="lineSeq" type="Long" mode="IN" optional="true"/>
         <attribute name="componentCode" type="String" mode="IN" optional="true"/>
         <attribute name="qty" type="Double" mode="IN" optional="true"/>
+        <attribute name="designators" type="String" mode="IN" optional="true"/>
+        <attribute name="delete" type="String" mode="IN" optional="true"/>
         <attribute name="lock" type="String" mode="IN" optional="true"/>
         <attribute name="operatorName" type="String" mode="IN" optional="true"/>
         <attribute name="lineSeq" type="String" mode="OUT" optional="true"/>
         <attribute name="componentCode" type="String" mode="OUT" optional="true"/>
+        <attribute name="deletedLine" type="String" mode="OUT" optional="true"/>
+        <attribute name="deletedCode" type="String" mode="OUT" optional="true"/>
         <attribute name="lockedQty" type="String" mode="OUT" optional="true"/>
         <attribute name="shortQty" type="String" mode="OUT" optional="true"/>
     </service>

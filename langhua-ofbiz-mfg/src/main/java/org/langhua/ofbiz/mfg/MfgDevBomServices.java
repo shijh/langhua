@@ -448,9 +448,11 @@ public final class MfgDevBomServices {
     }
 
     /**
-     * Corrects one part of the latest import: its part number (the code stock is booked under) and
-     * its quantity. Correcting the code moves the lock from the old code to the new one, because the
-     * sketch names a part differently from the shop that sells it.
+     * Corrects one part of the latest import: its part number (the code stock is booked under), its
+     * quantity and its designators, or deletes a row that was typed in by hand.
+     *
+     * <p>Correcting the code moves the lock from the old code to the new one, because the sketch
+     * names a part differently from the shop that sells it.
      *
      * @param dctx the dispatch context
      * @param context service context, see {@code servicedef/devbom-services.xml#mfgDevBomItemSave}
@@ -473,15 +475,68 @@ public final class MfgDevBomServices {
             if (item == null) {
                 return ServiceUtil.returnError("第 " + lineSeq + " 行不存在（可能已经被下一次导入替换）");
             }
+            if ("Y".equalsIgnoreCase(MfgSupport.toText(context.get("delete")))) {
+                return deleteTypedInItem(delegator, projectCode, operatorName, item);
+            }
             Map<String, Object> result = applyItemEdit(delegator, projectCode, operatorName, item,
                     MfgSupport.toText(context.get("componentCode")),
                     MfgSupport.toDouble(context.get("qty"), MfgSupport.numberOrZero(item.get("qty"))),
                     !"N".equals(MfgSupport.toText(context.get("lock"))), "改正第 " + lineSeq + " 行");
+            /* the designators are only written when the form carried them: the batch save shares
+               this code path and knows nothing about them */
+            if (context.containsKey("designators")) {
+                String designators = MfgSupport.toText(context.get("designators"));
+                item.set("designators", designators == null ? "" : designators);
+                delegator.store(item);
+            }
             result.put("lineSeq", String.valueOf(lineSeq));
             return result;
         } catch (GenericEntityException e) {
             return ServiceUtil.returnError("改正研发 BOM 行失败：" + e.getMessage());
         }
+    }
+
+    /**
+     * Removes a row somebody typed in by hand, and gives its lock back.
+     *
+     * <p>Only hand-typed rows can go. An imported row is a statement of what the sketch needs: the
+     * next import would write it straight back, so deleting it would only look as if it worked. The
+     * hint says so instead of quietly doing nothing.
+     *
+     * <p>The lock this row holds goes back with it - the part returns to the shelf's available
+     * quantity, exactly as if it had never been typed in. Stock itself never moves: this row only
+     * ever earmarked parts.
+     *
+     * @param delegator the delegator
+     * @param projectCode the project the row belongs to
+     * @param operatorName who did it, written into the stock ledger
+     * @param item the row
+     * @return the success result with {@code deletedLine} and {@code deletedCode}
+     */
+    private static Map<String, Object> deleteTypedInItem(Delegator delegator, String projectCode,
+            String operatorName, GenericValue item) throws GenericEntityException {
+        long lineSeq = item.getLong("lineSeq").longValue();
+        String code = item.getString("componentCode");
+        if (!MfgConstants.BOM_SOURCE_MANUAL.equals(item.getString("sourceId"))) {
+            return ServiceUtil.returnError("第 " + lineSeq + " 行是 sketch 导入的，删了下次导入还会回来："
+                    + "不要它就把 sketch 里的元件去掉再导入；只是暂时不用，把数量改成 0 或手工释放锁料");
+        }
+        double held = MfgSupport.numberOrZero(item.get("lockedQty"));
+        if (held > 0.0001) {
+            MfgStockLedger.releaseProjectReservation(delegator, projectCode, code, held, operatorName,
+                    "删掉手工添加的元件 " + code + "，放掉锁料");
+        }
+        long importSeq = item.getLong("importSeq").longValue();
+        delegator.removeValue(item);
+        GenericValue head = lastImport(delegator, projectCode);
+        if (head != null) {
+            updateHeadCounts(delegator, head, itemsOf(delegator, projectCode, importSeq));
+        }
+        Map<String, Object> result = ServiceUtil.returnSuccess();
+        result.put("lineSeq", String.valueOf(lineSeq));
+        result.put("deletedLine", String.valueOf(lineSeq));
+        result.put("deletedCode", code);
+        return result;
     }
 
     /**

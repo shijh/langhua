@@ -504,6 +504,23 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   （`display: inline-flex; align-items: flex-end; gap: .8em`），两者底边就齐了——
   在浏览器里量到的差是 **0 像素**（`textarea` 底 232.47 / 按钮底 232.47）；
   用户把框拖高时按钮也一直跟着底边走。`mfg.css?v=54`。
+- **Step 299：手工添加的元件能补位号、能删掉**（用户报「自己添加的元件无法编辑和删除，忘了填位号就再也填不上」）：
+  - **位号改成可编辑**：`dev.ftl` 的「位号」那一格从 `${r.designators}` 换成
+    `<input name="designators" form="bomRowN">`；`mfgDevBomItemSave` 多一个 IN `designators`，
+    **只有表单真的带了这一项才写**（`context.containsKey`）——整表保存走的是同一个 `applyItemEdit`，
+    它不知道位号，不能被清空。
+  - **手工添加的行可以删**：`mfgDevBomItemSave` 多一个 IN `delete=Y` → `deleteTypedInItem`：
+    只认 `sourceId = MFG_BOM_MANUAL` 的行，**先把它锁的料放回货架**（`releaseProjectReservation`，
+    数量取这一行的 `lockedQty`），再删行、再 `updateHeadCounts`；库存本身不动（这一行只锁过料）。
+    **导入的行一律拒绝**并说明原因——sketch 里有它，删了下次导入还会回来（要真不要就去改 sketch）。
+  - 页面：`<button type="submit" form="bomRowN" name="delete" value="Y" data-bom-delete="行号">删除</button>`
+    （只在手工行出现，`confirm` 里写清「它锁的 N 个会放回货架」）；
+    删完目标行已经不在了，所以跳转落到 `#devbomitems`（`parameters.deletedLine` 那条分支），
+    并在表格上方显示绿条 `p[data-bom-deleted]`（「已删掉第 N 行（料号 X）」）。
+  - 巡检脚本 `F:\build-ofbiz\check-bom-edit.ps1`（**10 项**，test 实例）：加一个手工件 →
+    位号是输入框、行上有删除按钮 → 事后填 `U1` 能存 → 导入的行没有删除按钮、服务拒绝删它 →
+    删掉手工行后行消失且页面有 `data-bom-deleted`。**断言「删完的绿条」要读 POST 的重定向结果**，
+    再 GET 一次（不带 query）是拿不到 `parameters.deletedLine` 的。
 - 回归：单测 275、`verify-m13` **54/0**、`smoke-dev-pages` **28/28**、`check-prod-237` **26/27**
   ——少的 1 项是「jar 是刚编的」：这几轮**没改 Java**，生产 jar 的时间戳没变，属于预期。
 

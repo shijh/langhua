@@ -572,6 +572,11 @@
 
     <#if bomItems?has_content>
         <h4 id="devbomitems">本版元件（${bomItems?size} 个）</h4>
+        <#-- a deleted row is gone, so the page cannot scroll to it: it says which row went and where
+             the reader is standing now -->
+        <#if parameters.deletedLine??>
+            <p class="ok" data-bom-deleted="${parameters.deletedLine}">已删掉第 ${parameters.deletedLine} 行（${(parameters.deletedCode)!''}），它锁的料已放回货架。</p>
+        </#if>
         <p class="hint">整表改完之后可以一次保存，不必逐行按。</p>
         <form method="post" action="/mfg/control/devBomItemSaveAll" id="devBomAll">
             <input type="hidden" name="projectCode" value="${project.projectCode}"/>
@@ -640,13 +645,23 @@
                         </#if></td>
                     <td>${r.componentName!}<#if (r.sourceId!'') == 'MFG_BOM_MANUAL'> <span class="hint">（手工添加）</span></#if><#if r.properties??><br/><span class="hint">${r.properties}</span></#if></td>
                     <td class="num"><input type="text" name="qty" form="bomRow${r.lineSeq}" size="5" value="${r.qty?string("0.##")}"/></td>
-                    <td>${r.designators!}</td>
+                    <#-- the designators are typeable: a part typed in by hand often has no designator yet,
+                         and without this field there was no way to fill it in later (2026-11-04) -->
+                    <td><input type="text" name="designators" form="bomRow${r.lineSeq}" size="10"
+                               value="${r.designators!}" placeholder="位号"/></td>
                     <td><#if r.changeId == 'MFG_BOM_NEW'><span class="ok">${bomChangeLabel(r.changeId)}</span><#elseif r.changeId == 'MFG_BOM_CHANGED'><span class="warn">${bomChangeLabel(r.changeId)}<#if r.previousQty??>（原 ${(r.previousQty)?string("0.##")}）</#if></span><#else>${bomChangeLabel(r.changeId)}</#if></td>
                     <td class="num">${(r.lockedQty)?string("0.##")}</td>
                     <td class="num">${((r.pickedQty)!0)?string("0.##")}</td>
                     <td class="num">${(r.onHandQty)?string("0.##")}</td>
                     <td>
                         <input type="submit" form="bomRow${r.lineSeq}" value="保存"/>
+                        <#-- only a row somebody typed in can be deleted: an imported row is what the
+                             sketch says and the next import writes it back -->
+                        <#if (r.sourceId!'') == 'MFG_BOM_MANUAL'>
+                            <button type="submit" form="bomRow${r.lineSeq}" name="delete" value="Y"
+                                    data-bom-delete="${r.lineSeq}"
+                                    onclick="return confirm('删掉第 ${r_index + 1} 行（${r.componentCode}）？它锁的 ${(r.lockedQty)?string("0.##")} 个会一起放回货架。');">删除</button>
+                        </#if>
                         <#if ((r.shortQty)!0) gt 0><br/><span class="warn">缺 ${(r.shortQty)?string("0.##")}</span></#if>
                     </td>
                 </tr>
@@ -1156,6 +1171,9 @@
     <#-- the row just added -->
     <#elseif parameters.addedLine??>
     targetId = 'bomLine${parameters.addedLine}';
+    <#-- a row just deleted: it is not on the page any more, so the table is what to show -->
+    <#elseif parameters.deletedLine??>
+    targetId = 'devbomitems';
     <#-- a whole table saved, or the lock released: the table is what changed -->
     <#elseif parameters.savedLines?? || parameters.releasedQty?? || parameters.addedCode??>
     targetId = 'devbomitems';
@@ -1172,7 +1190,7 @@
     <#-- a link from the project list names the block it wants (#steps): honour it, unless the page
          is answering a form and already knows where the reader was working -->
     var named = (window.location.hash || '').replace('#', '');
-    var answered = <#if parameters.lineSeq?? || parameters.addedLine?? || parameters.savedLines?? || parameters.releasedQty?? || parameters.addedCode?? || parameters.outboundId?? || parameters.issuedQty??>true<#else>false</#if>;
+    var answered = <#if parameters.lineSeq?? || parameters.addedLine?? || parameters.deletedLine?? || parameters.savedLines?? || parameters.releasedQty?? || parameters.addedCode?? || parameters.outboundId?? || parameters.issuedQty??>true<#else>false</#if>;
     if (!answered && named && document.getElementById(named)) {
         targetId = named;
     }

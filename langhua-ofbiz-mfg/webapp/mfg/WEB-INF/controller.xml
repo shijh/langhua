@@ -958,6 +958,8 @@
             <redirect-parameter name="projectCode"/>
             <redirect-parameter name="lineSeq"/>
             <redirect-parameter name="componentCode"/>
+            <redirect-parameter name="deletedLine"/>
+            <redirect-parameter name="deletedCode"/>
             <redirect-parameter name="lockedQty"/>
             <redirect-parameter name="shortQty"/>
         </response>
