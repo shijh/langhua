@@ -466,6 +466,23 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   - 画码时 **`ctx.imageSmoothingEnabled = false`**：缩小时模块边缘不再变灰，阈值一判就是一团糊（码越密越明显）。
   - 单测：`d11-page-test.js` **30** 项（新增「整份清单的码画得够大（≥ 190 点、正方形）」，
     靠假 canvas 记下 `drawImage` 的框来判断）。
+- **Step 295：标签二维码去掉中心 logo，并把码撑到整张纸**（用户报「识别略困难」）：
+  - **logo 去掉**：OFBiz 的 `generateQRCodeImage` 会在码正中间盖上 `qrcode.default.logoimage`
+    （默认是 OFBiz 自己的图）。现在把这条系统属性写成**空字符串**——服务里
+    `UtilValidate.isNotEmpty(...)` 一判就整个跳过 logo。
+    40×30 的纸只有 73 个模块，中间那块白底 logo 吃掉 3 个，正好压在手机上找**对齐图案**的地方。
+    `MfgDevBomEvents.ensureNoQrLogo`（原名 `ensureOurQrLogo`）传空路径；`qrLogoEnsure` 改成
+    「IN 里有 `logoPath` 但为空 = 不画 logo」（以前空值会被当成没传、直接返回不改）。
+    `webapp/mfg/images/logo-qr.png` 与 `tools/make-qr-logo.ps1` 留着没删，想恢复就传回那个路径。
+  - **码撑满**：顶部留白 12 行 → **8 行**（1mm）、码在画布里的顶偏移 2 → **0**、项目名 13px → **11px**，
+    40×30 的纸上码从 **203 → 210 点（26mm）**，每模块 **0.36mm**；项目名仍在码下面居中。
+  - **物理上限**（别再指望“再大一点”）：30mm 高的纸给一个正方形码最多约 **28mm**。
+    现在的文本（12 行、名字截 24 字）是 QR v12 → **73 模块**（含 8 模块静区）= 210 点 / 73 = 2.88 点。
+    要让每模块到 0.45mm（手机很稳）**只能减字数**：名字截到 16 字 ≈ 65 模块 → 0.40mm；
+    截到 12 字 ≈ 61 模块 → 0.43mm。名字长度候选在 `MfgDevBomServices.labelTextOf`（24 / 16 / 10）。
+  - 验法：`outboundQr?size=big` 取回来的 PNG 从 14 KB 降到 12.6 KB（没有 logo 了）；
+    `d11-page-test.js` **30** 项（码 ≥ 205 点、正方形）；单测 **275**、`check-prod-237` **27/27**
+    （这次动了 Java，jar 时间戳那一项也过了）。
 - 回归：单测 275、`verify-m13` **54/0**、`smoke-dev-pages` **28/28**、`check-prod-237` **26/27**
   ——少的 1 项是「jar 是刚编的」：这几轮**没改 Java**，生产 jar 的时间戳没变，属于预期。
 

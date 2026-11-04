@@ -1551,13 +1551,17 @@ public final class MfgDevBomServices {
     }
 
     /**
-     * Points the QR service's logo at the house mark.
+     * Points the QR service's logo at an image, or at nothing.
      *
      * <p>OFBiz draws {@code qrcode.default.logoimage} in the middle of every code it generates, and
      * that default is the OFBiz logo - somebody else's brand on our sticker. The service also has a
      * {@code logoImage} input, but it is declared as {@code java.awt.image.BufferedImage} while the
      * implementation reads it as a path, so the input cannot be used at all; the system property is
      * the way that works.
+     *
+     * <p><b>An empty value means no logo at all</b> (the service skips it when the property is
+     * empty). That is what the labels use since 2026-11-04: a 40 x 30 sticker gives a code of about
+     * 73 modules, and the white logo tile took out three of them in the middle.
      *
      * <p>This runs as a service with a transaction of its own, called from the label request with
      * {@code requireNewTransaction}: written from the request thread the row stayed uncommitted and
@@ -1569,10 +1573,13 @@ public final class MfgDevBomServices {
      */
     public static Map<String, Object> qrLogoEnsure(DispatchContext dctx, Map<String, ? extends Object> context) {
         Delegator delegator = dctx.getDelegator();
-        String path = MfgSupport.toText(context.get("logoPath"));
         Map<String, Object> result = ServiceUtil.returnSuccess();
-        if (path == null) {
+        if (!context.containsKey("logoPath")) {
             return result;
+        }
+        String path = MfgSupport.toText(context.get("logoPath"));
+        if (path == null) {
+            path = "";
         }
         try {
             GenericValue property = EntityQuery.use(delegator).from("SystemProperty")
@@ -1587,7 +1594,7 @@ public final class MfgDevBomServices {
                 created.set("systemResourceId", "qrcode");
                 created.set("systemPropertyId", "qrcode.default.logoimage");
                 created.set("systemPropertyValue", path);
-                created.set("description", "Label QR codes carry the house mark");
+                created.set("description", "空白 = 标签二维码不带 logo");
                 delegator.create(created);
             } else {
                 property.set("systemPropertyValue", path);

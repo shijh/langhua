@@ -158,7 +158,7 @@
                 纸型决定点数：<b>B1</b> 是 203dpi、打印头 384 点（48mm），40mm 的纸占中间 320 点；
                 <b>D11</b> 是 203dpi、96 点宽（12mm 胶带）。位图按整条打印头画、内容居中，纸窄也能对上。
                 纸上印什么由「码里」决定：<b>整份清单</b>（默认）把这一盒要的料全写进二维码，纸上只留
-                二维码 + 项目名，码给到最大（约 25mm、每模块 0.35mm），扫码就能对着捡料；
+                二维码 + 项目名，码给到最大（约 26mm、每模块 0.36mm），扫码就能对着捡料；
                 另两档内容少、码小，适合只看单号。打出来是空白条时先点「打印测试条」，
                 再把「诊断」的日志发我（`←` 开头的是打印机原话）。
             </span>
@@ -332,7 +332,9 @@
                 ctx.textAlign = 'center';
                 /* 先把文字排好，它占掉的高度才是二维码能用的高度 */
                 var items = [];
-                var bodySize = Math.round(13 * scale);
+                /* 项目名只占一行、小号字：这一行的高度是从二维码那里让出来的，
+                   40×30 的纸上一行 13px 换一行 11px，码就能大 8 个点 */
+                var bodySize = Math.round(11 * scale);
                 if (lines.id) {
                     /* 单号是箱子上最要紧的字：先按 20px（×scale）试，放不下就一路缩 */
                     var numberSize = shrinkTo(ctx, lines.id, usable,
@@ -349,7 +351,7 @@
                     ctx.font = font(bodySize, '');
                     wrapLines(ctx, lines.project, usable, 2).forEach(function (one) {
                         items.push({ text: one, font: font(bodySize, ''), size: bodySize,
-                            gap: Math.round(2 * scale) });
+                            gap: Math.round(1 * scale) });
                     });
                 }
                 if (lines.counts) {
@@ -366,10 +368,10 @@
                 if (picture) {
                     /* 二维码缩小时关掉平滑：开了之后模块边缘全是灰的，阈值一判就会糊成一团（码越密越明显） */
                     ctx.imageSmoothingEnabled = false;
-                    ctx.drawImage(picture, Math.round((widthPx - side) / 2), 2, side, side);
+                    ctx.drawImage(picture, Math.round((widthPx - side) / 2), 0, side, side);
                     ctx.imageSmoothingEnabled = true;
                 }
-                var y = (picture ? 2 + side : 0) + Math.round(4 * scale);
+                var y = (picture ? side : 0) + Math.round(4 * scale);
                 items.forEach(function (item) {
                     var baseline = y + item.size + item.gap;
                     if (baseline > heightPx - 1) {
@@ -462,8 +464,9 @@
                     widthPx: paper.head,
                     innerPx: Math.min(paper.head, Math.round(paper.w * paper.dpi / 25.4)),
                     heightPx: Math.round(paper.h * paper.dpi / 25.4),
-                    /* 打印机开页会把最上面十几行吞掉（真机实测），所以内容整体下移这么多行、顶上补白 */
-                    leadRows: paper.head > 96 ? 12 : 0,
+                    /* 打印机开页会把最上面十几行吞掉（真机实测），所以内容整体下移这么多行、顶上补白。
+                       8 行 = 1mm：再小就压到标签上沿了，再大就把码挤小了 */
+                    leadRows: paper.head > 96 ? 8 : 0,
                     /* 第 0 行全白时这台打印机可能把整页当空页丢掉，所以顶上留一条 1 点高的黑线 */
                     primerRows: paper.head > 96 ? 1 : 0,
                     scale: paper.dpi / 203,
