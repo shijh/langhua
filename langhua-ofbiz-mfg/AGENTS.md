@@ -651,6 +651,23 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
     理论上第三方页面能诱导已登录的浏览器提交 `/mfg/control/*` 的表单。要开的话：填
     `org.apache.ofbiz.security.CsrfDefenseStrategy` + 所有 POST 表单补 `csrf` 隐藏域（`script/signIn.groovy`
     已经在登录/改密表单里补了，策略不打开就不校验），两个组件的表单与巡检脚本要一起改——**先记在这里，别重复论证**。
+- **Step 305：项目开发的「说明」也放宽到 2000 字并显示字数**（用户问「硬件项目的说明，也是 2000 字了吗？」——
+  没有，还是 255；他说「做吧」，于是照 Step 304 那一套做了一遍）：
+  - `MfgDevProject.note` 同样从 `description`（255）改成 **`type="url"`（VARCHAR 2000）**；
+    旧库跑 `tools/dev-project-note-2000.sql`（脚本 `F:\build-ofbiz\apply-devnote-2000.ps1`，停实例 → ij → 起实例），
+    test 367 / dev 68 / prod 6 行都在，三套实例已跑过。
+  - `devProjectSave` 超过 `MAX_NOTE_CHARS` 回中文错误「说明最长 2000 个字（现在 N 个），删掉一些再存」；
+    `note` 的 IN 加 `allow-html="any"`（说明里常要贴 `<br/>` 之类）。
+  - `mfgDevProjectList` 多一个 OUT `noteLimit`，`dev.ftl` 的标签写「说明（最多 2000 字）」，框下面一行
+    `[data-note-counter]`「已输入 N / 2000 字」，JS 边打边更新、超了变红并把 title 写成「超出 N 个字，存不进去」。
+    **JS 用 `textarea[data-project-note]` 定位**，别用 `textarea[name=note]`——这一页以后再放别的 note 框就会选错。
+  - **被拒时保留已输入内容**：`fNote = (parameters.note)!((project.note)!)`（先 POST、后库里），
+    否则服务回 `error` 视图时详情服务里的旧值会盖掉刚粘进去的一大段（实测：2300 字变成 528 字）。
+  - 验法（测试实例，Playwright）：打开是「已输入 0 / 2000 字」；粘 528 字 → 实时「528 / 2000」、保存成功、
+    详情「说明：…」那行是全文；粘 2300 字 → 计数变红 + title「超出 300 个字，存不进去」，保存被拒、
+    **2300 字原样留在框里**、红条「说明最长 2000 个字（现在 2300 个），删掉一些再存」。
+  - 回归：单测 **275**、`verify-m13` **54/0**、`verify-m34` **30/0**、`smoke-dev-pages` **28/28**、
+    `check-prod-237` **27/27**；`verify-m11` 仍是那条老项。三套实例已发版并跑过这次的 ALTER。
 
 
 ## 测试与巡检

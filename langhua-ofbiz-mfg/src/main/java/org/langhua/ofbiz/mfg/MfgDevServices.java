@@ -1017,7 +1017,12 @@ public final class MfgDevServices {
                 project.set("actualLaunchDate", MfgSupport.parseDate(context.get("actualLaunchDate")));
             }
             if (context.containsKey("note")) {
-                project.set("note", MfgSupport.toText(context.get("note")));
+                String note = MfgSupport.toText(context.get("note"));
+                if (note != null && note.length() > MfgConstants.MAX_NOTE_CHARS) {
+                    return ServiceUtil.returnError("说明最长 " + MfgConstants.MAX_NOTE_CHARS
+                            + " 个字（现在 " + note.length() + " 个），删掉一些再存");
+                }
+                project.set("note", note);
             }
             // the state carries the day: marked as in production today, the project is on sale from
             // today; moved out of production again, there is no launch day any more (the date would
@@ -1182,6 +1187,8 @@ public final class MfgDevServices {
             result.put("noModel", noModel);
             result.put("openIssue", openIssue);
             result.put("overdue", overdue);
+            /* how much text the 说明 box takes, so the page shows the same limit the service applies */
+            result.put("noteLimit", Integer.valueOf(MfgConstants.MAX_NOTE_CHARS));
             MfgPaging.putPage(result, "projects",
                     MfgPaging.filterByKeyword(list, MfgSupport.toText(context.get("search")), "projectCode", "projectName",
                             "productCode", "ownerName", "stageId", "statusId"),

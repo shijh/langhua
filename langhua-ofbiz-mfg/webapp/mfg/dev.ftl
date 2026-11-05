@@ -10,6 +10,8 @@
 -->
 <#assign lr = (listResult)!{}>
 <#assign projects = (lr.projects)![]>
+<#-- how much the 说明 box takes: the list service carries the same limit the save service applies -->
+<#assign noteLimit = (lr.noteLimit)!2000>
 <#-- the five stages live on the product model, the project only reads the model's current one -->
 <#function stageLabel stageId>
     <#if (stageId!'') == 'MFG_STAGE_CONCEPT'><#return '概念'>
@@ -24,6 +26,9 @@
 <#assign products = (pl.products)![]>
 <#assign d = (detail)!{}>
 <#assign project = (d.project)!{}>
+<#-- what the 说明 box shows: the text of the last POST first, so a rejected save keeps what the
+     reader typed, and the project that was opened second -->
+<#assign fNote = (parameters.note)!((project.note)!)>
 <#assign ecos = (d.ecos)![]>
 <#assign steps = (d.steps)![]>
 <#assign trackId = (d.trackId)!''>
@@ -229,14 +234,15 @@
         <p>
             <#-- 2026-11-04 用户要求：项目上的那一行字叫「说明」，并且要能写几句话（原来是一行 46 字的「备注」）；
                  标签放在框的上面——贴着框的左下角看着像框自己的脚注 -->
-            说明<br/>
+            说明（最多 ${noteLimit} 字）<br/>
             <#-- textarea 的基线是它最后一行的基线，直接跟按钮排一行时按钮会被顶高一截；
                  外面套一层 .note-row（inline-flex + align-items: flex-end），两者底边就对齐了 -->
             <span class="note-row">
                 <#-- textarea 的开始标签与值之间不能有换行，否则存回来的值开头会多一个换行 -->
-                <textarea name="note" rows="3" cols="56" data-project-note="Y">${project.note!''}</textarea>
+                <textarea name="note" rows="3" cols="56" data-project-note="Y">${fNote}</textarea>
                 <input type="submit" value="保存项目"/>
             </span>
+            <span class="hint" data-note-counter="${noteLimit}">已输入 <b>${fNote?length}</b> / ${noteLimit} 字</span>
         </p>
     </form>
 </fieldset>
@@ -1202,3 +1208,25 @@
 }());
 </script>
 </#if>
+
+<#-- the 说明 box says how much is typed and how much fits, the same way the software project note
+     does (Step 304): a description pasted from a ticket runs past the column and the database only
+     answers with a truncation error -->
+<script>
+(function () {
+    var box = document.querySelector('textarea[data-project-note]');
+    var counter = document.querySelector('[data-note-counter]');
+    if (!box || !counter) { return; }
+    var limit = parseInt(counter.getAttribute('data-note-counter'), 10);
+    var shown = counter.querySelector('b');
+    function update() {
+        var used = box.value.length;
+        if (shown) { shown.textContent = used; }
+        counter.className = used > limit ? 'error' : 'hint';
+        counter.title = used > limit ? ('超出 ' + (used - limit) + ' 个字，存不进去') : '';
+    }
+    box.addEventListener('input', update);
+    box.addEventListener('change', update);
+    update();
+}());
+</script>

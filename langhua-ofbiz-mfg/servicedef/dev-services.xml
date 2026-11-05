@@ -22,7 +22,7 @@
         <attribute name="targetPrice" type="Double" mode="IN" optional="true"/>
         <attribute name="plannedLaunchDate" type="String" mode="IN" optional="true"/>
         <attribute name="actualLaunchDate" type="String" mode="IN" optional="true"/>
-        <attribute name="note" type="String" mode="IN" optional="true"/>
+        <attribute name="note" type="String" mode="IN" optional="true" allow-html="any"/>
         <attribute name="projectCode" type="String" mode="OUT" optional="true"/>
         <attribute name="isNew" type="String" mode="OUT" optional="true"/>
     </service>
@@ -66,6 +66,7 @@
         <attribute name="pageCount" type="Long" mode="OUT" optional="true"/>
         <attribute name="pageSize" type="Long" mode="OUT" optional="true"/>
         <attribute name="search" type="String" mode="OUT" optional="true"/>
+        <attribute name="noteLimit" type="Integer" mode="OUT" optional="true"/>
     </service>
 
 

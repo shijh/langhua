@@ -716,7 +716,7 @@
         <field name="targetPrice" type="currency-amount"><description>Target selling price, used to check the margin at each gate</description></field>
         <field name="plannedLaunchDate" type="date"><description>Planned date the model goes on sale</description></field>
         <field name="actualLaunchDate" type="date"><description>Date the model really went on sale, empty until it does</description></field>
-        <field name="note" type="description"/>
+        <field name="note" type="url"><description>Free text about the project. VARCHAR(2000) rather than a description (255), like the software project note (Step 305): Derby cannot widen a VARCHAR into a CLOB, and the service refuses anything longer than MfgConstants.MAX_NOTE_CHARS</description></field>
         <field name="createdStamp" type="date-time"/>
         <field name="createdTxStamp" type="date-time"/>
         <field name="lastUpdatedStamp" type="date-time"/>
