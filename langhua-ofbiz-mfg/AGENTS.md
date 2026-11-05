@@ -644,6 +644,13 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
     **2100 字原样留在框里**、红条写「备注最长 2000 个字（现在 2100 个）…」。
   - 回归：单测 **275**、`verify-m34` **30/0**、`verify-m13` **54/0**、`smoke-dev-pages` **28/28**、
     `check-prod-237` **27/27**；`verify-m11` 仍是那条老项。三套实例已发版并跑过这次的 ALTER。
+  - **顺带确认的安全口径（2026-11-05 用户定：先不开 CSRF）**：备注这种能带 `<`/`>` 的自由文本**不会被脚本注入**——
+    实测把 `</textarea><script>…</script><img onerror=…><svg onload=…>` 存进备注，页面上是字面的
+    `&lt;script&gt;`，三个回调一个都没跑（服务返回值由 `StringHtmlWrapperForFtl` 转义，模板里没有 `?no_esc`）。
+    **但全站的 CSRF 没开**：`security.properties` 的 `csrf.defense.strategy` 是空的（= `NoCsrfDefenseStrategy`），
+    理论上第三方页面能诱导已登录的浏览器提交 `/mfg/control/*` 的表单。要开的话：填
+    `org.apache.ofbiz.security.CsrfDefenseStrategy` + 所有 POST 表单补 `csrf` 隐藏域（`script/signIn.groovy`
+    已经在登录/改密表单里补了，策略不打开就不校验），两个组件的表单与巡检脚本要一起改——**先记在这里，别重复论证**。
 
 
 ## 测试与巡检
