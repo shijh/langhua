@@ -163,6 +163,212 @@ public final class MfgProductServices {
     }
 
     /**
+     * Renames a product model: the code typed in the wrong place is corrected everywhere, instead of
+     * the reader having to type the model again and re-attach everything by hand.
+     *
+     * <p>The model code is the primary key of {@code MfgProduct} and the foreign key of ten other
+     * tables, so the rename copies the row under the new code first, moves every reference and only
+     * then drops the old row - an in-place key change would break a foreign key on either side.
+     *
+     * <p><b>A model that already has BOM versions cannot be renamed.</b> The version identifiers are
+     * built out of the code ({@code 型号-V2}), and renaming them would mean re-pointing the version
+     * lines, the work orders, the ECOs and the model's current version - a migration of its own. The
+     * service says so instead of half doing it; a mistyped model is normally renamed before the first
+     * BOM is imported.
+     *
+     * @param dctx the dispatch context
+     * @param context service context, see {@code servicedef/product-services.xml#mfgProductRename}
+     * @return the service result with {@code productCode} (the new one) and {@code renamed} (how many
+     *         rows moved)
+     */
+    public static Map<String, Object> productRename(DispatchContext dctx, Map<String, ? extends Object> context) {
+        String denied = MfgSecurity.permissionProblem(dctx, context, MfgConstants.PERM_ENG);
+        if (denied != null) {
+            return ServiceUtil.returnError(denied);
+        }
+        Delegator delegator = dctx.getDelegator();
+        String oldCode = MfgSupport.toText(context.get("oldCode"));
+        String newCode = MfgSupport.toText(context.get("newCode"));
+        if (oldCode == null || newCode == null) {
+            return ServiceUtil.returnError("旧编码和新编码都要填");
+        }
+        if (oldCode.equals(newCode)) {
+            return ServiceUtil.returnError("新编码和旧的一样，不用改");
+        }
+        if (newCode.length() > MfgConstants.MAX_PRODUCT_CODE) {
+            return ServiceUtil.returnError("型号编码最长 " + MfgConstants.MAX_PRODUCT_CODE
+                    + " 个字符（现在是 " + newCode.length() + " 个）");
+        }
+        try {
+            GenericValue old = EntityQuery.use(delegator).from("MfgProduct")
+                    .where("productCode", oldCode).queryOne();
+            if (old == null) {
+                return ServiceUtil.returnError("没有这个型号：" + oldCode);
+            }
+            if (EntityQuery.use(delegator).from("MfgProduct").where("productCode", newCode).queryOne() != null) {
+                return ServiceUtil.returnError("新编码已经有一个型号了：" + newCode);
+            }
+            int versions = bomVersionCount(delegator, oldCode);
+            if (versions > 0) {
+                return ServiceUtil.returnError("这个型号已经有 " + versions + " 个 BOM 版本，版本号（"
+                        + oldCode + "-V…）里带着旧编码，改名要连版本号一起迁移。"
+                        + "这种情况请把旧型号改成「停用」，再按新编码建一个型号把 BOM 导进去");
+            }
+            GenericValue copy = GenericValue.create(old);
+            copy.set("productCode", newCode);
+            delegator.create(copy);
+            int moved = 0;
+            moved += renameProductWhere(delegator, "MfgProductStageReview", "productCode", oldCode, newCode);
+            moved += renameProductWhere(delegator, "MfgBomItem", "productCode", oldCode, newCode);
+            moved += renameProductWhere(delegator, "MfgBomVersion", "productCode", oldCode, newCode);
+            moved += renameProductWhere(delegator, "MfgRouting", "productCode", oldCode, newCode);
+            moved += renameProductWhere(delegator, "MfgProductImage", "productCode", oldCode, newCode);
+            moved += renameProductWhere(delegator, "MfgWorkOrder", "productCode", oldCode, newCode);
+            moved += renameProductWhere(delegator, "MfgSn", "productCode", oldCode, newCode);
+            moved += renameProductWhere(delegator, "MfgDevProject", "productCode", oldCode, newCode);
+            moved += renameProductWhere(delegator, "MfgDevEco", "productCode", oldCode, newCode);
+            moved += renameProductWhere(delegator, "MfgSoftwareProject", "productCode", oldCode, newCode);
+            moved += renameProductWhere(delegator, "MfgSalesOrderItem", "productCode", oldCode, newCode);
+            /* the other models that name this one as the generation they replace */
+            moved += renameProductWhere(delegator, "MfgProduct", "previousProductCode", oldCode, newCode);
+            /* finished goods are lots whose part number is the model code */
+            for (GenericValue lot : EntityQuery.use(delegator).from("MfgMaterialLot")
+                    .where("componentCode", oldCode, "lotKindId", MfgConstants.LOT_PRODUCT).queryList()) {
+                lot.set("componentCode", newCode);
+                lot.store();
+                moved++;
+            }
+            /* the product's files hang off the code as the owner key */
+            for (GenericValue file : EntityQuery.use(delegator).from("MfgAttachment")
+                    .where("ownerTypeId", MfgConstants.ATT_PRODUCT, "ownerId", oldCode).queryList()) {
+                file.set("ownerId", newCode);
+                file.store();
+                moved++;
+            }
+            if (moveStockSetting(delegator, oldCode, newCode)) {
+                moved++;
+            }
+            delegator.removeValue(old);
+            Map<String, Object> result = ServiceUtil.returnSuccess();
+            result.put("productCode", newCode);
+            result.put("renamed", String.valueOf(moved));
+            return result;
+        } catch (GenericEntityException e) {
+            return ServiceUtil.returnError("改型号编码失败：" + e.getMessage());
+        }
+    }
+
+    /**
+     * Deletes a model nobody uses any more - the one created with a wrong code and then renamed by
+     * hand, or a model that never got past the idea.
+     *
+     * <p>It refuses as soon as anything points at the model (BOM, work order, serial numbers, design
+     * project, ECO, software project, sales order line, finished goods, minimum stock) and names what
+     * does, because deleting the row under those would leave the records that need it reading a model
+     * that is not there. "Not in use" models are better put aside with 状态 = 停用; deleting is for
+     * rows that should never have existed.
+     *
+     * @param dctx the dispatch context
+     * @param context service context, see {@code servicedef/product-services.xml#mfgProductDelete}
+     * @return the service result with {@code deleted} = the code that went
+     */
+    public static Map<String, Object> productDelete(DispatchContext dctx, Map<String, ? extends Object> context) {
+        String denied = MfgSecurity.permissionProblem(dctx, context, MfgConstants.PERM_ENG);
+        if (denied != null) {
+            return ServiceUtil.returnError(denied);
+        }
+        Delegator delegator = dctx.getDelegator();
+        String productCode = MfgSupport.toText(context.get("productCode"));
+        if (productCode == null) {
+            return ServiceUtil.returnError("要先选一个型号");
+        }
+        try {
+            GenericValue product = EntityQuery.use(delegator).from("MfgProduct")
+                    .where("productCode", productCode).queryOne();
+            if (product == null) {
+                return ServiceUtil.returnError("没有这个型号：" + productCode);
+            }
+            java.util.List<String> inUse = new java.util.ArrayList<>();
+            addIfAny(delegator, inUse, "BOM 版本", "MfgBomVersion", productCode);
+            addIfAny(delegator, inUse, "BOM 行（旧表）", "MfgBomItem", productCode);
+            addIfAny(delegator, inUse, "工序", "MfgRouting", productCode);
+            addIfAny(delegator, inUse, "工单", "MfgWorkOrder", productCode);
+            addIfAny(delegator, inUse, "SN", "MfgSn", productCode);
+            addIfAny(delegator, inUse, "开发项目", "MfgDevProject", productCode);
+            addIfAny(delegator, inUse, "变更单", "MfgDevEco", productCode);
+            addIfAny(delegator, inUse, "软件项目", "MfgSoftwareProject", productCode);
+            addIfAny(delegator, inUse, "销售单行", "MfgSalesOrderItem", productCode);
+            long lots = EntityQuery.use(delegator).from("MfgMaterialLot")
+                    .where("componentCode", productCode, "lotKindId", MfgConstants.LOT_PRODUCT).queryCount();
+            if (lots > 0) {
+                inUse.add("成品批次 " + lots + " 个");
+            }
+            long settings = EntityQuery.use(delegator).from("MfgStockSetting")
+                    .where("componentCode", productCode).queryCount();
+            if (settings > 0) {
+                inUse.add("安全库存设置 " + settings + " 条");
+            }
+            if (!inUse.isEmpty()) {
+                return ServiceUtil.returnError("这个型号还被用着，不能删：" + String.join("、", inUse)
+                        + "。这些都清掉再删；只是暂时不用，把状态改成「停用」就行");
+            }
+            /* nothing points at it: drop what belongs to the model itself */
+            for (GenericValue review : EntityQuery.use(delegator).from("MfgProductStageReview")
+                    .where("productCode", productCode).queryList()) {
+                delegator.removeValue(review);
+            }
+            for (GenericValue image : EntityQuery.use(delegator).from("MfgProductImage")
+                    .where("productCode", productCode).queryList()) {
+                delegator.removeValue(image);
+            }
+            for (GenericValue file : EntityQuery.use(delegator).from("MfgAttachment")
+                    .where("ownerTypeId", MfgConstants.ATT_PRODUCT, "ownerId", productCode).queryList()) {
+                delegator.removeValue(file);
+            }
+            /* models that name this one as the generation they replace keep their row, without it */
+            for (GenericValue other : EntityQuery.use(delegator).from("MfgProduct")
+                    .where("previousProductCode", productCode).queryList()) {
+                other.set("previousProductCode", null);
+                other.store();
+            }
+            delegator.removeValue(product);
+            Map<String, Object> result = ServiceUtil.returnSuccess();
+            result.put("deleted", productCode);
+            return result;
+        } catch (GenericEntityException e) {
+            return ServiceUtil.returnError("删除型号失败：" + e.getMessage());
+        }
+    }
+
+    /**
+     * Counts the rows of one table that still name a part of a model and writes a readable entry for
+     * the page ("工单 3 个"). Nothing is written when the table is empty.
+     */
+    private static void addIfAny(Delegator delegator, java.util.List<String> into, String label,
+            String entity, String productCode) throws GenericEntityException {
+        long rows = EntityQuery.use(delegator).from(entity).where("productCode", productCode).queryCount();
+        if (rows > 0) {
+            into.add(label + " " + rows + " 个");
+        }
+    }
+
+    /**
+     * Points one column of one table at another product code. Used by {@link #productRename}: the
+     * model code sits in ten tables, and a rename that forgets one leaves rows pointing at a model
+     * that is not there.
+     */
+    static int renameProductWhere(Delegator delegator, String entity, String field, String oldCode,
+            String newCode) throws GenericEntityException {
+        int changed = 0;
+        for (GenericValue row : EntityQuery.use(delegator).from(entity).where(field, oldCode).queryList()) {
+            row.set(field, newCode);
+            row.store();
+            changed++;
+        }
+        return changed;
+    }
+
+    /**
      * Imports BOM lines from CSV text into one BOM version. Each line is
      * {@code componentCode,componentName,qty,designators,isKeyPart}. When {@code replace} is
      * {@code Y} the existing lines of that version are removed first.

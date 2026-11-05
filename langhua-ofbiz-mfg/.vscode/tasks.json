@@ -479,6 +479,12 @@
 			"type": "shell",
 			"command": "powershell -NoProfile -ExecutionPolicy Bypass -File C:\\Users\\shi.jinghai-honor\\AppData\\Local\\Temp\\jup\\verify-outbounds.ps1 -base https://localhost:8443",
 			"group": "none"
+		},
+		{
+			"label": "commit300",
+			"type": "shell",
+			"command": "cmd /c F:\\build-ofbiz\\commit300.bat",
+			"group": "none"
 		}
 	]
 }

@@ -199,6 +199,27 @@
     </form>
 </fieldset>
 
+<#-- a code typed in the wrong place: renaming moves every table that names the model, so the reader
+     does not have to type the model again and re-attach the BOM, the work orders and the projects -->
+<fieldset>
+    <legend>改编码 / 删除型号</legend>
+    <form method="post" action="/mfg/control/productRename">
+        <p>
+            旧编码 <input type="text" name="oldCode" size="20" value="${(product.productCode)!''}" data-rename-from="1" placeholder="写错的型号编码"/>
+            新编码 <input type="text" name="newCode" size="20" placeholder="改成什么"/>
+            <input type="submit" value="改编码"/>
+            <span class="hint">改名会把 BOM、工序、工单、SN、开发项目、变更单、软件项目、销售单行、成品批次、资料一起改过去。
+                已经有 BOM 版本的型号不能改名（版本号里带着旧编码），那种情况请把状态改成「停用」再按新编码建一个。</span>
+        </p>
+    </form>
+    <#if parameters.renamed??>
+        <p class="ok" data-product-renamed="${(parameters.productCode)!''}">已改编码，跟过去的记录 ${(parameters.renamed)!0} 条（含本型号）。</p>
+    </#if>
+    <#if parameters.deleted??>
+        <p class="ok" data-product-deleted="${(parameters.deleted)!''}">已删掉型号 ${(parameters.deleted)!''}。</p>
+    </#if>
+</fieldset>
+
 <h2>型号列表</h2>
 <form method="get" action="/mfg/control/products">
     搜索 <input type="text" name="search" size="24" value="${(lr.search)!''}" placeholder="型号 / 名称 / SN 前缀"/>
@@ -230,6 +251,7 @@
             <th class="num">照片</th>
             <th class="num">工序数</th>
             <th>状态</th>
+            <th>操作</th>
         </tr>
         <#list products as p>
             <#assign bomLines = (p.bomItems)![]>
@@ -246,9 +268,18 @@
                 <td class="num">${p.imageCount}</td>
                 <td class="num">${p.routingCount}</td>
                 <td data-product-status="${(p.statusId)!''}">${productStatusLabel(p.statusId!'')}</td>
+                <td>
+                    <#-- deleting is for a model nothing uses: the service refuses and says what still
+                         points at it, so the button can stand on every row -->
+                    <form method="post" action="/mfg/control/productDelete" class="inline">
+                        <input type="hidden" name="productCode" value="${p.productCode}"/>
+                        <button type="submit" data-product-delete="${p.productCode}"
+                                onclick="return confirm('删掉型号 ${p.productCode}？只在它没有被任何单据/项目用到时才会删。');">删除</button>
+                    </form>
+                </td>
             </tr>
             <#if bomLines?has_content>
-                <tr data-lines="pc-${p.productCode}"><td colspan="12" class="lines">
+                <tr data-lines="pc-${p.productCode}"><td colspan="13" class="lines">
                     <table class="inner" data-product-bom="${p.productCode}">
                         <tr><th>行</th><th>料号</th><th>名称</th><th class="num">用量</th>
                             <th class="num">单价</th><th class="num">金额</th><th>位号</th><th>关键件</th></tr>

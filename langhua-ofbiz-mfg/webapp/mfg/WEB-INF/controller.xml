@@ -185,6 +185,27 @@
         <response name="error" type="view" value="products"/>
     </request-map>
 
+    <!-- a mistyped model code: everything that names the model moves to the new code -->
+    <request-map uri="productRename">
+        <security https="true" auth="true"/>
+        <event type="service" invoke="mfgProductRename"/>
+        <response name="success" type="request-redirect" value="products">
+            <redirect-parameter name="productCode"/>
+            <redirect-parameter name="renamed"/>
+        </response>
+        <response name="error" type="view" value="products"/>
+    </request-map>
+
+    <!-- deleting is for models nothing uses: the service refuses and says what still points at it -->
+    <request-map uri="productDelete">
+        <security https="true" auth="true"/>
+        <event type="service" invoke="mfgProductDelete"/>
+        <response name="success" type="request-redirect" value="products">
+            <redirect-parameter name="deleted"/>
+        </response>
+        <response name="error" type="view" value="products"/>
+    </request-map>
+
     <!-- the five stage gates belong to the model: signing one off comes back to that same block -->
     <request-map uri="productStageSave">
         <security https="true" auth="true"/>

@@ -523,6 +523,42 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
     再 GET 一次（不带 query）是拿不到 `parameters.deletedLine` 的。
 - 回归：单测 275、`verify-m13` **54/0**、`smoke-dev-pages` **28/28**、`check-prod-237` **26/27**
   ——少的 1 项是「jar 是刚编的」：这几轮**没改 Java**，生产 jar 的时间戳没变，属于预期。
+- **Step 300：型号编码写错了可以改、没用过的型号可以删**（用户报「如果型号写错了，无法修改。能修改吗？能删除吗？」）：
+  型号编码是 `MfgProduct` 的主键、同时是**十张表的外键**，所以不能就地改，两条服务都放在
+  `MfgProductServices`（描述符 `servicedef/product-services.xml`，两个都是 `use-transaction="true"`）：
+  - **`mfgProductRename`（IN `oldCode` / `newCode`，OUT `productCode`=新码、`renamed`=搬了几行，String）**：
+    **先按新编码复制一行**（`GenericValue.create(old)` 改主键再 `create`），再把引用一处一处搬过去，
+    最后才 `delegator.removeValue(old)`——就地改主键会在两边各撞一次外键。
+    搬的清单就是 `renameProductWhere` 那一串：`MfgProductStageReview` / `MfgBomItem` / `MfgBomVersion` /
+    `MfgRouting` / `MfgProductImage` / `MfgWorkOrder` / `MfgSn` / `MfgDevProject` / `MfgDevEco` /
+    `MfgSoftwareProject` / `MfgSalesOrderItem`，加三类特殊行：**别的型号的 `previousProductCode`**、
+    **成品批次**（`MfgMaterialLot` 里 `lotKindId = MFG_LOT_PRODUCT` 的行，料号就是型号编码）、
+    **型号的附件**（`MfgAttachment` 的 `ownerTypeId = MFG_ATT_PRODUCT` + `ownerId`），最后 `moveStockSetting`
+    （安全库存那张表主键是料号）。**加新表存型号编码时，这张清单要跟着加**，漏一张就是“点不看”的死链接。
+  - **有 BOM 版本的型号拒绝改名**：版本号是 `型号-Vn` 拼出来的，改名等于连版本号一起迁移（还要重指版本行、
+    工单、ECO 和型号的当前版本）。话术让人**把旧型号改「停用」再按新编码建一个**——写错编码一般发生在
+    导第一个 BOM 之前，所以这条限制实际很少碰到。
+  - **`mfgProductDelete`（IN `productCode`，OUT `deleted`）**：先数一遍谁在用它（BOM 版本 / 旧 BOM 表 / 工序 /
+    工单 / SN / 开发项目 / 变更单 / 软件项目 / 销售单行 / 成品批次 / 安全库存），**有就拒绝并把数量和表名点出来**；
+    一个都没有才删“属于型号自己”的东西：阶段评审、老的商品图、附件、别人指向它的 `previousProductCode`（置 null，
+    别人的行留着），最后删型号行。**「暂时不用」用状态「停用」，删除只给那些本来就不该存在的行**。
+  - 页面 `products.ftl`：顶部多了 `<fieldset>` 「改编码 / 删除型号」（改名表单的旧编码从当前选中的型号预填，
+    旁边一行小字说明 BOM 版本的情况）；列表每行多一个「操作」列（`button[data-product-delete]`，
+    `confirm` 里写清“被引用的型号删不掉”），BOM 明细行那个嵌套表的 `colspan` 从 12 加到 13。
+    两条服务的 notice 用 `p.ok[data-product-renamed="新编码"]` / `p.ok[data-product-deleted="编码"]` 显示，
+    巡检照这两个属性断言，不碰中文。
+  - 巡检 `F:\build-ofbiz\check-product-edit.ps1`（**11 项**，test 实例）：建一个空型号 → 改成新编码
+    （旧编码查不到、新编码在列表里、页面有 `data-product-renamed`）→ 改到一个已占用的编码被拒、模型还叫原名
+    → 导一行 BOM 后再改名被拒且新编码没被建出来 → 有 BOM 的删不掉 → **建一个开发项目指着的型号也删不掉**
+    → 空型号删得掉且页面有 `data-product-deleted`。
+    **两条断言写法上的教训**：① 判“型号还在列表里”要匹配**编码那一格**的链接
+    （`/mfg/control/products?productCode=X">X<`），只用 `>X<` 会命中同一行的 **SN 前缀格**——改名后 SN 前缀还是旧的，
+    于是“旧编码还在”这个假失败；② **别用 `class="error"` 判断“被拒绝”**：几个页面上常驻着带这个类的小提示，
+    用它断言等于永远为真（本次就因此把“删一个在用型号”当成通过，其实那型号真被删掉了）。
+    被拒与否一律看**数据有没有变**（型号还在不在、编码有没有换）。
+  - 回归：单测 275、`verify-m13` **54/0**、`smoke-dev-pages` **28/28**、`check-prod-237` **27/27**；
+    `verify-m11` 是 **54 OK / 1 FAIL**，那一项是 `search narrows the list -> 0 vs 0`——开发库 Step 239/240 清过测试数据后
+    **工单列表本来就是 0 条**，与本次改动无关（脚本假设列表里至少有单才比得出来）。
 
 
 ## 测试与巡检

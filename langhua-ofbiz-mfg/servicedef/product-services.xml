@@ -24,6 +24,24 @@
         <attribute name="productCode" type="String" mode="OUT" optional="true"/>
     </service>
 
+    <service name="mfgProductRename" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgProductServices" invoke="productRename"
+            auth="false" use-transaction="true">
+        <description>Give a product model another code: every table that names it moves too (a model that already has BOM versions is refused)</description>
+        <attribute name="oldCode" type="String" mode="IN" optional="true"/>
+        <attribute name="newCode" type="String" mode="IN" optional="true"/>
+        <attribute name="productCode" type="String" mode="OUT" optional="true"/>
+        <attribute name="renamed" type="String" mode="OUT" optional="true"/>
+    </service>
+
+    <service name="mfgProductDelete" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgProductServices" invoke="productDelete"
+            auth="false" use-transaction="true">
+        <description>Delete a product model nothing points at any more, with its stage reviews, photos and files</description>
+        <attribute name="productCode" type="String" mode="IN" optional="true"/>
+        <attribute name="deleted" type="String" mode="OUT" optional="true"/>
+    </service>
+
 
     <service name="mfgProductList" engine="java"
             location="org.langhua.ofbiz.mfg.MfgProductServices" invoke="productList"
