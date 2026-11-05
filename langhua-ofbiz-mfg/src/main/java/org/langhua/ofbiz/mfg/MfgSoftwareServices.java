@@ -257,6 +257,16 @@ public final class MfgSoftwareServices {
                     MfgPaging.filterByKeyword(rows, MfgSupport.toText(context.get("search")), "projectCode", "projectName",
                             "categoryId", "ownerName", "productCode"),
                     MfgPaging.pageOf(context), MfgPaging.pageSizeOf(context), MfgSupport.toText(context.get("search")));
+            /* the one the page is asked to edit, whatever page of the list it would be on */
+            String wanted = MfgSupport.toText(context.get("projectCode"));
+            if (wanted != null) {
+                for (Map<String, Object> row : rows) {
+                    if (wanted.equals(row.get("projectCode"))) {
+                        result.put("selected", row);
+                        break;
+                    }
+                }
+            }
             result.put("projectCount", Integer.valueOf(rows.size()));
             result.put("openCount", Integer.valueOf(openCount));
             result.put("overCount", Integer.valueOf(overCount));
@@ -332,8 +342,19 @@ public final class MfgSoftwareServices {
         map.put("eifCount", project.get("eifCount"));
         Map<String, Object> cost = softwareCostOf(project);
         map.putAll(cost);
+        /* the size the user typed, kept apart from the size that was worked out from ILF / EIF:
+           filling the form with the calculated one would freeze it as if it had been an input */
+        map.put("ufpInput", project.get("ufp"));
         map.put("pdrHoursPerFp", project.get("pdrHoursPerFp"));
         map.put("dayRate", project.get("dayRate"));
+        /* the raw inputs as well, so the form can be filled with what the project really says */
+        map.put("swfBase", project.get("swfBase"));
+        map.put("swfReuse", project.get("swfReuse"));
+        map.put("swfPreInvest", project.get("swfPreInvest"));
+        map.put("swfQuality", project.get("swfQuality"));
+        map.put("rdf", project.get("rdf"));
+        map.put("taxRate", project.get("taxRate"));
+        map.put("dncRate", project.get("dncRate"));
         map.put("plannedDays", project.get("plannedDays"));
         map.put("plannedStartDate", project.getDate("plannedStartDate"));
         map.put("plannedEndDate", project.getDate("plannedEndDate"));

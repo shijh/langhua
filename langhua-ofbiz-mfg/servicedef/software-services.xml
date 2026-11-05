@@ -86,7 +86,9 @@
         <attribute name="search" type="String" mode="IN" optional="true"/>
         <attribute name="page" type="Long" mode="IN" optional="true"/>
         <attribute name="pageSize" type="Long" mode="IN" optional="true"/>
+        <attribute name="projectCode" type="String" mode="IN" optional="true"/>
         <attribute name="projects" type="java.util.List" mode="OUT" optional="true"/>
+        <attribute name="selected" type="java.util.Map" mode="OUT" optional="true"/>
         <attribute name="totalCount" type="Integer" mode="OUT" optional="true"/>
         <attribute name="page" type="Long" mode="OUT" optional="true"/>
         <attribute name="pageCount" type="Long" mode="OUT" optional="true"/>

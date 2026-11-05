@@ -106,76 +106,128 @@
     </table>
 </#if>
 
-<h2>新建 / 更新项目</h2>
+<#assign sel = ((r.selected)!{})>
+<#assign editing = (sel.projectCode!'')?has_content>
+<#-- what a box shows: the project being edited first, then whatever the last POST said -->
+<#function fld value>
+    <#if !(value??)><#return ''></#if>
+    <#if value?is_number><#return value?string("0.###")></#if>
+    <#if value?is_date><#return value?string("yyyy-MM-dd")></#if>
+    <#return value>
+</#function>
+<#assign fCode = (sel.projectCode)!((parameters.projectCode)!)>
+<#assign fName = (sel.projectName)!((parameters.projectName)!)>
+<#assign fCategory = (sel.categoryId)!((parameters.categoryId)!)>
+<#assign fStatus = (sel.statusId)!((parameters.statusId)!)>
+<#assign fOwner = (sel.ownerName)!((parameters.ownerName)!)>
+<#assign fSeq = (sel.deliverySeq)!((parameters.deliverySeq)!)>
+<#assign fProduct = (sel.productCode)!((parameters.productCode)!)>
+<#assign fDevProject = (sel.devProjectCode)!((parameters.devProjectCode)!)>
+<#assign fIlf = (sel.ilfCount)!((parameters.ilfCount)!)>
+<#assign fEif = (sel.eifCount)!((parameters.eifCount)!)>
+<#assign fUfp = (sel.ufpInput)!((parameters.ufp)!)>
+<#assign fPdr = (sel.pdrHoursPerFp)!((parameters.pdrHoursPerFp)!)>
+<#assign fDayRate = (sel.dayRate)!((parameters.dayRate)!)>
+<#assign fTaxRate = (sel.taxRate)!((parameters.taxRate)!)>
+<#assign fSwfBase = (sel.swfBase)!((parameters.swfBase)!)>
+<#assign fSwfReuse = (sel.swfReuse)!((parameters.swfReuse)!)>
+<#assign fSwfPre = (sel.swfPreInvest)!((parameters.swfPreInvest)!)>
+<#assign fSwfQuality = (sel.swfQuality)!((parameters.swfQuality)!)>
+<#assign fRdf = (sel.rdf)!((parameters.rdf)!)>
+<#assign fDncRate = (sel.dncRate)!((parameters.dncRate)!)>
+<#assign fPlannedDays = (sel.plannedDays)!((parameters.plannedDays)!)>
+<#assign fStart = (sel.plannedStartDate)!((parameters.plannedStartDate)!)>
+<#assign fEnd = (sel.plannedEndDate)!((parameters.plannedEndDate)!)>
+<#assign fHours = (sel.actualHours)!((parameters.actualHours)!)>
+<#assign fCost = (sel.actualCost)!((parameters.actualCost)!)>
+<#assign fQuoted = (sel.quotedAmount)!((parameters.quotedAmount)!)>
+<#assign fNote = (sel.note)!((parameters.note)!)>
+
+<h2 id="swForm"><#if editing>修改项目 ${fCode}<#else>新建 / 更新项目</#if></h2>
+<#if editing>
+    <p class="hint" data-software-editing="${fCode}">下面是这一条的内容，改完点「保存项目」就存回去（编号不会变）。
+        要另建一条，<a href="/mfg/control/software#swForm">先清空表单</a>（编号留空会自动生成）。</p>
+<#else>
+    <p class="hint">要改已有的项目，点下面台账里的<b>编号</b>，这张表单就会填上它的内容。</p>
+</#if>
 <fieldset>
     <legend>软件项目（编号留空自动生成 SW-yyMMdd-NN）</legend>
     <form method="post" action="/mfg/control/softwareProjectSave">
-        <input type="hidden" name="projectCode" value="${(parameters.projectCode)!''}"/>
+        <input type="hidden" name="projectCode" value="${fld(fCode)}"/>
         <p>
-            名称 <input type="text" name="projectName" size="24" value="${(parameters.projectName)!''}"/>
+            名称 <input type="text" name="projectName" size="24" value="${fld(fName)}"/>
             类别
             <select name="categoryId">
-                <option value="MFG_SW_FIRMWARE">固件</option>
-                <option value="MFG_SW_ENCLOSURE">外壳设计</option>
-                <option value="MFG_SW_HOST">上位机 / 工具</option>
-                <option value="MFG_SW_PLATFORM">平台 / 系统</option>
-                <option value="MFG_SW_OTHER">其它</option>
+                <option value="MFG_SW_FIRMWARE"<#if (fCategory!'') == 'MFG_SW_FIRMWARE'> selected="selected"</#if>>固件</option>
+                <option value="MFG_SW_ENCLOSURE"<#if (fCategory!'') == 'MFG_SW_ENCLOSURE'> selected="selected"</#if>>外壳设计</option>
+                <option value="MFG_SW_HOST"<#if (fCategory!'') == 'MFG_SW_HOST'> selected="selected"</#if>>上位机 / 工具</option>
+                <option value="MFG_SW_PLATFORM"<#if (fCategory!'') == 'MFG_SW_PLATFORM'> selected="selected"</#if>>平台 / 系统</option>
+                <option value="MFG_SW_OTHER"<#if (fCategory!'') == 'MFG_SW_OTHER'> selected="selected"</#if>>其它</option>
             </select>
             状态
             <select name="statusId">
-                <option value="MFG_SW_PLANNED">计划</option>
-                <option value="MFG_SW_DOING">进行中</option>
-                <option value="MFG_SW_DONE">已完成</option>
-                <option value="MFG_SW_CANCELLED">已取消</option>
+                <option value="MFG_SW_PLANNED"<#if (fStatus!'') == 'MFG_SW_PLANNED'> selected="selected"</#if>>计划</option>
+                <option value="MFG_SW_DOING"<#if (fStatus!'') == 'MFG_SW_DOING'> selected="selected"</#if>>进行中</option>
+                <option value="MFG_SW_DONE"<#if (fStatus!'') == 'MFG_SW_DONE'> selected="selected"</#if>>已完成</option>
+                <option value="MFG_SW_CANCELLED"<#if (fStatus!'') == 'MFG_SW_CANCELLED'> selected="selected"</#if>>已取消</option>
             </select>
-            负责人 <input type="text" name="ownerName" size="10"/>
-            同类第几次交付 <input type="text" name="deliverySeq" size="4"/>
+            负责人 <input type="text" name="ownerName" size="10" value="${fld(fOwner)}"/>
+            同类第几次交付 <input type="text" name="deliverySeq" size="4" value="${fld(fSeq)}"/>
         </p>
         <p>
             型号
             <select name="productCode">
                 <option value="">（不关联）</option>
                 <#list products as p>
-                    <option value="${p.productCode}">${p.productCode}　${(p.productName)!''}</option>
+                    <option value="${p.productCode}"<#if (fProduct!'') == p.productCode> selected="selected"</#if>>${p.productCode}　${(p.productName)!''}</option>
                 </#list>
             </select>
-            开发项目编号 <input type="text" name="devProjectCode" size="16"/>
+            开发项目编号 <input type="text" name="devProjectCode" size="16" value="${fld(fDevProject)}"/>
         </p>
         <p>
-            内部逻辑文件 <input type="text" name="ilfCount" size="5"/>
-            外部接口文件 <input type="text" name="eifCount" size="5"/>
-            未调整功能点（可空，空则按两个文件数算）<input type="text" name="ufp" size="5"/>
-            功能点耗时率 <input type="text" name="pdrHoursPerFp" size="5"/>
-            日费率 <input type="text" name="dayRate" size="6"/>
-            税率 <input type="text" name="taxRate" size="5"/>
+            内部逻辑文件 <input type="text" name="ilfCount" size="5" value="${fld(fIlf)}"/>
+            外部接口文件 <input type="text" name="eifCount" size="5" value="${fld(fEif)}"/>
+            未调整功能点（可空，空则按两个文件数算）<input type="text" name="ufp" size="5" value="${fld(fUfp)}"/>
+            功能点耗时率 <input type="text" name="pdrHoursPerFp" size="5" value="${fld(fPdr)}"/>
+            日费率 <input type="text" name="dayRate" size="6" value="${fld(fDayRate)}"/>
+            税率 <input type="text" name="taxRate" size="5" value="${fld(fTaxRate)}"/>
         </p>
         <p>
-            软件因素：基础 <input type="text" name="swfBase" size="4"/>
-            复用 <input type="text" name="swfReuse" size="4"/>
-            前期投入 <input type="text" name="swfPreInvest" size="4"/>
-            质量 <input type="text" name="swfQuality" size="4"/>
-            开发因素 <input type="text" name="rdf" size="4"/>
-            非人力成本率 <input type="text" name="dncRate" size="5"/>
+            软件因素：基础 <input type="text" name="swfBase" size="4" value="${fld(fSwfBase)}"/>
+            复用 <input type="text" name="swfReuse" size="4" value="${fld(fSwfReuse)}"/>
+            前期投入 <input type="text" name="swfPreInvest" size="4" value="${fld(fSwfPre)}"/>
+            质量 <input type="text" name="swfQuality" size="4" value="${fld(fSwfQuality)}"/>
+            开发因素 <input type="text" name="rdf" size="4" value="${fld(fRdf)}"/>
+            非人力成本率 <input type="text" name="dncRate" size="5" value="${fld(fDncRate)}"/>
         </p>
         <p>
-            计划人天（空则按估算冻结）<input type="text" name="plannedDays" size="6"/>
-            计划开始 <input type="text" name="plannedStartDate" size="10" placeholder="2026-11-01"/>
-            计划结束 <input type="text" name="plannedEndDate" size="10" placeholder="2026-12-15"/>
+            计划人天（空则按估算冻结）<input type="text" name="plannedDays" size="6" value="${fld(fPlannedDays)}"/>
+            计划开始 <input type="text" name="plannedStartDate" size="10" placeholder="2026-11-01" value="${fld(fStart)}"/>
+            计划结束 <input type="text" name="plannedEndDate" size="10" placeholder="2026-12-15" value="${fld(fEnd)}"/>
         </p>
         <p>
-            实际工时(h) <input type="text" name="actualHours" size="7"/>
-            实际成本 <input type="text" name="actualCost" size="8"/>
-            对外报价 <input type="text" name="quotedAmount" size="10"/>
+            实际工时(h) <input type="text" name="actualHours" size="7" value="${fld(fHours)}"/>
+            实际成本 <input type="text" name="actualCost" size="8" value="${fld(fCost)}"/>
+            对外报价 <input type="text" name="quotedAmount" size="10" value="${fld(fQuoted)}"/>
         </p>
         <p>
             备注<br/>
             <span class="note-row">
-                <textarea name="note" rows="3" cols="56" data-software-note="Y">${(parameters.note)!''}</textarea>
+                <textarea name="note" rows="3" cols="56" data-software-note="Y">${fld(fNote)}</textarea>
                 <input type="submit" value="保存项目"/>
             </span>
         </p>
     </form>
 </fieldset>
+<#if editing>
+<script type="text/javascript">
+    /* 存完回到刚改的这一条：重定向到 ?projectCode=… 就没有锚点了，这里把表单顶到导航条下面 */
+    (function () {
+        var form = document.getElementById('swForm');
+        if (form && window.jumpUnderNav) { window.jumpUnderNav(form); }
+    })();
+</script>
+</#if>
 
 <h2>项目台账（${(r.totalCount)!0} 个）</h2>
 <form method="get" action="/mfg/control/software">
@@ -189,8 +241,8 @@
             <th class="num">计划人天</th><th class="num">实际人天</th><th class="num">偏差</th>
             <th class="num">实测耗时率</th><th>计划结束</th><th class="num">含税报价</th><th>备注</th></tr>
         <#list rows as x>
-            <tr>
-                <td><a href="/mfg/control/software?projectCode=${x.projectCode}">${x.projectCode}</a></td>
+            <tr<#if editing && fCode == x.projectCode> class="saved-row"</#if> data-software-row="${x.projectCode}">
+                <td><a href="/mfg/control/software?projectCode=${x.projectCode}#swForm" data-software-edit="${x.projectCode}" title="点编号改这一条">${x.projectCode}</a></td>
                 <td>${(x.projectName)!''}</td>
                 <td><@swCat (x.categoryId)!''/></td>
                 <td><@swStatus (x.statusId)!''/></td>
@@ -210,6 +262,7 @@
         </#list>
     </table>
     <p class="hint">共 ${(r.totalCount)!0} 个，第 ${(r.page)!1} / ${(r.pageCount)!1} 页。
+        点<b>编号</b>就把这一条填进上面的表单，改完保存就存回去。
         “偏差”= 实际 − 计划，正数表示超人天；“实测耗时率”= 实际工时 ÷ 功能点数（人时/功能点），是计划下一个项目的依据。</p>
 <#else>
     <p class="hint">还没有软件项目。上面填一个型号的一次开发工作（例如某个固件的版本），以后估算就有依据了。</p>

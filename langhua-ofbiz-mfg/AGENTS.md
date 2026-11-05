@@ -574,6 +574,29 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   回归：`verify-m34`（软件项目那一页）**30/0**、`verify-m13` **54/0**、`smoke-dev-pages` **28/28**；
   `check-prod-237` **26/27**——少的 1 项是「jar 是刚编的」（这一轮只改模板，`gradle jar` 判定 UP-TO-DATE、
   jar 时间戳没变，与 Step 299 那次同一原因）。三套实例已发版。
+- **Step 302：点台账里的编号就能改这一条软件项目**（用户报「没有方便地编辑已有软件项目的方法」）：
+  以前编号只是个链接，点过去还是那张**空表单**（表单读的是 `parameters.*`，只有编号被隐藏域带过去）。
+  - 数据：`mfgSoftwareProjectList` 多一个 IN `projectCode`、多一个 OUT `selected`（`java.util.Map`），
+    命中的那一行原样交出去；行里另加 **`ufpInput`**（见下）。屏幕 `software` 把它从
+    `parameters.projectCode` 传进去（**IN / OUT / `<field-map>` 三处都要加**，漏一处筛选或回填就静默失效）。
+  - 模板：`editing`（`sel.projectCode` 有值）时标题变「修改项目 SW-…」，下面一行小字说明 + 「先清空表单」的链接；
+    所有输入框与下拉都回填（`sel.*` 优先、退回 `parameters.*`，`fld()` 统一把数字写成三位小数、日期写成 `yyyy-MM-dd`），
+    备注 textarea 也跟着回填。台账那一行的编号链接带 `#swForm` 与 `data-software-edit`，被改的那一行加
+    `class="saved-row"`（淡绿底，Step 201 的样式）。
+  - 保存成功后 `softwareProjectSave` 本来就重定向到 `?projectCode=<新号>`，于是页面重新渲染成“这一条”，
+    模板末尾一小段脚本 `jumpUnderNav(#swForm)` 把表单顶到导航条下面（重定向丢锚点，靠它回到刚才那一块）。
+    **只有 `editing` 时才输出那段脚本**：直接打开 `/software` 不跳（`scrollY` 仍是 0）。
+  - **别把算出来的功能点回填进输入框**：`toSoftwareProjectMap` 里 `map.putAll(cost)` 的 `ufp` 是**按 ILF / EIF 算出来**的
+    （原表 `ufp` 为空时），回填再存回去就等于把“算的”冻成“填的”——实测 ilf=3 时功能点列仍是 0、金额 0.00，
+    再改 ILF 也不动了。所以行里另给 `ufpInput` = 表里那个值，表单只读它。
+  - 验法（测试实例，Playwright）：直接打开 `/software` 不跳、标题「新建 / 更新项目」；点编号 →
+    `?projectCode=…#swForm`、标题「修改项目 SW-…」、名称 / 两行备注 / 类别 / 状态 / 功能点耗时率 40 / 日费率 1760 /
+    计划结束日都回填、台账那一行 `saved-row`、表单顶在 87px（导航条下面）；改负责人 + 实际工时 + 内部逻辑文件后保存 →
+    仍停在这一条、台账 功能点 **105**、实际人天 **1.5**、含税报价有值、功能点框仍是空的；
+    `?projectCode=` 写一个不存在的号 → 回到新建口径、无 FTL 报错。
+  - 回归：单测 **275**、`verify-m34` **30/0**、`verify-m13` **54/0**、`smoke-dev-pages` **28/28**、
+    `check-prod-237` **27/27**；`verify-m11` 仍是那条 `search narrows the list -> 0 vs 0`（开发库工单列表本来就是 0 条，
+    与本次无关）。三套实例已发版。
 
 
 ## 测试与巡检

@@ -524,6 +524,7 @@
                 <service service-name="mfgSoftwareProjectList" result-map="swResult" auto-field-map="false">
                     <field-map field-name="search" from-field="parameters.search"/>
                     <field-map field-name="page" from-field="parameters.page"/>
+                    <field-map field-name="projectCode" from-field="parameters.projectCode"/>
                 </service>
                 <service service-name="mfgSoftwareEstimate" result-map="swPreview" auto-field-map="false">
                     <field-map field-name="ilfCount" from-field="parameters.ilfCount"/>
