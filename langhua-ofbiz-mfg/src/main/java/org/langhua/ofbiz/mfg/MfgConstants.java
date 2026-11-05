@@ -582,6 +582,13 @@ public final class MfgConstants {
     /** The SN prefix is a {@code very-short} column, so 10 characters are the limit. */
     static final int MAX_SN_PREFIX = 10;
 
+    /**
+     * How much text a free note takes. The column is {@code VARCHAR(2000)}: an OFBiz
+     * {@code description} is only 255 characters, and a software project description runs longer
+     * than that; Derby cannot widen a VARCHAR into a CLOB, so the column was widened instead.
+     */
+    static final int MAX_NOTE_CHARS = 2000;
+
     /** Biggest image accepted, in bytes. */
     public static final long IMAGE_MAX_BYTES = 4L * 1024L * 1024L;
 

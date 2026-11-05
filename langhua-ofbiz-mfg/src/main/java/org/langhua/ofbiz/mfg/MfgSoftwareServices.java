@@ -197,7 +197,12 @@ public final class MfgSoftwareServices {
             project.set("actualHours", MfgSupport.optionalAmount(context.get("actualHours")));
             project.set("actualCost", MfgSupport.optionalAmount(context.get("actualCost")));
             project.set("quotedAmount", MfgSupport.optionalAmount(context.get("quotedAmount")));
-            project.set("note", MfgSupport.toText(context.get("note")));
+            String note = MfgSupport.toText(context.get("note"));
+            if (note != null && note.length() > MfgConstants.MAX_NOTE_CHARS) {
+                return ServiceUtil.returnError("备注最长 " + MfgConstants.MAX_NOTE_CHARS
+                        + " 个字（现在 " + note.length() + " 个），删掉一些再存");
+            }
+            project.set("note", note);
 
             fillSoftwareDefaults(project);
             Map<String, Object> cost = softwareCostOf(project);
@@ -286,6 +291,7 @@ public final class MfgSoftwareServices {
             result.put("defaultDayRate", Double.valueOf(MfgConstants.DEFAULT_DAY_RATE));
             result.put("defaultTaxRate", Double.valueOf(MfgConstants.DEFAULT_TAX_RATE));
             result.put("defaultDncRate", Double.valueOf(MfgConstants.DEFAULT_DNC_RATE));
+            result.put("noteLimit", Integer.valueOf(MfgConstants.MAX_NOTE_CHARS));
             return result;
         } catch (GenericEntityException e) {
             return ServiceUtil.returnError("Could not read the software projects: " + e.getMessage());

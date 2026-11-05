@@ -117,41 +117,43 @@
 
 <#assign sel = ((r.selected)!{})>
 <#assign editing = (sel.projectCode!'')?has_content>
-<#-- what a box shows: the project being edited first, then whatever the last POST said -->
+<#-- what a box shows: what the last POST said first (so a rejected save keeps the typed text), then
+     the project the page was opened on -->
 <#function fld value>
     <#if !(value??)><#return ''></#if>
     <#if value?is_number><#return value?string("0.###")></#if>
     <#if value?is_date><#return value?string("yyyy-MM-dd")></#if>
     <#return value>
 </#function>
-<#assign fCode = (sel.projectCode)!((parameters.projectCode)!)>
-<#assign fName = (sel.projectName)!((parameters.projectName)!)>
-<#assign fCategory = (sel.categoryId)!((parameters.categoryId)!)>
-<#assign fStatus = (sel.statusId)!((parameters.statusId)!)>
-<#assign fOwner = (sel.ownerName)!((parameters.ownerName)!)>
-<#assign fSeq = (sel.deliverySeq)!((parameters.deliverySeq)!)>
-<#assign fProduct = (sel.productCode)!((parameters.productCode)!)>
-<#assign fStage = (sel.stageId)!((parameters.stageId)!)>
-<#assign fDevProject = (sel.devProjectCode)!((parameters.devProjectCode)!)>
-<#assign fIlf = (sel.ilfCount)!((parameters.ilfCount)!)>
-<#assign fEif = (sel.eifCount)!((parameters.eifCount)!)>
-<#assign fUfp = (sel.ufpInput)!((parameters.ufp)!)>
-<#assign fPdr = (sel.pdrHoursPerFp)!((parameters.pdrHoursPerFp)!)>
-<#assign fDayRate = (sel.dayRate)!((parameters.dayRate)!)>
-<#assign fTaxRate = (sel.taxRate)!((parameters.taxRate)!)>
-<#assign fSwfBase = (sel.swfBase)!((parameters.swfBase)!)>
-<#assign fSwfReuse = (sel.swfReuse)!((parameters.swfReuse)!)>
-<#assign fSwfPre = (sel.swfPreInvest)!((parameters.swfPreInvest)!)>
-<#assign fSwfQuality = (sel.swfQuality)!((parameters.swfQuality)!)>
-<#assign fRdf = (sel.rdf)!((parameters.rdf)!)>
-<#assign fDncRate = (sel.dncRate)!((parameters.dncRate)!)>
-<#assign fPlannedDays = (sel.plannedDays)!((parameters.plannedDays)!)>
-<#assign fStart = (sel.plannedStartDate)!((parameters.plannedStartDate)!)>
-<#assign fEnd = (sel.plannedEndDate)!((parameters.plannedEndDate)!)>
-<#assign fHours = (sel.actualHours)!((parameters.actualHours)!)>
-<#assign fCost = (sel.actualCost)!((parameters.actualCost)!)>
-<#assign fQuoted = (sel.quotedAmount)!((parameters.quotedAmount)!)>
-<#assign fNote = (sel.note)!((parameters.note)!)>
+<#assign fCode = (parameters.projectCode)!((sel.projectCode)!)>
+<#assign fName = (parameters.projectName)!((sel.projectName)!)>
+<#assign fCategory = (parameters.categoryId)!((sel.categoryId)!)>
+<#assign fStatus = (parameters.statusId)!((sel.statusId)!)>
+<#assign fOwner = (parameters.ownerName)!((sel.ownerName)!)>
+<#assign fSeq = (parameters.deliverySeq)!((sel.deliverySeq)!)>
+<#assign fProduct = (parameters.productCode)!((sel.productCode)!)>
+<#assign fStage = (parameters.stageId)!((sel.stageId)!)>
+<#assign fDevProject = (parameters.devProjectCode)!((sel.devProjectCode)!)>
+<#assign fIlf = (parameters.ilfCount)!((sel.ilfCount)!)>
+<#assign fEif = (parameters.eifCount)!((sel.eifCount)!)>
+<#assign fUfp = (parameters.ufp)!((sel.ufpInput)!)>
+<#assign fPdr = (parameters.pdrHoursPerFp)!((sel.pdrHoursPerFp)!)>
+<#assign fDayRate = (parameters.dayRate)!((sel.dayRate)!)>
+<#assign fTaxRate = (parameters.taxRate)!((sel.taxRate)!)>
+<#assign fSwfBase = (parameters.swfBase)!((sel.swfBase)!)>
+<#assign fSwfReuse = (parameters.swfReuse)!((sel.swfReuse)!)>
+<#assign fSwfPre = (parameters.swfPreInvest)!((sel.swfPreInvest)!)>
+<#assign fSwfQuality = (parameters.swfQuality)!((sel.swfQuality)!)>
+<#assign fRdf = (parameters.rdf)!((sel.rdf)!)>
+<#assign fDncRate = (parameters.dncRate)!((sel.dncRate)!)>
+<#assign fPlannedDays = (parameters.plannedDays)!((sel.plannedDays)!)>
+<#assign fStart = (parameters.plannedStartDate)!((sel.plannedStartDate)!)>
+<#assign fEnd = (parameters.plannedEndDate)!((sel.plannedEndDate)!)>
+<#assign fHours = (parameters.actualHours)!((sel.actualHours)!)>
+<#assign fCost = (parameters.actualCost)!((sel.actualCost)!)>
+<#assign fQuoted = (parameters.quotedAmount)!((sel.quotedAmount)!)>
+<#assign fNote = (parameters.note)!((sel.note)!)>
+<#assign noteLimit = (r.noteLimit)!2000>
 
 <h2 id="swForm"><#if editing>修改项目 ${fCode}<#else>新建 / 更新项目</#if></h2>
 <#if editing>
@@ -232,11 +234,12 @@
             对外报价 <input type="text" name="quotedAmount" size="10" value="${fld(fQuoted)}"/>
         </p>
         <p>
-            备注<br/>
+            备注（最多 ${noteLimit} 字）<br/>
             <span class="note-row">
                 <textarea name="note" rows="3" cols="56" data-software-note="Y">${fld(fNote)}</textarea>
                 <input type="submit" value="保存项目"/>
             </span>
+            <span class="hint" data-note-counter="${noteLimit}">已输入 <b>${((fNote)!'')?length}</b> / ${noteLimit} 字</span>
         </p>
     </form>
 </fieldset>
@@ -249,6 +252,26 @@
     })();
 </script>
 </#if>
+<script type="text/javascript">
+    /* 备注框旁边显示已输入多少字、一共能放多少：从工单或聊天里粘一大段很容易超，
+       而数据库只会回一句 truncation error */
+    (function () {
+        var box = document.querySelector('textarea[name="note"]');
+        var counter = document.querySelector('[data-note-counter]');
+        if (!box || !counter) { return; }
+        var limit = parseInt(counter.getAttribute('data-note-counter'), 10);
+        var shown = counter.querySelector('b');
+        function update() {
+            var used = box.value.length;
+            if (shown) { shown.textContent = used; }
+            counter.className = used > limit ? 'error' : 'hint';
+            counter.title = used > limit ? ('超出 ' + (used - limit) + ' 个字，存不进去') : '';
+        }
+        box.addEventListener('input', update);
+        box.addEventListener('change', update);
+        update();
+    })();
+</script>
 
 <h2>项目台账（${(r.totalCount)!0} 个）</h2>
 <form method="get" action="/mfg/control/software">

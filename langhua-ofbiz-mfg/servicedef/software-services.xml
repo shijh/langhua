@@ -67,7 +67,7 @@
         <attribute name="actualHours" type="Double" mode="IN" optional="true"/>
         <attribute name="actualCost" type="Double" mode="IN" optional="true"/>
         <attribute name="quotedAmount" type="Double" mode="IN" optional="true"/>
-        <attribute name="note" type="String" mode="IN" optional="true"/>
+        <attribute name="note" type="String" mode="IN" optional="true" allow-html="any"/>
         <attribute name="projectCode" type="String" mode="OUT" optional="true"/>
         <attribute name="plannedDays" type="Double" mode="OUT" optional="true"/>
         <attribute name="ufp" type="Double" mode="OUT" optional="true"/>
@@ -107,5 +107,6 @@
         <attribute name="defaultDayRate" type="Double" mode="OUT" optional="true"/>
         <attribute name="defaultTaxRate" type="Double" mode="OUT" optional="true"/>
         <attribute name="defaultDncRate" type="Double" mode="OUT" optional="true"/>
+        <attribute name="noteLimit" type="Integer" mode="OUT" optional="true"/>
     </service>
 </services>

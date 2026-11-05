@@ -620,6 +620,30 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
     `check-prod-237` **27/27**；`verify-m11` 仍是那条老项。三套实例已发版；**prod 的 `admin` 口令改过（登录 401）**，
     所以 prod 只验了启动日志里的 `addColumn` 与部署副本的 `entitymodel.xml`（脚本
     `F:\build-ofbiz\check-sw-column.ps1`），页面用 dev 与 test 两套看。
+- **Step 304：软件项目的备注从 255 字放宽到 2000 字，并在框下面显示「已输入 N / 2000 字」**（用户贴了一段
+  700 字的项目说明，保存回 `A truncation error ... shrink VARCHAR ... to length 255`，问「备注字数限制是多少？
+  能显示当前字符数和限制字符数吗？」）：
+  - 字段原来是 OFBiz 的 `description` = VARCHAR(255)。**想用 `very-long`（CLOB）走不通**：Derby 拒绝把 VARCHAR
+    改成 CLOB（实测 `ERROR 42Z15: Invalid type specified for column 'A'. The type of a column may not be changed.`）。
+    所以 `entitydef` 里写成 **`type="url"`（stock 的 VARCHAR(2000) 文本类型）**，上限常量是
+    `MfgConstants.MAX_NOTE_CHARS = 2000`。**旧库要跑 `tools/software-note-2000.sql`**
+    （脚本 `F:\build-ofbiz\apply-note-2000.ps1 -instance … -stopScript … -deployScript …`，停实例 → ij → 起实例；
+    test 201 / dev 6 / prod 3 行都在，三套都跑过）。
+  - 页面：标签写「备注（最多 2000 字）」，框下面一行 `<span class="hint" data-note-counter="2000">已输入 N / 2000 字</span>`，
+    JS 实时更新，超了这一段变红、title 写「超出 N 个字，存不进去」。**上限从服务来**
+    （`mfgSoftwareProjectList` 的 OUT `noteLimit` = `MAX_NOTE_CHARS`），别在模板里另写一个数。
+  - 服务：超过 2000 字直接返回中文错误「备注最长 2000 个字（现在 N 个），删掉一些再存」，不再让 Derby 的
+    truncation 原文跑到页面上。
+  - **`note` 必须 `allow-html="any"`**：用户的说明里带 `<br/>`，默认 `allow-html="none"` 会回
+    `In field [note] less-than (<) and greater-than (>) symbols are not allowed.`（Step 175 的老问题）。
+    加上以后 `<br/>` 能存进去，但**备注不渲染 HTML**，页面上看到的就是字面的 `<br/>`——要在备注里换行就直接按回车。
+  - **被拒时不清空表单**：模板里 `fX` 的取值顺序是 **`parameters.*` 优先、`sel.*` 兜底**。之前写反了，
+    服务返回 `error` 视图时 `selected` 有值，刚粘进去的 2100 字会被库里的旧备注盖掉（实测）。
+  - 验法（测试实例，Playwright）：打开就是「已输入 0 / 2000 字」；粘 323 字（带 `<br/>`）→ 实时「323 / 2000」、
+    保存成功、台账那一格就是全文；粘 2100 字 → 计数变红 + title「超出 100 个字，存不进去」，保存被拒、
+    **2100 字原样留在框里**、红条写「备注最长 2000 个字（现在 2100 个）…」。
+  - 回归：单测 **275**、`verify-m34` **30/0**、`verify-m13` **54/0**、`smoke-dev-pages` **28/28**、
+    `check-prod-237` **27/27**；`verify-m11` 仍是那条老项。三套实例已发版并跑过这次的 ALTER。
 
 
 ## 测试与巡检

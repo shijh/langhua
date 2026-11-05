@@ -933,7 +933,7 @@
         <field name="actualHours" type="floating-point"><description>Hours really spent, filled in as the work goes</description></field>
         <field name="actualCost" type="currency-amount"><description>Money really spent, e.g. tooling or outsourcing</description></field>
         <field name="quotedAmount" type="currency-amount"><description>What was quoted to the customer, to compare with the estimate</description></field>
-        <field name="note" type="description"/>
+        <field name="note" type="url"><description>Free text about the work: what it is for, what it talks to, links. VARCHAR(2000) rather than a description (255): Derby cannot widen a VARCHAR into a CLOB, so the 2000 character column is used and the service refuses anything longer (MfgConstants.MAX_NOTE_CHARS)</description></field>
         <field name="createdStamp" type="date-time"/>
         <field name="createdTxStamp" type="date-time"/>
         <field name="lastUpdatedStamp" type="date-time"/>
