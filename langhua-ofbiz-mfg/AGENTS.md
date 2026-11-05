@@ -668,6 +668,21 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
     **2300 字原样留在框里**、红条「说明最长 2000 个字（现在 2300 个），删掉一些再存」。
   - 回归：单测 **275**、`verify-m13` **54/0**、`verify-m34` **30/0**、`smoke-dev-pages` **28/28**、
     `check-prod-237` **27/27**；`verify-m11` 仍是那条老项。三套实例已发版并跑过这次的 ALTER。
+- **Step 306：附件的备注可以改（六个附件块都生效）**（用户报「硬件项目中的图片等的备注无法修改」，截图是项目资料那张表）：
+  - 新服务 **`mfgAttachmentNote`**（`MfgAttachmentServices.attachmentNote`，IN `ownerTypeId` / `ownerId` / `seq` / `note`）
+    + 事件 `MfgAttachmentEvents.note` + request-map **`/mfg/control/attachmentNote`**（`response type="none"`）。
+    **只改 `MfgAttachment.note`，文件本身一个字节都不动**——重传一遍只会多出一行同样的图。
+    备注上限还是 `MfgConstants.MAX_NOTE_CHARS`（2000），超了回中文错误；`note` 的 IN 加 `allow-html="any"`。
+  - `attachmentBlock.ftl`（产品 / 开发项目 / 工单 / 出货 / 售后 / 元件资料六个 owner 共用）里「备注」那一格
+    从纯文本换成**行内小表单**：`<input name="note" size="26">` + 「存备注」按钮（`data-att-note="seq"`），
+    `back` 仍旧带 `#attachments`，所以改完停在附件这一块（UI 规则：改完停在原地）。
+  - 验法（测试实例，Playwright）：给 `DEV-261029-02` 传一个 `logo-64.png` → 行里出现「存备注」→ 改成
+    「改过的备注：正面（已确认）」→ 保存后仍在 `#attachments`、文件名与 seq 不变、无报错；
+    产品页同样有一行可改（证明这块对六个 owner 都生效）；验完把两条探针附件删掉。
+  - 回归：单测 **275**、`verify-m28b` **43 OK / 0 FAIL**（3 条 SKIP：清过测试数据后开发库没有 claim / delivery / 工单）、
+    `verify-m13` **54/0**、`smoke-dev-pages` **28/28**、`check-prod-237` **27/27**；`verify-m11` 仍是那条老项。
+    **`verify-m28b.ps1` 的日志是 `F:\build-ofbiz\mfg-m28.txt`**（不是 m28b.txt），而且它的条数会随数据变化
+    （有 claim / delivery / 工单时才做那几项，否则写 SKIP）——别拿固定条数当判据，看 FAIL 数为 0。
 
 
 ## 测试与巡检

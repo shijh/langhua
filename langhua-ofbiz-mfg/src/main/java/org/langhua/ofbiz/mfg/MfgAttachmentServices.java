@@ -440,8 +440,7 @@ public final class MfgAttachmentServices {
      * @param context service context, see {@code servicedef/attachment-services.xml#mfgAttachmentDelete}
      * @return the service result containing the owner keys and {@code seq}
      */
-    public static Map<String, Object> attachmentDelete(DispatchContext dctx, Map<String, ? extends Object> context) {
-        String denied = MfgSecurity.permissionProblem(dctx, context,
+    public static Map<String, Object> attachmentDelete(DispatchContext dctx, Map<String, ? extends Object> context) {        String denied = MfgSecurity.permissionProblem(dctx, context,
                 MfgConstants.PERM_ENG, MfgConstants.PERM_STOCK, MfgConstants.PERM_PRODUCTION, MfgConstants.PERM_SALES);
         if (denied != null) {
             return ServiceUtil.returnError(denied);
@@ -453,6 +452,65 @@ public final class MfgAttachmentServices {
             return ServiceUtil.returnError("ownerTypeId, ownerId and seq are required");
         }
         return deleteAttachment(dctx.getDelegator(), ownerTypeId, ownerId, seq);
+    }
+
+    /**
+     * Rewrites the note of one attachment - a file is often uploaded first and described afterwards
+     * ("正面" became "背面有摔伤"), and re-uploading it just to change the words is not an option.
+     *
+     * @param dctx the dispatch context
+     * @param context service context, see {@code servicedef/attachment-services.xml#mfgAttachmentNote}
+     * @return the service result containing the owner keys, {@code seq} and the new {@code note}
+     */
+    public static Map<String, Object> attachmentNote(DispatchContext dctx, Map<String, ? extends Object> context) {
+        String denied = MfgSecurity.permissionProblem(dctx, context,
+                MfgConstants.PERM_ENG, MfgConstants.PERM_STOCK, MfgConstants.PERM_PRODUCTION, MfgConstants.PERM_SALES);
+        if (denied != null) {
+            return ServiceUtil.returnError(denied);
+        }
+        String ownerTypeId = MfgSupport.toText(context.get("ownerTypeId"));
+        String ownerId = MfgSupport.toText(context.get("ownerId"));
+        long seq = MfgSupport.toLong(context.get("seq"), 0);
+        if (ownerTypeId == null || ownerId == null || seq <= 0) {
+            return ServiceUtil.returnError("ownerTypeId, ownerId and seq are required");
+        }
+        return attachmentNote(dctx.getDelegator(), ownerTypeId, ownerId, seq,
+                MfgSupport.toText(context.get("note")));
+    }
+
+    /**
+     * Rewrites the note of one attachment.
+     *
+     * @param delegator the delegator
+     * @param ownerTypeId the kind of record
+     * @param ownerId the key of the record
+     * @param seq the sequence number of the file
+     * @param note the new note, may be {@code null} to clear it
+     * @return the service result or an error
+     */
+    static Map<String, Object> attachmentNote(Delegator delegator, String ownerTypeId, String ownerId, long seq,
+            String note) {
+        if (note != null && note.length() > MfgConstants.MAX_NOTE_CHARS) {
+            return ServiceUtil.returnError("备注最长 " + MfgConstants.MAX_NOTE_CHARS
+                    + " 个字（现在 " + note.length() + " 个），删掉一些再存");
+        }
+        try {
+            GenericValue attachment = EntityQuery.use(delegator).from("MfgAttachment")
+                    .where("ownerTypeId", ownerTypeId, "ownerId", ownerId, "seq", Long.valueOf(seq)).queryOne();
+            if (attachment == null) {
+                return ServiceUtil.returnError("Attachment " + seq + " of [" + ownerId + "] does not exist");
+            }
+            attachment.set("note", note);
+            attachment.store();
+            Map<String, Object> result = ServiceUtil.returnSuccess();
+            result.put("ownerTypeId", ownerTypeId);
+            result.put("ownerId", ownerId);
+            result.put("seq", Long.valueOf(seq));
+            result.put("note", note);
+            return result;
+        } catch (GenericEntityException e) {
+            return ServiceUtil.returnError("Could not save the note: " + e.getMessage());
+        }
     }
 
     /**

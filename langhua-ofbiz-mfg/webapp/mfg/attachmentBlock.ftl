@@ -129,7 +129,19 @@
                     <td class="num">${att.seq}</td>
                     <td>${att.fileName!}</td>
                     <td class="num">${((att.fileSize!0) / 1024)?string("0.#")} KB</td>
-                    <td>${att.note!}</td>
+                    <td>
+                        <#-- 备注上传后常常要改（一开始写成「正面」，看清楚了才知是背面）；重传一遍只会多一行，
+                             所以每行自带一个改备注的小表单，文件本身不动 -->
+                        <form method="post" action="/mfg/control/attachmentNote" class="inline">
+                            <input type="hidden" name="ownerTypeId" value="${ownerTypeId}"/>
+                            <input type="hidden" name="ownerId" value="${ownerId}"/>
+                            <input type="hidden" name="seq" value="${att.seq}"/>
+                            <input type="hidden" name="back" value="${back}#attachments"/>
+                            <input type="text" name="note" size="26" value="${att.note!}" placeholder="备注"
+                                   title="${att.note!}" data-att-note="${att.seq}"/>
+                            <input type="submit" value="存备注"/>
+                        </form>
+                    </td>
                     <td><#if att.createdStamp??>${att.createdStamp?string("yyyy-MM-dd HH:mm")}</#if></td>
                     <td>
                         <form method="post" action="/mfg/control/attachmentDelete" class="inline">

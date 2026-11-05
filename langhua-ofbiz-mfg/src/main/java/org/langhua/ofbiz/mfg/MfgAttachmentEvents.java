@@ -256,6 +256,38 @@ public final class MfgAttachmentEvents {
         return ownerId != null ? ownerId : text(request.getParameter("productCode"));
     }
 
+    /**
+     * Rewrites the note of one attachment and goes back to the page. The file is left alone: a note
+     * is often corrected after the upload ("正面" turned out to be the back), and re-uploading the
+     * same picture to change the words would only make a second row.
+     *
+     * @param request the request, holding {@code ownerTypeId}, {@code ownerId}, {@code seq}, {@code note}
+     * @param response the response
+     * @return always {@code success}; the site configuration maps it to no view
+     */
+    public static String note(HttpServletRequest request, HttpServletResponse response) {
+        Map<String, Object> parameters = parametersOf(request);
+        String ownerTypeId = text(parameters.get("ownerTypeId"));
+        String ownerId = ownerIdOf(parameters);
+        long seq = 0;
+        try {
+            String seqText = text(parameters.get("seq"));
+            seq = seqText == null ? 0 : Long.parseLong(seqText);
+        } catch (NumberFormatException e) {
+            seq = 0;
+        }
+        Delegator delegator = (Delegator) request.getAttribute("delegator");
+        if (delegator != null && ownerTypeId != null && ownerId != null && seq > 0) {
+            Map<String, Object> result = MfgAttachmentServices.attachmentNote(delegator, ownerTypeId, ownerId, seq,
+                    text(parameters.get("note")));
+            Object error = result.get("errorMessage");
+            if (error != null) {
+                Debug.logInfo("Attachment note not saved: " + error, MODULE);
+            }
+        }
+        return redirectBack(request, response, parameters, null);
+    }
+
     private static String notFound(HttpServletResponse response) {
         try {
             response.sendError(HttpServletResponse.SC_NOT_FOUND);

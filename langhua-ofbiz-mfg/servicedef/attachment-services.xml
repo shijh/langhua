@@ -46,4 +46,19 @@
         <attribute name="ownerId" type="String" mode="OUT" optional="true"/>
         <attribute name="seq" type="Long" mode="OUT" optional="true"/>
     </service>
+
+
+    <service name="mfgAttachmentNote" engine="java"
+            location="org.langhua.ofbiz.mfg.MfgAttachmentServices" invoke="attachmentNote"
+            auth="false" use-transaction="false">
+        <description>Rewrite the note of one attachment; the file itself is not touched</description>
+        <attribute name="ownerTypeId" type="String" mode="IN" optional="false"/>
+        <attribute name="ownerId" type="String" mode="IN" optional="false"/>
+        <attribute name="seq" type="Long" mode="IN" optional="false"/>
+        <attribute name="note" type="String" mode="IN" optional="true" allow-html="any"/>
+        <attribute name="ownerTypeId" type="String" mode="OUT" optional="true"/>
+        <attribute name="ownerId" type="String" mode="OUT" optional="true"/>
+        <attribute name="seq" type="Long" mode="OUT" optional="true"/>
+        <attribute name="note" type="String" mode="OUT" optional="true"/>
+    </service>
 </services>
