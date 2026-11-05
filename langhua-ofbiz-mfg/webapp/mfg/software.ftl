@@ -166,9 +166,14 @@
             实际工时(h) <input type="text" name="actualHours" size="7"/>
             实际成本 <input type="text" name="actualCost" size="8"/>
             对外报价 <input type="text" name="quotedAmount" size="10"/>
-            备注 <input type="text" name="note" size="28"/>
         </p>
-        <p><input type="submit" value="保存项目"/></p>
+        <p>
+            备注<br/>
+            <span class="note-row">
+                <textarea name="note" rows="3" cols="56" data-software-note="Y">${(parameters.note)!''}</textarea>
+                <input type="submit" value="保存项目"/>
+            </span>
+        </p>
     </form>
 </fieldset>
 
@@ -200,7 +205,7 @@
                         <#elseif (x.daysToEnd) lte 3><span class="warn">剩 ${x.daysToEnd} 天</span></#if>
                     </#if></td>
                 <td class="num"><#if x.amountWithTax??>${x.amountWithTax?string("#,##0.00")}</#if></td>
-                <td>${(x.note)!''}</td>
+                <td class="note-text">${(x.note)!''}</td>
             </tr>
         </#list>
     </table>

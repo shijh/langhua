@@ -559,6 +559,21 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   - 回归：单测 275、`verify-m13` **54/0**、`smoke-dev-pages` **28/28**、`check-prod-237` **27/27**；
     `verify-m11` 是 **54 OK / 1 FAIL**，那一项是 `search narrows the list -> 0 vs 0`——开发库 Step 239/240 清过测试数据后
     **工单列表本来就是 0 条**，与本次改动无关（脚本假设列表里至少有单才比得出来）。
+- **Step 301：软件项目的备注也换成 textarea**（用户报「软件项目的备注，希望是 textarea」，截图指的就是
+  `/mfg/control/software` 的「新建 / 更新项目」表单）：
+  `software.ftl` 里「实际工时 / 实际成本 / 对外报价」留在原来那一行，**备注单独一行、标签在框上面**
+  （`备注<br/>` + `<textarea name="note" rows="3" cols="56" data-software-note="Y">`），
+  外面套 `.note-row`（`inline-flex; align-items: flex-end`），**「保存项目」挪进这一行**，
+  于是按钮底边跟 textarea 底边齐（在测试实例里量到差 **0 像素**：912.26 / 912.26）——与 Step 298 的项目表单同一套。
+  台账那一列的 `${x.note}` 加 `class="note-text"`（`white-space: pre-line`），否则存进去的换行会被压成空格。
+  两个注意：① `<textarea>` 的 `>` 与值之间**不能有换行**；② 表单其它字段读的是 `parameters.*`，备注也跟着读
+  `parameters.note`（这页的表单是“新建”口径，不回调型号那一行的旧值）。
+  验法（测试实例，Playwright）：表单里是 `textarea[name=note]`（3 行 × 56 列）、外面有 `.note-row`、
+  旧的 `input[name=note][type=text]` 不见了、按钮底边差 0 像素；存一条两行备注 →
+  台账那一格是 `note-text`、`white-space: pre-line`、文本里保留 `\r\n`。
+  回归：`verify-m34`（软件项目那一页）**30/0**、`verify-m13` **54/0**、`smoke-dev-pages` **28/28**；
+  `check-prod-237` **26/27**——少的 1 项是「jar 是刚编的」（这一轮只改模板，`gradle jar` 判定 UP-TO-DATE、
+  jar 时间戳没变，与 Step 299 那次同一原因）。三套实例已发版。
 
 
 ## 测试与巡检
