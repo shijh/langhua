@@ -597,6 +597,29 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
   - 回归：单测 **275**、`verify-m34` **30/0**、`verify-m13` **54/0**、`smoke-dev-pages` **28/28**、
     `check-prod-237` **27/27**；`verify-m11` 仍是那条 `search narrows the list -> 0 vs 0`（开发库工单列表本来就是 0 条，
     与本次无关）。三套实例已发版。
+- **Step 303：软件项目也有「在做哪一步」，于是能挂到产品的那一步下面**（用户报「软件项目缺少了【在做哪一步】，
+  导致软件项目挂不到产品下」）：
+  - 实体 `MfgSoftwareProject.stageId`（`id`，可空）——与开发项目的 `stageId` **是同一个指针**，指向型号的五道阶段。
+    **三套实例启动时自己补列**（日志 `[addColumn] sql=ALTER TABLE OFBIZ.MFG_SOFTWARE_PROJECT ADD STAGE_ID VARCHAR(20)`），
+    不用跑手工 SQL。
+  - `mfgSoftwareProjectSave` 多一个 IN `stageId`，只认那五个 `MFG_STAGE_*`（不认就回中文错误）；
+    表单「软件项目」的型号后面多一个 **「在做哪一步」** 下拉（（不指定）+ 概念 / 设计 / 打样 / 试产 / 量产）。
+    **选空会真的清掉**：空值确实传到了服务（实测把两个下拉都选空保存，台账回到「未挂型号」）。
+  - 软件台账多一列 **「型号 · 在做哪一步」**（行上 `data-software-hangs="型号|阶段"`，没挂型号显示「未挂型号」）。
+  - **产品页「阶段与项目」表现在也列软件项目**：`projectsOf` 除了 `MfgDevProject` 还读 `MfgSoftwareProject`
+    （`kind=software`、`plannedLaunchDate` 取 `plannedEndDate`），所以 `projectsByStage` 自然把它们按阶段分进去；
+    行上 `data-project-kind`，链接指 `/mfg/control/software?projectCode=…#swForm`，路线图那一格写灰字「软件」。
+    **甘特图仍然只画阶段评审与开发项目**（软件项目有自己的状态与页面，混进图里要么颜色说谎、要么图例得再加一档），
+    页面小字写明了这一点。
+  - 顺手补：`projectStatusLabel` 原来没有 `MFG_DEV_CLOSED`（已结项的项目在表里显示成「进行中」），并加了四个 `MFG_SW_*`。
+  - 验法（测试实例，Playwright）：表单里「在做哪一步」是六个选项；给 `SW-261104-04` 选型号
+    `AuroraTessellation-NFC` + 打样保存 → 台账那一格「AuroraTessellation-NFC · 打样」，产品页 `#productProjects`
+    出现两行（`DEV-261029-02` 设计 / `SW-261104-04` 打样，`data-project-kind` 分别是 dev / software，软件那行链回软件页），
+    甘特图仍是 5 个评审 + 1 个开发项目，页面无 FTL 报错；再把两个下拉选空保存 → 台账回到「未挂型号」。
+  - 回归：单测 **275**、`verify-m34` **30/0**、`verify-m13` **54/0**、`smoke-dev-pages` **28/28**、
+    `check-prod-237` **27/27**；`verify-m11` 仍是那条老项。三套实例已发版；**prod 的 `admin` 口令改过（登录 401）**，
+    所以 prod 只验了启动日志里的 `addColumn` 与部署副本的 `entitymodel.xml`（脚本
+    `F:\build-ofbiz\check-sw-column.ps1`），页面用 dev 与 test 两套看。
 
 
 ## 测试与巡检

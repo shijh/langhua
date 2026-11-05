@@ -1309,6 +1309,7 @@ public final class MfgProductServices {
         for (GenericValue project : EntityQuery.use(delegator).from("MfgDevProject")
                 .where("productCode", productCode).orderBy("createdStamp").queryList()) {
             Map<String, Object> row = new LinkedHashMap<>();
+            row.put("kind", "dev");
             row.put("projectCode", project.getString("projectCode"));
             row.put("projectName", project.getString("projectName"));
             row.put("trackId", project.getString("trackId"));
@@ -1320,6 +1321,23 @@ public final class MfgProductServices {
             row.put("startDate", project.get("createdStamp"));
             row.put("plannedLaunchDate", project.get("plannedLaunchDate"));
             row.put("actualLaunchDate", project.get("actualLaunchDate"));
+            rows.add(row);
+        }
+        /* the software projects of the same model: they carry the same two pointers (which model,
+           which step), so a firmware or enclosure job shows up under the step it works on as well */
+        for (GenericValue project : EntityQuery.use(delegator).from("MfgSoftwareProject")
+                .where("productCode", productCode).orderBy("createdStamp").queryList()) {
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("kind", "software");
+            row.put("projectCode", project.getString("projectCode"));
+            row.put("projectName", project.getString("projectName"));
+            row.put("categoryId", project.getString("categoryId"));
+            row.put("stageId", project.getString("stageId"));
+            row.put("stageIndex", Integer.valueOf(MfgDevServices.devStageIndex(project.getString("stageId"))));
+            row.put("statusId", project.getString("statusId"));
+            row.put("ownerName", project.getString("ownerName"));
+            row.put("startDate", project.get("createdStamp"));
+            row.put("plannedLaunchDate", project.get("plannedEndDate"));
             rows.add(row);
         }
         return rows;
@@ -1803,7 +1821,15 @@ public final class MfgProductServices {
             List<Map<String, Object>> projects = projectsOf(delegator, productCode);
             result.put("projects", projects);
             result.put("stageGroups", projectsByStage(projects));
-            result.put("gantt", ganttOf(reviews, projects, LocalDate.now()));
+            // the chart draws the gates and the development projects only: a software project has
+            // its own statuses and its own page, it is listed under its stage in the table instead
+            List<Map<String, Object>> drawn = new ArrayList<>();
+            for (Map<String, Object> project : projects) {
+                if (!"software".equals(project.get("kind"))) {
+                    drawn.add(project);
+                }
+            }
+            result.put("gantt", ganttOf(reviews, drawn, LocalDate.now()));
             return result;
         } catch (GenericEntityException e) {
             return ServiceUtil.returnError("Could not read the product model: " + e.getMessage());

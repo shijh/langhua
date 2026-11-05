@@ -108,7 +108,12 @@
     <#if (statusId!'') == 'MFG_DEV_ACTIVE'><#return '进行中'>
     <#elseif (statusId!'') == 'MFG_DEV_ONHOLD'><#return '暂停'>
     <#elseif (statusId!'') == 'MFG_DEV_DONE'><#return '已量产'>
+    <#elseif (statusId!'') == 'MFG_DEV_CLOSED'><#return '已结项'>
     <#elseif (statusId!'') == 'MFG_DEV_CANCELLED'><#return '已取消'>
+    <#elseif (statusId!'') == 'MFG_SW_PLANNED'><#return '计划'>
+    <#elseif (statusId!'') == 'MFG_SW_DOING'><#return '进行中'>
+    <#elseif (statusId!'') == 'MFG_SW_DONE'><#return '已完成'>
+    <#elseif (statusId!'') == 'MFG_SW_CANCELLED'><#return '已取消'>
     <#else><#return '进行中'>
     </#if>
 </#function>
@@ -437,11 +442,16 @@
             </tr>
             <#list stageGroups as grp>
                 <#list grp.projects as p>
-                    <tr data-project-stage="${grp.stageId}" data-project-code="${p.projectCode}">
+                    <tr data-project-stage="${grp.stageId}" data-project-code="${p.projectCode}" data-project-kind="${p.kind!'dev'}">
                         <td><#if ((grp.stageId)!'') == ''><span class="hint">未定阶段</span><#else>${stageLabel(grp.stageId)}</#if></td>
-                        <td><a href="/mfg/control/dev?projectCode=${p.projectCode}#project">${p.projectName!p.projectCode}</a>
+                        <td><#if (p.kind!'dev') == 'software'>
+                                <a href="/mfg/control/software?projectCode=${p.projectCode}#swForm">${p.projectName!p.projectCode}</a>
+                            <#else>
+                                <a href="/mfg/control/dev?projectCode=${p.projectCode}#project">${p.projectName!p.projectCode}</a>
+                            </#if>
                             <span class="hint">${p.projectCode}</span></td>
-                        <td>${trackLabel(p.trackId!'')}</td>
+                        <td><#if (p.kind!'dev') == 'software'><span class="hint">软件</span>
+                            <#else>${trackLabel(p.trackId!'')}</#if></td>
                         <td>${p.ownerName!}</td>
                         <td><#if p.startDate??>${p.startDate?string("yyyy-MM-dd")}</#if></td>
                         <td><#if p.plannedLaunchDate??>${p.plannedLaunchDate?string("yyyy-MM-dd")}</#if></td>
@@ -452,10 +462,11 @@
             </#list>
         </table>
         <p class="hint">一个项目通过两个字段挂到这个型号上：<b>型号</b>（哪个产品）与<b>阶段</b>（在做产品的哪一步）。
-            改阶段在「项目开发」页的立项表单里。</p>
+            开发项目的阶段在「项目开发」页的立项表单里改；软件项目（灰字「软件」）的「在做哪一步」在「软件项目」页的表单里改。
+            甘特图只画阶段评审与开发项目，软件项目看下表的「阶段」列。</p>
     <#else>
         <p class="hint">还没有项目挂到这个型号上。在「项目开发」页立项时把「型号」选成 ${product.productCode}，
-            它就会出现在这里。</p>
+            或者在「软件项目」页建一条并选上这个型号与「在做哪一步」，它就会出现在这里。</p>
     </#if>
 
     <h2>产品照片（${images?size} 个）</h2>

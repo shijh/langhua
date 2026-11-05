@@ -910,6 +910,7 @@
         <field name="projectName" type="name"><description>What is being built</description></field>
         <field name="categoryId" type="id"><description>MFG_SW_FIRMWARE, MFG_SW_ENCLOSURE, MFG_SW_HOST, MFG_SW_PLATFORM or MFG_SW_OTHER</description></field>
         <field name="productCode" type="id-long"><description>Model this work belongs to, may be empty</description></field>
+        <field name="stageId" type="id"><description>Which of the model's five stages this work is for (MFG_STAGE_CONCEPT ... MFG_STAGE_MASS), so it hangs under the product at that step; empty when it is not tied to a step</description></field>
         <field name="devProjectCode" type="id"><description>Development project of this component, may be empty</description></field>
         <field name="ownerName" type="name"><description>Who does the work</description></field>
         <field name="statusId" type="id"><description>MFG_SW_PLANNED, MFG_SW_DOING, MFG_SW_DONE or MFG_SW_CANCELLED</description></field>

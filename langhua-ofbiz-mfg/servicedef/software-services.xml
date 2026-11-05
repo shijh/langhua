@@ -44,6 +44,7 @@
         <attribute name="projectName" type="String" mode="IN" optional="false"/>
         <attribute name="categoryId" type="String" mode="IN" optional="true"/>
         <attribute name="productCode" type="String" mode="IN" optional="true"/>
+        <attribute name="stageId" type="String" mode="IN" optional="true"/>
         <attribute name="devProjectCode" type="String" mode="IN" optional="true"/>
         <attribute name="ownerName" type="String" mode="IN" optional="true"/>
         <attribute name="statusId" type="String" mode="IN" optional="true"/>

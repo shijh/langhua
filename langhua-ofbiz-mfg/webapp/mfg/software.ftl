@@ -25,6 +25,15 @@
     <#elseif (code!'') == 'MFG_SW_CANCELLED'>已取消
     <#else>${(code!'')}</#if>
 </#macro>
+<#function swStage stageId>
+    <#if (stageId!'') == 'MFG_STAGE_CONCEPT'><#return '概念'>
+    <#elseif (stageId!'') == 'MFG_STAGE_DESIGN'><#return '设计'>
+    <#elseif (stageId!'') == 'MFG_STAGE_PROTOTYPE'><#return '打样'>
+    <#elseif (stageId!'') == 'MFG_STAGE_TRIAL'><#return '试产'>
+    <#elseif (stageId!'') == 'MFG_STAGE_MASS'><#return '量产'>
+    <#else><#return '未定'>
+    </#if>
+</#function>
 
 <h1>软件项目</h1>
 
@@ -122,6 +131,7 @@
 <#assign fOwner = (sel.ownerName)!((parameters.ownerName)!)>
 <#assign fSeq = (sel.deliverySeq)!((parameters.deliverySeq)!)>
 <#assign fProduct = (sel.productCode)!((parameters.productCode)!)>
+<#assign fStage = (sel.stageId)!((parameters.stageId)!)>
 <#assign fDevProject = (sel.devProjectCode)!((parameters.devProjectCode)!)>
 <#assign fIlf = (sel.ilfCount)!((parameters.ilfCount)!)>
 <#assign fEif = (sel.eifCount)!((parameters.eifCount)!)>
@@ -182,8 +192,19 @@
                     <option value="${p.productCode}"<#if (fProduct!'') == p.productCode> selected="selected"</#if>>${p.productCode}　${(p.productName)!''}</option>
                 </#list>
             </select>
+            在做哪一步
+            <select name="stageId">
+                <option value="">（不指定）</option>
+                <option value="MFG_STAGE_CONCEPT"<#if (fStage!'') == 'MFG_STAGE_CONCEPT'> selected="selected"</#if>>概念</option>
+                <option value="MFG_STAGE_DESIGN"<#if (fStage!'') == 'MFG_STAGE_DESIGN'> selected="selected"</#if>>设计</option>
+                <option value="MFG_STAGE_PROTOTYPE"<#if (fStage!'') == 'MFG_STAGE_PROTOTYPE'> selected="selected"</#if>>打样</option>
+                <option value="MFG_STAGE_TRIAL"<#if (fStage!'') == 'MFG_STAGE_TRIAL'> selected="selected"</#if>>试产</option>
+                <option value="MFG_STAGE_MASS"<#if (fStage!'') == 'MFG_STAGE_MASS'> selected="selected"</#if>>量产</option>
+            </select>
             开发项目编号 <input type="text" name="devProjectCode" size="16" value="${fld(fDevProject)}"/>
         </p>
+        <p class="hint">选了<b>型号</b>再选<b>在做哪一步</b>，这条软件项目就挂在那个产品的这一步下面
+            （产品页「阶段与项目」表里能看到）。不选阶段也能存，只是不会归到某一步。</p>
         <p>
             内部逻辑文件 <input type="text" name="ilfCount" size="5" value="${fld(fIlf)}"/>
             外部接口文件 <input type="text" name="eifCount" size="5" value="${fld(fEif)}"/>
@@ -237,13 +258,14 @@
 
 <#if rows?has_content>
     <table id="swLedger">
-        <tr><th>编号</th><th>名称</th><th>类别</th><th>状态</th><th class="num">功能点</th>
+        <tr><th>编号</th><th>名称</th><th>型号 · 在做哪一步</th><th>类别</th><th>状态</th><th class="num">功能点</th>
             <th class="num">计划人天</th><th class="num">实际人天</th><th class="num">偏差</th>
             <th class="num">实测耗时率</th><th>计划结束</th><th class="num">含税报价</th><th>备注</th></tr>
         <#list rows as x>
             <tr<#if editing && fCode == x.projectCode> class="saved-row"</#if> data-software-row="${x.projectCode}">
                 <td><a href="/mfg/control/software?projectCode=${x.projectCode}#swForm" data-software-edit="${x.projectCode}" title="点编号改这一条">${x.projectCode}</a></td>
                 <td>${(x.projectName)!''}</td>
+                <td data-software-hangs="${(x.productCode)!''}|${(x.stageId)!''}"><#if (x.productCode!'') != ''>${x.productCode}<#if (x.stageId!'') != ''> · ${swStage(x.stageId)}</#if><#else><span class="hint">未挂型号</span></#if></td>
                 <td><@swCat (x.categoryId)!''/></td>
                 <td><@swStatus (x.statusId)!''/></td>
                 <td class="num">${((x.ufp)!0)?string("0.##")}</td>

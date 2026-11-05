@@ -165,6 +165,13 @@ public final class MfgSoftwareServices {
             project.set("projectName", projectName);
             project.set("categoryId", MfgSupport.toText(context.get("categoryId")));
             project.set("productCode", MfgSupport.toText(context.get("productCode")));
+            /* which of the model's stages the work is for: it is what hangs the project under the
+               product, the same pointer a development project carries (Step 268) */
+            String stageId = MfgSupport.toText(context.get("stageId"));
+            if (stageId != null && !MfgDevServices.isKnownDevStage(stageId)) {
+                return ServiceUtil.returnError("未知的开发阶段 [" + stageId + "]，只能选概念 / 设计 / 打样 / 试产 / 量产");
+            }
+            project.set("stageId", stageId);
             project.set("devProjectCode", MfgSupport.toText(context.get("devProjectCode")));
             project.set("ownerName", MfgSupport.toText(context.get("ownerName")));
             String statusId = MfgSupport.toText(context.get("statusId"));
@@ -334,6 +341,7 @@ public final class MfgSoftwareServices {
         map.put("projectName", project.getString("projectName"));
         map.put("categoryId", project.getString("categoryId"));
         map.put("productCode", project.getString("productCode"));
+        map.put("stageId", project.getString("stageId"));
         map.put("devProjectCode", project.getString("devProjectCode"));
         map.put("ownerName", project.getString("ownerName"));
         map.put("statusId", project.getString("statusId"));
