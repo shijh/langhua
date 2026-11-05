@@ -589,6 +589,9 @@ public final class MfgConstants {
      */
     static final int MAX_NOTE_CHARS = 2000;
 
+    /** An attachment's note is a caption: its column is still a {@code description} (255 characters). */
+    static final int MAX_ATTACHMENT_NOTE_CHARS = 255;
+
     /** Biggest image accepted, in bytes. */
     public static final long IMAGE_MAX_BYTES = 4L * 1024L * 1024L;
 

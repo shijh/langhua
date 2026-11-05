@@ -26,6 +26,7 @@
             <#elseif parameters.err == 'type'>只支持 JPG / PNG / GIF / SVG / PDF
             <#elseif parameters.err == 'nofile'>请先选择文件
             <#elseif parameters.err == 'owner'>这条记录还不存在，先保存记录再上传
+            <#elseif parameters.err == 'note'>备注最长 255 个字，删掉一些再存
             <#else>上传失败，请检查文件后重试</#if>
         </p>
     </#if>
@@ -130,17 +131,21 @@
                     <td>${att.fileName!}</td>
                     <td class="num">${((att.fileSize!0) / 1024)?string("0.#")} KB</td>
                     <td>
-                        <#-- 备注上传后常常要改（一开始写成「正面」，看清楚了才知是背面）；重传一遍只会多一行，
-                             所以每行自带一个改备注的小表单，文件本身不动 -->
-                        <form method="post" action="/mfg/control/attachmentNote" class="inline">
-                            <input type="hidden" name="ownerTypeId" value="${ownerTypeId}"/>
-                            <input type="hidden" name="ownerId" value="${ownerId}"/>
-                            <input type="hidden" name="seq" value="${att.seq}"/>
-                            <input type="hidden" name="back" value="${back}#attachments"/>
-                            <input type="text" name="note" size="26" value="${att.note!}" placeholder="备注"
-                                   title="${att.note!}" data-att-note="${att.seq}"/>
-                            <input type="submit" value="存备注"/>
-                        </form>
+                        <#-- 备注先按原文完整显示（换行保留）：输入框只有一行，长备注会被截断，看不全就不舒服。
+                             要改再展开——改的是同一个字段，文件本身不动。 -->
+                        <div class="note-text" data-att-note-text="${att.seq}"><#if (att.note!'')?has_content>${att.note}<#else><span class="hint">—</span></#if></div>
+                        <details class="att-note-edit">
+                            <summary class="hint">改备注</summary>
+                            <form method="post" action="/mfg/control/attachmentNote" class="inline">
+                                <input type="hidden" name="ownerTypeId" value="${ownerTypeId}"/>
+                                <input type="hidden" name="ownerId" value="${ownerId}"/>
+                                <input type="hidden" name="seq" value="${att.seq}"/>
+                                <input type="hidden" name="back" value="${back}#attachments"/>
+                                <textarea name="note" rows="3" cols="32" placeholder="备注（最多 ${att.noteLimit} 字）" data-att-note="${att.seq}">${att.note!}</textarea>
+                                <input type="submit" value="存备注"/>
+                                <span class="hint" data-att-note-counter="${att.noteLimit}">已输入 ${(att.note!'')?length} / ${att.noteLimit} 字</span>
+                            </form>
+                        </details>
                     </td>
                     <td><#if att.createdStamp??>${att.createdStamp?string("yyyy-MM-dd HH:mm")}</#if></td>
                     <td>
@@ -155,6 +160,38 @@
                 </tr>
             </#list>
         </table>
+        <script>
+            /* 备注字数：上限从服务来（data-att-note-counter 的属性），超了当场拦下——服务端拒绝会回到
+               本页、刚打的字就没了，所以宁可在这里拦住（服务和页面用的是同一个常量）。 */
+            (function () {
+                function wire(box) {
+                    var counter = box.parentNode ? box.parentNode.querySelector('[data-att-note-counter]') : null;
+                    if (!counter) { return; }
+                    var limit = parseInt(counter.getAttribute('data-att-note-counter'), 10) || 0;
+                    function show() {
+                        var used = box.value.length;
+                        counter.textContent = '已输入 ' + used + ' / ' + limit + ' 字';
+                        counter.className = used > limit ? 'error' : 'hint';
+                        counter.title = used > limit ? ('超出 ' + (used - limit) + ' 个字，存不进去') : '';
+                    }
+                    box.addEventListener('input', show);
+                    show();
+                    var form = box.form;
+                    if (!form) { return; }
+                    form.addEventListener('submit', function (event) {
+                        if (box.value.length <= limit) { return; }
+                        event.preventDefault();
+                        event.stopImmediatePropagation();
+                        window.alert('备注最长 ' + limit + ' 个字（现在 ' + box.value.length + ' 个），删掉一些再存');
+                        box.focus();
+                    });
+                }
+                var boxes = document.querySelectorAll('textarea[data-att-note]');
+                for (var i = 0; i < boxes.length; i++) {
+                    wire(boxes[i]);
+                }
+            }());
+        </script>
     <#else>
         <p class="hint">还没有附件。</p>
     </#if>

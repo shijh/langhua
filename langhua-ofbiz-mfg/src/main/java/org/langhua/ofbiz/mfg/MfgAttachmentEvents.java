@@ -277,15 +277,18 @@ public final class MfgAttachmentEvents {
             seq = 0;
         }
         Delegator delegator = (Delegator) request.getAttribute("delegator");
+        String refusal = null;
         if (delegator != null && ownerTypeId != null && ownerId != null && seq > 0) {
             Map<String, Object> result = MfgAttachmentServices.attachmentNote(delegator, ownerTypeId, ownerId, seq,
                     text(parameters.get("note")));
             Object error = result.get("errorMessage");
             if (error != null) {
                 Debug.logInfo("Attachment note not saved: " + error, MODULE);
+                // the page says why instead of dropping the words on the floor
+                refusal = "note";
             }
         }
-        return redirectBack(request, response, parameters, null);
+        return redirectBack(request, response, parameters, refusal);
     }
 
     private static String notFound(HttpServletResponse response) {

@@ -23,6 +23,7 @@ import static org.junit.Assert.assertTrue;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 
 import org.junit.Test;
 
@@ -679,6 +680,19 @@ public class MfgProductRulesTest {
                 chinese.matches("[\\x20-\\x7E]*"));
         assertTrue(chinese.contains("%E4%BD%BF%E7%94%A8%E8%AF%B4%E6%98%8E%E4%B9%A6.pdf"));
         assertTrue(MfgAttachmentServices.contentDispositionOf("inline", null).startsWith("inline; filename=\"file\""));
+    }
+
+    @Test
+    public void refusesANoteLongerThanTheColumnHolds() {
+        // an attachment's note is a description column (255 characters): the guard runs before the
+        // delegator is touched, so the refusal is what a too long note gets, not a Derby truncation
+        String tooLong = "x".repeat(MfgConstants.MAX_ATTACHMENT_NOTE_CHARS + 1);
+        Map<String, Object> refused = MfgAttachmentServices.attachmentNote(null, "MFG_ATT_PART", "NFC COIL", 1,
+                tooLong);
+        assertNotNull(refused.get("errorMessage"));
+        assertTrue(String.valueOf(refused.get("errorMessage")).contains("255"));
+        // and the ceiling the page counts against is the same number
+        assertEquals(255, MfgConstants.MAX_ATTACHMENT_NOTE_CHARS);
     }
 
     @Test

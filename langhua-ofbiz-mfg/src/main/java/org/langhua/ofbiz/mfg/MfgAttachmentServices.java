@@ -235,6 +235,8 @@ public final class MfgAttachmentServices {
         map.put("fileSize", attachment.getLong("fileSize"));
         map.put("isImage", Boolean.valueOf(isShownAsImage(attachment.getString("contentType"))));
         map.put("note", attachment.getString("note"));
+        // the note counter on the page reads its ceiling from here, so the two cannot drift apart
+        map.put("noteLimit", Integer.valueOf(MfgConstants.MAX_ATTACHMENT_NOTE_CHARS));
         map.put("createdStamp", attachment.get("createdStamp"));
         return map;
     }
@@ -490,8 +492,10 @@ public final class MfgAttachmentServices {
      */
     static Map<String, Object> attachmentNote(Delegator delegator, String ownerTypeId, String ownerId, long seq,
             String note) {
-        if (note != null && note.length() > MfgConstants.MAX_NOTE_CHARS) {
-            return ServiceUtil.returnError("备注最长 " + MfgConstants.MAX_NOTE_CHARS
+        /* a note on an attachment is a caption, and its column is a 255 character description: checking
+           it here keeps Derby's truncation error off the page */
+        if (note != null && note.length() > MfgConstants.MAX_ATTACHMENT_NOTE_CHARS) {
+            return ServiceUtil.returnError("附件备注最长 " + MfgConstants.MAX_ATTACHMENT_NOTE_CHARS
                     + " 个字（现在 " + note.length() + " 个），删掉一些再存");
         }
         try {

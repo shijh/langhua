@@ -683,6 +683,30 @@ OFBiz **硬件组装生产管理**插件（产品/BOM/工艺 → 工单 → 报�
     `verify-m13` **54/0**、`smoke-dev-pages` **28/28**、`check-prod-237` **27/27**；`verify-m11` 仍是那条老项。
     **`verify-m28b.ps1` 的日志是 `F:\build-ofbiz\mfg-m28.txt`**（不是 m28b.txt），而且它的条数会随数据变化
     （有 claim / delivery / 工单时才做那几项，否则写 SKIP）——别拿固定条数当判据，看 FAIL 数为 0。
+- **Step 307：附件备注整段显示、要改再展开（用户报「看不到完整信息，不舒服」）**：Step 306 把备注做成了
+  `<input size="26">`——**一行输入框，长一点就只看得到前面几个字**，而备注本来就是“记一句话”，看不全等于没记。
+  - 表格那一格现在是**两段**：上面 `<div class="note-text" data-att-note-text="seq">` 按原文完整显示
+    （`white-space: pre-line` 保留换行，`max-width: 26em` + `overflow-wrap: anywhere` 让它自己折行、
+    不把整张表撑到窗口外；没写备注显示 `—`），下面 `<details class="att-note-edit">` 里的「改备注」
+    展开才是 `textarea`（3 行 × 32 列）。**默认收起**：只读页面不该布满输入框。
+  - **上限是 255 不是 2000**：`MfgAttachment.note` 仍是 `description`（VARCHAR(255)），而 Step 306 的服务
+    拿 `MAX_NOTE_CHARS`（2000）去校验——**校验比列宽大，等于让 Derby 的 truncation 错误跑到页面上**。
+    新增 `MfgConstants.MAX_ATTACHMENT_NOTE_CHARS = 255`，服务按它校验并回中文话术；要真放宽得先 ALTER 这一列
+    （`type="url"`，照 Step 304/305 那套 `apply-*-2000.ps1`）。
+  - **上限只有一个来源**：`toAttachmentMap` 多给一个 `noteLimit`，模板的字数提示与
+    `data-att-note-counter` 都读它，不在模板里另写 255。
+  - **超长当场拦下**：框下面「已输入 N / 255 字」实时更新、超了变红（`class="error"` + `title` 写超出几个）；
+    提交时脚本先拦（`alert` + 光标回到框里）——服务端拒绝是 302 回本页，**刚打的字会没**，
+    所以宁可在这里拦住。真被服务端拒了页面也会说（`err=note` → 「备注最长 255 个字，删掉一些再存」），
+    不再只是写一行日志（`MfgAttachmentEvents.note` 现在把 error 翻成 `err=note` 带回去）。
+  - `test` 上这条链路好验（`%TEMP%\jup\check-att-note-view.ps1`，16 项，全 ASCII）：
+    给 `PROBE-ATT-NOTE-307` 传一个 0.2 KB 的 PDF → 页面有 `data-att-note-text` / `textarea[data-att-note]` /
+    `data-att-note-counter="255"`、**旧的 `name="note" size="26"` 不见了**、`mfg.css?v=55`；
+    300 字被拒（`Location` 里带 `err=note`）、247 字收下且页面读得到尾部；css 里有 `overflow-wrap` 与
+    `pre-line`；最后删掉探针附件。浏览器里看过：两行备注整段折行显示，「改备注」展开后
+    「已输入 204 / 255 字」。
+  - 回归：单测 **276**（新增 `refusesANoteLongerThanTheColumnHolds`）、`verify-m28b` **0 FAIL**（3 条 SKIP，
+    同上）、`verify-m13` **54/0**、`smoke-dev-pages` **28/28**、`check-prod-237` **27/27**；`mfg.css?v=55` 五处 `<link>` 一起改。三套实例已发版。
 
 
 ## 测试与巡检
